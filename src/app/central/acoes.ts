@@ -67,14 +67,13 @@ export async function lancarTituloAction(t: NovoTitulo): Promise<ResultadoAcao &
   if (!uid) {
     return { ok: false, recusa: { codigo: "permissao", motivo: "Sua sessão expirou.", comoResolver: "Entre de novo e repita o lançamento." } };
   }
-  const { data: vinculo } = await s
-    .from("organization_members").select("org_id").eq("user_id", uid).limit(1).maybeSingle();
-  const orgId = (vinculo as { org_id?: string } | null)?.org_id ?? null;
-
+  // ⚠️ `org_id` NÃO é enviado: o padrão da coluna é `auth_org_id()`, a empresa
+  // ABERTA no seletor. Ler o primeiro vínculo (`limit(1)`) gravava o título na
+  // empresa mais antiga de quem é sócio de duas — a RLS então o recusava ou, pior,
+  // o aceitava na empresa errada (Rodada 4).
   const contaId = await primeiraContaAtiva(s);
 
   const { data, error } = await s.from("movements").insert({
-    org_id: orgId,
     account_id: contaId,
     type: t.tipo,
     amount: Math.abs(t.valor),

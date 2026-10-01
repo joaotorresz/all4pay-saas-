@@ -41,7 +41,10 @@ async function lerRecorrenciasAtivas(admin: Admin) {
   return semAmostra(admin
     .from("recurrences")
     .select("id,org_id,type,party_id,amount,freq,start_date,end_date,due_day,description,category_id,cost_center_id"))
-    .eq("active", true).limit(TETO_LINHAS);
+    // ⚠️ A lixeira (`excluir_logico`) não desliga `active`: sem este filtro, a
+    // recorrência excluída continuaria gerando fatura todo dia (prova de carga
+    // da Rodada 4).
+    .eq("active", true).is("excluido_em", null).limit(TETO_LINHAS);
 }
 
 /**
@@ -165,18 +168,22 @@ export async function GET(req: Request) {
       // Idempotência GARANTIDA pelo banco (índice parcial em rec:%). Insere direto;
       // 23505 = já existe → ignora. Mesma chave para entrada e saída.
       const { error: insErr } = await admin.from("movements").insert({
-        org_id: orgId, account_id: accId, type: tipo,
-        amount: r.amount, due_date: d, party_id: r.party_id, category_id: r.category_id,
-        cost_center_id: r.cost_center_id, reconciled: false,
-        description: r.description ?? (tipo === "saida" ? "Despesa recorrente" : "Fatura recorrente"),
-        reference_code: refFatura(r.id as string, d),
-        review_status: "confirmado", // previsto programado — não vai p/ a fila de Confirmação
         // ⚠️ O SEGUNDO buraco da mesma família, e o mais caro: aqui a recusa do
         // gatilho `titulo_exige_origem()` cairia num `insert` cujo erro só é
         // contado quando não é 23505 — ou seja, a fatura recorrente deixaria de
         // ser gerada e o único vestígio seria um contador de falhas num job que
         // ninguém abre. Contrato é o que ele materializa.
         origem: "contrato",
+        org_id: orgId, account_id: accId, type: tipo,
+        amount: r.amount, due_date: d, party_id: r.party_id, category_id: r.category_id,
+        // A forma do escritor único (`criarTitulos`): é um TÍTULO, e a
+        // competência de cada ocorrência é a do vencimento (a recorrência é
+        // um fato novo a cada ciclo — `core/contas-pagar/lancamento`).
+        especie: "titulo", competence_date: d,
+        cost_center_id: r.cost_center_id, reconciled: false,
+        description: r.description ?? (tipo === "saida" ? "Despesa recorrente" : "Fatura recorrente"),
+        reference_code: refFatura(r.id as string, d),
+        review_status: "confirmado", // previsto programado — não vai p/ a fila de Confirmação
       });
       if (!insErr) (tipo === "saida" ? t.saidas++ : t.entradas++);
       else if (insErr.code !== "23505") t.falhas++;
