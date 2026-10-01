@@ -6849,6 +6849,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
   ok("aut: com multa/juros configurados, o valor corrigido sai de calcularMora (700 + 2% + 1% × 10/30)",
      !!c2 && c2.texto.includes(formatBRL(716.33)), c2?.texto ?? "");
+  // ⚠️ O teto vale no NÚCLEO: um parâmetro gravado errado (2 em vez de 0,02,
+  // vindo da API ou de um SQL) não pode cobrar 200% de multa do cliente.
+  const foraDoTeto = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 2, jurosMesPct: 1 } }, ctx);
+  const c2t = foraDoTeto.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
+  ok("aut: multa/juros acima do teto do CDC (2% · 1% a.m.) são limitados ao teto no núcleo",
+     !!c2t && c2t.texto.includes(formatBRL(716.33)) && !c2t.texto.includes(formatBRL(700 * 3)), c2t?.texto ?? "");
   ok("aut: sem configurar, NENHUM encargo entra", !(regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.texto ?? "").includes("multa"));
   const comPix = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, chavePix: "12345678000195", cidadePix: "Sao Paulo" } }, ctx);
   ok("aut: com chave PIX, a mensagem traz o copia e cola (BR Code com CRC)",

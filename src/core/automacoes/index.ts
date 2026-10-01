@@ -552,6 +552,10 @@ export function enviosDaRegua(envios: EnvioHistorico[]): EnvioRegistrado[] {
 export const chaveDoTitulo = (movimentoId: string, etapaId: string) => `titulo:${movimentoId}:${etapaId}`;
 export const chaveDoClienteNoDia = (cliente: string, dia: string) => `cliente:${cliente}:${dia}`;
 
+/** Teto dos encargos da régua (fração): 2% de multa, 1% ao mês de juros de mora (CDC). */
+export const TETO_MULTA = 0.02;
+export const TETO_JUROS_MES = 0.01;
+
 const txidDe = (s: string) => s.replace(/[^A-Za-z0-9]/g, "").slice(0, 25) || "COBRANCA";
 
 export interface GrupoRegua { clienteChave: string; cliente: string; partyId: string | null; itens: ItemRegua[] }
@@ -593,8 +597,12 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
   // O tom é o da etapa MAIS avançada entre os títulos do cliente.
   const etapa = itens[0].etapa;
   const credor = identificacaoDoCredor(ctx.credor);
-  const multa = Math.max(0, Number(p.multaPct ?? 0));
-  const juros = Math.max(0, Number(p.jurosMesPct ?? 0));
+  // ⚠️ O TETO mora AQUI, não só no campo da tela: os parâmetros chegam do banco
+  // e qualquer escritor (API, SQL, versão futura da tela) pode gravar `2` onde
+  // se queria 2% — e o cliente receberia uma multa de 200%. Multa de 2% e juros
+  // de 1% ao mês são o limite do CDC; acima disso, vale o limite.
+  const multa = Math.min(TETO_MULTA, Math.max(0, Number(p.multaPct ?? 0) || 0));
+  const juros = Math.min(TETO_JUROS_MES, Math.max(0, Number(p.jurosMesPct ?? 0) || 0));
   const comEncargo = multa > 0 || juros > 0;
   const linhas: LinhaEmail[] = itens.map((i) => {
     const mora = comEncargo && i.dias > 0 ? calcularMora(i.valor, i.dias, multa, juros) : null;
