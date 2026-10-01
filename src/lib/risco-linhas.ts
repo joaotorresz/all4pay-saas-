@@ -21,6 +21,7 @@
  * `[{ name }]`) e o texto achatado das RPCs.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { categoriaDoOpenFinance } from "@/core/categorias/open-finance";
 
 /** O nome de um embed do PostgREST (objeto ou array de um item) OU um texto já achatado. */
 export function nomeDaDimensao(e: unknown): string | null {
@@ -92,8 +93,10 @@ export function linhaParaRiskMovement(
     paid_date: texto(r.paid_date),
     party_id: texto(r.party_id),
     accountId: texto(r.account_id),
-    // A categoria do CADASTRO tem prioridade sobre o texto livre.
-    category: nomeDaDimensao(r.categoria) ?? texto(r.category),
+    // A categoria do CADASTRO tem prioridade sobre o texto livre. O texto que o
+    // Open Finance gravou em inglês ("Electricity") chega em português — a
+    // MESMA tabela que as Edge Functions usam ao gravar (Rodada 7).
+    category: nomeDaDimensao(r.categoria) ?? categoriaDoOpenFinance(texto(r.category)),
     competence_date: texto(r.competence_date),
     descricao: texto(r.description),
     costCenter: nomeDaDimensao(r.centro),

@@ -19,6 +19,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dataDe, ehTransferenciaEntreContas, liquidado, assinado } from "@/core/indicadores/convencoes";
+import { chaveCategoria } from "@/core/categorias/chave";
 
 import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
@@ -129,6 +130,17 @@ const ehCustoVariavel = (m: RiskMovement) => /cmv|mercadoria|insumo|fornecedor|f
 const ehDespesaVariavel = (m: RiskMovement) => /comiss|taxa|gateway|adquiren|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m));
 const ehFinanceiro = (m: RiskMovement) => /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
 const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o lucro/.test(cat(m));
+/**
+ * ⚠️ **RESTITUIÇÃO DE IMPOSTO não é faturamento** (Rodada 7). É a dedução
+ * voltando: entra como ESTORNO na linha de deduções (negativa — a regra de
+ * estorno do montador). Sem declaração, o palpite a mandava para a Receita
+ * Bruta, porque toda entrada não financeira caía lá: medido em produção,
+ * R$ 655,30 de restituição dentro do faturamento de uma organização. A regra
+ * de estorno só valia para quem declarasse a categoria — e ninguém declara o
+ * que não sabe que está errado.
+ */
+const ehRestituicaoImposto = (m: RiskMovement) =>
+  entrada(m) && /restitui/.test(cat(m)) && ehImpostoVenda(m) && !ehImpostoLucro(m);
 
 /**
  * ⚠️ **A pergunta "esta entrada é FATURAMENTO?" tem UMA resposta no sistema.**
@@ -145,7 +157,8 @@ const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o l
  * contratar.
  */
 export const ehReceitaOperacional = (m: RiskMovement) =>
-  entrada(m) && !ehTransferenciaEntreContas(m.category) && !ehFinanceiro(m) && !ehNaoOperacional(m);
+  entrada(m) && !ehTransferenciaEntreContas(m.category) && !ehFinanceiro(m) && !ehNaoOperacional(m)
+  && !ehRestituicaoImposto(m);
 const ehNaoOperacional = (m: RiskMovement) => /n[ãa]o operacional|venda de ativo|imobilizado|indeniza|multa contratual/.test(cat(m));
 /**
  * ⚠️ **DEPRECIAÇÃO E AMORTIZAÇÃO — a linha que faltava, e que tornava o rótulo
@@ -192,13 +205,13 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "receita_bruta", label: "Receita Bruta Operacional", tipo: "soma", sinal: "+", nivel: 1,
     entra:
-      "Toda ENTRADA de dinheiro que não seja financeira nem não operacional: venda de produto, prestação de serviço, mensalidade, assinatura. Rendimento de aplicação e venda de ativo NÃO entram aqui.",
-    casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m),
+      "Toda ENTRADA de dinheiro que não seja financeira nem não operacional: venda de produto, prestação de serviço, mensalidade, assinatura. Rendimento de aplicação, venda de ativo e restituição de imposto NÃO entram aqui.",
+    casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m) && !ehRestituicaoImposto(m),
   },
   {
     id: "deducoes", label: "Dedução sobre Produtos e Serviços", tipo: "soma", sinal: "-", nivel: 1,
     entra:
-      "SAÍDAS de imposto sobre a venda (ISS, ICMS, PIS, COFINS, IPI, DAS, INSS) e devoluções, descontos concedidos, reembolsos, estornos, chargebacks e vendas canceladas. IRPJ e CSLL ficam de fora: são imposto sobre o LUCRO e entram bem mais abaixo, depois do EBITDA.",
+      "SAÍDAS de imposto sobre a venda (ISS, ICMS, PIS, COFINS, IPI, DAS, INSS) e devoluções, descontos concedidos, reembolsos, estornos, chargebacks e vendas canceladas. A restituição de imposto sobre a venda entra aqui como estorno, reduzindo a dedução. IRPJ e CSLL ficam de fora: são imposto sobre o LUCRO e entram bem mais abaixo, depois do EBITDA.",
     /*
      * ⚠️ **`!ehImpostoLucro` — sem ele a linha `impostos_lucro` era INALCANÇÁVEL.**
      *
@@ -219,7 +232,7 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
      * Descoberto ao escrever a fixture que deveria travar a diferença de `lair`:
      * ela passava sem exercitar nada, porque a linha nunca recebia um centavo.
      */
-    casa: (m) => saida(m) && !ehImpostoLucro(m) && (ehImpostoVenda(m) || ehDevolucao(m)),
+    casa: (m) => (saida(m) && !ehImpostoLucro(m) && (ehImpostoVenda(m) || ehDevolucao(m))) || ehRestituicaoImposto(m),
   },
   {
     id: "receita_liquida", label: "Receita Líquida", tipo: "total", sinal: "=", nivel: 1,
@@ -308,7 +321,7 @@ export const ESTRUTURA_DFC: LinhaEstrutura[] = [
     id: "entradas_operacionais", label: "Entradas Operacionais", tipo: "soma", sinal: "+", nivel: 1,
     entra:
       "Dinheiro que ENTROU na conta pela operação, na data do PAGAMENTO. Diferente da receita bruta do DRE, que olha a competência: uma venda faturada e ainda não recebida existe no resultado e não existe aqui.",
-    casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m),
+    casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m) && !ehRestituicaoImposto(m),
   },
   {
     id: "saidas_operacionais", label: "Saídas Operacionais", tipo: "soma", sinal: "-", nivel: 1,
@@ -566,7 +579,7 @@ export function montarRelatorio(
   for (const m of movs) {
     const k = indice.get(mesDe(dataDoRegime(m, f.regime)));
     if (k === undefined) continue;
-    const declarada = f.linhaPorCategoria?.[(m.category ?? "").trim().toLowerCase()];
+    const declarada = f.linhaPorCategoria?.[chaveCategoria(m.category)];
     // ⚠️ TRANSFERÊNCIA NÃO É LINHA — é a ausência de linha, declarada.
     // Pagamento de fatura de cartão, boleto de transferência e movimento entre
     // contas próprias não são receita nem despesa: o dinheiro trocou de bolso.

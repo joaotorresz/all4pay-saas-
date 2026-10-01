@@ -7,6 +7,7 @@
  * reaches a non-demo (production) render.
  */
 import { createClient } from "@/lib/supabase/client";
+import { chaveCategoria } from "@/core/categorias/chave";
 import { isDemo } from "@/lib/demo";
 import { vinculosProjeto } from "@/lib/projeto-vinculo";
 import { listProjetos } from "@/lib/iuli-cadastros";
@@ -422,7 +423,7 @@ export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
   if (isDemo) {
     const out: Record<string, string> = {};
     for (const c of importedCadastros()?.categories ?? []) {
-      if (c.name && c.dre_linha) out[c.name.trim().toLowerCase()] = c.dre_linha;
+      if (c.name && c.dre_linha) out[chaveCategoria(c.name)] = c.dre_linha;
     }
     return out;
   }
@@ -434,7 +435,7 @@ export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
   if (error || !data) return {};
   const out: Record<string, string> = {};
   for (const c of data as { name: string | null; dre_linha: string | null }[]) {
-    if (c.name && c.dre_linha) out[c.name.trim().toLowerCase()] = c.dre_linha;
+    if (c.name && c.dre_linha) out[chaveCategoria(c.name)] = c.dre_linha;
   }
   return out;
 }

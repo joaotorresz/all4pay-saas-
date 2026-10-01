@@ -188,6 +188,13 @@
         "impacto": "Até ser aplicada, leitor e contador externo conseguem gravar venda, recorrência, cadastro e razão pela API. Aplicada, só grava quem tem o papel (lançar; ou fechar no razão; ou administrar nos cadastros). Medido em 01/10: os 23 vínculos de produção são owner/admin/member, todos com lançar — nenhum perde acesso.",
         "resolver_ate": "2026-10-09",
         "origem": "sessão Claude de 01/10/2026 (Rodada 6) — muda quem pode gravar: merge só com confirmação do dono"
+      },
+      {
+        "nome": "20261002130000_lancamento_aponta_para_categoria",
+        "objetos_ausentes": ["função vincular_categorias_por_nome", "category_id preenchido nos lançamentos de texto livre com cadastro de mesmo nome"],
+        "impacto": "Até ser aplicada, 1.418 lançamentos reais seguem com a categoria só no texto. Aplicada, eles apontam para a categoria do cadastro; o DRE não muda (a linha declarada já casava pelo nome). Mês fechado, grupo, nome ambíguo, amostra e inativa ficam como estão.",
+        "resolver_ate": "2026-10-09",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 7) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

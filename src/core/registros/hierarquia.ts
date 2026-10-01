@@ -19,6 +19,7 @@
  *
  * Versão `cadastros-hierarquia/1.0.0`. Puro, tipado, sem I/O.
  */
+import { chaveCategoria } from "@/core/categorias/chave";
 import {
   diaValido, linhaDREvalida, normalizar,
   type ContaBancaria, type TipoConta, type CategoriaPlano, type Natureza,
@@ -755,7 +756,9 @@ export function fatiasDoRateio(
 export interface ItemDeclaracao { nome: string; natureza: "receita" | "despesa"; linha: string }
 export interface PassoDeclaracao { nome: string; linha: string; natureza: "receita" | "despesa"; id: string | null }
 
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+// ⚠️ A MESMA chave do DRE (`chaveCategoria`) — eram duas normalizações, e a
+// declaração ia para uma categoria que o relatório não procurava (Rodada 7).
+const norm = chaveCategoria;
 
 export function planoDeDeclaracao(
   itens: readonly ItemDeclaracao[], categorias: readonly CategoriaCadastro[],
