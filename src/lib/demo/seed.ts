@@ -140,7 +140,11 @@ function buildMovements(): Movement[] {
 
   // ---- Monthly sales over the last 12 months (entrada · venda · pago)
   for (let m = 11; m >= 0; m--) {
-    const monthDate = new Date(today.getFullYear(), today.getMonth() - m, 15);
+    // ⚠️ No mês corrente o dia 15 pode ainda não ter chegado: uma venda "paga"
+    // com data de pagamento FUTURA entrava no razão e no caixa de hoje, e o
+    // saldo deixava de fechar com os liquidados (`npm run coerencia`, do dia 1º
+    // ao 14 de cada mês). Pago é passado: no mês corrente, no máximo hoje.
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - m, m === 0 ? Math.min(15, today.getDate()) : 15);
     const base = 180000 + rand() * 140000;
     const seasonal = 1 + 0.18 * Math.sin((monthDate.getMonth() / 12) * Math.PI * 2);
     const sales = 2 + Math.floor(rand() * 3);
