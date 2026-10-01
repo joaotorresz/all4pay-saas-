@@ -407,13 +407,11 @@ export function UsuariosView() {
           <div className="flex flex-col gap-4">
             <span className="text-h3 font-semibold text-ink">Convidar usuário</span>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* O rótulo vai pela prop do `Input` (que liga `htmlFor`/`id`): solto
+                  ao lado, ele não nomeava o campo para o leitor de tela. */}
+              <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do usuário" />
               <div className="flex flex-col gap-[6px]">
-                <label className="text-label font-medium text-muted">Nome</label>
-                <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do usuário" />
-              </div>
-              <div className="flex flex-col gap-[6px]">
-                <label className="text-label font-medium text-muted">E-mail</label>
-                <Input value={email} onChange={(e) => { setEmail(e.target.value); setErro(null); }} placeholder="usuario@empresa.com.br" invalid={!!erro} />
+                <Input label="E-mail" value={email} onChange={(e) => { setEmail(e.target.value); setErro(null); }} placeholder="usuario@empresa.com.br" invalid={!!erro} />
                 {erro && <span className="text-caption text-negative">{erro}</span>}
               </div>
               <Select
@@ -426,7 +424,7 @@ export function UsuariosView() {
             </span>
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" onClick={() => setConvite(false)}>Cancelar</Button>
-              <Button variant="primary" onClick={convidar}>Enviar convite</Button>
+              <Button variant="primary" onClick={convidar}>Vincular usuário</Button>
             </div>
           </div>
         </Card>

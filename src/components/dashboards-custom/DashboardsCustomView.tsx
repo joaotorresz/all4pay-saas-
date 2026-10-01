@@ -393,10 +393,12 @@ function CampoFonte({
   label, value, options, onChange,
 }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }) {
   return (
-    <div className="flex flex-col gap-[6px]">
-      <label className="text-caption font-medium text-muted">{label}</label>
+    // O rótulo ENVOLVE o seletor: solto, ele não nomeava o campo (leitor de
+    // tela dizia só "caixa de seleção" — qual das três fontes?).
+    <label className="flex flex-col gap-[6px]">
+      <span className="text-caption font-medium text-muted">{label}</span>
       <Select value={value} onChange={onChange} options={options} />
-    </div>
+    </label>
   );
 }
 
