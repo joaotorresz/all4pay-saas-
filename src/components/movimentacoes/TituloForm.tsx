@@ -122,7 +122,11 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
     setF((s) => ({
       ...s,
       valor: Number.isFinite(n) && n > 0 ? n : s.valor,
-      vencimento: qs.get("vencimento") || s.vencimento,
+      // ⚠️ REVISÃO CAMP-B — documento sem vencimento (a nota da SEFAZ não traz)
+      // abre o campo VAZIO, e a validação pede a data. Cair no padrão do
+      // formulário (hoje) faria toda nota nascer vencendo no dia em que chegou
+      // — o mesmo defeito que `camposDoFormulario` evita ao não mandar a emissão.
+      vencimento: qs.get("vencimento") ?? "",
       competencia: qs.get("competencia") || s.competencia,
       descricao: qs.get("descricao") || s.descricao,
       documentoFiscal: qs.get("numero") || s.documentoFiscal,
@@ -400,7 +404,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       }
       qc.invalidateQueries();
       // Só DEPOIS de gravado o documento sai da caixa de entrada.
-      if (entrada) converterPorChave(entrada, f.documentoFiscal.trim() || null);
+      if (entrada) await converterPorChave(entrada, f.documentoFiscal.trim() || null);
       const n = plano.titulos.length;
       /**
        * ⚠️ **A CONFIRMAÇÃO TEM DE SOBREVIVER À NAVEGAÇÃO.** `show()` seguido de

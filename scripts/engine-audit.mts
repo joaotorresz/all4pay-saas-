@@ -6708,12 +6708,18 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const libEm = fsC.readFileSync("src/lib/edicao-massa.ts", "utf8");
   ok("campb: o escritor da edição em massa não engole erro (recusa do banco vira falha nomeada)",
      !/catch\s*(\([^)]*\))?\s*\{\s*\}/.test(libEm) && /falhas\.push\(\{ id: item\.id, mensagem: error\.message \}\)/.test(libEm));
+  ok("campb: UPDATE que o banco filtrou (zero linhas) é FALHA, não \"título alterado\"",
+     /\.update\(patch\)\.eq\("id", item\.id\)\.select\("id"\)\.maybeSingle\(\)/.test(libEm) && /if \(!alterado\) \{\s*falhas\.push/.test(libEm));
   const ramoDemoEm = libEm.slice(libEm.indexOf("if (isDemo)"), libEm.indexOf("const s = createClient()"));
   // A tela recusa o "sair do mês fechado"; a FECHADURA é o banco (medido em
   // transação desfeita: antes da 20260930210000 o UPDATE passava).
-  const trava = fsC.readFileSync("supabase/migrations/20260930210000_trava_periodo_olha_a_origem.sql", "utf8");
-  ok("campb: o gatilho do mês fechado confere a data de ORIGEM no UPDATE (o título não sai do mês fechado)",
-     /old\.due_date is distinct from new\.due_date[\s\S]{0,80}periodo_fechado\(old\.due_date, old\.org_id\)/.test(trava));
+  // ⚠️ REVISÃO CAMP-B — a prova da trava é de BANCO (`scripts/campb-banco.sql`,
+  // com o defeito replantado acusando), não um grep no texto da migration: o
+  // grep passava com a trava aplicada ou não. Aqui só se cobra que a guarda de
+  // banco continua no CI — sem ela, a trava pode sumir sem nada reprovar.
+  const ciYml = fsC.readFileSync(".github/workflows/ci.yml", "utf8");
+  ok("campb: a guarda de banco do CAMP-B (mês fechado pela origem · consolidado) roda no CI",
+     /-f scripts\/campb-banco\.sql/.test(ciYml) && fsC.existsSync("scripts/campb-banco.sql"));
   ok("campb: a demonstração registra UM evento por título na trilha",
      /for \(const item of plano\.aplicar\)[\s\S]*registrarLog\(/.test(ramoDemoEm));
 
@@ -6828,6 +6834,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      xt.vencido === 1000 && xt.linhas.find((l) => l.id === "e-futuro")?.situacao === "a_vencer");
   ok("campb: o lado não se mistura (a conta a pagar ao mesmo contato não entra)",
      !xt.linhas.some((l) => l.id === "e-forn"));
+  // REVISÃO CAMP-B · liquidado SEM data de pagamento (baixa antiga, importação)
+  // é quitado — exigir `paid_date` deixava o título em aberto para sempre e o
+  // extrato cobrava do cliente o que ele já pagou.
+  const ieSemData: RI = { ...ie, movements: [mk({ id: "e-sem-data", type: "entrada", party_id: "c1", amount: 480, status: "pago", paid_date: null, due_date: "2026-08-10" })] };
+  const xs = ex.montarExtratoContato(ieSemData, "c1", "receber", "2026-07-01", "2026-09-30");
+  ok("campb: título liquidado sem data de pagamento sai QUITADO do extrato, não em aberto",
+     xs.emAberto === 0 && xs.vencido === 0 && xs.quitado === 480 && xs.linhas[0]?.situacao === "quitado",
+     JSON.stringify({ ab: xs.emAberto, v: xs.vencido, q: xs.quitado }));
   ok("campb: intervalo invertido é DITO, não um extrato vazio calado",
      !!ex.montarExtratoContato(ie, "c1", "receber", "2026-09-30", "2026-07-01").problema);
 
@@ -6856,6 +6870,21 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      pos.antes.resultado === pos.depois.resultado && pos.eliminadoReceita === pos.eliminadoDespesa && pos.eliminadoReceita === 2500);
   ok("campb: o par de OUTRO mês não sai do período (a soma não o tinha)",
      !pos.eliminacoes.some((e) => e.entrada.includes("fora")));
+  // REVISÃO CAMP-B · o par que ATRAVESSA a borda do período (entrada 29/09,
+  // saída 02/10 — dentro da tolerância de 5 dias). Filtrando só pela competência
+  // (a data da entrada), setembro tirava a receita e uma despesa que não somou:
+  // o resultado consolidado caía 900 sem nada ter acontecido.
+  const borda = [
+    ent("h", "Holding", [mk({ id: "b-r", type: "entrada", party_id: "pm", amount: 900, due_date: "2026-09-29" })], { pm: "Matriz" }),
+    ent("m", "Matriz", [mk({ id: "b-p", type: "saida", party_id: "ph", amount: 900, due_date: "2026-10-02" })], { ph: "Holding" }),
+  ];
+  const posB = pc.montarPosicaoConsolidada(borda, "2026-09-01", "2026-09-30");
+  ok("campb: par que atravessa a borda do período NÃO é eliminado pela metade (o resultado não se move)",
+     posB.antes.resultado === posB.depois.resultado && posB.eliminadoReceita === posB.eliminadoDespesa && posB.eliminacoes.length === 0,
+     JSON.stringify({ a: posB.antes, d: posB.depois, n: posB.eliminacoes.length }));
+  const posB2 = pc.montarPosicaoConsolidada(borda, "2026-09-01", "2026-10-31");
+  ok("campb: com as duas pontas no período o mesmo par É eliminado (a guarda não passa sobre o vazio)",
+     posB2.eliminacoes.length === 1 && posB2.eliminadoReceita === 900 && posB2.antes.resultado === posB2.depois.resultado);
   const cv = fsC.readFileSync("src/components/consolidado/ConsolidadoView.tsx", "utf8");
   ok("campb: a tela do Consolidado usa a posição com eliminações e mostra a lista",
      /montarPosicaoConsolidada\(/.test(cv) && /<ListaEliminacoes/.test(cv));

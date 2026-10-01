@@ -110,8 +110,9 @@ export function valorAtual(m: RiskMovement, campo: CampoEdicao): string {
 
 /**
  * ⚠️ "Terminal" lê as DUAS colunas: `situacao` é a máquina de estados e
- * `status` é a derivação dela. Olhar só uma deixaria passar o estornado, que
- * no `status` aparece como pago.
+ * `status` é a derivação dela (estornado → `cancelado` no banco). A entrada da
+ * demonstração e o dado antigo podem trazer só uma das duas preenchida, e
+ * olhar só uma deixaria o terminal passar como editável.
  */
 const ehTerminal = (m: RiskMovement) =>
   m.status === "cancelado" || m.situacao === "cancelado" || m.situacao === "estornado";

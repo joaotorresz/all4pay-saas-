@@ -173,3 +173,78 @@ botão; a jornada confere que só a ficha abre.
   nome; sem casamento, a faixa diz o nome que veio no documento e pede para
   escolher. Cadastrar o fornecedor a partir da caixa não foi feito.
 - Entrada de contas por e-mail continua para a próxima rodada (CLAUDE.md).
+
+---
+
+## Revisão adversarial (01/10/2026, branch `r2/campb-rev`)
+
+Seis defeitos achados e corrigidos; cada correção com guarda vista REPROVAR
+com o defeito replantado.
+
+### ⚠️ O CONSOLIDADO PERDIA O TÍTULO QUE VENCE NO PERÍODO E É PAGO DEPOIS (migration 20260930214500)
+
+A tela de Consolidado passou a somar por VENCIMENTO sobre `org_movements` —
+e `org_movements` recorta por `coalesce(paid_date, due_date)`. **Medido no banco
+local:** o título que vence em 10/09 e foi pago em 02/10 não vinha no período
+de setembro; o consolidado saía menor que a soma das empresas, com cara de
+completo. O DRE multiempresas (competência) tinha o mesmo buraco desde a 0020.
+E as duas RPCs são SECURITY DEFINER: a política restritiva da LIXEIRA não as
+alcança, e o filtro de AMOSTRA também não — venda excluída e "Carregar amostra"
+somavam no consolidado.
+
+- `org_movements` devolve vencimento **OU** pagamento no período (o
+  superconjunto que serve aos dois regimes) e as duas funções deixam de fora
+  `excluido_em` e `is_sample`. Mesmo escopo, mesmas concessões: **não muda
+  quem pode chamar o quê.**
+- ⚠️ **Função DEFINER não herda filtro de política.** Todo filtro que a RLS faz
+  por omissão (lixeira, amostra) tem de ser DITO dentro da função.
+- Guarda de banco `scripts/campb-banco.sql` (CI, job de isolamento), com o
+  recorte antigo replantado e exigindo que a asserção acuse.
+
+### ⚠️ ELIMINAÇÃO PELA METADE NA BORDA DO PERÍODO
+
+`montarPosicaoConsolidada` filtrava o par pela `competencia` — a data da
+ENTRADA. Com a tolerância de 5 dias, uma fatura de 29/09 paga em 02/10 tinha a
+receita eliminada em setembro e a "despesa" (que setembro nunca somou) também:
+o resultado consolidado caía 900 sem nada ter acontecido. Agora o par só é
+eliminado quando as DUAS pontas estão no período. Guarda no `engine-audit`
+(borda + o mesmo par com as duas pontas dentro, para não passar sobre o vazio).
+
+### ⚠️ UPDATE QUE NÃO ALTEROU NADA NÃO É SUCESSO
+
+A edição em massa (produção) tratava "sem erro" como "alterado". Política
+restritiva FILTRA num UPDATE — 200 com zero linhas (medido: UPDATE de título de
+outra empresa como `authenticated` → 0 linhas, sem erro). O toast dizia
+"1 título alterado" sobre nada. Agora `.select("id").maybeSingle()` e linha
+nula vira falha NOMEADA.
+
+### Os outros três
+
+- **Extrato cobrava o que foi pago:** "pago" exigia `paid_date`; liquidado sem
+  data ficava em aberto para sempre. Agora é o `liquidado` canônico, datado no
+  vencimento quando não há data de pagamento.
+- **Nota sem vencimento nascia vencendo hoje:** o formulário caía no padrão
+  (hoje) quando a caixa não mandava vencimento — o contrário do que o doc
+  prometia. Agora abre vazio e a validação pede.
+- **A decisão da caixa não dizia QUEM:** `quem` era sempre nulo. Agora é a
+  conta logada (e-mail); em demonstração, "você (demonstração)". A tela mostra.
+
+### O grep da migration saiu
+
+A asserção `campb: o gatilho confere a data de ORIGEM` lia o TEXTO da
+migration — passava com a trava aplicada ou não. Saiu (corolário da coluna
+gerada no CLAUDE.md); a prova da trava é `scripts/campb-banco.sql`, e o
+`engine-audit` só cobra que ela continua no CI.
+
+### Pendências declaradas da revisão
+
+- O DRE multiempresas (`montarConsolidado`, ONDA 13) ainda elimina pares sem
+  olhar o período das duas pontas — a mesma borda, em outra tela. Não é deste
+  pacote e mexer na cascata consolidada pede a guarda dela.
+- Estorno: o original estornado só ganha `estornado_em` (a `situacao` não
+  muda), e `RiskMovement` não transporta esse campo — o extrato do contato (e
+  toda tela) ainda mostra o original como título vivo ao lado do estorno de
+  sinal oposto. Pré-existente.
+- A decisão da caixa (descarte/conversão) mora em `org_state`: duas pessoas
+  convertendo o mesmo documento ao mesmo tempo criam duas contas. Tabela
+  própria com índice único pela chave do documento é a saída.

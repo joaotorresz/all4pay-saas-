@@ -90,8 +90,20 @@ export async function aplicarEdicaoEmMassa(plano: PlanoEdicao): Promise<Resultad
     } else {
       patch = { due_date: para };
     }
-    const { error } = await s.from("movements").update(patch).eq("id", item.id);
+    // `maybeSingle`: atualiza por id (no máximo uma linha) e devolve `null`, sem
+    // erro, quando a política filtrou a linha.
+    const { data: alterado, error } = await s.from("movements").update(patch).eq("id", item.id).select("id").maybeSingle();
     if (error) { falhas.push({ id: item.id, mensagem: error.message }); continue; }
+    // ⚠️ REVISÃO CAMP-B — UPDATE QUE NÃO ALTEROU NADA NÃO É SUCESSO. As
+    // políticas restritivas (papel sem `lancar`, título na lixeira, outra
+    // empresa) não levantam erro num UPDATE: elas FILTRAM a linha, e o PostgREST
+    // devolve 200 com zero linhas. Sem conferir o retorno, o título entrava em
+    // "aplicados", o toast dizia "1 título alterado" e nada tinha mudado — o
+    // escritor que engole a recusa, sem nem haver erro para engolir.
+    if (!alterado) {
+      falhas.push({ id: item.id, mensagem: "O banco não alterou este título: ele não está visível para o seu papel nesta empresa (sem permissão de lançar, na lixeira ou removido)." });
+      continue;
+    }
     if (campo === "projeto") vincularProjeto(item.id, para ?? "");
     aplicados.push(item.id);
   }

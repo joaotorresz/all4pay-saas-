@@ -158,6 +158,13 @@
         "impacto": "Até ser aplicada, um UPDATE que troca o vencimento de um título de mês FECHADO para um mês aberto passa no banco (a edição em massa recusa na tela, mas a fechadura é o banco). Redefine só a função do gatilho movements_periodo_fechado; nenhuma concessão muda.",
         "resolver_ate": "2026-10-07",
         "origem": "sessão Claude de 30/09/2026 (pacote CAMP-B, edição em massa) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930214500_consolidado_le_o_periodo_inteiro",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, a tela de Consolidado e a DRE multiempresas perdem o título que vence no período e é pago depois dele (org_movements recorta por coalesce(paid_date, due_date)), e as duas RPCs DEFINER somam lixeira e amostra. Redefine só org_movements e org_consolidado, mesmo escopo e mesmas concessões.",
+        "resolver_ate": "2026-10-07",
+        "origem": "revisão adversarial do pacote CAMP-B, 01/10/2026 — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

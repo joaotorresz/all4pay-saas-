@@ -80,7 +80,21 @@ export function montarPosicaoConsolidada(
   // Só entram as eliminações cuja competência está no período — a mesma janela
   // das somas. Eliminar um par de outro mês tiraria da receita um valor que ela
   // nunca somou, e o "depois" ficaria menor que o real.
-  const eliminacoes = eliminacoesIntercompany(entidades).filter((e) => noPeriodo(e.competencia, de, ate));
+  //
+  // ⚠️ REVISÃO CAMP-B — AS DUAS PONTAS no período, não só a competência do par.
+  // A competência do par é a data da ENTRADA, e o pareamento tolera 5 dias:
+  // uma fatura de 29/09 paga pela outra empresa em 02/10 tem a entrada em
+  // setembro e a saída em outubro. Filtrando só pela entrada, setembro tirava
+  // a receita (que somou) e a "despesa" de outubro (que NÃO somou) — a receita
+  // do grupo encolhia sozinha e o resultado consolidado caía R$ X sem nada ter
+  // acontecido: a eliminação de um lado só que o critério existe para impedir.
+  // Par que atravessa a borda do período fica FORA da eliminação deste período
+  // (conservador: a soma das partes é preservada, e o par aparece no período
+  // que contém as duas pontas).
+  const dataDe = new Map<string, string>();
+  for (const e of entidades) for (const m of e.input.movements) dataDe.set(`${e.id}:${m.id}`, (m.due_date ?? "").slice(0, 10));
+  const eliminacoes = eliminacoesIntercompany(entidades).filter((e) =>
+    noPeriodo(dataDe.get(e.entrada) ?? "", de, ate) && noPeriodo(dataDe.get(e.saida) ?? "", de, ate));
   const saidas = new Set(eliminacoes.map((e) => e.saida));
   const entradas = new Set(eliminacoes.map((e) => e.entrada));
   const nenhum = new Set<string>();

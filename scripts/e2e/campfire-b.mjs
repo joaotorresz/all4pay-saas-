@@ -71,6 +71,7 @@ export default async function campfireB(navegador) {
   await page.waitForTimeout(400);
   t = plano(await u.texto());
   v.ok(/Gráfica Campfire/.test(t) && /motivo: já pago pelo cartão em 12\/09/.test(t), "o descartado fica no filtro com o motivo");
+  v.ok(/Descartado em \d{2}\/\d{2}\/\d{4} por \S/.test(t), "o descartado diz QUEM descartou (revisão: era gravado sem autor)");
   await page.locator('[role="tab"]', { hasText: "Esperando decisão" }).click();
   await page.waitForTimeout(300);
 

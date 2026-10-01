@@ -235,6 +235,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-maquina.sql
+      # ⚠️ CAMP-B: a fechadura do mês fechado olha a data de ORIGEM no UPDATE, e
+      # o consolidado (org_movements) lê o período inteiro sem lixeira nem
+      # amostra. As duas são de BANCO; a guarda pura não as alcança. Cada caso
+      # carrega o negativo (o defeito replantado tem de acusar).
+      - name: Guarda de banco do CAMP-B (mês fechado pela origem · consolidado)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/campb-banco.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -56,9 +56,9 @@ export function CaixaEntradaView() {
     router.push(`/dashboard/financial/payables/new?${q.toString()}`);
   };
 
-  const confirmarDescarte = () => {
+  const confirmarDescarte = async () => {
     if (!descartando) return;
-    const e = descartar(descartando, motivo);
+    const e = await descartar(descartando, motivo);
     if (e) { setErro(e); return; }
     setDescartando(null); setMotivo(""); setErro("");
     recarregar();
@@ -127,8 +127,8 @@ export function CaixaEntradaView() {
                   {decisao && (
                     <div className="text-caption text-muted mt-1">
                       {decisao.acao === "descartado"
-                        ? <>Descartado em {dataBR(decisao.quando.slice(0, 10))} · <span className="text-ink">motivo: {decisao.motivo}</span></>
-                        : <>Virou conta em {dataBR(decisao.quando.slice(0, 10))}{decisao.referencia ? ` · ref. ${decisao.referencia}` : ""}</>}
+                        ? <>Descartado em {dataBR(decisao.quando.slice(0, 10))}{decisao.quem ? ` por ${decisao.quem}` : ""} · <span className="text-ink">motivo: {decisao.motivo}</span></>
+                        : <>Virou conta em {dataBR(decisao.quando.slice(0, 10))}{decisao.quem ? ` por ${decisao.quem}` : ""}{decisao.referencia ? ` · ref. ${decisao.referencia}` : ""}</>}
                     </div>
                   )}
                 </div>
@@ -160,7 +160,7 @@ export function CaixaEntradaView() {
             {erro && <p role="alert" className="m-0 text-caption text-negative">{erro}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setDescartando(null)}>Cancelar</Button>
-              <Button variant="primary" onClick={confirmarDescarte}>Descartar</Button>
+              <Button variant="primary" onClick={() => { void confirmarDescarte(); }}>Descartar</Button>
             </div>
           </div>
         </div>

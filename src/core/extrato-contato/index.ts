@@ -31,6 +31,7 @@
  * Puro, sem relógio (`hoje` vem do RiskInput). `extrato-contato/1.0.0`.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { liquidado } from "@/core/indicadores/convencoes";
 
 export const EXTRATO_CONTATO_VERSION = "extrato-contato/1.0.0";
 
@@ -75,11 +76,20 @@ export interface ExtratoContato {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const d10 = (s: string | null | undefined) => (s ?? "").slice(0, 10);
-const pago = (m: RiskMovement) => m.status === "pago" && !!m.paid_date;
+/*
+ * ⚠️ REVISÃO CAMP-B — "pago" é a definição CANÔNICA (`liquidado`, status), não
+ * `status === "pago" && paid_date`. A primeira versão exigia a data: um título
+ * liquidado sem `paid_date` (baixa antiga, importação) ficava EM ABERTO para
+ * sempre no extrato — o documento cobraria do cliente um título que ele pagou.
+ * Sem data de pagamento, a quitação é datada no vencimento (a única data que
+ * o título tem); nunca é tratada como dívida.
+ */
+const pago = (m: RiskMovement) => liquidado(m);
+const dataPagamento = (m: RiskMovement) => d10(m.paid_date) || d10(m.due_date);
 
 /** O título está em aberto NA data? (vencido ou não — só não quitado até ela.) */
 export const abertoEm = (m: RiskMovement, data: string): boolean =>
-  d10(m.due_date) <= data && !(pago(m) && d10(m.paid_date) <= data);
+  d10(m.due_date) <= data && !(pago(m) && dataPagamento(m) <= data);
 
 export function ladoPadrao(input: RiskInput, partyId: string): LadoExtrato {
   let e = 0, s = 0;
@@ -111,21 +121,21 @@ export function montarExtratoContato(
     (m) => m.party_id === partyId && m.type === tipo && m.status !== "cancelado" && !!m.due_date,
   );
   // Anterior: venceu antes do período e NÃO estava quitado quando ele começou.
-  const anteriores = doLado.filter((m) => d10(m.due_date) < de && !(pago(m) && d10(m.paid_date) < de));
+  const anteriores = doLado.filter((m) => d10(m.due_date) < de && !(pago(m) && dataPagamento(m) < de));
   const doPeriodo = doLado.filter((m) => d10(m.due_date) >= de && d10(m.due_date) <= ate);
   const carregados = [...anteriores, ...doPeriodo];
   const soma = (xs: RiskMovement[]) => r2(xs.reduce((s, m) => s + Math.abs(m.amount), 0));
 
   const saldoAnterior = soma(anteriores);
   const lancado = soma(doPeriodo);
-  const quitado = soma(carregados.filter((m) => pago(m) && d10(m.paid_date) <= ate));
+  const quitado = soma(carregados.filter((m) => pago(m) && dataPagamento(m) <= ate));
   const saldoFinal = r2(saldoAnterior + lancado - quitado);
   const abertos = doLado.filter((m) => abertoEm(m, ate));
   const emAberto = soma(abertos);
   const vencido = soma(abertos.filter((m) => d10(m.due_date) < referencia));
 
   const situacao = (m: RiskMovement): SituacaoLinha =>
-    pago(m) && d10(m.paid_date) <= ate ? "quitado" : d10(m.due_date) < referencia ? "vencido" : "a_vencer";
+    pago(m) && dataPagamento(m) <= ate ? "quitado" : d10(m.due_date) < referencia ? "vencido" : "a_vencer";
 
   const linhas: LinhaExtrato[] = doPeriodo
     .sort((a, b) => d10(a.due_date).localeCompare(d10(b.due_date)))
@@ -133,7 +143,7 @@ export function montarExtratoContato(
       id: m.id,
       descricao: m.descricao || m.category || (lado === "receber" ? "Recebimento" : "Pagamento"),
       vencimento: d10(m.due_date),
-      pagamento: pago(m) && d10(m.paid_date) <= ate ? d10(m.paid_date) : null,
+      pagamento: pago(m) && dataPagamento(m) <= ate ? dataPagamento(m) : null,
       valor: r2(Math.abs(m.amount)),
       situacao: situacao(m),
       documento: m.referenceCode ?? null,
