@@ -14,12 +14,12 @@
  * muda quem preenche.
  */
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { documentosDasFontes, camposDoFormulario, chaveBoleto } from "@/core/caixa-entrada";
+import { lerEstadoCaixa } from "@/lib/caixa-entrada";
 import { Card, Button, Icon, Input, Select, BRL } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { baixarXLSX } from "@/lib/xlsx";
-import { getAccountsList, getCategories } from "@/lib/data";
 import {
   lerBoleto, formatarLinha, lerChaveNFe, formatarChave,
   resumoBoletos, filtrarBoletos, statusBoleto,
@@ -30,7 +30,7 @@ import {
   type StatusNFRecebida, type AvaliacaoNF,
 } from "@/core/compras";
 import {
-  listarBoletos, salvarBoleto, removerBoleto, lancarBoleto,
+  listarBoletos, salvarBoleto, removerBoleto,
   listarNFs, salvarNF, removerNF, novoId,
 } from "@/lib/compras-store";
 
@@ -49,12 +49,11 @@ const COR_BOLETO: Record<StatusBoleto, string> = {
 };
 
 export function BoletosView() {
-  const qc = useQueryClient();
+  const router = useRouter();
   const { show: toast, node } = useToast();
-  const contas = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
-  const categorias = useQuery({ queryKey: ["categories", "despesa"], queryFn: () => getCategories("despesa") });
-
   const [lista, setLista] = React.useState<BoletoRecebido[]>([]);
+  const [decididos, setDecididos] = React.useState<Set<string>>(new Set());
+  React.useEffect(() => { setDecididos(new Set(lerEstadoCaixa().decisoes.map((d) => d.chave))); }, []);
   const [busca, setBusca] = React.useState("");
   const [status, setStatus] = React.useState<StatusBoleto | "todos">("todos");
   const [linha, setLinha] = React.useState("");
@@ -89,12 +88,19 @@ export function BoletosView() {
     toast("Boleto adicionado.");
   }
 
+  /*
+   * ⚠️ CAMP-B — "Lançar" abre o formulário de conta a pagar JÁ PREENCHIDO, o
+   * mesmo da caixa de entrada. O caminho antigo (`lancarBoleto`) só criava o
+   * título DENTRO de `if (isDemo)`: em produção marcava o boleto como lançado
+   * e nenhuma conta nascia — o escritor morto, com a tela anunciando
+   * "lançado em contas a pagar". Ele também escolhia a PRIMEIRA conta e a
+   * PRIMEIRA categoria sozinho. Agora quem grava é o escritor de lançamentos,
+   * com conta e categoria escolhidas por quem decide.
+   */
   function lancar(b: BoletoRecebido) {
-    const conta = contas.data?.[0]?.id ?? "";
-    const cat = categorias.data?.[0]?.name ?? "Fornecedores";
-    setLista(lancarBoleto(b, conta, cat));
-    qc.invalidateQueries();
-    toast("Boleto lançado em contas a pagar.");
+    const doc = documentosDasFontes({ boletos: [b], nfs: [], ocr: [] })[0];
+    if (!doc) { toast("Este boleto já foi pago ou já virou conta."); return; }
+    router.push(`/dashboard/financial/payables/new?${new URLSearchParams(camposDoFormulario(doc)).toString()}`);
   }
 
   const linhasXLSX = [
@@ -230,7 +236,10 @@ export function BoletosView() {
                       <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={b.leitura.valor} /></td>
                       <td className="px-6 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          {!b.movimentoId && (
+                          {/* Já decidido na caixa de entrada (virou conta ou foi
+                              descartado) não oferece "Lançar" de novo — seria o
+                              mesmo boleto virando duas contas. */}
+                          {!b.movimentoId && !b.pago && !decididos.has(chaveBoleto(b)) && (
                             <Acao label="Lançar em contas a pagar" icone="arrow-up-right" onClick={() => lancar(b)} />
                           )}
                           <Acao label="Remover" icone="trash-2" onClick={() => { setLista(removerBoleto(b.id)); toast("Boleto removido."); }} perigo />

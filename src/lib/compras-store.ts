@@ -11,12 +11,12 @@
  */
 import { appendImported, removerImported } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 import {
   movimentosDaCompra, parcelasDaCompra,
   type Compra, type BoletoRecebido, type NFRecebida,
 } from "@/core/compras";
 import type { Movement } from "@/lib/types";
-import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const K_COMPRAS = "a4p_compras";
 const K_BOLETOS = "a4p_boletos_recebidos";
@@ -120,36 +120,12 @@ export function removerBoleto(id: string): BoletoRecebido[] {
   return out;
 }
 
-/**
- * Lança o boleto como conta a pagar.
- *
- * O boleto não é a despesa — é a cobrança dela. Virar título é o que o coloca
- * no fluxo; enquanto isso não acontece ele é só papel capturado.
+/*
+ * ⚠️ CAMP-B — `lancarBoleto` foi REMOVIDO. Ele criava o título só dentro de
+ * `if (isDemo)`; em produção marcava o boleto como lançado e nenhuma conta
+ * nascia. O boleto agora vira conta pelo formulário de conta a pagar (a partir
+ * da caixa de entrada ou da tela de boletos), que grava pelo escritor único.
  */
-export function lancarBoleto(b: BoletoRecebido, contaId: string, categoria: string): BoletoRecebido[] {
-  const movId = `boleto-${b.id}`;
-  if (isDemo) {
-    removerImported([movId]);
-    appendImported({
-      movement: {
-        id: movId,
-        account_id: contaId,
-        type: "saida",
-        status: "pendente",
-        amount: b.leitura.valor,
-        // Guia de arrecadação não traz vencimento no número; sem data o título
-        // não existiria no fluxo, então cai no dia em que foi capturado.
-        due_date: b.leitura.vencimento ?? b.recebidoEm,
-        paid_date: null,
-        reconciled: false,
-        category: categoria,
-        description: `Boleto ${b.beneficiario}`,
-        party_id: null,
-      } as unknown as Movement,
-    });
-  }
-  return salvarBoleto({ ...b, movimentoId: movId });
-}
 
 /* ------------------------------ NFs recebidas ------------------------------ */
 

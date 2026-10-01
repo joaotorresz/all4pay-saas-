@@ -501,7 +501,7 @@ export function redigirFechamento(ctx: ContextoAutomacao, p: ParametrosAutomacao
   if (ctx.mesesTravados.includes(mes)) {
     return { codigo: "mes_fechado", motivo: `${nomeDoMes(mes)} já está fechado e travado.` };
   }
-  const f = montarFechamento(ctx.input, mes, { travado: false, tarefasManuais: {} });
+  const f = montarFechamento(ctx.input, mes, { travado: false });
   const cob = coberturaCompetencia(ctx.input, janelaDoMesDe(`${mes}-01`));
   const semCategoria = ctx.input.movements.filter((m) => !cancelado(m) && (m.due_date ?? "").slice(0, 7) === mes && !m.category).length;
   const pendentes = f.tarefas.filter((t) => t.status !== "ok");

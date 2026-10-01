@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/ui";
 import { listParties, listProducts, listServices, listSales } from "@/lib/cadastros";
+import { getRiscoInput } from "@/lib/data";
+import { buscarTitulos, TETO_TITULOS } from "@/core/busca";
+import { formatBRL, dataBR } from "@/lib/format";
 
 /**
  * Command palette (⌘K / Ctrl+K) — busca global em todo o sistema:
@@ -144,6 +147,22 @@ export function CommandPalette() {
   const products = useQuery({ queryKey: ["products-list"], queryFn: listProducts, enabled });
   const services = useQuery({ queryKey: ["services-list"], queryFn: listServices, enabled });
   const sales = useQuery({ queryKey: ["sales-list"], queryFn: listSales, enabled });
+  /*
+   * ⚠️ CAMP-B — TÍTULOS E LANÇAMENTOS na busca. A fonte é a MESMA entrada
+   * canônica das telas (`risco-input`, cache compartilhado), carregada só com
+   * a paleta aberta. A busca roda com DEBOUNCE: varrer milhares de títulos a
+   * cada tecla trava a digitação justamente de quem digita rápido.
+   */
+  const risco = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput, enabled });
+  const [qLento, setQLento] = React.useState("");
+  React.useEffect(() => {
+    const t = setTimeout(() => setQLento(q), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  const titulos = React.useMemo(
+    () => (risco.data && qLento.trim() ? buscarTitulos(risco.data, qLento, TETO_TITULOS) : null),
+    [risco.data, qLento],
+  );
 
   const hits = React.useMemo<Hit[]>(() => {
     const nq = norm(q.trim());
@@ -158,6 +177,30 @@ export function CommandPalette() {
         })),
       ),
     );
+
+    // Títulos e lançamentos — com o teto DITO no nome do grupo ("8 de 23"):
+    // cortar calado faria a pessoa concluir que o nono título não existe.
+    if (nq && titulos && titulos.itens.length) {
+      const cortado = titulos.total > titulos.itens.length;
+      const nomeGrupo = (g: "titulo" | "lancamento") => {
+        const n = titulos.itens.filter((i) => i.grupo === g).length;
+        const base = g === "titulo" ? "Títulos em aberto" : "Lançamentos liquidados";
+        return cortado ? `${base} · ${n} de ${titulos.total} achados (refine a busca)` : base;
+      };
+      for (const g of ["titulo", "lancamento"] as const) {
+        out.push(...titulos.itens.filter((i) => i.grupo === g).map((i) => ({
+          key: `tit:${i.id}`, grupo: nomeGrupo(g),
+          titulo: `${i.contraparte} · ${formatBRL(i.valor)}`,
+          sub: [
+            i.direcao === "pagar" ? "A pagar" : "A receber",
+            `vence ${dataBR(i.vencimento)}`,
+            i.pagamento ? `pago ${dataBR(i.pagamento)}` : null,
+            i.descricao,
+          ].filter(Boolean).join(" · "),
+          href: i.rota, icon: i.direcao === "pagar" ? "arrow-up-right" : "arrow-left-right",
+        })));
+      }
+    }
 
     // Entidades só entram quando há texto (sem query, mostramos só navegação).
     if (nq) {
@@ -193,7 +236,7 @@ export function CommandPalette() {
       );
     }
     return out;
-  }, [q, parties.data, products.data, services.data, sales.data]);
+  }, [q, parties.data, products.data, services.data, sales.data, titulos]);
 
   React.useEffect(() => { setSel(0); }, [q]);
 
@@ -223,6 +266,7 @@ export function CommandPalette() {
       onClick={() => setOpen(false)}
     >
       <div
+        role="dialog" aria-modal="true" aria-label="Busca global"
         className="w-full max-w-xl bg-white rounded-card shadow-popover border border-border overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -233,7 +277,7 @@ export function CommandPalette() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Buscar páginas, contatos, produtos, serviços, vendas…"
+            placeholder="Buscar páginas, contatos, títulos (nome, documento ou 1.234,56)…"
             className="flex-1 bg-transparent outline-none text-[18px] text-ink py-[14px] placeholder:text-placeholder"
           />
           <kbd className="text-[13px] font-medium text-faint bg-surface-2 rounded-[5px] px-[5px] py-[2px]">esc</kbd>

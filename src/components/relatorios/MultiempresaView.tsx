@@ -21,6 +21,7 @@ import * as React from "react";
 import { Card, Select, Icon, Skeleton, Checkbox, BRL } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { getRiscoInputPorOrg } from "@/lib/consolidado";
+import { ListaEliminacoes } from "@/components/consolidado/ListaEliminacoes";
 import {
   montarConsolidado, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS,
   type RelatorioConsolidado,
@@ -184,8 +185,14 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
               })}
             </div>
             <p className="m-0 mt-3 text-caption text-faint">
-              {tipo === "dre" ? "Receita bruta" : "Entradas"} de cada empresa no período. Sem eliminações intercompany (v1).
+              {tipo === "dre" ? "Receita bruta" : "Entradas"} de cada empresa no período, antes das eliminações.
             </p>
+          </Card>
+          {/* CAMP-B · o consolidado abaixo JÁ sai sem os pares intercompany; a
+              lista é o que explica por que ele é menor que a soma das partes. */}
+          <Card className="flex flex-col gap-3">
+            <span className="text-h3 font-semibold text-ink">Eliminações entre empresas</span>
+            <ListaEliminacoes eliminacoes={consolidado.eliminacoes} />
           </Card>
           <TabelaRelatorio relatorio={consolidado.consolidado} layout={layout} onCelula={setCelula} />
         </>

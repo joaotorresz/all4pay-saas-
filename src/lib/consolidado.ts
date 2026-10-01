@@ -2,7 +2,8 @@
  * Consolidação multi-empresa (multi-entity) — agrega a posição das organizações
  * em que o usuário é membro. **live**: RPC `org_consolidado` (0013, SECURITY
  * DEFINER escopado às orgs do usuário); **demo**: entidades sintéticas
- * determinísticas. Sem eliminações intercompany (v1).
+ * determinísticas. As eliminações intercompany são feitas sobre os lançamentos
+ * por organização (`getRiscoInputPorOrg` + `core/relatorios/posicao-consolidada`).
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
@@ -155,10 +156,37 @@ function demoInputsPorOrg(de: string, ate: string): { orgId: string; nome: strin
         });
       });
     });
+    /*
+     * CAMP-B · a operação ENTRE empresas do grupo, para a demonstração mostrar
+     * a eliminação: a Holding cobra da Matriz uma taxa de gestão todo mês, e a
+     * Matriz a paga. Para o grupo isso não é receita nem despesa — é dinheiro
+     * mudando de bolso — e é exatamente o par que `eliminacoesIntercompany`
+     * reconhece (mesmo valor, mesma competência, sentidos opostos, as duas
+     * pontas empresas desta consolidação).
+     */
+    const partyNames: Record<string, string> = {};
+    const ic = INTERCOMPANY_DEMO.find((x) => x.de === e.orgId || x.para === e.orgId);
+    if (ic) {
+      const outra = ic.de === e.orgId ? ic.para : ic.de;
+      const pid = `ic-${outra}`;
+      partyNames[pid] = DEMO.find((x) => x.orgId === outra)?.nome ?? outra;
+      meses.forEach((mes, k) => {
+        const recebe = ic.de === e.orgId;
+        movs.push({
+          id: `${e.orgId}-ic${k}`, type: recebe ? "entrada" : "saida", status: "pago",
+          amount: ic.valor, due_date: `${mes}-05`, paid_date: `${mes}-05`,
+          party_id: pid, accountId: null, category: recebe ? "Serviços prestados" : "Serviços de terceiros",
+          costCenter: null, projeto: null,
+        });
+      });
+    }
     return {
       orgId: e.orgId,
       nome: e.nome,
-      input: { hoje, saldoAtual: e.saldo, movements: movs, partyNames: {}, horizonDias: 60 } as RiskInput,
+      input: { hoje, saldoAtual: e.saldo, movements: movs, partyNames, horizonDias: 60 } as RiskInput,
     };
   });
 }
+
+/** A taxa de gestão que a Holding cobra da Matriz (demonstração). */
+const INTERCOMPANY_DEMO = [{ de: "demo-3", para: "demo-1", valor: 2500 }];

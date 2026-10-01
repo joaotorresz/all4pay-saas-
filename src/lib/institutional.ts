@@ -12,6 +12,7 @@ import type { OrigemDaCadeia } from "@/core/institutional/cadeia";
 import { trilhaDemo } from "@/core/institutional/demo";
 import type { AuditAction, AuditEvent, EntityType } from "@/core/institutional/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { listarLogsAdmin } from "@/lib/administracao-store";
 
 const ACAO_MAP: Record<string, AuditAction> = {
   created: "created",
@@ -84,6 +85,23 @@ export async function getAuditTrail(): Promise<{
 }> {
   if (isDemo) {
     const t = trilhaDemo();
+    /*
+     * ⚠️ CAMP-B — o que a pessoa FEZ na demonstração entra na mesma trilha.
+     * Na demonstração não há gatilho de banco; a edição em massa grava um
+     * evento por título no registro administrativo, e é aqui que ele se junta
+     * à cadeia selada. Sem isto, "registre na trilha" seria verdade só em
+     * produção, e a demonstração mostraria uma trilha que não reage a nada.
+     */
+    const locais = [...listarLogsAdmin()].filter((l) => l.antes || l.depois)
+      .sort((a, b) => a.quando.localeCompare(b.quando));
+    for (const l of locais) {
+      t.registrar({
+        entityType: "movement", entityId: l.entidadeId, action: "updated",
+        before: l.antes ?? null, after: l.depois ?? null,
+        ctx: { userId: l.usuario, userName: l.usuario, companyId: "—", ip: "—", device: "—", browser: "—", os: "—" },
+        timestamp: l.quando,
+      });
+    }
     return { eventos: t.todos(), integridade: t.verificarIntegridade(), origem: "armazenada" };
   }
 

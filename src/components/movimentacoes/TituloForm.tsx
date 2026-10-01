@@ -24,7 +24,8 @@
  * pago e desconto/juros, porque só um título liquidado tem essas três coisas.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { converterPorChave } from "@/lib/caixa-entrada";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Textarea, Select, SelectBusca, DateField, CurrencyInput, Checkbox, BRL,
@@ -106,6 +107,34 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
 
+  /*
+   * ⚠️ CAMP-B — PREENCHIDO PELA CAIXA DE ENTRADA. "Criar conta a pagar" num
+   * documento que chegou (OCR, DDA, SEFAZ) abre ESTE formulário — não um
+   * segundo — com os campos do documento. O documento só sai da fila depois
+   * que o salvar deu certo (`converterPorChave`, mais abaixo): tirá-lo antes
+   * faria um "cancelar" apagar o papel da fila sem virar conta nenhuma.
+   */
+  const qs = useSearchParams();
+  const entrada = !receber ? qs.get("entrada") : null;
+  const [origemEntrada, setOrigemEntrada] = React.useState<{ fornecedor: string; doc: string } | null>(null);
+  React.useEffect(() => {
+    if (!entrada) return;
+    const n = Number(qs.get("valor"));
+    setF((s) => ({
+      ...s,
+      valor: Number.isFinite(n) && n > 0 ? n : s.valor,
+      // ⚠️ REVISÃO CAMP-B — documento sem vencimento (a nota da SEFAZ não traz)
+      // abre o campo VAZIO, e a validação pede a data. Cair no padrão do
+      // formulário (hoje) faria toda nota nascer vencendo no dia em que chegou
+      // — o mesmo defeito que `camposDoFormulario` evita ao não mandar a emissão.
+      vencimento: qs.get("vencimento") ?? "",
+      competencia: qs.get("competencia") || s.competencia,
+      descricao: qs.get("descricao") || s.descricao,
+      documentoFiscal: qs.get("numero") || s.documentoFiscal,
+    }));
+    setOrigemEntrada({ fornecedor: qs.get("fornecedor") ?? "", doc: (qs.get("doc") ?? "").replace(/\D/g, "") });
+  }, [entrada, qs]);
+
   /**
    * ⚠️ As categorias são ESTADO, não `useMemo` — a pessoa pode criar uma sem
    * sair do formulário, e uma lista memoizada não veria a nova.
@@ -163,6 +192,18 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
     }),
     [modo, f.vencimento, f.competencia, f.valor, f.frequencia, f.ocorrencias, f.valorFixo, f.parcelas],
   );
+
+  // O fornecedor do documento é casado pelo CNPJ (o que identifica de verdade)
+  // e, na falta dele, pelo nome. Sem casamento o campo fica vazio e a faixa
+  // abaixo diz qual nome veio no documento — escolher o fornecedor errado em
+  // silêncio seria pior que deixar a pessoa escolher.
+  React.useEffect(() => {
+    if (!origemEntrada || f.parteId || elegiveis.length === 0) return;
+    const nome = origemEntrada.fornecedor.trim().toLowerCase();
+    const achado = elegiveis.find((p) => origemEntrada.doc && (p.doc ?? "").replace(/\D/g, "") === origemEntrada.doc)
+      ?? elegiveis.find((p) => nome && p.name.trim().toLowerCase() === nome);
+    if (achado) setF((s) => ({ ...s, parteId: achado.id }));
+  }, [origemEntrada, elegiveis, f.parteId]);
 
   const parteEscolhida = elegiveis.find((p) => p.id === f.parteId);
   const pix = parteEscolhida ? extraParty(parteEscolhida.id).chavePix : "";
@@ -392,6 +433,8 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         });
       }
       qc.invalidateQueries();
+      // Só DEPOIS de gravado o documento sai da caixa de entrada.
+      if (entrada) await converterPorChave(entrada, f.documentoFiscal.trim() || null);
       const n = plano.titulos.length;
       /**
        * ⚠️ **A CONFIRMAÇÃO TEM DE SOBREVIVER À NAVEGAÇÃO.** `show()` seguido de
@@ -444,6 +487,14 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         <Icon name="chevron-left" size={14} color="currentColor" />
         Cancelar
       </button>
+
+      {origemEntrada && (
+        <div className="rounded-md border border-border px-4 py-3 text-caption text-muted" data-origem-entrada>
+          Preenchido a partir da <b className="text-ink">caixa de entrada</b>: {origemEntrada.fornecedor || "documento sem fornecedor"}.
+          {!f.parteId && " O fornecedor do documento não foi encontrado no cadastro — escolha ou cadastre abaixo."}
+          {" "}Ao salvar, o documento sai da fila.
+        </div>
+      )}
 
       {/* ============================ O TIPO, PRIMEIRO ============================ */}
       <SeletorDeModo modo={modo} onModo={setModo} receber={receber} />

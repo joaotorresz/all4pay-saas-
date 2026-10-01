@@ -23,6 +23,7 @@ import { formatBRL, dataBR } from "@/lib/format";
 import { useProjetos } from "@/components/registros/hooks";
 import { projetosSelecionaveis } from "@/core/registros/hierarquia";
 import { ModalBaixa } from "./ModalBaixa";
+import { EdicaoEmMassa } from "./EdicaoEmMassa";
 import type { RiskMovement } from "@/core/risk-engine/types";
 import { receberLote } from "@/lib/recebimentos";
 import {
@@ -52,7 +53,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const { data: contas } = useAccounts();
   const { show, node } = useToast();
 
-  const [busca, setBusca] = React.useState("");
+  /*
+   * ⚠️ CAMP-B — a busca global (⌘K) abre esta tela com `?busca=` já preenchido.
+   * Com ela, a tela abre no período INTEIRO (ver `abriuNoMes` abaixo): o título
+   * de março procurado em setembro cairia fora do mês corrente, e a tela diria
+   * "nenhum título encontrado" sobre um título que existe.
+   */
+  const buscaDaUrl = useSearchParams().get("busca") ?? "";
+  const [busca, setBusca] = React.useState(buscaDaUrl);
+  const [editarMassa, setEditarMassa] = React.useState(false);
   const [filtro, setFiltro] = React.useState<FiltroTitulos>({ status: "todos" });
   const [abrirFiltro, setAbrirFiltro] = React.useState(false);
   const [porPagina, setPorPagina] = React.useState(50);
@@ -133,10 +142,20 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   React.useEffect(() => {
     if (abriuNoMes || periodos.length === 0 || !input) return;
     setAbriuNoMes(true);
-    if (selPeriodo) return;
+    if (selPeriodo || buscaDaUrl) return;
     const mesDeHoje = input.hoje.slice(0, 7);
     if (periodos.some((p) => p.key === mesDeHoje)) setSelPeriodo(mesDeHoje);
-  }, [abriuNoMes, periodos, input, selPeriodo]);
+  }, [abriuNoMes, periodos, input, selPeriodo, buscaDaUrl]);
+
+  // A paleta pode trocar a busca com a tela JÁ montada (mesma rota, outra
+  // query): sem isto, a segunda busca navegaria e a lista continuaria na
+  // primeira.
+  React.useEffect(() => {
+    if (!buscaDaUrl) return;
+    setBusca(buscaDaUrl);
+    setSelPeriodo(null);
+    setPagina(1);
+  }, [buscaDaUrl]);
 
   // A confirmação vinda do formulário: ela é exibida AQUI porque esta tela já
   // está montada quando aparece — no formulário, o `router.push` desmontava o
@@ -218,6 +237,14 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const marcadosAbertos = React.useMemo(
     () => titulos.filter((m) => marcados.has(m.id) && m.status !== "pago"),
     [titulos, marcados],
+  );
+
+  // A edição em massa vale para TODOS os marcados — inclusive os já baixados,
+  // porque categoria, centro e projeto de um baixado podem mudar. Quem decide
+  // o que não pode mudar é o plano (`core/movimentacoes/edicao-massa`).
+  const marcadosTodos = React.useMemo(
+    () => (input?.movements ?? []).filter((m) => marcados.has(m.id)),
+    [input, marcados],
   );
 
   const alternar = (id: string) =>
@@ -432,7 +459,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           <Input
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
-            placeholder="Buscar por ID, categoria ou contraparte…"
+            placeholder="Buscar por ID, contraparte, documento ou valor (1.234,56)…"
             containerClassName="flex-1 min-w-[220px]"
           />
           <Button variant="ghost" disabled={marcadosAbertos.length === 0 || executando} onClick={executarBaixa}>
@@ -444,6 +471,10 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                  o mesmo `direcao` que já decide "Cliente"/"Fornecedor" e
                  "Recebido"/"Pago" nesta tela. */
               : `${direcao === "receber" ? "Registrar recebimento" : "Registrar pagamento"}${marcadosAbertos.length ? ` (${marcadosAbertos.length})` : ""}`}
+          </Button>
+          <Button variant="ghost" disabled={marcadosTodos.length === 0} onClick={() => setEditarMassa(true)}>
+            <Icon name="layers" size={15} color="currentColor" />
+            {`Editar em massa${marcadosTodos.length ? ` (${marcadosTodos.length})` : ""}`}
           </Button>
         </div>
 
@@ -575,7 +606,11 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3">
                         {m.party_id ? (
                           <button
-                            onClick={() => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: m.party_id } }))}
+                            // ⚠️ CAMP-B: sem parar a propagação, o clique no nome
+                            // também subia para a LINHA e abria o modal de baixa por
+                            // cima da ficha — a pessoa pedia o contato e recebia
+                            // "Confirmar pagamento". Achado dirigindo a jornada.
+                            onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: m.party_id } })); }}
                             className="text-label text-ink hover:underline decoration-dotted underline-offset-4"
                           >
                             {nomes[m.party_id] ?? m.party_id}
@@ -613,6 +648,21 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           onConfirmar={executarBaixaUnica}
           onFechar={() => setBaixa(null)}
           show={show}
+        />
+      )}
+      {editarMassa && (
+        <EdicaoEmMassa
+          titulos={marcadosTodos}
+          direcao={direcao}
+          onFechar={() => setEditarMassa(false)}
+          onAplicado={(r, recusados) => {
+            const partes = [`${r.aplicados.length} ${r.aplicados.length === 1 ? "título alterado" : "títulos alterados"}`];
+            if (recusados) partes.push(`${recusados} de fora pela regra`);
+            if (r.falhas.length) partes.push(`${r.falhas.length} recusados pelo banco`);
+            show(partes.join(" · ") + ".");
+            if (!r.falhas.length) setMarcados(new Set());
+            void qc.invalidateQueries();
+          }}
         />
       )}
       {node}
