@@ -34,7 +34,10 @@ import {
   listarVendas as listarLocal,
   salvarVenda as salvarLocal,
   removerVenda as removerLocal,
+  idRecebivel,
 } from "@/lib/vendas-store";
+import { importedMovements } from "@/lib/imported";
+import { bloqueioDeExclusao } from "@/core/vendas/nota";
 import type { Venda } from "@/core/vendas";
 import {
   documentoDaVenda, itensDoDocumento, vendaDoDocumento, proximoNumeroDe, ehUUID,
@@ -158,7 +161,7 @@ function rateioUUID(v: Venda) {
     ? linhas : [];
 }
 
-async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
+export async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
   const s = await cliente();
   const { data, error } = await semAmostra(s
     .from("movements").select("id,situacao")).eq("sale_doc_id", id).limit(TETO_LINHAS);
@@ -220,15 +223,41 @@ async function desfazerDocumento(id: string): Promise<void> {
   try { await excluirLogico("sales_docs", id, "gravação da venda desfeita: o título foi recusado"); } catch { /* a falha original é a que importa */ }
 }
 
+/**
+ * Grava SÓ o status e o número da NF no documento da venda.
+ *
+ * ⚠️ A nota não mexe em dinheiro, então não passa por `salvarVendaDoc`: aquele
+ * caminho reescreve os itens (cada um vai para a lixeira e volta) e o título
+ * previsto. Numa venda de mês FECHADO a reescrita do título é recusada pela
+ * fechadura — e a recusa chegava DEPOIS de a prefeitura autorizar a nota: a
+ * venda ficava "a emitir", o botão continuava ali, e o segundo clique emitia
+ * uma SEGUNDA nota do mesmo dinheiro.
+ */
+export async function gravarNotaDaVendaDoc(id: string, statusNF: Venda["statusNF"], numeroNF: string): Promise<void> {
+  if (isDemo) return;
+  if (!ehUUID(id)) throw new Error("Venda sem identificador válido — recarregue a tela e tente de novo.");
+  const s = await cliente();
+  const { error } = await s.from("sales_docs").update({ status_nf: statusNF, numero_nf: numeroNF || null }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 /* ─────────────────────────────── exclusão ─────────────────────────────── */
 
 export async function removerVendaDoc(v: Venda): Promise<void> {
-  if (isDemo) { removerLocal(v.id); return; }
-  const titulos = await titulosDaVenda(v.id);
-  const movidos = titulos.filter((t) => t.situacao !== "previsto" && t.situacao !== "cancelado");
-  if (movidos.length > 0) {
-    throw new Error(`A venda ${v.numero} tem recebimento baixado. Estorne o recebimento antes de excluir a venda — excluir agora apagaria dinheiro que já entrou.`);
+  // ⚠️ UMA regra para os dois caminhos (`bloqueioDeExclusao`). A demonstração
+  // apagava até o recebimento já BAIXADO (só produção recusava), e nenhum dos
+  // dois olhava a nota fiscal: excluir a venda de uma nota emitida deixava a
+  // nota valendo sem receita nem recebível no sistema.
+  if (isDemo) {
+    const rec = (importedMovements() ?? []).find((m) => m.id === idRecebivel(v.id));
+    const bloqueio = bloqueioDeExclusao(v, rec ? [rec.status === "pago" ? "baixado" : "previsto"] : []);
+    if (bloqueio) throw new Error(bloqueio);
+    removerLocal(v.id);
+    return;
   }
+  const titulos = await titulosDaVenda(v.id);
+  const bloqueio = bloqueioDeExclusao(v, titulos.map((t) => t.situacao));
+  if (bloqueio) throw new Error(bloqueio);
   for (const t of titulos.filter((x) => x.situacao === "previsto")) {
     await excluirLogico("movements", t.id, `venda ${v.numero} excluída`);
   }
