@@ -432,10 +432,16 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
 function Campo({
   label, obrigatorio, erro, ajuda, children,
 }: { label: string; obrigatorio?: boolean; erro?: string; ajuda?: string; children: React.ReactNode }) {
+  // ⚠️ O rótulo APONTA para o campo (`htmlFor` + o mesmo id no filho). Sem
+  // isso "Status", "Operação" e "Método de pagamento" eram campos anônimos
+  // para o leitor de tela. Um id que o filho já traga é respeitado.
+  const gerado = React.useId();
+  const filho = React.isValidElement<{ id?: string }>(children) ? children : null;
+  const id = filho?.props.id ?? gerado;
   return (
     <div className="flex flex-col gap-[6px]">
       {label && (
-        <label className="text-caption font-medium text-muted">
+        <label htmlFor={id} className="text-caption font-medium text-muted">
           {label}
           {obrigatorio && (
             <span className="ml-2 rounded-pill bg-surface-3 text-[10px] text-muted px-[6px] py-[1px] align-middle">
@@ -444,7 +450,7 @@ function Campo({
           )}
         </label>
       )}
-      {children}
+      {filho ? React.cloneElement(filho, { id }) : children}
       {erro ? <span className="text-caption text-negative">{erro}</span>
         : ajuda ? <span className="text-caption text-faint">{ajuda}</span> : null}
     </div>

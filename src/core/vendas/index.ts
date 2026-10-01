@@ -9,6 +9,8 @@
  * Puro, tipado, demo-safe. Versão vendas/1.0.0.
  */
 
+import { gerarPixCopiaECola } from "@/core/pix";
+
 export const VENDAS_VERSION = "vendas/1.0.0";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -521,8 +523,44 @@ export function validarLink(l: Partial<LinkPagamento>): Record<string, string> {
 }
 
 /**
- * A URL pública do link. `origem` vem do navegador — em SSR não existe, e
- * inventar um domínio produziria um QR code que aponta para lugar nenhum.
+ * O que o link ENTREGA hoje: o PIX copia-e-cola (BR Code estático) da empresa,
+ * com o valor do link e o id dele como identificador da transação.
+ *
+ * ⚠️ NÃO há página pública de pagamento. A versão anterior devolvia
+ * `<origem>/pagar/<id>`, rota que nunca existiu (404) — e o link mora em
+ * `org_state`, que um pagador anônimo não lê. Um BR Code estático vale por si,
+ * sem página e sem provedor: é o que funciona sem decisão nova. Página pública
+ * ou PIX dinâmico (cobrança com vencimento) é decisão do dono, pendente.
+ *
+ * Sem dados do recebedor (chave = CNPJ cadastrado) devolve `null`: inventar
+ * uma chave produziria um QR que paga a ninguém.
  */
-export const urlDoLink = (l: LinkPagamento, origem: string): string =>
-  `${origem.replace(/\/$/, "")}/pagar/${l.id}`;
+export function pixDoLink(
+  l: Pick<LinkPagamento, "id" | "valor">,
+  recebedor: { chave: string; nome: string; cidade: string } | null,
+): string | null {
+  if (!recebedor) return null;
+  return gerarPixCopiaECola({
+    chave: recebedor.chave, nome: recebedor.nome, cidade: recebedor.cidade,
+    valor: l.valor > 0 ? l.valor : undefined,
+    txid: l.id.replace(/[^A-Za-z0-9]/g, "").slice(0, 25),
+  });
+}
+
+/**
+ * A frase do "Propor fornecedores". ⚠️ A falha vem PRIMEIRO e nunca é
+ * substituída: a tela tem UM toast, e a versão anterior mostrava a recusa do
+ * banco e, na linha seguinte, a sobrescrevia com "Todas as esferas já tinham
+ * fornecedor — nada a propor" — uma afirmação falsa por cima de um erro.
+ */
+export function mensagemDaProposta(p: { criados: number; reaproveitados: number; falha: string | null }): string {
+  const feito = [
+    p.criados > 0 && `${p.criados} criado${p.criados === 1 ? "" : "s"}`,
+    p.reaproveitados > 0 && `${p.reaproveitados} já cadastrado${p.reaproveitados === 1 ? "" : "s"}`,
+  ].filter(Boolean).join(" · ");
+  if (p.falha) {
+    return `Não foi possível criar o fornecedor proposto: ${p.falha}`
+      + (feito ? ` (antes da falha: ${feito}; as outras esferas seguem sem fornecedor).` : ". Nenhuma esfera recebeu fornecedor.");
+  }
+  return feito ? `Fornecedores escolhidos: ${feito}.` : "Todas as esferas já tinham fornecedor — nada a propor.";
+}

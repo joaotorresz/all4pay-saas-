@@ -204,3 +204,164 @@ Provas de que reprovam com o defeito plantado:
 - O QR do link é desenhado, mas não foi DECODIFICADO nesta máquina (sem
   decodificador disponível); o gerador tem validação própria registrada no
   CLAUDE.md.
+
+## Rodada 3 (reservados) — branch `r4/vender`
+
+Os itens da seção "Defeitos em arquivos RESERVADOS", agora editados. Cada um
+tem guarda no `engine-audit` (bloco VENDER, "Rodada 3"), e as quinze foram
+provadas plantando o defeito de volta: cada plantio reprovou a asserção que o
+nomeia.
+
+**O que mudou**
+
+1. **Propor fornecedores escolhe de verdade.** `createParty` já devolvia o id
+   (`{ id }` na demonstração, `.select("id").single()` no banco); a tela o lia
+   por um `as { id?: string }` que escondia isso. Agora usa `criado.id`, a
+   falha de criação vira aviso com a mensagem do banco, e o aviso diz quantos
+   foram criados e quantos já existiam.
+2. **O modal não apaga o que o atalho gravou.** `onPropor` recebe os
+   fornecedores da cópia do modal e DEVOLVE a escolha; o modal faz
+   `setC({ ...s, fornecedores: novos })`. "Salvar" deixou de devolver a cópia
+   velha.
+3. **Criar contas a pagar** já aguardava a porta assíncrona e mostrava
+   `jaExistiam` (o reservado foi consertado na revisão); ganhou guarda.
+4. **O resumo conta as vendas da tabela** (`provisao.linhas`), com o rótulo
+   "venda tributável" — o chargeback não entra mais na contagem.
+5. **Link de pagamento sem link morto.** `urlDoLink` (que montava
+   `/pagar/<id>`, 404) saiu; `pixDoLink` (core/vendas) gera o PIX
+   copia-e-cola (BR Code estático) com a chave = CNPJ do cadastro
+   (`dadosPixEmpresa`), o valor do link e o id como txid. O QR carrega o PIX.
+   Sem CNPJ a tela diz que não há chave e não desenha QR; link inativo não
+   oferece o código e a tela diz que um PIX já enviado continua pagável (PIX
+   estático não expira). Guarda de teto ZERO: nenhum `/pagar/` em `src/` e
+   nenhuma pasta `src/app/pagar`.
+6. **Assinaturas:** o card "Expirada" (que contava as pausadas) virou
+   **Pausadas**; a coluna e a planilha dizem **Valor por ciclo**.
+7. **Valor do link** é `CurrencyInput` (a máscara do produto), não
+   `type="number"`.
+8. **`lib/recorrencias` em produção não engole erro:** criar lança a recusa
+   do banco (não devolve mais `rec-<agora>` inventado); ativar sem conta
+   bancária é RECUSADO antes de marcar a assinatura ativa; a recusa do
+   `update active` e de cada fatura (≠ duplicata 23505) sobe — e a marca de
+   ativa é desfeita se uma fatura for recusada; encerrar lança a recusa do
+   update e da leitura, e não cala as faturas que a exclusão lógica não tirou.
+   A tela passou a dizer QUANTAS faturas a ativação lançou.
+9. **Demonstração: pausar/cancelar tira só as pendentes de hoje em diante**
+   (`faturasARemoverAoEncerrar`, a mesma regra da consulta de produção). A
+   recebida e a vencida em aberto ficam.
+10. **Mesmo horizonte em dias** (`HORIZONTE_ATIVACAO_DIAS = 180`, em
+    `lib/recorrencias-sched`) na ativação de demonstração, na de produção, no
+    roll-forward e na prévia da tela, todos por `datasFaturaCron`. A anual
+    lança no máximo UMA fatura (eram seis anos). A prévia deixou de vencer
+    "5 dias depois", data que nenhum caminho criava. O roll-forward deduplica
+    contra TODAS as faturas da assinatura (antes só as pendentes: um mês
+    recebido ganhava fatura nova).
+11. **Rótulo ligado ao campo:** o `Campo` da Nova venda (e o de
+    OutrasViews) gera id por `useId`, põe `htmlFor` e repassa o id ao filho.
+
+12. **O segundo clique em "Criar contas a pagar" dizia "0 contas a pagar
+    criadas · 5 já existiam"** (achado rodando a jornada nesta rodada); agora
+    diz "Nada a criar: as 5 contas desta competência já existiam".
+
+Jornadas atualizadas: `vender-impostos` (o atalho tem de escolher os três
+órgãos; o resumo diz "1 venda tributável"), `vender-links` (PIX ou o aviso de
+CNPJ; nenhuma URL `/pagar/`; sem `type=number`) e `vender-assinaturas`
+(nenhuma fatura além de 180 dias; a anual lança no máximo uma).
+
+**O que ficou (decisão do dono)**
+
+- **Página pública do link de pagamento × PIX.** Hoje o link entrega o PIX
+  estático da empresa. Página pública `/pagar/[id]` (rota no inventário,
+  middleware público, leitura `SECURITY DEFINER` do link, que mora em
+  `org_state`) ou PIX dinâmico com vencimento via PSP são decisões de produto.
+  ⚠️ A chave usada é o CNPJ — a tela pede para conferir no banco que ele está
+  cadastrado como chave PIX; não há campo de chave PIX própria da empresa.
+  "Aberturas" do link continua sem contador (não há página para contar).
+- **A venda do POS continua fora de `sales_docs`.** Avaliado e NÃO feito nesta
+  rodada: `salvarVendaDoc` cria UM título (o total da venda) e a regra de
+  edição/exclusão (`bloqueioDeExclusao`, reescrever só o previsto) foi escrita
+  para esse um título; a venda da maquininha gera N parcelas de recebível e a
+  taxa como conta a pagar, cada uma com seu vencimento. Gravar o POS pela
+  morada única exige o escritor aceitar parcelas + taxa ligadas por
+  `sale_doc_id` — mudança de formato do escritor e da migration de vínculo.
+  **Impacto enquanto não for feito:** a venda do POS entra no DRE, no fluxo e
+  no contas a receber, mas NÃO na lista de vendas, no painel de NF nem na base
+  do provisionamento de impostos — o faturamento da lista e o do DRE divergem
+  pelo total vendido na maquininha, com o mesmo rótulo.
+- **Horizonte do cron × ativação.** O cron (`/api/recorrencias/run`) usa 90
+  dias e a ativação 180. As datas e a chave são as mesmas (sem duplicata),
+  mas o cron não completa o que a ativação lançou além dos 90 dias até o dia
+  chegar. Unificar os dois é decisão de quanto previsto se quer no fluxo.
+- **Pausada × cancelada em produção** seguem indistinguíveis no banco
+  (`active` é um booleano); recarregada a tela, uma cancelada aparece como
+  pausada. Limitação de schema já registrada.
+
+**Medido:** `npm run e2e -- vender` contra o build de demonstração desta
+branch — 7 de 7 jornadas verdes. ⚠️ O usuário da jornada não tem CNPJ, então
+`vender-links` exercitou o ramo "sem chave"; o PIX com valor foi provado só
+por valor no `engine-audit`.
+
+**O que NÃO foi provado:** os caminhos de produção de `lib/recorrencias`
+foram provados por leitura + guarda textual, não contra um banco. O PIX foi
+conferido por CRC independente na guarda; o QR do PIX não foi decodificado
+nesta máquina.
+
+## Rodada 3 (reservados) — revisão adversarial (branch `r4/vender-rev`)
+
+Refutação das correções de `r4/vender`. O que estava certo ficou; o que não
+estava foi consertado com guarda (bloco "Rodada 3 · revisão adversarial" no
+`engine-audit`), cada guarda provada plantando o defeito — oito plantios, cada
+um reprovou a asserção que o nomeia.
+
+**Defeitos achados nas correções:**
+
+- **Ativar em produção partia de HOJE; o Cron parte do `start_date`.** O
+  comentário dizia "mesmas datas do Cron" e não eram: para ciclo semanal,
+  bimestral, trimestral, quadrimestral, semestral ou anual a fase muda
+  (trimestral criado em fevereiro e ativado em outubro: ativar lançava 15/10, o
+  Cron lança 15/11 — duas séries de faturas do mesmo contrato, com chaves
+  diferentes, que o índice único não pega). Agora `fromRow` leva o
+  `start_date` para `inicio`, e a ativação, a prévia e o Cron usam a mesma fase.
+  Guardas: o caso discrimina (fase do início ≠ fase de hoje) e a ativação lê
+  `r.inicio`.
+- **Reativar depois de pausar dizia "nenhuma fatura vence".** A pausa manda as
+  faturas futuras para a lixeira (exclusão lógica), mas elas continuam no índice
+  único `movements_rec_ref_uniq`: a reativação toma 23505 em todas, a correção
+  contava só as novas, e a tela negava faturas que existem — e escondia que as
+  da pausa ficaram FORA do previsto. Agora a duplicata é conferida contra o
+  que está visível: o que aparece "já estava no previsto"; o que não aparece
+  está na lixeira e a tela diz quantas, com as datas, e onde restaurar
+  (`mensagemDaAtivacao`, pura, em `lib/recorrencias-sched`). Se a conferência
+  falhar, a tela diz que não conferiu.
+- **Propor fornecedores sobrescrevia a recusa do banco.** A tela tem UM toast;
+  o `catch` mostrava o erro e a linha seguinte o trocava por "Todas as esferas
+  já tinham fornecedor — nada a propor". Agora a frase sai uma vez, depois do
+  `try`, por `mensagemDaProposta` (`core/vendas`), com a falha primeiro e o que
+  já foi feito antes dela.
+- **Encerrar uma assinatura fora do cache devolvia em silêncio** e a tela
+  anunciava "Pausada". Agora lança.
+- **Copiar PIX calava** sem área de transferência (página sem HTTPS, permissão
+  negada): o modal tinha `catch` vazio e o `clipboard?.` não fazia nada. Agora
+  a tela diz que não copiou e manda copiar o código à mão.
+
+**Conferido e mantido:** o PIX do link (CRC, txid, sem chave inventada), a
+ativação sem conta recusada antes de marcar ativa, a demonstração tirando só
+as pendentes a vencer, o horizonte único de 180 dias, o `htmlFor` do Campo.
+
+**Ficou (decisão do dono):**
+
+- **Fatura na lixeira bloqueia a reativação.** A saída limpa é uma das duas:
+  o índice `movements_rec_ref_uniq` passar a ignorar o excluído
+  (`where reference_code like 'rec:%' and excluido_em is null`), e então a
+  reativação recria a fatura; ou a reativação RESTAURAR as da pausa (precisa
+  de uma leitura da lixeira por `reference_code`, que hoje não existe — a
+  política de lixeira esconde a linha até de quem quer restaurá-la). As duas
+  são migration; nenhuma foi escrita. Hoje a tela diz a verdade e a pessoa
+  restaura na Lixeira.
+- **Falha no meio da ativação** desfaz a marca de ativa mas deixa no previsto
+  as faturas já gravadas daquela tentativa (tentar de novo as reaproveita; não
+  tentar deixa receita prevista de um contrato inativo). Excluí-las bloquearia
+  a próxima tentativa pelo mesmo índice acima — depende da mesma decisão.
+- As pendências de `r4/vender` seguem: página pública ou PIX dinâmico do link,
+  venda do POS em `sales_docs`, horizonte do Cron (90) × ativação (180),
+  pausada × cancelada indistinguíveis no banco.

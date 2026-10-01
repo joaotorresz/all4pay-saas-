@@ -156,7 +156,7 @@ import {
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
   painelStatusVendas, painelStatusNF, provisionarImpostos, contasAPagarDosImpostos,
-  pendenciasConfig, configPadrao, urlDoLink, validarLink,
+  pendenciasConfig, configPadrao, pixDoLink, validarLink,
   IMPOSTOS, ESFERA, STATUS_VENDA, METODOS_PAGAMENTO, PLATAFORMAS, STATUS_NF,
   ALIQUOTAS_PADRAO, DIA_VENCIMENTO_PADRAO,
   type Venda, type ConfigImpostos,
@@ -2013,8 +2013,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("links: título é obrigatório", !!validarLink({ titulo: " " }).titulo);
   ok("links: valor negativo é recusado", !!validarLink({ titulo: "X", valor: -1 }).valor);
   ok("links: valor zero é aceito (link aberto)", Object.keys(validarLink({ titulo: "X", valor: 0 })).length === 0);
-  ok("links: url não duplica a barra",
-    urlDoLink({ id: "lk1" } as never, "https://app.com/") === "https://app.com/pagar/lk1");
+  ok("links: sem recebedor (sem CNPJ) não há PIX — nenhuma chave é inventada",
+    pixDoLink({ id: "lk1", valor: 10 }, null) === null);
 
   // ---- QR code ----
   // Validado por decodificação real (OpenCV) fora da suíte; aqui ficam as
@@ -8750,6 +8750,144 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const { CHAVES_DE_NEGOCIO } = await import("@/lib/store-org");
   ok("vender/store: as duas chaves continuam classificadas como dado da empresa",
      CHAVES_DE_NEGOCIO.includes("a4p_impostos_config") && CHAVES_DE_NEGOCIO.includes("a4p_links_pagamento"));
+
+  /* ---- Rodada 3 (reservados): os defeitos que os caçadores não podiam editar ---- */
+  const outras = semComentario(lerV("src/components/vendas-nf/OutrasViews.tsx"));
+  const fnDe = (t: string, nome: string) => { const i = t.indexOf(nome); return i < 0 ? "" : t.slice(i, t.indexOf("\n}\n", i) + 3); };
+
+  // Link de pagamento: o que ele entrega é o PIX, nunca uma URL de página que não existe.
+  const recebedorV = { chave: "12345678000195", nome: "Padaria Sao Joao", cidade: "Sao Paulo" };
+  const pixLk = cv.pixDoLink({ id: "lk_abc-123", valor: 350 }, recebedorV) ?? "";
+  let crcLk = 0xffff;
+  for (let i = 0; i < pixLk.length - 4; i++) { crcLk ^= pixLk.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) crcLk = crcLk & 0x8000 ? ((crcLk << 1) ^ 0x1021) & 0xffff : (crcLk << 1) & 0xffff; }
+  ok("vender/links: o link vira PIX copia-e-cola com o valor dele, o id como txid e o CRC conferido",
+     pixLk.startsWith("000201") && /5406350\.00/.test(pixLk) && pixLk.includes("0508LKABC123")
+     && pixLk.slice(-4) === crcLk.toString(16).toUpperCase().padStart(4, "0"), pixLk);
+  ok("vender/links: link de valor aberto não fixa valor no PIX (o pagador digita)",
+     (cv.pixDoLink({ id: "lk2", valor: 0 }, recebedorV) ?? "").includes("53039865802BR"));
+  // Teto ZERO: nenhuma tela ou motor monta endereço `/pagar/<id>` (a rota nunca existiu).
+  const semPagar = (dir: string): string[] => fsV.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const c = `${dir}/${e.name}`;
+    if (e.isDirectory()) return semPagar(c);
+    if (!/\.(tsx?|mts)$/.test(e.name)) return [];
+    return /(?<![\w-])\/pagar\//.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
+  });
+  const comPagar = semPagar("src");
+  ok("vender/links: nenhum href/URL para /pagar/ (página pública não existe; decisão do dono)",
+     comPagar.length === 0 && !fsV.existsSync("src/app/pagar"), comPagar.join(" "));
+  ok("vender/links: o QR e o botão copiam o PIX (pixDoLink), não uma URL",
+     /qrParaSVG\(gerarQR\(pix\)/.test(outras) && /writeText\(pix\)/.test(outras) && !/urlDoLink|window\.location\.origin/.test(outras));
+  const formLink = fnDe(outras, "function FormLink(");
+  ok("vender/links: o valor do link é a máscara de dinheiro (CurrencyInput), não type=number",
+     /<CurrencyInput value=\{l\.valor\}/.test(formLink) && !/type="number"/.test(formLink));
+
+  // Propor fornecedores: devolve a escolha, e o modal aberto a aplica.
+  const propor = fnDe(outras, "const proporFornecedores = async");
+  ok("vender/impostos: 'Propor fornecedores' usa o id que createParty devolve e DEVOLVE a escolha",
+     /novos\[f\.esfera\] = criado\.id/.test(propor) && /return novos;/.test(propor) && !/criado\?\.id/.test(propor));
+  const cadV = semComentario(lerV("src/lib/cadastros.ts"));
+  const createPartyV = fnDe(cadV, "export async function createParty(");
+  ok("vender/impostos: createParty devolve o id nos DOIS caminhos (demonstração e banco)",
+     /Promise<\{ id: string \}>/.test(createPartyV) && /return \{ id \};/.test(createPartyV)
+     && /\.select\("id"\)\.single\(\)/.test(createPartyV) && /if \(error\) throw error;/.test(createPartyV));
+  const modalImp = fnDe(outras, "function ConfigImpostosModal(");
+  ok("vender/impostos: o modal aplica o que 'Propor' escolheu na cópia dele (Salvar apagava a escolha)",
+     /const novos = await onPropor\(c\.fornecedores\);/.test(modalImp) && /setC\(\(s\) => \(\{ \.\.\.s, fornecedores: novos \}\)\)/.test(modalImp));
+  ok("vender/impostos: o resumo conta as vendas da TABELA (provisao.linhas), não o período com chargeback",
+     /provisao\.linhas\.length === 1 \? "venda tributável"/.test(outras) && !/doPeriodo\.length\}/.test(outras));
+  ok("vender/impostos: o botão aguarda a gravação e diz o que já existia na competência",
+     /await criarContasDeImpostos\(/.test(outras) && /r\.jaExistiam > 0/.test(outras)
+     && /r\.criadas === 0\s*\?\s*`Nada a criar/.test(outras));
+
+  // Assinaturas: o card diz o que conta, a coluna diz o ciclo.
+  const assin = fnDe(outras, "export function AssinaturasVendasView(");
+  ok("vender/assinaturas: o card das pausadas se chama 'Pausadas' (não 'Expirada') e a coluna é 'Valor por ciclo'",
+     /cardDe\("pausadas", "Pausadas", \(s\) => s === "pausada"\)/.test(assin) && !/Expirada|Valor recorrente/.test(assin)
+     && (assin.match(/Valor por ciclo/g) ?? []).length === 2);
+
+  // Recorrências: o escritor de produção não engole erro; a demonstração segue a regra de produção.
+  const recLib = semComentario(lerV("src/lib/recorrencias.ts"));
+  const criarRec = fnDe(recLib, "export async function criarRecorrencia(");
+  ok("vender/recorrencias: criar em produção LANÇA a recusa do banco (devolvia um id local inventado)",
+     /const \{ data, error \} = await createClient\(\)\.from\("recurrences"\)\.insert/.test(criarRec)
+     && /if \(error\) throw/.test(criarRec) && !/rec-\$\{Date\.now\(\)\}`, \.\.\.n, itens, status: "rascunho" as StatusRec/.test(criarRec));
+  const ativarRec = fnDe(recLib, "export async function ativarRecorrencia(");
+  ok("vender/recorrencias: ativar sem conta é RECUSADO antes de marcar ativa (calava e dizia 'Ativada')",
+     /if \(!accId\) \{\s*throw/.test(ativarRec) && ativarRec.indexOf("if (!accId)") < ativarRec.indexOf('update({ active: true })'));
+  ok("vender/recorrencias: a recusa de ativar e a de cada fatura (≠ duplicata) SOBEM",
+     /if \(eAtiva\) throw/.test(ativarRec) && /if \(error\.code === "23505"\) \{ duplicadas\.push\(d\); continue; \}\s*\n[\s\S]*?throw new Error/.test(ativarRec)
+     && !/if \(!error \|\| error\.code === "23505"\) continue;\s*\n\s*\}/.test(ativarRec));
+  ok("vender/recorrencias: demonstração e produção usam o MESMO horizonte em dias (eram 6 faturas: a anual virava 6 anos)",
+     /HORIZONTE_ATIVACAO_DIAS\)/.test(ativarRec) && !/projetarProximasFaturas\(r, 6\)/.test(recLib)
+     && /datasFaturaCron\(inicioISO \?\? r\.inicio \?\? hoje, cicloParaFreq\(r\.ciclo\), r\.diaFaturamento, hoje, HORIZONTE_ATIVACAO_DIAS\)/.test(recLib));
+  const { datasFaturaCron: dfc, faturasARemoverAoEncerrar, HORIZONTE_ATIVACAO_DIAS } = await import("@/lib/recorrencias-sched");
+  const anualV = dfc("2026-10-01", "anual", 5, "2026-10-01", HORIZONTE_ATIVACAO_DIAS);
+  ok("vender/recorrencias: a anual ativada lança UMA fatura no horizonte, não seis anos", anualV.length === 1 && anualV[0] === "2026-10-05", anualV.join(" "));
+  const encerrarRec = fnDe(recLib, "export async function encerrarRecorrencia(");
+  const sair = faturasARemoverAoEncerrar([
+    { id: "pago", status: "pago", due_date: "2026-11-05" },
+    { id: "vencida", status: "pendente", due_date: "2026-09-05" },
+    { id: "futura", status: "pendente", due_date: "2026-11-05" },
+    { id: "hoje", status: "pendente", due_date: "2026-10-01" },
+  ], "2026-10-01");
+  ok("vender/recorrencias: pausar/cancelar tira SÓ a pendente de hoje em diante (a recebida e a vencida ficam)",
+     sair.join(",") === "futura,hoje", sair.join(","));
+  ok("vender/recorrencias: a demonstração pergunta a MESMA regra (apagava todas, inclusive as recebidas)",
+     /faturasARemoverAoEncerrar\(/.test(encerrarRec) && !/removerImported\(r\.movimentos\)/.test(encerrarRec));
+  ok("vender/recorrencias: encerrar em produção lança a recusa do update e da leitura, e não cala as falhas da exclusão",
+     /if \(eInativa\) throw/.test(encerrarRec) && /if \(eFuturas\) throw/.test(encerrarRec) && /if \(falhas\.length\)/.test(encerrarRec));
+
+  // Acessibilidade: o rótulo da Nova venda aponta para o campo.
+  const campoVF = fnDe(semComentario(lerV("src/components/vendas-nf/VendaForm.tsx")), "function Campo(");
+  ok("vender/form: o <label> do Campo tem htmlFor e o filho recebe o MESMO id (Status/Operação/Método eram anônimos)",
+     /React\.useId\(\)/.test(campoVF) && /<label htmlFor=\{id\}/.test(campoVF) && /React\.cloneElement\(filho, \{ id \}\)/.test(campoVF));
+
+  /* ---- Rodada 3 · revisão adversarial: o que a correção deixou passar ---- */
+  // (1) Fase do ciclo: ativar e o Cron têm de gerar as MESMAS datas. A ativação
+  // partia de HOJE e o Cron parte do start_date — um trimestral criado em
+  // fevereiro e ativado em outubro virava duas séries de faturas do mesmo contrato.
+  const faseStart = dfc("2026-02-15", "trimestral", 15, "2026-10-01", HORIZONTE_ATIVACAO_DIAS);
+  const faseHoje = dfc("2026-10-01", "trimestral", 15, "2026-10-01", HORIZONTE_ATIVACAO_DIAS);
+  ok("vender/recorrencias: o caso discrimina — fase do start_date ≠ fase de hoje no trimestral",
+     faseStart.join(",") === "2026-11-15,2027-02-15" && faseHoje.join(",") === "2026-10-15,2027-01-15", `${faseStart} | ${faseHoje}`);
+  const fromRowRec = fnDe(recLib, "function fromRow(");
+  ok("vender/recorrencias: ativar em produção parte do start_date (a fase do Cron), não de hoje",
+     /inicio: r\.start_date/.test(fromRowRec)
+     && /datasFaturaCron\(r\.inicio \?\? hoje, cicloParaFreq\(r\.ciclo\)/.test(ativarRec)
+     && !/datasFaturaCron\(hoje, cicloParaFreq/.test(ativarRec));
+  // (2) Duplicata não é "já está no previsto": a fatura excluída ao pausar segue
+  // no índice único e some da leitura. Reativar contava zero e a tela dizia
+  // "nenhuma fatura vence" sobre um contrato com faturas.
+  ok("vender/recorrencias: a duplicata (23505) é guardada e conferida contra o que está VISÍVEL",
+     /if \(error\.code === "23505"\) \{ duplicadas\.push\(d\); continue; \}/.test(ativarRec)
+     && /\.in\("reference_code", duplicadas\.map/.test(ativarRec) && /naLixeira = duplicadas\.filter/.test(ativarRec));
+  const { mensagemDaAtivacao } = await import("@/lib/recorrencias-sched");
+  const msgJa = mensagemDaAtivacao({ faturas: 0, jaExistiam: 3, naLixeira: [], horizonteDias: 180 });
+  ok("vender/recorrencias: faturas que já existiam NÃO viram 'nenhuma fatura vence'",
+     /3 já estavam no previsto/.test(msgJa) && !/nenhuma fatura/i.test(msgJa), msgJa);
+  const msgLix = mensagemDaAtivacao({ faturas: 1, jaExistiam: 0, naLixeira: ["2026-11-05", "2026-12-05"], horizonteDias: 180 });
+  ok("vender/recorrencias: a fatura presa na lixeira é DITA, com a data",
+     /2 faturas estão na lixeira/.test(msgLix) && /05\/11\/2026, 05\/12\/2026/.test(msgLix) && /1 fatura nova/.test(msgLix), msgLix);
+  ok("vender/recorrencias: sem nada no horizonte, e só então, 'nenhuma fatura vence'",
+     /nenhuma fatura vence nos próximos 180 dias/.test(mensagemDaAtivacao({ faturas: 0, jaExistiam: 0, naLixeira: [], horizonteDias: 180 })));
+  const recViewR3 = semComentario(lerV("src/components/recorrencias/RecorrenciasView.tsx"));
+  ok("vender/recorrencias: a tela fala pela mensagemDaAtivacao (não decide por res.faturas > 0)",
+     /show\(mensagemDaAtivacao\(res\)\)/.test(recViewR3) && !/res\.faturas > 0/.test(recViewR3));
+  ok("vender/recorrencias: encerrar sem a assinatura LANÇA (devolvia em silêncio e a tela dizia 'Pausada')",
+     /if \(!r\) throw/.test(encerrarRec));
+  // (3) Propor fornecedores: a recusa do banco era sobrescrita no MESMO toast.
+  const proporCorpo = propor.slice(0, propor.indexOf("return novos;") + 13);
+  const msgFalha = cv.mensagemDaProposta({ criados: 0, reaproveitados: 0, falha: "permission denied" });
+  ok("vender/impostos: a falha do Propor não é substituída por 'nada a propor'",
+     /^Não foi possível criar o fornecedor proposto: permission denied/.test(msgFalha) && !/nada a propor/.test(msgFalha), msgFalha);
+  ok("vender/impostos: falha no meio diz o que já foi feito",
+     /antes da falha: 1 criado/.test(cv.mensagemDaProposta({ criados: 1, reaproveitados: 0, falha: "x" })));
+  ok("vender/impostos: o Propor mostra UMA mensagem, montada depois do try (nenhum show dentro do catch)",
+     (proporCorpo.match(/show\(/g) ?? []).length === 1 && /show\(mensagemDaProposta\(/.test(proporCorpo) && /falha = e instanceof Error/.test(proporCorpo));
+  // (4) Copiar PIX não pode falhar calado.
+  ok("vender/links: copiar o PIX nunca falha em silêncio (sem catch vazio, sem clipboard?.)",
+     !/catch\(\(\) => \{\s*\/\*/.test(lerV("src/components/vendas-nf/OutrasViews.tsx")) && !/clipboard\?\.writeText\(pix\)/.test(outras)
+     && (outras.match(/if \(!navigator\.clipboard\)/g) ?? []).length === 2);
 }
 /* ── CONTABILIDADE E RELATÓRIOS ── */
 {
