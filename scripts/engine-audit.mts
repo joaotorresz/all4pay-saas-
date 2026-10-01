@@ -6569,8 +6569,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("venda: título recusado desfaz o documento (nenhuma venda sem recebível)",
      corpoNovo.indexOf("criarTitulos(") > 0 && corpoNovo.lastIndexOf("desfazerDocumento(v.id)") > corpoNovo.indexOf("criarTitulos("));
   const corpoRem = lib.slice(lib.indexOf("export async function removerVendaDoc"), lib.indexOf("/* ─────────────────── vendas que ficaram"));
+  // Revisão 30/09: a regra subiu para `bloqueioDeExclusao` (core/vendas/nota),
+  // conferida por valor no bloco VENDER; aqui, que o caminho de produção a
+  // consulta e LANÇA antes de mandar qualquer título para a lixeira.
   ok("venda: excluir com recebimento baixado é RECUSADO (não se apaga dinheiro que entrou)",
-     /movidos\.length > 0\) \{\s*throw/.test(corpoRem));
+     /const bloqueio = bloqueioDeExclusao\(v, titulos\.map\(\(t\) => t\.situacao\)\);\s*if \(bloqueio\) throw/.test(corpoRem)
+     && corpoRem.lastIndexOf("if (bloqueio) throw") < corpoRem.indexOf("excluirLogico("));
   const corpoAtu = lib.slice(lib.indexOf("async function atualizarTitulo"), lib.indexOf("async function trocarItens"));
   ok("venda: editar só reescreve título PREVISTO (baixado é dinheiro que já se moveu)",
      /\.eq\("situacao", "previsto"\)/.test(corpoAtu));
@@ -6680,8 +6684,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/pos: a receita a receber é o BRUTO da venda (era o líquido)", somaTipo(t3, "entrada") === 1_000, `${somaTipo(t3, "entrada")}`);
   ok("vender/pos: a taxa a pagar é a taxa da venda, uma vez", somaTipo(t3, "saida") === 30, `${somaTipo(t3, "saida")}`);
   ok("vender/pos: bruto − taxa = o líquido que o caixa recebe", somaTipo(t3, "entrada") - somaTipo(t3, "saida") === 970);
-  ok("vender/pos: cada taxa vence com o repasse da sua parcela",
-     t3.filter((t) => t.type === "saida").every((s) => t3.some((e) => e.type === "entrada" && e.due_date === s.due_date)));
+  // ⚠️ Revisão: a versão anterior aceitava QUALQUER entrada com a mesma data —
+  // com todas as taxas datadas de HOJE (o defeito), a parcela 1 também vence
+  // hoje e a asserção passava. Agora é parcela a parcela, e as datas são três.
+  const entr3 = t3.filter((t) => t.type === "entrada"), sai3 = t3.filter((t) => t.type === "saida");
+  ok("vender/pos: cada taxa vence com o repasse da SUA parcela (a k-ésima taxa com a k-ésima entrada)",
+     sai3.length === entr3.length && sai3.every((s, k) => s.due_date === entr3[k].due_date) && new Set(sai3.map((s) => s.due_date)).size === 3,
+     sai3.map((s) => s.due_date).join(" "));
   ok("vender/pos: 3 parcelas = 3 entradas, a última leva o resto dos centavos",
      t3.filter((t) => t.type === "entrada").map((t) => t.amount).join("|") === "333.33|333.33|333.34");
   ok("vender/pos: 31/01 + 1 mês cai em 28/02 (não escorrega para março)", somaMeses("2026-01-31", 1) === "2026-02-28", somaMeses("2026-01-31", 1));
@@ -6743,11 +6752,30 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/impostos: IRPJ e CSLL sem categoria caem em IMPOSTOS SOBRE O LUCRO",
      ["irpj", "csll"].every((i) => linhaDe(i) === "impostos_lucro"), ["irpj", "csll"].map((i) => `${i}:${linhaDe(i)}`).join(" "));
   const store = semComentario(lerV("src/lib/vendas-store.ts"));
-  const gravar = store.slice(store.indexOf("export async function gravarContasDeImpostos"), store.indexOf("export function criarContasDeImpostos"));
+  const gravar = store.slice(store.indexOf("export function gravarContasDeImpostos"), store.indexOf("export function criarContasDeImpostos"));
   ok("vender/impostos: em produção o botão GRAVA (era `if (!isDemo) return 0` e a tela dizia 'nada a criar')",
      !/if \(!isDemo\)[^\n]*return/.test(gravar) && !/if \(!isDemo\) return 0/.test(store) && /criarTitulos\(/.test(gravar));
-  ok("vender/impostos: produção é idempotente — imposto com título vivo na competência não ganha outro",
-     /neq\("status", "cancelado"\)/.test(gravar) && /jaExistiam/.test(gravar));
+  // ⚠️ Revisão: a versão anterior cobrava só que as palavras `neq(...)` e
+  // `jaExistiam` existissem — trocar o filtro por `const novas = contas`
+  // passava verde. Agora a regra é uma função pura, conferida por VALOR, e os
+  // dois caminhos (demonstração e banco) têm de usá-la.
+  const { contasSemTitulo } = cv;
+  const sep = contasSemTitulo([{ rotulo: "PIS" }, { rotulo: "ISS" }, { rotulo: "IRPJ" }], "2026-12",
+    ["PIS · competência 2026-12", "ISS · competência 2026-11", "Aluguel"]);
+  ok("vender/impostos: imposto com título vivo na MESMA competência não ganha outro; outra competência não conta",
+     sep.novas.map((c) => c.rotulo).join() === "ISS,IRPJ" && sep.jaExistiam.join() === "PIS", JSON.stringify(sep));
+  const gravarAgora = store.slice(store.indexOf("export function gravarContasDeImpostos"), store.indexOf("export function criarContasDeImpostos"));
+  ok("vender/impostos: demonstração E banco passam pela mesma regra de idempotência, e só as novas são gravadas",
+     (gravarAgora.match(/contasSemTitulo\(/g) ?? []).length >= 2 && /neq\("status", "cancelado"\)/.test(gravarAgora)
+     && /criarTitulos\(novas\.map/.test(gravarAgora) && !/removerImported\(/.test(gravarAgora));
+  ok("vender/impostos: em produção as gravações entram em FILA (dois cliques não consultam ao mesmo tempo)",
+     /filaImpostos\.then\(/.test(gravarAgora) && /filaImpostos = vez\.catch/.test(gravarAgora));
+  const salvarV = store.slice(store.indexOf("export function salvarVenda("), store.indexOf("export function salvarSoDocumento"));
+  ok("vender/store: em demonstração regravar a venda NÃO reescreve recebível já baixado",
+     /status === "pago"\) return lista;/.test(salvarV) && salvarV.indexOf('status === "pago"') < salvarV.indexOf("removerImported("));
+  const vnf = semComentario(lerV("src/lib/vendas-nf.ts"));
+  ok("vender/nota: emitir a nota grava SÓ as colunas da nota (reescrever a venda podia ser recusado DEPOIS da nota autorizada)",
+     /gravarNotaDaVendaDoc\(/.test(vnf) && !/salvarVendaDoc\(/.test(vnf));
   ok("vender/impostos: o título leva o NOME da categoria, nunca o id do plano",
      /category: nomeDaCategoriaDoImposto\(c\)/.test(store) && !/category: c\.categoria \|\|/.test(store));
   ok("vender/impostos: a descrição-chave mora num lugar só",
@@ -6785,6 +6813,48 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const nfseView = semComentario(lerV("src/components/nfse/NfseView.tsx"));
   ok("vender/nfse: a tela não afirma mais que o ISS entra no DRE", !/receita e ISS na DRE|a receita e o ISS entram/.test(nfseView));
 
+  // ⚠️ REVISÃO — o reaproveitamento da receita só existia na memória da sessão.
+  // Em produção a nota devolvida por `criarNfse` era remontada da linha gravada
+  // (sem `movimentoReceita`), e a transmissão lançava OUTRA receita: "Emitir NF"
+  // da venda dobrava o faturamento. E, recarregada a tela, cancelar a nota de
+  // uma venda mandava o recebível da venda para a lixeira.
+  const { receitaReaproveitada } = await import("@/core/vendas/nota");
+  ok("vender/nfse: rascunho com título ligado está REAPROVEITANDO (a avulsa só ganha receita na autorização)",
+     receitaReaproveitada({ status: "rascunho", movimentoId: "m1" }) && receitaReaproveitada({ status: "processando", movimentoId: "m1" }));
+  ok("vender/nfse: nota autorizada de venda ou de fatura reaproveita; a avulsa autorizada não",
+     receitaReaproveitada({ status: "autorizada", movimentoId: "m1", saleDocId: "v1" })
+     && receitaReaproveitada({ status: "autorizada", movimentoId: "m1", recorrenciaId: "r1" })
+     && !receitaReaproveitada({ status: "autorizada", movimentoId: "m1" })
+     && !receitaReaproveitada({ status: "rascunho", movimentoId: null }));
+  const nfseSem = semComentario(nfse);
+  const criarN = nfseSem.slice(nfseSem.indexOf("export async function criarNfse"), nfseSem.indexOf("export async function transmitirNfse"));
+  ok("vender/nfse: o título reaproveitado vai para o banco desde o rascunho, e a nota devolvida o carrega",
+     /movement_id: isUuid\(n\.movimentoReceita\)/.test(criarN) && /movimentoReceita: n\.movimentoReceita/.test(criarN));
+  ok("vender/nfse: a nota recarregada do banco reconhece a receita reaproveitada",
+     /movimentoReceita: receitaReaproveitada\(/.test(nfseSem.slice(nfseSem.indexOf("function fromRow"), nfseSem.indexOf("export async function hydrateNfse"))));
+  const cancN = nfseSem.slice(nfseSem.indexOf("export async function cancelarNfse"));
+  ok("vender/nfse: cancelar a nota NÃO apaga o título que tem chave de venda (pergunta ao banco)",
+     /select\("sale_doc_id"\)/.test(cancN) && /sale_doc_id\)\s*continue/.test(cancN) && /receitaReaproveitada\(/.test(cancN));
+  ok("vender/nfse: a lista do banco lê o erro (lista vazia não pode esconder recusa)",
+     /const \{ data, error \} = await createClient\(\)\.from\("nfse"\)\s*\.select/.test(nfseSem));
+  // REVISÃO — excluir a venda: nota emitida e recebimento baixado bloqueiam,
+  // pela MESMA regra em demonstração e em produção.
+  const { bloqueioDeExclusao } = await import("@/core/vendas/nota");
+  ok("vender/excluir: venda com nota emitida ou em processamento não se exclui (a nota seguiria valendo)",
+     /Cancele a nota/.test(bloqueioDeExclusao({ numero: "1", statusNF: "emitida", numeroNF: "100001" }, ["previsto"]) ?? "")
+     && /Cancele a nota/.test(bloqueioDeExclusao({ numero: "1", statusNF: "processando", numeroNF: "" }, []) ?? ""));
+  ok("vender/excluir: recebimento baixado bloqueia; previsto, cancelado e nota cancelada/a emitir não",
+     /Estorne/.test(bloqueioDeExclusao({ numero: "1", statusNF: "a_emitir", numeroNF: "" }, ["previsto", "baixado"]) ?? "")
+     && bloqueioDeExclusao({ numero: "1", statusNF: "cancelada", numeroNF: "9" }, ["previsto", "cancelado"]) === null
+     && bloqueioDeExclusao({ numero: "1", statusNF: "a_emitir", numeroNF: "" }, []) === null);
+  const libV = semComentario(lerV("src/lib/vendas.ts"));
+  const remV = libV.slice(libV.indexOf("export async function removerVendaDoc"), libV.indexOf("export function vendasSoNoNavegador"));
+  ok("vender/excluir: demonstração e produção perguntam a mesma regra ANTES de apagar",
+     (remV.match(/if \(bloqueio\) throw new Error\(bloqueio\);/g) ?? []).length === 2
+     && remV.indexOf("if (bloqueio) throw") < remV.indexOf("removerLocal("));
+  ok("vender/nota: cancelar a nota de uma venda leva o status de volta à venda",
+     /refletirCancelamentoNaVenda\(/.test(nfseView) && /statusNF: "cancelada"|"cancelada", nf\.numero/.test(semComentario(lerV("src/lib/vendas-nf.ts"))));
+
   /* ---- assinaturas: dá para criar, e o MRR normaliza o ciclo ---- */
   const pagAss = lerV("src/app/dashboard/sales-invoices/subscriptions/page.tsx");
   ok("vender/assinaturas: a tela monta o gerenciador (criar, ativar, pausar, cancelar) — estava órfão",
@@ -6793,8 +6863,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/assinaturas: 'Nova assinatura' não abre mais o formulário de contrato que não grava em demonstração",
      !/Nova assinatura[^\n]*modal: "contrato"/.test(criarCat));
   const recView = semComentario(lerV("src/components/recorrencias/RecorrenciasView.tsx"));
+  // ⚠️ Revisão: a versão anterior só reconhecia o defeito na forma exata de
+  // antes (`style={{ color: tone }}`); `style={{ color: alerta ? negative … }}`
+  // passava. Agora o CARTÃO inteiro não pode decidir cor do número.
+  const kpiRec = recView.slice(recView.indexOf("function Kpi("));
   ok("vender/assinaturas: o churn não é pintado de vermelho por limiar (o alerta é um ponto ao lado do rótulo)",
-     !/churn[^\n]*color-negative/.test(recView) && !/style=\{\{ color: tone \}\}/.test(recView) && /alerta=\{kpis\.churn > 0\.2\}/.test(recView));
+     !/churn[^\n]*color-negative/.test(recView) && !/style=\{\{\s*color/.test(kpiRec) && !/color-negative|text-negative/.test(kpiRec)
+     && /alerta=\{kpis\.churn > 0\.2\}/.test(recView));
   ok("vender/assinaturas: a NFS-e da assinatura recusada na CRIAÇÃO vira aviso, não erro solto",
      /try \{\s*nf = await criarNfse\(/.test(recView));
   const { mrr: mrrV } = await import("@/core/indicadores");

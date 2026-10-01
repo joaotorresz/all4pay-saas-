@@ -11,6 +11,7 @@ import {
   issDe, type Nfse, type StatusNfse,
 } from "@/lib/nfse";
 import type { Party } from "@/lib/types";
+import { refletirCancelamentoNaVenda } from "@/lib/vendas-nf";
 
 const STATUS: Record<StatusNfse, { label: string; cor: string }> = {
   rascunho: { label: "Rascunho", cor: "var(--color-muted)" },
@@ -83,10 +84,21 @@ export function NfseView() {
 
   const enviar = async (id: string) => { await enviarAoTomador(id); setLista(listNfse()); show("Nota enviada ao tomador (reusa a Cobrança WhatsApp/e-mail)"); };
   const cancelar = async (id: string) => {
+    // A nota ANTES de cancelar: o cancelamento esvazia os vínculos dela, e é
+    // por eles que se acha a venda que a nota fechava.
+    const antes = lista.find((n) => n.id === id);
+    // Cancelar uma nota autorizada não tem volta: era um clique num "x" sem
+    // pergunta nenhuma.
+    if (!window.confirm(`Cancelar a NFS-e${antes?.numero ? ` nº ${antes.numero}` : ""}? O cancelamento não pode ser desfeito.`)) return;
     try {
       await cancelarNfse(id);
+      const venda = antes ? await refletirCancelamentoNaVenda(antes) : null;
       await refresh();
-      show("NFS-e cancelada — lançamentos vinculados removidos do hub");
+      // ⚠️ Dizia "lançamentos vinculados removidos" também quando a nota era de
+      // uma venda — e a receita da venda FICA (ela não nasceu da nota).
+      show(venda
+        ? "NFS-e cancelada — a venda volta a constar com a nota cancelada; o título a receber da venda continua"
+        : "NFS-e cancelada — a receita lançada pela nota saiu de Títulos a receber");
     } catch (e) {
       show(`A nota não foi cancelada: ${e instanceof Error ? e.message : String(e)}`);
     }

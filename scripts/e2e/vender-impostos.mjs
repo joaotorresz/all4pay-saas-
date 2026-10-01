@@ -93,6 +93,11 @@ export default async function venderImpostos(navegador) {
   v.ok(/\d+ contas a pagar criadas/.test(await u.texto()), "a tela confirma quantas contas criou");
   await botao.click(); // de novo: não pode duplicar
   await u.page.waitForTimeout(1500);
+  // ⚠️ Revisão: o segundo clique dizia "5 contas a pagar criadas" de novo — a
+  // demonstração SUBSTITUÍA os títulos (e uma guia já paga voltava a pendente).
+  // Agora a regra é a de produção: o que já tem título não ganha outro.
+  v.ok(/Nada a criar/.test(await u.texto()) && !/\d+ contas a pagar criadas/.test(await u.texto()),
+    "o segundo clique não afirma ter criado nada (as contas da competência já existem)");
 
   // O que foi gravado: UMA conta por imposto, mesmo depois de dois cliques.
   const impostos = await u.page.evaluate(() => {

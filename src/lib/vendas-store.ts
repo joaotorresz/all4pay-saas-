@@ -14,7 +14,7 @@
  */
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
-import { configPadrao, descricaoDoImposto, type Venda, type ConfigImpostos, type LinkPagamento, type ContaImposto } from "@/core/vendas";
+import { configPadrao, contasSemTitulo, descricaoDoImposto, type Venda, type ConfigImpostos, type LinkPagamento, type ContaImposto } from "@/core/vendas";
 import { criarTitulos } from "@/lib/data";
 import { listPlanoContas } from "@/lib/registros";
 import { reportar } from "@/lib/erros";
@@ -180,50 +180,71 @@ export interface ResultadoImpostos { criadas: number; jaExistiam: string[] }
  * nunca virava conta a pagar, não entrava no fluxo de caixa nem no DRE: o
  * "escritor morto" pela porta de produção.
  *
- * ⚠️ **Idempotente por competência, nos dois caminhos.** Em demonstração o id
- * carrega mês + imposto e o antigo é substituído. Em produção a chave é a
+ * ⚠️ **Idempotente por competência, nos dois caminhos e pela mesma regra
+ * (`contasSemTitulo`).** A chave é a
  * descrição (`descricaoDoImposto`): o imposto que já tem título vivo naquela
  * competência NÃO ganha outro — é devolvido em `jaExistiam`. Sem isso, clicar
  * duas vezes dobraria o imposto do mês no fluxo de caixa.
  *
  * LANÇA quando o banco recusa, com a mensagem dele.
  */
-export async function gravarContasDeImpostos(
+export function gravarContasDeImpostos(
   contas: ContaImposto[],
   mesCompetencia: string,
   contaBancaria: string,
 ): Promise<ResultadoImpostos> {
-  if (contas.length === 0) return { criadas: 0, jaExistiam: [] };
-  if (isDemo) {
-    const ids = contas.map((c) => `imp-${mesCompetencia}-${c.imposto}`);
-    removerImported(ids);
-    contas.forEach((c, k) => {
-      const t = tituloDoImposto(c, mesCompetencia, contaBancaria);
-      appendImported({
-        movement: {
-          id: ids[k], account_id: t.account_id, type: t.type, status: "pendente",
-          amount: t.amount, due_date: t.due_date, paid_date: null, reconciled: false,
-          category: t.category, description: t.description, party_id: t.party_id ?? (c.fornecedorId || null),
-          origem: t.origem,
-        } as unknown as Movement,
-      });
-    });
-    return { criadas: contas.length, jaExistiam: [] };
-  }
+  if (contas.length === 0) return Promise.resolve({ criadas: 0, jaExistiam: [] });
+  // Em demonstração a gravação é local e SÍNCRONA — a tela relê logo depois.
+  if (isDemo) return Promise.resolve(gravarNaDemonstracao(contas, mesCompetencia, contaBancaria));
+  // ⚠️ Em produção, UMA gravação por vez. A tela chama a porta síncrona sem
+  // travar o botão; dois cliques rápidos disparavam duas consultas que viam
+  // "nenhum título" ao mesmo tempo e gravavam o imposto DUAS vezes. Em fila, a
+  // segunda consulta já enxerga o que a primeira gravou.
+  const vez = filaImpostos.then(() => gravarNoBanco(contas, mesCompetencia, contaBancaria));
+  filaImpostos = vez.catch(() => undefined);
+  return vez;
+}
 
+let filaImpostos: Promise<unknown> = Promise.resolve();
+
+/**
+ * A MESMA regra de produção: imposto com título vivo na competência não ganha
+ * outro nem é reescrito. Antes a demonstração SUBSTITUÍA o título — e
+ * substituir uma guia já paga a devolvia a "pendente", desfazendo a baixa.
+ */
+function gravarNaDemonstracao(contas: ContaImposto[], mesCompetencia: string, contaBancaria: string): ResultadoImpostos {
+  // O dataset da demonstração não é lido por ninguém em produção (o "escritor
+  // morto"): chamado fora dela, isto tem de falhar alto, não gravar no nada.
+  if (!isDemo) throw new Error("As contas de imposto só são gravadas no navegador em demonstração.");
+  const vivas = (importedMovements() ?? [])
+    .filter((m) => m.type === "saida" && m.status !== "cancelado")
+    .map((m) => m.description ?? "");
+  const { novas, jaExistiam } = contasSemTitulo(contas, mesCompetencia, vivas);
+  novas.forEach((c) => {
+    const t = tituloDoImposto(c, mesCompetencia, contaBancaria);
+    appendImported({
+      movement: {
+        id: `imp-${mesCompetencia}-${c.imposto}`, account_id: t.account_id, type: t.type, status: "pendente",
+        amount: t.amount, due_date: t.due_date, paid_date: null, reconciled: false,
+        category: t.category, description: t.description, party_id: t.party_id ?? (c.fornecedorId || null),
+        origem: t.origem,
+      } as unknown as Movement,
+    });
+  });
+  return { criadas: novas.length, jaExistiam };
+}
+
+async function gravarNoBanco(contas: ContaImposto[], mesCompetencia: string, contaBancaria: string): Promise<ResultadoImpostos> {
   const { createClient } = await import("@/lib/supabase/client");
   const s = createClient();
   const descricoes = contas.map((c) => descricaoDoImposto(c.rotulo, mesCompetencia));
   const { data, error } = await semAmostra(s.from("movements").select("description,status"))
     .eq("type", "saida").in("description", descricoes).neq("status", "cancelado").limit(TETO_LINHAS);
   if (error) throw new Error(error.message);
-  const vivas = new Set(((data ?? []) as { description: string }[]).map((r) => r.description));
-  const novas = contas.filter((c) => !vivas.has(descricaoDoImposto(c.rotulo, mesCompetencia)));
+  const vivas = ((data ?? []) as { description: string }[]).map((r) => r.description);
+  const { novas, jaExistiam } = contasSemTitulo(contas, mesCompetencia, vivas);
   if (novas.length) await criarTitulos(novas.map((c) => tituloDoImposto(c, mesCompetencia, contaBancaria)));
-  return {
-    criadas: novas.length,
-    jaExistiam: contas.filter((c) => vivas.has(descricaoDoImposto(c.rotulo, mesCompetencia))).map((c) => c.rotulo),
-  };
+  return { criadas: novas.length, jaExistiam };
 }
 
 /**
@@ -242,6 +263,7 @@ export function criarContasDeImpostos(
   mesCompetencia: string,
   contaBancaria: string,
 ): number {
+  if (isDemo) return gravarNaDemonstracao(contas, mesCompetencia, contaBancaria).criadas;
   const envio = gravarContasDeImpostos(contas, mesCompetencia, contaBancaria);
   envio.catch((e) => {
     reportar("vendas.impostos", e, "as contas a pagar dos impostos do mês não foram criadas");

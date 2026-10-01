@@ -11,8 +11,9 @@ import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { receitaReaproveitada } from "@/core/vendas/nota";
 
 export type StatusNfse = "rascunho" | "processando" | "autorizada" | "rejeitada" | "enviada" | "cancelada";
 
@@ -74,6 +75,11 @@ function fromRow(r: NfseRow): Nfse {
     recorrenciaId: r.recurrence_id ?? undefined, numero: r.numero ?? undefined,
     codigoVerificacao: r.codigo_verificacao ?? undefined,
     movimentos: r.movement_id ? [r.movement_id] : [], status: r.status === "substituida" ? "cancelada" : r.status, criadoEm: r.created_at,
+    // ⚠️ O vínculo com a receita REAPROVEITADA tem de sobreviver à recarga:
+    // sem ele, transmitir um rascunho lançava uma segunda receita e cancelar
+    // a nota apagava a receita da fatura (ver `receitaReaproveitada`).
+    movimentoReceita: receitaReaproveitada({ status: r.status, movimentoId: r.movement_id, recorrenciaId: r.recurrence_id })
+      ? (r.movement_id ?? undefined) : undefined,
   };
 }
 
@@ -81,9 +87,12 @@ export async function hydrateNfse(force = false): Promise<void> {
   if (hydrated && !force) return;
   if (isDemo) { cache = loadLocal(); hydrated = true; return; }
   try {
-    const { data } = await createClient().from("nfse")
+    // ⚠️ O cliente do banco não LANÇA: devolve `error`. Sem ler o erro, uma
+    // recusa virava lista vazia ("nenhuma nota") sem aviso nenhum.
+    const { data, error } = await createClient().from("nfse")
       .select("id,tomador_id,movement_id,recurrence_id,service_code,description,amount,iss_rate,municipality,competence,await_payment,numero,codigo_verificacao,status,created_at,parties(name)")
       .order("created_at", { ascending: false }).limit(TETO_LINHAS);
+    if (error) throw new Error(error.message);
     cache = ((data ?? []) as unknown as NfseRow[]).map(fromRow);
     hydrated = true;
   } catch (e) {
@@ -116,9 +125,17 @@ export async function criarNfse(n: NovaNfse): Promise<Nfse> {
     service_code: n.codigoServico, description: n.discriminacao, amount: n.valorServico, iss_rate: n.issAliquota,
     taxes: { iss: Math.round(n.valorServico * (n.issAliquota / 100) * 100) / 100 }, municipality: n.municipio,
     competence: isoDay(new Date()), await_payment: n.aguardarPagamento, status: "rascunho",
+    // ⚠️ A receita reaproveitada (título da venda ou fatura da assinatura) vai
+    // para o BANCO desde o rascunho. Antes ela ficava só no objeto da sessão — e
+    // nem nele: a nota devolvida era remontada da linha gravada, sem o campo.
+    // Em produção, "Emitir NF" da venda transmitia sem saber da receita da
+    // venda e lançava OUTRA: o faturamento dobrava no DRE.
+    movement_id: isUuid(n.movimentoReceita) ? n.movimentoReceita : null,
   }).select("id,tomador_id,movement_id,recurrence_id,service_code,description,amount,iss_rate,municipality,competence,await_payment,numero,codigo_verificacao,status,created_at").single();
   if (error) throw new Error(error.message);
-  const saved = data ? fromRow({ ...(data as NfseRow), parties: { name: n.tomadorNome } }) : nf;
+  const saved = data
+    ? { ...fromRow({ ...(data as NfseRow), parties: { name: n.tomadorNome } }), movimentoReceita: n.movimentoReceita, recorrenciaId: n.recorrenciaId }
+    : nf;
   cache = [saved, ...(cache ?? [])];
   return saved;
 }
@@ -211,8 +228,20 @@ export async function cancelarNfse(id: string): Promise<void> {
   const list = cache ?? []; const i = list.findIndex((x) => x.id === id);
   if (i < 0) return;
   const nf = list[i];
-  // N2: não remove a receita reaproveitada de uma recorrência.
-  const remover = nf.movimentos.filter((m) => m !== nf.movimentoReceita);
+  // N2: não remove a receita reaproveitada (da venda ou da fatura). ⚠️ Em
+  // produção a pergunta vai ao banco: a nota pode ter sido carregada de uma
+  // sessão anterior, e o título com chave de venda é da VENDA — cancelar a nota
+  // não pode tirar o recebível do contas a receber.
+  const remover: string[] = [];
+  for (const m of nf.movimentos) {
+    if (m === nf.movimentoReceita || receitaReaproveitada({ status: nf.status, movimentoId: m, recorrenciaId: nf.recorrenciaId })) continue;
+    if (!isDemo) {
+      const { data, error } = await semAmostra(createClient().from("movements").select("sale_doc_id")).eq("id", m).maybeSingle();
+      if (error) throw new Error(error.message);
+      if ((data as { sale_doc_id: string | null } | null)?.sale_doc_id) continue;
+    }
+    remover.push(m);
+  }
   if (remover.length) {
     if (isDemo) removerImported(remover);
     else {

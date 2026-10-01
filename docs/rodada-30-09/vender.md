@@ -115,8 +115,87 @@ Provas de que reprovam com o defeito plantado:
     "Método de pagamento" são campos anônimos para leitor de tela. Correção:
     `useId` no `Campo` e repassar o id ao filho.
 
+## Revisão adversarial (branch `r3/vender-rev`)
+
+### Defeitos achados nas correções do caçador — e consertados
+
+1. **"Emitir NF" da venda DOBRAVA a receita em produção** — o defeito que o
+   commit 568fabc dizia ter fechado, fechado só na demonstração. `criarNfse`
+   em produção devolvia a nota remontada da linha gravada (`fromRow`), que não
+   tem `movimentoReceita`; a transmissão via a nota "sem receita" e lançava
+   OUTRA. Agora o título reaproveitado vai para `nfse.movement_id` desde o
+   rascunho e a nota devolvida o carrega.
+2. **Cancelar a nota de uma venda apagava o recebível DA VENDA em produção**
+   (depois de recarregar a tela). O vínculo "receita reaproveitada" só vivia na
+   memória da sessão; recarregada, a nota parecia ter receita própria e
+   `cancelarNfse` mandava o título da venda para a lixeira. A pergunta virou
+   regra pura (`receitaReaproveitada` em `core/vendas/nota`) e, em produção,
+   o cancelamento pergunta ao banco se o título tem `sale_doc_id`.
+3. **A lista de vendas seguia dizendo "Emitida · nº X" de uma nota
+   cancelada.** `refletirCancelamentoNaVenda` (lib/vendas-nf) devolve o status
+   à venda; o emissor diz que o título da venda fica (dizia "lançamentos
+   removidos"), e cancelar pede confirmação (era um "x" sem pergunta).
+4. **Gravar a nota reescrevia a venda inteira** (`salvarVendaDoc`: itens para
+   a lixeira e de volta, e o título previsto). Num mês fechado a reescrita do
+   título é recusada DEPOIS de a nota estar autorizada: a venda ficava "a
+   emitir" e o segundo clique emitia outra nota. Agora `gravarNotaDaVendaDoc`
+   grava só `status_nf`/`numero_nf`.
+5. **Impostos: dois cliques rápidos em produção dobravam o imposto.** A tela
+   chama a porta síncrona sem travar o botão; as duas consultas viam "nenhum
+   título" ao mesmo tempo. As gravações entram em fila.
+6. **Impostos na demonstração SUBSTITUÍAM o título** — uma guia já paga
+   voltava a pendente, e o segundo clique dizia "5 contas a pagar criadas" de
+   novo. A demonstração passou a usar a regra de produção (`contasSemTitulo`):
+   o que tem título vivo na competência não ganha outro nem é reescrito.
+7. **Excluir uma venda com nota emitida** apagava a venda e o recebível com a
+   nota valendo; e a demonstração apagava até recebimento BAIXADO (só produção
+   recusava). Uma regra para os dois caminhos: `bloqueioDeExclusao`.
+8. **`hydrateNfse` ignorava o `error` do banco** (o cliente não lança): uma
+   recusa virava "nenhuma nota" sem aviso.
+
+### Guardas do caçador que NÃO reprovavam o defeito plantado (consertadas)
+
+- `vender/pos: cada taxa vence com o repasse da sua parcela` — com todas as
+  taxas datadas de HOJE passava (a parcela 1 também vence hoje). Agora é
+  parcela a parcela.
+- `vender/impostos: produção é idempotente` — só conferia que as palavras
+  existiam; `const novas = contas` passava. Agora é função pura conferida por
+  valor + os dois caminhos obrigados a usá-la + a fila.
+- `vender/assinaturas: churn sem vermelho` — só reconhecia a forma exata de
+  antes; `style={{ color: alerta ? negative : … }}` passava (a jornada e2e
+  pegava). Agora o cartão inteiro não pode decidir cor do número.
+- A correção do recebível baixado em `salvarVenda` (demonstração) não tinha
+  guarda nenhuma — ganhou.
+- ⚠️ Medição contaminada, registrada: o primeiro build desta revisão rodou
+  AO MESMO TEMPO que o script que planta defeitos, e embarcou o churn vermelho
+  plantado. A jornada `vender-assinaturas` reprovou — o que serviu de prova de
+  que ela pega o defeito —, e o build foi refeito.
+
+### Fluxos novos dirigidos
+
+- `vender-nota-cancelar.mjs` (14 verificações): emitir → excluir recusado →
+  cancelar a nota sem perder o título → status "Cancelada" nos dois painéis →
+  exclusão passa e o título sai junto. Reprovou com os dois defeitos plantados
+  (exclusão sem regra e cancelamento sem refletir).
+- `vender-impostos.mjs` ganhou a verificação do segundo clique.
+
+### Não corrigido (decisão de produto)
+
+- **A venda da maquininha (POS) não é documento de venda.** Ela grava títulos
+  (bruto a receber + taxa a pagar), mas nenhuma linha em `sales_docs`: entra
+  no DRE e no contas a receber e NÃO entra na lista de vendas, no painel de NF
+  nem na base do provisionamento de impostos — duas faturas com o mesmo
+  rótulo, a regra "a venda tem uma morada só". Correção proposta: o POS gravar
+  pelo escritor da venda (`salvarVendaDoc`) com status `completa`, e o título
+  da venda passar a aceitar parcelas + taxa (hoje ele cria UM título). Muda o
+  formato do escritor único; fica para decisão.
+
 ## O que NÃO foi provado
 
+- Revisão: os consertos 1, 2, 4 e 5 acima são de caminho de PRODUÇÃO e foram
+  provados por leitura de código + guarda textual/por valor no `engine-audit`,
+  NÃO contra um banco. A demonstração não os exercita (lá a nota guarda o
+  vínculo no navegador).
 - Nenhum caminho de PRODUÇÃO foi exercitado contra um banco nesta rodada: as
   jornadas rodam no build de demonstração. A leitura do código live está nos
   itens acima e no commit anterior; a gravação real em `org_state` da

@@ -383,6 +383,21 @@ export function pendenciasConfig(c: ConfigImpostos, impostosComValor: Imposto[])
 export const descricaoDoImposto = (rotulo: string, mesCompetencia: string): string =>
   `${rotulo} · competência ${mesCompetencia}`;
 
+/**
+ * Separa as contas de imposto que AINDA não têm título vivo na competência
+ * das que já têm. É a idempotência do botão "Criar contas a pagar" em
+ * produção: clicar duas vezes (ou dois colegas, um em cada máquina) não pode
+ * dobrar o imposto do mês no fluxo de caixa. `descricoesVivas` são as
+ * descrições dos títulos de saída não cancelados que já existem.
+ */
+export function contasSemTitulo<T extends { rotulo: string }>(
+  contas: T[], mesCompetencia: string, descricoesVivas: Iterable<string>,
+): { novas: T[]; jaExistiam: string[] } {
+  const vivas = new Set(descricoesVivas);
+  const tem = (c: T) => vivas.has(descricaoDoImposto(c.rotulo, mesCompetencia));
+  return { novas: contas.filter((c) => !tem(c)), jaExistiam: contas.filter(tem).map((c) => c.rotulo) };
+}
+
 export interface LinhaImposto {
   vendaId: string;
   numero: string;
