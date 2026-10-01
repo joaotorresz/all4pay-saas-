@@ -151,6 +151,13 @@
         "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
         "resolver_ate": "2026-10-07",
         "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930210000_trava_periodo_olha_a_origem",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, um UPDATE que troca o vencimento de um título de mês FECHADO para um mês aberto passa no banco (a edição em massa recusa na tela, mas a fechadura é o banco). Redefine só a função do gatilho movements_periodo_fechado; nenhuma concessão muda.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote CAMP-B, edição em massa) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

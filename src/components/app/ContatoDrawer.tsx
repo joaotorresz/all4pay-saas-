@@ -14,6 +14,7 @@ import { formatBRL, pct } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
 import { posicaoDaContraparte } from "@/core/indicadores";
+import { SecaoExtrato } from "./ExtratoContato";
 
 const dia = (ds?: string | null) => (ds ? ds.slice(0, 10).split("-").reverse().join("/") : "—");
 const CLASS_COR: Record<string, string> = {
@@ -142,6 +143,13 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                     <div className="rounded-md bg-white border border-border-soft p-2 text-caption text-ink">{resumo.perfil.credito.resumo}</div>
                   </div>
                 </section>
+              )}
+
+              {/* CAMP-B · o extrato para mandar ao outro lado (PDF pela impressão). */}
+              {/* Aparece mesmo sem lançamento: "nenhum título no período" também é
+                  um extrato, e é o que se manda a quem pergunta se deve algo. */}
+              {inp && id && (
+                <SecaoExtrato input={inp} partyId={id} ehCliente={resumo.ehCliente} ehFornecedor={resumo.ehFornecedor} />
               )}
 
               {/* Últimos lançamentos */}

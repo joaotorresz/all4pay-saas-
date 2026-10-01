@@ -11,6 +11,7 @@
  */
 import { appendImported, removerImported } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 import {
   movimentosDaCompra, parcelasDaCompra,
   type Compra, type BoletoRecebido, type NFRecebida,
@@ -21,17 +22,17 @@ const K_COMPRAS = "a4p_compras";
 const K_BOLETOS = "a4p_boletos_recebidos";
 const K_NFS = "a4p_nfs_recebidas";
 
-function ler<T>(k: string, padrao: T): T {
-  if (typeof window === "undefined") return padrao;
-  try {
-    const s = localStorage.getItem(k);
-    return s ? (JSON.parse(s) as T) : padrao;
-  } catch { return padrao; }
-}
-function gravar(k: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* cota cheia */ }
-}
+/*
+ * ⚠️ CAMP-B — as três chaves já estavam declaradas como dado de NEGÓCIO
+ * (`CHAVES_ORG`), mas este arquivo as lia e gravava direto no localStorage:
+ * em produção o boleto capturado e a nota recebida ficavam só no navegador de
+ * quem os digitou. A caixa de entrada de contas junta estas fontes para a
+ * EMPRESA — com a leitura crua, o colega veria a decisão (que sobe ao
+ * servidor) sobre um documento que não existe no navegador dele. Agora passam
+ * por `store-org`, como as demais entidades classificadas.
+ */
+const ler = <T>(k: string, padrao: T): T => lerOrg<T>(k, padrao);
+const gravar = (k: string, v: unknown): void => gravarOrg(k, v);
 
 export const novoId = (p: string): string =>
   `${p}_${Date.now().toString(36)}_${Math.floor(Math.abs(performance.now()) % 1000)}`;
@@ -122,36 +123,12 @@ export function removerBoleto(id: string): BoletoRecebido[] {
   return out;
 }
 
-/**
- * Lança o boleto como conta a pagar.
- *
- * O boleto não é a despesa — é a cobrança dela. Virar título é o que o coloca
- * no fluxo; enquanto isso não acontece ele é só papel capturado.
+/*
+ * ⚠️ CAMP-B — `lancarBoleto` foi REMOVIDO. Ele criava o título só dentro de
+ * `if (isDemo)`; em produção marcava o boleto como lançado e nenhuma conta
+ * nascia. O boleto agora vira conta pelo formulário de conta a pagar (a partir
+ * da caixa de entrada ou da tela de boletos), que grava pelo escritor único.
  */
-export function lancarBoleto(b: BoletoRecebido, contaId: string, categoria: string): BoletoRecebido[] {
-  const movId = `boleto-${b.id}`;
-  if (isDemo) {
-    removerImported([movId]);
-    appendImported({
-      movement: {
-        id: movId,
-        account_id: contaId,
-        type: "saida",
-        status: "pendente",
-        amount: b.leitura.valor,
-        // Guia de arrecadação não traz vencimento no número; sem data o título
-        // não existiria no fluxo, então cai no dia em que foi capturado.
-        due_date: b.leitura.vencimento ?? b.recebidoEm,
-        paid_date: null,
-        reconciled: false,
-        category: categoria,
-        description: `Boleto ${b.beneficiario}`,
-        party_id: null,
-      } as unknown as Movement,
-    });
-  }
-  return salvarBoleto({ ...b, movimentoId: movId });
-}
 
 /* ------------------------------ NFs recebidas ------------------------------ */
 

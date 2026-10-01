@@ -915,7 +915,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
       party_id: m.party_id ?? m.description ?? null,
       accountId: m.account_id ?? null,
       category: m.category,
-      costCenter: demoCostCenter(m.category),
+      // CAMP-B: o centro trocado pela edição em massa (demonstração) vence o
+      // centro deduzido da categoria — senão a troca não apareceria em lugar nenhum.
+      costCenter: (m as { centro_nome?: string | null }).centro_nome ?? demoCostCenter(m.category),
       projeto: nomeProjeto[vinculos[m.id] ?? ""] ?? null,
       parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
       parcela: (m as { installment_no?: number | null }).installment_no ?? null,

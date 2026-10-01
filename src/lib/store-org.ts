@@ -109,6 +109,11 @@ export const CHAVES_ORG = {
   ajudaConversa: "a4p_ajuda_conversa",
   acoesIA: "a4p_ai_actions",
   orcamentoSimulador: "a4p_orcamento",
+  // CAMP-B · a caixa de entrada de contas a pagar: os documentos lidos por OCR
+  // que a pessoa deixou para decidir depois, e a DECISÃO sobre cada documento
+  // (virou conta, ou foi descartado com motivo). É dado de NEGÓCIO: o motivo
+  // de um descarte é a resposta para "por que este boleto não foi pago?".
+  caixaEntrada: "a4p_caixa_entrada",
 } as const;
 
 /**
@@ -267,6 +272,7 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_ajuda_conversa: "Conversa da Central de Ajuda",
   a4p_ai_actions: "Ações registradas da IA",
   a4p_orcamento: "Simulador de orçamento",
+  a4p_caixa_entrada: "Caixa de entrada de contas a pagar",
   a4p_cnpj_cache: "Cache de consulta de CNPJ",
   a4p_municipios: "Cache de municípios (IBGE)",
 };

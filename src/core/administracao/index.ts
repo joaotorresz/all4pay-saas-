@@ -299,6 +299,9 @@ export interface RegistroLog {
   entidadeId: string;
   entidade: string;
   resumo: string;
+  /** O campo de antes e o de depois, quando a ação alterou algo (CAMP-B: edição em massa). */
+  antes?: Record<string, unknown> | null;
+  depois?: Record<string, unknown> | null;
 }
 
 export interface FiltroLogs {

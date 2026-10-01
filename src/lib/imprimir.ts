@@ -37,7 +37,24 @@
 /** Marca posta na raiz enquanto a impressão acontece — o CSS pendura nela. */
 const ATRIBUTO = "data-imprimindo";
 
+/**
+ * Marca do modo DOCUMENTO (CAMP-B): em vez de imprimir a tela, imprime SÓ o
+ * elemento `[data-documento-impressao]` montado no `<body>` — o extrato do
+ * cliente, que é um documento para o outro lado, não um pedaço do app. O CSS
+ * esconde todo o resto do `<body>` quando esta marca está presente.
+ */
+const ATRIBUTO_DOCUMENTO = "data-imprimindo-documento";
+
 export function imprimirRelatorio(): void {
+  imprimir(false);
+}
+
+/** Imprime SÓ o `[data-documento-impressao]` montado no `<body>` (o extrato do cliente). */
+export function imprimirDocumento(): void {
+  imprimir(true);
+}
+
+function imprimir(documento: boolean): void {
   if (typeof window === "undefined") return;
   const html = document.documentElement;
   const eraEscuro = html.classList.contains("dark");
@@ -45,11 +62,13 @@ export function imprimirRelatorio(): void {
   const restaurar = () => {
     if (eraEscuro) html.classList.add("dark");
     html.removeAttribute(ATRIBUTO);
+    html.removeAttribute(ATRIBUTO_DOCUMENTO);
     window.removeEventListener("afterprint", restaurar);
   };
 
   if (eraEscuro) html.classList.remove("dark");
   html.setAttribute(ATRIBUTO, "1");
+  if (documento) html.setAttribute(ATRIBUTO_DOCUMENTO, "1");
   window.addEventListener("afterprint", restaurar);
 
   try {
