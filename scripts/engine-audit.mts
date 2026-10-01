@@ -6747,6 +6747,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /A4P-FECHAMENTO-SEGREGACAO/.test(sql) && /autorrevisao := true/.test(sql) && /role_permissions rp on rp\.papel = om\.role and rp\.acao = 'fechar'/.test(sql));
   ok("campa checklist: o piso do motivo é o MESMO na tela e no banco",
      new RegExp(`< ${ck.MOTIVO_MINIMO}`).test(sql));
+  // ⚠️ (revisão CAMP-A) A fechadura tem guarda de BANCO no CI — a que exercita
+  // as portas laterais (mês → nulo, lixeira, trocar o mês). Esta asserção só
+  // impede que o passo saia do CI sem ninguém ver.
+  const ciYml = fsC.readFileSync(".github/workflows/ci.yml", "utf8");
+  ok("campa checklist: o CI roda a guarda de banco do checklist (scripts/fechamento-checklist.sql)",
+     /-f scripts\/fechamento-checklist\.sql/.test(ciYml) && fsC.existsSync("scripts/fechamento-checklist.sql"));
   // ⚠️ Uma morada só: a tela não volta a ler as tarefas do navegador unido ao banco.
   const closeLib = fsC.readFileSync("src/lib/close.ts", "utf8");
   ok("campa checklist: lib/close não guarda mais tarefa (era a segunda morada)",
@@ -6867,6 +6873,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const alugueis = semAlu08.estimados.filter((e) => /aluguel/i.test(`${e.descricao} ${e.categoria ?? ""}`));
   ok("campa previsao: compromisso com regra é estimado UMA vez (a regra responde; o padrão não duplica)",
      alugueis.length === 1 && alugueis[0].origem === "regra" && semAlu08.camadas.estimado.saidas === 2200, JSON.stringify(alugueis));
+  // ⚠️ (revisão CAMP-A) O aluguel de agosto lançado À MÃO, sem a chave `rec:`
+  // da regra — o materializador está parado em produção. Ele já está no
+  // agendado; a regra NÃO pode estimá-lo de novo (seriam R$ 3.000 de aluguel).
+  const aluManual = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [
+    ...inpPrev.movements.filter((x) => x.id !== "alu08"),
+    m("alu08m", "saida", "pendente", 1500, "2026-08-11", { category: "Aluguel", party_id: "p-imob" }),
+  ] }, regras });
+  ok("campa previsao: aluguel lançado À MÃO no mês (sem rec:) não é estimado de novo pela regra",
+     !aluManual.estimados.some((e) => /aluguel/i.test(`${e.descricao} ${e.categoria ?? ""}`))
+     && aluManual.camadas.agendado.saidas === 3500 && aluManual.previsto.saidas === 5400,
+     JSON.stringify({ est: aluManual.estimados, prev: aluManual.previsto }));
   // O vencido de antes do mês entra no agendado, e é DITO à parte.
   const comVencido = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [...inpPrev.movements,
     m("velho", "saida", "pendente", 450, "2026-07-20", { category: "Fornecedores", party_id: "p-y" })] }, regras });

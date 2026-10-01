@@ -148,3 +148,67 @@ e meses sem nenhuma tarefa gerada travam como antes.
 - A previsão não estima **entrada** a partir de regra cadastrada: `recurrences` hoje
   só gera saídas (as regras do lado da receita, contratos, vivem em
   `lib/recorrencias` no navegador). O lado da entrada é estimado pelos padrões.
+
+---
+
+## Revisão adversarial (branch `r2/campa-rev`)
+
+### ⚠️ A MÁQUINA TINHA UMA PORTA PELA SAÍDA DAS LINHAS ANTIGAS — e o mês da tarefa era editável
+
+O gatilho começava com `if new.mes is null then return new` ("linhas antigas não
+têm máquina"). **Medido no banco local:** `update close_tasks set mes = null,
+status = 'done'` passava, e o `update … set mes = '2026-09-01'` seguinte devolvia
+a tarefa ao mês como **revisada, sem revisor e sem segregação** — com outra
+pessoa habilitada na empresa. Pelo mesmo buraco, mudar `mes` tirava a tarefa da
+conta da trava (travar sem motivo) e do congelamento de um mês já travado.
+
+- **O mês e a chave de uma tarefa do checklist não mudam** (A4P-FECHAMENTO-TRANSICAO),
+  e a conferência vem ANTES da saída das linhas antigas. Isso também impede que
+  uma linha antiga `done` "vire" tarefa do checklist recebendo `mes`.
+- ⚠️ **Tarefa do checklist não vai para a lixeira.** `excluir_logico` (DEFINER, só
+  exige `lancar`) mandava a tarefa aberta para a lixeira, a política restritiva a
+  escondia, e a trava contava zero abertas: um lançador abria caminho para travar
+  o mês sem motivo. Agora o gatilho recusa.
+- ⚠️ **Mês travado não ganha tarefa nova** (INSERT recusado) e a tela não tenta
+  gerar o checklist de mês travado — nem antes de hidratar as travas, quando todo
+  mês parece aberto. Sem isso, abrir um mês travado antes do checklist existir
+  criava cinco tarefas "a fazer" congeladas para sempre.
+- **A fechadura ganhou guarda de BANCO no CI** (`scripts/fechamento-checklist.sql`,
+  job de isolamento): a jornada inteira mais as portas laterais (mês → nulo, trocar
+  mês/chave, lixeira por `update` e por `excluir_logico`, linha antiga promovida,
+  carimbo à mão, inserir em mês travado), com o teste negativo dentro (gatilho
+  desligado → a asserção da segregação reprova NOMEANDO-a). **Provada contra a
+  migration original:** reprova em `NÃO REPROVOU … mes=null, status='done'`.
+  A prova do pacote ficava num arquivo em `/tmp` que nenhum CI roda, e imprimia
+  "FALHA" sem levantar exceção.
+
+### ⚠️ A PREVISÃO CONTAVA O ALUGUEL DUAS VEZES quando o título era lançado À MÃO
+
+A regra de recorrência só se casava com título que tivesse a chave
+`rec:<regra>:<data>` — e o materializador está parado em produção, então o aluguel
+é lançado pelo formulário, sem a chave. O título ia para o agendado E a regra o
+estimava de novo (fixture: saídas previstas 6.900 em vez de 5.400). Agora a regra
+também é suprimida quando o COMPROMISSO dela (contraparte + categoria, a mesma
+chave do padrão inferido) já apareceu no mês. Guarda nova no `engine-audit`,
+provada plantando o defeito.
+
+### Tela
+
+- `PrevisaoDoMes`: falha ao ler regras ou lançamentos virava **esqueleto eterno**;
+  agora a mensagem real aparece no lugar do número.
+
+### Pendências justificadas (não corrigidas aqui)
+
+- ⚠️ **Quem conclui e atribui é qualquer membro, inclusive `leitor`.** `close_tasks`
+  só tem a política por organização (desde a 0010). Restringir concluir/atribuir a
+  quem tem `lancar` MUDA QUEM PODE CHAMAR O QUÊ — é decisão do dono, não da revisão.
+  Revisar já exige `fechar`.
+- O **revisor atribuído não é exigido**: qualquer membro com `fechar` (que não seja
+  quem concluiu, havendo outro) revisa. O campo é de responsabilidade, não trava.
+- `a4p_close_tasks` continua em `CHAVES_ORG` e sobe para `org_state` em produção,
+  onde ninguém mais o lê (a morada é `close_tasks`). Dado morto, não divergente;
+  reclassificar mexe na guarda de persistência e fica para quem fizer a limpeza.
+- Reabrir mês por `update` direto em `accounting_periods` (sem `fechar_periodo`)
+  não exige motivo — anterior a este pacote (0030), fora do escopo.
+- O casamento regra × título manual depende do NOME: regra sem contraparte, ou
+  título sem o cadastro da mesma contraparte, ainda pode ser estimado por cima.

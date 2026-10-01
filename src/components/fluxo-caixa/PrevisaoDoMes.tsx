@@ -58,7 +58,7 @@ function Barra({ p, lado }: { p: Previsao; lado: "entradas" | "saidas" }) {
 }
 
 export function PrevisaoDoMes() {
-  const { data: input, isLoading } = useRiscoInput();
+  const { data: input, isLoading, error: erroInput } = useRiscoInput();
   const regras = useRegrasRecorrentes();
   const [abrir, setAbrir] = React.useState(false);
 
@@ -67,6 +67,17 @@ export function PrevisaoDoMes() {
     [input, regras.data],
   );
 
+  // ⚠️ Falha na leitura das regras ou dos lançamentos NÃO vira esqueleto eterno
+  // nem previsão sem a camada estimada: a mensagem real aparece no lugar do número.
+  const falha = (erroInput ?? regras.error) as Error | null;
+  if (falha) {
+    return (
+      <Card role="alert" className="flex flex-col gap-1">
+        <span className="text-h3 text-ink">Previsão do mês</span>
+        <p className="m-0 text-body text-negative">Não foi possível montar a previsão: {falha.message}</p>
+      </Card>
+    );
+  }
   if (isLoading || regras.isLoading || !p) return <Skeleton className="h-[200px]" />;
   const nomeMes = janelaDoMesDe(p.hoje).label;
 

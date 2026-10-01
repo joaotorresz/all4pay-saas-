@@ -70,7 +70,9 @@ export function FechamentoView() {
   const hoje = q.data?.hoje?.slice(0, 10) ?? "";
 
   React.useEffect(() => {
-    if (!mesAtivo) return;
+    // ⚠️ Só depois de hidratar as travas: antes disso todo mês parece aberto, e
+    // a geração do checklist tentaria criar tarefas num mês já travado.
+    if (!mesAtivo || !hydrated) return;
     setTravado(isPeriodLocked(mesAtivo));
     setTarefas(null); setErro(null); setAviso(null); setMotivo("");
     tarefasDoMes(mesAtivo).then(setTarefas).catch((e) => { setTarefas([]); setErro((e as Error).message); });

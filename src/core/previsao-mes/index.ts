@@ -141,17 +141,6 @@ export function montarPrevisaoDoMes({ input, regras }: EntradaPrevisao): Previsa
   /* ---- 3. ESTIMADO ------------------------------------------------------- */
   const estimados: ItemEstimado[] = [];
 
-  // 3a. Regras de recorrência sem título no mês.
-  const proj = projetarRecorrentes({ regras: [...regras], movimentos: input.movements, de: jm.de, ate: jm.ate });
-  for (const o of proj.ocorrencias) {
-    if (o.origem !== "projetado") continue; // ⚠️ realizado = título existe → já está nas camadas 1 ou 2
-    estimados.push({
-      chave: o.chave, origem: "regra", tipo: "saida", descricao: o.descricao,
-      categoria: o.categoria, valor: o.valor, data: o.vencimento,
-    });
-  }
-
-  // 3b. Padrões inferidos (fixos e variáveis) que ainda não apareceram no mês.
   const nomes = input.partyNames ?? {};
   const doMes = input.movements.filter((m) => !cancelado(m) && (m.paid_date ?? m.due_date).slice(0, 7) === mes);
   const idsRegras = new Set(regras.map((r) => r.id));
@@ -162,9 +151,32 @@ export function montarPrevisaoDoMes({ input, regras }: EntradaPrevisao): Previsa
     if (rid && idsRegras.has(rid)) chavesDaRegra.add(`${m.type}|${chaveDoCompromisso(m, nomes)}`);
   }
   for (const m of doMes) chavesNoMes.add(`${m.type}|${chaveDoCompromisso(m, nomes)}`);
+  // O compromisso de uma regra, na MESMA forma de chave do padrão inferido
+  // (contraparte · categoria, em minúsculas).
+  const chaveDaRegra = (r: RegraRecorrente) =>
+    `saida|${(r.contraparte ?? "").trim().toLowerCase()}·${(r.categoria ?? "—").trim().toLowerCase()}`;
+  const regraPorId = new Map(regras.map((r) => [r.id, r]));
   // A regra também "cobre" o compromisso de mesma contraparte + categoria.
-  const regraCobre = new Set(regras.map((r) => `saida|${(r.contraparte ?? "").trim().toLowerCase()}·${(r.categoria ?? "—").trim().toLowerCase()}`));
+  const regraCobre = new Set(regras.map(chaveDaRegra));
 
+  // 3a. Regras de recorrência sem título no mês.
+  const proj = projetarRecorrentes({ regras: [...regras], movimentos: input.movements, de: jm.de, ate: jm.ate });
+  for (const o of proj.ocorrencias) {
+    if (o.origem !== "projetado") continue; // ⚠️ realizado = título existe → já está nas camadas 1 ou 2
+    // ⚠️ O título do mês pode ter sido lançado À MÃO, sem a chave `rec:` da
+    // regra (o materializador está parado em produção e o aluguel é pago pelo
+    // formulário). Ele já está no realizado ou no agendado; estimar a regra
+    // por cima contaria o mesmo aluguel duas vezes. O casamento é o mesmo do
+    // padrão inferido: o compromisso (contraparte + categoria) já apareceu no mês.
+    const regra = regraPorId.get(o.regraId);
+    if (regra && chavesNoMes.has(chaveDaRegra(regra))) continue;
+    estimados.push({
+      chave: o.chave, origem: "regra", tipo: "saida", descricao: o.descricao,
+      categoria: o.categoria, valor: o.valor, data: o.vencimento,
+    });
+  }
+
+  // 3b. Padrões inferidos (fixos e variáveis) que ainda não apareceram no mês.
   for (const tipo of ["saida", "entrada"] as const) {
     // O histórico é a janela de 6 meses que TERMINA no mês anterior: o mês
     // corrente ainda está acontecendo, e deixá-lo entrar faria "não apareceu

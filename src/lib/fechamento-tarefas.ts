@@ -113,9 +113,14 @@ const ordenar = (ts: TarefaFechamento[]) => ts.sort((a, b) => a.ordem - b.ordem 
  * O responsável e o revisor são herdados do mês anterior (`tarefasAGerar`).
  */
 export async function tarefasDoMes(mes: string): Promise<TarefaFechamento[]> {
+  // ⚠️ Mês travado não GERA tarefa: a lista de um mês entregue não cresce
+  // depois da entrega, e o banco recusa a inserção (A4P-FECHAMENTO-MES-TRAVADO).
+  // Sem esta conferência, abrir um mês travado antes do checklist existir
+  // criaria cinco tarefas "a fazer" congeladas para sempre.
+  const travado = isPeriodLocked(mes);
   if (isDemo) {
     const todas = lerDemo();
-    const novas = tarefasAGerar(mes, todas).map((t) => ({ ...t, id: idDemo() }));
+    const novas = travado ? [] : tarefasAGerar(mes, todas).map((t) => ({ ...t, id: idDemo() }));
     if (novas.length) gravarDemo([...todas, ...novas]);
     return ordenar([...todas, ...novas].filter((t) => t.mes === mes));
   }
@@ -124,7 +129,7 @@ export async function tarefasDoMes(mes: string): Promise<TarefaFechamento[]> {
   const { data, error } = await s.from("close_tasks").select(COLUNAS).in("mes", meses).limit(TETO_LINHAS);
   if (error) throw new Error(error.message);
   const existentes = ((data ?? []) as Linha[]).map(deLinha);
-  const novas = tarefasAGerar(mes, existentes);
+  const novas = travado ? [] : tarefasAGerar(mes, existentes);
   if (novas.length) {
     // ⚠️ `ignoreDuplicates`: dois computadores abrindo o mês ao mesmo tempo
     // tentam criar as mesmas tarefas, e o índice (org_id, mes, chave) deixa

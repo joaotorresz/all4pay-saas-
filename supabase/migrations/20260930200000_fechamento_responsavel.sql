@@ -104,12 +104,32 @@ as $$
 declare
   v_outro_revisor boolean := false;
 begin
+  -- ⚠️ O MÊS de uma tarefa não muda, e a CHAVE de uma tarefa do checklist
+  -- também não. Esta conferência vem ANTES da saída das linhas antigas, e é
+  -- ela que dá sentido a todo o resto: sem ela, `update … set mes = null,
+  -- status = 'done'` saía da máquina pela porta das linhas antigas e
+  -- devolvia o mês depois — uma tarefa "revisada" sem revisor nem segregação
+  -- (medido na revisão: passava). E mover a tarefa para outro mês a tirava da
+  -- conta da trava (ou do congelamento de um mês já travado).
+  if tg_op = 'UPDATE'
+     and (new.mes is distinct from old.mes
+          or (old.mes is not null and new.chave is distinct from old.chave)) then
+    raise exception 'A4P-FECHAMENTO-TRANSICAO: o mês e a tarefa-modelo de um item do checklist não mudam.'
+      using hint = 'Conclua, revise ou reabra a tarefa no mês dela.';
+  end if;
+
   -- As linhas antigas (sem mês) não têm máquina: nasceram antes dela.
   if new.mes is null then
     return new;
   end if;
 
   if tg_op = 'INSERT' then
+    -- ⚠️ Mês travado não ganha tarefa nova: a lista do mês entregue não cresce
+    -- depois da entrega (o mesmo congelamento do UPDATE abaixo).
+    if public.periodo_fechado(new.mes, new.org_id) then
+      raise exception 'A4P-FECHAMENTO-MES-TRAVADO: % está travado; o checklist dele não muda mais.', to_char(new.mes, 'MM/YYYY')
+        using hint = 'Reabra o período (com motivo) para alterar o checklist.';
+    end if;
     -- ⚠️ Uma tarefa nasce A FAZER. Nascer concluída pularia o carimbo de quem
     -- concluiu, e nascer revisada pularia a segregação inteira.
     if new.status <> 'pending' then
@@ -125,6 +145,15 @@ begin
     if public.periodo_fechado(new.mes, new.org_id) then
       raise exception 'A4P-FECHAMENTO-MES-TRAVADO: % está travado; o checklist dele não muda mais.', to_char(new.mes, 'MM/YYYY')
         using hint = 'Reabra o período (com motivo) para alterar o checklist.';
+    end if;
+    -- ⚠️ Uma tarefa do checklist não vai para a lixeira. A trava do mês só
+    -- conta as tarefas que não estão na lixeira; mandar a tarefa aberta para
+    -- lá (`excluir_logico`, que só exige o papel de lançar) travaria o mês
+    -- sem motivo nenhum — o motivo existe para dizer por que algo ficou
+    -- aberto, e a lixeira o apagaria junto com a tarefa.
+    if new.excluido_em is not null and old.excluido_em is null then
+      raise exception 'A4P-FECHAMENTO-TRANSICAO: uma tarefa do checklist não vai para a lixeira.'
+        using hint = 'Conclua e revise a tarefa, ou trave o mês com o motivo escrito.';
     end if;
     -- Os carimbos só se movem com a transição (ver o cabeçalho).
     new.concluida_por := old.concluida_por; new.concluida_em := old.concluida_em;
