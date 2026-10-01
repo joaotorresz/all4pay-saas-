@@ -107,9 +107,11 @@ export default async function cad(navegador) {
   await u.page.getByPlaceholder("Digite para buscar…").fill("Jornada CAD");
   await u.page.waitForTimeout(400);
   const opcoesCat = await u.page.locator('[role="option"]').allTextContents();
-  v.ok(opcoesCat.some((o) => o.trim() === "Folha Jornada CAD"), "a subcategoria (folha) é oferecida no lançamento",
+  // Desde a parte 2 a folha vem rotulada pelo CAMINHO ("Grupo › Folha"): o
+  // grupo aparece no rótulo da folha, mas nunca como opção própria.
+  v.ok(opcoesCat.some((o) => o.trim().endsWith("Folha Jornada CAD")), "a subcategoria (folha) é oferecida no lançamento",
     opcoesCat.join(" · "));
-  v.ok(!opcoesCat.some((o) => o.includes("Grupo Jornada CAD")), "o GRUPO não é oferecido no lançamento",
+  v.ok(!opcoesCat.some((o) => o.trim() === "Grupo Jornada CAD"), "o GRUPO não é oferecido no lançamento",
     opcoesCat.join(" · "));
   await u.page.locator('[role="option"]', { hasText: "Folha Jornada CAD" }).first().click();
   await u.page.waitForTimeout(300);

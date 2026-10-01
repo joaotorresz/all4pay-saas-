@@ -98,7 +98,9 @@ export function EstruturaCadastrosView() {
             <span className="text-caption text-muted tabular-nums">
               {pendencias.length === 0
                 ? "Nada pendente"
-                : `${bloqueios} ${bloqueios === 1 ? "impede" : "impedem"} o lançamento · ${pendencias.length - bloqueios} de atenção`}
+                : bloqueios === 0
+                  ? `Nada impede o lançamento · ${pendencias.length} de atenção`
+                  : `${bloqueios} ${bloqueios === 1 ? "impede" : "impedem"} o lançamento · ${pendencias.length - bloqueios} de atenção`}
             </span>
           </div>
           {pendencias.length === 0 ? (
