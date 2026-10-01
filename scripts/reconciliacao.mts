@@ -226,7 +226,8 @@ const MATRIZ: Linha[] = [
     porque: "meses é CONVERSÃO (÷30), nunca um segundo cálculo com outro teto.",
     caminhos: [
       { via: "canônico runwayMeses()", valor: runwayMeses(INPUT_QUEIMANDO).valor },
-      { via: "quantitativo", valor: quant.indicadores.runwayMeses },
+      // `null` (indisponível) vira NaN: numa empresa que QUEIMA, a ausência é o defeito.
+      { via: "quantitativo", valor: quant.indicadores.runwayMeses ?? Number.NaN },
     ],
   },
   {

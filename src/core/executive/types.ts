@@ -11,6 +11,7 @@
  */
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 
+import type { MotivoIndisponivel } from "@/core/indicadores";
 export type InsightTipo =
   | "risco"
   | "oportunidade"
@@ -39,7 +40,13 @@ export interface ExecutiveInsight {
 export interface ExecutiveContext {
   hoje: string;
   saldoAtual: number;
-  runwayMeses: number;
+  /**
+   * ⚠️ `null` = runway INDISPONÍVEL (o motivo vem em `runwayMotivo`). Este
+   * contexto vai para a IA — a nativa e a do Claude — e um `0` aqui virava
+   * "runway de 0 meses" na resposta para uma empresa que gera caixa.
+   */
+  runwayMeses: number | null;
+  runwayMotivo?: { codigo: MotivoIndisponivel; motivo: string };
   burnRate: number;
   receitaMensal: number;
   despesaMensal: number;
@@ -87,7 +94,8 @@ export interface Briefing {
   saudacao: string;
   data: string;
   saldo: number;
-  runway: number;
+  /** ⚠️ `null` = runway indisponível (ver `ExecutiveContext.runwayMotivo`). */
+  runway: number | null;
   alertas: string[];
   oportunidades: string[];
   riscoRuptura: "baixo" | "moderado" | "elevado";

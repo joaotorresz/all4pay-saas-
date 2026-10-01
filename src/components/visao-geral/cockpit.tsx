@@ -57,6 +57,7 @@ export function useCockpitCtx(): CockpitCtx {
 }
 
 import { valorOuNulo, dataDe, type Indicador } from "@/core/indicadores";
+import { rotuloRunway } from "@/core/quant/score";
 
 // Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a
 // direção. POS/NEG/WARN ficam só para NÍVEL e ALERTA (score por faixa,
@@ -186,7 +187,7 @@ export interface CatalogWidget {
   render: (ctx: CockpitCtx) => React.ReactNode;
 }
 
-const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1));
+const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1).replace(".", ","));
 const pctTxt = (n: number) => `${Math.round(n * 100)}%`;
 /*
  * ⚠️ **Margem é `Indicador`, e pode NÃO EXISTIR.** Sem receita líquida no
@@ -258,10 +259,12 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "runway_meses", label: "Fôlego de caixa (runway)", categoria: "Caixa",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" icon="trending-up" label="Fôlego de caixa"
-        value={`${meses(c.quant.indicadores.runwayMeses)} meses`}
-        answer={c.quant.indicadores.burnRate > 0
+        value={c.quant.indicadores.runwayMeses !== null ? `${meses(c.quant.indicadores.runwayMeses)} meses` : rotuloRunway(c.quant.indicadores)}
+        answer={c.quant.indicadores.runwayMeses !== null
           ? `Seu caixa cobre ${meses(c.quant.indicadores.runwayMeses)} meses no burn atual de ${formatBRL(c.quant.indicadores.burnRate)}/mês.`
-          : "A operação gera caixa — runway saudável."}
+          : c.quant.indicadores.runwayMotivo?.codigo === "sem_queima"
+            ? "A operação gera caixa — não há queima pela qual dividir, então não há prazo de runway."
+            : `Sem runway a calcular: ${c.quant.indicadores.runwayMotivo?.motivo ?? "sem base"}.`}
         info={{ titulo: "Fôlego de caixa", oQue: "Por quantos meses o caixa atual aguenta no ritmo de gasto de hoje.", comoCalcula: "Saldo de caixa dividido pelo burn rate (consumo líquido mensal)." }} />
     ),
   },
@@ -1195,7 +1198,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       return (
         <MetricCard href="/investidores" hrefLabel="Abrir relatório ao investidor" icon="mail" label="Investor snapshot"
           value={<BRL value={mrr} />}
-          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway de ${meses(ind.runwayMeses)} meses. O relatório mensal pronto está em Relatórios → Relatório ao investidor.`}
+          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway: ${ind.runwayMeses !== null ? `${meses(ind.runwayMeses)} meses` : rotuloRunway(ind).replace(/^— /, "")}. O relatório mensal pronto está em Relatórios → Relatório ao investidor.`}
           info={{ titulo: "Investor snapshot", oQue: "Os números que investidor pergunta primeiro: MRR/ARR, crescimento e runway.", comoCalcula: "MRR = share recorrente × receita mensal (ARR = 12×MRR); crescimento = receita vs. mês anterior; runway = caixa ÷ burn. O texto completo sai na página Relatório ao investidor." }} />
       );
     },

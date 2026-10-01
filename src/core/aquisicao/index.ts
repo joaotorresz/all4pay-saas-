@@ -161,8 +161,13 @@ export interface ResultadoSimulacao {
   alternativas: Alternativa[];
 }
 
-/** Reserva de emergência recomendada, em meses de despesa. */
-const RESERVA_IDEAL = 3;
+/**
+ * Reserva de emergência recomendada, em meses de despesa.
+ *
+ * Exportada porque a Quattro AI responde "posso gastar X?" com ESTE simulador —
+ * a mesma regra de reserva da tela "Posso comprar?", não uma segunda.
+ */
+export const RESERVA_IDEAL = 3;
 /** Teto clássico de comprometimento da renda com parcelas. */
 const COMPROMETIMENTO_TETO = 0.3;
 

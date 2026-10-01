@@ -97,7 +97,7 @@ function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Brief
         </div>
         <div>
           <div className="text-caption text-faint">Runway</div>
-          <div className="text-h3 font-medium tabular-nums text-ink">{b.runway}m</div>
+          <div className="text-h3 font-medium tabular-nums text-ink">{b.runway === null ? "—" : `${b.runway.toFixed(1).replace(".", ",")}m`}</div>
         </div>
       </div>
       {b.alertas.length > 0 && (

@@ -36,8 +36,12 @@ const input: RiskInput = { hoje: HOJE, saldoAtual: 50000, partyNames: { A: "Loja
 
 // [pergunta, regex do NÚMERO esperado, descrição do cálculo]
 const CASES: [string, RegExp, string][] = [
-  // jul: rec 10000, desp 6000 → margem = 4000/10000 = 40%
-  ["qual minha margem esse mês?", /\b40%/, "resultado 4000 / receita 10000"],
+  // jul: rec 10000, desp 6000 → margem LÍQUIDA do DRE = 4000/10000 = 40,0%.
+  // ⚠️ A margem passou a sair da cascata do DRE (competência) e a ser escrita
+  // com uma casa decimal (regra da ONDA 11). O NÚMERO é o mesmo: aqui não há
+  // pendente, então caixa e competência coincidem — o caso que DISCRIMINA as
+  // duas contas está no `engine-audit`, bloco IA.
+  ["qual minha margem esse mês?", /\b40,0%/, "resultado líquido 4000 / receita líquida 10000 (DRE)"],
   // break-even = média despesa 3 meses = (10000+20000+6000)/3 = 12000
   ["qual meu ponto de equilíbrio?", /12\.000/, "média despesa (10000+20000+6000)/3"],
   // gasto jul = 6000

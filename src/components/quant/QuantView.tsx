@@ -27,6 +27,7 @@ import {
   type BenchmarkLinha,
 } from "@/core/quant/types";
 import { chartAnim } from "@/lib/chart-anim";
+import { rotuloRunway } from "@/core/quant/score";
 import { pctDeInteiro, pct, comSinal, MENOS } from "@/lib/format";
 
 const COR: Record<ClassificacaoSaude, string> = {
@@ -159,7 +160,7 @@ export function QuantView() {
         <span className="text-label font-medium text-muted">Indicadores institucionais</span>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-4">
           <Kpi label="Liquidez corrente" value={liq(i.liquidezCorrente)} />
-          <Kpi label="Runway" value={`${i.runwayMeses}m`} />
+          <Kpi label="Runway" value={rotuloRunway(i)} />
           <Kpi label="Burn / mês" value={i.burnRate > 0 ? <BRL value={i.burnRate} /> : "—"} />
           <Kpi label="Burn multiple" value={i.burnRate > 0 ? `${i.burnMultiple}x` : "—"} />
           <Kpi label="Margem de caixa (90d)" value={pct(i.margemCaixa90d)} />

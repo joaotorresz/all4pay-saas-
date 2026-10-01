@@ -17,7 +17,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { classificarDespesa } from "@/core/indicadores/classificacao";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
-import { simularAquisicao, situacaoDe, presetPor, VEREDITO_LABEL, type TipoDecisao } from "@/core/aquisicao";
+import { simularAquisicao, situacaoDe, presetPor, VEREDITO_LABEL, RESERVA_IDEAL, type TipoDecisao } from "@/core/aquisicao";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
 import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
@@ -27,9 +27,27 @@ import { comVoz, textoDeOrigem } from "@/core/glossario";
 // ⚠️ A cascata do DRE é a ÚNICA fonte de linha de resultado no produto. A IA
 // entra aqui como consumidora, não como uma segunda implementação — ver o
 // bloco do EBITDA e `scripts/contrato-resultado.mts`.
-import { cascataDRE } from "@/core/relatorios/cascata";
+import { cascataDRE, type CascataDRE, type LinhaCascata } from "@/core/relatorios/cascata";
+// ⚠️ Runway, burn e a ausência deles vêm da camada CANÔNICA — a mesma que o
+// Fluxo de caixa e o DRE mostram. A IA lia o `ctx.runwayMeses` do quant, que
+// copiava só o `.valor` do canônico: "runway de 0 meses" para uma empresa com
+// R$ 2,2 milhões que gera caixa, ao lado de uma tela dizendo "não há queima".
+import { runway as runwayCanonico, burn as burnCanonico, geracaoCaixaMensal, formaCurta, JANELA_RITMO_DIAS, foraDaBaseTributavel } from "@/core/indicadores";
+import { ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
+import { fraseRunway, classificar } from "@/core/quant/score";
+import type { ClassificacaoSaude } from "@/core/quant/types";
+import { avisoDeSaturacao } from "@/core/metodologia";
+// A semana é SEGUNDA a DOMINGO, a mesma dos painéis de contas a pagar e a
+// receber. A IA usava domingo a sábado: "o que vence esta semana?" deixava de
+// fora o título do domingo que a tela "Essa semana" mostrava.
+import { periodoSemana } from "@/core/contas-pagar";
+// "A receber" é CONTA a receber — a mesma regra do painel de Contas a receber.
+// Transferência entre contas próprias, resgate, empréstimo e rendimento entram
+// no extrato como ENTRADA e não são algo que alguém deve à empresa: a IA os
+// somava ao "a receber" e à lista de devedores, e a tela não.
+import { ehContaAReceber } from "@/core/contas-receber";
 
-import { formatBRL } from "@/lib/format";
+import { formatBRL, decimalBR, pct as pctBR } from "@/lib/format";
 const fmt = (v: number) => formatBRL(v);
 const pad = (n: number) => String(n).padStart(2, "0");
 const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
@@ -49,7 +67,7 @@ function janela(p: string, hojeISO: string): Janela {
   if (/amanh[ãa]/.test(p)) { const o = new Date(y, m, d + 1); return { label: "amanhã", from: iso(o), to: iso(o) }; }
   const ult = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+dias/);
   if (ult) { const n = +ult[1]; const a = new Date(y, m, d - n + 1); return { label: `nos últimos ${n} dias`, from: iso(a), to: hojeISO }; }
-  if (/semana/.test(p)) { const dom = new Date(y, m, d - hoje.getDay()); const sab = new Date(dom); sab.setDate(dom.getDate() + 6); return { label: "nesta semana", from: iso(dom), to: iso(sab) }; }
+  if (/semana/.test(p)) { const sem = periodoSemana(hojeISO); return { label: "nesta semana", from: sem.de, to: sem.ate }; }
   if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
   if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
   // "últimos N meses" = janela ROLANTE (N meses até hoje), não trimestre/semestre
@@ -74,9 +92,37 @@ function janela(p: string, hojeISO: string): Janela {
   const f = new Date(y, m, 1); const t = new Date(y, m + 1, 0); return { label: `em ${MES[m]}`, from: iso(f), to: iso(t) };
 }
 
+/**
+ * "em média 2 dias antes do vencimento" / "no dia do vencimento".
+ * ⚠️ Com média ZERO a frase montada saía "0 dia(s) no do vencimento" — português
+ * quebrado exatamente na resposta boa ("pagam em dia").
+ */
+const emMediaAoVencimento = (dias: number): string =>
+  dias < 0 ? `em média ${Math.abs(dias)} dia(s) antes do vencimento` : "em média no dia do vencimento";
+
 const within = (ds: string | null | undefined, w: Janela) => !!ds && ds.slice(0, 10) >= w.from && ds.slice(0, 10) <= w.to;
 const cashDate = (m: RiskMovement) => (m.paid_date || m.due_date || "").slice(0, 10);
 const ativos = (ms: RiskMovement[]) => ms.filter((m) => m.status !== "cancelado");
+
+/*
+ * ⚠️ RECEITA não é "toda entrada", e GASTO não é "toda saída" (revisão de
+ * 01/10/2026). A IA respondia "quanto faturei?" somando empréstimo, resgate,
+ * rendimento e transferência entre contas próprias — "Principal origem:
+ * Empréstimo bancário" — e "quanto gastei?" com a perna de saída da
+ * transferência. As telas (DRE, base do imposto, Contas a receber) já separam:
+ * a regra é a mesma `foraDaBaseTributavel` / `ehTransferenciaEntreContas`.
+ * O que fica de fora não some: a resposta o DIZ, separado, porque entrou ou
+ * saiu do caixa de verdade.
+ */
+const ehReceitaDeVenda = (m: RiskMovement) => m.type === "entrada" && !foraDaBaseTributavel(m.category);
+const ehGastoReal = (m: RiskMovement) => m.type === "saida" && !ehTransferenciaEntreContas(m.category);
+/** "Fora da receita, entraram também R$ X (empréstimo, transferência…)". */
+function foraDaReceita(ms: RiskMovement[]): string {
+  if (!ms.length) return "";
+  const tot = ms.reduce((s, m) => s + Math.abs(m.amount), 0);
+  const cats = Array.from(new Set(ms.map((m) => (m.category || "sem categoria").trim()))).slice(0, 3).join(", ");
+  return ` Fora da receita, entraram também ${formatBRL(tot)} que não são faturamento (${cats}).`;
+}
 
 function topCategorias(ms: RiskMovement[], n = 5) {
   const map = new Map<string, number>();
@@ -151,6 +197,61 @@ const R = (
 /** Série de barras a partir de um `{nome, valor}[]` já ordenado. */
 const barras = (titulo: string, tom: GraficoResposta["tom"], dados: { nome: string; valor: number }[], n = 5): GraficoResposta | undefined =>
   dados.length >= 2 ? { tipo: "barras", titulo, tom, dados: dados.slice(0, n) } : undefined;
+
+/* ── O DRE, lido da cascata (a mesma função que desenha o relatório) ─────── */
+
+/** As linhas que SOMAM lançamentos até o EBITDA — as "=" saem de fórmula. */
+const LINHAS_ATE_EBITDA: readonly LinhaCascata[] = [
+  "receita_bruta", "deducoes", "custos_variaveis", "despesas_variaveis", "despesas_operacionais",
+];
+/** …e até o resultado líquido. */
+const LINHAS_DO_RESULTADO: readonly LinhaCascata[] = [
+  ...LINHAS_ATE_EBITDA, "depreciacao_amortizacao", "resultado_financeiro", "impostos_lucro", "nao_operacional",
+];
+
+/**
+ * A frase de origem de um número do DRE ("Período · regime · N lançamentos").
+ *
+ * ⚠️ O número de lançamentos é a UNIÃO dos que formaram as linhas de soma. A
+ * procedência de uma linha "=" (EBITDA, resultado) vem VAZIA — ela sai de
+ * fórmula, nenhum lançamento pertence a ela —, e a IA escrevia "0 lançamentos"
+ * embaixo de um EBITDA de R$ 391 mil. Frase de origem que diz zero sobre um
+ * número que tem base é a origem mentindo.
+ */
+function origemDaCascata(c: CascataDRE, w: Janela, linhas: readonly LinhaCascata[]): string {
+  const ids = new Set<string>();
+  for (const l of linhas) for (const id of c.linhas[l].procedencia.movimentos ?? []) ids.add(id);
+  const base = c.linhas.resultado_liquido.procedencia;
+  return textoDeOrigem({ ...base, lancamentos: ids.size, janela: { ...base.janela, label: w.label } });
+}
+
+/** A cascata do DRE sobre a janela da pergunta, por competência (o padrão do relatório). */
+const dreDaJanela = (input: RiskInput, w: Janela): CascataDRE =>
+  cascataDRE(input, { intervalo: { de: w.from, ate: w.to }, regime: "competencia" });
+
+/* ── Runway e burn: a leitura da TELA (camada canônica, janela de 90 dias) ── */
+
+/**
+ * O runway e o burn que o Fluxo de caixa e o DRE mostram — com a AUSÊNCIA
+ * dita. `meses` é `null` quando o canônico é indisponível; a pílula de número
+ * usa a mesma forma curta do `ValorIndicador` ("— não há queima").
+ */
+function leituraRitmo(input: RiskInput) {
+  const r = runwayCanonico(input);
+  const b = burnCanonico(input);
+  const meses = r.indisponivel ? null : Math.round((r.valor / 30) * 10) / 10;
+  const chip = meses !== null ? `${decimalBR(meses)} m` : `— ${formaCurta(r.indisponivel!)}`;
+  return { r, b, meses, dias: r.indisponivel ? null : r.valor, codigo: r.indisponivel?.codigo, chip };
+}
+
+/** A pílula do runway do contexto (o mesmo rótulo da Quant e da Decisão). */
+const rotuloRunwayCtx = (c: Pick<ExecutiveContext, "runwayMeses" | "runwayMotivo">): string =>
+  c.runwayMeses !== null ? `${decimalBR(c.runwayMeses)} m` : `— ${c.runwayMotivo ? formaCurta(c.runwayMotivo) : "sem base de cálculo"}`;
+
+/** A classificação do score na frase — a MESMA faixa da tela Quant (`classificar`). */
+const SAUDE_NA_FRASE: Record<ClassificacaoSaude, string> = {
+  excelente: "excelente", saudavel: "saudável", atencao: "em atenção", risco: "em risco elevado", critico: "crítica",
+};
 
 export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
   const p = pergunta.toLowerCase();
@@ -580,7 +681,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const pctPrazo = Math.round((noPrazo / atrasos.length) * 100);
     const arred = Math.round(media);
     const frase = arred <= 0
-      ? `Os clientes pagam em dia: em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento. ${pctPrazo}% dos títulos foram pagos no prazo.`
+      ? `Os clientes pagam em dia: ${emMediaAoVencimento(arred)}. ${pctPrazo}% dos títulos foram pagos no prazo.`
       : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Recomenda-se intensificar a cobrança.`;
     return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento dos clientes"], 0.88);
   }
@@ -595,7 +696,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const pctPrazo = Math.round((noPrazo / atrasos.length) * 100);
     const arred = Math.round(media);
     const frase = arred <= 0
-      ? `Os pagamentos são feitos em dia: em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento (${pctPrazo}% no prazo). Disciplina adequada; ainda assim, pagar exatamente no vencimento preserva mais caixa.`
+      ? `Os pagamentos são feitos em dia: ${emMediaAoVencimento(arred)} (${pctPrazo}% no prazo). Disciplina adequada; ainda assim, pagar exatamente no vencimento preserva mais caixa.`
       : `Os pagamentos saem com ${arred} dia(s) de atraso em média (${pctPrazo}% no prazo). Atrasos recorrentes geram multa e juros e comprometem o relacionamento com fornecedores.`;
     return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento a fornecedores"], 0.88);
   }
@@ -603,7 +704,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
   // "quem ... dev" é pergunta de QUEM (lista de devedores) → cai na inadimplência.
   if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem\b|me deve\b|v[ãa]o me pagar|ainda (vou|tenho a|falta) receber|falta (eu )?receber|quanto falta (eu )?receber/.test(p) && !/quem.*\bdev/.test(p)) {
-    const ab = movs.filter((m) => m.type === "entrada" && m.status === "pendente");
+    const ab = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
     const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -659,7 +760,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const temPeriodo = /semana|m[êe]s|hoje|ontem|amanh|dias|trimestre|semestre|\bano\b|passad|anterior/.test(p)
       || MES.some((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
     const w = temPeriodo ? janela(p, hoje) : { label: "nesta semana", ...semanaDe(hoje) };
-    const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w)).sort((a, b) => a.due_date.localeCompare(b.due_date));
+    const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && (m.type !== "entrada" || ehContaAReceber(m))).sort((a, b) => a.due_date.localeCompare(b.due_date));
     const receb = venc.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
     const pagar = venc.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R(`Nada vence ${w.label}. Sem títulos pendentes nesse intervalo.`, [], ["agenda de vencimentos"]);
@@ -671,7 +772,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— INADIMPLÊNCIA / quem está atrasado ———
   if (/inadimpl|em atraso|atrasad|quem.*dev|devendo|devedor|clientes? devendo|vencid|caloteir|pior (cliente|pagador)|cliente que (mais )?(atrasa|deve)/.test(p)) {
-    const venc = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
+    const venc = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
     const total = venc.reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [{ label: "Em atraso", valor: fmt(0) }], ["recebíveis vencidos"]);
     const porCliente = topClientes(venc, nomes, 3);
@@ -691,7 +792,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // rouba por substring.
   if (/(maior(es)?|melhor(es)?|principa(l|is)) clientes?|cliente (mais |que mais )?(rent[áa]ve|lucrativ|valioso|importante)|quem (mais|s[ãa]o) (paga|compra|fatura|me paga|meus? (melhor|maior))|quem (me )?paga mais|qual cliente (mais )?(compr\w*|pag\w*|fatur\w*|vend\w*|gast\w*)|cliente que (mais )?(compr\w*|pag\w*)|quem (mais )?compr\w* (comigo|de mim|aqui|mais)|top clientes?|melhores clientes|(quero ver|mostra|me mostra|lista|ver) (meus |os )?clientes/.test(p) && !/representa|depend|concentra|forneced|quant(os|as)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const ent = movs.filter((m) => ehReceitaDeVenda(m) && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(ent, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
     if (top.length === 0) return R(`Não há receita paga por cliente identificado ${w.label}.`, [], ["receita por cliente"]);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -836,13 +937,14 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— DE ONDE VEM A RECEITA (top categorias de entradas pagas) ———
   if (/(de onde|da onde).*(vem|v[êe]m|veio|vier).*(receita|dinheiro|faturamento|grana|entra)|origem (da|das) receita|receita por categoria|categorias? de (receita|entrada|faturamento)|de onde (vem|veio) (o|a) (dinheiro|receita)|(maior|principal) fonte de (receita|renda|faturamento)|fonte de (receita|renda)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const pagas = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const ent = pagas.filter(ehReceitaDeVenda);
     const top = topCategorias(ent, 5);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
-    if (top.length === 0) return R(`Não encontrei receita paga ${w.label}.`, [], ["receita por categoria"]);
+    if (top.length === 0) return R(`Não encontrei receita paga ${w.label}.${foraDaReceita(pagas.filter((m) => !ehReceitaDeVenda(m)))}`, [], ["receita por categoria"]);
     const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${tot > 0 ? Math.round((c.valor / tot) * 100) : 0}%)`).join(", ");
     return R(
-      `A receita apurada ${w.label} soma ${fmt(tot)} e concentra-se em: ${lista}.`,
+      `A receita apurada ${w.label} soma ${fmt(tot)} e concentra-se em: ${lista}.${foraDaReceita(pagas.filter((m) => !ehReceitaDeVenda(m)))}`,
       top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
       ["receita por categoria"], 0.9,
       barras(`Receita por categoria ${w.label}`, "entrada", top));
@@ -978,6 +1080,17 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const wA = janela("mês", hoje), wB = janela("mês passado", hoje);
     const catW = (w: Janela) => { const map = new Map<string, number>(); for (const m of movs) { if (m.type !== "saida" || m.status !== "pago" || !within(cashDate(m), w)) continue; const c = (m.category || "Outros").trim() || "Outros"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); } return map; };
     const atual = catW(wA), ant = catW(wB);
+    // ⚠️ Sem NENHUMA despesa paga no mês passado não há base de comparação — e
+    // "Fornecedor subiu R$ 179 mil vs. o mês passado" é a categoria inteira
+    // lida como aumento. Ausência de base é ausência de resposta (ONDA 4): diz
+    // que não há como comparar e aponta onde o dinheiro está indo agora.
+    if (ant.size === 0 && atual.size > 0) {
+      const top = Array.from(atual.entries()).sort((x, y) => y[1] - x[1]).slice(0, 3);
+      return R(
+        `Não há despesa paga ${wB.label} para comparar, então não dá para dizer o que subiu. ${cap(wA.label)}, as maiores despesas pagas são: ${top.map(([c, v]) => `${cap(c)} (${fmt(v)})`).join(", ")} — é por elas que um corte teria mais impacto.`,
+        top.map(([c, v]) => ({ label: cap(c), valor: fmt(v) })),
+        ["despesas por categoria (mês vs. mês)"]);
+    }
     let melhor: { c: string; v: number; d: number } | null = null;
     for (const [c, v] of Array.from(atual)) { const d = v - (ant.get(c) || 0); if (d > (melhor?.d ?? 0)) melhor = { c: cap(c), v, d }; }
     if (melhor && melhor.d > 0) {
@@ -989,18 +1102,38 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R("Nenhuma categoria de despesa cresceu vs. o mês passado — seus gastos estão controlados. Veja as maiores despesas para priorizar cortes.", [], ["despesas por categoria (mês vs. mês)"]);
   }
 
-  // ——— MARGEM / lucratividade (resultado ÷ receita no período) ———
+  // ——— MARGEM (a margem LÍQUIDA do DRE — a mesma conta do relatório) ———
+  /*
+   * ⚠️ Era a margem de CAIXA: (entradas − saídas pagas) ÷ entradas pagas. Medido
+   * na demonstração, setembro/2026: a IA respondia "a margem é 39%" e o DRE do
+   * mesmo mês, na coluna do Resultado Líquido, 56,4% (resultado ÷ receita
+   * líquida). Mesma palavra, duas contas — e a de caixa nem se chamava de caixa.
+   * O EBITDA já tinha migrado para a cascata pelo mesmo motivo; a margem ficou
+   * para trás. Agora ela LÊ a cascata: nenhuma agregação própria.
+   */
   if (/margem|lucratividade|% de lucro|percentual de lucro|quanto sobra de cada|quanto (me )?sobra (de|por) (real|venda)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const res = ent - sai;
-    if (ent <= 0) return R(`Não houve receita paga ${w.label}, então não dá para calcular a margem do período.`, [], ["receita realizada"]);
-    const margem = Math.round((res / ent) * 100);
+    const c = dreDaJanela(input, w);
+    const bruta = /\bbrut[ao]\b/.test(p);
+    const linha = bruta ? c.linhas.lucro_bruto : c.linhas.resultado_liquido;
+    const margem = bruta ? c.margemBruta : c.margemLiquida;
+    const nome = bruta ? "margem bruta" : "margem líquida";
+    const nomeLinha = bruta ? "lucro bruto" : "resultado líquido";
+    const origem = origemDaCascata(c, w, bruta ? ["receita_bruta", "deducoes", "custos_variaveis"] : LINHAS_DO_RESULTADO);
+    if (linha.indisponivel) {
+      return R(`Não é possível afirmar a ${nome} ${w.label}: ${linha.indisponivel.motivo}.${linha.indisponivel.comoResolver ? ` ${linha.indisponivel.comoResolver}` : ""}`,
+        [], ["DRE gerencial"]);
+    }
+    // ⚠️ Sem receita não existe margem — e "0%" leria "vendeu e não sobrou nada".
+    if (margem.indisponivel) {
+      return R(`Sem receita líquida ${w.label}, não existe ${nome} a calcular (${margem.indisponivel.motivo}). O ${nomeLinha} do período é ${fmt(linha.valor)}. ${origem}`,
+        [{ label: cap(nomeLinha), valor: fmt(linha.valor) }], ["DRE gerencial"]);
+    }
+    const m = pctBR(margem.valor);
     return R(
-      `A margem ${w.label} é ${margem}%: de cada R$100 que entraram, ${margem >= 0 ? `sobraram R$${margem}` : `faltaram R$${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
-      [{ label: "Margem", valor: `${margem}%` }, { label: "Receita", valor: fmt(ent) }, { label: "Resultado", valor: fmt(res) }],
-      ["fluxo de caixa realizado"]);
+      `A ${nome} ${w.label} é ${m}: ${nomeLinha} de ${fmt(linha.valor)} sobre ${fmt(c.linhas.receita_liquida.valor)} de receita líquida, pelo DRE (competência) — a mesma conta do relatório. ${origem}`,
+      [{ label: cap(nome), valor: m }, { label: "Receita líquida", valor: fmt(c.linhas.receita_liquida.valor) }, { label: cap(nomeLinha), valor: fmt(linha.valor) }],
+      ["DRE gerencial", nome]);
   }
 
   // ——— CRESCIMENTO da receita (mês atual vs. mês anterior) ———
@@ -1066,20 +1199,52 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       [{ label: "Média mensal", valor: fmt(media) }], ["histórico mensal"]);
   }
 
-  // ——— AFORDABILIDADE: posso gastar X? ———
+  // ——— AFORDABILIDADE: posso gastar X? — o MESMO simulador da tela "Posso comprar?" ———
+  /*
+   * ⚠️ Esta resposta tinha regra PRÓPRIA: reserva = 3 × burn, e quando o burn
+   * era zero (empresa que gera caixa) ela INVENTAVA um burn de 15% do saldo.
+   * Medido na demonstração: "Reserva preservada: ~3 meses (R$ 1.011.982,73)" —
+   * 45% do caixa travados por um número que não existe em lugar nenhum. E
+   * "posso gastar 20 mil?" e "posso comprar algo de 20 mil?" podiam dar
+   * vereditos opostos, porque o segundo já passava pelo simulador.
+   * Agora os dois passam pelo `simularAquisicao` sobre o `situacaoDe` — a
+   * mesma reserva da tela (3 meses de DESPESA média, não de burn).
+   */
   if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo|aguento|suporto).*(gastar|comprar|investir|investiment|pagar|gasto|contratar|tirar|retirar|sacar|distribuir|despesa|aumento|reajuste|sal[áa]rio|nova? (contrata|despesa|conta))|(posso|consigo|d[áa] (pra|para)) contratar|cabe (um|uma|no) (aumento|reajuste|sal[áa]rio|contrata|caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)|reserva suficiente|tenho reserva|minha reserva (t[áa]|est[áa]|d[áa])|(t[áa]|est[áa]) reservad|quanto (t[áa]|est[áa]) reservad|quanto (guardei|reservei)/.test(p)) {
     const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(milh\w*|mil|k|mi)?/);
     const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
     const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;
-    const burn = ctx?.burnRate && ctx.burnRate > 0 ? ctx.burnRate : input.saldoAtual * 0.15;
-    const reserva = burn * 3; // reserva de ~3 meses de operação
-    const folga = Math.max(0, input.saldoAtual - reserva);
-    if (valor <= 0) return R(`Preservando ~3 meses de operação (${fmt(reserva)}), seu caixa comporta cerca de ${fmt(folga)} sem apertar. Diga um valor que eu digo se cabe.`, [{ label: "Folga segura", valor: fmt(folga) }], ["saldo", "reserva de segurança"]);
-    const cabe = valor <= folga;
+    const sit = situacaoDe(input);
+    const reserva = sit.despesaMensal * RESERVA_IDEAL;
+    const folga = Math.max(0, sit.caixaAtual - reserva);
+    const mesesTxt = (n: number) => (n >= 99 ? "mais de 99" : decimalBR(n));
+    if (valor <= 0) {
+      const cobre = sit.despesaMensal > 0 ? ` O caixa de ${fmt(sit.caixaAtual)} cobre ${mesesTxt(sit.caixaAtual / sit.despesaMensal)} meses da despesa média (${fmt(sit.despesaMensal)}/mês).` : "";
+      return R(
+        `Preservando ${RESERVA_IDEAL} meses de despesa média (${fmt(reserva)}), a folga do caixa é de ${fmt(folga)}.${cobre} Diga um valor que eu digo se cabe.`,
+        [{ label: "Folga segura", valor: fmt(folga) }, { label: `Reserva (${RESERVA_IDEAL} meses de despesa)`, valor: fmt(reserva) }],
+        ["simulador de decisão (seu caixa, entradas e saídas reais)"]);
+    }
+    // Contratar, dar aumento ou tirar pró-labore RECORRENTE é custo por mês, não
+    // desembolso único — o simulador trata como custo mensal, sem entrada.
+    const mensal = /contrat|sal[áa]ri|aumento|reajuste|por m[êe]s|todo m[êe]s|mensal/.test(p);
+    const r = simularAquisicao(sit, mensal
+      ? { tipo: "contratacao", valor: 0, entrada: 0, parcelas: 0, taxaMensal: 0, custoMensalExtra: valor }
+      : { tipo: "outro", valor, entrada: valor, parcelas: 0, taxaMensal: 0 });
+    const oQue = mensal ? `assumir ${fmt(valor)} por mês` : `gastar ${fmt(valor)} à vista`;
+    const depois = mensal
+      ? ` A sobra mensal passa de ${fmt(r.sobraAntes)} para ${fmt(r.sobraDepois)}.`
+      : ` O caixa passa a ${fmt(r.caixaDepoisEntrada)}, que cobre ${mesesTxt(r.mesesDeReserva)} meses da despesa média (o ideal é ${RESERVA_IDEAL}).`;
     return R(
-      `${cabe ? "Sim, cabe" : "Cuidado"}: gastar ${fmt(valor)} ${cabe ? `deixa ${fmt(folga - valor)} de folga` : `comeria sua reserva — a folga segura é ${fmt(folga)}`}. Reserva preservada: ~3 meses (${fmt(reserva)}).`,
-      [{ label: "Valor", valor: fmt(valor) }, { label: "Folga segura", valor: fmt(folga) }],
-      ["saldo", "reserva de segurança"]);
+      `${VEREDITO_LABEL[r.veredito]}: ${oQue}.${depois} A folga acima da reserva de ${RESERVA_IDEAL} meses de despesa (${fmt(reserva)}) é de ${fmt(folga)} hoje. Abra Orçamento → "Posso comprar?" para simular outras condições.`,
+      [
+        { label: "Valor", valor: mensal ? `${fmt(valor)}/mês` : fmt(valor) },
+        ...(mensal
+          ? [{ label: "Sobra depois", valor: `${fmt(r.sobraDepois)}/mês` }]
+          : [{ label: "Caixa depois", valor: fmt(r.caixaDepoisEntrada) }, { label: "Reserva depois", valor: `${mesesTxt(r.mesesDeReserva)} meses` }]),
+        { label: "Folga segura hoje", valor: fmt(folga) },
+      ],
+      ["simulador de decisão (seu caixa, entradas e saídas reais)"]);
   }
 
   // ——— MELHOR / PIOR MÊS (por resultado ou por receita) ———
@@ -1128,11 +1293,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— GASTO total no período ———
   if ((/(quanto).*(gast|gastei|sa[íi]|paguei|despes|torr|queim)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) && !/entra e sai|entradas? e sa|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)/.test(p)) {
     const w = janela(p, hoje);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const pagos = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const sai = pagos.filter(ehGastoReal);
+    const transf = pagos.filter((m) => !ehGastoReal(m)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
     const top = topCategorias(sai, 3);
     return R(
-      `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}`,
+      `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}${transf > 0 ? ` Não entram ${fmt(transf)} transferidos entre contas da própria empresa — o dinheiro só mudou de conta (no caixa saíram ${fmt(tot + transf)} ao todo).` : ""}`,
       [{ label: `Gasto ${w.label}`, valor: fmt(tot) }, ...top.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["despesas realizadas"]);
   }
@@ -1200,10 +1367,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
      * quem entendeu a pergunta. Trocar o rótulo não troca o número: `de`/`ate`
      * seguem intactos, e é sobre eles que a origem afirma o regime.
      */
-    const origem = textoDeOrigem({
-      ...eb.procedencia,
-      janela: { ...eb.procedencia.janela, label: w.label },
-    });
+    const origem = origemDaCascata(c, w, LINHAS_ATE_EBITDA);
 
     /*
      * ⚠️ **Sem número, sem afirmação.** Se a cascata não tem resposta, a IA diz
@@ -1255,11 +1419,26 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— RECEITA / RECEBI no período ———
   if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|esse|no)\s*m[êe]s|qual (a |o )?(minha |meu )?(receita|faturament)\b|\bminha receita\b|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/l[íi]quida|entra e sai|entradas? e sa|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const pagas = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const ent = pagas.filter(ehReceitaDeVenda);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const topC = topCategorias(ent, 3);
+    const fora = pagas.filter((m) => !ehReceitaDeVenda(m));
+    const totCaixa = pagas.reduce((s, m) => s + Math.abs(m.amount), 0);
+    // "Quanto recebi/entrou?" é pergunta de CAIXA (o "Entradas" da Visão geral,
+    // toda entrada liquidada); "faturei/receita/vendi" é pergunta de RECEITA.
+    // As duas respostas citam os dois números, com o nome certo em cada um.
+    const perguntouReceita = /fatur|receita|vend/.test(p);
+    if (!perguntouReceita && fora.length) {
+      const totFora = totCaixa - tot;
+      const cats = Array.from(new Set(fora.map((m) => (m.category || "sem categoria").trim()))).slice(0, 3).join(", ");
+      return R(
+        `Entraram ${fmt(totCaixa)} ${w.label}, em ${pagas.length} entrada(s): ${fmt(tot)} de receita e ${fmt(totFora)} que não são faturamento (${cats}).${topC.length ? ` Principal origem da receita: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
+        [{ label: `Entradas ${w.label}`, valor: fmt(totCaixa) }, { label: "Receita", valor: fmt(tot) }, { label: "Não é faturamento", valor: fmt(totFora) }],
+        ["entradas realizadas", "receita realizada"]);
+    }
     return R(
-      `A receita recebida ${w.label} soma ${fmt(tot)}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
+      `A receita recebida ${w.label} soma ${fmt(tot)}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}${foraDaReceita(fora)}`,
       [{ label: `Receita ${w.label}`, valor: fmt(tot) }, ...topC.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["receita realizada"]);
   }
@@ -1278,7 +1457,47 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["realizado + previsto do mês"]);
   }
 
-  // ——— RESULTADO / sobrou / lucro ———
+  // ——— LUCRO / PREJUÍZO — o resultado LÍQUIDO do DRE, com a ponte para o caixa ———
+  /*
+   * ⚠️ "Qual meu lucro?" caía no bloco de RESULTADO DE CAIXA ("entraram X e
+   * saíram Y — sobrou Z"), e quem lê "sobrou" depois de perguntar "lucro"
+   * guarda o número como lucro. Na demonstração, setembro: a IA respondia
+   * R$ 278.810,26 e o DRE, R$ 391.828,98 — os dois certos, sobre regimes
+   * diferentes, e a resposta não dizia qual era qual. Lucro é linha do DRE
+   * (competência); o caixa entra como PONTE, dito como caixa, com a frase que
+   * explica por que os dois não batem. "Sobrou/resultado/fechei o mês" seguem
+   * no bloco de caixa abaixo — é a pergunta da Visão geral, e lá o número é
+   * esse.
+   */
+  if (/\blucro\b|lucrando|dando lucro|\blucrei\b|\blucrou\b|lucrativ|preju[íi]zo/.test(p) && !/fluxo de caixa|pelo caixa|sobr|entrou|entraram|sa[íi]ram/.test(p)) {
+    const w = janela(p, hoje);
+    const c = dreDaJanela(input, w);
+    const bruto = /lucro brut/.test(p);
+    const linha = bruto ? c.linhas.lucro_bruto : c.linhas.resultado_liquido;
+    const nomeLinha = bruto ? "lucro bruto" : "resultado líquido";
+    const origem = origemDaCascata(c, w, bruto ? ["receita_bruta", "deducoes", "custos_variaveis"] : LINHAS_DO_RESULTADO);
+    if (linha.indisponivel) {
+      return R(`Não é possível afirmar lucro ou prejuízo ${w.label}: ${linha.indisponivel.motivo}.${linha.indisponivel.comoResolver ? ` ${linha.indisponivel.comoResolver}` : ""}`,
+        [], ["DRE gerencial"]);
+    }
+    const margem = bruto ? c.margemBruta : c.margemLiquida;
+    const mTxt = margem.indisponivel ? "" : ` (margem ${bruto ? "bruta" : "líquida"} de ${pctBR(margem.valor)})`;
+    const veredito = linha.valor > 0 ? "lucro" : linha.valor < 0 ? "prejuízo" : "resultado zero (empate)";
+    const entC = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s2, m) => s2 + Math.abs(m.amount), 0);
+    const saiC = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s2, m) => s2 + Math.abs(m.amount), 0);
+    const caixa = entC - saiC;
+    const ponte = bruto ? ""
+      : Math.abs(caixa - linha.valor) < 0.005
+        ? " Pelo caixa o número é o mesmo."
+        : ` Pelo caixa — o que efetivamente entrou e saiu — ${caixa >= 0 ? `sobraram ${fmt(caixa)}` : `faltaram ${fmt(-caixa)}`}: a diferença é o que foi faturado e ainda não recebido, ou lançado e ainda não pago.`;
+    return R(
+      `O DRE ${w.label} fecha com ${veredito}: ${nomeLinha} de ${fmt(linha.valor)}${mTxt}, por competência.${ponte} ${origem}`,
+      [{ label: cap(nomeLinha), valor: fmt(linha.valor) }, ...(margem.indisponivel ? [] : [{ label: `Margem ${bruto ? "bruta" : "líquida"}`, valor: pctBR(margem.valor) }]),
+        ...(bruto ? [] : [{ label: "Resultado de caixa", valor: fmt(caixa) }])],
+      ["DRE gerencial", ...(bruto ? [] : ["fluxo de caixa realizado"])]);
+  }
+
+  // ——— RESULTADO / sobrou (caixa — a pergunta da Visão geral) ———
   if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|lucrei|lucrou|lucrativ|t[ôo] no (azul|vermelho)|no lucro ou no preju|perdendo dinheiro|t[ôo] perdendo|ganhando (dinheiro|grana)|(t[ôo]|to|estou) ganhando|conseguindo poupar|consigo poupar|(t[ôo]|to|estou) poupando|(meu )?fluxo (t[áa]|est[áa]) (positiv|negativ)|(t[ôo]|to|estou) no positivo|no positivo esse m[êe]s|fechei no (positiv|azul|verde|negativ|vermelh|preju)|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -1349,80 +1568,119 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— DATA PROVÁVEL DE RUPTURA (quando fico sem dinheiro) ———
+  /*
+   * ⚠️ Tinha conta PRÓPRIA: a média dos últimos 3 meses de calendário (o mês
+   * corrente pela metade incluído). "Qual meu runway?" e "quando fico sem
+   * dinheiro?" davam prazos diferentes na mesma conversa. Agora as duas saem do
+   * runway canônico de 90 dias — o do Fluxo de caixa.
+   */
   if (/quando (vou |eu )?(fico|ficar[ei]?|vou ficar|fica) (sem (dinheiro|caixa|grana|saldo)|no vermelho|negativ)|quando (acaba|zera|termina|some) (o |meu )?(caixa|dinheiro|saldo)|quando (o |meu )?(caixa|dinheiro|saldo) (acaba|zera|termina|some|vai acabar)|data (de|da) ruptura|quando (quebro|vou quebrar|estouro)|\bvou quebrar\b|vou falir|t[ôo] quebrando|at[ée] quando (o |meu )?(dinheiro|saldo|caixa) (dura|aguenta|vai durar)|risco de (eu |a gente |a empresa )?(quebrar|falir|fechar|quebra|insolv)|(perto|beira|risco) de (eu )?(quebrar|falir|fechar|ficar sem|acabar o (caixa|dinheiro))|(t[ôo]|to|estou) (quase | quase )?(perto de )?(ficar |ficando )?sem (dinheiro|caixa|grana)|vou aguentar|consigo sobreviver/.test(p)) {
-    const meses = new Map<string, number>();
-    for (const m of movs) { if (m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; meses.set(k, (meses.get(k) || 0) + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount))); }
-    const nets = Array.from(meses.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-3).map(([, v]) => v);
-    const netMedio = nets.length ? nets.reduce((s, v) => s + v, 0) / nets.length : 0;
-    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora. Recomenda-se priorizar entradas e conter saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }], ["saldo", "fluxo mensal"]);
-    if (netMedio >= 0) return R(`Sem previsão de ruptura: nos últimos meses seu caixa cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o saldo de ${fmt(input.saldoAtual)} não se esgota.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.85);
-    const burn = -netMedio;
-    const mesesRest = input.saldoAtual / burn;
-    if (mesesRest > 36) return R(`Sem aperto à vista: no ritmo atual (queima de ${fmt(burn)}/mês), seu saldo de ${fmt(input.saldoAtual)} dura mais de 3 anos.`, [{ label: "Queima/mês", valor: fmt(burn) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.85);
-    const futuro = new Date(hoje + "T00:00:00"); futuro.setDate(futuro.getDate() + Math.round(mesesRest * 30));
+    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora, e não há fôlego a projetar (runway não se aplica). Recomenda-se priorizar entradas e conter saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Runway", valor: `— ${formaCurta({ codigo: "caixa_negativo", motivo: "" })}` }], ["saldo", "runway (média dos últimos 90 dias)"]);
+    const rt = leituraRitmo(input);
+    if (rt.meses === null) {
+      if (rt.codigo === "sem_queima") {
+        const g = geracaoCaixaMensal(input);
+        return R(`Sem previsão de ruptura: nos últimos ${JANELA_RITMO_DIAS} dias a empresa gerou caixa${g.valor > 0 ? ` (+${fmt(g.valor)}/mês em média)` : ""} — não há queima, então o saldo de ${fmt(input.saldoAtual)} não se esgota no ritmo atual. É a leitura do Fluxo de caixa: runway "não há queima".`,
+          [{ label: "Runway", valor: rt.chip }, { label: "Saldo", valor: fmt(input.saldoAtual) }, ...(g.valor > 0 ? [{ label: "Geração/mês", valor: fmt(g.valor) }] : [])],
+          ["runway (média dos últimos 90 dias)", "saldo"], 0.85);
+      }
+      return R(`Ainda não há como projetar ruptura: ${rt.r.indisponivel?.motivo ?? "sem base de cálculo"}.${rt.r.indisponivel?.comoResolver ? ` ${rt.r.indisponivel.comoResolver}` : ""}`,
+        [{ label: "Runway", valor: rt.chip }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["runway (média dos últimos 90 dias)", "saldo"], 0.7);
+    }
+    if (rt.r.procedencia.aviso) {
+      return R(`Sem aperto à vista: no ritmo atual (queima de ${fmt(rt.b.valor)}/mês), o saldo de ${fmt(input.saldoAtual)} dura mais do que o cálculo alcança — ${rt.r.procedencia.aviso}.`,
+        [{ label: "Queima/mês", valor: fmt(rt.b.valor) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["runway (média dos últimos 90 dias)", "saldo"], 0.85);
+    }
+    const futuro = new Date(hoje + "T00:00:00"); futuro.setDate(futuro.getDate() + (rt.dias ?? 0));
     const dataStr = dia(`${futuro.getFullYear()}-${pad(futuro.getMonth() + 1)}-${pad(futuro.getDate())}`);
     return R(
-      `No ritmo atual, o consumo de caixa é de ${fmt(burn)}/mês. O saldo de ${fmt(input.saldoAtual)} deve se esgotar por volta de ${dataStr} (~${mesesRest < 1 ? "menos de 1 mês" : `${Math.round(mesesRest)} ${Math.round(mesesRest) === 1 ? "mês" : "meses"}`}), se nada mudar. Vale agir na cobrança e nas despesas.`,
-      [{ label: "Queima/mês", valor: fmt(burn) }, { label: "Ruptura", valor: dataStr }, { label: "Saldo", valor: fmt(input.saldoAtual) }],
-      ["fluxo mensal", "saldo", "projeção de caixa"], 0.85);
+      comVoz("projecao", `a ruptura de caixa viria por volta de ${dataStr}: a queima é de ${fmt(rt.b.valor)}/mês (média dos últimos ${JANELA_RITMO_DIAS} dias) e o saldo de ${fmt(input.saldoAtual)} dá cerca de ${decimalBR(rt.meses)} meses de runway, se nada mudar. Vale agir na cobrança e nas despesas.`),
+      [{ label: "Queima/mês", valor: fmt(rt.b.valor) }, { label: "Ruptura", valor: dataStr }, { label: "Runway", valor: rt.chip }],
+      ["runway (média dos últimos 90 dias)", "saldo", "projeção de caixa"], 0.85);
   }
 
   // ——— SALDO / quanto tenho ———
   if (/\bsaldo\b|meu caixa|qual (o )?meu caixa|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|quanto de (dinheiro|grana)|(dinheiro|grana) eu tenho|quanta grana|\ba grana\b|cad[êe] (minha |a |o )?(grana|dinheiro|saldo|caixa)|\bna conta\b|dindin|como (t[áa]|est[áa]) (a |o )?(grana|caixa|dinheiro|saldo)|(o |meu )?caixa,? como (t[áa]|est[áa]|anda|vai)|folga (n?o|de|em|d[oa]) (caixa|saldo)|tenho folga|situa[çc][ãa]o (do|de) (caixa|financeira|do dinheiro)|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
-    const runway = ctx?.runwayMeses;
+    // ⚠️ O runway ao lado do saldo é o CANÔNICO (o do Fluxo de caixa). Vinha do
+    // `ctx.runwayMeses` do quant e dizia "cobre cerca de 0 meses de operação"
+    // sobre R$ 2,2 milhões de uma empresa que gera caixa.
+    const rt = leituraRitmo(input);
+    const extra = rt.meses !== null
+      ? ` ${comVoz("projecao", `ele cobriria cerca de ${decimalBR(rt.meses)} meses de operação (queima média dos últimos ${JANELA_RITMO_DIAS} dias).`)}`
+      : rt.codigo === "sem_queima"
+        ? ` Nos últimos ${JANELA_RITMO_DIAS} dias a empresa gerou caixa — não há queima pela qual dividir o saldo, então não há prazo de runway a calcular.`
+        : rt.codigo === "caixa_negativo" ? " Com o caixa negativo, não há fôlego a projetar." : "";
     return R(
-      `O saldo consolidado é ${fmt(input.saldoAtual)}.${runway != null ? ` No ritmo atual de caixa, ele cobre cerca de ${runway} ${runway === 1 ? "mês" : "meses"} de operação.` : ""}`,
-      [{ label: "Saldo atual", valor: fmt(input.saldoAtual) }, ...(runway != null ? [{ label: "Runway", valor: `${runway} m` }] : [])],
+      `O saldo consolidado é ${fmt(input.saldoAtual)}.${extra}`,
+      [{ label: "Saldo atual", valor: fmt(input.saldoAtual) }, ...(rt.codigo === "sem_lancamentos" ? [] : [{ label: "Runway", valor: rt.chip }])],
       ["saldo consolidado"]);
   }
 
-  // ——— RUNWAY ———
+  // ——— RUNWAY — o canônico, o mesmo do Fluxo de caixa e do DRE ———
   if (/runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa|quantos? dias (de |o )?(caixa|opera|f[ôo]lego)|dias de (caixa|opera|f[ôo]lego)|quantos? meses de (reserva|caixa|f[ôo]lego|opera)|meses de reserva|reserva (pra|para) quantos meses|(caixa|reserva) (aguenta|dura|cobre) quantos/.test(p)) {
-    if (ctx) {
-      if (/\bdias?\b/.test(p)) {
-        const dias = Math.round(ctx.runwayMeses * 30);
-        return R(
-          comVoz("projecao", `o caixa cobriria cerca de ${dias} dias de operação (runway de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}): saldo de ${fmt(ctx.saldoAtual)} sobre o burn de ${fmt(ctx.burnRate)}/mês.`),
-          [{ label: "Dias de caixa", valor: `${dias} d` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }],
-          ["motor quantitativo"]);
-      }
-      return R(
-        comVoz("projecao", `O runway seria de cerca de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobriria esse tempo sobre um burn de ${fmt(ctx.burnRate)}/mês.`),
-        [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],
-        ["motor quantitativo"]);
+    const rt = leituraRitmo(input);
+    const saldoTxt = fmt(input.saldoAtual);
+    if (rt.meses === null) {
+      const ind = rt.r.indisponivel!;
+      const txt = rt.codigo === "sem_queima"
+        ? `Não há runway a calcular: nos últimos ${JANELA_RITMO_DIAS} dias a empresa gerou caixa, então não houve queima pela qual dividir o saldo de ${saldoTxt}. É a mesma leitura do Fluxo de caixa e do DRE ("não há queima").`
+        : rt.codigo === "caixa_negativo"
+          ? `O runway não se aplica: o caixa já está negativo (${saldoTxt}) — não há fôlego a projetar.${ind.comoResolver ? ` ${ind.comoResolver}` : ""}`
+          : `Ainda não há como medir o runway: ${ind.motivo}.${ind.comoResolver ? ` ${ind.comoResolver}` : ""}`;
+      return R(txt,
+        [{ label: "Runway", valor: rt.chip }, { label: "Saldo", valor: saldoTxt }, ...(rt.b.indisponivel ? [] : [{ label: "Burn", valor: `${fmt(rt.b.valor)}/m` }])],
+        ["runway (média dos últimos 90 dias)", "saldo"]);
     }
-    // fallback sem ctx: queima líquida média dos últimos 3 meses
-    const mm = new Map<string, number>();
-    for (const m of movs) { if (m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; mm.set(k, (mm.get(k) || 0) + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount))); }
-    const nets = Array.from(mm.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-3).map(([, v]) => v);
-    const netMedio = nets.length ? nets.reduce((s, v) => s + v, 0) / nets.length : 0;
-    if (netMedio >= 0) return R(`O caixa não está sendo consumido — nos últimos meses ele cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o runway é praticamente ilimitado.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.82);
-    const burn = -netMedio;
-    const mesesR = input.saldoAtual / burn;
-    return R(comVoz("projecao", `O runway seria de cerca de ${mesesR < 1 ? "menos de 1 mês" : `${Math.round(mesesR)} ${Math.round(mesesR) === 1 ? "mês" : "meses"}`}: o saldo de ${fmt(input.saldoAtual)} cobre a queima de ${fmt(burn)}/mês.`), [{ label: "Runway", valor: mesesR < 1 ? "<1 m" : `${Math.round(mesesR)} m` }, { label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Queima/mês", valor: fmt(burn) }], ["fluxo mensal", "saldo"], 0.82);
+    const aviso = rt.r.procedencia.aviso ? ` Atenção: ${rt.r.procedencia.aviso}.` : "";
+    if (/\bdias?\b/.test(p)) {
+      return R(
+        comVoz("projecao", `o caixa cobriria cerca de ${rt.dias} dias de operação (runway de ${decimalBR(rt.meses)} meses): saldo de ${saldoTxt} sobre o burn de ${fmt(rt.b.valor)}/mês.${aviso}`),
+        [{ label: "Dias de caixa", valor: `${rt.dias} d` }, { label: "Runway", valor: rt.chip }, { label: "Saldo", valor: saldoTxt }],
+        ["runway (média dos últimos 90 dias)"]);
+    }
+    return R(
+      comVoz("projecao", `O runway seria de cerca de ${decimalBR(rt.meses)} meses: o saldo de ${saldoTxt} cobriria esse tempo sobre um burn de ${fmt(rt.b.valor)}/mês (média dos últimos ${JANELA_RITMO_DIAS} dias).${aviso}`),
+      [{ label: "Runway", valor: rt.chip }, { label: "Saldo", valor: saldoTxt }, { label: "Burn", valor: `${fmt(rt.b.valor)}/m` }],
+      ["runway (média dos últimos 90 dias)"]);
   }
 
-  // ——— BURN ———
-  if (ctx && /burn|queima de caixa|consumo de caixa|quanto.*queim/.test(p)) {
-    return R(`O burn é de ${fmt(ctx.burnRate)}/mês (saídas líquidas). Com o saldo de ${fmt(ctx.saldoAtual)}, isso equivale a ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"} de runway.`,
-      [{ label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }], ["motor quantitativo"]);
+  // ——— BURN — o canônico (o "Burn" do Fluxo de caixa) ———
+  if (/burn|queima de caixa|consumo de caixa|quanto.*queim/.test(p)) {
+    const rt = leituraRitmo(input);
+    if (rt.b.indisponivel) {
+      return R(`Não há como medir o burn: ${rt.b.indisponivel.motivo}.${rt.b.indisponivel.comoResolver ? ` ${rt.b.indisponivel.comoResolver}` : ""}`,
+        [{ label: "Burn", valor: `— ${formaCurta(rt.b.indisponivel)}` }], ["burn (média dos últimos 90 dias)"]);
+    }
+    if (rt.b.valor <= 0) {
+      return R(`O burn é de ${fmt(0)}/mês: nos últimos ${JANELA_RITMO_DIAS} dias entrou mais caixa do que saiu — a empresa gerou caixa, então não há queima (nem prazo de runway) a calcular.`,
+        [{ label: "Burn", valor: `${fmt(0)}/m` }, { label: "Runway", valor: rt.chip }], ["burn (média dos últimos 90 dias)"]);
+    }
+    return R(
+      `O burn é de ${fmt(rt.b.valor)}/mês — a média de (saídas − entradas) liquidadas dos últimos ${JANELA_RITMO_DIAS} dias. ${rt.meses !== null ? comVoz("projecao", `com o saldo de ${fmt(input.saldoAtual)}, isso daria cerca de ${decimalBR(rt.meses)} meses de runway.`) : `Runway: ${formaCurta(rt.r.indisponivel!)}.`}`,
+      [{ label: "Burn", valor: `${fmt(rt.b.valor)}/m` }, { label: "Runway", valor: rt.chip }], ["burn (média dos últimos 90 dias)"]);
   }
 
   // ——— SCORE / saúde ———
   if (ctx && /score|sa[úu]de|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa|empresa (t[áa]|est[áa]|anda) saud|saud[áa]vel|empresa vai bem|minha empresa (t[áa]|est[áa]|vai) bem|como (t[ãa]o|est[ãa]o|v[ãa]o) (as |minhas )?finan[çc]|como (t[áa]|est[áa]|v[ãa]o) (as |minhas )?finan|finan[çc]as (t[ãa]o|est[ãa]o|v[ãa]o)|(t[ôo]|to|estou) indo bem|as coisas (v[ãa]o|est[ãa]o) bem|meu neg[óo]cio (vai|est[áa]) bem|(maior|principal) problema|maior risco|o que (t[áa]|est[áa]) errado|maior preocupa|resumo geral|resum[ae] (a |minha )?(situa|financ|empresa)|situa[çc][ãa]o geral|vis[ãa]o geral|panorama|(finan[çc]as|empresa|situa[çc][ãa]o).* no geral|como (est[áa] )?tudo/.test(p)) {
-    const nivel = ctx.scoreFinanceiro >= 80 ? "excelente" : ctx.scoreFinanceiro >= 60 ? "boa" : ctx.scoreFinanceiro >= 40 ? "de atenção" : "crítica";
+    // ⚠️ A faixa é a MESMA da tela Quant (`classificar`): a IA tinha a própria
+    // (80/60/40) e chamava de "excelente" um 82 que a Quant chama de "saudável".
+    // E a chance de ruptura é a do motor de RISCO, de 60 dias — a IA a anunciava
+    // como "em 90 dias", que é o horizonte de OUTRO número (o do quant).
+    const nivel = SAUDE_NA_FRASE[classificar(ctx.scoreFinanceiro)];
+    const sat = avisoDeSaturacao("chance-ruptura", ctx.probRuptura);
     return R(
-      `A saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100, runway de ${ctx.runwayMeses} meses e inadimplência em ${Math.round(ctx.inadimplencia * 100)}%. Probabilidade de ruptura de caixa em 90 dias: ${Math.round(ctx.probRuptura * 100)}%.`,
-      [{ label: "Score", valor: `${ctx.scoreFinanceiro}/100` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Prob. ruptura", valor: `${Math.round(ctx.probRuptura * 100)}%` }],
+      `A saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100; ${fraseRunway(ctx)}; ${pctBR(ctx.inadimplencia)} da carteira a receber vencida. Chance de ruptura de caixa em 60 dias: ${pctBR(ctx.probRuptura)}.${sat ? ` ${sat}` : ""}`,
+      [{ label: "Score", valor: `${ctx.scoreFinanceiro}/100` }, { label: "Runway", valor: rotuloRunwayCtx(ctx) }, { label: "Prob. ruptura (60d)", valor: pctBR(ctx.probRuptura) }],
       ["motor quantitativo", "motor de risco"]);
   }
 
   // ——— PROJEÇÃO / vou ficar negativo ———
   if (ctx && /vou ficar (no )?negativo|caixa.*negativo|ruptura|quando.*(acaba|falta).*(dinheiro|caixa)|risco de caixa/.test(p)) {
     const risco = ctx.probRuptura >= 0.5 ? "alta" : ctx.probRuptura >= 0.25 ? "moderada" : "baixa";
+    const sat = avisoDeSaturacao("chance-ruptura", ctx.probRuptura);
     return R(
-      `A probabilidade de o caixa ficar negativo em 90 dias é ${risco} (${Math.round(ctx.probRuptura * 100)}%), com runway de ${ctx.runwayMeses} meses sobre ${fmt(ctx.saldoAtual)}. ${ctx.probRuptura >= 0.25 ? "Antecipar recebíveis e segurar despesas não essenciais reduz o risco." : "O caixa está sob controle no horizonte atual."}`,
-      [{ label: "Prob. ruptura", valor: `${Math.round(ctx.probRuptura * 100)}%` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }],
+      `A probabilidade de o caixa ficar negativo em 60 dias é ${risco} (${pctBR(ctx.probRuptura)}); ${fraseRunway(ctx)}, com saldo de ${fmt(ctx.saldoAtual)}. ${ctx.probRuptura >= 0.25 ? "Antecipar recebíveis e segurar despesas não essenciais reduz o risco." : "O caixa está sob controle no horizonte atual."}${sat ? ` ${sat}` : ""}`,
+      [{ label: "Prob. ruptura (60d)", valor: pctBR(ctx.probRuptura) }, { label: "Runway", valor: rotuloRunwayCtx(ctx) }],
       ["motor de risco de caixa"]);
   }
 
@@ -1440,10 +1698,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   return null; // sem intenção concreta → sobe para Claude / motor consultivo
 }
 
+/** A semana de hoje — segunda a domingo, pela MESMA função dos painéis de títulos. */
 function semanaDe(hojeISO: string): { from: string; to: string } {
-  const hoje = new Date(hojeISO + "T00:00:00");
-  const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-  const dom = new Date(hoje); dom.setDate(hoje.getDate() - hoje.getDay());
-  const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
-  return { from: iso(dom), to: iso(sab) };
+  const sem = periodoSemana(hojeISO);
+  return { from: sem.de, to: sem.ate };
 }

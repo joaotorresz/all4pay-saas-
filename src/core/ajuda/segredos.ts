@@ -150,18 +150,58 @@ export function detectarSegredos(texto: string): AchadoSegredo[] {
     if (m.index != null) empurrar(out, "pix", m[0], m.index);
   }
 
-  // 5. Sequências de dígitos: boleto → cartão → CNPJ → CPF, do mais longo ao
-  // mais curto, para o de 47 dígitos não ser fatiado como três cartões.
-  for (const m of Array.from(t.matchAll(/\d[\d.\s\/-]{10,}\d/g))) {
-    if (m.index == null) continue;
-    const bruto = m[0];
-    const d = bruto.replace(/\D/g, "");
-    let tipo: TipoSegredo | null = null;
-    if (d.length === 47 || d.length === 44) tipo = "boleto";
-    else if (dvCNPJ(d)) tipo = "cnpj";
-    else if (dvCPF(d)) tipo = "cpf";
-    else if (luhn(d)) tipo = "cartao";
-    if (tipo) empurrar(out, tipo, bruto.trim(), m.index);
+  // 5. Sequências de dígitos: boleto → CNPJ → CPF → cartão.
+  //
+  // ⚠️ Eram UMA regex gulosa (`\d[\d.\s\/-]{10,}\d`) sobre a corrida inteira de
+  // dígitos e espaços, e ela falhava justamente nos jeitos mais comuns de
+  // escrever o segredo (medido):
+  //  - "meu cpf é 52998224725" — o CPF SEM pontuação tem 11 caracteres, e a
+  //    regex exigia 12: passava inteiro para o chamado;
+  //  - "cpf 529.982.247-25 1000 reais" — o espaço deixava a regex engolir o
+  //    "1000" junto, e 15 dígitos não são CPF: passava;
+  //  - "cartão 4111 1111 1111 1111 12/28" — a validade grudava no cartão (22
+  //    dígitos, Luhn reprova): o cartão colado com a validade passava.
+  // Agora a corrida é quebrada em TOKENS (grupos sem espaço) e cada janela de
+  // tokens vizinhos é testada, da mais longa para a mais curta, com a forma que
+  // cada documento tem de verdade: CPF/CNPJ são um token só (com ou sem
+  // pontuação); cartão é um token de 13–19 dígitos ou grupos de 4 (4-6-5 no
+  // Amex); boleto é a linha digitável inteira, 44 ou 47 dígitos em até 8 grupos.
+  const tokens = Array.from(t.matchAll(/\d(?:[\d.\/-]*\d)?/g))
+    .filter((m) => m.index != null)
+    .map((m) => ({ txt: m[0], ini: m.index as number, fim: (m.index as number) + m[0].length, dig: m[0].replace(/\D/g, "") }));
+  // Sequências de tokens separados SÓ por espaço (a mesma "corrida" de antes).
+  const corridas: (typeof tokens)[] = [];
+  for (const tk of tokens) {
+    const ult = corridas[corridas.length - 1];
+    const anterior = ult?.[ult.length - 1];
+    if (anterior && /^[ \t]+$/.test(t.slice(anterior.fim, tk.ini))) ult.push(tk);
+    else corridas.push([tk]);
+  }
+  const grupos4 = (ts: typeof tokens): boolean =>
+    ts.length === 1
+      || ts.every((x) => /^\d+$/.test(x.txt)) && (
+        ts.every((x, i) => x.dig.length === 4 || (i === ts.length - 1 && x.dig.length >= 1 && x.dig.length <= 4))
+        || (ts.length === 3 && ts[0].dig.length === 4 && ts[1].dig.length === 6 && ts[2].dig.length === 5));
+  for (const corrida of corridas) {
+    let i = 0;
+    while (i < corrida.length) {
+      let achou = 0;
+      for (let n = Math.min(8, corrida.length - i); n >= 1 && !achou; n--) {
+        const janelaTk = corrida.slice(i, i + n);
+        const d = janelaTk.map((x) => x.dig).join("");
+        let tipo: TipoSegredo | null = null;
+        if (d.length === 47 || d.length === 44) tipo = "boleto";
+        else if (n === 1 && dvCNPJ(d)) tipo = "cnpj";
+        else if (n === 1 && dvCPF(d)) tipo = "cpf";
+        else if (n <= 5 && grupos4(janelaTk) && luhn(d)) tipo = "cartao";
+        if (tipo) {
+          const ini = janelaTk[0].ini, fim = janelaTk[janelaTk.length - 1].fim;
+          empurrar(out, tipo, t.slice(ini, fim), ini);
+          achou = n;
+        }
+      }
+      i += achou || 1;
+    }
   }
 
   // 6. Token "cru": longo, sem espaço, com dígito e letra, e ENTRÓPICO. É o

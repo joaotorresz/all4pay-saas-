@@ -11,6 +11,7 @@ import type {
 } from "./types";
 
 import { formatBRL } from "@/lib/format";
+import { fraseRunway } from "@/core/quant/score";
 const fmt = (v: number) =>
   formatBRL(v);
 
@@ -47,7 +48,7 @@ export function executiveBriefing(
   const texto = [
     `Bom dia, ${cap(nome)}.`,
     `Resumo financeiro — ${dataExtenso(ctx.hoje)}.`,
-    `Saldo consolidado: ${fmt(ctx.saldoAtual)}. Runway: ${ctx.runwayMeses} meses. Score de saúde: ${ctx.scoreFinanceiro}/100.`,
+    `Saldo consolidado: ${fmt(ctx.saldoAtual)}. ${cap(fraseRunway(ctx))}. Score de saúde: ${ctx.scoreFinanceiro}/100.`,
     alertas.length ? `Principais alertas: ${alertas.join("; ").toLowerCase()}.` : "Sem alertas críticos.",
     oportunidades.length ? `Oportunidades: ${oportunidades.join("; ").toLowerCase()}.` : "",
     `Risco estimado de ruptura: ${riscoRuptura}.`,

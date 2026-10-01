@@ -18,6 +18,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { reportar } from "@/lib/erros";
 import { criarSolicitacao } from "@/lib/aprovacoes";
 import { formatBRL } from "@/lib/format";
 import type { FinancialDecision, CollectionPlan } from "@/core/autonomous/types";
@@ -54,13 +55,21 @@ function saveLocal(rows: AcaoIA[]): void {
 export async function logAcaoIA(a: Omit<AcaoIA, "id" | "ts">): Promise<AcaoIA> {
   const row: AcaoIA = { ...a, id: `ai_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, ts: new Date().toISOString() };
   if (isDemo) { saveLocal([row, ...loadLocal()]); return row; }
+  // ⚠️ O cliente do Supabase NÃO lança quando o banco recusa: devolve `error`.
+  // O `try/catch` sozinho engolia toda recusa (RLS, coluna, assinatura vencida)
+  // e a trilha de ações da IA ficava vazia sem ninguém saber. Continua
+  // best-effort — registrar a conversa não pode derrubar a resposta —, mas a
+  // falha agora tem dono.
   try {
-    await createClient().from("ai_actions").insert({
+    const { error } = await createClient().from("ai_actions").insert({
       kind: a.kind,
       prompt: a.titulo,
       result: { detalhe: a.detalhe ?? null, status: a.status } as object,
     });
-  } catch { /* best-effort */ }
+    if (error) throw error;
+  } catch (e) {
+    reportar("ia.trilha_acoes", e, "a ação da IA não entrou na trilha de ações (ai_actions)", true);
+  }
   return row;
 }
 

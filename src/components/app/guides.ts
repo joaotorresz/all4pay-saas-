@@ -775,11 +775,11 @@ Object.assign(GUIDES, {
   "/dashboard/help": {
     titulo: "Central de ajuda",
     intro: "Chat com a base de ajuda, tours guiados por tela e os anúncios do produto.",
-    comoUsar: "Pergunte 'como faço X' no chat; se a resposta não existir, abra um chamado. Em Tours guiados, procure a tela e clique em Iniciar — o tour roda na própria tela apontando cada bloco.",
-    exemplo: "Senha, chave de API, cartão e CPF são detectados na sua mensagem antes do envio e removidos: a dúvida chega ao suporte, o segredo não.",
+    comoUsar: "Pergunte 'como faço X' no chat; se a resposta não existir, registre um chamado — ele fica guardado nesta empresa. Em Tours guiados, procure a tela e clique em Iniciar — o tour roda na própria tela apontando cada bloco.",
+    exemplo: "Senha, chave de API, cartão e CPF (com ou sem pontuação) são detectados na sua mensagem e removidos antes de ela ser gravada: a dúvida fica registrada, o segredo não.",
     secoes: [
       blocos([
-        { nome: "Chat online", desc: "Responde sobre uso do sistema e escala para chamado.", match: "Chat online" },
+        { nome: "Chat online", desc: "Responde sobre uso do sistema; o que ele não souber vira um chamado registrado.", match: "Chat online" },
         { nome: "Tours guiados", desc: "Um tour por tela, com progresso e filtro por status.", match: "Tours guiados" },
         { nome: "Anúncios", desc: "Novidades e avisos da plataforma.", match: "Anúncios" },
       ]),

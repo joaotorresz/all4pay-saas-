@@ -17,7 +17,7 @@ import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
-import { ETAPAS, RITMO, espera, CURADAS, type Turno } from "./chat-kit";
+import { ETAPAS, RITMO, espera, CURADAS, copiarTexto, type Turno, type EstadoCopia } from "./chat-kit";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
 
@@ -40,7 +40,8 @@ export function useChatIA({ inicial = [], onMudou }: {
   const [etapa, setEtapa] = React.useState(0);
   /** A pergunta em voo — aparece na conversa antes da resposta existir. */
   const [pergunta, setPergunta] = React.useState<string | null>(null);
-  const [copiedId, setCopiedId] = React.useState<number | null>(null);
+  /** A última cópia pedida: de qual turno, e se deu certo. */
+  const [copia, setCopia] = React.useState<{ id: number; estado: EstadoCopia } | null>(null);
 
   const idRef = React.useRef(inicial.reduce((m, t) => Math.max(m, t.id), 0));
   const [, force] = React.useReducer((x) => x + 1, 0); // re-render p/ sugestões aprendidas
@@ -70,14 +71,28 @@ export function useChatIA({ inicial = [], onMudou }: {
     } finally { setPensando(false); }
   }, []);
 
-  const copiar = React.useCallback((t: Turno) => {
+  const copiar = React.useCallback(async (t: Turno) => {
     const txt = [t.resposta, ...(t.numeros?.map((n) => `${n.label}: ${n.valor}`) ?? [])].filter(Boolean).join("\n");
-    try { navigator.clipboard?.writeText(txt); setCopiedId(t.id); setTimeout(() => setCopiedId((c) => (c === t.id ? null : c)), 1500); } catch { /* ignore */ }
+    const ok = await copiarTexto(txt);
+    setCopia({ id: t.id, estado: ok ? "ok" : "falhou" });
+    // A confirmação some sozinha; a FALHA fica até a próxima tentativa — quem
+    // não conseguiu copiar precisa ler o aviso, não vê-lo piscar.
+    if (ok) setTimeout(() => setCopia((c) => (c?.id === t.id && c.estado === "ok" ? null : c)), 1500);
   }, []);
 
+  /**
+   * ⚠️ O feedback agora ENTRA na conversa salva (`onMudou`) e não conta duas
+   * vezes. Antes ele só mudava o estado da tela: ao retomar a conversa pelo
+   * histórico a marca sumia, e clicar de novo somava outro voto ao aprendizado.
+   */
   const darFeedback = React.useCallback((t: Turno, dir: "up" | "down") => {
+    if (t.feedback === dir) return;
     registrarFeedback(t.q, dir);
-    setTurnos((arr) => arr.map((x) => (x.id === t.id ? { ...x, feedback: dir } : x)));
+    setTurnos((arr) => {
+      const novo = arr.map((x) => (x.id === t.id ? { ...x, feedback: dir } : x));
+      mudouRef.current?.(novo);
+      return novo;
+    });
     force();
   }, []);
 
@@ -165,7 +180,7 @@ export function useChatIA({ inicial = [], onMudou }: {
   return {
     texto, setTexto,
     turnos, pensando, etapa, pergunta,
-    copiedId, copiar, darFeedback,
+    copia, copiar, darFeedback,
     responder, carregar,
     sugeridas: mesclarSugestoes(CURADAS, 4),
     pronto: !!input,

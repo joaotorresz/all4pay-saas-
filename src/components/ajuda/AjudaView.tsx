@@ -29,7 +29,7 @@ import {
   catalogoTours, lerProgressoTours, salvarProgressoTour, reiniciarTours,
   autoTourLigado, setAutoTour, listarChamados, salvarChamado, removerChamado,
   lerConversa, salvarConversa, limparConversa, listarAnuncios, marcarAnuncioLido,
-  responderComoFazer, novoIdAjuda,
+  responderComoFazer, novoIdAjuda, inscreverAjuda,
 } from "@/lib/ajuda-store";
 import { glossarioPublicado, REGRAS_DE_FORMATO } from "@/core/glossario";
 import { METODOLOGIAS, METODOLOGIA_VERSION } from "@/core/metodologia";
@@ -54,7 +54,7 @@ export function AjudaView() {
   return (
     <div className="flex flex-col gap-6">
       <p className="m-0 text-label text-muted max-w-[80ch]">
-        Aprenda com tours guiados, tire dúvidas com a IA ou abra um chamado para o suporte.
+        Aprenda com tours guiados, tire dúvidas na base de ajuda ou registre um chamado.
       </p>
 
       <div className="flex items-center gap-1 border-b border-border-soft overflow-x-auto">
@@ -116,8 +116,11 @@ function ChatAjuda() {
   const fim = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    setMsgs(lerConversa());
-    setChamados(listarChamados());
+    const carregar = () => { setMsgs(lerConversa()); setChamados(listarChamados()); };
+    carregar();
+    // A hidratação do servidor chega DEPOIS da montagem: sem ouvir, a tela
+    // mostraria o cache velho do navegador até a próxima visita.
+    return inscreverAjuda(carregar);
   }, []);
   React.useEffect(() => { fim.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs.length]);
 
@@ -147,14 +150,14 @@ function ChatAjuda() {
       ? { id: novoIdAjuda("m"), autor: "ajuda", texto: guia.texto, quando: agora(), rota: guia.rota }
       : {
           id: novoIdAjuda("m"), autor: "ajuda", quando: agora(), rota: null,
-          texto: "Não encontrei isso na base de ajuda. Se for um erro ou uma sugestão, abra um chamado abaixo — assim alguém do suporte olha o caso com o contexto certo.",
+          texto: "Não encontrei isso na base de ajuda. Se for um erro ou uma sugestão, registre um chamado abaixo com o passo a passo — ele fica guardado nesta empresa, já sem dados sensíveis.",
         };
 
     const novas = salvarConversa([...msgs, doUsuario, resposta]);
     setMsgs(novas);
     setTexto("");
     if (encontrados.length > 0) {
-      toast(`${encontrados.length} dado sensível removido antes do envio.`);
+      toast(`${encontrados.length} dado sensível removido antes de gravar.`);
     }
   }
 
@@ -184,7 +187,7 @@ function ChatAjuda() {
                   <span className="flex flex-col min-w-0">
                     <span className="text-label text-ink truncate">{c.assunto}</span>
                     <span className="text-caption text-faint">
-                      {TIPOS_CHAMADO.find((t) => t.id === c.tipo)?.label} · aberto em {fmtDia(c.abertoEm)}
+                      {TIPOS_CHAMADO.find((t) => t.id === c.tipo)?.label} · registrado em {fmtDia(c.abertoEm)}
                       {c.segredosRemovidos > 0 && ` · ${c.segredosRemovidos} dado sensível removido`}
                     </span>
                   </span>
@@ -226,7 +229,7 @@ function ChatAjuda() {
                   </div>
                   {m.redigidos ? (
                     <span className="block mt-1 text-caption text-warning">
-                      {m.redigidos} dado sensível removido antes do envio.
+                      {m.redigidos} dado sensível removido antes de gravar.
                     </span>
                   ) : null}
                   {m.rota && (
@@ -270,8 +273,8 @@ function ChatAjuda() {
                     {achados.length === 1 ? "Detectamos 1 dado sensível" : `Detectamos ${achados.length} dados sensíveis`} na sua mensagem
                   </span>
                   <span className="text-caption text-muted">
-                    {Array.from(new Set(achados.map((a) => a.rotulo))).join(" · ")} — vai ser removido antes do envio.
-                    O suporte recebe a dúvida, não o segredo.
+                    {Array.from(new Set(achados.map((a) => a.rotulo))).join(" · ")} — vai ser removido antes de a
+                    mensagem ser gravada. O que fica registrado é a dúvida, não o segredo.
                   </span>
                 </span>
               </div>
@@ -293,7 +296,7 @@ function ChatAjuda() {
             </div>
             <span className="text-caption text-faint">
               Não compartilhe senhas, tokens ou dados sensíveis no chat — o sistema remove o que
-              reconhecer, mas o cuidado é seu.
+              reconhecer antes de gravar, mas o cuidado é seu.
             </span>
           </div>
         </div>
@@ -302,14 +305,24 @@ function ChatAjuda() {
       <Card>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-h3 font-semibold text-ink">Abrir um chamado</span>
+            <span className="flex flex-col gap-1">
+              <span className="text-h3 font-semibold text-ink">Registrar um chamado</span>
+              {/* ⚠️ A frase antiga dizia que "alguém do suporte olha o caso". Não
+                  existe canal que leve o chamado até o suporte da Quattro: ele
+                  fica no estado da empresa. Prometer um atendimento que não
+                  acontece é pior que dizer onde o registro fica. */}
+              <span className="text-caption text-faint max-w-[70ch]">
+                O chamado fica registrado nesta empresa, com os dados sensíveis já removidos. O envio
+                automático ao suporte da Quattro ainda não está ligado.
+              </span>
+            </span>
             <Button variant="ghost" onClick={() => setAbrindo((v) => !v)}>
               {abrindo ? "Cancelar" : "Novo chamado"}
             </Button>
           </div>
           {abrindo && (
             <FormChamado
-              onCriar={(c) => { setChamados(salvarChamado(c)); setAbrindo(false); toast("Chamado aberto."); }}
+              onCriar={(c) => { setChamados(salvarChamado(c)); setAbrindo(false); toast("Chamado registrado."); }}
               onCancelar={() => setAbrindo(false)}
             />
           )}
