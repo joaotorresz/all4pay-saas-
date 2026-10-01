@@ -161,3 +161,44 @@ dirigido no navegador (a demonstração não sugere provisão para o mês corren
 - `periodoIdLive` lia `data.id` sobre `null` quando o banco recusava abrir o
   período: a tela mostrava "Cannot read properties of null". Agora a mensagem
   do banco sobe.
+
+---
+
+# Rodada 3 (reservados) — branch `r4/contabil`
+
+Defeitos achados em arquivos que os caçadores não podiam editar. Guardas no
+bloco `CONTABILIDADE · RODADA 3` do `engine-audit`, cada uma provada plantando
+o defeito de volta (7 plantios, 7 reprovações nomeando a asserção).
+
+- **Envio de NFs ao contador** (`EnvioNFsView`): "Simular confirmação" já só
+  aparecia na demonstração; o resto da tela continuava prometendo em produção
+  — "próximo envio 01/11 às 21h", "enviamos um link de confirmação", "aguardando
+  clicar no link". **Não há executor** (nenhum cron, rota ou e-mail). Agora a
+  promessa só existe no ramo `ENVIO_SIMULADO` (= `isDemo`); fora dele a tela diz
+  "Envio automático não ligado", o botão vira "Cadastrar e-mail", e o que existe
+  hoje ficou visível: **"Baixar relação do mês"** (XLSX com as notas de entrada e
+  de saída do mês — os XMLs vêm do emissor e da SEFAZ, o sistema não os retém).
+  Os destinatários já gravavam por `store-org` (`a4p_contador_destinatarios` em
+  `CHAVES_ORG`); a guarda agora proíbe `localStorage` cru no store.
+- **DRE multiempresas da demonstração** (`lib/consolidado.demoInputsPorOrg`): a
+  empresa atual entra com o MESMO `RiskInput` da tela (`getRiscoInput`) como
+  "Empresa atual"; as outras duas seguem sintéticas. A taxa intercompany da
+  demonstração passou a ser Holding → Filial: na empresa atual um lançamento a
+  mais faria a coluna dela divergir do DRE ao lado.
+- **Provisão no Fechamento**: `postarLancamento` devolvia `"ja_existia"` e a tela
+  anunciava "lançada". A frase agora sai de `mensagemDaProvisao` (`core/close`),
+  usada pelas DUAS portas (Fechamento e Cronogramas → Provisões sugeridas), com o
+  retorno da provisão E do estorno — a de Cronogramas também ignorava o do
+  estorno e dizia "nada foi lançado" quando só o estorno entrava.
+- **`dreProjetado`** multiplicava as margens (EBITDA e líquida, ambas "÷ receita
+  líquida") pela receita BRUTA. Agora multiplica pela líquida, com a proporção
+  líquida ÷ bruta tirada da MESMA cascata nos mesmos meses da base (o
+  classificador local não reconhece "Simples Nacional" como dedução — usá-lo
+  seria a segunda classificação do mesmo fato). `DREProjecao` ganhou
+  `receitaLiquida`. Sem tela hoje.
+
+**Decisão pendente do dono:** o EXECUTOR do envio ao contador — montar o pacote
+de XMLs (exige reter o XML: certificado A1 para a entrada, emissor para a saída)
+e enviá-lo por e-mail (Resend, via o motor de automações, com registro de envio
+idempotente como o de `automacao_envios`), mais o link de confirmação do double
+opt-in. Até lá a tela não promete nada disso.

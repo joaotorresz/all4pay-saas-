@@ -109,6 +109,8 @@ export interface DREComparativo {
 export interface DREProjecao {
   horizonte: string; // "30 dias", "90 dias"...
   receita: number;
+  /** A base das margens (EBITDA e líquida são "÷ receita líquida"). */
+  receitaLiquida: number;
   ebitda: number;
   lucro: number;
 }

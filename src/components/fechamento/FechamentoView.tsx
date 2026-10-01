@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Card, BRL, StatusBadge, Button, Icon, Skeleton, InfoHint, Select, DateField, Textarea } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
-import { montarFechamento, mesLabel, provisaoComEstorno, primeiroDiaDoMesSeguinte } from "@/core/close";
+import { montarFechamento, mesLabel, provisaoComEstorno, primeiroDiaDoMesSeguinte, mensagemDaProvisao } from "@/core/close";
 import {
   ROTULO_STATUS, MOTIVO_MINIMO, atrasada, avaliarRevisao, prontidao as prontidaoDe, podeTravar,
   type TarefaFechamento, type MembroFechamento,
@@ -118,10 +118,13 @@ export function FechamentoView() {
     try {
       // A provisão e o seu estorno nascem juntos — ver `provisaoComEstorno`.
       const [provisao, estorno] = provisaoComEstorno(mesAtivo, categoria, valor);
-      await postarLancamento(provisao);
-      await postarLancamento(estorno);
+      // ⚠️ O retorno DIZ o que aconteceu: com a chave já no razão nada é
+      // lançado, e anunciar "lançada" sobre um razão que não mudou é o
+      // "idempotência que volta calada" (core/ledger/idempotencia).
+      const rp = await postarLancamento(provisao);
+      const re = await postarLancamento(estorno);
       const quando = primeiroDiaDoMesSeguinte(mesAtivo).split("-").reverse().join("/");
-      setProvMsg(`Provisão de "${categoria}" lançada no razão, com estorno automático em ${quando}.`);
+      setProvMsg(mensagemDaProvisao(categoria, quando, rp, re));
     } catch (e) { setProvMsg(`Falha: ${(e as Error).message}`); }
   };
 
@@ -357,3 +360,4 @@ function Metrica({ label, valor, contagem }: { label: string; valor: number; con
     </div>
   );
 }
+

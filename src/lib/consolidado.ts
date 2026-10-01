@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { reportar } from "@/lib/erros";
 import { linhasParaRiskInput, type LinhaMovimento } from "@/lib/risco-linhas";
+import { getRiscoInput } from "@/lib/data";
 
 export interface EntidadeConsolidada {
   orgId: string;
@@ -26,7 +27,9 @@ export interface Consolidado {
 }
 
 const DEMO: EntidadeConsolidada[] = [
-  { orgId: "demo-1", nome: "Quattro Matriz", saldo: 184320, receita: 96500, despesa: 71200, contas: 3, resultado: 25300 },
+  // ⚠️ "demo-1" É A EMPRESA ATUAL na fonte por organização (`demoInputsPorOrg`):
+  // os números abaixo só valem para o fallback de totais (`getConsolidado`).
+  { orgId: "demo-1", nome: "Empresa atual", saldo: 184320, receita: 96500, despesa: 71200, contas: 3, resultado: 25300 },
   { orgId: "demo-2", nome: "Quattro Filial SP", saldo: 73850, receita: 52100, despesa: 44780, contas: 2, resultado: 7320 },
   { orgId: "demo-3", nome: "Holding (investimentos)", saldo: 421000, receita: 18400, despesa: 9650, contas: 2, resultado: 8750 },
 ];
@@ -66,7 +69,7 @@ export async function getRiscoInputPorOrg(
   de: string,
   ate: string,
 ): Promise<{ orgId: string; nome: string; input: RiskInput }[] | null> {
-  if (isDemo) return demoInputsPorOrg(de, ate);
+  if (isDemo) return demoInputsPorOrg(de, ate, await getRiscoInput());
   try {
     const supabase = createClient();
     const [movRes, salRes] = await Promise.all([
@@ -115,14 +118,23 @@ export async function getRiscoInputPorOrg(
 }
 
 /**
- * Demo: um dataset determinístico por entidade sintética.
+ * Demo: a EMPRESA ATUAL + duas entidades sintéticas.
  *
- * Em demonstração TUDO é seed, inclusive aqui — mas os números não são
- * arbitrários: saem da receita/despesa que a própria entidade já declara em
- * `DEMO`, distribuídas pelos meses do período. Assim o consolidado da tela bate
- * com o consolidado de `/consolidado`.
+ * ⚠️ A empresa aberta entra com o MESMO `RiskInput` da tela vizinha
+ * (`getRiscoInput`). Antes as três entidades eram sintéticas e a empresa atual
+ * ficava de fora: o DRE multiempresas da demonstração mostrava uma "Matriz" que
+ * não era a empresa do DRE ao lado, e nenhuma coluna batia com ele. Por isso a
+ * operação intercompany da demonstração é entre as DUAS sintéticas — pôr um
+ * lançamento a mais na empresa atual faria a coluna dela divergir do DRE dela.
+ *
+ * As sintéticas saem da receita/despesa que cada uma declara em `DEMO`,
+ * distribuídas pelos meses do período.
  */
-function demoInputsPorOrg(de: string, ate: string): { orgId: string; nome: string; input: RiskInput }[] {
+export function demoInputsPorOrg(
+  de: string,
+  ate: string,
+  atual: RiskInput,
+): { orgId: string; nome: string; input: RiskInput }[] {
   const meses: string[] = [];
   let m = de.slice(0, 7);
   for (let k = 0; k < 60 && m <= ate.slice(0, 7); k++) {
@@ -131,11 +143,14 @@ function demoInputsPorOrg(de: string, ate: string): { orgId: string; nome: strin
     const d = new Date(a, mm, 1);
     m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }
-  const hoje = new Date().toISOString().slice(0, 10);
+  // O mesmo "hoje" da empresa atual: duas datas de referência num consolidado
+  // fariam as entidades olharem o mesmo período por relógios diferentes.
+  const hoje = atual.hoje;
   const CATS_R = ["Vendas", "Serviços prestados"];
   const CATS_D = ["Fornecedores", "Folha de Pagamento", "Marketing", "Simples Nacional"];
 
-  return DEMO.map((e) => {
+  const atualEnt = { orgId: DEMO[0].orgId, nome: DEMO[0].nome, input: atual };
+  return [atualEnt, ...DEMO.slice(1).map((e) => {
     const movs: RiskMovement[] = [];
     const n = Math.max(1, meses.length);
     meses.forEach((mes, k) => {
@@ -158,8 +173,8 @@ function demoInputsPorOrg(de: string, ate: string): { orgId: string; nome: strin
     });
     /*
      * CAMP-B · a operação ENTRE empresas do grupo, para a demonstração mostrar
-     * a eliminação: a Holding cobra da Matriz uma taxa de gestão todo mês, e a
-     * Matriz a paga. Para o grupo isso não é receita nem despesa — é dinheiro
+     * a eliminação: a Holding cobra da Filial uma taxa de gestão todo mês, e a
+     * Filial a paga. Para o grupo isso não é receita nem despesa — é dinheiro
      * mudando de bolso — e é exatamente o par que `eliminacoesIntercompany`
      * reconhece (mesmo valor, mesma competência, sentidos opostos, as duas
      * pontas empresas desta consolidação).
@@ -185,8 +200,11 @@ function demoInputsPorOrg(de: string, ate: string): { orgId: string; nome: strin
       nome: e.nome,
       input: { hoje, saldoAtual: e.saldo, movements: movs, partyNames, horizonDias: 60 } as RiskInput,
     };
-  });
+  })];
 }
 
-/** A taxa de gestão que a Holding cobra da Matriz (demonstração). */
-const INTERCOMPANY_DEMO = [{ de: "demo-3", para: "demo-1", valor: 2500 }];
+/**
+ * A taxa de gestão que a Holding cobra da Filial (demonstração). ⚠️ Nunca da
+ * empresa atual ("demo-1"): ela entra com os lançamentos reais da tela.
+ */
+const INTERCOMPANY_DEMO = [{ de: "demo-3", para: "demo-2", valor: 2500 }];

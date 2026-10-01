@@ -221,3 +221,26 @@ export function provisaoComEstorno(
   };
   return [provisao, estorno];
 }
+
+/**
+ * A frase da provisão a partir do que o razão DE FATO fez com cada metade.
+ * Uma frase só para as DUAS portas da provisão (Fechamento e Cronogramas →
+ * Provisões sugeridas): a guarda confere os quatro casos por valor.
+ */
+export function mensagemDaProvisao(
+  categoria: string,
+  quando: string,
+  provisao: "postado" | "ja_existia",
+  estorno: "postado" | "ja_existia",
+): string {
+  if (provisao === "ja_existia" && estorno === "ja_existia") {
+    return `A provisão de "${categoria}" e o estorno de ${quando} já estavam no razão com este valor — nada foi lançado de novo.`;
+  }
+  if (provisao === "ja_existia") {
+    return `A provisão de "${categoria}" já estava no razão com este valor; só o estorno de ${quando}, que faltava, foi lançado agora.`;
+  }
+  if (estorno === "ja_existia") {
+    return `Provisão de "${categoria}" lançada no razão; o estorno de ${quando} já estava lá com este valor.`;
+  }
+  return `Provisão de "${categoria}" lançada no razão, com estorno automático em ${quando}.`;
+}

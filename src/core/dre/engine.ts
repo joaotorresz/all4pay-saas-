@@ -399,12 +399,32 @@ export function dreProjetado(input: RiskInput, margemEbitda: number, margemLiqui
   // (1ª aparição no array de movements), não cronológica. Sem o sort, "últimos
   // 6 meses" pegava 6 meses arbitrários (o live não tem ORDER BY due_date),
   // enviesando a receita-base da projeção.
-  const receitasMes = Array.from(meses.entries())
+  const mesesComReceita = Array.from(meses.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, agg]) => agg.receita)
-    .filter((v) => v > 0);
-  const ult6 = receitasMes.slice(-6);
-  const receitaMensalBase = ult6.length ? ult6.reduce((s, v) => s + v, 0) / ult6.length : 0;
+    .filter(([, agg]) => agg.receita > 0);
+  const ult6 = mesesComReceita.slice(-6);
+  const receitaMensalBase = ult6.length ? ult6.reduce((s, [, a]) => s + a.receita, 0) / ult6.length : 0;
+  /*
+   * ⚠️ AS MARGENS SÃO SOBRE A RECEITA LÍQUIDA (a cascata e `core/indicadores`:
+   * "EBITDA ÷ receita líquida"). Multiplicá-las pela receita BRUTA, como esta
+   * função fazia, inflava o EBITDA e o lucro projetados pelo peso das deduções
+   * — com 10% de imposto sobre a venda, 11% a mais.
+   *
+   * A proporção líquida ÷ bruta sai da MESMA cascata que produziu as margens,
+   * nos mesmos meses da base. Tirá-la do classificador local (`porMes`) seria
+   * a segunda classificação do mesmo fato: ele não reconhece "Simples
+   * Nacional" como dedução, e a base voltaria a ser a bruta em silêncio.
+   */
+  let brutaCascata = 0, liquidaCascata = 0;
+  for (const [ym] of ult6) {
+    const [y, m] = ym.split("-").map(Number);
+    const fim = `${ym}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
+    const c = cascataDRE(input, { intervalo: { de: `${ym}-01`, ate: fim }, regime: "competencia" });
+    brutaCascata += c.linhas.receita_bruta.valor;
+    liquidaCascata += c.linhas.receita_liquida.valor;
+  }
+  const proporcaoLiquida = brutaCascata > 0 ? liquidaCascata / brutaCascata : 1;
+  const receitaLiquidaBase = receitaMensalBase * proporcaoLiquida;
   void fc;
 
   const horizontes: { label: string; meses: number }[] = [
@@ -415,6 +435,7 @@ export function dreProjetado(input: RiskInput, margemEbitda: number, margemLiqui
   ];
   return horizontes.map((h) => {
     const receita = receitaMensalBase * h.meses;
-    return { horizonte: h.label, receita, ebitda: receita * margemEbitda, lucro: receita * margemLiquida };
+    const receitaLiquida = receitaLiquidaBase * h.meses;
+    return { horizonte: h.label, receita, receitaLiquida, ebitda: receitaLiquida * margemEbitda, lucro: receitaLiquida * margemLiquida };
   });
 }
