@@ -164,6 +164,16 @@
         "impacto": "Até ser aplicada, reativar uma assinatura pausada não recria as faturas que foram para a lixeira (23505 em cada data). Aplicada, a fatura viva volta; duas vivas na mesma data seguem impossíveis.",
         "resolver_ate": "2026-10-08",
         "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20261001140000_aprovacao_por_whatsapp",
+        "objetos_ausentes": [
+          "tabela aprovacao_whatsapp_pedidos",
+          "funções pedir_aprovacao_whatsapp e responder_aprovacao_whatsapp"
+        ],
+        "impacto": "Até ser aplicada, pedir aprovação por WhatsApp na Central é recusado pelo banco (a função não existe). A funcionalidade nasce DESLIGADA (WHATSAPP_APROVACAO), então nenhum fluxo atual muda; aplicada, nenhum dado existente é tocado.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

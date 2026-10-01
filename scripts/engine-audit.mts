@@ -61,6 +61,8 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync } from "node:fs";
+import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
+import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { rotuloSituacao } from "@/core/movimentacoes";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
@@ -9687,6 +9689,84 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("contabil r3: empréstimo recebido não entra na base da projeção (EBITDA 450, não 450 + 50% do empréstimo)",
      projE.receita === 1000 && projE.receitaLiquida === 900 && Math.abs(projE.ebitda - 450) < 1e-9,
      JSON.stringify(projE));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * wa: APROVAÇÃO DE TÍTULO PELA WHATSAPP — a leitura, a assinatura e os portões
+ *
+ * A fechadura (o "SIM" passa pelo gatilho da Central) é provada no banco por
+ * `scripts/aprovacao-whatsapp.sql`. Aqui: o texto que o aprovador digita, a
+ * assinatura da Twilio, e a ORDEM dos portões na rota e na ação — desligada
+ * antes de qualquer banco, assinatura antes da RPC, simulado nunca "enviado".
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  ok("wa: 'SIM ABC234' aprova o pedido ABC234", igual(lerResposta("SIM ABC234"), { decisao: "sim", codigo: "ABC234" }));
+  ok("wa: minúsculas e espaços a mais valem ('  sim   abc234 ')", igual(lerResposta("  sim   abc234 "), { decisao: "sim", codigo: "ABC234" }));
+  ok("wa: 'NÃO ABC234' (com acento) recusa", igual(lerResposta("NÃO ABC234"), { decisao: "nao", codigo: "ABC234" }));
+  ok("wa: 'nao abc234' (sem acento) recusa", igual(lerResposta("nao abc234"), { decisao: "nao", codigo: "ABC234" }));
+  ok("wa: 'SIM' SEM código não aprova nada (null)", lerResposta("SIM") === null);
+  ok("wa: 'nao' sem código também é null", lerResposta("nao") === null);
+  ok("wa: código com 0/O/1/I (fora do alfabeto) é null", lerResposta("SIM AB01I2") === null);
+  ok("wa: palavra a mais é null ('SIM ABC234 obrigado')", lerResposta("SIM ABC234 obrigado") === null);
+  ok("wa: 'talvez ABC234' é null", lerResposta("talvez ABC234") === null);
+
+  ok("wa: remetente 'whatsapp:+5511999998888' → só dígitos", telefoneDoRemetente("whatsapp:+5511999998888") === "5511999998888");
+  ok("wa: o pedido guarda o 55 (senão a resposta da Twilio, sempre +55, não casa)",
+     telefoneParaPedido("(11) 99999-8888") === "5511999998888" && telefoneParaPedido("+55 11 99999-8888") === "5511999998888");
+  ok("wa: remetente e pedido chegam ao MESMO número",
+     telefoneDoRemetente("whatsapp:+5511999998888") === telefoneParaPedido("11 99999 8888"));
+
+  const msg = mensagemDoPedido({ descricao: "Aluguel", valorFormatado: "R$1.000,00", vencimento: "15/10/2026", codigo: "ABC234" });
+  ok("wa: a mensagem diz como aprovar, como recusar e a validade",
+     msg.includes("SIM ABC234") && msg.includes("NÃO ABC234") && msg.includes("24 horas") && msg.includes("R$1.000,00"));
+  ok("wa: o que a mensagem manda digitar é o que a leitura aceita",
+     igual(lerResposta("SIM ABC234"), { decisao: "sim", codigo: "ABC234" }) && igual(lerResposta("NÃO ABC234")?.decisao, "nao"));
+
+  // Assinatura: o vetor de exemplo da documentação da Twilio, escrito à mão
+  // (literal — não gerado pela função auditada).
+  const urlT = "https://mycompany.com/myapp.php?foo=1&bar=2";
+  const parT = { CallSid: "CA1234567890ABCDE", Caller: "+12349013030", Digits: "1234", From: "+12349013030", To: "+18005551212" };
+  ok("wa: assinatura do vetor da Twilio confere", assinaturaTwilioValida(urlT, parT, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "12345"));
+  // ⚠️ O mesmo vetor com as chaves fora de ordem: o formulário da Twilio não
+  // chega em ordem alfabética, e a assinatura exige ORDENAR (sem este caso, um
+  // HMAC sem `sort` passaria no vetor acima, que já vem ordenado).
+  const parFora = { To: "+18005551212", From: "+12349013030", Digits: "1234", Caller: "+12349013030", CallSid: "CA1234567890ABCDE" };
+  ok("wa: assinatura confere com os parâmetros FORA de ordem (ordenar é parte do algoritmo)",
+     assinaturaTwilioValida(urlT, parFora, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "12345"));
+  ok("wa: parâmetro ADULTERADO reprova a assinatura", !assinaturaTwilioValida(urlT, { ...parT, Digits: "9999" }, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "12345"));
+  ok("wa: token errado reprova", !assinaturaTwilioValida(urlT, parT, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "54321"));
+  ok("wa: sem cabeçalho reprova", !assinaturaTwilioValida(urlT, parT, null, "12345"));
+
+  // A ORDEM dos portões, lida no código sem os comentários (que explicam a regra
+  // citando as mesmas palavras — a guarda não pode passar pela documentação).
+  const semComentario = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+  const rota = semComentario(readFileSync("src/app/api/whatsapp/aprovacao/route.ts", "utf8"));
+  const iPortao = rota.indexOf('process.env.WHATSAPP_APROVACAO !== "ligado"');
+  const iForm = rota.indexOf("formData(");
+  const iAdmin = rota.indexOf("createAdmin(");
+  const iRpc = rota.indexOf(".rpc(");
+  const iAss = rota.indexOf("assinaturaTwilioValida(");
+  ok("wa: a rota DESLIGADA recusa antes de ler o corpo e de qualquer banco",
+     iPortao >= 0 && iForm > iPortao && iAdmin > iPortao && iRpc > iPortao && rota.slice(iPortao, iForm).includes("503"));
+  ok("wa: a rota confere a ASSINATURA antes da chave de serviço e da RPC",
+     iAss >= 0 && iAss < iAdmin && iAss < iRpc && /if \(!assinaturaTwilioValida\(/.test(rota) && rota.slice(iAss, iAdmin).includes("403"));
+
+  const acoes = semComentario(readFileSync("src/app/central/acoes.ts", "utf8"));
+  const iPedir = acoes.indexOf("export async function pedirAprovacaoWhatsappAction");
+  const corpo = iPedir >= 0 ? acoes.slice(iPedir) : "";
+  const jPortao = corpo.indexOf('process.env.WHATSAPP_APROVACAO !== "ligado"');
+  const jProv = corpo.indexOf("statusNotificacoes().whatsapp");
+  const jRpc = corpo.indexOf(".rpc(");
+  const jEnvio = corpo.indexOf("enviarWhatsapp(");
+  const jCheca = corpo.indexOf("if (!envio.ok)");
+  const jOk = corpo.indexOf("ok: true");
+  ok("wa: a ação DESLIGADA recusa antes de pedir código", jPortao >= 0 && jRpc > jPortao);
+  ok("wa: sem provedor (SIMULADO) a ação recusa antes de gerar o código e de 'enviar'",
+     jProv >= 0 && jProv < jRpc && jProv < jEnvio && /if \(!statusNotificacoes\(\)\.whatsapp\)/.test(corpo));
+  ok("wa: 'enviado' só depois de o provedor ACEITAR (o ok:true vem depois de conferir envio.ok)",
+     jEnvio > 0 && jCheca > jEnvio && jOk > jCheca && corpo.indexOf("ok: true") === corpo.lastIndexOf("ok: true"));
+  ok("wa: a ação nunca registra o código em log", !/console\./.test(corpo));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
