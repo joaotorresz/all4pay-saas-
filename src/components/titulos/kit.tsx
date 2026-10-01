@@ -583,7 +583,7 @@ export function FaixasDeIdade({ faixas, cor }: {
   return (
     <div className="flex flex-col gap-3">
       {faixas.map((f) => (
-        <div key={f.chave} className="flex flex-col gap-1" data-faixa={f.chave}>
+        <div key={f.chave} className="flex flex-col gap-1" data-faixa={f.chave} data-valor={f.valor}>
           <div className="flex items-baseline justify-between gap-3 text-caption">
             <span className="text-muted">
               {f.rotulo}

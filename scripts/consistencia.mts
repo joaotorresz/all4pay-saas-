@@ -4019,6 +4019,8 @@ const AGOSTO = janelaMes(2026, 7);
         "só o TIPO da regra, para o acessor devolver o formato que o motor pede",
       "src/components/visao-geral/hooks.ts":
         "o hook que carrega as regras, sem somar nada",
+      "src/core/previsao-mes/index.ts":
+        "CAMP-A: a camada ESTIMADA da previsão do mês — só as ocorrências `projetado` (sem título no mês), separada do agendado; nunca entra no painel nem na lista de títulos",
     };
     const intrusos: string[] = [];
     for (const arq of varrerArquivos("src", /\.(ts|tsx)$/)) {

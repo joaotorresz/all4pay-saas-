@@ -61,7 +61,7 @@ export function AgingContasPagar({ input }: { input: RiskInput }) {
                   {totais.vencido > 0 && <span className="inline-block w-2 h-2 rounded-pill bg-warning" aria-hidden />}
                   Vencido e não pago
                 </span>
-                <span className="a4p-num text-[24px] leading-none text-ink" data-aging-total="vencido"><BRL value={totais.vencido} /></span>
+                <span className="a4p-num text-[24px] leading-none text-ink" data-aging-total="vencido" data-valor={totais.vencido}><BRL value={totais.vencido} /></span>
               </div>
               <FaixasDeIdade
                 cor="var(--color-negative)"
@@ -74,7 +74,7 @@ export function AgingContasPagar({ input }: { input: RiskInput }) {
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
                 <span className="text-caption text-muted">A vencer</span>
-                <span className="a4p-num text-[24px] leading-none text-ink" data-aging-total="a-vencer"><BRL value={totais.aVencer} /></span>
+                <span className="a4p-num text-[24px] leading-none text-ink" data-aging-total="a-vencer" data-valor={totais.aVencer}><BRL value={totais.aVencer} /></span>
               </div>
               <FaixasDeIdade
                 cor="var(--color-ink)"
@@ -134,7 +134,7 @@ export function AgingContasPagar({ input }: { input: RiskInput }) {
                   {[...ORDEM_VENCIDO, ...ORDEM_A_VENCER].map((f) => (
                     <td key={f} className="text-right py-2 px-2 text-ink a4p-num font-medium"><BRL value={totais.faixas[f]} /></td>
                   ))}
-                  <td className="text-right py-2 pl-3 text-ink a4p-num font-medium" data-aging-total="carteira"><BRL value={totais.total} /></td>
+                  <td className="text-right py-2 pl-3 text-ink a4p-num font-medium" data-aging-total="carteira" data-valor={totais.total}><BRL value={totais.total} /></td>
                 </tr>
               </tbody>
             </table>

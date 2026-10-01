@@ -88,7 +88,7 @@ export function PrevisaoDoMes() {
 
       <div className="flex flex-col gap-1">
         <span className="text-caption text-muted">Resultado previsto do mês</span>
-        <span className="a4p-num text-[30px] leading-none text-ink" data-previsao="resultado"><Assinado v={p.previsto.resultado} /></span>
+        <span className="a4p-num text-[30px] leading-none text-ink" data-previsao="resultado" data-valor={p.previsto.resultado}><Assinado v={p.previsto.resultado} /></span>
         <span className="text-caption text-faint tabular-nums">
           entradas <BRL value={p.previsto.entradas} /> · saídas <BRL value={p.previsto.saidas} />
         </span>
@@ -110,7 +110,7 @@ export function PrevisaoDoMes() {
           const k = p.camadas[c];
           const m = MARCA[c];
           return (
-            <div key={c} data-camada={c} className="flex flex-col gap-1 rounded-card p-4"
+            <div key={c} data-camada={c} data-entradas={k.entradas} data-saidas={k.saidas} className="flex flex-col gap-1 rounded-card p-4"
               style={{ border: `1px ${m.tracejado ? "dashed" : "solid"} var(--color-border)` }}>
               <span className="text-caption text-muted inline-flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded-sm" aria-hidden style={{
