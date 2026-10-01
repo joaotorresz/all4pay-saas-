@@ -3,7 +3,8 @@
 /**
  * Provisões / accruals sugeridos (competência). Detecta despesas recorrentes
  * ainda não lançadas no mês e propõe provisioná-las; a IA pode refinar. Postar
- * gera um lançamento balanceado no razão (débito despesa · crédito provisões).
+ * gera o par no razão: a provisão no último dia do mês (débito despesa · crédito
+ * provisões) e o estorno no dia 1º do seguinte — `provisaoComEstorno`.
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -13,8 +14,7 @@ import { getRiscoInput } from "@/lib/data";
 import { sugerirAccruals, type AccrualSugerido } from "@/lib/accruals";
 import { postarLancamento } from "@/lib/ledger";
 import { nomeConta } from "@/core/ledger/chart";
-
-const PROVISAO = "2.1.99"; // Provisões a pagar (crédito)
+import { provisaoComEstorno, primeiroDiaDoMesSeguinte, CONTA_PROVISOES_A_PAGAR as PROVISAO } from "@/core/close";
 
 export function AccrualsSection() {
   const { show, node } = useToast();
@@ -49,20 +49,29 @@ export function AccrualsSection() {
     finally { setBusy(null); }
   };
 
+  /*
+   * ⚠️ **A PROVISÃO NASCE COM O ESTORNO, e pela MESMA porta do Fechamento.**
+   * Esta seção postava só a provisão (débito despesa · crédito provisões),
+   * datada no DIA 1º e sem estorno: quando a conta real do mês chegava, a
+   * despesa contava duas vezes — o defeito que `provisaoComEstorno` existe
+   * para impedir. E com chave própria (`accrual:`), diferente da do Fechamento
+   * (`prov:`): a mesma categoria podia ser provisionada uma vez em cada tela,
+   * no mesmo mês. Agora as duas telas montam o par pela mesma função e com as
+   * mesmas chaves — a segunda porta encontra o que a primeira lançou.
+   */
   const lancar = async (a: AccrualSugerido) => {
     const r = refino.get(a.categoria);
     const valor = r?.valor ?? a.valor;
     setBusy(a.categoria);
     try {
-      await postarLancamento({
-        entryDate: `${mes}-01`,
-        description: `Provisão ${a.categoria} · ${mes}`,
-        source: "accrual",
-        externalKey: `accrual:${mes}:${a.categoria}`,
-        lines: [{ accountId: a.conta, debit: valor }, { accountId: PROVISAO, credit: valor }],
-      });
+      const [provisao, estorno] = provisaoComEstorno(mes, a.categoria, valor, a.conta);
+      const rp = await postarLancamento(provisao);
+      await postarLancamento(estorno);
       setPostados((s) => new Set(s).add(a.categoria));
-      show(`Provisão de ${a.categoria} lançada no razão`);
+      const quando = primeiroDiaDoMesSeguinte(mes).split("-").reverse().join("/");
+      show(rp === "ja_existia"
+        ? `A provisão de ${a.categoria} já estava no razão com este valor — nada foi lançado de novo.`
+        : `Provisão de ${a.categoria} lançada no razão, com estorno automático em ${quando}.`);
     } catch (e) { show(`Falha ao lançar: ${(e as Error).message}`); }
     finally { setBusy(null); }
   };

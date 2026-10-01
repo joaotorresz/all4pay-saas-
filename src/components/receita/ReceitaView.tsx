@@ -28,20 +28,20 @@ export function ReceitaReconhecimentoView() {
     if (!report) return;
     setReconhecendo(true); setMsgRec(null);
     const mes = isoDay(new Date()).slice(0, 7);
+    let n = 0, ja = 0;
     try {
-      let n = 0;
       for (const c of report.contratos.filter((x) => x.ativo && x.mrr > 0)) {
-        await postarLancamento({
+        const r = await postarLancamento({
           entryDate: `${mes}-01`,
           description: `Reconhecimento de receita: ${c.titulo}`,
           source: "revrec",
           externalKey: `revrec:${c.id}:${mes}`,
           lines: [{ accountId: "2.2.01", debit: c.mrr }, { accountId: "3.1.02", credit: c.mrr }],
         });
-        n++;
+        if (r === "ja_existia") ja++; else n++;
       }
-      setMsgRec(`Competência de ${mes} reconhecida: ${n} contrato(s) lançado(s) no razão.`);
-    } catch (e) { setMsgRec(`Falha: ${(e as Error).message}`); }
+      setMsgRec(`Competência de ${mes}: ${n} contrato(s) lançado(s) no razão agora` + (ja ? ` · ${ja} já estava(m) lançado(s) com o mesmo valor.` : "."));
+    } catch (e) { setMsgRec(`Falha: ${(e as Error).message}${n ? ` (${n} contrato(s) já tinham sido lançados antes da falha)` : ""}`); }
     finally { setReconhecendo(false); }
   };
 

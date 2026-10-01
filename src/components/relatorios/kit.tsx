@@ -12,6 +12,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Card, Button, Icon, Select, DateField, Checkbox } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
+import type { RiskInput } from "@/core/risk-engine/types";
 import { imprimirRelatorio } from "@/lib/imprimir";
 import { baixarXLSX } from "@/lib/xlsx";
 import {
@@ -421,6 +422,7 @@ export function TabelaRelatorio({
                   <tr
                     className="border-b border-border-soft"
                     style={total ? { background: t.suave } : undefined}
+                    data-linha={l.id}
                   >
                     <td className={`px-4 py-[10px] sticky left-0 min-w-[260px] ${total ? "" : "bg-white"}`} style={total ? { background: t.suave } : undefined}>
                       <div className="flex items-center gap-2">
@@ -436,14 +438,14 @@ export function TabelaRelatorio({
                     {l.celulas.map((c, k) => (
                       <React.Fragment key={k}>
                         <Valor
-                          valor={c.valor} cifrao={layout.mostrarCifrao} forte={total}
+                          valor={c.valor} cifrao={layout.mostrarCifrao} forte={total} marca={String(k)}
                           onClick={c.movimentos.length ? () => onCelula({ linha: l.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos, valor: c.valor }) : undefined}
                         />
                         {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
                         {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} />}
                       </React.Fragment>
                     ))}
-                    <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte
+                    <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte marca="total"
                       onClick={l.total.movimentos.length ? () => onCelula({ linha: l.label, coluna: "Total", movimentos: l.total.movimentos, valor: l.total.valor }) : undefined} />
                     {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(l.total.av)}</td>}
                     <Valor valor={l.media.valor} cifrao={layout.mostrarCifrao} />
@@ -518,11 +520,11 @@ function CelulasOrcamento({
 }
 
 function Valor({
-  valor, cifrao, forte, miudo, onClick,
-}: { valor: number; cifrao: boolean; forte?: boolean; miudo?: boolean; onClick?: () => void }) {
+  valor, cifrao, forte, miudo, onClick, marca,
+}: { valor: number; cifrao: boolean; forte?: boolean; miudo?: boolean; onClick?: () => void; marca?: string }) {
   const conteudo = fmt(valor, cifrao);
   return (
-    <td className={`px-4 ${miudo ? "py-2" : "py-[10px]"} text-right tabular-nums ${forte ? "font-semibold text-ink" : miudo ? "text-muted" : "text-ink"}`}>
+    <td data-celula={marca} data-valor={marca ? valor : undefined} className={`px-4 ${miudo ? "py-2" : "py-[10px]"} text-right tabular-nums ${forte ? "font-semibold text-ink" : miudo ? "text-muted" : "text-ink"}`}>
       {onClick ? (
         <button onClick={onClick} className="hover:underline decoration-dotted underline-offset-4" title="Ver as transações">
           {conteudo}
@@ -536,9 +538,20 @@ function Valor({
 
 /** Gaveta com as transações que formaram a célula clicada. */
 export function GavetaTransacoes({
-  celula, onFechar,
-}: { celula: CelulaClicada; onFechar: () => void }) {
-  const { data: input } = useRiscoInput();
+  celula, onFechar, fonte,
+}: {
+  celula: CelulaClicada; onFechar: () => void;
+  /**
+   * De onde vêm os lançamentos da célula. Padrão: a empresa aberta. O
+   * consolidado PRECISA passar o próprio conjunto unido — os ids lá são
+   * prefixados pela empresa (`org:id`), e procurá-los na empresa aberta
+   * devolvia "Nenhuma transação nesta célula" para toda célula do DRE
+   * multiempresas.
+   */
+  fonte?: RiskInput | null;
+}) {
+  const { data: daEmpresa } = useRiscoInput();
+  const input = fonte ?? daEmpresa;
   const movs = React.useMemo(() => {
     const set = new Set(celula.movimentos);
     return (input?.movements ?? []).filter((m) => set.has(m.id))
@@ -586,7 +599,7 @@ export function GavetaTransacoes({
                 </div>
               </div>
               {/* Entrada e saída na mesma tinta (decisão de 30/09/2026): o "+"/"−" escrito diz a direção. */}
-              <span className="text-label tabular-nums shrink-0 text-ink">
+              <span className="text-label tabular-nums shrink-0 text-ink" data-gaveta-valor={m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)}>
                 {m.type === "entrada" ? "+" : "−"}{fmt(Math.abs(m.amount), true)}
               </span>
             </button>

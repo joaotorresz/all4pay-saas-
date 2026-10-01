@@ -128,9 +128,9 @@ export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias
     if (!t.rascunho) return;
     setPostandoIdx(idx); setMsg(null);
     try {
-      await postarLancamento(t.rascunho);
+      const r = await postarLancamento(t.rascunho);
       void logAcaoIA({ kind: "draft_entry", titulo: t.pergunta, detalhe: `${t.rascunho.description} — postado no razão`, status: "executada" });
-      setTurnos((arr) => arr.map((x, i) => (i === idx ? { ...x, rascunho: null, texto: (x.texto ?? "") + "\n\n✓ Lançamento postado no razão." } : x)));
+      setTurnos((arr) => arr.map((x, i) => (i === idx ? { ...x, rascunho: null, texto: (x.texto ?? "") + (r === "ja_existia" ? "\n\nEste lançamento já estava no razão — nada foi postado de novo." : "\n\n✓ Lançamento postado no razão.") } : x)));
       ctxGL.current = await contextoRazao();
       await qc.invalidateQueries();
     } catch (e) { setMsg(`Falha ao postar: ${(e as Error).message}`); }

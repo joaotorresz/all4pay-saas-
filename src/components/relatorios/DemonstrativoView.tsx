@@ -15,7 +15,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
 import { BRL, Button, Card, Icon, NotaCancelados, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
-import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -55,6 +55,7 @@ const fmtBRL = (n: number) => formatBRL(n);
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();
+  const { data: contasResumo } = useAccounts();
   const [rascunho, setRascunho] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
   // Os filtros só valem depois de "Atualizar" — o print tem o botão, e um
   // relatório que se recalcula a cada tecla pisca sem parar.
@@ -118,8 +119,13 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       baseVertical: aplicados.baseVertical,
       linhaPorCategoria,
     };
-    return tipo === "dre" ? montarDRE(inputDaVisao, f) : montarDFC(inputDaVisao, f);
-  }, [inputDaVisao, aplicados, tipo, linhaPorCategoria]);
+    // ⚠️ Com filtro de conta, o DFC parte do saldo DESSA conta — o `saldoAtual`
+    // do input é o de todas, e o "Saldo Final" sairia o de conta nenhuma.
+    const saldoDaConta = aplicados.conta
+      ? contasResumo?.accounts.find((c) => c.id === aplicados.conta)?.balance
+      : undefined;
+    return tipo === "dre" ? montarDRE(inputDaVisao, f) : montarDFC(inputDaVisao, f, saldoDaConta);
+  }, [inputDaVisao, aplicados, tipo, linhaPorCategoria, contasResumo]);
 
   const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
 
@@ -295,7 +301,24 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           MESMOS motores (`dreGerencial` + `core/indicadores`), não de uma conta
           paralela. */}
       {tipo === "dre" && relatorio && <AvisoDuplicidadeImposto relatorio={relatorio} />}
-      {tipo === "dre" && input && <CartoesExecutivos input={inputDaVisao!} intervalo={aplicados.intervalo} />}
+      {/* ⚠️ Os cartões recebem o MESMO filtro da tabela (conta, projeto,
+          centro e a linha declarada de cada categoria). Recebiam só o
+          intervalo: com um filtro aplicado, "Lucro líquido" no cartão e o
+          Resultado Líquido na tabela logo abaixo davam números diferentes —
+          o cartão dizia a empresa toda e a tabela, o recorte. */}
+      {tipo === "dre" && input && (
+        <CartoesExecutivos
+          input={inputDaVisao!}
+          filtro={{ intervalo: aplicados.intervalo, conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro, linhaPorCategoria }}
+        />
+      )}
+      {tipo === "dfc" && relatorio && !relatorio.linhas.some((l) => l.id === "saldo_inicial") && (
+        <p className="m-0 text-caption text-faint max-w-[76ch]" role="note">
+          Sem linhas de saldo neste recorte: saldo é a posição de uma conta bancária, e{" "}
+          {aplicados.projeto || aplicados.centro ? "um projeto ou centro de custo não tem conta" : "o saldo desta conta não foi carregado"}.
+          O fluxo do período continua inteiro.
+        </p>
+      )}
 
       <PainelLayout layout={layout} onChange={setLayout} />
 
@@ -410,7 +433,10 @@ export { compararOrcamento };
  * não de uma conta própria: um cartão que discorda da tabela logo abaixo é
  * pior que cartão nenhum.
  */
-function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: { de: string; ate: string } }) {
+function CartoesExecutivos({ input, filtro }: {
+  input: RiskInput;
+  filtro: { intervalo: { de: string; ate: string }; conta?: string | null; projeto?: string | null; centro?: string | null; linhaPorCategoria?: Record<string, string> };
+}) {
   // ⚠️ Os seis chegam INTEIROS, como `Indicador`: `number` não sabe dizer que
   // não sabe — não porque a aritmética mudasse (ela é conferida par a par
   // na matriz de consistência), mas porque `number` não sabe dizer que não
@@ -431,7 +457,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
    * deixar de acontecer.
    */
   const m = React.useMemo(() => {
-    const c = cascataDRE(input, { intervalo, regime: "competencia" });
+    const c = cascataDRE(input, { ...filtro, regime: "competencia" });
     return {
       receitaLiquida: c.linhas.receita_liquida,
       ebitda: c.linhas.ebitda,
@@ -440,7 +466,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
       runway: runwayMeses(input),
       caixa: saldo(input),
     };
-  }, [input, intervalo]);
+  }, [input, filtro]);
 
   /**
    * ⚠️ Número não tem cor por sinal (decisão de 30/09/2026): o prejuízo, a

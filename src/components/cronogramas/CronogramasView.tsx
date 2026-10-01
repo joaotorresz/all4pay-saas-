@@ -18,6 +18,9 @@ import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
 import { hojeLocal } from "@/lib/aggregations";
+import { formatBRL } from "@/lib/format";
+
+const mesLabelCurto = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
 
 const MESES_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const mesCurto = (mesISO: string) => { const [y, m] = mesISO.split("-").map(Number); return `${MESES_PT[(m || 1) - 1]}/${String(y).slice(2)}`; };
@@ -54,8 +57,12 @@ export function CronogramasView() {
       if (lancamento.porTipo.depreciacao > 0) lines.push({ accountId: "4.3.01", debit: lancamento.porTipo.depreciacao });
       if (lancamento.porTipo.amortizacao > 0) lines.push({ accountId: "4.3.02", debit: lancamento.porTipo.amortizacao });
       lines.push({ accountId: "1.2.99", credit: lancamento.total });
-      await postarLancamento({ entryDate: `${mes}-01`, description: `Depreciação/amortização ${mes}`, source: "depreciation", externalKey: `cron:${mes}`, lines });
-      setMsgRazao("Lançado no razão (consulte /razao e /relatorios).");
+      const r = await postarLancamento({ entryDate: `${mes}-01`, description: `Depreciação/amortização ${mes}`, source: "depreciation", externalKey: `cron:${mes}`, lines });
+      // ⚠️ Repetir o clique não duplica — e a tela diz isso, em vez de
+      // anunciar "lançado" sobre um razão que não mudou.
+      setMsgRazao(r === "ja_existia"
+        ? `A depreciação e amortização de ${mesLabelCurto(mes)} já estava no razão com este mesmo valor (${formatBRL(lancamento.total)}) — nada foi lançado de novo.`
+        : `Depreciação e amortização de ${mesLabelCurto(mes)} lançadas no razão: ${formatBRL(lancamento.total)}. Confira no Razão contábil.`);
     } catch (e) { setMsgRazao(`Falha: ${(e as Error).message}`); }
     finally { setPostando(false); }
   };

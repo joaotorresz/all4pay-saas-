@@ -121,7 +121,7 @@ export function VariacaoView() {
               <span className="hidden sm:block w-[120px] text-right a4p-label text-faint">Variação</span>
             </div>
             {analise.linhas.map((l, i) => (
-              <LinhaCard key={l.id} l={l} primeira={i === 0} rotuloMes={analise.rotuloMes} onCelula={setCelula} />
+              <LinhaCard key={l.id} l={l} primeira={i === 0} rotuloMes={analise.rotuloMes} rotuloAnterior={analise.rotuloAnterior} onCelula={setCelula} />
             ))}
           </Card>
         </>
@@ -132,8 +132,8 @@ export function VariacaoView() {
   );
 }
 
-function LinhaCard({ l, primeira, rotuloMes, onCelula }: {
-  l: LinhaVariacao; primeira: boolean; rotuloMes: string; onCelula: (c: CelulaClicada) => void;
+function LinhaCard({ l, primeira, rotuloMes, rotuloAnterior, onCelula }: {
+  l: LinhaVariacao; primeira: boolean; rotuloMes: string; rotuloAnterior: string; onCelula: (c: CelulaClicada) => void;
 }) {
   const [aberta, setAberta] = React.useState(false);
   const total = l.tipo === "total";
@@ -166,10 +166,19 @@ function LinhaCard({ l, primeira, rotuloMes, onCelula }: {
             <div key={m.categoria} className="flex items-center gap-3 text-caption">
               <span className="flex-1 min-w-0 truncate text-ink">{m.categoria}{m.principalContraparte ? <span className="text-faint"> · {m.principalContraparte}</span> : null}</span>
               <span className="tabular-nums text-muted w-[110px] text-right"><BRL value={m.delta} /></span>
-              {m.movimentos.length > 0 && (
-                <button onClick={() => onCelula({ linha: `${l.label} · ${m.categoria}`, coluna: rotuloMes, movimentos: m.movimentos })}
+              {/* Os DOIS lados da diferença: o valor vai junto, para o total da
+                  gaveta ser o da célula (e não uma soma assinada que, numa
+                  linha de despesa, sairia com o sinal trocado). */}
+              {m.movimentosAnterior.length > 0 && (
+                <button onClick={() => onCelula({ linha: `${l.label} · ${m.categoria}`, coluna: rotuloAnterior, movimentos: m.movimentosAnterior, valor: m.anterior })}
                   className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">
-                  Ver {m.movimentos.length} {m.movimentos.length === 1 ? "lançamento" : "lançamentos"}
+                  Ver {m.movimentosAnterior.length} de {rotuloAnterior}
+                </button>
+              )}
+              {m.movimentos.length > 0 && (
+                <button onClick={() => onCelula({ linha: `${l.label} · ${m.categoria}`, coluna: rotuloMes, movimentos: m.movimentos, valor: m.atual })}
+                  className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">
+                  Ver {m.movimentos.length} de {rotuloMes}
                 </button>
               )}
             </div>
