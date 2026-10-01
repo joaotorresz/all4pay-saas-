@@ -25,7 +25,10 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Card, BRL, Icon, Skeleton, Input, Select, CurrencyInput, DateField } from "@/components/ui";
-import { moverTituloAction, lancarTituloAction } from "@/app/central/acoes";
+import {
+  moverTituloAction, lancarTituloAction, aprovadoresWhatsappAction, pedirAprovacaoWhatsappAction,
+  type AprovadorWhatsapp, type ResultadoPedidoWhatsapp,
+} from "@/app/central/acoes";
 import { isDemo } from "@/lib/demo";
 import {
   getFilaCentral, getContextoCentral, getTransicoes, porQueNaoConfirma,
@@ -177,13 +180,68 @@ function FormLancar({ onPronto, onCancelar }: { onPronto: () => void; onCancelar
   );
 }
 
-export function CentralView() {
+/**
+ * PEDIR APROVAÇÃO POR WHATSAPP — o aprovador responde "SIM <código>".
+ *
+ * ⚠️ Não é um segundo caminho de aprovação: a resposta faz o MESMO UPDATE da
+ * Central, como o aprovador, e o gatilho decide (segregação, papel, alçada).
+ * Por isso a tela não promete "aprovado" — diz só que o pedido saiu.
+ */
+function PedirWhatsapp({ tituloId, onFechar }: { tituloId: string; onFechar: () => void }) {
+  const aprovadores = useQuery({ queryKey: ["central", "aprovadores-wa"], queryFn: () => aprovadoresWhatsappAction() });
+  const [aprovador, setAprovador] = React.useState("");
+  const [telefone, setTelefone] = React.useState("");
+  const [enviando, setEnviando] = React.useState(false);
+  const [resultado, setResultado] = React.useState<ResultadoPedidoWhatsapp | null>(null);
+  const lista = (aprovadores.data ?? []) as AprovadorWhatsapp[];
+  const digitos = telefone.replace(/\D/g, "").length;
+  const podeEnviar = !!aprovador && digitos >= 10 && digitos <= 13 && !enviando;
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!podeEnviar) return;
+    setEnviando(true); setResultado(null);
+    try { setResultado(await pedirAprovacaoWhatsappAction(tituloId, aprovador, telefone)); }
+    finally { setEnviando(false); }
+  };
+
+  return (
+    <form onSubmit={enviar} className="mx-5 mb-3 rounded-md p-3 flex flex-col gap-3 bg-surface-2">
+      <span className="text-caption font-medium text-ink">Pedir aprovação por WhatsApp</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Select label="Aprovador" value={aprovador} onChange={setAprovador}
+          options={[{ value: "", label: aprovadores.isLoading ? "Carregando…" : lista.length ? "Escolha quem aprova" : "Nenhum membro com permissão de aprovar" },
+                    ...lista.map((a) => ({ value: a.id, label: a.nome }))]} />
+        <Input label="WhatsApp do aprovador" value={telefone} onChange={(e) => setTelefone(e.target.value)}
+          placeholder="(11) 99999-8888" inputMode="tel" />
+      </div>
+      {resultado && (
+        <div role="status" className="rounded-md p-3 bg-white"
+          style={{ borderLeft: `3px solid ${resultado.ok ? "var(--color-ink)" : "var(--color-negative)"}` }}>
+          <span className="text-caption text-ink">{resultado.ok ? resultado.mensagem : resultado.motivo}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button type="submit" variant="secondary" disabled={!podeEnviar}>
+          {enviando ? "Enviando…" : "Enviar pedido"}
+        </Button>
+        <Button type="button" variant="ghost" onClick={onFechar}>Fechar</Button>
+        <span className="text-caption text-faint">
+          O aprovador responde SIM ou NÃO com o código. O código vale por 24 horas e serve uma vez; a confirmação passa pelas mesmas regras desta tela.
+        </span>
+      </div>
+    </form>
+  );
+}
+
+export function CentralView({ whatsappLigado = false }: { whatsappLigado?: boolean } = {}) {
   const qc = useQueryClient();
   const [aberto, setAberto] = React.useState<string | null>(null);
   const [recusa, setRecusa] = React.useState<{ id: string; r: RecusaCentral } | null>(null);
   const [ocupado, setOcupado] = React.useState<string | null>(null);
   const [filtro, setFiltro] = React.useState<"todos" | Situacao>("todos");
   const [lancando, setLancando] = React.useState(false);
+  const [pedindoWa, setPedindoWa] = React.useState<string | null>(null);
   /* ⚠️ Sem paginação sofisticada: 100 linhas e um "carregar mais". Teto que
      se explica é melhor que rolagem infinita que esconde o corte. */
   const [teto, setTeto] = React.useState(100);
@@ -334,6 +392,13 @@ export function CentralView() {
                       : <span className="text-[11px] text-warning">O papel {ctx.papel ?? "atual"} não dá baixa.</span>
                   )}
 
+                  {whatsappLigado && t.situacao === "previsto" && (
+                    <button type="button" onClick={() => setPedindoWa(pedindoWa === t.id ? null : t.id)}
+                      className="text-caption text-muted hover:text-ink underline underline-offset-2 shrink-0">
+                      Pedir aprovação por WhatsApp
+                    </button>
+                  )}
+
                   <button type="button" onClick={() => setAberto(estaAberto ? null : t.id)}
                     className="text-caption text-muted hover:text-ink underline underline-offset-2 shrink-0">
                     {estaAberto ? "ocultar histórico" : "histórico"}
@@ -349,6 +414,10 @@ export function CentralView() {
                     <span className="text-caption font-medium text-ink">{recusa.r.motivo}</span>
                     <span className="text-caption text-muted">{recusa.r.comoResolver}</span>
                   </div>
+                )}
+
+                {whatsappLigado && pedindoWa === t.id && t.situacao === "previsto" && (
+                  <PedirWhatsapp tituloId={t.id} onFechar={() => setPedindoWa(null)} />
                 )}
 
                 {estaAberto && <div className="px-5 pb-4"><Trilha id={t.id} /></div>}

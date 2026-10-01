@@ -150,7 +150,18 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261001140000_aprovacao_por_whatsapp",
+        "objetos_ausentes": [
+          "tabela aprovacao_whatsapp_pedidos",
+          "funções pedir_aprovacao_whatsapp e responder_aprovacao_whatsapp"
+        ],
+        "impacto": "Até ser aplicada, pedir aprovação por WhatsApp na Central é recusado pelo banco (a função não existe). A funcionalidade nasce DESLIGADA (WHATSAPP_APROVACAO), então nenhum fluxo atual muda; aplicada, nenhum dado existente é tocado.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
