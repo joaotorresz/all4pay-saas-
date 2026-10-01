@@ -20,11 +20,63 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
 
 /** O tempo que o desfazer fica disponível. */
 const SEGUNDOS_PARA_DESFAZER = 8;
+
+/*
+ * ⚠️ O DESFAZER NÃO PODE MORAR NO BOTÃO QUE EXCLUIU. A versão anterior
+ * desenhava o aviso "Desfazer (8s)" como filho deste componente — e o botão
+ * "Excluir" vive na LINHA do que foi excluído. Excluir tirava a linha da
+ * lista, o componente desmontava e o desfazer sumia junto, no mesmo instante:
+ * a confirmação prometia "você terá 8 segundos para desfazer" e entregava
+ * zero (medido na lista de compras e na folha). O aviso agora mora numa raiz
+ * PRÓPRIA no `<body>`, que não depende de quem o abriu continuar na tela.
+ */
+let raizDoDesfazer: Root | null = null;
+
+function AvisoDesfazer({ titulo, desfazer, aoFim }: {
+  titulo: string; desfazer: () => void | Promise<void>; aoFim: () => void;
+}) {
+  const [restam, setRestam] = React.useState(SEGUNDOS_PARA_DESFAZER);
+  React.useEffect(() => {
+    if (restam <= 0) { aoFim(); return; }
+    const t = setTimeout(() => setRestam((r) => r - 1), 1000);
+    return () => clearTimeout(t);
+  }, [restam, aoFim]);
+  return (
+    <div
+      role="status"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 bg-ink text-white text-label px-4 py-3 rounded-md"
+    >
+      <Icon name="check" size={15} color="var(--color-lime)" />
+      <span>{titulo} — feito.</span>
+      <button
+        onClick={async () => { aoFim(); await desfazer(); }}
+        className="font-semibold underline"
+      >
+        Desfazer ({restam}s)
+      </button>
+    </div>
+  );
+}
+
+/** Mostra o desfazer — um por vez: uma exclusão nova substitui o aviso anterior. */
+function mostrarDesfazer(titulo: string, desfazer: () => void | Promise<void>): void {
+  if (typeof document === "undefined") return;
+  if (!raizDoDesfazer) {
+    const el = document.createElement("div");
+    el.setAttribute("data-a4p-desfazer", "");
+    document.body.appendChild(el);
+    raizDoDesfazer = createRoot(el);
+  }
+  const raiz = raizDoDesfazer;
+  const aoFim = () => raiz.render(null);
+  raiz.render(<AvisoDesfazer key={Date.now()} titulo={titulo} desfazer={desfazer} aoFim={aoFim} />);
+}
 
 export function AcaoDestrutiva({
   rotulo,
@@ -50,8 +102,6 @@ export function AcaoDestrutiva({
 }) {
   const [aberto, setAberto] = React.useState(false);
   const [ocupado, setOcupado] = React.useState(false);
-  const [desfazer, setDesfazer] = React.useState<(() => void | Promise<void>) | null>(null);
-  const [restam, setRestam] = React.useState(0);
   const primeiroFoco = React.useRef<HTMLButtonElement>(null);
 
   // Esc fecha, e o foco entra no botão SEGURO (Cancelar) — não no destrutivo.
@@ -64,22 +114,12 @@ export function AcaoDestrutiva({
     return () => { window.removeEventListener("keydown", esc); clearTimeout(t); };
   }, [aberto]);
 
-  // Contagem regressiva do desfazer.
-  React.useEffect(() => {
-    if (restam <= 0) { if (restam === 0 && desfazer) setDesfazer(null); return; }
-    const t = setTimeout(() => setRestam((r) => r - 1), 1000);
-    return () => clearTimeout(t);
-  }, [restam, desfazer]);
-
   const executar = async () => {
     setOcupado(true);
     try {
       const reverter = await onConfirmar();
       setAberto(false);
-      if (typeof reverter === "function") {
-        setDesfazer(() => reverter);
-        setRestam(SEGUNDOS_PARA_DESFAZER);
-      }
+      if (typeof reverter === "function") mostrarDesfazer(titulo, reverter);
     } finally {
       setOcupado(false);
     }
@@ -124,22 +164,6 @@ export function AcaoDestrutiva({
         document.body,
       )}
 
-      {desfazer && restam > 0 && typeof document !== "undefined" && createPortal(
-        <div
-          role="status"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 bg-ink text-white text-label px-4 py-3 rounded-md"
-        >
-          <Icon name="check" size={15} color="var(--color-lime)" />
-          <span>{titulo} — feito.</span>
-          <button
-            onClick={async () => { const f = desfazer; setDesfazer(null); setRestam(0); await f(); }}
-            className="font-semibold underline"
-          >
-            Desfazer ({restam}s)
-          </button>
-        </div>,
-        document.body,
-      )}
     </>
   );
 }

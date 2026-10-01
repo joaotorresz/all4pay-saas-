@@ -28,7 +28,7 @@ import {
   linhaDoTituloDaFolha, retirarTitulosDaFolha,
 } from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts, useOpenMovements, useRiscoInput } from "@/components/visao-geral/hooks";
+import { useAccounts, useOpenMovements, useMovementsByFilter, useRiscoInput } from "@/components/visao-geral/hooks";
 import { useToast } from "@/components/listas/ListChrome";
 import { criarTitulos } from "@/lib/data";
 import { reportar } from "@/lib/erros";
@@ -86,6 +86,16 @@ export function FolhaSalarial() {
       descricao: m.description ?? null, accountId: m.account_id ?? null,
     })),
     [abertos],
+  );
+  // Os já PAGOS, com a descrição — a rescisão desconta a 1ª parcela do 13º que
+  // já saiu do caixa (ver `decimoJaPagoNoAno`).
+  const { data: realizados } = useMovementsByFilter("saida", "realizado");
+  const pagos: LancamentoDaFolha[] = React.useMemo(
+    () => (realizados ?? []).map((m) => ({
+      id: m.id, type: m.type, status: m.status, amount: m.amount, due_date: m.due_date,
+      descricao: m.description ?? null, accountId: m.account_id ?? null,
+    })),
+    [realizados],
   );
 
   /**
@@ -415,7 +425,7 @@ export function FolhaSalarial() {
       {rescisao && (
         <ModalRescisao
           colaborador={rescisao} regime={fiscal.regime} anexo={fiscal.anexo} tabelas={tabelas}
-          lancamentos={lancamentos}
+          lancamentos={lancamentos} pagos={pagos}
           onFechar={() => setRescisao(null)}
           onConfirmar={async (titulos, desligadoEm, substituidos) => {
             if (!(await agendar(titulos, rescisao.nome))) return;

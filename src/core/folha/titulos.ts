@@ -44,6 +44,11 @@ export interface TituloLido {
   doDecimo: boolean;
   /** Só na 1ª parcela do 13º. */
   primeiraParcela: boolean;
+  /**
+   * De que parcela do 13º o título é — a própria parcela OU o encargo dela
+   * ("FGTS do 13º · 1ª parcela"). `null` fora do 13º e no DARF do ano.
+   */
+  parcela13?: 1 | 2 | null;
 }
 
 const mesAnterior = (iso: string): string => {
@@ -86,7 +91,11 @@ export function lerTituloDaFolha(descricao: string, vencimento: string): TituloL
     if (partes.length === 3 && !/^[12]ª parcela$/.test(parcela)) return null;
     if (!dec[1] && !parcela) return null;
     const tipo: TipoTituloFolha = !dec[1] ? "decimo" : dec[1] === "FGTS do " ? "fgts" : "darf";
-    return { tipo, colaborador, competencia: `${ano}-12`, doDecimo: true, primeiraParcela: !dec[1] && parcela === "1ª parcela" };
+    return {
+      tipo, colaborador, competencia: `${ano}-12`, doDecimo: true,
+      primeiraParcela: !dec[1] && parcela === "1ª parcela",
+      parcela13: parcela === "1ª parcela" ? 1 : parcela === "2ª parcela" ? 2 : null,
+    };
   }
   if (partes.length !== 2) return null;
 
@@ -171,12 +180,44 @@ export function titulosSubstituidosNaRescisao(
 ): LancamentoDaFolha[] {
   const mes = desligamento.slice(0, 7);
   const ano = desligamento.slice(0, 4);
-  return lancamentos.filter((m) => {
-    if (m.type !== "saida" || m.status !== "pendente") return false;
+  const lidos = lancamentos
+    .filter((m) => m.type === "saida" && m.status === "pendente")
+    .map((m) => ({ m, t: lerTituloDaFolha(m.descricao ?? "", m.due_date) }))
+    .filter((x): x is { m: LancamentoDaFolha; t: TituloLido } => !!x.t && x.t.colaborador === colaborador);
+  /*
+   * ⚠️ O FGTS DA 1ª PARCELA ACOMPANHA A 1ª PARCELA. Se ela ainda está
+   * prevista, sai junto (a rescisão paga o 13º inteiro e recolhe o FGTS sobre
+   * ele). Se ela JÁ FOI PAGA (ou adiantada nas férias), o FGTS dela é devido
+   * pelo que já saiu — e a rescisão, que desconta o adiantamento, recolhe só
+   * sobre o resto. Retirá-lo também apagava esse FGTS do caixa.
+   */
+  const primeiraPrevista = lidos.some((x) => x.t.primeiraParcela && x.t.competencia.slice(0, 4) === ano);
+  return lidos.filter(({ t }) => {
+    if (!t.doDecimo) return t.competencia >= mes;
+    if (t.competencia.slice(0, 4) !== ano) return false;
+    if (t.tipo === "fgts" && t.parcela13 === 1 && !primeiraPrevista) return false;
+    return true;
+  }).map((x) => x.m);
+}
+
+/**
+ * O 13º deste ano que JÁ FOI PAGO ao colaborador — a soma das 1ªs parcelas
+ * baixadas. É o que a rescisão desconta do 13º proporcional.
+ *
+ * ⚠️ Só PAGO conta: o previsto sai do caixa pela própria rescisão
+ * (`titulosSubstituidosNaRescisao`), e descontá-lo também tiraria a metade do
+ * 13º do funcionário duas vezes. O adiantamento pago DENTRO das férias não é
+ * reconhecível aqui (ele vem somado no título das férias) — a tela pergunta.
+ */
+export function decimoJaPagoNoAno(
+  lancamentos: readonly LancamentoDaFolha[], colaborador: string, ano: string,
+): number {
+  return round2(lancamentos.reduce((s, m) => {
+    if (m.type !== "saida" || m.status !== "pago") return s;
     const t = lerTituloDaFolha(m.descricao ?? "", m.due_date);
-    if (!t || t.colaborador !== colaborador) return false;
-    return t.doDecimo ? t.competencia.slice(0, 4) === ano : t.competencia >= mes;
-  });
+    return t && t.colaborador === colaborador && t.tipo === "decimo" && t.primeiraParcela
+      && t.competencia.slice(0, 4) === ano ? s + Math.abs(m.amount) : s;
+  }, 0));
 }
 
 /**
@@ -244,14 +285,34 @@ export function titulosDaRescisao(
   return titulos;
 }
 
-/** O título das FÉRIAS — o líquido, dois dias antes do início. */
+/**
+ * Os títulos das FÉRIAS — o líquido, dois dias antes do início.
+ *
+ * ⚠️ O ADIANTAMENTO DO 13º SAI EM TÍTULO PRÓPRIO, com o nome que o motor dá à
+ * 1ª parcela (`13º 2026 · 1ª parcela · Ana`). Somado ao título das férias ele
+ * ficava invisível: a rescisão de dezembro não tinha como saber que metade do
+ * 13º já tinha saído do caixa e pagava o 13º proporcional INTEIRO — a mesma
+ * metade duas vezes. Separado, ele é reconhecido como 1ª parcela (paga ou
+ * prevista) por `decimoJaPagoNoAno` e `titulosSubstituidosNaRescisao`. O total
+ * agendado não muda: férias + adiantamento = o líquido do cálculo.
+ */
 export function titulosDasFerias(c: Colaborador, inicio: string, diasGozados: number, calc: CalculoFerias): TituloFolha[] {
   if (!inicio || calc.problemas.length > 0 || !(calc.liquido > 0)) return [];
-  return [{
+  const adiantamento = round2(Math.max(0, calc.adiantamento13 ?? 0));
+  const titulos: TituloFolha[] = [{
     colaboradorId: c.id, colaborador: c.nome, competencia: inicio.slice(0, 7), tipo: "ferias",
     descricao: `Férias · ${c.nome} · ${diasGozados} dias`,
-    valor: calc.liquido, vencimento: calc.vencimento, categoria: "Folha de pagamento",
+    valor: round2(calc.liquido - adiantamento), vencimento: calc.vencimento, categoria: "Folha de pagamento",
   }];
+  if (adiantamento > 0) {
+    const ano = calc.vencimento.slice(0, 4);
+    titulos.push({
+      colaboradorId: c.id, colaborador: c.nome, competencia: `${ano}-12`, tipo: "decimo",
+      descricao: `13º ${ano} · 1ª parcela · ${c.nome}`,
+      valor: adiantamento, vencimento: calc.vencimento, categoria: "Folha de pagamento",
+    });
+  }
+  return titulos;
 }
 
 /**

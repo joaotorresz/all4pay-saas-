@@ -41,7 +41,7 @@ import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
 import {
   movimentosDaCompra, parcelasDaCompra, linhaDoTituloDaCompra, recusaDeRetirada,
-  referenciaDaParcela, proximoNumeroDeCompra,
+  referenciaDaParcela, proximoNumeroDeCompra, situacaoPaga,
   type Compra, type BoletoRecebido, type NFRecebida,
 } from "@/core/compras";
 import type { Movement } from "@/lib/types";
@@ -89,7 +89,7 @@ async function titulosDaCompra(c: Compra): Promise<{ id: string; pago: boolean }
   if (error) throw new Error(error.message);
   return ((data ?? []) as { id: string; situacao: string }[])
     .filter((t) => t.situacao !== "cancelado" && t.situacao !== "estornado")
-    .map((t) => ({ id: t.id, pago: t.situacao !== "previsto" }));
+    .map((t) => ({ id: t.id, pago: situacaoPaga(t.situacao) }));
 }
 
 /**

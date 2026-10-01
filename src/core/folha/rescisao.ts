@@ -129,6 +129,17 @@ export interface EntradaRescisao {
   saldoFGTS: number;
   /** Usar a estimativa em vez do saldo informado. */
   estimarSaldo: boolean;
+  /**
+   * O que JÁ FOI PAGO do 13º deste ano — a 1ª parcela de 30/11 ou o
+   * adiantamento junto com as férias.
+   *
+   * ⚠️ Sem ele a rescisão paga o 13º proporcional INTEIRO a quem já recebeu
+   * metade: desligado em dezembro, depois da 1ª parcela, o funcionário levava
+   * a mesma metade duas vezes. O adiantamento é DESCONTADO do 13º (art. 3º da
+   * Lei 4.749/65), sem tributo próprio — o INSS e o IRRF do 13º incidem sobre o
+   * valor inteiro, na rescisão, porque a 1ª parcela saiu sem desconto nenhum.
+   */
+  decimoAdiantado?: number;
 }
 
 /**
@@ -291,6 +302,28 @@ export function calcularRescisao(
   } else if (!regra.decimoProporcional) {
     alertas.push("A justa causa NÃO gera 13º proporcional.");
   }
+  /*
+   * ⚠️ O ADIANTAMENTO JÁ PAGO SAI DO 13º. Limitado ao próprio 13º proporcional:
+   * descontar além dele seria cobrar do funcionário outra verba. Na justa causa
+   * não há 13º de onde descontar — a compensação é decisão do contador, e a
+   * tela avisa em vez de calcular.
+   */
+  const decimoDevido = verbas.find((v) => v.nome.startsWith("13º proporcional"))?.valor ?? 0;
+  const adiantado = round2(Math.max(0, e.decimoAdiantado ?? 0));
+  const adiantamentoDescontado = round2(Math.min(adiantado, decimoDevido));
+  if (adiantamentoDescontado > 0) {
+    verbas.push({
+      nome: "Adiantamento do 13º já pago",
+      valor: adiantamentoDescontado, natureza: "desconto", tributavel: false,
+      explicacao: "A 1ª parcela (ou o adiantamento nas férias) já saiu do caixa: desconta-se do 13º proporcional.",
+    });
+  }
+  if (adiantado > adiantamentoDescontado) {
+    alertas.push(
+      `${brl(adiantado - adiantamentoDescontado)} do 13º já adiantado excedem o 13º devido na rescisão. `
+      + "Se cabe compensar com outras verbas é decisão do contador — o cálculo não desconta.",
+    );
+  }
 
   /* ---- férias vencidas: devidas SEMPRE ----------------------------------- */
   if (e.diasFeriasVencidas > 0) {
@@ -343,7 +376,10 @@ export function calcularRescisao(
   const totalDescontos = round2(inss + ir.imposto + outrosDescontos);
   const liquido = round2(totalProventos - totalDescontos);
 
-  const fgtsSobreVerbas = round2(baseTributavel * FGTS);
+  // ⚠️ O FGTS da 1ª parcela já foi (ou será) recolhido com ela; o da rescisão
+  // incide sobre o que a rescisão PAGA. O INSS e o patronal, não: a 1ª parcela
+  // saiu sem eles, e incidem sobre o 13º inteiro agora.
+  const fgtsSobreVerbas = round2((baseTributavel - adiantamentoDescontado) * FGTS);
   const patronal = round2(baseTributavel * enc.total);
   // ⚠️ O CUSTO inclui a multa, que NÃO vai para o empregado: ela é depositada
   // na conta vinculada. Somá-la ao líquido pagaria a multa duas vezes; deixá-la

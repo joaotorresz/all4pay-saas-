@@ -318,6 +318,16 @@ export function recusaDeRetirada(
 }
 
 /**
+ * A parcela já SAIU da conta? Pela `situacao` que o banco guarda.
+ *
+ * ⚠️ Só BAIXADO e CONCILIADO. "Confirmado" é o título aprovado na Central que
+ * ainda não foi pago: contá-lo como pago recusava cancelar a compra dizendo
+ * "parcela já paga" sobre dinheiro que nunca se moveu.
+ */
+export const situacaoPaga = (situacao: string | null | undefined): boolean =>
+  situacao === "baixado" || situacao === "conciliado";
+
+/**
  * O próximo número de compra do ano: o MAIOR + 1, nunca a contagem + 1.
  *
  * ⚠️ Com uma compra excluída no meio, contar repetiria o número da última —

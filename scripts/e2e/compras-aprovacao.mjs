@@ -86,6 +86,7 @@ export default async function comprasAprovacao(navegador) {
   const u = await novoUsuario(navegador);
   const p = u.page;
 
+  const ano = new Date().getFullYear();
   const hoje = await p.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
   const mesDe = (k) => p.evaluate((k) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + k); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }, k);
   const m0 = await mesDe(0); const m1 = await mesDe(1); const m2 = await mesDe(2); const m3 = await mesDe(3);
@@ -103,19 +104,19 @@ export default async function comprasAprovacao(navegador) {
     "o formulário mostra as parcelas ANTES de gravar (333,33 · 333,33 · 333,34)");
   let t = (await u.texto()).replace(/\s+/g, " ").replace(/ ,/g, ",");
   v.ok(/Aguardando aprovação \(2\) R\$ 2\.234,56/.test(t), "as duas compras aguardam aprovação: 2.234,56", t.slice(0, 0));
-  v.ok(/2026-C0001/.test(t) && /2026-C0002/.test(t), "numeradas C0001 e C0002");
+  v.ok(t.includes(`${ano}-C0001`) && t.includes(`${ano}-C0002`), "numeradas C0001 e C0002");
   let tit = await titulosDoMes(u, m0);
-  const c1a = await idDaCompra(u, "2026-C0001");
+  const c1a = await idDaCompra(u, `${ano}-C0001`);
   v.ok(!!c1a && !tit.some((l) => l.includes(`compra-${c1a}-`)), "sem aprovação, a compra NÃO está em Títulos a pagar");
   v.ok(Math.abs((await saidasProjetadas(u)) - saidas0) < 0.005, "e o fluxo de caixa não se moveu");
 
   /* ---- aprovar ---- */
   await u.ir("/dashboard/purchases");
-  await acao(u, "2026-C0001", "Aprovar");
-  await acao(u, "2026-C0002", "Aprovar");
+  await acao(u, `${ano}-C0001`, "Aprovar");
+  await acao(u, `${ano}-C0002`, "Aprovar");
   t = (await u.texto()).replace(/\s+/g, " ").replace(/ ,/g, ",");
   v.ok(/Aprovadas \(2\) R\$ 2\.234,56/.test(t), "as duas aprovadas: 2.234,56");
-  const c1 = await idDaCompra(u, "2026-C0001"); const c2 = await idDaCompra(u, "2026-C0002");
+  const c1 = await idDaCompra(u, `${ano}-C0001`); const c2 = await idDaCompra(u, `${ano}-C0002`);
   v.ok(!!c1 && !!c2, "as compras estão gravadas no estado da organização", `${c1} ${c2}`);
   tit = await titulosDoMes(u, m0);
   v.ok(parcela(tit, c1, 1, "1.234,56", br(hoje)), "a à vista entra em Títulos a pagar: 1.234,56 hoje", tit.filter((l) => l.includes("compra-")).join(" || "));
@@ -134,16 +135,16 @@ export default async function comprasAprovacao(navegador) {
 
   /* ---- reprovar um pedido: nada nasce ---- */
   await novaCompra(u, { valor: "50000", venc: hoje, comp: hoje, desc: "Frigobar não aprovado" });
-  await acao(u, "2026-C0003", "Reprovar");
+  await acao(u, `${ano}-C0003`, "Reprovar");
   t = (await u.texto()).replace(/\s+/g, " ").replace(/ ,/g, ",");
   v.ok(/Reprovadas ou canceladas \(1\) R\$ 500,00/.test(t), "a reprovada vai para o card de reprovadas (500,00)");
-  const c3 = await idDaCompra(u, "2026-C0003");
+  const c3 = await idDaCompra(u, `${ano}-C0003`);
   tit = await titulosDoMes(u, m0);
   v.ok(!!c3 && !tit.some((l) => l.includes(`compra-${c3}-`)), "e não existe em Títulos a pagar");
 
   /* ---- cancelar a aprovada: as parcelas saem ---- */
   await u.ir("/dashboard/purchases");
-  await acao(u, "2026-C0002", "Cancelar compra");
+  await acao(u, `${ano}-C0002`, "Cancelar compra");
   const t1b = await titulosDoMes(u, m1); const t3b = await titulosDoMes(u, m3);
   v.ok(!t1b.some((l) => l.includes(`compra-${c2}-`)) && !t3b.some((l) => l.includes(`compra-${c2}-`)), "cancelar retira as três parcelas previstas");
   const saidas2 = await saidasProjetadas(u);
@@ -153,12 +154,12 @@ export default async function comprasAprovacao(navegador) {
   await novaCompra(u, { valor: "200000", parcelas: 2, venc: hoje, comp: hoje, desc: "Notebook pago", pago: true });
   t = (await u.texto()).replace(/\s+/g, " ").replace(/ ,/g, ",");
   v.ok(/Aprovadas \(2\) R\$ 3\.234,56/.test(t), "a compra paga nasce APROVADA (não fica aguardando)");
-  const c4 = await idDaCompra(u, "2026-C0004");
+  const c4 = await idDaCompra(u, `${ano}-C0004`);
   tit = await titulosDoMes(u, m0);
   v.ok(parcela(tit, c4, 1, "1.000,00") && tit.some((l) => l.includes(`compra-${c4}-1`) && /Pag[ao]/.test(l)),
     "a 1ª parcela entra PAGA", tit.filter((l) => l.includes(`compra-${c4}`)).join(" || "));
   await u.ir("/dashboard/purchases");
-  await acao(u, "2026-C0004", "Cancelar compra");
+  await acao(u, `${ano}-C0004`, "Cancelar compra");
   t = (await u.texto()).replace(/\s+/g, " ");
   v.ok(/já paga/.test(t) && /Estorne o pagamento/.test(t), "cancelar com parcela paga é RECUSADO, com o motivo na tela");
   const m1c = await titulosDoMes(u, m1);

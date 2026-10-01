@@ -72,3 +72,58 @@ estava viva em três lugares desta área:
   gravada no banco é recusada (nasceria presa em "Em aprovação" para sempre).
 - O colaborador é casado por `eq`, não `ilike` (o nome é texto livre; `_` e `%`
   viravam curinga).
+
+## ⚠️ REVISÃO ADVERSARIAL (r3/pagar-rev) — o que a revisão achou
+
+Jornadas novas: `scripts/e2e/folha-rescisao-dezembro.mjs` (15 verificações) e
+`scripts/e2e/compras-excluir.mjs` (10). Guardas no `engine-audit`, bloco
+`PAGAR · REVISÃO`, cada uma provada plantando o defeito.
+
+- ⚠️ **A rescisão de dezembro pagava a 1ª parcela do 13º DUAS vezes.** Quem
+  recebeu a parcela de 30/11 (ou o adiantamento nas férias) e era desligado em
+  dezembro levava o 13º proporcional INTEIRO na rescisão. `EntradaRescisao`
+  ganhou `decimoAdiantado`, descontado do 13º (sem tributo próprio: INSS, IRRF
+  e patronal continuam sobre o 13º inteiro; o FGTS da rescisão sai só sobre o
+  que ela paga). O modal já abre com o valor lido das 1ªs parcelas BAIXADAS
+  (`decimoJaPagoNoAno`) e o campo é editável. Medido: R$ 22.068,80 → R$ 19.068,80
+  para um CLT de R$ 6.000.
+- ⚠️ **O adiantamento do 13º nas férias virou título PRÓPRIO**, com o nome da
+  1ª parcela. Somado ao título das férias ele era invisível para a rescisão. O
+  total agendado não muda.
+- ⚠️ **O FGTS da 1ª parcela acompanha a 1ª parcela.** A rescisão retirava o
+  "FGTS do 13º · 1ª parcela" mesmo quando a parcela já tinha sido paga — o FGTS
+  devido pelo que já saiu sumia do caixa. Agora ele só sai junto com a parcela
+  prevista.
+- ⚠️ **"Desfazer" sumia no mesmo instante da exclusão.** O aviso era filho do
+  botão "Excluir", que mora na LINHA excluída: a linha saía da lista, o botão
+  desmontava, e a promessa "você terá 8 segundos para desfazer" entregava zero
+  (compras, folha, e todo `AcaoDestrutiva` dentro de lista). O aviso mora agora
+  numa raiz própria no `<body>`.
+- **"Confirmado" não é pago.** Em produção a compra recusava cancelar dizendo
+  "parcela já paga" sobre título apenas aprovado na Central
+  (`situacaoPaga`: só baixado e conciliado).
+- **O insert dos títulos da compra em produção não tinha guarda** contra engolir
+  a recusa (plantar a remoção do `if (error) throw error` passava verde).
+
+### Achados que ficaram como registro
+
+- ⚠️ **`ImportacaoView` não é montado em lugar nenhum.** A rota
+  `/dashboard/financial/import` é alias para `/upload` (A4P-040). O conserto do
+  "escritor morto" da rodada e a guarda `importacao:` protegem código
+  inalcançável. O componente ainda carrega um parser de valor que lê "1.500"
+  como R$ 1,50 (o do `/upload` já trata). Decisão pendente: apagar o
+  componente e a guarda juntos.
+- **O número da compra é reutilizado depois de excluir a ÚLTIMA.** "Máximo + 1"
+  sobre uma lista da qual a compra excluída sai fisicamente repete o número
+  dela. Resolver exige a exclusão lógica da compra (ou um contador), não um
+  ajuste na conta.
+- **Reembolso: a competência é o dia da despesa.** Com o mês dela fechado, o
+  banco recusa o título e o reembolso aprovado fica preso em "Aprovado" (a
+  mensagem do banco aparece). É a regra contábil certa; falta a saída
+  (lançar no mês aberto com motivo) — decisão do dono.
+- **`npm run coerencia` reprova no conjunto [demonstração] em 01/10/2026** —
+  "saldo × liquidados" de outubro e dos últimos 90 dias diferem em
+  R$ 205.455,00. Reprova IGUAL no commit base `3871008` (medido num worktree
+  limpo), então não nasce desta rodada: é dependente da data (primeiro dia do
+  mês) e do seed. Como o `npm test` encadeia com `&&`, as guardas DEPOIS dela
+  foram rodadas uma a uma, todas verdes.

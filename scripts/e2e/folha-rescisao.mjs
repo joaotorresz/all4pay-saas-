@@ -63,7 +63,12 @@ export default async function folhaRescisao(navegador) {
   await p.waitForTimeout(1500);
   const nov1 = await titulosDoMes(u, "2026-11");
   v.ok(tem(nov1, `Férias · ${NOME} · 30 dias`), "as férias entram em Títulos a pagar (06/11, dois dias úteis antes)");
-  v.ok(!tem(nov1, `13º 2026 · 1ª parcela · ${NOME}`), "a 1ª parcela de 30/11 SAIU — o adiantamento é a mesma metade do 13º");
+  v.ok(!nov1.some((l) => l.includes(`13º 2026 · 1ª parcela · ${NOME}`) && l.includes("30/11/2026")),
+    "a 1ª parcela de 30/11 SAIU — o adiantamento é a mesma metade do 13º");
+  // O adiantamento entra como título PRÓPRIO, com o nome da 1ª parcela, na data
+  // das férias — é assim que a rescisão de dezembro sabe que metade do 13º já saiu.
+  v.ok(nov1.some((l) => l.includes(`13º 2026 · 1ª parcela · ${NOME}`) && l.includes("2.500,00") && !l.includes("30/11/2026")),
+    "e o adiantamento (2.500,00) entra como 1ª parcela na data das férias", nov1.filter((l) => l.includes("13º")).join(" || "));
 
   /* ---- a rescisão ---- */
   await u.ir("/contas-a-pagar/folha");

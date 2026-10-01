@@ -24,7 +24,7 @@ import {
   calcularFerias, FERIAS_PADRAO, diasPorFaltas, maximoAbono,
   calcularRescisao, ROTULO_MODALIDADE, EXPLICACAO_MODALIDADE,
   titulosDaRescisao, titulosDasFerias, titulosSubstituidosNaRescisao,
-  primeiraParcelaSubstituida, salariosDoPeriodoDeFerias,
+  primeiraParcelaSubstituida, salariosDoPeriodoDeFerias, decimoJaPagoNoAno,
   type Colaborador, type EntradaFerias, type EntradaRescisao, type Modalidade,
   type LinhaMemoria, type TabelasLegais, type TituloFolha, type LancamentoDaFolha,
 } from "@/core/folha";
@@ -291,7 +291,7 @@ const MODALIDADES: Modalidade[] = [
 ];
 
 export function ModalRescisao({
-  colaborador, regime, anexo, tabelas, lancamentos = [], onFechar, onConfirmar,
+  colaborador, regime, anexo, tabelas, lancamentos = [], pagos = [], onFechar, onConfirmar,
 }: {
   colaborador: Colaborador;
   regime: Regime;
@@ -300,6 +300,11 @@ export function ModalRescisao({
   tabelas?: TabelasLegais;
   /** Os lançamentos do caixa — para achar os títulos que a rescisão substitui. */
   lancamentos?: readonly LancamentoDaFolha[];
+  /**
+   * Os lançamentos JÁ PAGOS — para achar a 1ª parcela do 13º que saiu do caixa
+   * e que a rescisão tem de descontar.
+   */
+  pagos?: readonly LancamentoDaFolha[];
   onConfirmar: (titulos: TituloGerado[], desligadoEm: string, retirar: LancamentoDaFolha[]) => void | Promise<void>;
 }) {
   const [e, setE] = React.useState<EntradaRescisao>({
@@ -312,6 +317,22 @@ export function ModalRescisao({
     estimarSaldo: true,
   });
   const set = <K extends keyof EntradaRescisao>(k: K, v: EntradaRescisao[K]) => setE((s) => ({ ...s, [k]: v }));
+
+  /*
+   * ⚠️ O 13º JÁ PAGO NO ANO DO DESLIGAMENTO. Desligado em dezembro, depois da
+   * 1ª parcela de 30/11, o funcionário recebia o 13º proporcional INTEIRO na
+   * rescisão — a mesma metade duas vezes. O valor sai das 1ªs parcelas baixadas
+   * e fica EDITÁVEL: o adiantamento pago junto com as férias vem somado no
+   * título das férias, e só quem fez a folha sabe separá-lo.
+   */
+  const detectado = React.useMemo(
+    () => (e.desligamento ? decimoJaPagoNoAno(pagos, colaborador.nome, e.desligamento.slice(0, 4)) : 0),
+    [pagos, colaborador.nome, e.desligamento],
+  );
+  const [adiantadoEditado, setAdiantadoEditado] = React.useState(false);
+  React.useEffect(() => {
+    if (!adiantadoEditado) setE((s) => (s.decimoAdiantado === detectado ? s : { ...s, decimoAdiantado: detectado }));
+  }, [detectado, adiantadoEditado]);
 
   const calc = React.useMemo(
     () => calcularRescisao(colaborador, e, regime, anexo, tabelas),
@@ -378,6 +399,15 @@ export function ModalRescisao({
         <Campo label="Saldo do FGTS" ajuda={e.estimarSaldo ? "Estimado. Informe o extrato para a multa sair certa." : "Do extrato do FGTS."}>
           <CurrencyInput value={e.estimarSaldo ? calc.saldoFGTS : e.saldoFGTS}
             onValueChange={(v) => { set("saldoFGTS", v); set("estimarSaldo", false); }} />
+        </Campo>
+        <Campo
+          label="13º já pago neste ano"
+          ajuda={detectado > 0 && !adiantadoEditado
+            ? "A 1ª parcela já baixada em Títulos a pagar. Ela é descontada do 13º proporcional."
+            : "A 1ª parcela ou o adiantamento pago com as férias. É descontado do 13º proporcional."}
+        >
+          <CurrencyInput value={e.decimoAdiantado ?? 0}
+            onValueChange={(v) => { setAdiantadoEditado(true); set("decimoAdiantado", v); }} />
         </Campo>
       </div>
       <Checkbox

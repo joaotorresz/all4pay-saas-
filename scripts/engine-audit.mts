@@ -6952,5 +6952,97 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /valorNovo\.trim\(\) && valor == null/.test(addNota));
 }
 
+/* ── PAGAR · REVISÃO ── */
+{
+  const fsF = await import("node:fs");
+  const semComent = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const folha = await import("@/core/folha");
+  const compras = await import("@/core/compras");
+
+  /* ---- a compra em produção não engole a recusa do banco ---- */
+  const store = semComent(fsF.readFileSync("src/lib/compras-store.ts", "utf8"));
+  ok("pagar-rev: o insert dos títulos da compra em produção LANÇA a recusa do banco",
+     /insert\(movs\.map\(linhaDoTituloDaCompra\)\);\s*if \(error\) throw error;/.test(store));
+
+  /* ---- "confirmado" não é pago ---- */
+  ok("pagar-rev: título CONFIRMADO (aprovado, não pago) não conta como parcela paga",
+     compras.situacaoPaga("confirmado") === false && compras.situacaoPaga("previsto") === false
+     && compras.situacaoPaga("baixado") === true && compras.situacaoPaga("conciliado") === true);
+  ok("pagar-rev: a retirada da compra usa a regra única de 'pago'",
+     /pago: situacaoPaga\(t\.situacao\)/.test(store));
+  ok("pagar-rev: retirar parcelas da compra com parcela paga é RECUSADO antes de qualquer exclusão",
+     /const recusa = recusaDeRetirada\([^)]*\);\s*if \(recusa\) throw new Error\(recusa\);/.test(store));
+
+  /* ---- a rescisão desconta o 13º já pago ---- */
+  // CLT de 6.000 desde 2025, desligado em 20/12/2026 sem justa causa, depois da
+  // 1ª parcela (3.000,00) de 30/11. 13º proporcional de 12/12 = 6.000.
+  const bia = { id: "b", nome: "Bia Lima", vinculo: "clt" as const, valor: 6000, desde: "2025-01" };
+  const base = { modalidade: "sem_justa_causa" as const, desligamento: "2026-12-20", admissao: "2025-01-02",
+    avisoTrabalhado: true, diasFeriasVencidas: 0, saldoFGTS: 10000, estimarSaldo: false };
+  const sem = folha.calcularRescisao(bia, base, "presumido", null);
+  const com = folha.calcularRescisao(bia, { ...base, decimoAdiantado: 3000 }, "presumido", null);
+  const decimo = sem.verbas.find((v) => v.nome.startsWith("13º proporcional"))?.valor ?? 0;
+  ok("pagar-rev: a fixture exercita o 13º (12/12 = 6.000,00)", decimo === 6000, String(decimo));
+  ok("pagar-rev: o 13º já pago (3.000) sai do líquido da rescisão — e só ele",
+     r2(sem.liquido - com.liquido) === 3000, `${sem.liquido} → ${com.liquido}`);
+  ok("pagar-rev: o INSS e o IRRF continuam sobre o 13º INTEIRO (a 1ª parcela saiu sem desconto)",
+     com.inss === sem.inss && com.irrf === sem.irrf && com.patronal === sem.patronal);
+  ok("pagar-rev: o FGTS da rescisão sai só sobre o que ela paga (−240 = 8% de 3.000)",
+     r2(sem.fgtsSobreVerbas - com.fgtsSobreVerbas) === 240, `${sem.fgtsSobreVerbas} → ${com.fgtsSobreVerbas}`);
+  const tCom = folha.titulosDaRescisao(bia, { ...base, decimoAdiantado: 3000 }, com, "Sem justa causa");
+  ok("pagar-rev: com o desconto, os títulos ainda somam o custo da rescisão",
+     r2(tCom.reduce((s, t) => s + t.valor, 0)) === r2(com.custoTotal));
+  const excesso = folha.calcularRescisao(bia, { ...base, decimoAdiantado: 9000 }, "presumido", null);
+  ok("pagar-rev: descontar além do 13º devido não acontece — o excesso vira aviso",
+     r2(sem.liquido - excesso.liquido) === 6000 && excesso.alertas.some((a) => /excedem o 13º/.test(a)));
+
+  /* ---- e a tela acha a 1ª parcela PAGA ---- */
+  const lanc = [
+    { id: "p1", type: "saida", status: "pago", amount: 3000, due_date: "2026-11-30", descricao: "13º 2026 · 1ª parcela · Bia Lima" },
+    { id: "p2", type: "saida", status: "pendente", amount: 2400, due_date: "2026-12-18", descricao: "13º 2026 · 2ª parcela · Bia Lima" },
+    { id: "p3", type: "saida", status: "pago", amount: 3000, due_date: "2025-11-28", descricao: "13º 2025 · 1ª parcela · Bia Lima" },
+    { id: "p4", type: "saida", status: "pago", amount: 1500, due_date: "2026-11-30", descricao: "13º 2026 · 1ª parcela · Outra Pessoa" },
+  ];
+  ok("pagar-rev: o 13º já pago é a 1ª parcela BAIXADA do ano, do colaborador (3.000)",
+     folha.decimoJaPagoNoAno(lanc, "Bia Lima", "2026") === 3000, String(folha.decimoJaPagoNoAno(lanc, "Bia Lima", "2026")));
+  // A 1ª parcela PREVISTA sai pela própria rescisão; contá-la como paga a
+  // descontaria do funcionário sem ela nunca ter sido paga.
+  // Com a 1ª parcela PAGA, o FGTS dela (devido pelo que já saiu) FICA; com ela
+  // prevista, sai junto. A rescisão recolhe o FGTS só sobre o que ela paga.
+  const fgts1 = { id: "f1", type: "saida", status: "pendente", amount: 240, due_date: "2026-12-18", descricao: "FGTS do 13º 2026 · 1ª parcela · Bia Lima" };
+  const fgts2 = { id: "f2", type: "saida", status: "pendente", amount: 240, due_date: "2027-01-20", descricao: "FGTS do 13º 2026 · 2ª parcela · Bia Lima" };
+  const comPaga = folha.titulosSubstituidosNaRescisao([lanc[0], lanc[1], fgts1, fgts2], "Bia Lima", "2026-12-20").map((m) => m.id);
+  ok("pagar-rev: 1ª parcela PAGA — o FGTS dela fica; a 2ª parcela e o FGTS dela saem",
+     !comPaga.includes("f1") && comPaga.includes("f2") && comPaga.includes("p2"), comPaga.join(","));
+  const comPrevista = folha.titulosSubstituidosNaRescisao([{ ...lanc[0], status: "pendente" }, fgts1], "Bia Lima", "2026-12-20").map((m) => m.id);
+  ok("pagar-rev: 1ª parcela PREVISTA — ela e o FGTS dela saem juntos",
+     comPrevista.includes("p1") && comPrevista.includes("f1"), comPrevista.join(","));
+  /* ---- o adiantamento do 13º nas férias é um título reconhecível ---- */
+  const calcF = folha.calcularFerias(bia, { ...folha.FERIAS_PADRAO, inicio: "2026-11-09", adiantar13: true }, "presumido", null);
+  const tF = folha.titulosDasFerias(bia, "2026-11-09", 30, calcF);
+  const adiantF = tF.find((t) => t.tipo === "decimo");
+  ok("pagar-rev: férias com adiantamento agendam o 13º adiantado (3.000) em título PRÓPRIO",
+     !!adiantF && adiantF.valor === 3000 && adiantF.valor === calcF.adiantamento13, adiantF?.descricao ?? "(sem título)");
+  ok("pagar-rev: férias + adiantamento somam o líquido do cálculo (nada some, nada dobra)",
+     r2(tF.reduce((s, t) => s + t.valor, 0)) === r2(calcF.liquido));
+  ok("pagar-rev: o adiantamento é lido como 1ª parcela do ano — pago, a rescisão o desconta",
+     folha.decimoJaPagoNoAno([{ id: "fa", type: "saida", status: "pago", amount: adiantF?.valor ?? 0,
+       due_date: adiantF?.vencimento ?? "", descricao: adiantF?.descricao ?? "" }], "Bia Lima", "2026") === 3000);
+
+  /* ---- o desfazer sobrevive à linha que sumiu ---- */
+  const acao = semComent(fsF.readFileSync("src/components/ui/AcaoDestrutiva.tsx", "utf8"));
+  ok("pagar-rev: o 'Desfazer' mora numa raiz própria, não no botão da linha excluída",
+     /createRoot\(/.test(acao) && /mostrarDesfazer\(titulo, reverter\)/.test(acao)
+     && !/useState<\(\(\) => void \| Promise<void>\) \| null>/.test(acao));
+  ok("pagar-rev: a 1ª parcela ainda PREVISTA não é 13º pago",
+     folha.decimoJaPagoNoAno([{ ...lanc[0], status: "pendente" }], "Bia Lima", "2026") === 0);
+  const modal = semComent(fsF.readFileSync("src/components/contas-pagar/ModalFolha.tsx", "utf8"));
+  const telaF = semComent(fsF.readFileSync("src/components/contas-pagar/FolhaSalarial.tsx", "utf8"));
+  ok("pagar-rev: o modal de rescisão pré-preenche o 13º pago a partir dos títulos BAIXADOS",
+     /decimoJaPagoNoAno\(pagos/.test(modal) && /pagos=\{pagos\}/.test(telaF)
+     && /useMovementsByFilter\("saida", "realizado"\)/.test(telaF));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
