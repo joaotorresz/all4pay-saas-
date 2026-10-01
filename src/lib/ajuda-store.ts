@@ -14,6 +14,7 @@ import { melhorGuia, type CandidatoGuia } from "@/core/ajuda";
 import type {
   Tour, ProgressoTour, Chamado, MensagemChat, Anuncio,
 } from "@/core/ajuda";
+import { ler as lerOrg, gravar as gravarOrg, lerPreferencia, gravarPreferencia, CHAVES_DE_NEGOCIO } from "@/lib/store-org";
 
 const K_PROGRESSO = "a4p_tours_progresso";
 const K_CHAMADOS = "a4p_chamados";
@@ -22,17 +23,15 @@ const K_ANUNCIOS = "a4p_anuncios_lidos";
 const K_AUTO = "a4p_tours_auto";
 const K_DISPARADOS = "a4p_tours_disparados";
 
-function ler<T>(k: string, padrao: T): T {
-  if (typeof window === "undefined") return padrao;
-  try {
-    const s = localStorage.getItem(k);
-    return s ? (JSON.parse(s) as T) : padrao;
-  } catch { return padrao; }
-}
-function gravar(k: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* cota cheia */ }
-}
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): leitura e escrita passam por `store-org`.
+// Com `localStorage.setItem` cru o dado nunca subia ao servidor, e a hidratação
+// o sobrescrevia com a versão velha na sessão seguinte.
+// Os tours e anúncios lidos são PREFERÊNCIA de quem usa (ficam no dispositivo);
+// chamados e conversa são da empresa.
+const ler = <T,>(k: string, padrao: T): T =>
+  (CHAVES_DE_NEGOCIO.includes(k) ? lerOrg<T>(k, padrao) : lerPreferencia<T>(k, padrao));
+const gravar = (k: string, v: unknown): void =>
+  (CHAVES_DE_NEGOCIO.includes(k) ? gravarOrg(k, v) : gravarPreferencia(k, v));
 
 export const novoIdAjuda = (p: string): string =>
   `${p}_${Date.now().toString(36)}_${Math.floor(Math.abs(performance.now()) % 1000)}`;

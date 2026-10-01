@@ -9,6 +9,7 @@
  * parecerem UM sistema em vez de oito formulários parecidos.
  */
 import * as React from "react";
+import Link from "next/link";
 import { Card, Button, Icon, Input, Select, Switch } from "@/components/ui";
 import { baixarXLSX, type CelulaXLSX } from "@/lib/xlsx";
 import type { FiltroStatus } from "@/core/registros";
@@ -27,7 +28,15 @@ export function CabecalhoRegistro({
   const temDados = (exportar?.linhas.length ?? 0) > 1;
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
-      <p className="m-0 text-label text-muted">{subtitulo}</p>
+      <div className="flex flex-col gap-1">
+        {/* ⚠️ O caminho de volta é o HUB, não um "Cadastros" que o menu não
+            tem: as nove telas ficam espalhadas pelos grupos onde são usadas, e
+            a estrutura (o que vem antes de quê) mora em um lugar só. */}
+        <Link href="/dashboard/registrations" className="text-caption text-muted hover:text-ink self-start" data-hub-cadastros="1">
+          Estrutura e cadastros ›
+        </Link>
+        <p className="m-0 text-label text-muted">{subtitulo}</p>
+      </div>
       <div className="flex items-center gap-2 shrink-0">
         {acaoNova && (
           <Button variant="primary" onClick={acaoNova.onClick}>

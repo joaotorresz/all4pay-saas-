@@ -9,6 +9,7 @@ import { isDemo } from "@/lib/demo";
 import type { PerfilEmpresa, Participante, Estrutura } from "@/core/onboarding";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const KEY = "a4p_company";
 
@@ -37,23 +38,15 @@ export interface StoredCompany {
   pessoal?: PerfilPessoal;
 }
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
+// O perfil da empresa gravado cru nunca subia ao servidor: outra máquina (ou o
+// contador) abria a empresa sem regime tributário, e o imposto saía do padrão.
 export function loadCompany(): StoredCompany | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const s = localStorage.getItem(KEY);
-    return s ? (JSON.parse(s) as StoredCompany) : null;
-  } catch {
-    return null;
-  }
+  return lerOrg<StoredCompany | null>(KEY, null);
 }
 
 export function saveCompany(c: StoredCompany): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(c));
-  } catch {
-    /* ignore */
-  }
+  gravarOrg(KEY, c);
 }
 
 /** Perfil efetivo: demo → cache local; live → `company_profiles` da org (RLS),

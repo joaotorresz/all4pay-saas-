@@ -136,6 +136,19 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   "a4p_reembolsos",
   // A venda mora em `sales_docs` desde 30/09/2026 (lib/vendas).
   "a4p_vendas_docs",
+  // ⚠️ 30/09/2026 (CAD parte 2) — entidades cuja morada em produção é uma
+  // TABELA, e que só a demonstração grava no navegador. Sem o congelamento,
+  // passar a escrita por `store-org` (para tirar o `localStorage.setItem` cru)
+  // as mandaria também para `org_state`: duas moradas para o mesmo fato.
+  "a4p_recorrencias",   // recurrences
+  "a4p_nfse",           // nfse
+  "a4p_ledger",         // journal_entries / journal_lines
+  "a4p_revrec",         // revenue_contracts / revenue_schedule
+  "a4p_cronogramas",    // schedules
+  "a4p_tags",           // movement_tags
+  // O projeto do lançamento mora em `movements.project_id`; o mapa antigo do
+  // navegador só é LIDO como queda em demonstração (lib/projeto-vinculo).
+  "a4p_movimento_projeto",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
@@ -315,6 +328,28 @@ function gravarLocal(chave: string, valor: unknown) {
       "O armazenamento local do navegador está cheio. Os dados foram enviados ao servidor, mas o cache não pôde ser atualizado.",
     );
   }
+}
+
+/**
+ * PREFERÊNCIA de tela — fica no dispositivo, e é o ÚNICO caminho sancionado
+ * para gravar no navegador fora daqui.
+ *
+ * ⚠️ **Recusa chave de negócio** (`CHAVES_ORG`): gravar uma delas com
+ * `localStorage.setItem` cru foi como a configuração de impostos, o perfil da
+ * empresa e os projetos deixaram de subir ao servidor — e a hidratação os
+ * sobrescrevia com a versão velha na sessão seguinte. Preferência que estoura a
+ * cota é descartável (custa um reajuste de tela), por isso a falha é engolida
+ * aqui e só aqui.
+ */
+export function lerPreferencia<T>(chave: string, padrao: T): T {
+  return lerLocal(chave, padrao);
+}
+export function gravarPreferencia<T>(chave: string, valor: T): void {
+  if (CHAVES_DE_NEGOCIO.includes(chave)) {
+    throw new Error(`"${chave}" é dado de negócio da empresa: grave por store-org (gravar), não como preferência local.`);
+  }
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(chave, JSON.stringify(valor)); } catch { /* preferência é descartável */ }
 }
 
 /* ========================================================================== */

@@ -17,6 +17,7 @@ import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
 export const CICLOS: { id: Ciclo; label: string; meses: number }[] = [
@@ -56,12 +57,13 @@ let hydrated = false;
 function loadLocal(): Recorrencia[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
-  try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
+  cache = [...lerOrg<Recorrencia[]>(KEY, [])];
   return cache!;
 }
+// ⚠️ Só a DEMONSTRAÇÃO grava aqui (produção: `recurrences`; chave CONGELADA).
 function saveLocal(list: Recorrencia[]) {
   cache = list;
-  if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+  gravarOrg(KEY, list);
 }
 
 export const totalFatura = (r: Pick<Recorrencia, "itens">) => r.itens.reduce((s, it) => s + it.valor * it.qtd, 0);

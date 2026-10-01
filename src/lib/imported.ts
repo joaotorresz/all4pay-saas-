@@ -377,10 +377,25 @@ export function updateImportedAccount(id: string, patch: Partial<FinancialAccoun
   setImported({ ...base, accounts });
 }
 
+/**
+ * Cria um contato no dataset da DEMONSTRAÇÃO. ⚠️ Só `createParty` a chama, e
+ * só dentro de `if (isDemo)`. Antes a criação em demonstração não gravava
+ * NADA (`return void delay()`): a tela dizia "Cliente criado" e o cliente não
+ * aparecia na lista nem no formulário de lançamento.
+ */
+export function gravarParteDemo(parte: Party): void {
+  const base = baseOuSeed();
+  const parties = base.parties.some((p) => p.id === parte.id)
+    ? base.parties.map((p) => (p.id === parte.id ? { ...p, ...parte } : p))
+    : [...base.parties, parte];
+  setImported({ ...base, parties });
+}
+
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
 export function updateImportedParty(id: string, patch: Partial<Party>): boolean {
-  const ds = load();
-  if (!ds) return false;
+  // Parte do seed quando ainda não há dataset: editar um contato do seed (o
+  // ativo, a categoria padrão) não pode ser descartado em silêncio.
+  const ds = load() ?? baseOuSeed();
   const i = ds.parties.findIndex((p) => p.id === id);
   if (i < 0) return false;
   // Copy-on-write (como os outros writers): não mutar o array do cache in place.

@@ -8,21 +8,14 @@
  */
 import { isDemo } from "@/lib/demo";
 import { lockedPeriodsLive, closeTasksLive, saveCloseTaskLive } from "@/lib/ledger";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const KEY_LOCK = "a4p_locked_periods";
 const KEY_TASKS = "a4p_close_tasks";
 
-function read<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch { return fallback; }
-}
-function write(key: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* ignore */ }
-}
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
+const read = <T,>(key: string, fallback: T): T => lerOrg<T>(key, fallback);
+const write = (key: string, v: unknown): void => gravarOrg(key, v);
 
 /* ----------------------------- cache live (hidratado) ----------------------------- */
 type TasksByMonth = Record<string, Record<string, boolean>>;

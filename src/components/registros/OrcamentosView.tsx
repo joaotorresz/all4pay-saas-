@@ -23,7 +23,9 @@ import {
   type Orcamento, type AlocacaoCategoria, type RegimeOrcamento, type FormatoOrcamento,
 } from "@/core/orcamento";
 import { listarOrcamentos, salvarOrcamento, removerOrcamento, duplicarOrcamento } from "@/lib/orcamentos";
-import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
+import { useProjetos, useCentrosCusto } from "@/components/registros/hooks";
+import { useCategories } from "@/components/lancamentos/hooks";
+import { caminhoDe, idsComFilhos } from "@/core/registros/hierarquia";
 import { normalizar } from "@/core/registros";
 import {
   CabecalhoRegistro, FiltrosRegistro, TabelaRegistro, VazioRegistro, AcaoLinha, Campo,
@@ -159,8 +161,23 @@ function Editor({
 
   const set = <K extends keyof Orcamento>(k: K, v: Orcamento[K]) => setO((s) => ({ ...s, [k]: v }));
 
-  const projetos = React.useMemo(() => listProjetos(), []);
-  const centros = React.useMemo(() => listCentrosCusto(), []);
+  // ⚠️ Projetos e centros da TABELA. O orçamento guarda o NOME (é por ele que
+  // o DRE e os painéis recortam — `RiskMovement.projeto`/`costCenter`), mas a
+  // lista vem do cadastro real: o antigo do navegador oferecia nomes que
+  // nenhum lançamento em produção carrega.
+  const { data: cadProjetos } = useProjetos();
+  const { data: cadCentros } = useCentrosCusto();
+  const projetos = React.useMemo(
+    () => (cadProjetos ?? []).filter((p) => p.status === "ativo" || p.nome === o.projeto),
+    [cadProjetos, o.projeto],
+  );
+  const centros = React.useMemo(() => {
+    const todos = cadCentros ?? [];
+    const grupos = idsComFilhos(todos.filter((c) => c.ativo));
+    return todos
+      .filter((c) => (c.ativo && !grupos.has(c.id)) || c.nome === o.centro)
+      .map((c) => ({ nome: c.nome, rotulo: caminhoDe(todos, c.id) }));
+  }, [cadCentros, o.centro]);
 
   /** Mudar o período reajusta a alocação: as colunas mudam com ele. */
   const mudarPeriodo = (p: Intervalo) => {
@@ -238,7 +255,7 @@ function Editor({
                 <Select
                   value={o.centro ?? ""}
                   onChange={(v) => set("centro", v || null)}
-                  options={[{ value: "", label: "Nenhum centro de custo" }, ...centros.map((c) => ({ value: c.nome, label: c.nome }))]}
+                  options={[{ value: "", label: "Nenhum centro de custo" }, ...centros.map((c) => ({ value: c.nome, label: c.rotulo }))]}
                   disabled={centros.length === 0}
                 />
               </Campo>
@@ -287,6 +304,18 @@ function Alocacao({
   onSalvar: () => void;
 }) {
   const { data: input } = useRiscoInput();
+  // As categorias do PLANO (folhas ativas, por natureza) — a alocação era texto
+  // livre, e um nome digitado diferente do cadastro nunca casava com o realizado.
+  const { data: catsReceita } = useCategories("receita");
+  const { data: catsDespesa } = useCategories("despesa");
+  const opcoesCategoria = (tipo: "entrada" | "saida", atual: string) => {
+    const lista = (tipo === "entrada" ? catsReceita : catsDespesa) ?? [];
+    const ops = lista.map((c) => ({ value: c.name, label: c.caminho || c.name }));
+    // Um nome antigo, fora do plano, continua visível — sumir com ele apagaria
+    // a alocação que a pessoa já digitou.
+    if (atual && !ops.some((x) => x.value === atual)) ops.unshift({ value: atual, label: `${atual} (fora do plano de contas)` });
+    return ops;
+  };
   const meses = mesesDoOrcamento(o);
   const resumo = resumoOrcamento(o);
 
@@ -380,11 +409,12 @@ function Alocacao({
                           // entrada em tinta, saída em areia.
                           style={{ background: a.tipo === "entrada" ? "var(--color-ink)" : "var(--color-areia)" }}
                         />
-                        <Input
+                        <Select
                           value={a.categoria}
-                          onChange={(e) => setLinhas((l) => l.map((x, k) => (k === i ? { ...x, categoria: e.target.value } : x)))}
-                          placeholder="Nome da categoria"
-                          containerClassName="flex-1 min-w-0"
+                          onChange={(v) => setLinhas((l) => l.map((x, k) => (k === i ? { ...x, categoria: v } : x)))}
+                          placeholder="Selecione a categoria"
+                          options={opcoesCategoria(a.tipo, a.categoria)}
+                          className="flex-1 min-w-0"
                         />
                       </div>
                     </td>

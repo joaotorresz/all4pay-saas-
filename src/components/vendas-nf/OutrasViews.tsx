@@ -8,14 +8,14 @@
  * perspectivas do mesmo documento-mãe, não bases paralelas.
  */
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, Input, Select, Checkbox, BRL, Skeleton } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
-import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList, useCreateParty } from "@/components/lancamentos/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
-import { listPlanoContas } from "@/lib/registros";
+import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import { regimeDoCadastro, type Regime as RegimeFiscal } from "@/core/fiscal/perfil";
 import { RegimeNaoDeclarado } from "@/components/fiscal/RegimeNaoDeclarado";
 import { loadCompany } from "@/lib/company";
@@ -219,7 +219,8 @@ export function ImpostosView() {
 }
 
 function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
-  const { data: contas } = useAccounts();
+  const opcoes = useOpcoesCadastro("saida");
+  const qc = useQueryClient();
   const { data: partes } = usePartiesList();
   const criarParte = useCreateParty();
   const { show, node } = useToast();
@@ -347,10 +348,18 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
           </div>
           <Button
             variant="primary" disabled={!podeCriar}
-            onClick={() => {
+            onClick={async () => {
               const contasImp = contasAPagarDosImpostos(provisao, config, mesCompetencia);
-              const n = criarContasDeImpostos(contasImp, mesCompetencia, config.contaId);
-              show(n > 0 ? `${n} contas a pagar criadas.` : "Nada a criar neste período.");
+              if (contasImp.length === 0) { show("Nada a criar neste período."); return; }
+              try {
+                const r = await criarContasDeImpostos(contasImp, mesCompetencia, config.contaId, opcoes.nomeCategoria);
+                await qc.invalidateQueries();
+                show(r.jaExistiam > 0
+                  ? `${r.criadas} contas a pagar criadas · ${r.jaExistiam} já existiam para esta competência.`
+                  : `${r.criadas} contas a pagar criadas.`);
+              } catch (e) {
+                show(`Não foi possível criar as contas a pagar: ${e instanceof Error ? e.message : String(e)}`);
+              }
             }}
           >
             Criar contas a pagar
@@ -416,9 +425,11 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
         <ConfigImpostosModal
           config={config}
           regimeEmpresa={regimeEmpresa}
-          contas={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
-          fornecedores={(partes ?? []).filter((p) => p.is_supplier).map((p) => ({ value: p.id, label: p.name }))}
-          categorias={listPlanoContas().filter((c) => c.natureza === "despesa" && c.paiId).map((c) => ({ value: c.id, label: c.nome }))}
+          contas={opcoes.contas}
+          fornecedores={(partes ?? []).filter((p) => p.is_supplier && p.ativo !== false).map((p) => ({ value: p.id, label: p.name }))}
+          // ⚠️ Folhas de DESPESA do banco (UUID): o imposto é uma conta a pagar,
+          // e a categoria do plano antigo (id numérico) seria recusada.
+          categorias={opcoes.categorias}
           onPropor={proporFornecedores}
           onClose={() => setAbrirConfig(false)}
           onSalvo={(c) => { setConfig(salvarConfigImpostos(c)); setAbrirConfig(false); show("Configuração salva."); }}

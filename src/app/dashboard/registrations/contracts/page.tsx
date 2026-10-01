@@ -3,7 +3,7 @@ import { ContratosView } from "@/components/registros/ContratosView";
 
 export default function ContratosPage() {
   return (
-    <AppShell title="Contratos" crumb="Cadastros">
+    <AppShell title="Contratos" crumb="Estrutura e cadastros">
       <ContratosView />
     </AppShell>
   );

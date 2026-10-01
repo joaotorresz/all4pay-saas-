@@ -4,17 +4,14 @@
  * sobe para ~99%. Persistido em localStorage (por enquanto), pronto para
  * virar tabela cross-tenant em produção.
  */
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 const KEY = "a4p_fdip_memory";
 
 type Memoria = Record<string, string>; // contraparteNorm -> categoria
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function ler(): Memoria {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || "{}");
-  } catch {
-    return {};
-  }
+  return { ...lerOrg<Memoria>(KEY, {}) };
 }
 
 export function memoriaDe(norm: string): string | null {
@@ -25,11 +22,7 @@ export function aprender(norm: string, categoria: string): void {
   if (typeof window === "undefined") return;
   const m = ler();
   m[norm] = categoria;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(m));
-  } catch {
-    /* ignore */
-  }
+  gravarOrg(KEY, m);
 }
 
 export function totalAprendido(): number {

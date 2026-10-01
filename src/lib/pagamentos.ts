@@ -11,6 +11,7 @@ import { liquidarImported } from "@/lib/imported";
 import { FinancialPlatform } from "@/core/platform";
 import type { Movement } from "@/lib/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export type MetodoPagamento = "pix" | "ted" | "boleto" | "of";
 
@@ -109,14 +110,12 @@ export function itemDe(m: Movement, nome: string): ItemPagamento {
 
 // ---- Comprovantes anexados na liquidação (demo: localStorage por movement) ----
 const KEY_COMP = "a4p_comprovantes";
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function loadComp(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(KEY_COMP) || "{}"); } catch { return {}; }
+  return lerOrg<Record<string, string>>(KEY_COMP, {});
 }
 export function anexarComprovante(movId: string, nome: string): void {
-  if (typeof window === "undefined") return;
-  const m = loadComp(); m[movId] = nome;
-  try { localStorage.setItem(KEY_COMP, JSON.stringify(m)); } catch { /* ignore */ }
+  gravarOrg(KEY_COMP, { ...loadComp(), [movId]: nome });
 }
 export function comprovanteDe(movId: string): string | null {
   return loadComp()[movId] ?? null;

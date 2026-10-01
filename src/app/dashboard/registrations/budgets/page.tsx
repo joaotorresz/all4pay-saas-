@@ -3,7 +3,7 @@ import { OrcamentosView } from "@/components/registros/OrcamentosView";
 
 export default function OrcamentosPage() {
   return (
-    <AppShell title="Orçamentos" crumb="Cadastros">
+    <AppShell title="Orçamentos" crumb="Estrutura e cadastros">
       <OrcamentosView />
     </AppShell>
   );

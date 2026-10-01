@@ -16,24 +16,23 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const KEY = "a4p_orcamento";
 /** Período sentinela = orçamento mensal recorrente (aplica a todo mês). */
 const SENTINEL = "2000-01-01";
 const KIND = "orcamento_linha";
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function loadLocal(): OrcamentoOverride {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as OrcamentoOverride) : {};
-  } catch { return {}; }
+  return lerOrg<OrcamentoOverride>(KEY, {});
 }
 
 function saveLocal(o: OrcamentoOverride): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {
-    reportar("orcamento.consulta", e, "o orçamento aparece vazio, como se ninguém tivesse planejado", true); /* ignore */ }
+  try { gravarOrg(KEY, o); } catch (e) {
+    reportar("orcamento.consulta", e, "o orçamento aparece vazio, como se ninguém tivesse planejado", true);
+    throw e;
+  }
 }
 
 export async function loadOrcamento(): Promise<OrcamentoOverride> {

@@ -4536,5 +4536,32 @@ const AGOSTO = janelaMes(2026, 7);
      problemasDoHistorico(sobreposto).some((p) => p.includes("Dois regimes")));
 }
 
+
+/* ── CAD ── */
+/**
+ * ⚠️ +1 destino: "Estrutura e cadastros" (CAD, 30/09/2026), em Configurações —
+ * a justificativa que o teto exige.
+ *
+ * Os nove cadastros continuam nos grupos onde são USADOS (contas em Caixa e
+ * bancos, clientes em Vender e receber, fornecedores em Comprar e pagar, plano
+ * de contas em Contabilidade…), e nenhum deles saiu de lá. O que nenhum destino
+ * responde é a pergunta "o que falta para eu conseguir lançar?" — a ORDEM entre
+ * eles (uma conta a pagar exige conta, categoria FOLHA de despesa e
+ * fornecedor). As nove páginas mostravam o caminho "Cadastros", e o menu não
+ * tem grupo com esse nome: a porta prometida não existia.
+ *
+ * Os tetos NÃO sobem: Configurações vai a 10 itens (teto por grupo 13) e o
+ * total a 57 (teto 71). A guarda abaixo prova que a entrada é UMA e que ela
+ * mora em Configurações — um segundo atalho para o hub num grupo de trabalho
+ * seria a duplicata que a regra "uma pergunta, uma tela" proíbe.
+ */
+{
+  const hubNoMenu = [...SECTIONS, CONFIG].flatMap((s) => s.items).filter((i) => i.href === "/dashboard/registrations");
+  ok("CAD: o hub 'Estrutura e cadastros' tem UMA entrada no menu, em Configurações",
+     hubNoMenu.length === 1 && CONFIG.items.some((i) => i.href === "/dashboard/registrations" && i.label === "Estrutura e cadastros"),
+     `${hubNoMenu.length} entrada(s)`);
+  ok("CAD: o hub está no inventário com o mesmo nome do menu",
+     INVENTARIO.some((i) => i.rota === "/dashboard/registrations" && i.nome === "Estrutura e cadastros"));
+}
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
 if (fails > 0) process.exit(1);

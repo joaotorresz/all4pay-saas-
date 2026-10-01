@@ -595,3 +595,143 @@ export function categoriasAntigas(antigas: readonly CategoriaPlano[], atuais: re
   }
   return out;
 }
+
+/* ============================ as ESCOLHAS do lançamento ============================ */
+
+/**
+ * ⚠️ **O QUE UM FORMULÁRIO DE LANÇAMENTO PODE OFERECER** — um critério só, para
+ * todos os formulários (título, receita/despesa, venda, compra, contrato,
+ * orçamento, impostos). Cada formulário filtrava do seu jeito: um mostrava só
+ * subcategorias, outro só raízes, outro tudo — e nenhum perguntava ao banco.
+ *
+ * Contas: só as ATIVAS (o banco recusa lançamento novo em conta inativa).
+ * Centros: ativos e ANALÍTICOS (sem filho vivo) — o grupo sintético é soma.
+ * Projetos: só os de situação "ativo" (encerrado recusa lançamento novo).
+ */
+export interface OpcaoCadastro { value: string; label: string }
+
+export const contasSelecionaveis = (contas: readonly ContaBancaria[]): OpcaoCadastro[] =>
+  contas.filter((c) => c.ativo).map((c) => ({ value: c.id, label: c.nome }));
+
+export function centrosSelecionaveis(centros: readonly CentroCustoCadastro[]): OpcaoCadastro[] {
+  const vivos = centros.filter((c) => c.ativo);
+  const grupos = idsComFilhos(vivos);
+  return vivos
+    .filter((c) => !grupos.has(c.id))
+    .map((c) => ({ value: c.id, label: caminhoDe(centros, c.id) }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+}
+
+export const projetosSelecionaveis = (projetos: readonly ProjetoCadastro[]): OpcaoCadastro[] =>
+  projetos.filter((p) => p.status === "ativo").map((p) => ({ value: p.id, label: p.nome }));
+
+/**
+ * As categorias de um LADO do lançamento, com o caminho como rótulo.
+ * ⚠️ A natureza vem do LADO, não da escolha da pessoa: entrada → receita,
+ * saída → despesa. Uma lista misturada é o atalho para lançar a venda numa
+ * categoria de despesa.
+ */
+export function categoriasDoLado(
+  cats: readonly CategoriaCadastro[], lado: "entrada" | "saida",
+): OpcaoCadastro[] {
+  const natureza: Natureza = lado === "entrada" ? "receita" : "despesa";
+  return categoriasSelecionaveis(cats, natureza)
+    .map((c) => ({ value: c.id, label: caminhoDe(cats, c.id) }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+}
+
+/**
+ * A categoria padrão do contato só preenche o formulário quando ela continua
+ * SELECIONÁVEL para aquele lado: uma categoria que virou grupo, foi desativada
+ * ou é da natureza do outro lado seria uma escolha que o banco recusa.
+ */
+export function categoriaPadraoValida(
+  padrao: string | null | undefined, opcoes: readonly OpcaoCadastro[],
+): string {
+  return padrao && opcoes.some((o) => o.value === padrao) ? padrao : "";
+}
+
+/* ==================================== rateio ==================================== */
+
+/** Uma linha do rateio na tela (projeto OU centro) — mesmo formato de `core/registros`. */
+export interface LinhaRateioLanc { id: string; percentual: number }
+
+/** Uma linha de `movement_splits`. */
+export interface LinhaSplit {
+  project_id: string | null;
+  cost_center_id: string | null;
+  category_id: string | null;
+  percent: number;
+  amount: number;
+}
+
+const preenchidasRateio = (l: readonly LinhaRateioLanc[]) => l.filter((x) => x.id && Number(x.percentual) > 0);
+
+/** O projeto/centro PRINCIPAL — o de maior fatia (o primeiro, no empate). */
+export function principalDoRateio(linhas: readonly LinhaRateioLanc[]): string | null {
+  const p = preenchidasRateio(linhas);
+  if (p.length === 0) return linhas.find((x) => x.id)?.id ?? null;
+  return p.reduce((m, x) => (Number(x.percentual) > Number(m.percentual) ? x : m)).id;
+}
+
+/**
+ * ⚠️ **O RATEIO VIRA LINHA DE `movement_splits`, não promessa de tela.** Antes
+ * ele era validado em 100% e DESCARTADO: só o primeiro projeto/centro chegava
+ * ao lançamento (`splits: null`), e quem dividiu 60/40 via um relatório 100/0.
+ *
+ * Projeto e centro são DUAS dimensões independentes, e cada uma fecha 100%.
+ * Gravá-las como linhas separadas faria a soma dos percentuais dar 200%; por
+ * isso a linha é o CRUZAMENTO (projeto × centro), com percentual = produto das
+ * fatias — o total continua 100% e cada dimensão, somada sozinha, devolve a
+ * fatia que a pessoa digitou.
+ *
+ * O VALOR é rateado em CENTAVOS inteiros e o resto vai para a ÚLTIMA linha:
+ * 100 ÷ 3 em ponto flutuante perde um centavo, e o rateio nasceria somando
+ * menos que o título.
+ *
+ * Sem rateio de verdade (zero ou uma linha em cada dimensão) não há linha a
+ * gravar: o projeto e o centro principais já estão no próprio lançamento.
+ */
+export function linhasDoRateio(
+  projetos: readonly LinhaRateioLanc[], centros: readonly LinhaRateioLanc[],
+  valor: number, categoriaId: string | null = null,
+): LinhaSplit[] {
+  const ps = preenchidasRateio(projetos);
+  const cs = preenchidasRateio(centros);
+  if (ps.length <= 1 && cs.length <= 1) return [];
+  const eixoP = ps.length ? ps : [{ id: "", percentual: 100 }];
+  const eixoC = cs.length ? cs : [{ id: "", percentual: 100 }];
+  const cruz = eixoP.flatMap((p) => eixoC.map((c) => ({
+    project_id: p.id || null,
+    cost_center_id: c.id || null,
+    fracao: (Number(p.percentual) / 100) * (Number(c.percentual) / 100),
+  })));
+  const totalCent = Math.round(valor * 100);
+  let usado = 0;
+  return cruz.map((x, i) => {
+    const ultimo = i === cruz.length - 1;
+    const cent = ultimo ? totalCent - usado : Math.round(totalCent * x.fracao);
+    usado += cent;
+    return {
+      project_id: x.project_id,
+      cost_center_id: x.cost_center_id,
+      category_id: categoriaId,
+      percent: Math.round(x.fracao * 10000) / 100,
+      amount: cent / 100,
+    };
+  });
+}
+
+/** O rateio de volta, POR DIMENSÃO — o que a ficha do lançamento mostra. */
+export function fatiasDoRateio(
+  splits: readonly { project_id?: string | null; cost_center_id?: string | null; percent?: number | null }[],
+  dimensao: "project_id" | "cost_center_id",
+): { id: string; percentual: number }[] {
+  const m = new Map<string, number>();
+  for (const s of splits) {
+    const id = s[dimensao];
+    if (!id) continue;
+    m.set(id, Math.round(((m.get(id) ?? 0) + Number(s.percent ?? 0)) * 100) / 100);
+  }
+  return Array.from(m, ([id, percentual]) => ({ id, percentual }));
+}

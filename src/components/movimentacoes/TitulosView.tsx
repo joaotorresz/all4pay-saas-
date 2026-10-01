@@ -20,8 +20,8 @@ import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { pagarLote, anexarComprovante, type MetodoPagamento } from "@/lib/pagamentos";
 import { formatBRL, dataBR } from "@/lib/format";
-import { listProjetos } from "@/lib/iuli-cadastros";
-import { projetoDoMovimento } from "@/lib/projeto-vinculo";
+import { useProjetos } from "@/components/registros/hooks";
+import { projetosSelecionaveis } from "@/core/registros/hierarquia";
 import { ModalBaixa } from "./ModalBaixa";
 import type { RiskMovement } from "@/core/risk-engine/types";
 import { receberLote } from "@/lib/recebimentos";
@@ -86,10 +86,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const [metodo, setMetodo] = React.useState<MetodoPagamento>("pix");
   const [comprovante, setComprovante] = React.useState<string | null>(null);
   const [enviandoBaixa, setEnviandoBaixa] = React.useState(false);
-  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
+  // Projetos da TABELA, só os ativos (encerrado recusa lançamento novo).
+  const { data: cadProjetos } = useProjetos();
+  const projetos = React.useMemo(
+    () => projetosSelecionaveis(cadProjetos ?? []).map((o) => ({ id: o.value, nome: o.label })),
+    [cadProjetos],
+  );
   const [projeto, setProjeto] = React.useState("");
-  React.useEffect(() => { setProjetos(listProjetos()); }, []);
-  React.useEffect(() => { setProjeto(baixa ? (projetoDoMovimento(baixa.id) ?? "") : ""); }, [baixa]);
+  // O projeto do lançamento vem dele mesmo (`movements.project_id`).
+  React.useEffect(() => { setProjeto(baixa?.projetoId ?? ""); }, [baixa]);
   const [executando, setExecutando] = React.useState(false);
 
   const parte = direcao === "receber" ? "Cliente" : "Fornecedor";

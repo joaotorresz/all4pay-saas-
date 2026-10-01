@@ -9,9 +9,12 @@
  * Um componente só com `lado` — dois arquivos envelheceriam separado.
  *
  * A gravação dos campos canônicos passa por `useCreateParty`/`useUpdateParty`,
- * os MESMOS writers do resto do sistema. O que a tabela ainda não tem (categoria
- * padrão, PIX, ativo, bloco PJ) vai para `salvarExtraParty`, indexado pelo id —
- * dois formulários escrevendo a mesma coluna divergiriam na primeira mudança.
+ * os MESMOS writers do resto do sistema — e desde 30/09/2026 isso inclui
+ * **`ativo` e `default_category_id`** (colunas da 20260930180000). Os dois
+ * moravam em `a4p_party_extra` no navegador: o cliente desativado continuava
+ * oferecido nos seletores de toda outra máquina, e a categoria padrão era o id
+ * NUMÉRICO do plano local, que o banco recusa ao salvar o lançamento. O que a
+ * tabela ainda não tem (PIX, bloco PJ) continua em `salvarExtraParty`.
  */
 import * as React from "react";
 import { Card, Button, Input, Select, Textarea, DateField, CurrencyInput, Icon } from "@/components/ui";
@@ -22,8 +25,8 @@ import { validateDoc, maskDoc, maskCep } from "@/lib/validators";
 import { lookupCep } from "@/lib/viacep";
 import { UFS, municipiosDe } from "@/lib/ibge";
 import { filtrarRegistros, type FiltroStatus } from "@/core/registros";
-import { listPlanoContas } from "@/lib/registros";
 import { extraParty, salvarExtraParty, listExtrasParty, type ExtraParty } from "@/lib/registros";
+import { useCategories } from "@/components/lancamentos/hooks";
 import {
   CabecalhoRegistro, FiltrosRegistro, TabelaRegistro, VazioRegistro, AcaoLinha,
   EtiquetaStatus, Campo, BlocoForm, SwitchAtivo, OPCOES_STATUS,
@@ -69,9 +72,11 @@ export function PartesView({ lado }: { lado: Lado }) {
 
   React.useEffect(() => { setExtras(listExtrasParty()); }, []);
 
+  // Categoria padrão = FOLHA ativa da natureza do lado, do BANCO (UUID).
+  const { data: catsBanco } = useCategories(t.natureza);
   const cats = React.useMemo(
-    () => listPlanoContas().filter((c) => c.natureza === t.natureza && c.paiId),
-    [t.natureza],
+    () => (catsBanco ?? []).map((c) => ({ id: c.id, nome: c.caminho || c.name })),
+    [catsBanco],
   );
 
   const doLado = React.useMemo(
@@ -79,8 +84,9 @@ export function PartesView({ lado }: { lado: Lado }) {
       .filter((p) => (lado === "cliente" ? p.is_customer : p.is_supplier))
       .map((p) => ({
         ...p,
-        ativo: extras[p.id]?.ativo ?? true,
-        categoriaPadrao: extras[p.id]?.categoriaPadrao ?? "",
+        // ⚠️ A coluna vence; o extra antigo só vale enquanto a coluna não veio.
+        ativo: p.ativo ?? extras[p.id]?.ativo ?? true,
+        categoriaPadrao: p.default_category_id ?? "",
         nomeFantasia: extras[p.id]?.nomeFantasia ?? "",
       })),
     [data, lado, extras],
@@ -290,6 +296,7 @@ function FormParte({
   const atualizar = useUpdateParty();
   const extra = parte ? extraParty(parte.id) : {};
   const [tentou, setTentou] = React.useState(false);
+  const [erroBanco, setErroBanco] = React.useState("");
   const [cepCarregando, setCepCarregando] = React.useState(false);
   const [cidades, setCidades] = React.useState<string[]>([]);
 
@@ -301,10 +308,10 @@ function FormParte({
     phone: parte?.phone ?? "",
     pais: extra.pais ?? "Brasil",
     zip: "", street: "", number: "", complement: "", district: "", city: "", state: "",
-    categoriaPadrao: extra.categoriaPadrao ?? "",
+    categoriaPadrao: parte?.default_category_id ?? "",
     chavePix: extra.chavePix ?? "",
     observacao: extra.observacao ?? "",
-    ativo: extra.ativo ?? true,
+    ativo: parte?.ativo ?? extra.ativo ?? true,
     nomeFantasia: extra.nomeFantasia ?? "",
     inscricaoMunicipal: extra.inscricaoMunicipal ?? "",
     inscricaoEstadual: extra.inscricaoEstadual ?? "",
@@ -345,6 +352,7 @@ function FormParte({
 
   const salvar = () => {
     setTentou(true);
+    setErroBanco("");
     if (invalido) return;
     const base = {
       type: f.type,
@@ -356,6 +364,9 @@ function FormParte({
       is_supplier: lado === "fornecedor",
       is_carrier: false,
       antt: null,
+      // As duas colunas que saíram do navegador (`a4p_party_extra`).
+      ativo: f.ativo,
+      default_category_id: f.categoriaPadrao || null,
     };
     /**
      * O endereço só entra no patch quando foi PREENCHIDO nesta sessão.
@@ -369,8 +380,8 @@ function FormParte({
         }
       : {};
     const extras: ExtraParty = {
-      categoriaPadrao: f.categoriaPadrao, chavePix: f.chavePix, observacao: f.observacao,
-      ativo: f.ativo, nomeFantasia: f.nomeFantasia, pais: f.pais,
+      chavePix: f.chavePix, observacao: f.observacao,
+      nomeFantasia: f.nomeFantasia, pais: f.pais,
       inscricaoMunicipal: f.inscricaoMunicipal, inscricaoEstadual: f.inscricaoEstadual,
       optanteSimples: f.optanteSimples as ExtraParty["optanteSimples"],
       contribuinteEstadual: f.contribuinteEstadual as ExtraParty["contribuinteEstadual"],
@@ -381,6 +392,9 @@ function FormParte({
     if (parte) {
       atualizar.mutate({ id: parte.id, patch: { ...base, ...endereco } }, {
         onSuccess: () => { salvarExtraParty(parte.id, extras); onSalvo(`${cap(t.singular)} salvo.`); },
+        // ⚠️ A recusa do banco (documento repetido, categoria que virou grupo)
+        // vai inteira para a tela — o modal fica aberto com o que foi digitado.
+        onError: (e) => setErroBanco(e instanceof Error ? e.message : String(e)),
       });
     } else {
       criar.mutate({
@@ -393,6 +407,7 @@ function FormParte({
           if (id) salvarExtraParty(id, extras);
           onSalvo(`${cap(t.singular)} criado.`);
         },
+        onError: (e) => setErroBanco(e instanceof Error ? e.message : String(e)),
       });
     }
   };
@@ -407,6 +422,9 @@ function FormParte({
       onSave={salvar}
       saving={criar.isPending || atualizar.isPending}
     >
+      {erroBanco && (
+        <span role="alert" className="text-caption text-negative">Não foi possível salvar: {erroBanco}</span>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Campo label="Tipo" obrigatorio>
           <Select
@@ -450,7 +468,7 @@ function FormParte({
           value={f.categoriaPadrao}
           onChange={(v) => set({ categoriaPadrao: v })}
           placeholder="Selecione a categoria"
-          options={cats.map((c) => ({ value: c.id, label: c.nome }))}
+          options={[{ value: "", label: "Nenhuma" }, ...cats.map((c) => ({ value: c.id, label: c.nome }))]}
         />
       </Campo>
 

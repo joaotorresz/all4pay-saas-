@@ -21,8 +21,8 @@ import {
   Card, Button, Icon, Input, Select, DateField, CurrencyInput, Textarea, Checkbox, BRL,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
-import { getParties, getCategories, getAccountsList, getCostCenters } from "@/lib/data";
-import { listProjetos } from "@/lib/iuli-cadastros";
+import { getParties } from "@/lib/data";
+import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import {
   validarCompra, parcelasDaCompra, rateioFecha, anexoAceito, statusInicial,
   TIPOS_PAGAMENTO, ESPECIES, FORMATOS_ANEXO,
@@ -41,13 +41,10 @@ export function CompraForm() {
   const { show: toast, node } = useToast();
 
   const fornecedores = useQuery({ queryKey: ["parties", "supplier"], queryFn: () => getParties("supplier") });
-  const contas = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
-  const categorias = useQuery({ queryKey: ["categories", "despesa"], queryFn: () => getCategories("despesa") });
-  const centros = useQuery({ queryKey: ["cost-centers"], queryFn: getCostCenters });
-  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
-  React.useEffect(() => {
-    setProjetos(listProjetos().map((p) => ({ id: p.id, nome: p.nome })));
-  }, []);
+  // ⚠️ Conta, categoria (FOLHA de despesa), centro e projeto da TABELA. A
+  // categoria era gravada só pelo NOME, e o projeto vinha do cadastro antigo
+  // do navegador (id "5001", recusado pelo banco).
+  const opcoes = useOpcoesCadastro("saida");
 
   const [fornecedorId, setFornecedorId] = React.useState("");
   const [contaId, setContaId] = React.useState("");
@@ -77,7 +74,9 @@ export function CompraForm() {
     fornecedorId,
     fornecedor: fornecedores.data?.find((f) => f.id === fornecedorId)?.name ?? "",
     contaId,
-    categoria,
+    // O nome vai para o texto do título; a chave do banco, para `category_id`.
+    categoria: opcoes.nomeCategoria(categoria) ?? categoria,
+    categoriaId: categoria || null,
     tipoPagamento,
     parcelas: tipoPagamento === "parcelado" ? parcelas : 1,
     vencimento,
@@ -154,19 +153,19 @@ export function CompraForm() {
               label="Fornecedor" required invalid={!!erros.fornecedorId}
               value={fornecedorId} onChange={setFornecedorId}
               placeholder="Selecione um fornecedor"
-              options={(fornecedores.data ?? []).map((f) => ({ value: f.id, label: f.name }))}
+              options={(fornecedores.data ?? []).filter((f) => f.ativo !== false).map((f) => ({ value: f.id, label: f.name }))}
             />
             <Select
               label="Conta bancária" required invalid={!!erros.contaId}
               value={contaId} onChange={setContaId}
               placeholder="Selecione uma conta bancária"
-              options={(contas.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+              options={opcoes.contas}
             />
             <Select
               label="Categoria" required invalid={!!erros.categoria}
               value={categoria} onChange={setCategoria}
               placeholder="Selecione uma categoria"
-              options={(categorias.data ?? []).map((c) => ({ value: c.name, label: c.name }))}
+              options={opcoes.categorias}
             />
             <Select
               label="Tipo de pagamento" required
@@ -270,12 +269,12 @@ export function CompraForm() {
           <span className="text-h3 font-semibold text-ink">Alocação</span>
           <Rateio
             titulo="Projetos" vazio="Nenhum projeto atribuído"
-            opcoes={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+            opcoes={opcoes.projetos}
             linhas={rateioProjetos} setLinhas={setRateioProjetos} erro={erros.projetos}
           />
           <Rateio
             titulo="Centros de custo" vazio="Nenhum centro de custo atribuído"
-            opcoes={(centros.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+            opcoes={opcoes.centros}
             linhas={rateioCentros} setLinhas={setRateioCentros} erro={erros.centros}
           />
         </div>

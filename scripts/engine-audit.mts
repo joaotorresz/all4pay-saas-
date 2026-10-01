@@ -6885,5 +6885,198 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /\.eq\(\s*"ativo",\s*true\s*\)/.test(padrao) && /COLUNA_AUSENTE/.test(padrao) && !/^\s*["']use client["']/m.test(padrao));
 }
 
+
+/* ── CAD-2 ── */
+/**
+ * ⚠️ OS FORMULÁRIOS USAM OS CADASTROS DO BANCO (CAD, parte 2 — 30/09/2026).
+ *
+ * Título, receita/despesa, venda, compra, contrato, orçamento, impostos e o
+ * cadastro de cliente/fornecedor liam o cadastro ANTIGO do navegador (id
+ * numérico): em produção o projeto/centro era recusado e a categoria de uma
+ * venda chegava ao DRE como "217290". Cada guarda abaixo carrega o NEGATIVO —
+ * a mesma varredura sobre o defeito plantado tem de acusar.
+ */
+{
+  const fsD = await import("node:fs");
+  const H = await import("@/core/registros/hierarquia");
+  const E = await import("@/core/registros/estrutura");
+  const lerD = (p: string) => (fsD.existsSync(p) ? fsD.readFileSync(p, "utf8") : "");
+  const semCom = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  /* ---- 1. TETO ZERO: nenhum formulário de lançamento lê o plano local para gravar ---- */
+  const FORMS = [
+    "src/components/movimentacoes/TituloForm.tsx",
+    "src/components/lancamentos/ReceitaForm.tsx",
+    "src/components/vendas-nf/VendaForm.tsx",
+    "src/components/registros/ContratosView.tsx",
+    "src/components/registros/OrcamentosView.tsx",
+    "src/components/vendas-nf/OutrasViews.tsx",
+    "src/components/compras/CompraForm.tsx",
+    "src/components/registros/PartesView.tsx",
+    "src/components/movimentacoes/TitulosView.tsx",
+    "src/components/movimentacoes/ModalBaixa.tsx",
+    "src/components/visao-geral/ExtratoTransacoes.tsx",
+  ];
+  const LEITURA_LOCAL = [
+    /\blistPlanoContas\(/, /\blistUsosPadrao\(/, /\blistContasBancarias\(/, /from "@\/lib\/iuli-cadastros"/,
+    /\blistProjetos\(/, /\blistCentrosCusto\(/, /\bvincularProjetos?\(/, /\bprojetoDoMovimento\(/,
+    /extraParty\([^)]*\)\.categoriaPadrao/,
+  ];
+  const leLocal = (t: string) => LEITURA_LOCAL.some((re) => re.test(semCom(t)));
+  const formsLocais = FORMS.filter((f) => !lerD(f) || leLocal(lerD(f)));
+  ok("CAD-2: nenhum formulário de lançamento lê o cadastro antigo do navegador (teto ZERO)",
+     formsLocais.length === 0, formsLocais.join(" | "));
+  ok("CAD-2: [negativo] a varredura acusa o formulário antigo",
+     leLocal("const cats = listPlanoContas().filter((c) => c.paiId);")
+     && leLocal('import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";')
+     && leLocal("const padrao = extraParty(f.parteId).categoriaPadrao;")
+     && !leLocal('const opcoes = useOpcoesCadastro("saida");'));
+  const semHook = FORMS.slice(0, 7).filter((f) => !/useOpcoesCadastro\(|useCategories\(/.test(semCom(lerD(f))));
+  ok("CAD-2: os formulários leem as escolhas pelo hook único (useOpcoesCadastro/useCategories)",
+     semHook.length === 0, semHook.join(", "));
+
+  /* ---- 2. o seletor de categoria só oferece FOLHA da natureza do lado ---- */
+  const arv: import("@/core/registros/hierarquia").CategoriaCadastro[] = [
+    { id: "gR", nome: "Receitas", codigo: "", natureza: "receita", paiId: null, ativo: true },
+    { id: "r1", nome: "Assinaturas", codigo: "", natureza: "receita", paiId: "gR", ativo: true },
+    { id: "gD", nome: "Marketing", codigo: "", natureza: "despesa", paiId: null, ativo: true },
+    { id: "d1", nome: "Google Ads", codigo: "", natureza: "despesa", paiId: "gD", ativo: true },
+    { id: "d2", nome: "Meta", codigo: "", natureza: "despesa", paiId: "gD", ativo: false },
+  ];
+  const saida = H.categoriasDoLado(arv, "saida");
+  const entrada = H.categoriasDoLado(arv, "entrada");
+  ok("CAD-2: saída oferece só a FOLHA ativa de despesa, rotulada pelo caminho",
+     saida.length === 1 && saida[0].value === "d1" && saida[0].label === "Marketing › Google Ads", JSON.stringify(saida));
+  ok("CAD-2: entrada oferece só a folha de receita (nunca o grupo)",
+     entrada.length === 1 && entrada[0].value === "r1");
+  const opcTxt = semCom(lerD("src/components/lancamentos/opcoes-cadastro.ts"));
+  const categoriaPelaArvoreCrua = (t: string) => /useCategoriasArvore\(|listarCategorias\(/.test(t);
+  const formsArvore = [...FORMS, "src/components/lancamentos/opcoes-cadastro.ts"].filter((f) => categoriaPelaArvoreCrua(semCom(lerD(f))));
+  ok("CAD-2: nenhum formulário oferece a árvore crua (com grupos) como categoria (teto ZERO)",
+     formsArvore.length === 0 && /useCategories\(/.test(opcTxt), formsArvore.join(", "));
+  ok("CAD-2: [negativo] a varredura acusa o formulário que lista a árvore inteira",
+     categoriaPelaArvoreCrua("const { data } = useCategoriasArvore();"));
+  ok("CAD-2: a categoria padrão do contato só preenche quando continua selecionável",
+     H.categoriaPadraoValida("d1", saida) === "d1" && H.categoriaPadraoValida("gD", saida) === ""
+     && H.categoriaPadraoValida("r1", saida) === "" && H.categoriaPadraoValida(null, saida) === "");
+  const centrosF: import("@/core/registros/hierarquia").CentroCustoCadastro[] = [
+    { id: "c0", nome: "Comercial", codigo: "", codigoContabil: "", descricao: "", ativo: true, paiId: null },
+    { id: "c1", nome: "Vendas", codigo: "", codigoContabil: "", descricao: "", ativo: true, paiId: "c0" },
+    { id: "c2", nome: "Pós-venda", codigo: "", codigoContabil: "", descricao: "", ativo: false, paiId: "c0" },
+  ];
+  const cs = H.centrosSelecionaveis(centrosF);
+  ok("CAD-2: centro selecionável é ativo e analítico (o grupo é soma)",
+     cs.length === 1 && cs[0].value === "c1" && cs[0].label === "Comercial › Vendas", JSON.stringify(cs));
+
+  /* ---- 3. o rateio vira linha de movement_splits, e fecha ---- */
+  const rs = H.linhasDoRateio([{ id: "pA", percentual: 60 }, { id: "pB", percentual: 40 }],
+    [{ id: "cX", percentual: 50 }, { id: "cY", percentual: 50 }], 1000, "d1");
+  const somaV = Math.round(rs.reduce((t, x) => t + x.amount, 0) * 100) / 100;
+  const somaP = Math.round(rs.reduce((t, x) => t + x.percent, 0) * 100) / 100;
+  ok("CAD-2: 60/40 × 50/50 de R$ 1.000 vira 4 fatias que somam R$ 1.000,00 e 100%",
+     rs.length === 4 && somaV === 1000 && somaP === 100 && rs[0].amount === 300 && rs[3].amount === 200, JSON.stringify(rs));
+  const fatiaP = H.fatiasDoRateio(rs, "project_id");
+  ok("CAD-2: somada por dimensão, a fatia devolve o que a pessoa digitou (60 e 40)",
+     fatiaP.find((x) => x.id === "pA")?.percentual === 60 && fatiaP.find((x) => x.id === "pB")?.percentual === 40);
+  const tres = H.linhasDoRateio([{ id: "a", percentual: 33.33 }, { id: "b", percentual: 33.33 }, { id: "c", percentual: 33.34 }], [], 100);
+  ok("CAD-2: 100 ÷ 3 — o centavo que sobra vai na ÚLTIMA fatia (nenhum some)",
+     Math.round(tres.reduce((t, x) => t + x.amount, 0) * 100) === 10000 && tres[2].amount === 33.34, JSON.stringify(tres));
+  ok("CAD-2: uma fatia em cada dimensão não gera linha (o principal já está no lançamento)",
+     H.linhasDoRateio([{ id: "a", percentual: 100 }], [{ id: "x", percentual: 100 }], 50).length === 0
+     && H.principalDoRateio([{ id: "a", percentual: 30 }, { id: "b", percentual: 70 }]) === "b");
+  const dataD = semCom(lerD("src/lib/data.ts"));
+  const corpoCreate = dataD.slice(dataD.indexOf("export async function createLancamento"), dataD.indexOf("export interface TituloAvulso"));
+  const rateioDescartado = (t: string) => /splits:\s*null,/.test(t);
+  ok("CAD-2: o rateio é gravado em CADA parcela, com projeto (createLancamento)",
+     /\(inserted as \{ id: string \}\[\]\)\.flatMap/.test(corpoCreate) && /project_id: exigirUUID\(s\.project_id/.test(corpoCreate));
+  const tituloTxt = semCom(lerD("src/components/movimentacoes/TituloForm.tsx"));
+  ok("CAD-2: o formulário de título não descarta mais o rateio (teto ZERO de `splits: null` fixo)",
+     !rateioDescartado(tituloTxt) && /linhasDoRateio\(projetos, centros/.test(tituloTxt));
+  ok("CAD-2: [negativo] a varredura acusa o rateio descartado",
+     rateioDescartado("cost_center_id: x,\n          splits: null,\n"));
+  ok("CAD-2: criarTitulos grava centro, projeto e o rateio (folha, venda, impostos)",
+     /cost_center_id: exigirUUID\(l\.cost_center_id/.test(dataD) && /from\("movement_splits"\)\.insert\(fatias\)/.test(dataD));
+
+  /* ---- 4. o projeto do lançamento mora em movements.project_id ---- */
+  const pv = semCom(lerD("src/lib/projeto-vinculo.ts"));
+  ok("CAD-2: o vínculo antigo do navegador não tem mais escritor",
+     !/export function vincular/.test(pv) && !/gravar/.test(pv));
+  const corpoDef = dataD.slice(dataD.indexOf("export async function definirProjetoDoMovimento"));
+  ok("CAD-2: vincular projeto grava movements.project_id em produção (e no movimento, na demonstração)",
+     /\.update\(\{ project_id: exigirUUID\(/.test(corpoDef) && /updateImportedMovement\(id, \{ project_id/.test(corpoDef));
+  const corpoRisco = dataD.slice(dataD.indexOf("export async function getRiscoInput"));
+  const ramoLive = corpoRisco.slice(corpoRisco.indexOf("const supabase = createClient()"));
+  ok("CAD-2: em produção o nome do projeto sai só do embed (nenhum vínculo do navegador)",
+     !/vinculosProjeto\(|listProjetos\(/.test(ramoLive) && /projetoId: m\.project_id/.test(ramoLive));
+
+  /* ---- 5. ativo e categoria padrão moram em parties ---- */
+  const corpoGetParties = dataD.slice(dataD.indexOf("export async function getParties"), dataD.indexOf("export async function getAccountsList"));
+  ok("CAD-2: o seletor de contatos só traz os ATIVOS (com queda reportada para a coluna ausente)",
+     /\.eq\("ativo", true\)/.test(corpoGetParties) && /reportar\(/.test(corpoGetParties));
+  const partesTxt = semCom(lerD("src/components/registros/PartesView.tsx"));
+  ok("CAD-2: o cadastro de contato grava ativo e default_category_id na TABELA",
+     /default_category_id: f\.categoriaPadrao/.test(partesTxt) && /ativo: f\.ativo,/.test(partesTxt)
+     && !/categoriaPadrao: f\.categoriaPadrao/.test(partesTxt));
+  ok("CAD-2: a criação de contato na demonstração GRAVA (antes era descartada)",
+     /gravarParteDemo\(/.test(semCom(lerD("src/lib/cadastros.ts"))));
+
+  /* ---- 6. TETO ZERO: nenhuma chave de CHAVES_ORG com localStorage.setItem cru ---- */
+  const SO = await import("@/lib/store-org");
+  const chavesNeg = Object.values(SO.CHAVES_ORG) as string[];
+  const arquivosD: string[] = [];
+  const andarD = (dir: string) => {
+    for (const e2 of fsD.readdirSync(dir, { withFileTypes: true })) {
+      const p2 = `${dir}/${e2.name}`;
+      if (e2.isDirectory()) andarD(p2);
+      else if (/\.(ts|tsx)$/.test(e2.name)) arquivosD.push(p2);
+    }
+  };
+  andarD("src");
+  const gravaCru = (t: string) => {
+    const s2 = semCom(t);
+    if (!/localStorage\.setItem\(/.test(s2)) return [];
+    return chavesNeg.filter((k) => s2.includes(`"${k}"`) || s2.includes(`'${k}'`) || s2.includes("`" + k));
+  };
+  const crus = arquivosD.filter((f) => f !== "src/lib/store-org.ts").map((f) => ({ f, k: gravaCru(lerD(f)) })).filter((x) => x.k.length);
+  ok("CAD-2: nenhuma chave de negócio (CHAVES_ORG) escrita com localStorage.setItem cru (teto ZERO)",
+     crus.length === 0, crus.map((x) => `${x.f} [${x.k.join(",")}]`).join(" | "));
+  ok("CAD-2: [negativo] a varredura acusa o escritor cru de chave de negócio",
+     gravaCru('const KEY = "a4p_company";\nexport function salvar(c) { localStorage.setItem(KEY, JSON.stringify(c)); }').length === 1
+     && gravaCru('const KEY = "a4p_theme";\nlocalStorage.setItem(KEY, "dark");').length === 0);
+  let recusou = false;
+  try { SO.gravarPreferencia("a4p_company", {}); } catch { recusou = true; }
+  ok("CAD-2: gravar chave de negócio como PREFERÊNCIA é recusado", recusou);
+  ok("CAD-2: as entidades com tabela que só a demonstração grava estão CONGELADAS",
+     ["a4p_recorrencias", "a4p_nfse", "a4p_ledger", "a4p_revrec", "a4p_cronogramas", "a4p_tags", "a4p_movimento_projeto"]
+       .every((k) => SO.estaCongelada(k)));
+
+  /* ---- 7. o hub: a ordem de dependência e o que falta para lançar ---- */
+  const vazio: import("@/core/registros/estrutura").EntradaEstrutura = {
+    empresa: { nome: null, regimeDeclarado: false }, contas: [], categorias: [], centros: [], projetos: [],
+    clientes: 0, fornecedores: 0, produtos: 0, servicos: 0, contratos: 0,
+  };
+  const pv0 = E.pendenciasDaEstrutura(vazio);
+  ok("CAD-2: empresa vazia — sem conta e sem categoria IMPEDEM, e vêm primeiro",
+     pv0.slice(0, 3).every((x) => x.gravidade === "bloqueia")
+     && ["sem-conta", "sem-receita", "sem-despesa"].every((id) => pv0.some((x) => x.id === id)), pv0.map((x) => x.id).join(","));
+  const contaOk = H.contaDaLinha({ id: "a1", name: "Itaú", bank: "itau", ativo: true, saldo_inicial: 10, data_saldo_inicial: "2026-01-01", saldo_inicial_conferido: true });
+  const pronta = E.pendenciasDaEstrutura({
+    ...vazio, empresa: { nome: "X", regimeDeclarado: true }, contas: [contaOk],
+    categorias: arv.map((c) => ({ ...c, dreLinha: c.natureza === "receita" ? "receita_bruta" : "despesas_operacionais" })),
+    clientes: 1, fornecedores: 1,
+  });
+  ok("CAD-2: estrutura completa não tem pendência (a lista vazia é a resposta 'dá para lançar')",
+     pronta.length === 0, pronta.map((x) => x.id).join(","));
+  const semLinha = E.pendenciasDaEstrutura({ ...vazio, contas: [contaOk], categorias: arv, clientes: 1, fornecedores: 1, empresa: { nome: "X", regimeDeclarado: true } });
+  ok("CAD-2: folha sem linha do DRE é ATENÇÃO (salva, mas classifica por palpite), não bloqueio",
+     semLinha.length === 1 && semLinha[0].id === "sem-linha-dre" && semLinha[0].gravidade === "atencao", semLinha.map((x) => x.id).join(","));
+  const niv = E.niveisDaEstrutura(vazio).map((n) => n.id).join(">");
+  ok("CAD-2: os níveis na ordem de dependência", niv === "empresa>contas>plano>alocacao>partes>catalogo>contratos", niv);
+  const navTxt = lerD("src/components/dashboard/nav-data.ts");
+  const cfg = navTxt.slice(navTxt.indexOf("export const CONFIG"));
+  ok("CAD-2: o hub tem UMA porta, em Configurações, e linha no inventário",
+     /href: "\/dashboard\/registrations",/.test(cfg)
+     && /rota: "\/dashboard\/registrations", nome: "Estrutura e cadastros"/.test(lerD("src/core/rotas/inventario.ts")));
+}
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
