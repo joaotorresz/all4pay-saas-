@@ -4155,6 +4155,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
         mvR("je", 410, "pendente", "2026-08-20", null, { category: "Juros e rendimentos", origem: "extrato" }),
         mvR("rn", 5_000, "pendente", "2026-08-21", null, { category: "Resgate de aplicação" }),
         mvR("tm", 9_000, "pendente", "2026-08-23", null, { category: "Transferência entre contas", origem: "manual" }),
+        mvR("rm", 7_000, "pendente", "2026-08-24", null, { category: "Resgate de aplicação", origem: "manual" }),
       ],
     };
     const n = montarPainelContasReceber(NAT, AGOSTO);
@@ -4165,6 +4166,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        !ids.has("je") && !ids.has("rn"), [...ids].join(","));
     ok("creceber: transferência entre contas é fora mesmo lançada à mão",
        !ids.has("tm") && naoEhRecebivel(NAT.movements[4]));
+    ok("creceber: resgate de aplicação é dinheiro da própria empresa — fora mesmo lançado à mão",
+       !ids.has("rm") && naoEhRecebivel(NAT.movements[5]) && n.aVencer.total === 3_940);
     // O caso discrimina: a regra antiga (só o nome) e a nova respondem DIFERENTE.
     const regraAntiga = (m: RiskMovement) => /\b(juros|rendimento|empr[ée]stimo|resgate|transfer[êe]ncia)\b/i.test(m.category ?? "");
     ok("creceber: [negativo] a regra só-pelo-nome esconderia o título manual",
@@ -7174,9 +7177,19 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       return [...citadas];
     };
     const achados: Achado[] = [];
-    for (const m of s2.matchAll(/localStorage\s*(?:\.\s*(setItem|getItem|removeItem)\s*\(|\[)\s*([^,)\]]+)/g)) {
-      const op = m[1] ?? "getItem";
-      for (const k of resolve(m[2])) {
+    // ⚠️ O nome do armazenamento também tem APELIDO: `const ls = window.localStorage`
+    // e depois `ls.setItem(K, …)` fugia da varredura (só casava a palavra
+    // `localStorage`). E o colchete tem DOIS sentidos: `localStorage[K] = x` é
+    // ESCRITA (e `delete localStorage[K]` é remoção) — tratá-lo como leitura
+    // deixava gravar chave CONGELADA por colchete, porque leitura de congelada
+    // é permitida.
+    const nomes = ["localStorage"];
+    for (const m of s2.matchAll(/(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*(?:window\s*\.\s*|globalThis\s*\.\s*)?localStorage\b(?!\s*\.)/g)) nomes.push(m[1]);
+    const alt = nomes.map((n) => n.replace(/\$/g, "\\$")).join("|");
+    const reCru = new RegExp(`(delete\\s+(?:window\\s*\\.\\s*)?)?\\b(?:${alt})\\s*(?:\\.\\s*(setItem|getItem|removeItem)\\s*\\(|\\[)\\s*([^,)\\]]+)(\\]\\s*=(?!=))?`, "g");
+    for (const m of s2.matchAll(reCru)) {
+      const op = m[2] ?? (m[1] ? "removeItem" : m[4] ? "setItem" : "getItem");
+      for (const k of resolve(m[3])) {
         if (!chavesNeg.includes(k)) continue;
         if (op === "getItem" && SO.estaCongelada(k)) continue;
         achados.push({ op, chave: k });
@@ -7201,6 +7214,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("CAD-2: ler cru o RASTRO de chave congelada é permitido (escrevê-lo, não)",
      varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage.getItem(K);').length === 0
      && varreCru('const K = "a4p_vendas_docs";\nlocalStorage.setItem(K, "[]");').length === 1);
+  ok("CAD-2: [negativo] a varredura acusa o APELIDO do armazenamento e a escrita por COLCHETE (inclusive de chave congelada)",
+     varreCru('const K = "a4p_compras";\nconst ls = window.localStorage;\nls.setItem(K, "[]");').length === 1
+     && varreCru('const K = "a4p_vendas_docs";\nlocalStorage[K] = "[]";').some((a) => a.op === "setItem")
+     && varreCru('const K = "a4p_vendas_docs";\ndelete window.localStorage[K];').some((a) => a.op === "removeItem")
+     && varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage[K] === "[]";').length === 0);
   let recusou = false;
   try { SO.gravarPreferencia("a4p_company", {}); } catch { recusou = true; }
   ok("CAD-2: gravar chave de negócio como PREFERÊNCIA é recusado", recusou);
@@ -8182,6 +8200,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const widgetIA = srcIA("src/components/app/AssistantWidget.tsx");
   ok("ia: o painel chama a retomada ao montar e carrega os turnos",
      /conversaParaRetomar\(escolhaDoPainel\(\), listarConversas\(\)\)/.test(widgetIA) && /carregar\(c\.turnos\)/.test(widgetIA));
+  // ⚠️ Numa máquina nova o histórico chega DEPOIS da montagem: ler só ao montar
+  // deixava o painel vazio. A retomada também roda quando a hidratação avisa —
+  // e só com o painel OCIOSO (sem conversa aberta e sem pergunta em curso).
+  const corpoRetomar = widgetIA.slice(widgetIA.indexOf("const retomar = () =>"), widgetIA.indexOf("const fimRef"));
+  ok("ia: o painel OUVE a hidratação do histórico e só retoma ocioso",
+     /return inscreverConversas\(retomar\)/.test(corpoRetomar)
+     && /if \(ativaRef\.current \|\| !ociosoRef\.current\) return;/.test(corpoRetomar)
+     && /ociosoRef\.current = turnos\.length === 0 && !pensando/.test(widgetIA), corpoRetomar.slice(0, 120));
   const copilotoLib = srcIA("src/lib/ai-copilot.ts");
   const logIA = copilotoLib.slice(copilotoLib.indexOf("export async function logAcaoIA"), copilotoLib.indexOf("export async function listAcoesIA"));
   ok("ia: a recusa do banco ao gravar a trilha da IA não é engolida (o cliente devolve `error`, não lança)",

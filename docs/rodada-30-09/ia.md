@@ -208,3 +208,46 @@ painel; se a pessoa deve ver esse título no painel é decisão de produto
   hidratação — a página `/quattro-ai` ouve).
 - As jornadas de navegador (`npm run jornadas`) não foram rodadas nesta rodada;
   o `npm test` inteiro está verde.
+
+#### Revisão adversarial da Rodada 3 — 01/10/2026 (`r4/ia-rev`)
+
+Cada correção da rodada foi atacada; três não aguentaram inteiras.
+
+- ⚠️ **A guarda `CAD-2` ainda tinha dois pontos cegos.** (1) O APELIDO do
+  armazenamento: `const ls = window.localStorage; ls.setItem(K, …)` passava,
+  porque a varredura só casava a palavra `localStorage` — o plantio
+  `ls.getItem("a4p_contratos")` só reprovou por ACIDENTE (o literal plantado
+  "contaminou" o helper `load(key)` do mesmo arquivo). (2) O COLCHETE era lido
+  sempre como leitura: `localStorage[K] = x` gravava chave CONGELADA sem
+  reprovar, porque ler rastro congelado é permitido. Agora o apelido entra no
+  padrão, `[K] =` é escrita e `delete localStorage[K]` é remoção. Guarda
+  `CAD-2: [negativo] … APELIDO … COLCHETE`; provada plantando
+  `ls.setItem(VENDAS_PLANT, …)` num arquivo sem outra chave — reprova nomeando
+  `setItem a4p_vendas_docs` (a versão anterior passava).
+- ⚠️ **Resgate de aplicação lançado à mão virava recebível.** A exceção do
+  "título manual" valia para toda categoria de `foraDaBaseTributavel`, e
+  resgate/aplicação são dinheiro da PRÓPRIA empresa mudando de bolso, como a
+  transferência — sem devedor do outro lado; entrariam no painel de cobrança,
+  na concentração por cliente e na régua. `ehDinheiroDaPropriaEmpresa` os põe
+  fora sempre (juros e empréstimo seguem com a exceção). Guarda
+  `creceber: resgate de aplicação … fora mesmo lançado à mão`; provada tirando
+  a regra (reprovam duas asserções, com o total 10.940 em vez de 3.940).
+- **O painel flutuante agora ouve a hidratação** (`inscreverConversas`), em vez
+  de ler o histórico só ao montar — a pendência "abre vazio numa máquina nova"
+  da rodada saiu. Só retoma com o painel OCIOSO (sem conversa aberta, sem
+  pergunta em curso, nada digitado): a hidratação não troca a conversa debaixo
+  de quem está falando. Guarda `ia: o painel OUVE a hidratação…`; provada
+  tirando a inscrição e tirando a condição de ociosidade.
+
+**Conferido e mantido:** o voto que desfaz (a RLS de `ai_learning` concede
+`update` a `authenticated` e recorta pela empresa ativa — o update direto não
+muda quem pode chamar o quê); o `−` no percentual (nenhum consumidor compara a
+string com hífen); o congelamento de `a4p_projetos`/`a4p_centros_custo` (a
+hidratação continua trazendo o rastro do servidor ao navegador, então a oferta
+"Trazer para o cadastro" segue alcançando o que foi gravado noutra máquina).
+
+**Fica para o dono:** se o painel deve abrir na conversa mais recente na
+PRIMEIRA abertura da sessão (hoje sim) ou começar em branco com as sugestões;
+`origem: "recorrencia"` está no conjunto de títulos mas o banco
+(`movements_origem_valida`) não aceita esse valor — inofensivo, e a recorrência
+grava `contrato`. O painel não foi dirigido no navegador nesta revisão.

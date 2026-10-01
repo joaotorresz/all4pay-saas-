@@ -73,6 +73,18 @@ export const ehContaAReceber = (m: RiskMovement) =>
   m.type === "entrada" && !cancelado(m) && !naoEhRecebivel(m);
 
 /**
+ * ⚠️ Resgate e aplicação são dinheiro da PRÓPRIA empresa mudando de bolso
+ * (da aplicação para a conta), como a transferência: não há devedor do outro
+ * lado. Lançados à mão como título previsto, continuam fora — senão o resgate
+ * agendado de um CDB entrava no painel de cobrança, na concentração por
+ * cliente e na régua. Juros e empréstimo ficam com a exceção do título manual:
+ * ali existe alguém que deve.
+ */
+const DINHEIRO_PROPRIO = /\b(resgate|aplica[çc][ãa]o|aplica[çc][õo]es)\b/i;
+export const ehDinheiroDaPropriaEmpresa = (categoria: string | null | undefined): boolean =>
+  DINHEIRO_PROPRIO.test(categoria ?? "");
+
+/**
  * Procedências de quem LANÇOU o título como a receber: a pessoa no formulário,
  * a venda, o contrato, a regra de recorrência.
  */
@@ -96,7 +108,7 @@ const LANCADO_COMO_TITULO = new Set(["manual", "venda", "contrato", "recorrencia
  * dinheiro que já era da empresa.
  */
 export function naoEhRecebivel(m: RiskMovement): boolean {
-  if (ehTransferenciaEntreContas(m.category)) return true;
+  if (ehTransferenciaEntreContas(m.category) || ehDinheiroDaPropriaEmpresa(m.category)) return true;
   if (!foraDaBaseTributavel(m.category)) return false;
   return !LANCADO_COMO_TITULO.has((m.origem ?? "").trim().toLowerCase());
 }
