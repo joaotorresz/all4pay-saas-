@@ -9991,6 +9991,23 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("sem-conta: o saldo-herói da Home pergunta pela ausência antes do valor", /saldoInd\.indisponivel/.test(home));
 }
 
+/* ── RODADA 6 · a purga da amostra leva os contatos que só ela criou ── */
+{
+  const { contatosSoDaAmostra } = await import("@/lib/amostra");
+  const so = contatosSoDaAmostra(["p1", "p2", "p2", "p3"], new Set(["p2"]));
+  ok("amostra-contatos: sai só o contato que NENHUM dado real usa (e cada um uma vez)",
+     so.length === 2 && so.includes("p1") && so.includes("p3") && !so.includes("p2"), JSON.stringify(so));
+  const lib = readFileSync("src/lib/amostra.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const corpo = lib.slice(lib.indexOf("export async function purgarAmostra"), lib.indexOf("export function contatosSoDaAmostra"));
+  ok("amostra-contatos: os contatos são decididos ANTES de apagar os lançamentos",
+     corpo.indexOf("contatosDaAmostra()") > -1 && corpo.indexOf("contatosDaAmostra()") < corpo.indexOf(".delete()"));
+  ok("amostra-contatos: contato vai para a LIXEIRA, nunca exclusão física",
+     /excluirLogico\("parties"/.test(corpo) && !/from\("parties"\)\.delete/.test(lib));
+  const banner = readFileSync("src/components/app/BannerAmostra.tsx", "utf8");
+  ok("amostra-contatos: o banner diz o que vai acontecer com os contatos (mesma consulta)",
+     /contatosDaAmostra/.test(banner) && /para a lixeira/.test(banner));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

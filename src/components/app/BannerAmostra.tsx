@@ -23,7 +23,7 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon, AcaoDestrutiva } from "@/components/ui";
-import { contarAmostra, purgarAmostra } from "@/lib/amostra";
+import { contarAmostra, contatosDaAmostra, purgarAmostra } from "@/lib/amostra";
 
 /**
  * Nome legível de cada tabela — o banner não fala `movement_splits`.
@@ -58,6 +58,16 @@ export function BannerAmostra() {
     // cada foco de janela custaria cinco consultas por troca de aba.
     staleTime: 5 * 60_000,
   });
+
+  // O que o botão faz com os contatos sai da MESMA consulta que a purga usa —
+  // o banner não pode prometer uma coisa e o botão fazer outra.
+  const { data: contatos } = useQuery({
+    queryKey: ["amostra", "contatos"],
+    queryFn: contatosDaAmostra,
+    staleTime: 5 * 60_000,
+    enabled: (data?.purgaveis ?? 0) > 0,
+  });
+  const nContatos = contatos?.length ?? 0;
 
   const total = data?.total ?? 0;
   if (total === 0) return null;
@@ -114,6 +124,9 @@ export function BannerAmostra() {
           `${purgaveis === 1 ? "Será apagado" : "Serão apagados"} ${purgaveis} de ${total} registro${total === 1 ? "" : "s"} marcado${total === 1 ? "" : "s"} — só ${purgaveis === 1 ? "o que veio" : "os que vieram"} do botão de amostra. `
           + (preservadas > 0
             ? `${preservadas === 1 ? `O outro ${preservadas} foi marcado` : `Os outros ${preservadas} foram marcados`} à mão e ${preservadas === 1 ? "permanece" : "permanecem"}. `
+            : "")
+          + (nContatos > 0
+            ? `${nContatos === 1 ? "O contato criado só pela amostra vai" : `Os ${nContatos} contatos criados só pela amostra vão`} para a lixeira (dá para restaurar); contato que a empresa também usou fica. `
             : "")
           + "Os relatórios não mudam — eles já ignoram estes registros. "
           + "Esta ação não pode ser desfeita."
