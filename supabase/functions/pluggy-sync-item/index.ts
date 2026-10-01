@@ -59,8 +59,10 @@ async function etlMovements(db: SupabaseClient, orgId: string, txs: PluggyTx[], 
       // PARCIAL (pluggy:%). Por isso .insert() + trata 23505 (NUNCA .upsert com
       // onConflict aqui → 42P10). A idempotência vem do índice parcial.
       const ins = await db.from("movements").insert({
-        org_id: orgId, account_id: finAcc, type: entrada ? "entrada" : "saida", status: "pago",
-        category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia,
+        org_id: orgId, account_id: finAcc, type: entrada ? "entrada" : "saida",
+        // `status` é GERADA de `situacao` (428C9 se mencionada) — Rodada 5.
+        situacao: "baixado",
+        category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia, competence_date: dia,
         reconciled: true, description: t.description ?? "Open Finance", reference_code: ref,
         review_status: "pendente", // novo de origem OF → entra na fila de confirmação
         // ⚠️ **SEM `especie` O INSERT É RECUSADO.** `titulo_exige_origem()`

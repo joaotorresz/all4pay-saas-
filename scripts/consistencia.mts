@@ -3747,6 +3747,54 @@ const AGOSTO = janelaMes(2026, 7);
        semOrigem.length === 0, semOrigem.join(" | "));
     ok("onda5: buildMovementRows carrega a origem",
        !!rows && /\borigem\s*:/.test(rows[0]));
+
+    /*
+     * ⚠️ RODADA 5 — TODO ESCRITOR DE `movements` DIZ A COMPETÊNCIA, e NENHUM
+     * manda `status`. Medido em 01/10: 1.650 de 1.772 lançamentos sem
+     * competência (o DRE caía no vencimento), e os dois ETLs do Pluggy ainda
+     * mandavam `status: "pago"` — coluna GERADA, que o Postgres recusa (428C9)
+     * em silêncio dentro de uma Edge Function. A mesma janela da `origem`
+     * (a função inteira), e a varredura alcança `supabase/functions`.
+     *
+     * Exceção declarada: o escritor que recebe a linha PRONTA de um montador
+     * que vive noutro arquivo — e o montador é conferido pelo nome.
+     */
+    const MONTADORES: Record<string, { arq: string; fn: string }> = {
+      "src/lib/compras-store.ts": { arq: "src/core/compras/index.ts", fn: "linhaDoTituloDaCompra" },
+      "src/lib/data.ts": { arq: "src/lib/data.ts", fn: "buildMovementRows" },
+    };
+    // O relançamento COPIA a linha cancelada (\`...dados\`): a competência vem
+    // da leitura, e é a leitura que se confere.
+    const COPIA_DA_LEITURA: Record<string, RegExp> = {
+      "src/lib/lixeira-relancar.ts": /COLUNAS_DE_NEGOCIO\s*=\s*\n?\s*"[^"]*\bcompetence_date\b/,
+    };
+    const semCompetencia: string[] = [];
+    const comStatus: string[] = [];
+    const escritores = [
+      ...varrerArquivos("src", /\.(ts|tsx)$/),
+      ...varrerArquivos("supabase/functions", /\.ts$/),
+    ];
+    for (const arq of escritores) {
+      const a = arq.replace(/\\/g, "/");
+      const txt = ler(arq);
+      for (const m of txt.matchAll(/from\(["']movements["']\)[\s\S]{0,120}?\.insert\(/g)) {
+        const fim = (m.index ?? 0) + m[0].length;
+        const escopo = escopoDe(txt, fim);
+        const montador = MONTADORES[a];
+        const temComp = /\bcompetence_date\s*:/.test(escopo)
+          || (!!COPIA_DA_LEITURA[a] && COPIA_DA_LEITURA[a].test(txt))
+          || (!!montador && new RegExp(`function ${montador.fn}[\\s\\S]{0,3200}?competence_date\\s*:`).test(ler(montador.arq)));
+        if (!temComp) semCompetencia.push(`${a}:${txt.slice(0, m.index).split("\n").length}`);
+        const corpo = txt.slice(fim, txt.indexOf("})", fim) + 2 || fim + 900);
+        // Sem exigir \`,\` antes: um comentário entre a vírgula e o campo
+        // escondia o \`status\` plantado (medido ao provar esta guarda).
+        if (/(^|[\s{,])status\s*:\s*["']/m.test(corpo.replace(/\/\/.*$/gm, ""))) comStatus.push(`${a}:${txt.slice(0, m.index).split("\n").length}`);
+      }
+    }
+    ok("rodada5: nenhum escritor de movements grava sem competência",
+       semCompetencia.length === 0, semCompetencia.join(" | "));
+    ok("rodada5: nenhum insert em movements manda `status` (coluna GERADA — 428C9)",
+       comStatus.length === 0, comStatus.join(" | "));
   }
 
   /* ---- UMA MORADA SÓ PARA A ALÇADA (a 4ª guarda da dupla morada) --------- */

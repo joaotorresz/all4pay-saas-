@@ -252,6 +252,9 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       amount: valor,
       party_id: partyId,
       due_date: venc,
+      // A data do DOCUMENTO (emissão/pagamento lido pelo OCR) é o fato; sem
+      // ela, o vencimento — a mesma convenção do resto do sistema.
+      competence_date: f.data ?? venc,
       paid_date: pago ? (f.data ?? hoje) : null,
       reconciled: pago,
       description: nome,
@@ -313,6 +316,9 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       category: categoria,
       amount: valor,
       due_date: venc,
+      // A data do DOCUMENTO (emissão/pagamento lido pelo OCR) é o fato; sem
+      // ela, o vencimento — a mesma convenção do resto do sistema.
+      competence_date: f.data ?? venc,
       paid_date: pago ? (f.data ?? hoje) : null,
       reconciled: pago,
       description: nome,

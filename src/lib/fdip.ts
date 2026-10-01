@@ -296,6 +296,10 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
         category: m.category,
         amount: m.amount,
         due_date: m.due_date,
+        // ⚠️ Linha de EXTRATO: a data do movimento no banco É a data do fato —
+        // não há outra. Sem este campo o DRE caía no fallback do vencimento e
+        // a tela contava 815 lançamentos "sem competência" (Rodada 5).
+        competence_date: m.paid_date || m.due_date,
         paid_date: m.paid_date,
         reconciled: false,
         description: m.description,
