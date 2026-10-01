@@ -46,7 +46,7 @@ import {
 import {
   BlocoFolha, FOLHA_PADRAO, colaboradorDe, titulosDoCadastro, type DadosFolha,
 } from "./BlocoFolha";
-import { regimeEAnexoDaEmpresa, saveColaborador } from "@/lib/folha";
+import { linhaDoTituloDaFolha, regimeEAnexoDaEmpresa, saveColaborador } from "@/lib/folha";
 import { appendImported } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
 import { reportar } from "@/lib/erros";
@@ -339,16 +339,10 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
          */
         const colab = colaboradorDe(folha, f.valor, centros.find((c) => c.id)?.id ?? null);
         const titulos = titulosDoCadastro(colab, folha.competencias, fiscal.regime, fiscal.anexo);
-        await criarTitulos(titulos.map((t) => ({
-          account_id: f.contaId,
-          type: "saida" as const,
-          amount: t.valor,
-          due_date: t.vencimento,
-          competence_date: t.vencimento,
-          category: t.categoria,
-          description: t.descricao,
-          origem: "manual" as const,
-        })));
+        // ⚠️ A competência é a do MÊS DE TRABALHO (`linhaDoTituloDaFolha`), não
+        // o vencimento: o salário de setembro vence em outubro, e mapeado pelo
+        // vencimento setembro ficava sem folha no DRE e outubro com duas.
+        await criarTitulos(titulos.map((t) => linhaDoTituloDaFolha(t, f.contaId)));
         // ⚠️ O cadastro só é gravado DEPOIS de os títulos entrarem. Gravá-lo
         // antes deixaria, numa recusa do banco, um colaborador na folha sem
         // nenhuma obrigação no caixa — e a próxima tentativa o duplicaria.

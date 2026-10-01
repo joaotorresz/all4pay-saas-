@@ -147,20 +147,37 @@ async function retirarTitulosDaCompra(c: Compra, acao: "cancelar" | "excluir", m
 /**
  * Grava a compra criada pelo formulário.
  *
- * ⚠️ A compra PAGA nasce aprovada e precisa entrar no caixa já. Em produção a
- * gravação no banco é assíncrona e o formulário não a espera; se o banco
- * recusar, a compra volta para "aguardando" COM a mensagem da recusa — é a
- * lista que passa a dizer a verdade, e o botão Aprovar é a nova tentativa.
+ * ⚠️ A compra PAGA nasce aprovada e precisa entrar no caixa já — e o
+ * formulário ESPERA a gravação. A versão anterior disparava o título sem
+ * aguardar e a tela anunciava "registrada e aprovada — os títulos entraram no
+ * caixa" antes de o banco responder; uma recusa (mês fechado, conta inválida)
+ * chegava depois, quando a pessoa já tinha saído da tela com a promessa.
+ *
+ * ⚠️ O DINHEIRO VEM ANTES DO STATUS, como em `decidirCompra`: se o banco
+ * recusar o título, a compra NÃO é gravada e o erro sobe com a mensagem real.
+ * O formulário continua aberto com tudo preenchido — corrigir e salvar de novo
+ * não duplica nada, porque nada foi gravado.
  */
-export function salvarCompra(c: Compra): Compra[] {
-  const lista = persistir(c);
+export async function salvarCompra(c: Compra): Promise<Compra[]> {
   if (c.status === "aprovada") {
-    criarTitulosDaCompra(c).catch((e) => {
-      reportar("compras.titulos", e, "a compra paga foi registrada e os títulos não entraram no caixa");
-      persistir({ ...c, status: "aguardando", erroTitulos: mensagem(e) });
-    });
+    try {
+      await criarTitulosDaCompra(c);
+    } catch (e) {
+      reportar("compras.titulos", e, "a compra paga foi recusada: os títulos não entraram no caixa");
+      throw new Error(mensagem(e));
+    }
+    // ⚠️ Daqui em diante os títulos JÁ estão no caixa. Se gravar a compra
+    // falhar (cota do navegador), "a compra não foi registrada" seria meia
+    // verdade: o dinheiro entrou. A mensagem diz as duas metades, e salvar de
+    // novo no mesmo formulário não duplica (mesmo id → mesma chave do título).
+    try {
+      return persistir(c);
+    } catch (e) {
+      reportar("compras.gravar", e, "os títulos da compra paga entraram no caixa e a compra não foi gravada");
+      throw new Error(`os títulos já entraram no caixa, mas a compra não foi gravada (${mensagem(e)}). Salve de novo neste formulário — não duplica.`);
+    }
   }
-  return lista;
+  return persistir(c);
 }
 
 export async function removerCompra(id: string): Promise<Compra[]> {

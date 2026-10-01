@@ -21,7 +21,7 @@ import type {
 } from "@/core/cashflow";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
-import { janela as fazJanela } from "@/core/indicadores";
+import { janela as fazJanela, rotuloRunwayLido } from "@/core/indicadores";
 import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
 import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
@@ -594,7 +594,7 @@ function CenariosView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: 
   const sc = typeof ativo.sc === "function" ? ativo.sc(indic) : ativo.sc;
   const res = simularCenario(indic, saldo, sc);
   const deltas = [
-    { label: "Runway", base: `${decimalBR(base.runwayMeses)}m`, novo: `${decimalBR(res.runwayMeses)}m` },
+    { label: "Runway", base: rotuloRunwayLido(base.runway, "m"), novo: rotuloRunwayLido(res.runway, "m") },
     { label: "Score", base: `${Math.round(base.scoreProjetado)}`, novo: `${Math.round(res.scoreProjetado)}` },
     { label: "Burn", base: <BRL value={base.burnRate} />, novo: <BRL value={res.burnRate} /> },
     { label: "Resultado/mês", base: <BRL value={base.liquidoMensal} />, novo: <BRL value={res.liquidoMensal} /> },
@@ -728,7 +728,7 @@ function WhatIfView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: nu
       <Slider label="Inadimplência" value={inad} set={setInad} min={0} max={0.2} step={0.05} fmt={(v) => `+${Math.round(v * 100)}pp`} />
       <Slider label="Folha" value={folha} set={setFolha} min={0} max={0.3} step={0.05} fmt={(v) => `+${Math.round(v * 100)}%`} />
       <div className="grid grid-cols-3 gap-3 border-t border-border-soft pt-3">
-        <Mini label="Runway" v={`${decimalBR(res.runwayMeses)}m`} />
+        <Mini label="Runway" v={rotuloRunwayLido(res.runway, "m")} />
         <Mini label="Score" v={`${Math.round(res.scoreProjetado)}`} />
         <Mini label="Resultado/mês" v={<BRL value={res.liquidoMensal} />} tone={"var(--color-ink)"} />
       </div>

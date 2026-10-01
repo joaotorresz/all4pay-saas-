@@ -1,5 +1,6 @@
 /** Stress testing — simula cenários adversos sobre a projeção de caixa. */
 import type { RiskInput, StressCenario, BurnResult } from "./types";
+import { runwayDeFluxo, lerRunwayDeFluxo } from "@/core/indicadores";
 import { recebiveisPonderados, compromissosAbertos } from "./normalize";
 
 function projetarFim(
@@ -35,63 +36,66 @@ function projetarFim(
   return { endSaldo: saldo, rupturaDia };
 }
 
-const runwayDias = (saldo: number, receita: number, despesa: number) => {
-  const liqDia = (receita - despesa) / 30;
-  return liqDia >= 0 ? 999 : Math.max(0, Math.round(saldo / -liqDia));
-};
+// ⚠️ Era uma SEGUNDA fórmula de runway, com um `999` local, ao lado de
+// `runwayDeFluxo` — a mesma duplicação que a ONDA 4 tirou do liquidez.engine.
+// Agora a conta é a canônica, e a leitura (ausência/teto) viaja junto.
+const runwayDias = (saldo: number, receita: number, despesa: number) =>
+  runwayDeFluxo(saldo, receita - despesa);
+const leitura = (saldo: number, receita: number, despesa: number) =>
+  lerRunwayDeFluxo(saldo, receita - despesa);
 
 export function simularCenarios(input: RiskInput, burn: BurnResult): StressCenario[] {
   const base = projetarFim(input, {});
+  const saldo = input.saldoAtual;
   const mk = (
     id: string,
     label: string,
     descricao: string,
-    fim: { endSaldo: number },
-    rwy: number,
+    impactoSaldo: number,
+    receita: number,
+    despesa: number,
   ): StressCenario => ({
     id,
     label,
     descricao,
-    impactoSaldo: fim.endSaldo - base.endSaldo,
-    runwayDias: rwy,
+    impactoSaldo,
+    runwayDias: runwayDias(saldo, receita, despesa),
+    runway: leitura(saldo, receita, despesa),
   });
 
   const despAnual = burn.despesaMensal * 12;
   const combustivelShare = 0.25; // proxy do custo sensível a combustível
   const impactoCombustivel = -0.18 * combustivelShare * despAnual;
+  const impacto = (fim: { endSaldo: number }) => fim.endSaldo - base.endSaldo;
 
   return [
     mk(
       "receita-20",
       "Queda de 20% na receita",
       "Recebíveis previstos reduzidos em 20%.",
-      projetarFim(input, { inflowFactor: 0.8 }),
-      runwayDias(input.saldoAtual, burn.receitaMensal * 0.8, burn.despesaMensal),
+      impacto(projetarFim(input, { inflowFactor: 0.8 })),
+      burn.receitaMensal * 0.8, burn.despesaMensal,
     ),
     mk(
       "atraso-30",
       "Atraso de 30 dias nos recebíveis",
       "Todos os recebíveis em aberto entram 30 dias depois.",
-      projetarFim(input, { atrasoDias: 30 }),
-      runwayDias(input.saldoAtual, burn.receitaMensal, burn.despesaMensal),
+      impacto(projetarFim(input, { atrasoDias: 30 })),
+      burn.receitaMensal, burn.despesaMensal,
     ),
     mk(
       "despesa-10",
       "Aumento de 10% nas despesas",
       "Saídas em aberto 10% maiores.",
-      projetarFim(input, { outflowFactor: 1.1 }),
-      runwayDias(input.saldoAtual, burn.receitaMensal, burn.despesaMensal * 1.1),
+      impacto(projetarFim(input, { outflowFactor: 1.1 })),
+      burn.receitaMensal, burn.despesaMensal * 1.1,
     ),
-    {
-      id: "combustivel-18",
-      label: "Combustível +18%",
-      descricao: "Impacto anual estimado sobre o resultado (≈25% da despesa é sensível).",
-      impactoSaldo: impactoCombustivel,
-      runwayDias: runwayDias(
-        input.saldoAtual,
-        burn.receitaMensal,
-        burn.despesaMensal + (-impactoCombustivel) / 12,
-      ),
-    },
+    mk(
+      "combustivel-18",
+      "Combustível +18%",
+      "Impacto anual estimado sobre o resultado (≈25% da despesa é sensível).",
+      impactoCombustivel,
+      burn.receitaMensal, burn.despesaMensal + (-impactoCombustivel) / 12,
+    ),
   ];
 }

@@ -127,3 +127,69 @@ Jornadas novas: `scripts/e2e/folha-rescisao-dezembro.mjs` (15 verificações) e
   limpo), então não nasce desta rodada: é dependente da data (primeiro dia do
   mês) e do seed. Como o `npm test` encadeia com `&&`, as guardas DEPOIS dela
   foram rodadas uma a uma, todas verdes.
+
+## Rodada 3 (reservados)
+
+Os arquivos que as rodadas anteriores não podiam editar. Guardas no
+`engine-audit`, bloco `PAGAR · RODADA 3`, cada uma provada plantando o defeito
+(11 plantios, 12 reprovações nomeadas).
+
+- **Folha pelo formulário de conta a pagar** (`TituloForm`, modo Colaborador):
+  agenda por `linhaDoTituloDaFolha` — a competência é o MÊS DE TRABALHO. Era
+  `competence_date: t.vencimento`, e o salário de setembro caía no DRE de
+  outubro. As duas portas de agendar folha usam agora o mesmo mapeamento.
+- **Nova compra** (`CompraForm` + `salvarCompra`): a mensagem "registrada e
+  aprovada" só sai depois de o banco aceitar os títulos. Recusa = nada gravado
+  (o dinheiro vem antes do status, como em `decidirCompra`), a mensagem real do
+  banco aparece no formulário, que fica aberto para corrigir — salvar de novo
+  não duplica.
+- **Títulos a pagar** (`TitulosView`): coluna Descrição; data de pagamento e
+  valor pago em tinta do texto (eram `text-positive`). A descrição passou a
+  viajar também no `RiskInput` da demonstração (o ramo de produção já a lia),
+  senão a coluna ficava vazia só na demo.
+- **Runway de cenário** (fluxo de caixa: Cenários e What-If; aba Risco: base,
+  otimista, pessimista e estresses; copiloto; plano de contratações; alerta da
+  ponte de risco): `lerRunwayDeFluxo` + `rotuloRunwayLido` em
+  `core/indicadores` dizem ausência ("— não há queima", "— não se aplica") e
+  teto ("mais de 33,3 meses (teto do cálculo)"). Sumiram "24+ meses" (999 dias
+  são 33 meses, nem 24) e os 33,3m de quem gera caixa. O `stress.engine` tinha
+  uma SEGUNDA fórmula de runway com `999` local — agora usa a canônica. O
+  `runwayMeses` numérico continua no resultado só para o score, que pontua o
+  teto.
+- Os cenários otimista/pessimista da aba Risco perderam o verde/vermelho no
+  número (decisão de 30/09).
+
+**Ficou para o dono:** nenhuma decisão nova. Seguem abertas as da revisão
+anterior (apagar `ImportacaoView` + guarda; número de compra reutilizado após
+excluir a última; saída para reembolso com mês da despesa fechado).
+
+### Revisão adversarial da rodada 3 (`r4/pagar-rev`)
+
+Medido no build de demonstração (jornadas `compras-aprovacao`,
+`compras-excluir`, `contas-a-pagar` e `folha-colaborador` verdes; a aba Risco
+dirigida no navegador). Guardas `pagar-rev:` no mesmo bloco, sete defeitos
+plantados, cada um reprovando com o nome certo.
+
+- **A varredura do runway listava ARQUIVOS, e o defeito vivia em outros.** A
+  narrativa da aba Risco ainda dizia "mais de 24 meses" no teto e "0.0 meses"
+  com o caixa negativo; os fatores críticos diziam "Runway pessimista de
+  apenas 0 dias" com o caixa já negativo; o pilar de liquidez dizia "Runway
+  base de 999 dias"; o cartão "Pior teste de stress" do cockpit dizia "runway
+  cairia para 999 dias". Os quatro leem agora a `LeituraRunway`, e a guarda
+  virou varredura de DIRETÓRIO (`src/components`, `core/ai`,
+  `core/financial-os`), teto ZERO, mais asserções de VALOR sobre duas
+  fixtures (teto e caixa negativo) que provam primeiro que exercitam o ramo.
+- **Nova compra: a nova tentativa criava OUTRA compra.** O id nascia a cada
+  clique em "Criar compra"; se os títulos tivessem entrado e a gravação da
+  compra falhasse (cota do navegador), salvar de novo duplicava os títulos no
+  caixa. O id agora nasce uma vez por formulário (a chave do título é
+  `compra:<id>:<parcela>`, deduplicada), e nesse caso a mensagem diz as duas
+  metades: o dinheiro entrou, a compra não foi gravada, salvar de novo não
+  duplica.
+
+**Ficou de fora, declarado:** `core/dre/engine.ts` ainda converte o teto em
+`runwayMeses: 24` no DRE financeiro (alimenta só o alerta "Runway curto",
+que não dispara no teto) — trocar exige mudar o tipo do `DREFinanceiro`.
+A jornada `compras-recebidos` está desatualizada desde o CAMP-B ("Lançar" abre
+o formulário preenchido, a jornada procura o modal antigo) — não nasce desta
+rodada. **Decisão do dono:** nenhuma nova.
