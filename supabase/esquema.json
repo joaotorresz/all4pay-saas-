@@ -150,7 +150,39 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261001120000_razao_respeita_mes_travado",
+        "objetos_ausentes": ["nova definição de check_period_open (resolve o mês pela data quando period_id é nulo)"],
+        "impacto": "Até ser aplicada, travar o mês por fechar_periodo NÃO impede postar nem estornar no razão (354 de 354 lançamentos contábeis têm period_id nulo). Aplicada, postar ou estornar em mês travado é recusado com o motivo; rascunho continua permitido. Nenhum dado muda.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20261001130000_fatura_na_lixeira_nao_trava_reativacao",
+        "objetos_ausentes": ["índice movements_rec_ref_uniq com excluido_em is null"],
+        "impacto": "Até ser aplicada, reativar uma assinatura pausada não recria as faturas que foram para a lixeira (23505 em cada data). Aplicada, a fatura viva volta; duas vivas na mesma data seguem impossíveis.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20261001140000_aprovacao_por_whatsapp",
+        "objetos_ausentes": [
+          "tabela aprovacao_whatsapp_pedidos",
+          "funções pedir_aprovacao_whatsapp e responder_aprovacao_whatsapp"
+        ],
+        "impacto": "Até ser aplicada, pedir aprovação por WhatsApp na Central é recusado pelo banco (a função não existe). A funcionalidade nasce DESLIGADA (WHATSAPP_APROVACAO), então nenhum fluxo atual muda; aplicada, nenhum dado existente é tocado.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20261001150000_caixa_entrada_email",
+        "objetos_ausentes": ["caixa_email_enderecos", "caixa_email_mensagens", "caixa_email_mensagens_unica", "gerar_endereco_caixa_email()", "registrar_email_caixa(text,text,text,text,jsonb,text,uuid)", "bucket de Storage caixa-email + política caixa_email_anexos_leitura"],
+        "impacto": "Até ser aplicada, o cartão 'Receber contas por e-mail' da caixa de entrada mostra a recusa do banco ao gerar o endereço e a fila não traz mensagens de e-mail (a leitura falha e é reportada; as outras fontes seguem). A rota do webhook está DESLIGADA por padrão (CAIXA_EMAIL), então nada chega por e-mail de qualquer forma. Não toca em movements nem em valor nenhum.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (rodada 4, caixa de entrada por e-mail) — o job migrar do CI aplica no merge, depois do dono"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",

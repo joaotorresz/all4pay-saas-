@@ -253,6 +253,15 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/automacoes.sql
+      # ⚠️ Aprovar título pela WhatsApp: o "SIM" passa pelo MESMO gatilho da
+      # Central (segregação, permissão, alçada, carimbo). Sete casos — caminho
+      # feliz, código reusado, telefone/código errado, vencido, segregação,
+      # `authenticated` sem acesso à resposta e o "NÃO" que não mexe — cada um
+      # lendo a mensagem do vermelho.
+      - name: Guarda da aprovação por WhatsApp (mesmo gatilho, código de uso único)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/aprovacao-whatsapp.sql
       # ⚠️ O checklist de fechamento é regra de BANCO (gatilhos em close_tasks e
       # accounting_periods). O engine-audit prova a cópia da tela; esta prova a
       # fechadura, inclusive as portas que a tela não usa (update direto,
@@ -269,6 +278,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/campb-banco.sql
+      # ⚠️ A caixa de entrada por e-mail: gerar o endereço é de quem administra,
+      # registrar é só da chave de serviço, o reenvio do webhook não duplica
+      # (índice único), token desconhecido/antigo é recusado e a empresa B não
+      # lê a mensagem de A. Fechaduras de banco — a guarda pura não as alcança.
+      - name: Guarda da caixa de entrada por e-mail (papel, chave de serviço, reenvio, isolamento)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/caixa-email.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

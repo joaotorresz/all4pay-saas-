@@ -135,6 +135,27 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ RODADA 4 — PRODUÇÃO DE VERDADE (01/10/2026, detalhe em `docs/rodada-4/`)
+
+- **A empresa é a ABERTA, nunca o primeiro vínculo.** Teto ZERO de
+  `organization_members … eq("user_id") … limit(1)` (guarda `org-ativa`): para
+  gravar, omita `org_id` (o padrão é `auth_org_id()`); para ler o papel, use
+  `minhas_organizacoes` (`ativa`).
+- **Travar o mês trava o razão** (`check_period_open` resolve o mês pela data;
+  `period_id` nunca foi preenchido).
+- **Unicidade de chave de origem vale só entre linhas VIVAS** quando a linha
+  vai para a lixeira por fluxo normal (pausar assinatura) — senão a lixeira
+  bloqueia recriar.
+- **Venda da maquininha é venda**: documento em `sales_docs` + títulos com
+  `sale_doc_id` (`salvarVendaComTitulos`).
+- ⚠️ **Depreciação em dobro é risco estrutural ABERTO** (0 casos medidos em
+  produção): compra de bem com cronograma ainda entra como despesa no razão.
+- **Aprovar pelo WhatsApp** e **caixa de entrada por e-mail** existem e nascem
+  DESLIGADAS (`WHATSAPP_APROVACAO` / `CAIXA_EMAIL` = `ligado`). Regras que não
+  mudam: o WhatsApp aprova pelo MESMO gatilho da Central (nunca um segundo
+  caminho de aprovação), e o e-mail só cria ITEM na caixa de entrada, nunca
+  conta. Webhook público: portão ligado → segredo/assinatura → só então banco.
+
 ## ⚠️ RODADA 30/09–01/10 — o sistema dirigido como usuário (detalhe em `docs/rodada-30-09/`)
 
 Cada pacote tem o seu registro completo (defeito, causa, guarda, pendência) em

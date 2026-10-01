@@ -20,7 +20,8 @@
  * `core/vendas/pos` — ver o motivo lá.
  */
 import { isDemo } from "@/lib/demo";
-import { criarTitulos } from "@/lib/data";
+import { proximoNumeroVenda, salvarVendaComTitulos } from "@/lib/vendas";
+import { vendaDaMaquininha } from "@/core/vendas/documento";
 import { isoDay } from "@/lib/aggregations";
 import { titulosDaVendaPos, type VendaPos } from "@/core/vendas/pos";
 
@@ -41,6 +42,11 @@ export async function concluirVendaPos(v: VendaPos): Promise<number> {
   const titulos = titulosDaVendaPos(v, isoDay(new Date()));
   if (titulos.length === 0) return 0;
   const conta = await contaPadrao();
-  await criarTitulos(titulos.map((t) => ({ ...t, account_id: conta, origem: "venda" as const })));
+  // ⚠️ A venda da maquininha é uma VENDA: nasce o documento (lista de vendas,
+  // nota a emitir, base do imposto) e os títulos levam a chave dele. Antes só
+  // os títulos existiam (Rodada 4).
+  const hoje = isoDay(new Date());
+  const venda = vendaDaMaquininha(v, crypto.randomUUID(), await proximoNumeroVenda(), conta, hoje);
+  await salvarVendaComTitulos(venda, titulos.map((t) => ({ ...t, account_id: conta })));
   return titulos.length;
 }

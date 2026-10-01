@@ -3856,6 +3856,72 @@ const AGOSTO = janelaMes(2026, 7);
        "a rota voltaria a abrir pela ausência de configuração");
   }
 
+  /* ---- RODADA 4: o materializador de recorrências — prova de carga -------- */
+  {
+    // ⚠️ Achados ao EXECUTAR o caminho real (banco local, duas passadas): a
+    // lixeira (`excluir_logico`) não desliga `active`, então sem o filtro uma
+    // recorrência excluída geraria fatura todo dia; e o título saía sem
+    // `especie`/`competence_date`, fora da forma do escritor único.
+    const rota = ler("src/app/api/recorrencias/run/route.ts").replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("rec-cron: a leitura das recorrências exclui a lixeira (excluido_em)",
+       /\.eq\("active", true\)\.is\("excluido_em", null\)/.test(rota),
+       "recorrência na lixeira continuaria gerando fatura");
+    ok("rec-cron: o título nasce com especie 'titulo' e competência = vencimento",
+       /especie: "titulo"/.test(rota) && /competence_date: d\b/.test(rota),
+       "o título do cron sairia fora da forma de criarTitulos");
+  }
+
+  /* ---- RODADA 4: o razão respeita o mês travado ------------------------- */
+  {
+    // ⚠️ A trava só olhava `period_id`, que nenhum escritor preenche (354/354
+    // nulos em produção): travar o mês não impedia postar nem estornar no razão.
+    // A ÚLTIMA definição de check_period_open tem de resolver o mês pela data.
+    const migs = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
+    let def = "";
+    for (const f of migs) {
+      const t = ler(`supabase/migrations/${f}`);
+      const i = t.lastIndexOf("function public.check_period_open()");
+      if (i >= 0) def = t.slice(i, i + 2000);
+    }
+    ok("razao-trava: check_period_open resolve o mês pela data quando period_id é nulo",
+       /date_trunc\('month', new\.entry_date\)/.test(def),
+       "travar o mês voltaria a não travar o razão");
+
+    // A fatura na lixeira não pode travar a reativação da assinatura: a ÚLTIMA
+    // definição do índice único das recorrências só vale entre as vivas.
+    let idx = "";
+    for (const f of migs) {
+      const t = ler(`supabase/migrations/${f}`);
+      const m = t.match(/create unique index[^;]*movements_rec_ref_uniq[^;]*;/gi);
+      if (m) idx = m[m.length - 1];
+    }
+    ok("rec-lixeira: o índice único de rec:% ignora a lixeira (excluido_em is null)",
+       /excluido_em is null/i.test(idx), "reativar voltaria a não recriar as faturas pausadas");
+  }
+
+  /* ---- RODADA 4: a empresa é a ABERTA, nunca o primeiro vínculo ----------- */
+  {
+    // ⚠️ `organization_members … eq("user_id", uid).limit(1)` devolve a empresa
+    // mais ANTIGA do usuário, não a aberta no seletor — o mesmo defeito que a
+    // ONDA 9 tirou de `auth_org_id()`, reaparecendo no código da tela (a Central
+    // gravava o título e lia o papel da empresa errada). Teto ZERO.
+    const achados: string[] = [];
+    const varrer = (dir: string) => {
+      for (const n of readdirSync(dir, { withFileTypes: true })) {
+        const p = `${dir}/${n.name}`;
+        if (n.isDirectory()) { varrer(p); continue; }
+        if (!/\.(ts|tsx)$/.test(n.name)) continue;
+        const txt = ler(p).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+        const re = /from\("organization_members"\)[\s\S]{0,120}?\.eq\("user_id"[\s\S]{0,60}?\.limit\(1\)/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(txt))) achados.push(`${p}:${txt.slice(0, m.index).split("\n").length}`);
+      }
+    };
+    varrer("src");
+    ok("org-ativa: teto ZERO — nenhuma tela resolve a empresa pelo primeiro vínculo",
+       achados.length === 0, achados.join(" | "));
+  }
+
   /* ---- O EXTRATO PRECISA ENTRAR: todo conector tem AGENDAMENTO ----------- */
   {
     // ⚠️ **O achado que motivou esta guarda.** Medido em 19/08: 3 pluggy_items

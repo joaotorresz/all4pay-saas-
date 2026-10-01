@@ -12,6 +12,7 @@ import { ler, gravar, CHAVES_ORG, inscrever } from "@/lib/store-org";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { listarBoletos, listarNFs } from "@/lib/compras-store";
+import { emailsEmCache, ouvirEmails, carregarEmails } from "@/lib/caixa-email";
 import {
   ESTADO_VAZIO, documentosDasFontes, montarCaixaEntrada, descartarEntrada, converterEntrada,
   type EstadoCaixaEntrada, type DocumentoEntrada, type DocumentoOCR, type FiltroCaixa, type CaixaEntrada,
@@ -24,8 +25,10 @@ export const lerEstadoCaixa = (): EstadoCaixaEntrada => {
   return { ocr: e.ocr ?? [], decisoes: e.decisoes ?? [] };
 };
 
+// A quarta fonte (e-mail) vem do cache de sessão de `lib/caixa-email`: as
+// mensagens moram numa tabela própria, nunca nesta chave.
 export const documentosDaCaixa = (): DocumentoEntrada[] =>
-  documentosDasFontes({ boletos: listarBoletos(), nfs: listarNFs(), ocr: lerEstadoCaixa().ocr });
+  documentosDasFontes({ boletos: listarBoletos(), nfs: listarNFs(), ocr: lerEstadoCaixa().ocr, emails: emailsEmCache() });
 
 export const caixaAtual = (filtro: FiltroCaixa = "pendentes"): CaixaEntrada =>
   montarCaixaEntrada(documentosDaCaixa(), lerEstadoCaixa().decisoes, filtro);
@@ -66,7 +69,14 @@ export async function descartar(doc: DocumentoEntrada, motivo: string): Promise<
 
 /** Tira da fila DEPOIS que a conta foi gravada. Sem o documento, não faz nada. */
 export async function converterPorChave(chave: string, referencia: string | null): Promise<boolean> {
-  const doc = documentosDaCaixa().find((d) => d.chave === chave);
+  let doc = documentosDaCaixa().find((d) => d.chave === chave);
+  // ⚠️ O formulário costuma abrir numa página nova, com o cache de e-mails
+  // ainda vazio: sem esta leitura, a conta seria gravada e a mensagem ficaria
+  // na fila como se nada tivesse acontecido — e viraria conta duas vezes.
+  if (!doc && chave.startsWith("email:")) {
+    await carregarEmails();
+    doc = documentosDaCaixa().find((d) => d.chave === chave);
+  }
   if (!doc) return false;
   gravar(K, converterEntrada(lerEstadoCaixa(), doc, referencia, new Date().toISOString(), await autor()));
   return true;
@@ -75,4 +85,8 @@ export async function converterPorChave(chave: string, referencia: string | null
 export const documentoPorChave = (chave: string): DocumentoEntrada | null =>
   documentosDaCaixa().find((d) => d.chave === chave) ?? null;
 
-export const ouvirCaixa = (fn: () => void): (() => void) => inscrever(K, fn);
+export const ouvirCaixa = (fn: () => void): (() => void) => {
+  const a = inscrever(K, fn);
+  const b = ouvirEmails(fn);
+  return () => { a(); b(); };
+};

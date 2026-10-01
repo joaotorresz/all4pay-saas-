@@ -10,6 +10,11 @@
  * de sempre. O documento só sai da fila DEPOIS que o formulário salvou — um
  * segundo caminho de criação divergiria do primeiro no dia em que um campo
  * mudasse (a regra do painel Criar).
+ *
+ * A quarta porta é o E-MAIL: as mensagens que chegam no endereço da empresa
+ * entram nesta mesma lista, com a mesma decisão. A leitura delas é do banco
+ * (`lib/caixa-email`), e a lista avisa quando ela falhou — "nenhum e-mail" e
+ * "não consegui ler" não são a mesma coisa.
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -17,6 +22,8 @@ import { Card, Button, Icon, BRL, Textarea } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { dataBR } from "@/lib/format";
 import { caixaAtual, descartar, ouvirCaixa } from "@/lib/caixa-entrada";
+import { carregarEmails, erroDosEmails } from "@/lib/caixa-email";
+import { CaixaEmailCard } from "./CaixaEmailCard";
 import {
   camposDoFormulario, ROTULO_ORIGEM, MOTIVO_MINIMO,
   type FiltroCaixa, type CaixaEntrada, type DocumentoEntrada,
@@ -34,7 +41,9 @@ export function useContadorCaixa(): number {
   React.useEffect(() => {
     const ler = () => setN(caixaAtual().contagem.pendentes);
     ler();
-    return ouvirCaixa(ler);
+    const sair = ouvirCaixa(ler);
+    void carregarEmails();
+    return sair;
   }, []);
   return n;
 }
@@ -48,8 +57,10 @@ export function CaixaEntradaView() {
   const [motivo, setMotivo] = React.useState("");
   const [erro, setErro] = React.useState("");
 
-  const recarregar = React.useCallback(() => setCaixa(caixaAtual(filtro)), [filtro]);
+  const [erroEmail, setErroEmail] = React.useState<string | null>(null);
+  const recarregar = React.useCallback(() => { setCaixa(caixaAtual(filtro)); setErroEmail(erroDosEmails()); }, [filtro]);
   React.useEffect(() => { recarregar(); return ouvirCaixa(recarregar); }, [recarregar]);
+  React.useEffect(() => { void carregarEmails(); }, []);
 
   const criar = (d: DocumentoEntrada) => {
     const q = new URLSearchParams(camposDoFormulario(d));
@@ -68,8 +79,8 @@ export function CaixaEntradaView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <p className="m-0 text-label text-muted max-w-[70ch]">
-        O que <b className="text-ink">chegou</b> e ainda não virou conta: documentos lidos no upload, boletos do DDA e notas
-        fiscais recebidas. Cada um vira conta a pagar (pelo formulário de sempre, já preenchido) ou é descartado com o motivo escrito.
+        O que <b className="text-ink">chegou</b> e ainda não virou conta: documentos lidos no upload, boletos do DDA, notas
+        fiscais recebidas e e-mails enviados ao endereço da empresa. Cada um vira conta a pagar (pelo formulário de sempre, já preenchido) ou é descartado com o motivo escrito.
       </p>
 
       <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Filtro da caixa de entrada">
@@ -91,6 +102,12 @@ export function CaixaEntradaView() {
           </span>
         )}
       </div>
+
+      {erroEmail && (
+        <p role="alert" className="m-0 text-caption text-negative" data-caixa-email-erro>
+          Não foi possível ler os e-mails recebidos — eles não estão nesta lista. Motivo: {erroEmail}
+        </p>
+      )}
 
       <Card padded={false}>
         {!caixa ? (
@@ -118,6 +135,12 @@ export function CaixaEntradaView() {
               <li key={d.chave} data-caixa-item={d.chave} className="flex items-start gap-4 px-6 py-4 border-b border-border-soft last:border-0 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <div className="text-label text-ink truncate">{d.fornecedor}</div>
+                  {d.origem === "email" && (
+                    <div className="text-caption text-ink truncate" data-caixa-email-assunto>
+                      {d.assunto ?? "(sem assunto)"}
+                      {d.anexos ? ` · ${d.anexos} anexo${d.anexos > 1 ? "s" : ""}` : " · sem anexo"}
+                    </div>
+                  )}
                   <div className="text-caption text-muted tabular-nums">
                     {ROTULO_ORIGEM[d.origem]}
                     {d.numero ? ` · nº ${d.numero}` : ""}
@@ -132,7 +155,9 @@ export function CaixaEntradaView() {
                     </div>
                   )}
                 </div>
-                <div className="text-label text-ink tabular-nums shrink-0"><BRL value={d.valor} /></div>
+                <div className="text-label text-ink tabular-nums shrink-0">
+                  {d.valor > 0 ? <BRL value={d.valor} /> : <span className="text-caption text-muted">valor não informado</span>}
+                </div>
                 {!decisao && (
                   <div className="flex gap-2 shrink-0">
                     <Button variant="primary" onClick={() => criar(d)}>Criar conta a pagar</Button>
@@ -145,12 +170,14 @@ export function CaixaEntradaView() {
         )}
       </Card>
 
+      <CaixaEmailCard />
+
       {descartando && (
         <div className="fixed inset-0 z-[80] bg-black/30 flex items-center justify-center p-4" onClick={() => setDescartando(null)}>
           <div role="dialog" aria-label="Descartar documento" className="w-full max-w-[460px] bg-white rounded-modal p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
             <span className="text-h3 font-medium text-ink">Descartar documento</span>
             <p className="m-0 text-caption text-muted">
-              {descartando.fornecedor} · <BRL value={descartando.valor} />. O documento não vira conta; o motivo fica guardado e aparece em “Descartados”.
+              {descartando.fornecedor}{descartando.valor > 0 ? <> · <BRL value={descartando.valor} /></> : null}. O documento não vira conta; o motivo fica guardado e aparece em “Descartados”.
             </p>
             <Textarea
               label="Motivo" aria-label="Motivo do descarte"

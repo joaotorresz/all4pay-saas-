@@ -61,6 +61,8 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync } from "node:fs";
+import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
+import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { rotuloSituacao } from "@/core/movimentacoes";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
@@ -129,7 +131,7 @@ import {
 } from "@/core/registros";
 import { gerarXLSX } from "@/lib/xlsx";
 import { gerarDOCX } from "@/lib/docx";
-import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA } from "@/core/relatorios";
+import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA, palpiteDoRelatorio as palpiteDoRelatorioA } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
   montarPainelContasPagar, opcoesDeFiltro,
@@ -2939,6 +2941,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const fraude = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "ebitda" } });
   ok("t7: declaração apontando para um TOTAL é ignorada (cai no palpite)",
      valorDa(fraude, "despesas_operacionais") === 1_000);
+  // ⚠️ RODADA 4: o palpite é DITO. Sem declaração os dois caem no palpite
+  // (R$ 11.000); declarando "ferramentas do time" sobra só a venda.
+  const pSem = palpiteDoRelatorioA(sem, IN_T7);
+  const pCom = palpiteDoRelatorioA(com, IN_T7);
+  ok("t7: o relatório conta os lançamentos classificados por palpite",
+     pSem.n === 2 && pSem.valor === 11_000, JSON.stringify(pSem));
+  ok("t7: a linha declarada SAI da contagem de palpite",
+     pCom.n === 1 && pCom.valor === 10_000 && pCom.categorias[0]?.nome === "Vendas", JSON.stringify(pCom));
+  const telaDRE = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("t7: a tela do DRE mostra o aviso de palpite",
+     /palpiteDoRelatorio\(/.test(telaDRE) && /data-aviso="palpite"/.test(telaDRE));
 }
 
 /* ── projecao: as ocorrências futuras das REGRAS de recorrência ── */
@@ -8658,6 +8671,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // Comentário sai antes da busca: a documentação do defeito cita o defeito.
   const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const { titulosDaVendaPos, somaMeses, CATEGORIA_TAXA_POS } = await import("@/core/vendas/pos");
+  const { vendaDaMaquininha: vendaDaMaquininhaV } = await import("@/core/vendas/documento");
   const { pedidoDeNota, statusNFDaNota, vendaComNota, podeEmitirNota } = await import("@/core/vendas/nota");
   const cv = await import("@/core/vendas");
   const { montarDRE: dreV } = await import("@/core/relatorios");
@@ -8690,7 +8704,19 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/pos: a taxa é despesa de adquirência nomeada", t1.some((t) => t.category === CATEGORIA_TAXA_POS));
   const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",
-     !/\bstatus\s*:/.test(posLib) && /criarTitulos\(/.test(posLib));
+     !/\bstatus\s*:/.test(posLib) && /salvarVendaComTitulos\(/.test(posLib));
+  // ⚠️ RODADA 4: a venda da maquininha só gerava títulos — não aparecia na
+  // lista de vendas, nas notas a emitir nem na base do imposto.
+  const docPos = vendaDaMaquininhaV({ total: 100, taxa: 0.03, parcelas: 3, descricao: "V" }, "id", "2026-0001", "c", "2026-06-10");
+  ok("vender/pos: a venda da maquininha vira DOCUMENTO pelo escritor único da venda",
+     /vendaDaMaquininha\(/.test(posLib) && !/criarTitulos\(/.test(posLib));
+  ok("vender/pos: o documento leva o BRUTO e a taxa MDR na taxa da plataforma",
+     docPos.valorTotal === 100 && docPos.taxaPlataforma.valor === 3 && docPos.tipoPagamento === "parcelado",
+     JSON.stringify({ t: docPos.valorTotal, x: docPos.taxaPlataforma.valor }));
+  const vendasLib = lerV("src/lib/vendas.ts");
+  const corpoComTit = vendasLib.slice(vendasLib.indexOf("export async function salvarVendaComTitulos"), vendasLib.indexOf("/** O título da venda"));
+  ok("vender/pos: cada título da maquininha leva a chave do documento e a recusa desfaz o documento",
+     /sale_doc_id:/.test(corpoComTit) && /desfazerDocumento\(v\.id\)/.test(corpoComTit));
   ok("vender/pos: sem conta a venda é recusada — nenhuma conta bancária é inventada",
      !/financial_accounts"\)\s*\.insert/.test(posLib));
   const posView = lerV("src/components/pos/PosVendaView.tsx");
@@ -9663,6 +9689,223 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("contabil r3: empréstimo recebido não entra na base da projeção (EBITDA 450, não 450 + 50% do empréstimo)",
      projE.receita === 1000 && projE.receitaLiquida === 900 && Math.abs(projE.ebitda - 450) < 1e-9,
      JSON.stringify(projE));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * wa: APROVAÇÃO DE TÍTULO PELA WHATSAPP — a leitura, a assinatura e os portões
+ *
+ * A fechadura (o "SIM" passa pelo gatilho da Central) é provada no banco por
+ * `scripts/aprovacao-whatsapp.sql`. Aqui: o texto que o aprovador digita, a
+ * assinatura da Twilio, e a ORDEM dos portões na rota e na ação — desligada
+ * antes de qualquer banco, assinatura antes da RPC, simulado nunca "enviado".
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  ok("wa: 'SIM ABC234' aprova o pedido ABC234", igual(lerResposta("SIM ABC234"), { decisao: "sim", codigo: "ABC234" }));
+  ok("wa: minúsculas e espaços a mais valem ('  sim   abc234 ')", igual(lerResposta("  sim   abc234 "), { decisao: "sim", codigo: "ABC234" }));
+  ok("wa: 'NÃO ABC234' (com acento) recusa", igual(lerResposta("NÃO ABC234"), { decisao: "nao", codigo: "ABC234" }));
+  ok("wa: 'nao abc234' (sem acento) recusa", igual(lerResposta("nao abc234"), { decisao: "nao", codigo: "ABC234" }));
+  ok("wa: 'SIM' SEM código não aprova nada (null)", lerResposta("SIM") === null);
+  ok("wa: 'nao' sem código também é null", lerResposta("nao") === null);
+  ok("wa: código com 0/O/1/I (fora do alfabeto) é null", lerResposta("SIM AB01I2") === null);
+  ok("wa: palavra a mais é null ('SIM ABC234 obrigado')", lerResposta("SIM ABC234 obrigado") === null);
+  ok("wa: 'talvez ABC234' é null", lerResposta("talvez ABC234") === null);
+
+  ok("wa: remetente 'whatsapp:+5511999998888' → só dígitos", telefoneDoRemetente("whatsapp:+5511999998888") === "5511999998888");
+  ok("wa: o pedido guarda o 55 (senão a resposta da Twilio, sempre +55, não casa)",
+     telefoneParaPedido("(11) 99999-8888") === "5511999998888" && telefoneParaPedido("+55 11 99999-8888") === "5511999998888");
+  ok("wa: remetente e pedido chegam ao MESMO número",
+     telefoneDoRemetente("whatsapp:+5511999998888") === telefoneParaPedido("11 99999 8888"));
+
+  const msg = mensagemDoPedido({ descricao: "Aluguel", valorFormatado: "R$1.000,00", vencimento: "15/10/2026", codigo: "ABC234" });
+  ok("wa: a mensagem diz como aprovar, como recusar e a validade",
+     msg.includes("SIM ABC234") && msg.includes("NÃO ABC234") && msg.includes("24 horas") && msg.includes("R$1.000,00"));
+  ok("wa: o que a mensagem manda digitar é o que a leitura aceita",
+     igual(lerResposta("SIM ABC234"), { decisao: "sim", codigo: "ABC234" }) && igual(lerResposta("NÃO ABC234")?.decisao, "nao"));
+
+  // Assinatura: o vetor de exemplo da documentação da Twilio, escrito à mão
+  // (literal — não gerado pela função auditada).
+  const urlT = "https://mycompany.com/myapp.php?foo=1&bar=2";
+  const parT = { CallSid: "CA1234567890ABCDE", Caller: "+12349013030", Digits: "1234", From: "+12349013030", To: "+18005551212" };
+  ok("wa: assinatura do vetor da Twilio confere", assinaturaTwilioValida(urlT, parT, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "12345"));
+  // ⚠️ O mesmo vetor com as chaves fora de ordem: o formulário da Twilio não
+  // chega em ordem alfabética, e a assinatura exige ORDENAR (sem este caso, um
+  // HMAC sem `sort` passaria no vetor acima, que já vem ordenado).
+  const parFora = { To: "+18005551212", From: "+12349013030", Digits: "1234", Caller: "+12349013030", CallSid: "CA1234567890ABCDE" };
+  ok("wa: assinatura confere com os parâmetros FORA de ordem (ordenar é parte do algoritmo)",
+     assinaturaTwilioValida(urlT, parFora, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "12345"));
+  ok("wa: parâmetro ADULTERADO reprova a assinatura", !assinaturaTwilioValida(urlT, { ...parT, Digits: "9999" }, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "12345"));
+  ok("wa: token errado reprova", !assinaturaTwilioValida(urlT, parT, "0/KCTR6DLpKmkAf8muzZqo1nDgQ=", "54321"));
+  ok("wa: sem cabeçalho reprova", !assinaturaTwilioValida(urlT, parT, null, "12345"));
+
+  // A ORDEM dos portões, lida no código sem os comentários (que explicam a regra
+  // citando as mesmas palavras — a guarda não pode passar pela documentação).
+  const semComentario = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+  const rota = semComentario(readFileSync("src/app/api/whatsapp/aprovacao/route.ts", "utf8"));
+  const iPortao = rota.indexOf('process.env.WHATSAPP_APROVACAO !== "ligado"');
+  const iForm = rota.indexOf("formData(");
+  const iAdmin = rota.indexOf("createAdmin(");
+  const iRpc = rota.indexOf(".rpc(");
+  const iAss = rota.indexOf("assinaturaTwilioValida(");
+  ok("wa: a rota DESLIGADA recusa antes de ler o corpo e de qualquer banco",
+     iPortao >= 0 && iForm > iPortao && iAdmin > iPortao && iRpc > iPortao && rota.slice(iPortao, iForm).includes("503"));
+  ok("wa: a rota confere a ASSINATURA antes da chave de serviço e da RPC",
+     iAss >= 0 && iAss < iAdmin && iAss < iRpc && /if \(!assinaturaTwilioValida\(/.test(rota) && rota.slice(iAss, iAdmin).includes("403"));
+
+  const acoes = semComentario(readFileSync("src/app/central/acoes.ts", "utf8"));
+  const iPedir = acoes.indexOf("export async function pedirAprovacaoWhatsappAction");
+  const corpo = iPedir >= 0 ? acoes.slice(iPedir) : "";
+  const jPortao = corpo.indexOf('process.env.WHATSAPP_APROVACAO !== "ligado"');
+  const jProv = corpo.indexOf("statusNotificacoes().whatsapp");
+  const jRpc = corpo.indexOf(".rpc(");
+  const jEnvio = corpo.indexOf("enviarWhatsapp(");
+  const jCheca = corpo.indexOf("if (!envio.ok)");
+  const jOk = corpo.indexOf("ok: true");
+  ok("wa: a ação DESLIGADA recusa antes de pedir código", jPortao >= 0 && jRpc > jPortao);
+  ok("wa: sem provedor (SIMULADO) a ação recusa antes de gerar o código e de 'enviar'",
+     jProv >= 0 && jProv < jRpc && jProv < jEnvio && /if \(!statusNotificacoes\(\)\.whatsapp\)/.test(corpo));
+  ok("wa: 'enviado' só depois de o provedor ACEITAR (o ok:true vem depois de conferir envio.ok)",
+     jEnvio > 0 && jCheca > jEnvio && jOk > jCheca && corpo.indexOf("ok: true") === corpo.lastIndexOf("ok: true"));
+  ok("wa: a ação nunca registra o código em log", !/console\./.test(corpo));
+}
+
+/* ── CAIXA-EMAIL ── a porta do e-mail da caixa de entrada de contas a pagar
+   (01/10/2026). A fechadura de banco é `scripts/caixa-email.sql` (no CI); aqui
+   se prova a DECISÃO. Cada asserção carrega o defeito plantado ao lado: a
+   versão errada da regra tem de reprovar na MESMA conferência. */
+{
+  const em = await import("@/core/caixa-entrada/email");
+  const ce = await import("@/core/caixa-entrada");
+  const bo = await import("@/core/compras/boleto");
+  const fsE = await import("node:fs");
+  const semCom = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  /* ── 1. de qual empresa é o envelope ─────────────────────────────────── */
+  const confereToken = (fn: (to: string) => string | null): boolean =>
+    fn("contas+abcdef0123456789@caixa.exemplo") === "abcdef0123456789"
+    && fn("Contas a pagar <contas+ABCDEF0123456789ab@caixa.exemplo>") === "abcdef0123456789ab"
+    && fn("abcdef0123456789_-x@caixa.exemplo") === "abcdef0123456789_-x"
+    && fn("contas+curto123@caixa.exemplo") === null          // 8 caracteres: não é token
+    && fn("contas@caixa.exemplo") === null
+    && fn("contas+abc!def0123456789@caixa.exemplo") === null  // caractere fora da forma
+    && fn("sem-arroba-abcdef0123456789") === null
+    && fn("x@y.com, contas+abcdef0123456789@caixa.exemplo") === "abcdef0123456789";
+  ok("caixa-email: o destinatário vira token só quando tem a forma (16+ de [A-Za-z0-9_-]), em minúsculas",
+     confereToken(em.tokenDoDestinatario));
+  const tokenIngenuo = (to: string) => {
+    const l = to.split("@")[0] ?? "";
+    return l.includes("+") ? l.split("+").pop() ?? null : (to.includes("@") ? l : null);
+  };
+  ok("caixa-email: (defeito plantado) o token sem conferir a forma é REPROVADO pela mesma conferência",
+     !confereToken(tokenIngenuo));
+
+  /* ── 2. o que o anexo pode ser ───────────────────────────────────────── */
+  const MB = 1024 * 1024;
+  const confereAnexos = (fn: typeof em.anexosAceitos): boolean => {
+    const onze = Array.from({ length: 11 }, (_, i) => ({ nome: `boleto-${i}.pdf`, tipo: "application/pdf", tamanho: 1000 }));
+    const r1 = fn(onze);
+    const r2 = fn([
+      { nome: "BOLETO.PDF", tipo: "application/octet-stream", tamanho: 10 * MB },   // a extensão manda; 10 MB exatos entram
+      { nome: "nota.xml", tipo: "text/xml", tamanho: 2000 },
+      { nome: "foto.jpeg", tipo: "image/jpeg", tamanho: 2000 },
+      { nome: "virus.exe", tipo: "application/pdf", tamanho: 10 },                  // o tipo declarado não salva
+      { nome: "grande.pdf", tipo: "application/pdf", tamanho: 10 * MB + 1 },
+      { nome: "sem-extensao", tipo: "application/pdf", tamanho: 10 },
+    ]);
+    return r1.aceitos.length === 10 && r1.recusados.length === 1 && /Mais de 10/.test(r1.recusados[0].motivo)
+      && r1.recusados[0].nome === "boleto-10.pdf"
+      && r2.aceitos.map((a) => a.nome).join(",") === "BOLETO.PDF,nota.xml,foto.jpeg"
+      && r2.recusados.length === 3 && r2.recusados.every((a) => a.motivo.length > 10)
+      && /10 MB/.test(r2.recusados.find((a) => a.nome === "grande.pdf")?.motivo ?? "");
+  };
+  ok("caixa-email: anexos — PDF/PNG/JPG/XML até 10 MB, no máximo 10, e o recusado volta com MOTIVO",
+     confereAnexos(em.anexosAceitos));
+  const anexosIngenuo = (<T extends { nome: string; tipo: string; tamanho: number }>(a: readonly T[]) =>
+    ({ aceitos: [...a], recusados: [] as (T & { motivo: string })[] })) as typeof em.anexosAceitos;
+  ok("caixa-email: (defeito plantado) aceitar tudo é REPROVADO", !confereAnexos(anexosIngenuo));
+
+  /* ── 3. a rota: interruptor → segredo → só então o banco ─────────────── */
+  const confereOrdem = (src: string): boolean => {
+    const s = semCom(src);
+    const iGate = s.indexOf('process.env.CAIXA_EMAIL !== "ligado"');
+    const iSegAus = s.indexOf("if (!segredo)");
+    const iSeg = s.indexOf("mesmoSegredo(apresentado, segredo)");
+    const iAdmin = s.indexOf("createAdmin()");
+    const iRpc = s.indexOf(".rpc(");
+    const iStorage = s.indexOf(".storage.");
+    return iGate > 0 && iSegAus > iGate && iSeg > iSegAus && iAdmin > iSeg && iRpc > iAdmin && iStorage > iRpc
+      && /timingSafeEqual/.test(s) && (s.match(/createAdmin\(\)/g) ?? []).length === 1;
+  };
+  const rotaEmail = fsE.readFileSync("src/app/api/caixa-email/entrada/route.ts", "utf8");
+  ok("caixa-email: a rota confere o interruptor e o segredo (tempo constante) ANTES de qualquer chamada ao banco",
+     confereOrdem(rotaEmail));
+  const rotaPlantada = rotaEmail.replace("  // 1. O INTERRUPTOR", "  const cedo = createAdmin();\n  // 1. O INTERRUPTOR");
+  ok("caixa-email: (defeito plantado) banco consultado antes do interruptor é REPROVADO",
+     rotaPlantada !== rotaEmail && !confereOrdem(rotaPlantada));
+
+  /* ── 4. o e-mail é FONTE, nunca escritor de conta ─────────────────────── */
+  const escreveConta = (src: string): boolean =>
+    /criarTitulos|createLancamento|appendImported|liquidarImported|from\(\s*["']movements["']\s*\)|\.insert\(/.test(semCom(src));
+  const arquivosEmail = [
+    "src/core/caixa-entrada/email.ts", "src/lib/caixa-email.ts",
+    "src/app/api/caixa-email/entrada/route.ts", "src/components/contas-pagar/CaixaEmailCard.tsx",
+  ];
+  const escritores = arquivosEmail.filter((f) => escreveConta(fsE.readFileSync(f, "utf8")));
+  ok("caixa-email: nenhum arquivo da porta do e-mail escreve conta (movements / criarTitulos / insert)",
+     escritores.length === 0, escritores.join(", "));
+  ok("caixa-email: (defeito plantado) um insert em movements na rota é ACUSADO",
+     escreveConta(rotaEmail + '\nawait admin.from("movements").insert({});'));
+
+  /* ── 5. a mensagem na fila: chave pelo id, mesma decisão ──────────────── */
+  const semDv = "341" + "9" + String(bo.fatorDaData("2026-10-20")).padStart(4, "0") + "0000123456" + "1".repeat(25);
+  const barras = semDv.slice(0, 4) + String(bo.dvModulo11(semDv)) + semDv.slice(4);
+  const linha = bo.linhaDeCodigoDeBarras(barras);
+  const linhaFmt = bo.formatarLinha(linha);
+  const errado = linha.slice(0, 46) + String((Number(linha[46]) + 1) % 10);
+  const m1 = { id: "m-1", recebido_em: "2026-10-01T12:00:00Z", remetente: "Energia SA <cobranca@energia.exemplo>", assunto: "Fatura de outubro", texto: `Segue a linha digitável: ${linhaFmt}`, anexos: [{ nome: "fatura.pdf", tipo: "application/pdf", tamanho: 100, caminho: "o/m-1/fatura.pdf" }] };
+  const m2 = { id: "m-2", recebido_em: "2026-10-01T13:00:00Z", remetente: "cobranca@energia.exemplo", assunto: "Fatura de outubro", texto: "sem linha", anexos: [] };
+  const m3 = { id: "m-3", recebido_em: "2026-10-01T14:00:00Z", remetente: null, assunto: null, texto: `Pedido 1234567890 · ${errado}`, anexos: [] };
+  const confereFila = (fn: typeof ce.documentosDasFontes): boolean => {
+    const docs = fn({ boletos: [], nfs: [], ocr: [], emails: [m1, m2, m3] });
+    const d1 = docs.find((d) => d.chave === "email:m-1");
+    const d2 = docs.find((d) => d.chave === "email:m-2");
+    const d3 = docs.find((d) => d.chave === "email:m-3");
+    return docs.length === 3 && !!d1 && !!d2 && !!d3
+      && docs.every((d) => d.origem === "email")
+      && d1.fornecedor === "Energia SA" && d1.descricao === "Fatura de outubro" && d1.anexos === 1
+      && d1.valor === 1234.56 && d1.vencimento === "2026-10-20"
+      && d2.valor === 0 && d2.vencimento === null
+      && d3.valor === 0 && d3.vencimento === null && d3.descricao === "E-mail de Remetente não informado";
+  };
+  ok("caixa-email: a fila traz cada e-mail com chave email:<id> (dois assuntos iguais são dois papéis), valor só de linha digitável que CONFERE",
+     confereFila(ce.documentosDasFontes));
+  const filaPlantada = ((f: Parameters<typeof ce.documentosDasFontes>[0]) =>
+    ce.documentosDasFontes(f).map((d) => d.origem === "email" ? { ...d, chave: `email:${d.descricao}` } : d)
+      .filter((d, i, a) => a.findIndex((x) => x.chave === d.chave) === i)) as typeof ce.documentosDasFontes;
+  ok("caixa-email: (defeito plantado) chave pelo assunto junta duas mensagens e é REPROVADA", !confereFila(filaPlantada));
+  ok("caixa-email: a linha digitável que não confere (DV) não vira valor; a que confere vira",
+     em.boletoNoTexto(`x ${errado} y`) === null && em.boletoNoTexto(linhaFmt)?.valor === 1234.56);
+  const boletoIngenuo = (t: string) => { const d = (t.match(/\d[\d.\s]{45,70}\d/) ?? [""])[0].replace(/\D/g, ""); const b = d.length === 47 ? bo.lerBoleto(d) : null; return b ? { valor: b.valor } : null; };
+  ok("caixa-email: (defeito plantado) sem exigir o DV, a linha ERRADA viraria valor — a conferência acusa",
+     boletoIngenuo(`x ${errado} y`) !== null);
+
+  const docsE = ce.documentosDasFontes({ boletos: [], nfs: [], ocr: [], emails: [m1, m2] });
+  const dE2 = docsE.find((d) => d.chave === "email:m-2")!;
+  const camposE = ce.camposDoFormulario(dE2);
+  ok("caixa-email: o formulário abre com a descrição = assunto e SEM valor nem vencimento quando o e-mail não os traz",
+     camposE.descricao === "Fatura de outubro" && !("valor" in camposE) && !("vencimento" in camposE) && camposE.entrada === "email:m-2");
+  const descE = ce.descartarEntrada(ce.ESTADO_VAZIO, dE2, "e-mail repetido do fornecedor", "2026-10-01T15:00:00Z", "ana");
+  const curtoE = ce.descartarEntrada(ce.ESTADO_VAZIO, dE2, "spam", "2026-10-01T15:00:00Z", "ana");
+  ok("caixa-email: o e-mail segue a MESMA decisão — descartar exige motivo, e o descartado sai da fila",
+     !curtoE.ok && descE.ok && ce.montarCaixaEntrada(docsE, descE.ok ? descE.estado.decisoes : [], "pendentes").contagem.pendentes === 1);
+
+  /* ── 6. a guarda de banco roda no CI; a demonstração não inventa ──────── */
+  const ciE = fsE.readFileSync(".github/workflows/ci.yml", "utf8");
+  ok("caixa-email: a guarda de banco da porta do e-mail roda no CI",
+     /-f scripts\/caixa-email\.sql/.test(ciE) && fsE.existsSync("scripts/caixa-email.sql"));
+  const libE = semCom(fsE.readFileSync("src/lib/caixa-email.ts", "utf8"));
+  ok("caixa-email: em demonstração a lista de e-mails é a do cache (vazia), nunca um seed inventado",
+     /if \(isDemo\) return Promise\.resolve\(cache\)/.test(libE) && !/demo\/seed|DEMO_/.test(libE));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

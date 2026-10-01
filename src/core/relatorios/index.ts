@@ -476,6 +476,13 @@ export interface Relatorio {
    * os soma quebra o fechamento. Eles saem LISTADOS e FORA do total.
    */
   foraDoDre: Record<string, "transferencia" | "sem_linha">;
+  /**
+   * Os movimentos que entraram numa linha por PALPITE (palavra-chave sobre o
+   * nome da categoria), sem linha DECLARADA no plano de contas. É o
+   * comportamento padrão de todo cliente novo — e um DRE adivinhado tem a
+   * mesma cara de um conferido. A tela diz quantos e quanto (Rodada 4).
+   */
+  porPalpite: string[];
 }
 
 /**
@@ -549,6 +556,7 @@ export function montarRelatorio(
   // Onde cada movimento caiu e com que valor — ver `Relatorio.classificacao`.
   const classificacao: Record<string, { linha: string; valor: number }> = {};
   const foraDoDre: Record<string, "transferencia" | "sem_linha"> = {};
+  const porPalpite: string[] = [];
   for (const l of estrutura) {
     soma.set(l.id, colunas.map(() => 0));
     movsPorLinha.set(l.id, colunas.map(() => []));
@@ -603,6 +611,7 @@ export function montarRelatorio(
     soma.get(linha.id)![k] += v;
     movsPorLinha.get(linha.id)![k].push(m.id);
     classificacao[m.id] = { linha: linha.id, valor: v };
+    if (!declarada && !linhaTransf) porPalpite.push(m.id);
 
     const nome = (m.category || "Sem categoria").trim() || "Sem categoria";
     const mapa = categorias.get(linha.id)!;
@@ -729,7 +738,7 @@ export function montarRelatorio(
   }
   const colunasSemDado = colunas.filter((_, k) => !comLancamento.has(k));
 
-  return { colunas, linhas, base, colunasSemDado, classificacao, foraDoDre };
+  return { colunas, linhas, base, colunasSemDado, classificacao, foraDoDre, porPalpite };
 }
 
 export const montarDRE = (input: RiskInput, f: Omit<FiltroRelatorio, "regime">): Relatorio =>
@@ -1113,4 +1122,27 @@ export function compararOrcamento(r: Relatorio, orcado: LinhaOrcada[]): Map<stri
     }));
   }
   return mapa;
+}
+
+
+/**
+ * Quanto do relatório foi classificado por PALPITE — contagem, valor (em
+ * magnitude) e as categorias que mais pesam, para a tela dizer o que declarar.
+ * Ausência de palpite é `n = 0`, e a tela não mostra nada.
+ */
+export function palpiteDoRelatorio(rel: Pick<Relatorio, "porPalpite" | "classificacao">, input: RiskInput): {
+  n: number; valor: number; categorias: { nome: string; valor: number }[];
+} {
+  const porId = new Map(input.movements.map((m) => [m.id, m]));
+  const cats = new Map<string, number>();
+  let valor = 0;
+  for (const id of rel.porPalpite) {
+    const v = Math.abs(rel.classificacao[id]?.valor ?? 0);
+    valor += v;
+    const nome = (porId.get(id)?.category || "Sem categoria").trim() || "Sem categoria";
+    cats.set(nome, (cats.get(nome) ?? 0) + v);
+  }
+  const categorias = Array.from(cats, ([nome, v]) => ({ nome, valor: Math.round(v * 100) / 100 }))
+    .sort((a, b) => b.valor - a.valor);
+  return { n: rel.porPalpite.length, valor: Math.round(valor * 100) / 100, categorias };
 }

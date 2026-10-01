@@ -242,10 +242,13 @@ export async function getContextoCentral(): Promise<ContextoCentral> {
     Array.isArray(perms) ? (perms as unknown[]).map((p) => String((p as { acao?: string })?.acao ?? p)) : [],
   );
 
-  const { data: vinculo } = await s
-    .from("organization_members").select("org_id,role").eq("user_id", uid).limit(1).maybeSingle();
-  const papel = (vinculo as { role?: string } | null)?.role ?? null;
-  const orgId = (vinculo as { org_id?: string } | null)?.org_id ?? null;
+  // ⚠️ O papel é o da empresa ABERTA (`ativa`, que vem de `auth_org_id()`), não
+  // o do primeiro vínculo: quem é aprovador numa empresa e lançador na outra via
+  // o teto e o "outro aprovador" da empresa errada (Rodada 4).
+  const { data: orgs } = await s.rpc("minhas_organizacoes");
+  const vinculo = ((orgs ?? []) as { org_id: string; papel: string; ativa: boolean }[]).find((o) => o.ativa) ?? null;
+  const papel = vinculo?.papel ?? null;
+  const orgId = vinculo?.org_id ?? null;
 
   let teto: number | null = 0;
   if (papel) {

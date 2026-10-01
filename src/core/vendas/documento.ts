@@ -230,3 +230,39 @@ export function vendaDoLancamentoRapido(input: SaleDocInput, id: string, numero:
     criadoEm: input.doc_date,
   };
 }
+
+/**
+ * A venda da MAQUININHA como documento de venda (Rodada 4).
+ *
+ * ⚠️ A venda do POS gerava os títulos e NENHUM documento: não aparecia na lista
+ * de vendas, nas notas a emitir nem na base dos impostos — o mesmo dinheiro
+ * entrava no DRE por um lado e não existia como venda pelo outro. O documento
+ * carrega o total BRUTO (o que o cliente pagou) e a taxa MDR na taxa da
+ * plataforma; os títulos continuam sendo os do POS (bruto a receber + taxa a
+ * pagar por parcela, `core/vendas/pos`), agora com a chave do documento.
+ */
+export function vendaDaMaquininha(
+  pos: { total: number; taxa: number; parcelas: number; descricao: string },
+  id: string, numero: string, contaId: string, hoje: string,
+): Venda {
+  const total = Math.max(0, Math.round(pos.total * 100) / 100);
+  const n = Math.max(1, Math.floor(pos.parcelas || 1));
+  return {
+    ...semDetalhe(),
+    id, numero,
+    clienteId: "", clienteNome: "Consumidor (maquininha)",
+    competencia: hoje, vencimento: hoje,
+    itens: [{ produtoId: "", nome: pos.descricao || "Venda na maquininha", quantidade: 1, precoUnitario: total }],
+    valorTotal: total, valorTotalComJuros: total,
+    contaId,
+    status: "aprovada",
+    metodo: "credito",
+    tipoPagamento: n > 1 ? "parcelado" : "avista",
+    plataforma: "Maquininha (POS)",
+    taxaPlataforma: { valor: Math.round(total * Math.max(0, pos.taxa) * 100) / 100, fornecedorId: "" },
+    categoria: "Vendas", categoriaNome: "Vendas",
+    descricao: pos.descricao,
+    statusNF: "a_emitir", numeroNF: "",
+    observacoes: "", criadoEm: hoje,
+  };
+}
