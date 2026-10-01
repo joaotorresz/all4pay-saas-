@@ -1197,6 +1197,11 @@ export async function getRiscoInput(): Promise<RiskInput> {
       amount: m.amount,
       due_date: m.due_date,
       paid_date: m.paid_date,
+      // ⚠️ A competência viaja também na demonstração (Rodada 8). Sem ela o
+      // DRE de demo apurava por vencimento enquanto o de produção apurava pela
+      // competência dita — o mesmo lançamento em meses diferentes conforme o
+      // ambiente, que é justamente o que a demonstração existe para não fazer.
+      competence_date: m.competence_date ?? null,
       party_id: m.party_id ?? m.description ?? null,
       accountId: m.account_id ?? null,
       category: m.category,

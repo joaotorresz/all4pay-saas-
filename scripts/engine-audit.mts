@@ -6,6 +6,7 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFinalR8, mesAnterior as mesAnteriorR8, competenciaDoMesAnterior as competenciaDoMesAnteriorR8, comCompetencias as comCompetenciasR8 } from "@/core/importacao/competencia";
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
@@ -10100,6 +10101,81 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("rodada7: restituição de imposto sobre o LUCRO não vira estorno de dedução sobre a venda",
        r7([irpj]).classificacao[irpj.id]?.linha !== "deducoes");
   }
+}
+
+// ═══ RODADA 8 — COMPETÊNCIA NA IMPORTAÇÃO ═══════════════════════════════════
+{
+  const L = lerCompetenciaR8;
+  ok("rodada8: célula em branco é AUSENTE, não erro", L("").iso === null && L("").erro === null && L(undefined).iso === null);
+  ok("rodada8: o mês basta — 09/2026 e 2026-09 viram o dia 1º",
+     L("09/2026").iso === "2026-09-01" && L("2026-09").iso === "2026-09-01" && L("9/2026").iso === "2026-09-01");
+  ok("rodada8: data completa nos três formatos (BR, ISO, serial do Excel)",
+     L("30/09/2026").iso === "2026-09-30" && L("2026-09-30").iso === "2026-09-30" && L("46295").iso === "2026-09-30",
+     `${L("46295").iso}`);
+  // O defeito proibido: preenchida e ilegível NUNCA cai no vencimento calada.
+  const ruins = ["13/2026", "31/09/2026", "abc", "2026-13", "00/2026"];
+  ok("rodada8: competência ilegível vira ERRO nomeado (nunca o fallback)",
+     ruins.every((x) => L(x).iso === null && !!L(x).erro && L(x).erro!.includes(x)),
+     ruins.map((x) => `${x}→${L(x).iso}/${L(x).erro ? "erro" : "ok"}`).join(" · "));
+  ok("rodada8: o fallback é o vencimento, e só quando nada foi dito",
+     competenciaFinalR8(null, "2026-10-05") === "2026-10-05" && competenciaFinalR8("2026-09-01", "2026-10-05") === "2026-09-01");
+  ok("rodada8: mês anterior atravessa a virada do ano (fatiando a string)",
+     mesAnteriorR8("2026-01-05") === "2025-12" && mesAnteriorR8("2026-10-31") === "2026-09");
+
+  // A proposta "contas fixas do começo do mês são do mês anterior".
+  const lin = (id: string, data: string, tipo: string, cp: string) => ({ id, data, tipo, contraparteNorm: cp });
+  const linhas = [
+    lin("al1", "2026-07-05", "saida", "imobiliaria"), lin("al2", "2026-08-05", "saida", "imobiliaria"),
+    lin("al3", "2026-09-04", "saida", "imobiliaria"), lin("al4", "2026-10-03", "saida", "imobiliaria"),
+    lin("av1", "2026-10-02", "saida", "loja avulsa"),               // compra avulsa no começo do mês
+    lin("en1", "2026-08-02", "saida", "energia"), lin("en2", "2026-09-20", "saida", "energia"), lin("en3", "2026-10-21", "saida", "energia"),
+    lin("cl1", "2026-07-03", "entrada", "cliente"), lin("cl2", "2026-08-03", "entrada", "cliente"), lin("cl3", "2026-09-03", "entrada", "cliente"),
+    lin("dm1", "2026-09-02", "saida", "dois meses"), lin("dm2", "2026-10-02", "saida", "dois meses"),
+  ];
+  const prop = competenciaDoMesAnteriorR8(linhas, 5);
+  ok("rodada8: a conta fixa paga até o dia limite vai para o mês anterior",
+     prop.al1 === "2026-06-01" && prop.al4 === "2026-09-01" && prop.al3 === "2026-08-01", JSON.stringify(prop));
+  ok("rodada8: compra avulsa, entrada, conta paga depois do limite e quem aparece em só 2 meses FICAM",
+     !("av1" in prop) && !("cl1" in prop) && !("en2" in prop) && !("dm1" in prop) && ("en1" in prop),
+     Object.keys(prop).join(","));
+  ok("rodada8: o dia limite é contido em 1..28",
+     Object.keys(competenciaDoMesAnteriorR8(linhas, 0)).length === 0
+     && Object.keys(competenciaDoMesAnteriorR8(linhas, 99)).length === Object.keys(competenciaDoMesAnteriorR8(linhas, 28)).length);
+
+  // O extrato: a escolha viaja pelo fingerprint e chega ao lançamento.
+  const csv = "Data;Descricao;Valor\n05/10/2026;ALUGUEL IMOBILIARIA SOL;-3000,00\n12/10/2026;PIX RECEBIDO CLIENTE ALFA;5000,00\n";
+  const rep1 = analisarImportacao(csv);
+  const alvo = rep1.records.find((r) => r.tipo === "saida")!;
+  const ditas = { [alvo.fingerprint]: "2026-09-01" };
+  const rep2 = analisarImportacao(csv); // reanálise: ids NOVOS, mesmo conteúdo
+  const comDita = montarDataset({ ...rep2, records: comCompetenciasR8(rep2.records, ditas) });
+  const aluguel = comDita.movements.find((m) => m.type === "saida")!;
+  const venda = comDita.movements.find((m) => m.type === "entrada")!;
+  ok("rodada8: a competência dita SOBREVIVE à reanálise (chave = fingerprint, não id)",
+     rep1.records[0].id !== rep2.records[0].id && aluguel.competence_date === "2026-09-01",
+     `${aluguel.competence_date}`);
+  ok("rodada8: a linha sem escolha usa a data do extrato, e a idempotência não muda com a competência",
+     venda.competence_date === "2026-10-12"
+     && aluguel.chave === montarDataset(rep2).movements.find((m) => m.type === "saida")!.chave);
+
+  // As portas de gravação usam a regra (varredura).
+  const imp = readFileSync("src/components/movimentacoes/ImportacaoView.tsx", "utf8");
+  ok("rodada8: a planilha grava a competência dita, com o vencimento só como fallback",
+     /competence_date:\s*competenciaFinal\(l\.competencia,\s*l\.data\)/.test(imp) && !/competence_date:\s*l\.data\b/.test(imp));
+  ok("rodada8: 'Competência' é a ÚLTIMA coluna dos dois modelos (a planilha antiga continua lida na mesma posição)",
+     (imp.match(/"Recebido", "Competência"\]|"Pago", "Competência"\]/g) ?? []).length === 2 && /lerCompetencia\(campos\[6\]\)/.test(imp));
+  ok("rodada8: a planilha DIZ quantas linhas caem no vencimento",
+     /data-aviso="competencia-vencimento"/.test(imp));
+  const fd = readFileSync("src/lib/fdip.ts", "utf8");
+  ok("rodada8: o escritor do extrato põe a competência dita na frente da data do fato",
+     /competence_date:\s*m\.competence_date \|\| m\.paid_date \|\| m\.due_date/.test(fd));
+  const up = readFileSync("src/components/upload/UploadView.tsx", "utf8");
+  const dt = readFileSync("src/lib/data.ts", "utf8");
+  const ramoDemo = dt.slice(dt.indexOf("export async function getRiscoInput"), dt.indexOf("const supabase = createClient();", dt.indexOf("export async function getRiscoInput")));
+  ok("rodada8: a demonstração leva a competência ao DRE (o mesmo mês que produção)",
+     /competence_date:\s*m\.competence_date \?\? null/.test(ramoDemo));
+  ok("rodada8: confirmar o extrato leva as competências escolhidas",
+     /aplicarOnboarding\(\{\s*\.\.\.report,\s*records:\s*comCompetencias\(report\.records,\s*competencias\)\s*\}\)/.test(up));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

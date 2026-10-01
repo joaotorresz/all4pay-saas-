@@ -135,6 +135,22 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ RODADA 8 — COMPETÊNCIA NA IMPORTAÇÃO (01/10/2026, detalhe em `docs/rodada-8/`)
+
+- **`core/importacao/competencia`** é a regra única: célula em branco é
+  AUSENTE (cai no vencimento, e a tela CONTA quantas); preenchida e ilegível é
+  ERRO nomeado — nunca o fallback calado; o mês basta ("09/2026").
+- **Planilha em lote**: "Competência" é a ÚLTIMA coluna dos modelos (a planilha
+  antiga continua lida na mesma posição). **Extrato**: competência por linha +
+  a proposta "contas fixas do começo do mês vão para o mês anterior", contada
+  antes do clique e aplicada só por ato da pessoa. Guardada pelo
+  `fingerprint`, nunca pelo id (que renasce a cada reanálise).
+- **A competência chega ao DRE também em demonstração** (o ramo de demo do
+  `getRiscoInput` não a levava).
+- ⚠️ **Não se preenche a competência dos lançamentos antigos** com o
+  vencimento: seria afirmar uma escolha que ninguém fez e apagar o aviso de
+  cobertura do DRE.
+
 ## ⚠️ RODADA 7 — CLASSIFICAÇÃO DO DRE (01/10/2026, detalhe em `docs/rodada-7/`)
 
 - **Uma chave de categoria: `chaveCategoria`** (`core/categorias/chave` — sem

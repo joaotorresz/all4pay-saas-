@@ -24,6 +24,11 @@ export interface FinancialRecord {
   contraparteNorm: string; // normalizado (entity resolution)
   documento?: string;
   fingerprint: string;
+  /**
+   * A competência DITA pela pessoa na revisão (Rodada 8). Ausente, o
+   * lançamento usa a data do extrato — o fallback declarado.
+   */
+  competencia?: string;
 }
 
 export type Destino =

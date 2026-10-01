@@ -14,7 +14,7 @@
  ],
  "gerado_em": "2026-10-01",
  "gerado_como": "catálogo de produção (byte-idêntico ao ci_leitor; o job esquema-prod revalida a paridade)",
- "total": 403,
+ "total": 404,
  "orfaos_declarados": {
   "tabela:maq_cnpj_cache": {
    "motivo": "Cache de consulta de CNPJ da maquininha. O achado original do A4P-076: viveu meses no banco sem migration. RLS ligada sem política.",
@@ -151,6 +151,7 @@
   "funcao:verificar_fechamento(p_competencia date)": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:verificar_isolamento()": "9e4d78ccffd5462c6e1e13547350cd4e",
   "funcao:verificar_isolamento_completo()": "9e4d78ccffd5462c6e1e13547350cd4e",
+  "funcao:vincular_categorias_por_nome(p_org uuid)": "9e4d78ccffd5462c6e1e13547350cd4e",
   "grant:accounting_periods.authenticated": "e3773534df1a8e8d2f932ceef8e2b0bc",
   "grant:ai_actions.authenticated": "a818f0f0725156fc832131ab392209ef",
   "grant:ai_learning.authenticated": "e3773534df1a8e8d2f932ceef8e2b0bc",
@@ -466,7 +467,5 @@
   "grant:recurrences.service_role": "0aa2355c17537e92f166cb050553c808"
  },
  "_nota_service_role": "77 grants, DUAS assinaturas: audit_log, admin_audit e admin_acessos NÃO têm TRUNCATE (revogação da ONDA 9); as outras 74 têm. Se audit_log.service_role recuperar TRUNCATE, a trilha de auditoria vira apagável pela chave que ignora o RLS — é a mudança que esta linha de base existe para reprovar.",
- "pendentes_de_aplicacao": {
-  "funcao:vincular_categorias_por_nome(p_org uuid)": "20261002130000_lancamento_aponta_para_categoria — o job migrar aplica no merge; o esquema-prod do merge roda antes dele"
- }
+ "pendentes_de_aplicacao": {}
 }

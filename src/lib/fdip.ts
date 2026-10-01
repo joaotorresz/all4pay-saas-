@@ -7,6 +7,7 @@
  * Em ambos os casos a informação passa a se correlacionar em todas as páginas.
  */
 import { isDemo } from "@/lib/demo";
+import { competenciaFinal } from "@/core/importacao/competencia";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { primeiraContaAtiva } from "@/lib/conta-padrao";
@@ -102,6 +103,8 @@ export function montarDataset(report: FDIPReport): {
         amount: r.valor,
         party_id: r.contraparteNorm,
         due_date: r.data,
+        // A competência dita na revisão (Rodada 8); sem ela, a data do extrato.
+        competence_date: competenciaFinal(r.competencia, r.data),
         paid_date: pago ? r.data : null,
         reconciled: pago,
         description: r.contraparte,
@@ -299,7 +302,8 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
         // ⚠️ Linha de EXTRATO: a data do movimento no banco É a data do fato —
         // não há outra. Sem este campo o DRE caía no fallback do vencimento e
         // a tela contava 815 lançamentos "sem competência" (Rodada 5).
-        competence_date: m.paid_date || m.due_date,
+        // Rodada 8: a competência DITA na revisão vence; sem ela, a data do fato.
+        competence_date: m.competence_date || m.paid_date || m.due_date,
         paid_date: m.paid_date,
         reconciled: false,
         description: m.description,

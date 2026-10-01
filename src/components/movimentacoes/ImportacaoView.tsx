@@ -20,19 +20,23 @@ import { lerXLSX, baixarXLSX } from "@/lib/xlsx";
 import { criarTransferencia, novoIdMov } from "@/lib/movimentacoes";
 import { criarTitulos } from "@/lib/data";
 import { reportar } from "@/lib/erros";
+import { lerCompetencia, competenciaFinal } from "@/core/importacao/competencia";
 
 type Tipo = "receber" | "pagar" | "transferencias";
 
 const MODELOS: Record<Tipo, { titulo: string; colunas: string[]; exemplo: (string | number)[][] }> = {
   receber: {
     titulo: "Contas a receber",
-    colunas: ["Cliente", "Vencimento", "Valor", "Categoria", "Descrição", "Recebido"],
-    exemplo: [["Aurora Varejo", "2026-09-10", 1500, "Vendas", "Pedido 123", "não"]],
+    // ⚠️ "Competência" entra no FIM, nunca no meio: uma planilha preenchida
+    // pelo modelo antigo (seis colunas) continua lida na mesma posição, e só
+    // fica sem competência — que cai no vencimento, contado na tela.
+    colunas: ["Cliente", "Vencimento", "Valor", "Categoria", "Descrição", "Recebido", "Competência"],
+    exemplo: [["Aurora Varejo", "2026-10-10", 1500, "Vendas", "Pedido 123", "não", "09/2026"]],
   },
   pagar: {
     titulo: "Contas a pagar",
-    colunas: ["Fornecedor", "Vencimento", "Valor", "Categoria", "Descrição", "Pago"],
-    exemplo: [["Fornecedor X", "2026-09-15", 800, "Fornecedores", "NF 456", "não"]],
+    colunas: ["Fornecedor", "Vencimento", "Valor", "Categoria", "Descrição", "Pago", "Competência"],
+    exemplo: [["Fornecedor X", "2026-10-05", 800, "Aluguel", "Aluguel de setembro", "não", "09/2026"]],
   },
   transferencias: {
     titulo: "Transferências",
@@ -47,6 +51,8 @@ interface LinhaLida {
   erro: string | null;
   valor: number;
   data: string;
+  /** A competência DITA na planilha; `null` = em branco (vale o vencimento). */
+  competencia: string | null;
 }
 
 /** "1.234,56" · "1234.56" · "R$1.234,56" → 1234.56 */
@@ -109,7 +115,10 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
     }
     if (!erro && !data) erro = "Data inválida.";
     if (!erro && (!Number.isFinite(valor) || valor <= 0)) erro = "Valor inválido.";
-    return { n, campos, erro, valor: Number.isFinite(valor) ? valor : 0, data };
+    // Transferência não tem competência: fica fora do DRE.
+    const comp = tipo === "transferencias" ? { iso: null, erro: null } : lerCompetencia(campos[6]);
+    if (!erro && comp.erro) erro = comp.erro;
+    return { n, campos, erro, valor: Number.isFinite(valor) ? valor : 0, data, competencia: comp.iso };
   };
 
   const carregar = async (arq: File) => {
@@ -141,6 +150,9 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
   const validas = (linhas ?? []).filter((l) => !l.erro);
   const invalidas = (linhas ?? []).filter((l) => l.erro);
   const total = validas.reduce((s, l) => s + l.valor, 0);
+  // O fallback é DECLARADO na tela, não escondido: quantas linhas vão para o
+  // DRE pelo vencimento porque a planilha não disse a competência.
+  const semCompetencia = tipo === "transferencias" ? 0 : validas.filter((l) => !l.competencia).length;
 
   const confirmar = async () => {
     if (validas.length === 0) return;
@@ -176,7 +188,7 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
             status: liquidado ? ("pago" as const) : ("pendente" as const),
             amount: l.valor,
             due_date: l.data,
-            competence_date: l.data,
+            competence_date: competenciaFinal(l.competencia, l.data),
             paid_date: liquidado ? l.data : null,
             category: l.campos[3] || null,
             description: l.campos[4] || null,
@@ -306,6 +318,17 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
               </table>
             </div>
           </Card>
+
+          {semCompetencia > 0 && (
+            <Card>
+              <p className="m-0 text-caption text-muted" data-aviso="competencia-vencimento">
+                <b className="text-ink tabular-nums">{semCompetencia}</b>{" "}
+                {semCompetencia === 1 ? "linha não diz" : "linhas não dizem"} a competência: no DRE, entram no mês do{" "}
+                <b className="text-ink">vencimento</b>. Se a conta é de outro mês (o aluguel de setembro pago em
+                outubro), preencha a coluna Competência com o mês — 09/2026.
+              </p>
+            </Card>
+          )}
 
           {invalidas.length > 0 && (
             <Card>

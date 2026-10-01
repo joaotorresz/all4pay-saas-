@@ -13,6 +13,7 @@ import type { FDIPReport } from "@/core/fdip";
 import type { FinancialRecord } from "@/core/fdip/types";
 import type { ResultadoOnboarding } from "@/lib/fdip";
 import { isDemo } from "@/lib/demo";
+import { competenciaDoMesAnterior } from "@/core/importacao/competencia";
 
 const fmtDate = (iso: string) => { const [y, m, d] = (iso || "").split("-"); return d ? `${d}/${m}/${y.slice(2)}` : iso; };
 const confTone = (c: number) => (c >= 0.9 ? "positive" : c >= 0.7 ? "warning" : "neutral");
@@ -20,6 +21,7 @@ const confLabel = (c: number) => (c >= 0.9 ? "alta" : c >= 0.7 ? "média" : "bai
 
 export function RevisaoImportacao({
   report, onCorrigir, onConfirmar, aplicando, resultado, onAuto, autoBusy, catMsg, aGravar,
+  competencias, onCompetencias,
 }: {
   report: FDIPReport;
   onCorrigir: (r: FinancialRecord, categoria: string) => void;
@@ -37,8 +39,31 @@ export function RevisaoImportacao({
    * números diferentes. Agora os dois botões contam a mesma coisa.
    */
   aGravar?: number;
+  /**
+   * A competência DITA por linha (Rodada 8), chaveada pelo `fingerprint`.
+   * Ausente para a linha, vale a data do extrato — e a tela diz isso.
+   */
+  competencias?: Readonly<Record<string, string>>;
+  onCompetencias?: (m: Record<string, string>) => void;
 }) {
   const [verTodas, setVerTodas] = React.useState(false);
+  const [diaLimite, setDiaLimite] = React.useState(5);
+  const ditas = competencias ?? {};
+  const nDitas = Object.keys(ditas).length;
+  // A PROPOSTA, contada antes do clique. Aplicar é ato da pessoa: mover a
+  // competência sozinho seria classificar por palpite com outro nome.
+  const proposta = React.useMemo(() => competenciaDoMesAnterior(
+    report.records.map((r) => ({ id: r.fingerprint, data: r.data, tipo: r.tipo, contraparteNorm: r.contraparteNorm })),
+    diaLimite,
+  ), [report.records, diaLimite]);
+  const nProposta = Object.keys(proposta).filter((k) => ditas[k] !== proposta[k]).length;
+  const mudarCompetencia = (r: FinancialRecord, mes: string) => {
+    if (!onCompetencias) return;
+    const prox = { ...ditas };
+    if (!mes || mes === r.data.slice(0, 7)) delete prox[r.fingerprint];
+    else prox[r.fingerprint] = `${mes}-01`;
+    onCompetencias(prox);
+  };
   const clsPorRec = React.useMemo(() => {
     const m = new Map<string, FDIPReport["classificacoes"][number]>();
     for (const c of report.classificacoes) m.set(c.recordId, c);
@@ -192,6 +217,51 @@ export function RevisaoImportacao({
         </Card>
       )}
 
+      {/* Competência (Rodada 8): o mês do RESULTADO, quando não é o do banco. */}
+      {onCompetencias && (
+        <Card data-competencia="painel">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-ink">Competência — o mês a que cada lançamento pertence</span>
+              <span className="text-caption text-muted">
+                Sem escolha, cada linha entra no DRE no mês em que passou pelo banco. O aluguel de setembro pago em
+                05/10 é de setembro: ajuste a coluna Competência na linha, ou leve as contas fixas do começo do mês
+                para o mês anterior.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-caption text-muted inline-flex items-center gap-2">
+                Contas fixas pagas até o dia
+                <input
+                  type="number" min={1} max={28} value={diaLimite}
+                  onChange={(e) => setDiaLimite(Number(e.target.value) || 1)}
+                  className="w-[64px] h-8 px-2 rounded-sm bg-white border border-border text-caption text-ink tabular-nums outline-none focus:border-faint"
+                  aria-label="Dia limite"
+                />
+              </label>
+              <Button
+                size="sm" variant="secondary" disabled={nProposta === 0} data-competencia="propor"
+                onClick={() => onCompetencias({ ...ditas, ...proposta })}
+              >
+                {nProposta === 0
+                  ? "Nenhuma conta fixa nesse intervalo"
+                  : `Levar ${nProposta} ${nProposta === 1 ? "conta" : "contas"} para o mês anterior`}
+              </Button>
+              {nDitas > 0 && (
+                <Button size="sm" variant="ghost" data-competencia="desfazer" onClick={() => onCompetencias({})}>
+                  Desfazer ({nDitas})
+                </Button>
+              )}
+            </div>
+            <span className="text-caption text-faint" data-competencia="contagem">
+              {nDitas === 0
+                ? "Nenhuma competência ajustada: todas as linhas usam a data do extrato."
+                : `${nDitas} ${nDitas === 1 ? "linha com competência ajustada" : "linhas com competência ajustada"}; as demais usam a data do extrato.`}
+            </span>
+          </div>
+        </Card>
+      )}
+
       {/* Lançamentos (revisão por transação, estilo OF) */}
       <Card padded={false}>
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
@@ -219,6 +289,17 @@ export function RevisaoImportacao({
                 className="hidden sm:block w-[150px] h-8 px-2 rounded-sm bg-white border border-border text-caption text-ink outline-none focus:border-faint"
                 aria-label="Categoria"
               />
+              {onCompetencias && (
+                <input
+                  type="month"
+                  value={(ditas[r.fingerprint] ?? r.data).slice(0, 7)}
+                  onChange={(e) => mudarCompetencia(r, e.target.value)}
+                  data-competencia="linha"
+                  className={`hidden sm:block w-[130px] h-8 px-2 rounded-sm bg-white border text-caption text-ink tabular-nums outline-none focus:border-faint ${ditas[r.fingerprint] ? "border-ink" : "border-border"}`}
+                  aria-label="Competência"
+                  title={ditas[r.fingerprint] ? "Competência ajustada" : "Competência = mês do extrato"}
+                />
+              )}
               <StatusBadge tone={confTone(conf)}>{confLabel(conf)}</StatusBadge>
               {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal
                   escrito diz a direção. `valor` é magnitude, então a saída

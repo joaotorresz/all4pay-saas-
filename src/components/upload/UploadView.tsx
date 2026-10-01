@@ -8,6 +8,7 @@
  * pagamentos recorrentes/mensais — depois é só revisar e confirmar.
  */
 import * as React from "react";
+import { comCompetencias } from "@/core/importacao/competencia";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, InfoHint } from "@/components/ui";
 import { analisarImportacao, amostraExtrato, aprender, csvDeLinhas, type FDIPReport } from "@/core/fdip";
@@ -61,6 +62,13 @@ export function UploadView() {
   /** Regra proposta a partir da última correção — o ciclo que faz o sistema aprender de verdade. */
   const [sugestao, setSugestao] = React.useState<RegraCategorizacao | null>(null);
   const autoRef = React.useRef<string>(""); // texto já auto-categorizado (anti-loop)
+  /**
+   * A competência DITA na revisão (Rodada 8), por `fingerprint` — o id do
+   * registro renasce a cada reanálise. Um arquivo novo zera a escolha: a
+   * competência de um extrato não vale para outro.
+   */
+  const [competencias, setCompetencias] = React.useState<Record<string, string>>({});
+  React.useEffect(() => { setCompetencias({}); }, [texto]);
 
   React.useEffect(() => { setImportado(hasImported()); }, []);
   React.useEffect(() => { iaCategorizadorAtivo().then(setIaCat).catch(() => setIaCat(false)); }, []);
@@ -236,7 +244,7 @@ export function UploadView() {
     if (!report) return;
     setAplicando(true);
     try {
-      const res = await aplicarOnboarding(report);
+      const res = await aplicarOnboarding({ ...report, records: comCompetencias(report.records, competencias) });
       setResultado(res);
       setImportado(true);
       await qc.invalidateQueries();
@@ -378,6 +386,7 @@ export function UploadView() {
         <RevisaoImportacao
           report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}
           aGravar={plano ? linhasAGravar(plano).length : undefined}
+          competencias={competencias} onCompetencias={setCompetencias}
           onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy || cnaeBusy}
           catMsg={[regraMsg, cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
         />

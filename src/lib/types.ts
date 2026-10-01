@@ -47,6 +47,8 @@ export interface Movement {
   /** ISO date (YYYY-MM-DD). */
   due_date: string;
   paid_date: string | null;
+  /** Competência (ISO), quando a origem a disse. Ausente, vale o vencimento. */
+  competence_date?: string | null;
   /** false => still needs reconciliation (drives the conciliação badge). */
   reconciled: boolean;
   description: string | null;
