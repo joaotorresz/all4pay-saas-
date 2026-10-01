@@ -150,6 +150,11 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
   `sale_doc_id` (`salvarVendaComTitulos`).
 - ⚠️ **Depreciação em dobro é risco estrutural ABERTO** (0 casos medidos em
   produção): compra de bem com cronograma ainda entra como despesa no razão.
+- **Aprovar pelo WhatsApp** e **caixa de entrada por e-mail** existem e nascem
+  DESLIGADAS (`WHATSAPP_APROVACAO` / `CAIXA_EMAIL` = `ligado`). Regras que não
+  mudam: o WhatsApp aprova pelo MESMO gatilho da Central (nunca um segundo
+  caminho de aprovação), e o e-mail só cria ITEM na caixa de entrada, nunca
+  conta. Webhook público: portão ligado → segredo/assinatura → só então banco.
 
 ## ⚠️ RODADA 30/09–01/10 — o sistema dirigido como usuário (detalhe em `docs/rodada-30-09/`)
 

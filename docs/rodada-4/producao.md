@@ -42,3 +42,34 @@ declarada) + `palpiteDoRelatorio` (quantos, quanto e as categorias que mais
 pesam). A tela do DRE mostra o aviso com o link para declarar no plano de
 contas. Nenhuma soma muda — o aviso só torna o palpite visível. Guarda `t7`
 no `engine-audit`, provada contando tudo como palpite.
+
+## Passo 4 — funções novas, prontas e DESLIGADAS (decisão do dono, 01/10)
+
+### Aprovar título pelo WhatsApp (`WHATSAPP_APROVACAO=ligado` liga)
+- Uma porta só: o "SIM" faz o MESMO `update situacao → confirmado` da Central,
+  como o aprovador — o gatilho `central_maquina` decide segregação, permissão e
+  alçada e carimba `confirmado_por`.
+- Código de 6 caracteres, guardado só como SHA-256, uso único, 24 h, preso ao
+  telefone. `responder_aprovacao_whatsapp` só executa com a chave de serviço;
+  a rota confere a assinatura da Twilio antes de tocar no banco.
+- Envio simulado (sem Twilio) é RECUSADO, nunca relatado como enviado.
+- Pendência: o pedido sai em texto livre; fora da janela de 24 h da Twilio
+  precisa de template aprovado.
+- Guardas: `scripts/aprovacao-whatsapp.sql` (7 casos, CI) + bloco `wa:`.
+
+### Caixa de entrada de contas a pagar por e-mail (`CAIXA_EMAIL=ligado` liga)
+- O e-mail vira um ITEM da caixa de entrada que já existe (`email:<id>`), nunca
+  uma conta: "criar conta" abre o mesmo formulário preenchido.
+- Morada própria (`caixa_email_mensagens`, anexos no bucket privado
+  `caixa-email`); o webhook não escreve no `org_state`.
+- Endereço `contas+<token>@<domínio>` por empresa, gerado/rotacionado só por
+  quem administra; reenvio do provedor não duplica (Message-ID único).
+- Valor/vencimento só são preenchidos quando o texto traz linha digitável com
+  dígito verificador válido; senão ficam vazios ("valor não informado").
+- Pendências: domínio e provedor (Postmark inbound) a configurar; anexos XML
+  não são lidos; a tela mostra só a contagem de anexos.
+- Guardas: `scripts/caixa-email.sql` (8 casos, CI) + bloco `caixa-email`.
+
+As quatro migrations da rodada (120000, 130000, 140000, 150000) aplicam em
+sequência num banco limpo sem erro, e as duas guardas de banco ficam verdes
+sobre o banco combinado.
