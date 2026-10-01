@@ -28,7 +28,10 @@ export async function novoUsuario(navegador) {
   const page = await ctx.newPage();
   const erros = [];
   page.on("pageerror", (e) => erros.push(`pageerror: ${e.message}`));
-  page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon/i.test(m.text())) erros.push(`console: ${m.text().slice(0, 200)}`); });
+  // "Failed to fetch RSC payload" é o Next avisando que um PREFETCH foi cortado
+  // porque a jornada navegou (page.goto) antes de ele terminar — ele mesmo cai
+  // na navegação normal. É artefato da automação, não defeito da tela.
+  page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|favicon|Failed to fetch RSC payload/i.test(m.text())) erros.push(`console: ${m.text().slice(0, 200)}`); });
   const ir = async (rota) => {
     const r = await page.goto(BASE + rota, { waitUntil: "networkidle", timeout: 60000 });
     await page.waitForTimeout(1500);

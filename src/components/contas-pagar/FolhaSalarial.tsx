@@ -22,10 +22,13 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Icon, BRL, Skeleton, AcaoDestrutiva } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
-import { conferirEncargos, encargosLancados } from "@/core/folha";
-import { listColaboradores, regimeEAnexoDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
+import { conferirEncargos, encargosLancados, encargosProjetados, contaDoColaborador, type LancamentoDaFolha } from "@/core/folha";
+import {
+  listColaboradores, regimeEAnexoDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador,
+  linhaDoTituloDaFolha, retirarTitulosDaFolha,
+} from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
+import { useAccounts, useOpenMovements, useMovementsByFilter, useRiscoInput } from "@/components/visao-geral/hooks";
 import { useToast } from "@/components/listas/ListChrome";
 import { criarTitulos } from "@/lib/data";
 import { reportar } from "@/lib/erros";
@@ -64,6 +67,36 @@ export function FolhaSalarial() {
   const qc = useQueryClient();
   const { data: contas } = useAccounts();
   const { show, node } = useToast();
+  const { data: risco } = useRiscoInput();
+  /*
+   * ⚠️ OS TÍTULOS DA FOLHA SÃO LIDOS PELA DESCRIÇÃO, e a descrição vem da lista
+   * de TÍTULOS EM ABERTO, não do `RiskInput`. O ramo de demonstração de
+   * `getRiscoInput` não transporta `descricao` (o de produção transporta), e
+   * uma substituição que depende dela simplesmente não achava nada: a rescisão
+   * deixava o salário de dezembro agendado e as férias com adiantamento
+   * pagavam a 1ª parcela do 13º duas vezes — medido pela jornada. Só título
+   * PENDENTE é substituído, então a lista de abertos é a fonte exata; a
+   * conferência de encargos (que lê a CATEGORIA e conta o que já foi pago)
+   * continua no `RiskInput`.
+   */
+  const { data: abertos } = useOpenMovements("saida");
+  const lancamentos: LancamentoDaFolha[] = React.useMemo(
+    () => (abertos ?? []).map((m) => ({
+      id: m.id, type: m.type, status: m.status, amount: m.amount, due_date: m.due_date,
+      descricao: m.description ?? null, accountId: m.account_id ?? null,
+    })),
+    [abertos],
+  );
+  // Os já PAGOS, com a descrição — a rescisão desconta a 1ª parcela do 13º que
+  // já saiu do caixa (ver `decimoJaPagoNoAno`).
+  const { data: realizados } = useMovementsByFilter("saida", "realizado");
+  const pagos: LancamentoDaFolha[] = React.useMemo(
+    () => (realizados ?? []).map((m) => ({
+      id: m.id, type: m.type, status: m.status, amount: m.amount, due_date: m.due_date,
+      descricao: m.description ?? null, accountId: m.account_id ?? null,
+    })),
+    [realizados],
+  );
 
   /**
    * ⚠️ É AQUI QUE A DATA VIRA DINHEIRO NO SISTEMA.
@@ -76,23 +109,18 @@ export function FolhaSalarial() {
    * O vencimento vem do motor: dois dias antes das férias, dez dias depois do
    * desligamento, já antecipado quando cai em dia não útil.
    */
-  const agendar = React.useCallback(async (titulos: TituloGerado[]): Promise<boolean> => {
-    const conta = (contas?.accounts ?? [])[0]?.id ?? "";
+  const agendar = React.useCallback(async (titulos: TituloGerado[], colaborador: string): Promise<boolean> => {
+    // A conta de onde a folha DESTE colaborador já sai; a primeira da lista só
+    // quando ele não tem nenhum título agendado.
+    const conta = contaDoColaborador(lancamentos, colaborador) ?? (contas?.accounts ?? [])[0]?.id ?? "";
     if (!conta) {
       show("Cadastre uma conta bancária antes: o título precisa dizer de qual conta o dinheiro sai.");
       return false;
     }
     try {
-      await criarTitulos(titulos.map((t) => ({
-        account_id: conta,
-        type: "saida" as const,
-        amount: t.valor,
-        due_date: t.vencimento,
-        competence_date: t.vencimento,
-        category: t.categoria,
-        description: t.descricao,
-        origem: "manual" as const,
-      })));
+      // ⚠️ A competência vai como a do MÊS DE TRABALHO (`linhaDoTituloDaFolha`),
+      // não como o vencimento — era `competence_date: t.vencimento`.
+      await criarTitulos(titulos.map((t) => linhaDoTituloDaFolha(t, conta)));
       qc.invalidateQueries();
       return true;
     } catch (err) {
@@ -108,7 +136,25 @@ export function FolhaSalarial() {
       show(e?.message ? `Não foi possível agendar: ${e.message}${e.hint ? ` ${e.hint}` : ""}` : "Não foi possível agendar os títulos.");
       return false;
     }
-  }, [contas, qc, show]);
+  }, [contas, qc, show, lancamentos]);
+
+  /**
+   * Retira os títulos que o evento substituiu — DEPOIS de os novos entrarem.
+   * Na ordem inversa, uma recusa do banco no agendamento deixaria o caixa sem
+   * a obrigação velha e sem a nova. Devolve a frase do que NÃO saiu.
+   */
+  const retirar = React.useCallback(async (lista: LancamentoDaFolha[], motivo: string): Promise<string> => {
+    if (lista.length === 0) return "";
+    try {
+      const r = await retirarTitulosDaFolha(lista.map((m) => m.id), motivo);
+      qc.invalidateQueries();
+      return r.falhas.length === 0 ? ""
+        : ` ${r.falhas.length} título(s) antigo(s) não saíram (${r.falhas[0]}) — retire-os em Títulos a pagar.`;
+    } catch (err) {
+      reportar("folha.retirar", err, "títulos substituídos continuam no contas a pagar");
+      return ` Os títulos antigos não saíram (${(err as { message?: string } | null)?.message ?? "recusa do banco"}) — retire-os em Títulos a pagar.`;
+    }
+  }, [qc]);
 
   // ⚠️ Lido num efeito, não no render: `store-org` toca `localStorage`, e ler
   // durante o render quebra a hidratação (a tela remonta do zero).
@@ -142,9 +188,11 @@ export function FolhaSalarial() {
    * categorias com linha declarada no plano de contas. Comparado ao projetado,
    * é o que transforma "o sistema sabia" em "o sistema avisou".
    */
-  const { data: risco } = useRiscoInput();
   const conf = React.useMemo(() => {
-    const projetado = painel ? painel.custoTotal - painel.totalBruto : 0;
+    // ⚠️ FGTS + patronal, e SÓ isso. `custoTotal − totalBruto` levava junto as
+    // provisões de 13º e férias, que nunca aparecem numa guia — e o aviso
+    // acendia todo mês para quem recolhia certo (ver `encargosProjetados`).
+    const projetado = painel ? encargosProjetados(painel) : 0;
     return conferirEncargos(projetado, encargosLancados(risco?.movements ?? [], mes));
   }, [painel, risco, mes]);
 
@@ -360,12 +408,16 @@ export function FolhaSalarial() {
       {ferias && (
         <ModalFerias
           colaborador={ferias} regime={fiscal.regime} anexo={fiscal.anexo} tabelas={tabelas}
+          lancamentos={lancamentos}
           onFechar={() => setFerias(null)}
-          onConfirmar={async (titulos) => {
+          onConfirmar={async (titulos, substituidos) => {
             // ⚠️ Só confirma o que DEU CERTO: anunciar o agendamento antes de
             // saber se o banco aceitou é como o defeito nasceu.
-            if (!(await agendar(titulos))) return;
-            show(`Férias de ${ferias.nome} agendadas para ${dataBR(titulos[0].vencimento)}.`);
+            if (!(await agendar(titulos, ferias.nome))) return;
+            const pendencia = await retirar(substituidos, `adiantamento do 13º pago com as férias de ${ferias.nome}`);
+            show(`Férias de ${ferias.nome} agendadas para ${dataBR(titulos[0].vencimento)}.`
+              + (substituidos.length > 0 && !pendencia ? " A 1ª parcela do 13º de novembro saiu: ela vai junto com as férias." : "")
+              + pendencia);
             setFerias(null);
           }}
         />
@@ -373,9 +425,11 @@ export function FolhaSalarial() {
       {rescisao && (
         <ModalRescisao
           colaborador={rescisao} regime={fiscal.regime} anexo={fiscal.anexo} tabelas={tabelas}
+          lancamentos={lancamentos} pagos={pagos}
           onFechar={() => setRescisao(null)}
-          onConfirmar={async (titulos, desligadoEm) => {
-            if (!(await agendar(titulos))) return;
+          onConfirmar={async (titulos, desligadoEm, substituidos) => {
+            if (!(await agendar(titulos, rescisao.nome))) return;
+            const pendencia = await retirar(substituidos, `rescisão de ${rescisao.nome} em ${dataBR(desligadoEm)}`);
             /**
              * ⚠️ A RESCISÃO ENCERRA A VIGÊNCIA do colaborador, e é isso que
              * impede a folha de continuar cobrando salário de quem saiu. Sem
@@ -384,7 +438,9 @@ export function FolhaSalarial() {
              */
             saveColaborador({ ...rescisao, ate: desligadoEm.slice(0, 7) });
             setColaboradores(listColaboradores());
-            show(`Rescisão de ${rescisao.nome} agendada para ${dataBR(titulos[0].vencimento)}.`);
+            show(`Rescisão de ${rescisao.nome} agendada para ${dataBR(titulos[0].vencimento)}.`
+              + (substituidos.length > 0 && !pendencia ? ` ${substituidos.length} título(s) de folha seguintes saíram de Títulos a pagar.` : "")
+              + pendencia);
             setRescisao(null);
           }}
         />

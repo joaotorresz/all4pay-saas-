@@ -23,7 +23,7 @@ import { baixarXLSX } from "@/lib/xlsx";
 import {
   lerBoleto, formatarLinha, lerChaveNFe, formatarChave,
   resumoBoletos, filtrarBoletos, statusBoleto,
-  resumoNFs, filtrarNFs, valorDigitado,
+  resumoNFs, filtrarNFs, valorDigitado, boletoJaCapturado, notaJaCapturada,
   STATUS_NF_RECEBIDA, AVALIACOES_NF, TIPOS_NF,
   type BoletoRecebido, type StatusBoleto,
   type NFRecebida, type FiltroNFs, type TipoNF,
@@ -33,6 +33,7 @@ import {
   listarBoletos, salvarBoleto, removerBoleto,
   listarNFs, salvarNF, removerNF, novoId,
 } from "@/lib/compras-store";
+import { inscrever, CHAVES_ORG } from "@/lib/store-org";
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -58,16 +59,28 @@ export function BoletosView() {
   const [status, setStatus] = React.useState<StatusBoleto | "todos">("todos");
   const [linha, setLinha] = React.useState("");
   const [beneficiario, setBeneficiario] = React.useState("");
+  // O boleto sendo lançado agora, com a conta e a categoria que a PESSOA escolhe.
   const hoje = hojeISO();
 
-  React.useEffect(() => { setLista(listarBoletos()); }, []);
+  React.useEffect(() => {
+    setLista(listarBoletos());
+    return inscrever(CHAVES_ORG.boletosRecebidos, () => setLista(listarBoletos()));
+  }, []);
 
   const leitura = React.useMemo(() => (linha.replace(/\D/g, "").length >= 44 ? lerBoleto(linha, hoje) : null), [linha, hoje]);
   const filtrada = React.useMemo(() => filtrarBoletos(lista, busca, status, hoje), [lista, busca, status, hoje]);
   const resumo = React.useMemo(() => resumoBoletos(filtrada, hoje), [filtrada, hoje]);
 
   function adicionar() {
-    if (!leitura) return;
+    // ⚠️ Boleto com dígito verificador errado NÃO entra. A linha digitada com um
+    // número trocado continua "legível" — banco, valor, vencimento —, e lançá-la
+    // seria agendar o pagamento de um código que o banco vai recusar no dia.
+    if (!leitura || !leitura.valido) return;
+    const ja = boletoJaCapturado(listarBoletos(), leitura.codigoBarras);
+    if (ja) {
+      toast(`Este boleto já está na caixa de entrada (${ja.beneficiario}${ja.movimentoId ? ", já lançado em contas a pagar" : ""}).`);
+      return;
+    }
     setLista(salvarBoleto({
       id: novoId("boleto"),
       origem: "manual",
@@ -174,7 +187,7 @@ export function BoletosView() {
               placeholder="00000.00000 00000.000000 00000.000000 0 00000000000000"
             />
             <Input value={beneficiario} onChange={(e) => setBeneficiario(e.target.value)} placeholder="Beneficiário (opcional)" />
-            <Button variant="primary" onClick={adicionar} disabled={!leitura}>Adicionar</Button>
+            <Button variant="primary" onClick={adicionar} disabled={!leitura || !leitura.valido}>Adicionar</Button>
           </div>
           {leitura && (
             <div className="rounded-md bg-surface-2 px-4 py-3 flex flex-wrap gap-x-8 gap-y-2">
@@ -222,7 +235,8 @@ export function BoletosView() {
                 {filtrada.map((b) => {
                   const st = statusBoleto(b, hoje);
                   return (
-                    <tr key={b.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
+                    <React.Fragment key={b.id}>
+                    <tr className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
                       <td className="px-6 py-3 text-label text-ink">{b.beneficiario}</td>
                       <td className="px-6 py-3 text-label text-muted">{b.leitura.bancoNome ?? b.leitura.banco}</td>
                       <td className="px-6 py-3 text-caption text-faint tabular-nums">{formatarLinha(b.leitura.linhaDigitavel)}</td>
@@ -242,10 +256,20 @@ export function BoletosView() {
                           {!b.movimentoId && !b.pago && !decididos.has(chaveBoleto(b)) && (
                             <Acao label="Lançar em contas a pagar" icone="arrow-up-right" onClick={() => lancar(b)} />
                           )}
-                          <Acao label="Remover" icone="trash-2" onClick={() => { setLista(removerBoleto(b.id)); toast("Boleto removido."); }} perigo />
+                          {b.movimentoId && <span className="text-caption text-muted">Lançado</span>}
+                          <Acao
+                            label="Remover" icone="trash-2" perigo
+                            onClick={() => {
+                              setLista(removerBoleto(b.id));
+                              toast(b.movimentoId
+                                ? "Boleto removido da caixa de entrada. O título já lançado continua em Títulos a pagar."
+                                : "Boleto removido.");
+                            }}
+                          />
                         </div>
                       </td>
                     </tr>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -290,7 +314,10 @@ export function NFsRecebidasView() {
   const [fornecedorNovo, setFornecedorNovo] = React.useState("");
   const [valorNovo, setValorNovo] = React.useState("");
 
-  React.useEffect(() => { setLista(listarNFs()); }, []);
+  React.useEffect(() => {
+    setLista(listarNFs());
+    return inscrever(CHAVES_ORG.nfsRecebidas, () => setLista(listarNFs()));
+  }, []);
 
   const leitura = React.useMemo(() => lerChaveNFe(chave), [chave]);
   const filtrada = React.useMemo(() => filtrarNFs(lista, aplicado), [lista, aplicado]);
@@ -301,8 +328,21 @@ export function NFsRecebidasView() {
   );
 
   function adicionar() {
-    if (!leitura) return;
-    const valor = valorDigitado(valorNovo) ?? 0;
+    // ⚠️ Chave com dígito errado NÃO entra — a mesma regra do boleto. Ela
+    // continua "legível" (UF, CNPJ, número), e guardá-la registraria uma nota
+    // que não existe na SEFAZ com cara de nota recebida.
+    if (!leitura || !leitura.valido) return;
+    const ja = notaJaCapturada(listarNFs(), leitura.chave);
+    if (ja) {
+      toast(`Esta nota já está na lista (nº ${ja.numero} · ${ja.fornecedor}).`);
+      return;
+    }
+    const valor = valorDigitado(valorNovo);
+    // Valor digitado que não é número não vira R$ 0,00 calado.
+    if (valorNovo.trim() && valor == null) {
+      toast("O valor da nota não é um número. Use 1300 ou 1.300,00.");
+      return;
+    }
     setLista(salvarNF({
       id: novoId("nf"),
       chave: leitura,
@@ -313,14 +353,14 @@ export function NFsRecebidasView() {
       fornecedor: fornecedorNovo || `CNPJ ${leitura.cnpj}`,
       cnpj: leitura.cnpj,
       emissao: `${leitura.emissao}-01`,
-      valor,
+      valor: valor ?? 0,
       categoria: "",
-      status: leitura.valido ? "recebida" : "erro",
+      status: "recebida",
       avaliacao: "pendente",
       origem: "manual",
     }));
     setChave(""); setFornecedorNovo(""); setValorNovo("");
-    toast(leitura.valido ? "Nota adicionada." : "Nota adicionada com erro: o dígito da chave não confere.");
+    toast("Nota adicionada.");
   }
 
   function avaliar(n: NFRecebida, a: AvaliacaoNF) {
@@ -428,7 +468,7 @@ export function NFsRecebidasView() {
             <Input value={chave} onChange={(e) => setChave(e.target.value)} placeholder="Chave de acesso (44 dígitos)" />
             <Input value={fornecedorNovo} onChange={(e) => setFornecedorNovo(e.target.value)} placeholder="Fornecedor (opcional)" />
             <Input value={valorNovo} onChange={(e) => setValorNovo(e.target.value)} placeholder="Valor" />
-            <Button variant="primary" onClick={adicionar} disabled={!leitura}>Adicionar</Button>
+            <Button variant="primary" onClick={adicionar} disabled={!leitura || !leitura.valido}>Adicionar</Button>
           </div>
           {leitura && (
             <div className="rounded-md bg-surface-2 px-4 py-3 flex flex-wrap gap-x-8 gap-y-2">
