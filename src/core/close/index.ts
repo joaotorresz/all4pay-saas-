@@ -45,7 +45,7 @@ export interface FechamentoReport {
   metricas: CloseMetricas;
   tarefas: CloseTarefa[];
   sugestoes: CloseSugestao[];
-  prontidao: number; // 0..1 (tarefas ok / total)
+  prontidao: number; // 0..1 (verificações automáticas ok / total)
   versao: string;
 }
 
@@ -110,16 +110,11 @@ function recorrentesFaltantes(input: RiskInput, mesISO: string): CloseSugestao[]
 export function montarFechamento(
   input: RiskInput,
   mesISO: string,
-  opts: { travado: boolean; tarefasManuais: Record<string, boolean> },
+  opts: { travado: boolean },
 ): FechamentoReport {
   const movs = input.movements.filter((m) => mesDe(m) === mesISO && m.status !== "cancelado");
   const metricas = metricasDoMes(movs);
   const sugestoes = recorrentesFaltantes(input, mesISO);
-
-  const manual = (id: string, titulo: string, descricao: string, href?: string): CloseTarefa => ({
-    id, titulo, descricao, tipo: "manual", href,
-    status: opts.tarefasManuais[id] ? "ok" : "pendente",
-  });
 
   const tarefas: CloseTarefa[] = [
     {
@@ -147,9 +142,10 @@ export function montarFechamento(
       status: sugestoes.length === 0 ? "ok" : "pendente",
       detalhe: sugestoes.length === 0 ? "Sem provisões sugeridas." : `${sugestoes.length} provisão(ões) sugerida(s).`,
     },
-    manual("conciliacao", "Conciliação bancária", "Confira o extrato e concilie os movimentos do mês.", "/dashboard/financial/reconciliation"),
-    manual("variancia", "Explicar a variação do mês", "Revise o que mudou contra o mês anterior e o comentário gerado, na análise de variação.", "/dashboard/reports/variance"),
-    manual("aprovacao", "Revisar e aprovar lançamentos", "Revise os lançamentos do mês e aprove o resultado.", "/dashboard/reports/dre"),
+    // ⚠️ As tarefas MANUAIS (conciliar, explicar a variação, aprovar) saíram
+    // daqui: viraram o checklist com responsável, prazo e revisor de
+    // `./checklist.ts`, que mora no banco. Duas listas de "o que falta para
+    // fechar" divergiriam no primeiro mês.
   ];
 
   const total = tarefas.length;

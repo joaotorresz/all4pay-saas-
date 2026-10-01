@@ -1,31 +1,33 @@
 /**
- * Fechamento contábil — períodos travados + estado das tarefas manuais do
- * checklist por mês. **Persistência em duas camadas:** localStorage é a camada
- * síncrona imediata (mesma sessão; `isPeriodLocked` é lido no render do
- * MovementsTable, então tem de ser síncrono); e, em **live**, um cache
- * hidratado das tabelas `0010` (`accounting_periods` p/ locks, `close_tasks` p/
- * tarefas) torna o estado **cross-device**. As leituras unem as duas camadas.
+ * Fechamento contábil — os PERÍODOS TRAVADOS.
+ *
+ * `isPeriodLocked` é lido no render do MovementsTable, então tem de ser
+ * síncrono: o localStorage é a camada imediata e, em **live**, um cache
+ * hidratado de `accounting_periods` torna o estado cross-device. Quem TRAVA de
+ * verdade é o banco (`fechar_periodo` + o gatilho da 0030); isto só espelha.
+ *
+ * ⚠️ As TAREFAS do checklist saíram daqui. Elas moravam em dois lugares — o
+ * navegador (`a4p_close_tasks`) e `close_tasks` — unidos na leitura, e a união
+ * nunca deixava um "feito" voltar a "não feito". A morada única delas é
+ * `lib/fechamento-tarefas` (banco em produção; navegador só na demonstração).
  */
 import { isDemo } from "@/lib/demo";
-import { lockedPeriodsLive, closeTasksLive, saveCloseTaskLive } from "@/lib/ledger";
+import { lockedPeriodsLive } from "@/lib/ledger";
 import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const KEY_LOCK = "a4p_locked_periods";
-const KEY_TASKS = "a4p_close_tasks";
 
 // ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 const read = <T,>(key: string, fallback: T): T => lerOrg<T>(key, fallback);
 const write = (key: string, v: unknown): void => gravarOrg(key, v);
 
 /* ----------------------------- cache live (hidratado) ----------------------------- */
-type TasksByMonth = Record<string, Record<string, boolean>>;
 let liveLocks: string[] = [];
-let liveTasks: TasksByMonth = {};
 
-/** Hidrata o cache live a partir das tabelas `0010` (no-op em demo). */
+/** Hidrata o cache live a partir de `accounting_periods` (no-op em demo). */
 export async function hydrateClose(): Promise<void> {
   if (isDemo) return;
-  [liveLocks, liveTasks] = await Promise.all([lockedPeriodsLive(), closeTasksLive()]);
+  liveLocks = await lockedPeriodsLive();
 }
 
 /* ----------------------------- locks ----------------------------- */
@@ -37,32 +39,16 @@ export function isPeriodLocked(mesISO: string): boolean {
   if (!mesISO) return false;
   return lockedPeriods().includes(mesISO.slice(0, 7));
 }
+/** Espelha localmente uma trava que o BANCO já aceitou (ou a da demonstração). */
 export function lockPeriod(mesISO: string): void {
   const m = mesISO.slice(0, 7);
   const set = new Set(lockedPeriods());
   set.add(m);
   write(KEY_LOCK, Array.from(set).sort());
   if (!liveLocks.includes(m)) liveLocks = [...liveLocks, m];
-  // a persistência live do lock é feita por travarPeriodoLive() (accounting_periods).
 }
 export function unlockPeriod(mesISO: string): void {
   const m = mesISO.slice(0, 7);
   write(KEY_LOCK, read<string[]>(KEY_LOCK, []).filter((x) => x !== m));
   liveLocks = liveLocks.filter((x) => x !== m);
-}
-
-/* ----------------------------- tarefas do checklist ----------------------------- */
-/** Estado das tarefas manuais por mês: { "2026-05": { conciliacao: true, ... } } */
-export function loadCloseTasks(mesISO: string): Record<string, boolean> {
-  const m = mesISO.slice(0, 7);
-  const local = read<TasksByMonth>(KEY_TASKS, {})[m] ?? {};
-  return { ...(liveTasks[m] ?? {}), ...local };
-}
-export function saveCloseTask(mesISO: string, taskId: string, done: boolean): void {
-  const all = read<TasksByMonth>(KEY_TASKS, {});
-  const m = mesISO.slice(0, 7);
-  all[m] = { ...(all[m] ?? {}), [taskId]: done };
-  write(KEY_TASKS, all);
-  (liveTasks[m] ??= {})[taskId] = done;
-  void saveCloseTaskLive(mesISO, taskId, done); // persiste em close_tasks (live)
 }

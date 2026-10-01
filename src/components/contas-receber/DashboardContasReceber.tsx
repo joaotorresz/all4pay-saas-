@@ -38,7 +38,7 @@ import {
   type PainelContasReceber, type PonteVendaRecebimento,
 } from "@/core/contas-receber";
 import {
-  FiltrosPeriodo, CardExpansivel, DistribuicaoDonut, FaixaDeDias,
+  FiltrosPeriodo, CardExpansivel, DistribuicaoDonut, FaixaDeDias, FaixasDeIdade,
   type CardDeTitulos, type ItemDoDia,
 } from "@/components/titulos/kit";
 
@@ -324,33 +324,15 @@ function Envelhecimento({ painel }: { painel: PainelContasReceber }) {
             <span className="text-caption text-muted">vencido e não recebido</span>
           </div>
 
-          <div className="mt-2 flex flex-col gap-3">
-            {painel.envelhecimento.map((f) => (
-              <div key={f.faixa} className="flex flex-col gap-1">
-                <div className="flex items-baseline justify-between gap-3 text-caption">
-                  <span className="text-muted">
-                    {f.rotulo}
-                    <span className="text-faint"> · {f.quantidade}</span>
-                  </span>
-                  <span className="flex items-baseline gap-2">
-                    <span className="a4p-num text-faint tabular-nums">{pct(f.fracao)}</span>
-                    <span className="a4p-num text-ink"><BRL value={f.valor} /></span>
-                  </span>
-                </div>
-                {/* A barra usa a MESMA cor semântica em intensidades diferentes:
-                    a paleta tem um acento só, e faixas de atraso são graus da
-                    mesma coisa, não categorias distintas. */}
-                <div className="h-2 rounded-pill bg-surface-2 overflow-hidden">
-                  <div
-                    className="h-full rounded-pill"
-                    style={{
-                      width: `${Math.max(f.fracao * 100, f.valor > 0 ? 2 : 0)}%`,
-                      background: `color-mix(in srgb, var(--color-negative) ${40 + 20 * ORDEM_PESO[f.faixa]}%, var(--color-surface-3))`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+          <div className="mt-2">
+            {/* A peça é do kit, a MESMA do aging de contas a pagar. */}
+            <FaixasDeIdade
+              cor="var(--color-negative)"
+              faixas={painel.envelhecimento.map((f) => ({
+                chave: f.faixa, rotulo: f.rotulo, valor: f.valor, quantidade: f.quantidade,
+                fracao: f.fracao, peso: ORDEM_PESO[f.faixa],
+              }))}
+            />
           </div>
         </>
       )}
