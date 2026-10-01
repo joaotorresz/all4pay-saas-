@@ -174,6 +174,13 @@
         "impacto": "Até ser aplicada, pedir aprovação por WhatsApp na Central é recusado pelo banco (a função não existe). A funcionalidade nasce DESLIGADA (WHATSAPP_APROVACAO), então nenhum fluxo atual muda; aplicada, nenhum dado existente é tocado.",
         "resolver_ate": "2026-10-08",
         "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20261001150000_caixa_entrada_email",
+        "objetos_ausentes": ["caixa_email_enderecos", "caixa_email_mensagens", "caixa_email_mensagens_unica", "gerar_endereco_caixa_email()", "registrar_email_caixa(text,text,text,text,jsonb,text,uuid)", "bucket de Storage caixa-email + política caixa_email_anexos_leitura"],
+        "impacto": "Até ser aplicada, o cartão 'Receber contas por e-mail' da caixa de entrada mostra a recusa do banco ao gerar o endereço e a fila não traz mensagens de e-mail (a leitura falha e é reportada; as outras fontes seguem). A rota do webhook está DESLIGADA por padrão (CAIXA_EMAIL), então nada chega por e-mail de qualquer forma. Não toca em movements nem em valor nenhum.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (rodada 4, caixa de entrada por e-mail) — o job migrar do CI aplica no merge, depois do dono"
       }
     ],
     "objetos_sem_migration": [

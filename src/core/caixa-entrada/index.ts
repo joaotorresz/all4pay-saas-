@@ -23,19 +23,25 @@
  * capturado de novo pelo DDA voltaria para a fila como se fosse novo, e a
  * decisão já tomada sobre ele seria ignorada.
  *
+ * A QUARTA porta é o e-mail (`./email.ts`): as mensagens que chegam no
+ * endereço da empresa entram na mesma fila, com a mesma decisão — e, como as
+ * outras três, não escrevem conta nenhuma.
+ *
  * Puro, tipado, sem relógio (o "quando" entra por parâmetro). `caixa-entrada/1.0.0`.
  */
 import type { BoletoRecebido, NFRecebida } from "@/core/compras";
+import { documentoDoEmail, type MensagemEmail } from "./email";
 
 export const CAIXA_ENTRADA_VERSION = "caixa-entrada/1.0.0";
 
 /** De onde o documento chegou. */
-export type OrigemEntrada = "ocr" | "dda" | "sefaz";
+export type OrigemEntrada = "ocr" | "dda" | "sefaz" | "email";
 
 export const ROTULO_ORIGEM: Record<OrigemEntrada, string> = {
   ocr: "Documento lido",
   dda: "Boleto (DDA)",
   sefaz: "Nota fiscal (SEFAZ)",
+  email: "E-mail recebido",
 };
 
 /** Um documento que chegou — a forma comum às três fontes. */
@@ -56,6 +62,11 @@ export interface DocumentoEntrada {
   descricao: string;
   categoria: string | null;
   recebidoEm: string;
+  /** Só na fonte e-mail: o que a tela mostra para a pessoa reconhecer a mensagem. */
+  assunto?: string | null;
+  remetente?: string | null;
+  /** Quantos anexos a mensagem trouxe (os arquivos moram no Storage). */
+  anexos?: number;
 }
 
 /** Um documento lido por OCR que a pessoa deixou para decidir depois. */
@@ -113,6 +124,12 @@ export function documentosDasFontes(f: {
   boletos: readonly BoletoRecebido[];
   nfs: readonly NFRecebida[];
   ocr: readonly DocumentoOCR[];
+  /**
+   * As mensagens que chegaram no endereço de e-mail da empresa
+   * (`caixa_email_mensagens`). Opcional: quem não liga a porta do e-mail não
+   * tem o que passar, e as outras três fontes seguem iguais.
+   */
+  emails?: readonly MensagemEmail[];
 }): DocumentoEntrada[] {
   const out: DocumentoEntrada[] = [];
   const vistas = new Set<string>();
@@ -145,6 +162,10 @@ export function documentosDasFontes(f: {
     });
   }
   for (const o of f.ocr) add({ ...o, origem: "ocr", chave: chaveOCR(o.refId) });
+  // ⚠️ A chave é `email:<id da mensagem>`: o reenvio do provedor já foi
+  // barrado no banco (índice único pelo Message-ID), então o id É a identidade
+  // do documento — a decisão tomada sobre ele não se perde.
+  for (const m of f.emails ?? []) add(documentoDoEmail(m));
   return out;
 }
 
@@ -261,12 +282,19 @@ export function camposDoFormulario(doc: DocumentoEntrada): Record<string, string
   const q: Record<string, string> = {
     entrada: doc.chave,
     fornecedor: doc.fornecedor,
-    valor: String(doc.valor),
     descricao: doc.descricao,
   };
+  // ⚠️ Valor desconhecido (o e-mail sem linha digitável que confira) abre o
+  // campo VAZIO, não com "0": um zero preenchido passa como valor informado.
+  if (doc.valor > 0) q.valor = String(doc.valor);
   if (doc.documento) q.doc = doc.documento;
   if (doc.vencimento) q.vencimento = doc.vencimento;
   if (doc.emissao) q.competencia = doc.emissao.slice(0, 10);
   if (doc.numero) q.numero = doc.numero;
   return q;
 }
+
+export {
+  tokenDoDestinatario, anexosAceitos, documentoDoEmail, chaveEmail, boletoNoTexto,
+  type MensagemEmail,
+} from "./email";
