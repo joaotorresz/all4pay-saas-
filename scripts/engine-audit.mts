@@ -6811,5 +6811,71 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /!t\.movement_id/.test(ing) && /ok\.has\(t\.pluggy_transaction_id\)/.test(ing));
 }
 
+/* ── CONTABILIDADE (revisão) ── */
+{
+  const fsR = await import("node:fs");
+  const { decidirPostagem } = await import("@/core/ledger/idempotencia");
+  const { estornarLancamento, validarPostagem: validarR } = await import("@/lib/ledger");
+  const { lockPeriod, unlockPeriod } = await import("@/lib/close");
+
+  // 1. A idempotência diz o que fez — e deixa corrigir depois de estornar.
+  const ex = (chave: string, total: number, estornado = false) => ({ chave, total, estornado });
+  ok("razao-rev: sem chave, sempre posta", decidirPostagem(undefined, 10, [ex("x", 10)]).acao === "postar");
+  ok("razao-rev: mesma chave e mesmo valor → já existia (não duplica, e a tela pode dizer)",
+     decidirPostagem("cron:2026-10", 1950, [ex("cron:2026-10", 1950)]).acao === "ja_existia");
+  const conf = decidirPostagem("cron:2026-10", 2450, [ex("cron:2026-10", 1950)]);
+  ok("razao-rev: mesma chave com OUTRO valor → conflito com o valor que está lá (voltava calado e a tela dizia 'Lançado')",
+     conf.acao === "conflito" && conf.valorExistente === 1950);
+  const v2 = decidirPostagem("cron:2026-10", 2450, [ex("cron:2026-10", 1950, true)]);
+  ok("razao-rev: estornado o anterior, o valor novo entra com a chave versionada (a chave não fica presa para sempre)",
+     v2.acao === "postar" && v2.chave === "cron:2026-10#v2");
+  ok("razao-rev: a versão também conta como a mesma chave",
+     decidirPostagem("cron:2026-10", 2450, [ex("cron:2026-10", 1950, true), ex("cron:2026-10#v2", 2450)]).acao === "ja_existia");
+  ok("razao-rev: chave que só COMEÇA igual não é a mesma (cron:2026-1 × cron:2026-10)",
+     decidirPostagem("cron:2026-1", 100, [ex("cron:2026-10", 999)]).acao === "postar");
+  const led = fsR.readFileSync("src/lib/ledger.ts", "utf8");
+  const corpo = led.split("export async function postarLancamento(")[1]?.split("\nexport ")[0] ?? "";
+  const iDemo = corpo.indexOf("if (isDemo)");
+  ok("razao-rev: a decisão vale nos DOIS caminhos (demo e produção) e postarLancamento devolve o que fez",
+     /decidir\(atual/.test(corpo.slice(iDemo)) && /decidir\(e\.externalKey \? await existentesDaChaveLive/.test(corpo)
+     && /Promise<"postado" \| "ja_existia">/.test(led) && !/some\(\(x\) => x\.externalKey === e\.externalKey\)\) return;/.test(corpo));
+  const cronV = fsR.readFileSync("src/components/cronogramas/CronogramasView.tsx", "utf8");
+  ok("razao-rev: Cronogramas não anuncia 'lançado' quando nada entrou, nem fala de rota na tela",
+     /r === "ja_existia"/.test(cronV) && !/consulte \/razao/.test(cronV));
+
+  // 2. Provisão: uma porta só, e sempre com o estorno.
+  const acc = fsR.readFileSync("src/components/cronogramas/AccrualsSection.tsx", "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  ok("razao-rev: a provisão sugerida nasce com o estorno e com a MESMA chave do Fechamento (era sem estorno, chave 'accrual:')",
+     /provisaoComEstorno\(mes, a\.categoria, valor, a\.conta\)/.test(acc) && /postarLancamento\(estorno\)/.test(acc) && !/accrual:/.test(acc));
+
+  // 3. O estorno: motivo, duplicidade e projeção de movimento — recusados ANTES de qualquer rede.
+  const orig = { id: "j1", data: "2026-09-10", descricao: "Ajuste", origem: "manual", externalKey: "man:1",
+    linhas: [{ conta: "4.1.09", nome: "x", tipo: "expense" as const, debito: 80, credito: 0 }, { conta: "1.1.01", nome: "y", tipo: "asset" as const, debito: 0, credito: 80 }] };
+  const recusa = async (f: () => Promise<unknown>) => { try { await f(); return ""; } catch (e) { return (e as Error).message; } };
+  ok("razao-rev: estorno sem motivo é recusado", /motivo/i.test(await recusa(() => estornarLancamento(orig, "  ", [orig]))));
+  ok("razao-rev: estorno duplo é recusado",
+     /já foi estornado/.test(await recusa(() => estornarLancamento(orig, "duplicado", [orig, { ...orig, id: "j2", estornoDe: "j1" }]))));
+  ok("razao-rev: a projeção de um movimento não se estorna no razão (corrige-se o movimento)",
+     /projeção de um movimento/.test(await recusa(() => estornarLancamento({ ...orig, externalKey: "mov:abc" }, "duplicado", [orig]))));
+
+  // 4. Mês travado recusa a postagem também na demonstração.
+  lockPeriod("2026-07");
+  let travado = "";
+  try { validarR({ entryDate: "2026-07-10", lines: [{ accountId: "1.1.01", debit: 10 }, { accountId: "3.1.01", credit: 10 }] }); }
+  catch (e) { travado = (e as Error).message; }
+  unlockPeriod("2026-07");
+  let destravado = "";
+  try { validarR({ entryDate: "2026-07-10", lines: [{ accountId: "1.1.01", debit: 10 }, { accountId: "3.1.01", credit: 10 }] }); }
+  catch (e) { destravado = (e as Error).message; }
+  ok("razao-rev: mês travado recusa a postagem (e destravado aceita)", /07\/2026 está fechado/.test(travado) && destravado === "", `${travado} | ${destravado}`);
+
+  // 5. Produção: travar o mês e abrir o período não engolem a recusa do banco.
+  const fnDe = (nome: string) => led.slice(led.indexOf(nome), led.indexOf("\n}\n", led.indexOf(nome)));
+  ok("razao-rev: travarPeriodoLive LANÇA quando o banco recusa (a tela dizia travado e o banco aceitava postagem)",
+     /if \(error\) throw new Error\(`O banco recusou/.test(fnDe("export async function travarPeriodoLive")));
+  ok("razao-rev: abrir o período devolve a mensagem do banco (era 'Cannot read properties of null')",
+     /if \(error \|\| !data\) throw new Error\(error\?\.message/.test(fnDe("async function periodoIdLive")));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

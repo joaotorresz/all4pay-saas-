@@ -9,8 +9,10 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { getRiscoInput } from "@/lib/data";
 import {
-  lancamentoDeMovimento, saldoPorNatureza, exigirBalanceado, estornar, type LedgerEntryInput, type AccountType,
+  lancamentoDeMovimento, saldoPorNatureza, exigirBalanceado, estornar, r4, type LedgerEntryInput, type AccountType,
 } from "@/core/ledger";
+import { decidirPostagem, mesmaChave, type LancamentoComChave } from "@/core/ledger/idempotencia";
+import { formatBRL } from "@/lib/format";
 import {
   PLANO_PADRAO, CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta,
 } from "@/core/ledger/chart";
@@ -351,17 +353,59 @@ export function validarPostagem(e: LedgerEntryInput): void {
  * banco tinha recusado: o escritor que engole erro, indistinguível de um que
  * funciona.
  */
-export async function postarLancamento(e: LedgerEntryInput): Promise<void> {
+export async function postarLancamento(e: LedgerEntryInput): Promise<"postado" | "ja_existia"> {
   validarPostagem(e);
+  const total = r4(e.lines.reduce((s, l) => s + (l.debit ?? 0), 0));
+  // ⚠️ A idempotência DIZ o que fez (ver `core/ledger/idempotencia`): voltar
+  // calado fazia a tela anunciar "Lançado" sobre um razão que manteve o valor
+  // antigo.
+  const decidir = (existentes: LancamentoComChave[]) => {
+    const d = decidirPostagem(e.externalKey, total, existentes);
+    if (d.acao === "conflito") {
+      throw new Error(`Já existe no razão "${e.description ?? "este lançamento"}" com outro valor (${formatBRL(d.valorExistente)}). Estorne o existente no Razão contábil e lance de novo.`);
+    }
+    return d;
+  };
   if (isDemo) {
     const atual = load();
-    if (e.externalKey && atual.some((x) => x.externalKey === e.externalKey)) return; // idempotente
-    save([entryToLanc(e, e.externalKey ?? `man:${Date.now()}`), ...atual]);
-    return;
+    const d = decidir(atual.filter((x) => x.externalKey).map((x) => ({
+      chave: x.externalKey!, total: r4(x.linhas.reduce((s, l) => s + l.debito, 0)),
+      estornado: atual.some((y) => y.estornoDe === x.id),
+    })));
+    if (d.acao === "ja_existia") return "ja_existia";
+    const chave = d.chave ?? e.externalKey;
+    save([entryToLanc({ ...e, externalKey: chave }, chave ?? `man:${Date.now()}`), ...atual]);
+    return "postado";
   }
   await seedPlanoLive();
-  const r = await postarLiveLote([e]);
+  const d = decidir(e.externalKey ? await existentesDaChaveLive(e.externalKey) : []);
+  if (d.acao === "ja_existia") return "ja_existia";
+  const r = await postarLiveLote([{ ...e, externalKey: d.chave ?? e.externalKey }]);
   if (r.falhas.length) throw new Error(r.falhas[0].erro);
+  return r.jaExistiam.length ? "ja_existia" : "postado";
+}
+
+/** Os lançamentos POSTADOS com a chave (e as versões dela), com total e se já foram estornados. */
+async function existentesDaChaveLive(chave: string): Promise<LancamentoComChave[]> {
+  const s = createClient();
+  const { data, error } = await s.from("journal_entries")
+    .select("id,external_key,journal_lines(debit)")
+    .eq("status", "posted")
+    .like("external_key", `${chave}%`)
+    .limit(TETO_LINHAS);
+  if (error) throw new Error(`Não foi possível conferir se o lançamento já existe: ${error.message}`);
+  const linhas = ((data ?? []) as Array<{ id: string; external_key: string | null; journal_lines?: Array<{ debit: number | null }> }>)
+    .filter((r) => r.external_key && mesmaChave(chave, r.external_key));
+  if (!linhas.length) return [];
+  const { data: rev, error: e2 } = await s.from("journal_entries").select("is_reversal_of")
+    .in("is_reversal_of", linhas.map((r) => r.id)).limit(TETO_LINHAS);
+  if (e2) throw new Error(`Não foi possível conferir os estornos: ${e2.message}`);
+  const estornados = new Set(((rev ?? []) as Array<{ is_reversal_of: string }>).map((r) => r.is_reversal_of));
+  return linhas.map((r) => ({
+    chave: r.external_key!,
+    total: r4((r.journal_lines ?? []).reduce((acc, l) => acc + Number(l.debit ?? 0), 0)),
+    estornado: estornados.has(r.id),
+  }));
 }
 
 /**
@@ -408,8 +452,12 @@ export async function travarPeriodoLive(mesISO: string, locked: boolean): Promis
   const period = `${mesISO.slice(0, 7)}-01`;
   const { entityId } = await seedPlanoLive();
   const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
-  if (ja) await s.from("accounting_periods").update({ status: locked ? "locked" : "open" }).eq("id", (ja as { id: string }).id);
-  else await s.from("accounting_periods").insert({ entity_id: entityId, period, status: locked ? "locked" : "open" });
+  // ⚠️ A recusa do banco SOBE: com o erro descartado, a tela marcava o mês
+  // como travado (trava local) e o banco continuava aceitando postagem nele.
+  const { error } = ja
+    ? await s.from("accounting_periods").update({ status: locked ? "locked" : "open" }).eq("id", (ja as { id: string }).id)
+    : await s.from("accounting_periods").insert({ entity_id: entityId, period, status: locked ? "locked" : "open" });
+  if (error) throw new Error(`O banco recusou ${locked ? "travar" : "destravar"} o período ${mesISO.slice(0, 7)}: ${error.message}`);
 }
 
 /** Meses (YYYY-MM) travados no banco (live) — fonte para hidratar o cache de fechamento. */
@@ -428,7 +476,10 @@ export async function lockedPeriodsLive(): Promise<string[]> {
 async function periodoIdLive(s: ReturnType<typeof createClient>, entityId: string, period: string): Promise<string> {
   const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
   if (ja) return (ja as { id: string }).id;
-  const { data } = await s.from("accounting_periods").insert({ entity_id: entityId, period, status: "open" }).select("id").single();
+  // ⚠️ A recusa do banco sobe com a mensagem dele — era `(data).id` sobre um
+  // `null`, e a tela lia "Cannot read properties of null" no lugar do motivo.
+  const { data, error } = await s.from("accounting_periods").insert({ entity_id: entityId, period, status: "open" }).select("id").single();
+  if (error || !data) throw new Error(error?.message ?? "O banco não devolveu o período criado.");
   return (data as { id: string }).id;
 }
 

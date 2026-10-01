@@ -117,3 +117,47 @@ líquida (a da cascata). O fechamento também passou a receber a linha declarada
   casava por chave exata ("Venda" × "venda" → pendência com código cadastrado).
   O aviso do código da conta bancária afirmava que ele ia no arquivo — não vai,
   é informado na tela de importação do Domínio.
+
+---
+
+# Revisão adversarial (branch `r3/contabil-rev`)
+
+Cada correção do caçador foi reprovada plantando o defeito de volta (P1–P19 no
+relatório). Duas guardas não reprovavam — e passaram a reprovar com o bloco
+`CONTABILIDADE (revisão)` do `engine-audit`: o contrato do estorno (motivo,
+duplicidade, projeção de movimento) e a trava do mês na postagem.
+
+## ⚠️ Idempotência que volta calada mente na tela
+
+`postarLancamento` com `externalKey` voltava sem fazer nada quando a chave já
+existia, e devolvia `void`: Cronogramas anunciava "Lançado no razão" depois de
+uma parcela ter mudado, e o razão ficava com o valor ANTIGO. Pior: mesmo
+estornado o original, a chave continuava ocupada e o valor certo nunca mais
+entrava. `core/ledger/idempotencia.decidirPostagem`, nos dois caminhos:
+
+- mesmo total → `"ja_existia"` (a tela diz que já estava lá);
+- outro total → RECUSA, com o valor que está no razão e o caminho (estornar);
+- anteriores todos estornados → posta com a chave versionada (`chave#v2`).
+
+Jornada `contabil-cronogramas.mjs` prova os quatro passos sobre o balancete
+(provada reprovando com o retorno calado plantado no build: 5 verificações).
+
+## ⚠️ Provisão: duas portas, uma sem estorno
+
+`AccrualsSection` (Cronogramas → Provisões sugeridas) postava a provisão no DIA
+1º, SEM o estorno, e com chave própria (`accrual:`) diferente da do Fechamento
+(`prov:`). Quando a conta real chegava, a despesa contava duas vezes — o
+defeito que `provisaoComEstorno` existe para impedir —, e a mesma categoria
+podia ser provisionada uma vez em cada tela. Agora as duas portas montam o par
+pela mesma função e com as mesmas chaves. ⚠️ Provado por guarda de código; não
+dirigido no navegador (a demonstração não sugere provisão para o mês corrente).
+
+## Produção: duas recusas do banco que sumiam
+
+- `travarPeriodoLive` descartava o erro do `update/insert` — a trava local
+  marcava o mês e o banco continuava aceitando postagem. Agora LANÇA. ⚠️ O
+  chamador (`components/fechamento/FechamentoView.tsx:68,71`) ainda faz
+  `.catch(() => {})`: está na área reservada do fechamento — ver relatório.
+- `periodoIdLive` lia `data.id` sobre `null` quando o banco recusava abrir o
+  período: a tela mostrava "Cannot read properties of null". Agora a mensagem
+  do banco sobe.
