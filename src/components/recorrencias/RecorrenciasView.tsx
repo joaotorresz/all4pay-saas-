@@ -13,6 +13,7 @@ import {
   type Recorrencia, type ItemRec, type Ciclo, type StatusRec,
 } from "@/lib/recorrencias";
 import { criarNfse, transmitirNfse } from "@/lib/nfse";
+import { HORIZONTE_ATIVACAO_DIAS } from "@/lib/recorrencias-sched";
 import type { Party } from "@/lib/types";
 
 const STATUS: Record<StatusRec, { label: string; cor: string }> = {
@@ -78,12 +79,18 @@ export function RecorrenciasView() {
   // contas a receber). Sem o `try`, uma recusa do banco virava erro solto no
   // console e a tela seguia como se a ação tivesse acontecido.
   const ativar = async (r: Recorrencia) => {
-    try { await ativarRecorrencia(r.id); } catch (e) { show(`Não foi possível ativar: ${msg(e)}`); return; }
-    await refresh(); show("Ativada — próximas faturas entram no previsto (em Títulos a receber, no fluxo e no DRE)");
+    let res: Awaited<ReturnType<typeof ativarRecorrencia>>;
+    try { res = await ativarRecorrencia(r.id); } catch (e) { await refresh(); show(`Não foi possível ativar: ${msg(e)}`); return; }
+    await refresh();
+    // A tela diz QUANTAS faturas entraram — "entram no previsto" com zero
+    // faturas era o que aparecia quando o banco recusava.
+    show(res.faturas > 0
+      ? `Ativada — ${res.faturas} fatura${res.faturas === 1 ? "" : "s"} nos próximos ${res.horizonteDias} dias entra${res.faturas === 1 ? "" : "m"} no previsto (Títulos a receber, fluxo e DRE)`
+      : `Ativada — nenhuma fatura vence nos próximos ${res.horizonteDias} dias, então nada entrou no previsto ainda`);
   };
   const encerrar = async (r: Recorrencia, st: "pausada" | "cancelada") => {
-    try { await encerrarRecorrencia(r.id, st); } catch (e) { show(`Não foi possível ${st === "cancelada" ? "cancelar" : "pausar"}: ${msg(e)}`); return; }
-    await refresh(); show(st === "cancelada" ? "Cancelada (churn) — faturas previstas saem do fluxo" : "Pausada — faturas previstas removidas");
+    try { await encerrarRecorrencia(r.id, st); } catch (e) { await refresh(); show(`Não foi possível ${st === "cancelada" ? "cancelar" : "pausar"}: ${msg(e)}`); return; }
+    await refresh(); show(st === "cancelada" ? "Cancelada (churn) — faturas pendentes a vencer saem do fluxo; as recebidas ficam" : "Pausada — faturas pendentes a vencer removidas; as recebidas ficam");
   };
 
   // N2: emite a NFS-e da próxima fatura reusando o MESMO movement (não duplica receita).
@@ -183,8 +190,11 @@ export function RecorrenciasView() {
                   </div>
                   {on && (
                     <div className="px-5 pb-3">
-                      <span className="text-caption font-medium text-faint tracking-wide">Próximas faturas (previstas)</span>
+                      <span className="text-caption font-medium text-faint tracking-wide">Próximas faturas (previstas · {HORIZONTE_ATIVACAO_DIAS} dias)</span>
                       <div className="mt-1 flex flex-col gap-1">
+                        {projetarProximasFaturas(r, 6).length === 0 && (
+                          <span className="text-caption text-muted">Nenhuma fatura vence nos próximos {HORIZONTE_ATIVACAO_DIAS} dias.</span>
+                        )}
                         {projetarProximasFaturas(r, 6).map((f, i) => (
                           <div key={i} className="flex items-center justify-between text-caption">
                             <span className="text-muted">{f.periodo} · vence {fmtDia(f.vencimento)}</span>

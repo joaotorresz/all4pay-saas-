@@ -40,3 +40,26 @@ export function cicloParaFreq(ciclo: string): FreqDB {
 
 /** `reference_code` idempotente de uma fatura de recorrência. */
 export const refFatura = (recId: string, dataISO: string) => `rec:${recId}:${dataISO}`;
+
+/**
+ * Quantos dias à frente a ATIVAÇÃO de uma assinatura lança faturas — o MESMO
+ * horizonte na demonstração e em produção. A demonstração lançava "6 faturas",
+ * e uma assinatura anual virava SEIS ANOS de receita a receber (medido:
+ * 6 × R$ 3.200) enquanto produção lançava 180 dias.
+ */
+export const HORIZONTE_ATIVACAO_DIAS = 180;
+
+/**
+ * Quais faturas saem do fluxo quando a assinatura é pausada ou cancelada:
+ * só as PENDENTES com vencimento de hoje em diante. Recebida é caixa que já
+ * entrou (apagá-la desfaz dinheiro recebido); vencida em aberto continua
+ * devida. É a regra que a consulta de produção aplica no banco
+ * (`status = pendente` e `due_date >= hoje`), escrita uma vez para a
+ * demonstração seguir a mesma.
+ */
+export function faturasARemoverAoEncerrar(
+  faturas: readonly { id: string; status: string; due_date: string }[],
+  hojeISO: string,
+): string[] {
+  return faturas.filter((f) => f.status === "pendente" && f.due_date >= hojeISO).map((f) => f.id);
+}

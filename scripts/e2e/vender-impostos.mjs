@@ -55,22 +55,20 @@ export default async function venderImpostos(navegador) {
   v.ok(fat === 10_000, "a base exclui o chargeback (só a venda completa entra)", `faturamento ${fat}`);
   const linhasTabela = (t1.match(/\d{4}-\d{4} R\$/g) || []).length;
   v.ok(linhasTabela === 1, "a tabela de impostos tem UMA linha (o chargeback não é tributado)", `${linhasTabela} linha(s)`);
+  v.ok(/· 1 venda tributável/.test(t1), "o resumo conta a MESMA venda que a tabela (dizia '2 vendas' contando o chargeback)",
+    (t1.match(/· \d+ vendas? [^ ]*/) || [])[0]);
 
   // Configurar: conta, fornecedores propostos e ISS de 5% → 2%.
   const configurar = async () => { await u.page.getByRole("button", { name: "Configurar", exact: true }).click(); await u.page.waitForTimeout(600); };
   await configurar();
-  // ⚠️ DOIS DEFEITOS CONHECIDOS no caminho "Propor fornecedores", ambos em
-  // arquivos reservados nesta rodada (ver docs/rodada-30-09/vender.md):
-  // `createParty` devolve void (OutrasViews espera o id do criado e nunca o
-  // recebe — o botão anuncia "criados" e não escolhe nada), e o modal guarda a
-  // cópia da configuração de quando abriu, então "Salvar" apagaria o que o
-  // atalho tivesse gravado. O caminho que funciona é escolher à mão.
+  // "Propor fornecedores" ESCOLHE os três órgãos no modal aberto, e "Salvar"
+  // não pode apagar a escolha (o modal guardava a cópia de quando abriu, e o
+  // atalho não recebia o id do criado). Nada é escolhido à mão aqui: é o
+  // atalho que tem de deixar a configuração completa.
   await u.page.getByRole("button", { name: "Propor fornecedores" }).click();
-  await u.page.waitForTimeout(1200);
+  await u.page.waitForTimeout(1500);
   const propostos = await u.page.locator('select[aria-label="Selecione o fornecedor"]').evaluateAll((ss) => ss.map((x) => x.value).filter(Boolean).length);
-  console.log(`  (informativo) fornecedores escolhidos pelo atalho "Propor": ${propostos} de 3`);
-  const grupos = u.page.locator('select[aria-label="Selecione o fornecedor"]');
-  for (let k = 0; k < await grupos.count(); k++) await grupos.nth(k).selectOption({ index: 1 });
+  v.ok(propostos === 3, "o atalho 'Propor fornecedores' escolhe os três órgãos no modal aberto", `${propostos} de 3`);
   await u.select("Selecione a conta").selectOption({ index: 1 });
   const iss = u.page.locator('xpath=//label[normalize-space()="ISS · alíquota (%)"]/following-sibling::*[1]/descendant-or-self::input').first();
   await iss.fill("2");

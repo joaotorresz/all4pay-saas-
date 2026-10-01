@@ -1,17 +1,13 @@
 /**
- * JORNADA: links de pagamento — criar, ver o QR, sobreviver ao recarregar.
+ * JORNADA: links de pagamento — criar, ver o QR do PIX, sobreviver ao recarregar.
  *
- * Cria um link de R$ 350,00, confere que o QR é desenhado com a URL do link,
- * que ele continua lá depois de recarregar e que excluir o tira da lista.
- *
- * ⚠️ O que esta jornada NÃO aprova, e diz: a URL do link aponta para
- * `/pagar/<id>`, rota que NÃO EXISTE (a tela e o modelo estão em arquivos
- * reservados nesta rodada — ver docs/rodada-30-09/vender.md). E não há PIX
- * copia-e-cola no link: o gerador (`lib/pix`) existe e só os boletos o usam.
- * A linha informativa abaixo mede o 404 a cada execução, para o defeito não
- * sumir do radar.
+ * Cria um link de R$ 350,00 e confere que o QR carrega o PIX copia-e-cola da
+ * empresa (BR Code começando em `000201`, com o valor do link) — ou, sem CNPJ
+ * no cadastro, que a tela DIZ que não há chave em vez de desenhar um QR.
+ * ⚠️ Nenhuma URL `/pagar/<id>`: essa rota nunca existiu (404). Página pública
+ * de pagamento é decisão do dono, pendente (docs/rodada-30-09/vender.md).
  */
-import { novoUsuario, verificador, BASE } from "./kit.mjs";
+import { novoUsuario, verificador } from "./kit.mjs";
 
 const norm = (t) => t.replace(/\s+/g, " ").replace(/R\$\s*/g, "R$").replace(/(\d)\s+,(\d\d)/g, "$1,$2");
 
@@ -24,27 +20,29 @@ export default async function venderLinks(navegador) {
   await u.page.getByRole("button", { name: "Novo link" }).click();
   await u.page.waitForTimeout(400);
   await u.page.locator('input[placeholder="Ex.: Mentoria — turma de setembro"]').fill("Mentoria outubro");
-  await u.page.locator('input[type="number"]').first().fill("350");
+  // O valor é o campo de dinheiro do produto (digita CENTAVOS), não type=number.
+  v.ok(await u.page.locator('input[type="number"]').count() === 0, "o valor do link não é mais um campo type=number");
+  await u.page.locator('input[placeholder="0,00"]').first().fill("35000");
   await u.page.getByRole("button", { name: "Salvar", exact: true }).click();
   await u.page.waitForTimeout(800);
 
   const modal = norm(await u.texto());
-  const url = (modal.match(/https?:\/\/\S+\/pagar\/lk_[\w]+/) || [])[0];
-  v.ok(!!url, "o link criado mostra a URL dele", url);
+  v.ok(!/\/pagar\//.test(modal), "nenhuma URL /pagar/ (rota que não existe) aparece na tela");
+  const pix = (modal.match(/000201\S+/) || [])[0];
+  const semChave = /Sem CNPJ no cadastro da empresa não há chave PIX/.test(modal);
+  v.ok(!!pix || semChave, "o modal mostra o PIX copia-e-cola — ou diz que falta o CNPJ", pix ?? "sem CNPJ");
+  if (pix) {
+    v.ok(/5406350\.00/.test(pix), "o PIX leva o valor do link (campo 54 = 350.00)", pix);
+    const qr = await u.page.locator("div.rounded-card.bg-white > svg").evaluate((s) => s.innerHTML.length).catch(() => 0);
+    v.ok(qr > 500, "o QR do PIX é desenhado dentro do modal", `${qr} caracteres de SVG`);
+  }
   v.ok(modal.includes("R$350,00"), "o modal mostra o valor do link");
-  const qr = await u.page.locator("div.rounded-card.bg-white > svg").evaluate((s) => s.innerHTML.length).catch(() => 0);
-  v.ok(qr > 500, "o QR é desenhado dentro do modal", `${qr} caracteres de SVG`);
 
   await u.ir("/dashboard/sales-invoices/payment-links");
   const lista = norm(await u.texto());
   v.ok(lista.includes("Mentoria outubro") && lista.includes("R$350,00"), "o link continua na lista depois de recarregar");
   const guardado = await u.page.evaluate(() => JSON.parse(localStorage.getItem("a4p_links_pagamento") ?? "[]"));
   v.ok(guardado.length === 1 && guardado[0].valor === 350, "o link é guardado pela chave da empresa (store-org)", JSON.stringify(guardado[0] ?? null).slice(0, 80));
-
-  if (url) {
-    const r = await u.page.request.get(BASE + new URL(url).pathname, { maxRedirects: 0 }).catch(() => null);
-    console.log(`  (informativo · defeito conhecido) a URL do link responde ${r?.status() ?? "sem resposta"} — não há página /pagar`);
-  }
 
   await u.page.getByRole("button", { name: "Excluir" }).first().click();
   await u.page.waitForTimeout(500);

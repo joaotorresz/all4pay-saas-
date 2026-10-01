@@ -3,7 +3,8 @@
  *
  * Cria uma assinatura TRIMESTRAL de R$ 1.200 e uma ANUAL de R$ 3.200, ativa
  * as duas e confere: o MRR normaliza o ciclo (400 + 266,67 = 666,67); as
- * faturas previstas entram em Títulos a receber e no fluxo de caixa; pausar
+ * faturas previstas (180 dias, o horizonte de produção) entram em Títulos a
+ * receber e no fluxo de caixa; pausar
  * tira as faturas da trimestral; cancelar tira as da anual e o churn sobe.
  */
 import { novoUsuario, verificador, brl } from "./kit.mjs";
@@ -66,17 +67,21 @@ export default async function venderAssinaturas(navegador) {
 
   const tri = await faturasDe(u, "Plano Suporte Tri");
   const anual = await faturasDe(u, "Licença Anual");
-  v.ok(tri.length === 6 && tri.every((f) => f.valor === 1200 && f.tipo === "entrada" && f.status === "pendente"),
+  v.ok(tri.length >= 1 && tri.every((f) => f.valor === 1200 && f.tipo === "entrada" && f.status === "pendente"),
     "ativar a trimestral lança as faturas previstas de R$ 1.200 a receber", `${tri.length} fatura(s) · ${tri.map((f) => f.venc).join(" ")}`);
+  // ⚠️ O mesmo horizonte de produção (180 dias). Eram "6 faturas": a anual
+  // virava seis ANOS de receita a receber.
+  v.ok([...tri, ...anual].every((f) => dentroDe180(f.venc)) && anual.length <= 1,
+    "nenhuma fatura além de 180 dias — a anual lança no máximo uma", `${anual.map((f) => f.venc).join(" ")}`);
   const meses = tri.map((f) => Number(f.venc.slice(0, 4)) * 12 + Number(f.venc.slice(5, 7))).sort((a, b) => a - b);
   v.ok(meses.every((m, i) => i === 0 || m - meses[i - 1] === 3), "as faturas da trimestral vêm de 3 em 3 meses", tri.map((f) => f.venc).join(" "));
-  v.ok(anual.length >= 1 && anual.every((f) => f.valor === 3200), "a anual lança faturas de R$ 3.200", `${anual.length}`);
+  v.ok(anual.every((f) => f.valor === 3200), "a fatura da anual (quando cai na janela) é de R$ 3.200", `${anual.length}`);
 
   await u.ir("/contas-a-receber/titulos");
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const tit = norm(await u.texto());
-  v.ok(tit.includes("R$1.200,00") && tit.includes("R$3.200,00"), "as faturas aparecem em Títulos a receber");
+  v.ok(tit.includes("R$1.200,00") && (anual.length === 0 || tit.includes("R$3.200,00")), "as faturas aparecem em Títulos a receber");
 
   const esperado = [...tri, ...anual].filter((f) => dentroDe180(f.venc)).reduce((a, f) => a + f.valor, 0);
   const fluxoDepois = await entradasProjetadas(u);

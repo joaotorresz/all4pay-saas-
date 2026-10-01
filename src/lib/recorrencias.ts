@@ -12,7 +12,9 @@ import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
-import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
+import {
+  datasFaturaCron, cicloParaFreq, refFatura, HORIZONTE_ATIVACAO_DIAS, faturasARemoverAoEncerrar,
+} from "@/lib/recorrencias-sched";
 import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
@@ -48,6 +50,8 @@ export interface Recorrencia {
   status: StatusRec;
   movimentos: string[];
   projetadas?: number;
+  /** Demonstração: o dia em que foi ativada — a fase do ciclo do roll-forward. */
+  inicio?: string;
   criadoEm: string;
 }
 
@@ -122,19 +126,20 @@ export function kpisRecorrencia(): KpisRecorrencia {
 
 // ---------- Projeção (UI preview) ----------
 export interface FaturaPrevista { data: string; vencimento: string; valor: number; periodo: string }
-export function projetarProximasFaturas(r: Recorrencia, n = 6): FaturaPrevista[] {
+const periodoDe = (iso: string) =>
+  new Date(iso + "T00:00:00").toLocaleString("pt-BR", { month: "short", year: "2-digit" });
+/**
+ * As faturas que a ativação lança — as MESMAS datas (`datasFaturaCron`, o
+ * horizonte de `HORIZONTE_ATIVACAO_DIAS`) na demonstração, em produção e na
+ * prévia da tela. A prévia antiga contava "6 faturas" e vencia 5 dias depois:
+ * mostrava datas que nenhum dos dois caminhos criava.
+ */
+export function projetarProximasFaturas(r: Recorrencia, n = 6, inicioISO?: string): FaturaPrevista[] {
   const valor = totalFatura(r);
-  const meses = mesesDe(r.ciclo);
-  const base = new Date(); base.setHours(0, 0, 0, 0);
-  const out: FaturaPrevista[] = [];
-  for (let i = 1; i <= n; i++) {
-    const d = new Date(base);
-    if (meses < 1) d.setDate(d.getDate() + Math.round(meses * 30) * i);
-    else { d.setMonth(d.getMonth() + meses * i); d.setDate(Math.min(r.diaFaturamento || d.getDate(), 28)); }
-    const venc = new Date(d); venc.setDate(venc.getDate() + 5);
-    out.push({ data: isoDay(d), vencimento: isoDay(venc), valor, periodo: d.toLocaleString("pt-BR", { month: "short", year: "2-digit" }) });
-  }
-  return out;
+  const hoje = isoDay(new Date());
+  return datasFaturaCron(inicioISO ?? r.inicio ?? hoje, cicloParaFreq(r.ciclo), r.diaFaturamento, hoje, HORIZONTE_ATIVACAO_DIAS)
+    .slice(0, n)
+    .map((d) => ({ data: d, vencimento: d, valor, periodo: periodoDe(d) }));
 }
 
 // ---------- Ações ----------
@@ -154,30 +159,49 @@ export async function criarRecorrencia(n: NovaRecorrencia): Promise<Recorrencia>
     return r;
   }
   // live: persiste o rascunho com itens jsonb + freq REAL (7 ciclos).
-  const { data } = await createClient().from("recurrences").insert({
+  // ⚠️ A recusa do banco SOBE com a mensagem dele. Antes ela era ignorada e a
+  // função devolvia um `rec-<agora>` local: a tela dizia "criada como
+  // rascunho" sem nada gravado, e ativar esse id não achava linha nenhuma.
+  const { data, error } = await createClient().from("recurrences").insert({
     party_id: /^[0-9a-f-]{36}$/i.test(n.clienteId) ? n.clienteId : null, type: "entrada",
     description: n.titulo, amount: totalFatura({ itens }), freq: cicloParaFreq(n.ciclo),
     start_date: isoDay(new Date()), due_day: n.diaFaturamento, active: false, itens,
   }).select("id,party_id,description,amount,freq,start_date,due_day,active,itens,created_at").single();
-  const saved = data ? fromRow({ ...(data as RecRow), parties: { name: n.clienteNome } }) : null;
-  const r = saved ?? { id: `rec-${Date.now()}`, ...n, itens, status: "rascunho" as StatusRec, movimentos: [], criadoEm: new Date().toISOString() };
+  if (error) throw new Error(`O banco recusou a assinatura: ${error.message}`);
+  if (!data) throw new Error("O banco não devolveu a assinatura gravada.");
+  const r = fromRow({ ...(data as RecRow), parties: { name: n.clienteNome } });
   r.clienteNome = n.clienteNome; r.status = "rascunho";
   cache = [r, ...(cache ?? [])];
   return r;
 }
 
-/** Ativa o contrato → materializa as faturas (mesmas datas do Cron, dedup garantido). */
-export async function ativarRecorrencia(id: string): Promise<void> {
+/** O que a ativação lançou — a tela diz o número, não "entram no previsto". */
+export interface ResultadoAtivacao { faturas: number; horizonteDias: number }
+
+/**
+ * Ativa o contrato → materializa as faturas (mesmas datas do Cron, dedup
+ * garantido).
+ *
+ * ⚠️ Em produção cada passo LANÇA com a mensagem do banco. Antes: o `update`
+ * de `active` ignorava o erro; sem conta bancária nenhuma fatura era criada,
+ * calado; e qualquer recusa de fatura que não fosse a duplicata (23505) caía
+ * num `continue` — a tela dizia "Ativada — próximas faturas entram no
+ * previsto" com ZERO faturas.
+ */
+export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> {
   await hydrateRecorrencias();
   const list = cache ?? [];
   const r = list.find((x) => x.id === id);
-  if (!r || r.status === "ativa") return;
+  if (!r) throw new Error("Assinatura não encontrada — recarregue a tela.");
+  if (r.status === "ativa") return { faturas: 0, horizonteDias: HORIZONTE_ATIVACAO_DIAS };
+  const hoje = isoDay(new Date());
 
   if (isDemo) {
-    const faturas = projetarProximasFaturas(r, 6);
+    const ja = new Set((importedMovements() ?? []).filter((m) => m.id.startsWith(`${r.id}-fat`)).map((m) => m.due_date));
     const ids: string[] = [];
-    faturas.forEach((f, i) => {
-      const mid = `${r.id}-fat${i}`;
+    for (const f of projetarProximasFaturas(r, Number.MAX_SAFE_INTEGER, hoje)) {
+      if (ja.has(f.vencimento)) continue;
+      const mid = `${r.id}-fat-${f.vencimento}`;
       appendImported({ movement: {
         id: mid, account_id: "", type: "entrada", status: "pendente",
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
@@ -186,56 +210,67 @@ export async function ativarRecorrencia(id: string): Promise<void> {
         reference_code: refFatura(r.id, f.vencimento),
       } as Movement });
       ids.push(mid);
-    });
-    r.movimentos = ids; r.projetadas = ids.length; r.status = "ativa";
+    }
+    r.movimentos = [...r.movimentos, ...ids]; r.projetadas = r.movimentos.length;
+    r.inicio = hoje; r.status = "ativa";
     saveLocal([...list]);
-    return;
+    return { faturas: ids.length, horizonteDias: HORIZONTE_ATIVACAO_DIAS };
   }
 
   const supabase = createClient();
-  await supabase.from("recurrences").update({ active: true }).eq("id", r.id);
+  // Sem conta a fatura não tem onde cair: RECUSA a ativação dizendo por quê,
+  // antes de marcar a assinatura como ativa.
   const accId = await primeiraContaAtiva(supabase);
-  if (accId) {
-    // Faturas nas MESMAS datas do Cron; idempotência GARANTIDA pelo índice único
-    // parcial (insere; ignora 23505). Race-safe entre ativar e o Cron.
-    const datas = datasFaturaCron(isoDay(new Date()), cicloParaFreq(r.ciclo), r.diaFaturamento, isoDay(new Date()), 180);
-    for (const d of datas) {
-      const { error } = await supabase.from("movements").insert({
-        // ⚠️ ONDA 5: fatura de recorrência vem de CONTRATO.
-        origem: "contrato" as const,
-        account_id: accId, type: "entrada", situacao: "previsto",
-        category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
-        amount: totalFatura(r), party_id: r.clienteId || null, due_date: d, paid_date: null,
-        reconciled: false, description: r.titulo, reference_code: refFatura(r.id, d),
-      });
-      if (!error || error.code === "23505") continue;
-    }
+  if (!accId) {
+    throw new Error("Não há conta bancária ativa: as faturas não têm onde cair. Cadastre uma conta e ative de novo.");
+  }
+  const { error: eAtiva } = await supabase.from("recurrences").update({ active: true }).eq("id", r.id);
+  if (eAtiva) throw new Error(`O banco recusou ativar a assinatura: ${eAtiva.message}`);
+
+  // Faturas nas MESMAS datas do Cron; idempotência GARANTIDA pelo índice único
+  // parcial (a duplicata 23505 é a única recusa que significa "já existe").
+  const datas = datasFaturaCron(hoje, cicloParaFreq(r.ciclo), r.diaFaturamento, hoje, HORIZONTE_ATIVACAO_DIAS);
+  let gravadas = 0;
+  for (const d of datas) {
+    const { error } = await supabase.from("movements").insert({
+      // ⚠️ ONDA 5: fatura de recorrência vem de CONTRATO.
+      origem: "contrato" as const,
+      account_id: accId, type: "entrada", situacao: "previsto",
+      category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
+      amount: totalFatura(r), party_id: r.clienteId || null, due_date: d, paid_date: null,
+      reconciled: false, description: r.titulo, reference_code: refFatura(r.id, d),
+    });
+    if (!error) { gravadas++; continue; }
+    if (error.code === "23505") continue;
+    // Desfaz a marca de ativa: uma assinatura "ativa" sem as faturas dela é o
+    // estado que a tela não sabe explicar. As já gravadas ficam (o índice
+    // único impede que a próxima tentativa as duplique).
+    const { error: eVolta } = await supabase.from("recurrences").update({ active: false }).eq("id", r.id);
+    if (eVolta) reportar("financeiro.recorrencias", eVolta, "assinatura ficou ativa sem todas as faturas", true);
+    throw new Error(
+      `O banco recusou a fatura de ${d.split("-").reverse().join("/")}: ${error.message}. A assinatura não foi ativada`
+      + (gravadas ? ` (${gravadas} fatura${gravadas === 1 ? "" : "s"} já gravada${gravadas === 1 ? "" : "s"} não se repete${gravadas === 1 ? "" : "m"} ao tentar de novo).` : "."),
+    );
   }
   r.status = "ativa";
   cache = [...list];
+  return { faturas: gravadas, horizonteDias: HORIZONTE_ATIVACAO_DIAS };
 }
 
-/** Roll-forward demo (o Cron cobre o live). */
+/** Roll-forward demo (o Cron cobre o live). Mesmo horizonte e mesmas datas da ativação. */
 export async function rolarRecorrencias(): Promise<number> {
   if (!isDemo) { await hydrateRecorrencias(); return 0; } // live: Cron /api/recorrencias/run
   const list = loadLocal();
   const movs = importedMovements() ?? [];
-  const hoje = isoDay(new Date());
   let novas = 0;
   for (const r of list) {
     if (r.status !== "ativa") continue;
-    const futuras = movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente" && m.due_date >= hoje).length;
-    if (futuras >= 3) continue;
-    const projetadas = r.projetadas ?? r.movimentos.length;
-    // Dedup por vencimento: projetarProximasFaturas parte SEMPRE de hoje e cobre
-    // 6 meses, sobrepondo as faturas pendentes que ainda restam. Sem isto, o
-    // top-up cria uma 2ª fatura (id novo) p/ o mesmo mês → MRR/recebíveis em dobro.
-    const jaTem = new Set(
-      movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente").map((m) => m.due_date),
-    );
-    projetarProximasFaturas(r, 6).forEach((f, k) => {
-      if (jaTem.has(f.vencimento)) return; // já há fatura pendente p/ esse vencimento
-      const mid = `${r.id}-fat${projetadas + k}`;
+    // Dedup por vencimento contra TODAS as faturas da assinatura (inclusive as
+    // recebidas): um mês já recebido não ganha uma segunda fatura.
+    const jaTem = new Set(movs.filter((m) => m.id.startsWith(`${r.id}-fat`)).map((m) => m.due_date));
+    for (const f of projetarProximasFaturas(r, Number.MAX_SAFE_INTEGER)) {
+      if (jaTem.has(f.vencimento)) continue;
+      const mid = `${r.id}-fat-${f.vencimento}`;
       appendImported({ movement: {
         id: mid, account_id: "", type: "entrada", status: "pendente",
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
@@ -245,8 +280,8 @@ export async function rolarRecorrencias(): Promise<number> {
       } as Movement });
       r.movimentos.push(mid); novas++;
       jaTem.add(f.vencimento);
-    });
-    r.projetadas = projetadas + 6;
+    }
+    r.projetadas = r.movimentos.length;
   }
   if (novas) saveLocal([...list]);
   return novas;
@@ -257,26 +292,39 @@ export async function encerrarRecorrencia(id: string, status: "pausada" | "cance
   const list = cache ?? [];
   const r = list.find((x) => x.id === id);
   if (!r) return;
+  const hoje = isoDay(new Date());
   if (isDemo) {
-    if (r.movimentos.length) removerImported(r.movimentos);
-    r.movimentos = []; r.status = status;
+    // ⚠️ Só as pendentes de hoje em diante — a MESMA regra da consulta de
+    // produção. Antes saíam TODAS, inclusive as já recebidas: pausar desfazia
+    // caixa que entrou.
+    const doDataset = (importedMovements() ?? []).filter((m) => r.movimentos.includes(m.id));
+    const sair = faturasARemoverAoEncerrar(doDataset, hoje);
+    if (sair.length) removerImported(sair);
+    r.movimentos = r.movimentos.filter((mid) => !sair.includes(mid)); r.status = status;
     saveLocal([...list]);
     return;
   }
   const s = createClient();
-  await s.from("recurrences").update({ active: false }).eq("id", r.id);
+  const { error: eInativa } = await s.from("recurrences").update({ active: false }).eq("id", r.id);
+  if (eInativa) throw new Error(`O banco recusou ${status === "cancelada" ? "cancelar" : "pausar"} a assinatura: ${eInativa.message}`);
   // remove faturas FUTURAS pendentes desta recorrência (não toca o já realizado)
   // ⚠️ Precisa dos ids: a exclusão lógica é por registro, porque é ela que
   // grava o "antes" de cada fatura. Um update em massa deixaria uma trilha
   // dizendo "algo mudou em N linhas", que não responde nada sobre UMA delas.
-  const { data: futuras } = await semAmostra(s.from("movements").select("id"))
+  const { data: futuras, error: eFuturas } = await semAmostra(s.from("movements").select("id"))
     .like("reference_code", `rec:${r.id}:%`).eq("status", "pendente")
-    .gte("due_date", isoDay(new Date())).limit(TETO_LINHAS);
+    .gte("due_date", hoje).limit(TETO_LINHAS);
+  if (eFuturas) throw new Error(`A assinatura foi ${status}, mas as faturas futuras não puderam ser lidas: ${eFuturas.message}`);
   const { excluirLogicoEmLote } = await import("@/lib/exclusao");
-  await excluirLogicoEmLote("movements", (futuras ?? []).map((x: { id: string }) => String(x.id)),
+  const { falhas } = await excluirLogicoEmLote("movements", (futuras ?? []).map((x: { id: string }) => String(x.id)),
     `Recorrência ${status === "cancelada" ? "cancelada" : "pausada"}`);
   r.status = status;
   cache = [...list];
+  // A assinatura já está inativa; o que falhou foi tirar faturas do previsto.
+  // Calar isso deixaria receita prevista de um contrato encerrado no fluxo.
+  if (falhas.length) {
+    throw new Error(`A assinatura foi ${status}, mas ${falhas.length} fatura${falhas.length === 1 ? "" : "s"} futura${falhas.length === 1 ? "" : "s"} não saíram do previsto: ${falhas[0].erro}`);
+  }
 }
 
 export function clearRecorrencias(): void { saveLocal([]); }
