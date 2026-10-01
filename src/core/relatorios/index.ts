@@ -18,7 +18,7 @@
  * Puro, tipado, demo-safe. Versão relatorios/1.0.0.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
-import { dataDe, ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
+import { dataDe, ehTransferenciaEntreContas, liquidado, assinado } from "@/core/indicadores/convencoes";
 
 import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
@@ -333,11 +333,26 @@ export const ESTRUTURA_DFC: LinhaEstrutura[] = [
     casa: (m) => ehFinanceiro(m),
   },
   {
+    /*
+     * ⚠️ **A TRANSFERÊNCIA NÃO É RESULTADO, MAS É CAIXA DE CADA CONTA.** No DRE
+     * ela é a ausência de linha (`foraDoDre`). No DFC ela sumia do mesmo jeito,
+     * e o fluxo de UMA conta deixava de fechar: R$ 777 que saíram do Itaú para
+     * o Inter mexem nos dois saldos, e sem esta linha o "Saldo Final" do DFC
+     * filtrado pela conta não batia com o saldo da conta. Na visão de todas as
+     * contas as duas pernas se anulam aqui, e o total não muda.
+     */
+    id: "transferencias_entre_contas", label: "Transferências entre contas", tipo: "soma", sinal: "+/-", nivel: 1,
+    entra:
+      "Dinheiro que só mudou de conta dentro da empresa. Somando todas as contas as duas pernas se anulam; olhando uma conta só, é caixa que entrou ou saiu dela.",
+    casa: () => false,
+  },
+  {
     id: "fluxo_liquido", label: "Fluxo de Caixa Líquido", tipo: "total", sinal: "=", nivel: 1,
     formula: [
       { id: "fluxo_operacional", sinal: 1 },
       { id: "fluxo_investimento", sinal: 1 },
       { id: "fluxo_financiamento", sinal: 1 },
+      { id: "transferencias_entre_contas", sinal: 1 },
     ],
   },
   { id: "saldo_final", label: "Saldo Final", tipo: "total", sinal: "=", nivel: 1, formula: [] },
@@ -557,10 +572,12 @@ export function montarRelatorio(
     // e a de saída, Despesa Operacional: o resultado fechava, e o faturamento
     // subia pelo valor que só mudou de conta. Uma declaração explícita para
     // OUTRA linha continua vencendo.
-    if (declarada === LINHA_TRANSFERENCIA || (!declarada && ehTransferenciaEntreContas(m.category))) {
+    const ehTransf = declarada === LINHA_TRANSFERENCIA || (!declarada && ehTransferenciaEntreContas(m.category));
+    const linhaTransf = ehTransf ? estrutura.find((l) => l.id === "transferencias_entre_contas") : undefined;
+    if (ehTransf && !linhaTransf) {
       foraDoDre[m.id] = "transferencia"; continue;
     }
-    const linha = (declarada
+    const linha = linhaTransf ?? (declarada
       ? estrutura.find((l) => l.id === declarada && l.tipo === "soma")
       : undefined)
       ?? estrutura.find((l) => l.tipo === "soma" && l.casa?.(m));
@@ -647,7 +664,7 @@ export function montarRelatorio(
   const PISO_BASE = 0.01; // 1% da média do período
   const baseUsavel = (k: number) => Math.abs(base[k] ?? 0) >= mediaBase * PISO_BASE && base[k] !== 0;
 
-  const montaCelulas = (valores: number[], movsIds: string[][], acumulado: boolean): {
+  const montaCelulas = (valores: number[], movsIds: string[][], acumulado: boolean | "inicio"): {
     celulas: Celula[]; total: Celula; media: Celula;
   } => {
     const celulas = valores.map((v, k) => ({
@@ -660,10 +677,16 @@ export function montarRelatorio(
         : null,
       movimentos: movsIds[k],
     }));
-    // Saldo (acumulado) não se soma: o "total" é a última posição.
-    const somaTotal = acumulado
-      ? (valores[valores.length - 1] ?? 0)
-      : valores.reduce((s, v) => s + v, 0);
+    // Saldo (acumulado) não se soma. ⚠️ E as duas posições NÃO têm o mesmo
+    // "total": o SALDO INICIAL do período é o da PRIMEIRA coluna, o FINAL é o
+    // da última. Usar a última para os dois punha no Total o saldo inicial do
+    // ÚLTIMO mês, e a identidade da coluna — inicial + fluxo líquido = final —
+    // deixava de fechar justamente na coluna que o contador confere primeiro.
+    const somaTotal = acumulado === "inicio"
+      ? (valores[0] ?? 0)
+      : acumulado
+        ? (valores[valores.length - 1] ?? 0)
+        : valores.reduce((s, v) => s + v, 0);
     return {
       celulas,
       total: {
@@ -681,7 +704,7 @@ export function montarRelatorio(
   };
 
   const linhas: LinhaRelatorio[] = estrutura.map((l) => {
-    const acumulado = l.id === "saldo_inicial" || l.id === "saldo_final";
+    const acumulado = l.id === "saldo_inicial" ? "inicio" as const : l.id === "saldo_final";
     const valores = valorDe.get(l.id) ?? colunas.map(() => 0);
     const movsIds = movsPorLinha.get(l.id) ?? colunas.map(() => []);
     const c = montaCelulas(valores, movsIds, acumulado);
@@ -718,11 +741,48 @@ export const montarDRE = (input: RiskInput, f: Omit<FiltroRelatorio, "regime">):
  * partir do início do intervalo — a mesma técnica do painel financeiro, para os
  * dois fecharem no mesmo número.
  */
-export function montarDFC(input: RiskInput, f: Omit<FiltroRelatorio, "regime">): Relatorio {
+export function montarDFC(
+  input: RiskInput,
+  f: Omit<FiltroRelatorio, "regime">,
+  /**
+   * O saldo de HOJE do recorte. Obrigatório quando há filtro de conta: o
+   * `saldoAtual` do input é o de TODAS as contas, e partir dele com o fluxo de
+   * UMA conta dava um "Saldo Final" que não era o saldo de conta nenhuma.
+   */
+  saldoHojeDoRecorte?: number,
+): Relatorio {
+  const ff: FiltroRelatorio = { ...f, regime: "caixa" };
+  /*
+   * ⚠️ **Recorte por PROJETO ou CENTRO não tem saldo.** Saldo é posição de uma
+   * CONTA; um projeto não tem conta bancária. Partir do saldo da empresa e
+   * somar o fluxo de um projeto produzia um "Saldo Final" que não existe em
+   * extrato nenhum, com a mesma cara de um conferido. As duas linhas de saldo
+   * saem do relatório nesse recorte — o fluxo continua inteiro.
+   */
+  if (f.projeto || f.centro) {
+    return montarRelatorio(input, ESTRUTURA_DFC.filter((l) => l.id !== "saldo_inicial" && l.id !== "saldo_final"), ff);
+  }
+  const base = f.conta ? (saldoHojeDoRecorte ?? null) : input.saldoAtual;
+  if (base == null) {
+    return montarRelatorio(input, ESTRUTURA_DFC.filter((l) => l.id !== "saldo_inicial" && l.id !== "saldo_final"), ff);
+  }
+  return montarRelatorio(input, ESTRUTURA_DFC, ff, saldoInicialDoPeriodo(input, f.intervalo.de, base, f.conta ?? null));
+}
+
+/**
+ * O saldo no INÍCIO do dia `de`, reconstruído do saldo de hoje desfazendo tudo
+ * o que foi liquidado a partir dele — inclusive depois do fim do intervalo,
+ * senão um intervalo que termina no passado partiria do saldo errado.
+ *
+ * Usa as convenções canônicas (`liquidado`, `dataDe(m, "caixa")`, `assinado`)
+ * para cair exatamente na mesma data que a coluna do DFC usa.
+ */
+export function saldoInicialDoPeriodo(input: RiskInput, de: string, saldoHoje: number, conta: string | null = null): number {
   const depois = input.movements
-    .filter((m) => m.status === "pago" && (m.paid_date || m.due_date || "").slice(0, 10) >= f.intervalo.de)
-    .reduce((s, m) => s + (m.type === "entrada" ? m.amount : -m.amount), 0);
-  return montarRelatorio(input, ESTRUTURA_DFC, { ...f, regime: "caixa" }, round2(input.saldoAtual - depois));
+    .filter((m) => liquidado(m) && (!conta || m.accountId === conta))
+    .filter((m) => { const d = dataDe(m, "caixa"); return !!d && d >= de; })
+    .reduce((s, m) => s + assinado(m), 0);
+  return round2(saldoHoje - depois);
 }
 
 /* ============================== consolidado ============================== */
@@ -731,6 +791,8 @@ export interface EntidadeRelatorio { id: string; nome: string; input: RiskInput 
 
 export interface RelatorioConsolidado {
   colunas: string[];
+  /** O conjunto UNIDO (ids prefixados por empresa) — a fonte do drill-down. */
+  unido: RiskInput;
   /** Uma coluna extra por empresa, além do consolidado. */
   empresas: { id: string; nome: string; relatorio: Relatorio }[];
   consolidado: Relatorio;
@@ -854,10 +916,31 @@ export function montarConsolidado(
     partyNames: Object.assign({}, ...usadas.map((e) => e.input.partyNames ?? {})),
     horizonDias: 60,
   };
+  /*
+   * ⚠️ **O DFC consolidado partia de saldo NENHUM.** `montarRelatorio` só
+   * monta as linhas de saldo quando recebe o saldo inicial, e aqui ninguém o
+   * passava: Saldo Inicial e Saldo Final saíam R$ 0,00 em todas as colunas — a
+   * mesma cara de um grupo sem dinheiro nenhum. O inicial do grupo é a soma do
+   * inicial de cada empresa, cada um reconstruído do saldo de hoje dela.
+   */
+  const ehDFC = estrutura.some((l) => l.id === "saldo_inicial");
+  // ⚠️ A fonte por organização (`org_movements`) traz só os lançamentos DA
+  // JANELA. Reconstruir o saldo inicial exige desfazer TUDO o que foi
+  // liquidado desde o início do período até hoje — com a janela terminando no
+  // passado, o que caiu depois dela não está no input e o saldo sairia errado
+  // com cara de certo. Nesse caso as linhas de saldo saem do relatório.
+  const hojeGrupo = usadas[0]?.input.hoje ?? "";
+  const semSaldo = ehDFC && (f.projeto || f.centro || f.conta || f.intervalo.ate < hojeGrupo);
+  const est = semSaldo ? estrutura.filter((l) => l.id !== "saldo_inicial" && l.id !== "saldo_final") : estrutura;
+  const inicialDe = (i: RiskInput) => (ehDFC && !semSaldo ? saldoInicialDoPeriodo(i, f.intervalo.de, i.saldoAtual) : undefined);
+  const inicialGrupo = ehDFC && !semSaldo
+    ? round2(usadas.reduce((s, e) => s + (inicialDe(e.input) ?? 0), 0))
+    : undefined;
   return {
     colunas: mesesDoIntervalo(f.intervalo),
-    empresas: usadas.map((e) => ({ id: e.id, nome: e.nome, relatorio: montarRelatorio(e.input, estrutura, f) })),
-    consolidado: montarRelatorio(unido, estrutura, f),
+    empresas: usadas.map((e) => ({ id: e.id, nome: e.nome, relatorio: montarRelatorio(e.input, est, f, inicialDe(e.input)) })),
+    consolidado: montarRelatorio(unido, est, f, inicialGrupo),
+    unido,
     eliminacoes,
   };
 }
@@ -898,12 +981,19 @@ const valorLinha = (r: Relatorio, id: string, col: number) =>
 export function montarFechamento(
   input: RiskInput,
   cfg: { mes: string; ano: number; comparativo: 3 | 6 | 12; emitidoPor: string; cargo: string },
+  /**
+   * A linha declarada de cada categoria — a MESMA que o DRE recebe. Sem ela o
+   * relatório de fechamento classificava pelo palpite e assinava, como
+   * "fotografia do mês", uma cascata diferente da que o DRE mostra.
+   */
+  linhaPorCategoria?: Record<string, string>,
 ): Fechamento {
   const mesRef = `${cfg.ano}-${pad(Number(cfg.mes))}`;
   const inicio = deslocarMes(mesRef, -(cfg.comparativo - 1));
   const relatorio = montarDRE(input, {
     intervalo: { de: `${inicio}-01`, ate: fimDoMes(mesRef) },
     tipo: "vertical",
+    linhaPorCategoria,
   });
   const ultima = relatorio.colunas.length - 1;
   const anterior = ultima - 1;

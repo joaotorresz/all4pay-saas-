@@ -6661,5 +6661,147 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
 }
 
+/* ── CONTABILIDADE E RELATÓRIOS ── */
+{
+  const fsC = await import("node:fs");
+  const { conciliarCaixaDoRazao } = await import("@/core/ledger/conciliacao");
+  const { lancamentosDeMovimentos } = await import("@/core/ledger/chart");
+  const { montarDFC, montarDRE, montarConsolidado, ESTRUTURA_DRE: EDRE, ESTRUTURA_DFC: EDFC, saldoInicialDoPeriodo } = await import("@/core/relatorios");
+  const { analisarVariacao } = await import("@/core/variacao");
+  const { movimentosDaContaNoMes, montarLancamentosDominio } = await import("@/core/contabilidade");
+  const { postarLancamento, validarPostagem } = await import("@/lib/ledger");
+
+  const mv = (id: string, type: "entrada" | "saida", amount: number, d: string, extra: Partial<RiskMovement> = {}): RiskMovement => ({
+    id, type, amount, status: "pago", due_date: d, paid_date: d, party_id: null,
+    category: type === "entrada" ? "Vendas" : "Fornecedores", ...extra,
+  } as RiskMovement);
+  const movsC: RiskMovement[] = [
+    mv("c1", "entrada", 1000, "2026-08-05", { accountId: "A" }),
+    mv("c2", "saida", 300, "2026-08-10", { accountId: "B" }),
+    mv("c3", "entrada", 500, "2026-09-05", { accountId: "A" }),
+    mv("c4", "saida", 200, "2026-09-12", { accountId: "A", category: "Aluguel" }),
+    // transferência A → B
+    mv("t1", "saida", 150, "2026-09-15", { accountId: "A", category: "Transferência entre contas" }),
+    mv("t2", "entrada", 150, "2026-09-15", { accountId: "B", category: "Transferência entre contas" }),
+    { ...mv("p1", "entrada", 999, "2026-09-28", { accountId: "A" }), status: "pendente", paid_date: null } as RiskMovement,
+  ];
+  const inpC: RiskInput = { hoje: "2026-09-30", saldoAtual: 10000, movements: movsC, partyNames: {} } as RiskInput;
+  // saldo de cada conta hoje: A 6000, B 4000
+  const saldoA = 6000;
+
+  // 1. O caixa do razão é o do balancete, e as parcelas somam a diferença.
+  const derivados = lancamentosDeMovimentos(inpC).map((e) => ({
+    externalKey: e.externalKey, linhas: e.lines.map((l) => ({ conta: l.accountId, debito: l.debit ?? 0, credito: l.credit ?? 0 })),
+  }));
+  const manual = { externalKey: "man:1", linhas: [{ conta: "4.1.09", debito: 80, credito: 0 }, { conta: "1.1.01", debito: 0, credito: 80 }] };
+  const conc = conciliarCaixaDoRazao([...derivados, manual], inpC);
+  const caixaBalancete = [...derivados, manual].flatMap((e) => e.linhas).filter((l) => l.conta === "1.1.01").reduce((s, l) => s + l.debito - l.credito, 0);
+  ok("contabil: o 'caixa no razão' é o saldo da conta 1.1.01 do balancete (era liquidados + PREVISTOS)",
+     Math.abs(conc.caixaRazao - caixaBalancete) < 0.005 && Math.abs(conc.caixaRazao - (1000 - 300 + 500 - 200 - 150 + 150 - 80)) < 0.005, `${conc.caixaRazao}`);
+  ok("contabil: o título previsto NÃO é parcela da diferença (fica como informativo)",
+     !conc.parcelas.some((p) => Math.abs(p.valor - 999) < 0.005 || Math.abs(p.valor + 999) < 0.005) && Math.abs(conc.previstosForaDoRazao + 999) < 0.005);
+  ok("contabil: as parcelas SOMAM a diferença extrato − razão",
+     Math.abs(conc.parcelas.reduce((s, p) => s + p.valor, 0) - conc.diferenca) < 0.005);
+  ok("contabil: o lançamento próprio no caixa é parcela nomeada (+80)",
+     Math.abs((conc.parcelas.find((p) => p.id === "proprios")?.valor ?? 0) - 80) < 0.005);
+  ok("contabil: sem abertura verificada não há 'fecha' (a abertura fecha por construção)", conc.fecha === false && conc.residuo === 0);
+  const ver = conciliarCaixaDoRazao(derivados, { ...inpC, aberturaVerificada: { valor: 8000, data: "2026-08-01", origem: "extrato_bancario" } } as RiskInput);
+  // extrato 10000 = 8000 + liquidado 1000 + resíduo 1000
+  ok("contabil: com abertura verificada o resíduo é MEDIDO (R$ 1.000 que nada explica)", Math.abs(ver.residuo - 1000) < 0.005 && !ver.fecha, `${ver.residuo}`);
+
+  // 2. O DFC fecha na coluna Total e por conta.
+  const intC = { de: "2026-08-01", ate: "2026-09-30" };
+  const lin = (r: { linhas: { id: string; total: { valor: number }; celulas: { valor: number }[] }[] }, id: string) => r.linhas.find((l) => l.id === id);
+  const dfc = montarDFC(inpC, { intervalo: intC, tipo: "vertical" });
+  const si = lin(dfc, "saldo_inicial")!, fl = lin(dfc, "fluxo_liquido")!, sf = lin(dfc, "saldo_final")!;
+  ok("dfc: o Total do Saldo Inicial é o do PRIMEIRO mês (era o do último)", Math.abs(si.total.valor - si.celulas[0].valor) < 0.005 && si.celulas[0].valor !== si.celulas[1].valor);
+  ok("dfc: na coluna Total, inicial + fluxo líquido = final = saldo das contas",
+     Math.abs(si.total.valor + fl.total.valor - sf.total.valor) < 0.005 && Math.abs(sf.total.valor - 10000) < 0.005, `${si.total.valor}+${fl.total.valor}=${sf.total.valor}`);
+  const dfcA = montarDFC(inpC, { intervalo: intC, tipo: "vertical", conta: "A" }, saldoA);
+  const sfA = lin(dfcA, "saldo_final")!, siA = lin(dfcA, "saldo_inicial")!, flA = lin(dfcA, "fluxo_liquido")!;
+  ok("dfc: recortado por conta, o saldo final é o saldo DESSA conta (partia do saldo da empresa)",
+     Math.abs(sfA.total.valor - saldoA) < 0.005 && Math.abs(siA.total.valor + flA.total.valor - sfA.total.valor) < 0.005, `${sfA.total.valor}`);
+  ok("dfc: a transferência é caixa da conta (linha própria) e se anula no total",
+     Math.abs((lin(dfcA, "transferencias_entre_contas")?.total.valor ?? 0) + 150) < 0.005
+     && Math.abs(lin(dfc, "transferencias_entre_contas")?.total.valor ?? 1) < 0.005);
+  ok("dfc: com conta e sem o saldo da conta, as linhas de saldo saem (não inventa saldo)",
+     !lin(montarDFC(inpC, { intervalo: intC, tipo: "vertical", conta: "A" }), "saldo_inicial"));
+  ok("dfc: recorte por projeto não tem linha de saldo",
+     !lin(montarDFC(inpC, { intervalo: intC, tipo: "vertical", projeto: "X" }), "saldo_final"));
+  ok("dfc: o saldo inicial desfaz o liquidado DEPOIS do fim da janela também",
+     saldoInicialDoPeriodo(inpC, "2026-09-01", 10000) === 10000 - (500 - 200 - 150 + 150));
+
+  // 3. Consolidado: o DFC tem saldo, fecha, e o DRE consolidado de uma empresa é o DRE dela.
+  const outra: RiskInput = { hoje: "2026-09-30", saldoAtual: 2000, movements: [mv("o1", "entrada", 700, "2026-09-03")], partyNames: {} } as RiskInput;
+  const consDfc = montarConsolidado([{ id: "a", nome: "A", input: inpC }, { id: "b", nome: "B", input: outra }], EDFC, { intervalo: intC, tipo: "vertical", regime: "caixa" });
+  const csi = lin(consDfc.consolidado, "saldo_inicial")!, cfl = lin(consDfc.consolidado, "fluxo_liquido")!, csf = lin(consDfc.consolidado, "saldo_final")!;
+  ok("consolidado: o DFC parte do saldo do grupo (saía R$ 0,00) e fecha na soma dos saldos",
+     Math.abs(csf.total.valor - 12000) < 0.005 && Math.abs(csi.total.valor + cfl.total.valor - csf.total.valor) < 0.005, `${csf.total.valor}`);
+  ok("consolidado: janela que termina no passado não inventa saldo",
+     !lin(montarConsolidado([{ id: "a", nome: "A", input: inpC }], EDFC, { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, tipo: "vertical", regime: "caixa" }).consolidado, "saldo_final"));
+  const lpc = { fornecedores: "custos_variaveis" };
+  const so = montarConsolidado([{ id: "a", nome: "A", input: inpC }], EDRE, { intervalo: intC, tipo: "vertical", regime: "competencia", linhaPorCategoria: lpc });
+  const dre1 = montarDRE(inpC, { intervalo: intC, tipo: "vertical", linhaPorCategoria: lpc });
+  ok("consolidado: com a linha declarada, cada linha do DRE multi é a do DRE da empresa",
+     dre1.linhas.every((l) => Math.abs(l.total.valor - (lin(so.consolidado, l.id)?.total.valor ?? NaN)) < 0.005)
+     && (lin(dre1, "custos_variaveis")?.total.valor ?? 0) > 0);
+  const mvw = fsC.readFileSync("src/components/relatorios/MultiempresaView.tsx", "utf8");
+  ok("consolidado: a tela passa a linha declarada e a fonte do drill-down",
+     /linhaPorCategoria,\n\s*\}\);/.test(mvw) && /fonte=\{consolidado\?\.unido\}/.test(mvw) && !/contasFiltro/.test(mvw));
+  ok("consolidado: o unido carrega os ids prefixados que o drill-down procura",
+     consDfc.unido.movements.every((m) => /^(a|b):/.test(m.id)));
+  const dv = fsC.readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("dre: os cartões recebem o MESMO filtro da tabela (só recebiam o intervalo)",
+     /cascataDRE\(input, \{ \.\.\.filtro, regime: "competencia" \}\)/.test(dv) && /linhaPorCategoria \}\}/.test(dv));
+
+  // 4. Variação: os dois lados abrem lançamentos — inclusive a categoria que sumiu.
+  const vInp: RiskInput = { hoje: "2026-09-30", saldoAtual: 0, partyNames: {}, movements: [
+    mv("v1", "entrada", 5000, "2026-08-10"), mv("v2", "entrada", 5000, "2026-09-10"),
+    mv("v3", "saida", 3000, "2026-08-12", { category: "Marketing" }),
+  ] } as RiskInput;
+  const va = analisarVariacao(vInp, "2026-09", { valor: 100, pct: 5 }, {});
+  const mk = va.linhas.flatMap((l) => l.motivos).find((m) => m.categoria === "Marketing");
+  ok("variacao: a categoria que SUMIU tem os lançamentos do mês anterior para abrir",
+     !!mk && mk.movimentos.length === 0 && mk.movimentosAnterior.length === 1 && mk.movimentosAnterior[0] === "v3");
+
+  // 5. Domínio: sem conta não vai a todas as contas; categoria casa sem caixa.
+  const dInp: RiskInput = { hoje: "2026-09-30", saldoAtual: 0, partyNames: {}, movements: [
+    mv("d1", "entrada", 100, "2026-09-02", { accountId: "A", category: "venda" }),
+    mv("d2", "saida", 40, "2026-09-03", { accountId: null as unknown as string, category: "venda" }),
+  ] } as RiskInput;
+  const dA = movimentosDaContaNoMes(dInp, "A", "2026-09", 2), dB = movimentosDaContaNoMes(dInp, "B", "2026-09", 2);
+  ok("dominio: lançamento sem conta não entra no arquivo de NENHUMA conta (entrava em todas) e é listado",
+     dA.movimentos.length === 1 && dB.movimentos.length === 0 && dA.semConta.length === 1);
+  ok("dominio: com uma conta só, o lançamento sem conta é dela",
+     movimentosDaContaNoMes(dInp, "A", "2026-09", 1).movimentos.length === 2);
+  const mont = montarLancamentosDominio(dA.movimentos, { categorias: { Venda: "3.1.01" }, centros: {} });
+  ok("dominio: 'Venda' do plano casa com 'venda' do lançamento (era chave exata → pendência)",
+     mont.linhas.length === 1 && mont.pendencias.length === 0);
+
+  // 6. Razão: a recusa do desbalanceado vale nos DOIS caminhos, e o vivo não engole erro.
+  let recusou = "";
+  try { await postarLancamento({ entryDate: "2026-09-10", lines: [{ accountId: "1.1.01", debit: 500 }, { accountId: "3.1.01", credit: 300 }] }); }
+  catch (e) { recusou = (e as Error).message; }
+  // Aqui `isDemo` é falso e não há Supabase: a recusa tem de vir ANTES de
+  // qualquer rede, com o motivo — um erro de cliente Supabase seria vermelho
+  // pelo motivo errado.
+  ok("razao: o desbalanceado é RECUSADO antes de qualquer gravação, com o motivo", /desbalanceado/i.test(recusou) && !/supabase/i.test(recusou), recusou);
+  const corpoPostar = fsC.readFileSync("src/lib/ledger.ts", "utf8").split("export async function postarLancamento(")[1] ?? "";
+  ok("razao: postarLancamento valida ANTES do ramo da demonstração (a demo gravava qualquer coisa no navegador)",
+     corpoPostar.indexOf("validarPostagem(e)") > 0 && corpoPostar.indexOf("validarPostagem(e)") < corpoPostar.indexOf("if (isDemo)"));
+  let foraPlano = "";
+  try { validarPostagem({ entryDate: "2026-09-10", lines: [{ accountId: "9.9.99", debit: 10 }, { accountId: "3.1.01", credit: 10 }] }); }
+  catch (e) { foraPlano = (e as Error).message; }
+  ok("razao: conta fora do plano é recusada nomeada", /9\.9\.99/.test(foraPlano));
+  const led = fsC.readFileSync("src/lib/ledger.ts", "utf8");
+  const lote = led.slice(led.indexOf("async function postarLiveLote"));
+  ok("razao: a postagem em produção leva o período (sem ele a trava do mês não alcança o razão)", /period_id: periodId/.test(lote));
+  ok("razao: nenhuma recusa do banco é engolida com `continue` mudo", !/if \(e[123][^)]*\) continue;/.test(lote) && (lote.match(/falhar\(/g) ?? []).length >= 4);
+  ok("razao: postarLancamento LANÇA quando o lote volta com falha", /if \(r\.falhas\.length\) throw/.test(led));
+  const ing = led.slice(led.indexOf("export async function ingerirOpenFinanceRazao"), led.indexOf("/* ----------------------------- live helpers"));
+  ok("razao: o Open Finance não posta de novo a transação que já virou movimento (dobrava o caixa)",
+     /!t\.movement_id/.test(ing) && /ok\.has\(t\.pluggy_transaction_id\)/.test(ing));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

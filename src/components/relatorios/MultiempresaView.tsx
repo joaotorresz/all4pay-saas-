@@ -18,7 +18,9 @@
  * que o usuário É MEMBRO, garantido dentro da própria RPC.
  */
 import * as React from "react";
-import { Card, Select, Icon, Skeleton, Checkbox, BRL } from "@/components/ui";
+import { Card, Icon, Skeleton, Checkbox, BRL } from "@/components/ui";
+import { linhasDeCategoria } from "@/lib/registros";
+import { getLinhasDeCategoria } from "@/lib/data";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { getRiscoInputPorOrg } from "@/lib/consolidado";
 import {
@@ -38,7 +40,15 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
   /** null = ainda carregando · false = a RPC não existe (migration pendente). */
   const [fontePorOrg, setFontePorOrg] = React.useState<boolean | null>(null);
   const [selecionadas, setSelecionadas] = React.useState<string[]>([]);
-  const [contasFiltro, setContasFiltro] = React.useState<"ativas" | "todas">("ativas");
+  // ⚠️ A linha declarada de cada categoria — as MESMAS duas fontes do DRE de
+  // uma empresa. Sem elas o consolidado classificava pelo palpite enquanto o
+  // DRE da mesma empresa usava a declaração, e a mesma linha dava dois totais.
+  const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
+  React.useEffect(() => {
+    const local = linhasDeCategoria();
+    setLinhaPorCategoria(local);
+    getLinhasDeCategoria().then((b) => setLinhaPorCategoria({ ...b, ...local })).catch(() => {});
+  }, []);
   const [rascunho, setRascunho] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
   const [aplicados, setAplicados] = React.useState<FiltrosRelatorioValor | null>(null);
   const [layout, setLayout] = React.useState<LayoutTabela>(LAYOUT_PADRAO);
@@ -79,8 +89,9 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
       intervalo: aplicados.intervalo, tipo: aplicados.tipo,
       conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
       regime: tipo === "dre" ? "competencia" : "caixa",
+      linhaPorCategoria,
     });
-  }, [input, aplicados, entidades, selecionadas, tipo]);
+  }, [input, aplicados, entidades, selecionadas, tipo, linhaPorCategoria]);
 
   const titulo = tipo === "dre" ? "DRE Multiempresas" : "DFC Multiempresas";
   const nEmpresas = entidades?.length ?? 0;
@@ -132,17 +143,10 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
                 Empresas ({selecionadas.length}/{nEmpresas} · máx. {MAX_EMPRESAS})
               </span>
             </div>
-            <div className="flex flex-col gap-[6px]">
-              <label className="text-caption font-medium text-muted">Filtrar contas</label>
-              <Select
-                value={contasFiltro}
-                onChange={(v) => setContasFiltro(v as "ativas" | "todas")}
-                options={[
-                  { value: "ativas", label: "Apenas contas ativas" },
-                  { value: "todas", label: "Todas as contas" },
-                ]}
-              />
-            </div>
+            {/* ⚠️ Havia aqui um seletor "Apenas contas ativas × Todas as contas"
+                que não filtrava NADA — o estado nunca chegava ao motor. Um
+                controle que parece filtrar e não filtra é pior que nenhum:
+                quem escolhe conclui que o número abaixo já é o recorte. */}
           </div>
         }
       />
@@ -184,14 +188,40 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
               })}
             </div>
             <p className="m-0 mt-3 text-caption text-faint">
-              {tipo === "dre" ? "Receita bruta" : "Entradas"} de cada empresa no período. Sem eliminações intercompany (v1).
+              {tipo === "dre" ? "Receita bruta" : "Entradas"} de cada empresa no período, antes das eliminações.
             </p>
+            {/* ⚠️ O texto dizia "Sem eliminações intercompany (v1)" enquanto o
+                motor JÁ eliminava os pares entre empresas do grupo: o
+                consolidado saía menor que a soma das partes e a tela afirmava
+                que nada tinha sido tirado. A lista é o que o contador confere. */}
+            {consolidado.eliminacoes.length === 0 ? (
+              <p className="m-0 mt-1 text-caption text-faint">Nenhuma operação entre as empresas selecionadas foi eliminada.</p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-1" data-eliminacoes>
+                <span className="text-caption font-medium text-muted">
+                  {consolidado.eliminacoes.length} operação(ões) entre empresas do grupo eliminada(s) do consolidado
+                </span>
+                {consolidado.eliminacoes.map((e) => (
+                  <div key={`${e.entrada}|${e.saida}`} className="flex items-baseline justify-between gap-3 text-caption">
+                    <span className="text-ink truncate">{e.entre} · {e.competencia.split("-").reverse().join("/")}</span>
+                    <span className="tabular-nums text-ink shrink-0"><BRL value={e.valor} /></span>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
+          {tipo === "dfc" && !consolidado.consolidado.linhas.some((l) => l.id === "saldo_inicial") && (
+            <p className="m-0 text-caption text-faint max-w-[76ch]" role="note">
+              Sem linhas de saldo neste recorte: o saldo do grupo é reconstruído do saldo de hoje de cada
+              empresa, e isso só é possível com o período chegando até hoje e sem filtro de conta, projeto
+              ou centro. O fluxo do período continua inteiro.
+            </p>
+          )}
           <TabelaRelatorio relatorio={consolidado.consolidado} layout={layout} onCelula={setCelula} />
         </>
       )}
 
-      {celula && <GavetaTransacoes celula={celula} onFechar={() => setCelula(null)} />}
+      {celula && <GavetaTransacoes celula={celula} fonte={consolidado?.unido} onFechar={() => setCelula(null)} />}
     </div>
   );
 }

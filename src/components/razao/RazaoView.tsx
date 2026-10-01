@@ -8,15 +8,16 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge, InfoHint, ValorIndicador } from "@/components/ui";
-import { getLedgerEntries, balancete, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
+import { getLedgerEntries, balancete, postarLancamento, estornarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
 import { CAIXA } from "@/core/ledger/chart";
-import { totais } from "@/core/ledger";
+import { totais, r4 } from "@/core/ledger";
+import { conciliarCaixaDoRazao } from "@/core/ledger/conciliacao";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { ErroWidget } from "@/components/visao-geral/shared";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { reconciliarSaldo, saldo } from "@/core/indicadores";
+import { saldo } from "@/core/indicadores";
 import { AppShell } from "@/components/app/AppShell";
 import { baixarXLSX } from "@/lib/xlsx";
 import { imprimirRelatorio } from "@/lib/imprimir";
@@ -37,6 +38,16 @@ const hojeISO = () => hojeLocal();
  */
 const TETO_TELA = 200;
 
+interface LinhaForm { conta: string; lado: "D" | "C"; valor: number }
+const linhasIniciais = (): LinhaForm[] => [
+  { conta: CAIXA, lado: "D", valor: 0 },
+  { conta: "3.1.01", lado: "C", valor: 0 },
+];
+function totaisForm(ls: LinhaForm[]) {
+  const t = totais(ls.map((l) => (l.lado === "D" ? { accountId: l.conta, debit: l.valor } : { accountId: l.conta, credit: l.valor })));
+  return { ...t, balanceado: t.debito > 0 && t.debito === t.credito };
+}
+
 export function RazaoView() {
   const qc = useQueryClient();
   const [entries, setEntries] = React.useState<RazaoLancamento[] | null>(null);
@@ -44,11 +55,17 @@ export function RazaoView() {
   const [msg, setMsg] = React.useState<string | null>(null);
   const [aberto, setAberto] = React.useState<Record<string, boolean>>({});
   const [form, setForm] = React.useState(false);
-  // form manual (2 linhas: débito × crédito)
-  const [dDeb, setDDeb] = React.useState(CAIXA);
-  const [dCred, setDCred] = React.useState("3.1.01");
-  const [valor, setValor] = React.useState(0);
+  /*
+   * ⚠️ **LINHAS, não um par fixo.** O formulário tinha UM débito e UM crédito
+   * com o MESMO campo de valor — impossível desbalancear, e também impossível
+   * fazer o lançamento composto mais comum de um razão (uma despesa paga em
+   * parte no caixa e em parte provisionada). Agora são N linhas, cada uma com
+   * débito OU crédito, e a diferença D − C fica à vista: só posta com zero.
+   */
+  const [linhasForm, setLinhasForm] = React.useState<LinhaForm[]>(linhasIniciais);
   const [data, setData] = React.useState(hojeISO());
+  const [estornando, setEstornando] = React.useState<RazaoLancamento | null>(null);
+  const [motivo, setMotivo] = React.useState("");
   const [desc, setDesc] = React.useState("");
 
   const [erro, setErro] = React.useState<string | null>(null);
@@ -110,26 +127,46 @@ export function RazaoView() {
     try {
       const r = await ingerirOpenFinanceRazao();
       await recarregar();
-      setMsg(r.lidas === 0 && isDemo ? "Open Finance disponível só em live (conecte um banco em Contas)." : `Open Finance: ${r.lidas} lida(s), ${r.postadas} postada(s) no razão.`);
+      setMsg(r.lidas === 0 && isDemo
+        ? "Open Finance disponível só em live (conecte um banco em Contas)."
+        : `Open Finance: ${r.lidas} lida(s) · ${r.jaNoRazao} já estão no razão pelo movimento · ${r.postadas} postada(s) agora`
+          + (r.falhas ? ` · ${r.falhas} recusada(s): ${r.primeiraFalha}` : "") + ".");
     } catch (e) { setMsg(`Falha na importação Open Finance: ${(e as Error).message}`); }
     finally { setBusy(null); }
   };
 
+  const tf = totaisForm(linhasForm);
   const postar = async () => {
-    if (valor <= 0 || dDeb === dCred) { setMsg("Informe um valor e contas diferentes."); return; }
+    const lines = linhasForm
+      .filter((l) => l.valor > 0)
+      .map((l) => (l.lado === "D" ? { accountId: l.conta, debit: l.valor } : { accountId: l.conta, credit: l.valor }));
+    if (lines.length < 2) { setMsg("Um lançamento de dupla entrada tem ao menos uma linha de débito e uma de crédito com valor."); return; }
     setBusy("post"); setMsg(null);
     try {
-      await postarLancamento({
-        entryDate: data, description: desc || "Lançamento manual", source: "manual",
-        lines: [{ accountId: dDeb, debit: valor }, { accountId: dCred, credit: valor }],
-      });
+      // A recusa do desbalanceado mora em `postarLancamento` (os dois caminhos),
+      // não neste botão: a IA e o fechamento postam pela mesma função.
+      await postarLancamento({ entryDate: data, description: desc || "Lançamento manual", source: "manual", lines });
       await recarregar();
-      setForm(false); setValor(0); setDesc("");
-      setMsg("Lançamento postado.");
+      setForm(false); setLinhasForm(linhasIniciais()); setDesc("");
+      setMsg(`Lançamento postado: ${formatBRL(tf.debito)} a débito e a crédito.`);
       await qc.invalidateQueries();
-    } catch (e) { setMsg(`Falha ao postar: ${(e as Error).message}`); }
+    } catch (e) { setMsg(`Lançamento recusado: ${(e as Error).message}`); }
     finally { setBusy(null); }
   };
+
+  const confirmarEstorno = async () => {
+    if (!estornando || !entries) return;
+    setBusy("estorno"); setMsg(null);
+    try {
+      await estornarLancamento(estornando, motivo, entries);
+      await recarregar();
+      setMsg(`Estorno postado: "${estornando.descricao}" foi revertido por partida invertida, com data de hoje.`);
+      setEstornando(null); setMotivo("");
+      await qc.invalidateQueries();
+    } catch (e) { setMsg(`Estorno recusado: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+  const estornados = React.useMemo(() => new Set((entries ?? []).map((e) => e.estornoDe).filter(Boolean) as string[]), [entries]);
 
   const opcoes = PLANO.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }));
 
@@ -181,15 +218,48 @@ export function RazaoView() {
           <Card className="flex flex-col gap-4">
             <span className="text-label font-medium text-muted">Novo lançamento (dupla entrada)</span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select label="Débito (conta)" value={dDeb} onChange={setDDeb} options={opcoes} />
-              <Select label="Crédito (conta)" value={dCred} onChange={setDCred} options={opcoes} />
-              <CurrencyInput label="Valor" value={valor} onValueChange={setValor} />
               <DatePicker label="Data" value={data} onChange={setData} />
-              <Input label="Descrição" value={desc} onChange={(e) => setDesc(e.target.value)} containerClassName="sm:col-span-2" />
+              <Input label="Descrição" value={desc} onChange={(e) => setDesc(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              {linhasForm.map((l, k) => (
+                <div key={k} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_140px_180px_auto] gap-3 items-end" data-linha-lancamento>
+                  <Select label={`Conta da linha ${k + 1}`} value={l.conta} onChange={(v) => setLinhasForm((ls) => ls.map((x, i) => (i === k ? { ...x, conta: v } : x)))} options={opcoes} />
+                  <Select label={`Lado da linha ${k + 1}`} value={l.lado} onChange={(v) => setLinhasForm((ls) => ls.map((x, i) => (i === k ? { ...x, lado: v as "D" | "C" } : x)))}
+                    options={[{ value: "D", label: "Débito" }, { value: "C", label: "Crédito" }]} />
+                  <CurrencyInput label={`Valor da linha ${k + 1}`} value={l.valor} onValueChange={(v) => setLinhasForm((ls) => ls.map((x, i) => (i === k ? { ...x, valor: v } : x)))} />
+                  <Button size="sm" variant="ghost" disabled={linhasForm.length <= 2}
+                    onClick={() => setLinhasForm((ls) => ls.filter((_, i) => i !== k))}>Remover</Button>
+                </div>
+              ))}
+              <div>
+                <Button size="sm" variant="secondary" onClick={() => setLinhasForm((ls) => [...ls, { conta: "4.1.09", lado: "D", valor: 0 }])}
+                  leftIcon={<Icon name="plus" size={14} />}>Adicionar linha</Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-6 flex-wrap text-caption tabular-nums" data-totais-lancamento>
+              <span className="text-muted">Débitos <b className="text-ink"><BRL value={tf.debito} /></b></span>
+              <span className="text-muted">Créditos <b className="text-ink"><BRL value={tf.credito} /></b></span>
+              <span className="text-muted">Diferença <b className="text-ink"><BRL value={r4(tf.debito - tf.credito)} /></b></span>
+              {!tf.balanceado && <StatusBadge tone="warning">Desbalanceado — débitos e créditos têm de ser iguais</StatusBadge>}
             </div>
             <div className="flex items-center gap-2 justify-end">
               <Button size="sm" variant="ghost" onClick={() => setForm(false)}>Cancelar</Button>
               <Button size="sm" onClick={postar} disabled={busy === "post"}>{busy === "post" ? "Postando…" : "Postar (D=C)"}</Button>
+            </div>
+          </Card>
+        )}
+
+        {estornando && (
+          <Card className="flex flex-col gap-3" data-estorno>
+            <span className="text-label font-medium text-ink">Estornar “{estornando.descricao}” ({fmtDia(estornando.data)})</span>
+            <span className="text-caption text-muted max-w-[80ch]">
+              O original fica como está. Entra um lançamento NOVO, com débito e crédito trocados e data de hoje — o par soma zero no balancete.
+            </span>
+            <Input label="Motivo do estorno" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+            <div className="flex items-center gap-2 justify-end">
+              <Button size="sm" variant="ghost" onClick={() => { setEstornando(null); setMotivo(""); }}>Cancelar</Button>
+              <Button size="sm" onClick={confirmarEstorno} disabled={busy === "estorno"}>{busy === "estorno" ? "Estornando…" : "Confirmar estorno"}</Button>
             </div>
           </Card>
         )}
@@ -207,7 +277,7 @@ export function RazaoView() {
           </Card>
         ) : (
           <>
-            <ConciliacaoCaixa />
+            <ConciliacaoCaixa entries={entries} />
 
             {/* Balancete (trial balance) */}
             <Card padded={false}>
@@ -222,17 +292,17 @@ export function RazaoView() {
                 <span className="w-[120px] text-right">Saldo</span>
               </div>
               {bal.map((c, i) => (
-                <div key={c.conta} className={`flex items-center gap-3 px-3 sm:px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
+                <div key={c.conta} data-conta={c.conta} className={`flex items-center gap-3 px-3 sm:px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
                   <span className="flex-1 min-w-0 truncate text-[15px] text-ink">{c.conta} · {c.nome}</span>
                   <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={c.debito} /></span>
                   <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={c.credito} /></span>
-                  <span className="w-[120px] text-right tabular-nums text-ink font-medium"><BRL value={c.saldo} /></span>
+                  <span className="w-[120px] text-right tabular-nums text-ink font-medium" data-saldo><BRL value={c.saldo} /></span>
                 </div>
               ))}
               <div className="flex items-center gap-3 px-5 py-2 border-t border-border-soft text-caption font-medium">
                 <span className="flex-1 text-muted">Totais</span>
-                <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={totDeb} /></span>
-                <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={totCred} /></span>
+                <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink" data-total="debito"><BRL value={totDeb} /></span>
+                <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink" data-total="credito"><BRL value={totCred} /></span>
                 <span className="w-[120px] text-right tabular-nums text-faint">{balanceado ? "0" : <BRL value={totDeb - totCred} />}</span>
               </div>
             </Card>
@@ -241,7 +311,7 @@ export function RazaoView() {
             <Card padded={false}
               info={{ titulo: "Lançamentos", oQue: "Cada registro de dupla entrada do razão, com suas linhas de débito e crédito ao abrir.", comoCalcula: "Reúne os lançamentos projetados dos movimentos mais os manuais, cronogramas e provisões." }}>
               <div className="px-5 py-3 border-b border-border-soft flex items-baseline justify-between gap-3 flex-wrap">
-                <span className="text-label font-medium text-muted">Lançamentos · {entries.length}</span>
+                <span className="text-label font-medium text-muted" data-n-lancamentos={entries.length}>Lançamentos · {entries.length}</span>
                 {/* ⚠️ O corte é DITO. Antes a lista parava no 200 sem nada
                     indicando, e um razão a que faltam linhas não parece
                     quebrado: parece um razão. */}
@@ -266,6 +336,17 @@ export function RazaoView() {
                     </button>
                     {on && (
                       <div className="px-3 sm:px-12 pb-3 pt-1 bg-surface-1/40 flex flex-col gap-1">
+                        {!(e.externalKey ?? "").startsWith("mov:") && (
+                          <div className="flex items-center justify-end gap-2 pb-1" data-nao-imprime>
+                            {e.estornoDe ? (
+                              <span className="text-caption text-faint">Estorno de outro lançamento</span>
+                            ) : estornados.has(e.id) ? (
+                              <span className="text-caption text-faint">Estornado</span>
+                            ) : (
+                              <Button size="sm" variant="secondary" onClick={() => { setEstornando(e); setMotivo(""); }}>Estornar</Button>
+                            )}
+                          </div>
+                        )}
                         {e.linhas.map((l, k) => (
                           <div key={k} className="flex items-center justify-between gap-3 text-caption py-1">
                             <span className="text-muted truncate">{l.conta} · {l.nome}</span>
@@ -299,47 +380,41 @@ export function RazaoView() {
  * O motor é `reconciliarSaldo` (`core/indicadores`), coberto pela matriz de
  * consistência: derivado + previstos + abertura tem de fechar no extrato.
  */
-function ConciliacaoCaixa() {
+function ConciliacaoCaixa({ entries }: { entries: RazaoLancamento[] }) {
   const { data: inp } = useRiscoInput();
-  const rec = React.useMemo(() => (inp ? reconciliarSaldo(inp) : null), [inp]);
+  const rec = React.useMemo(() => (inp ? conciliarCaixaDoRazao(entries, inp) : null), [inp, entries]);
   const saldoCanonico = React.useMemo(() => (inp ? saldo(inp) : null), [inp]);
   if (!rec || !saldoCanonico) return null;
   return (
     <Card
       info={{
         titulo: "Caixa do razão × extrato",
-        oQue: "Por que o saldo que sai dos lançamentos pode não ser o saldo que está na conta.",
+        oQue: "Por que o saldo da conta caixa no razão pode não ser o saldo que está nas contas bancárias.",
         comoCalcula:
-          "O extrato é a autoridade sobre quanto existe. Os lançamentos explicam a VARIAÇÃO desse valor. A diferença entre os dois é a soma de três parcelas: títulos ainda em aberto, o saldo que já existia antes do primeiro lançamento importado, e liquidados sem data.",
+          "O extrato (saldo das contas) é a autoridade sobre quanto existe. O caixa do razão é o saldo da conta 1.1.01 do balancete abaixo. A diferença se decompõe em: saldo que já existia antes do primeiro lançamento, liquidados sem data (fora do razão), lançamentos próprios do razão no caixa, e o resíduo que nada explica.",
       }}
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" data-conciliacao-caixa>
         <span className="text-label font-medium text-muted">Caixa do razão × extrato</span>
         <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
           <div className="flex flex-col">
-            <span className="text-caption text-faint">Saldo no extrato</span>
-            {/* A origem a um clique — e aqui ela responde a pergunta que a
-                própria caixa levanta: de onde sai o número que o razão tem de
-                alcançar. É o extrato que é a autoridade, e o painel diz isso
-                com todas as letras em vez de deixar implícito. */}
-            <span className="text-h3 tabular-nums text-ink">
+            <span className="text-caption text-faint">Saldo das contas (extrato)</span>
+            <span className="text-h3 tabular-nums text-ink" data-valor="extrato">
               <ValorIndicador indicador={saldoCanonico} titulo="Saldo no extrato" />
             </span>
           </div>
           <div className="flex flex-col">
-            <span className="text-caption text-faint">Somando todos os lançamentos</span>
-            <span className="text-h3 tabular-nums text-muted"><BRL value={rec.derivado} /></span>
+            <span className="text-caption text-faint">Caixa no razão (1.1.01)</span>
+            <span className="text-h3 tabular-nums text-ink" data-valor="caixa-razao"><BRL value={rec.caixaRazao} /></span>
           </div>
           <div className="flex flex-col">
             <span className="text-caption text-faint">Diferença</span>
-            <span className="text-h3 tabular-nums" style={{ color: rec.fecha ? "var(--color-positive)" : "var(--color-warning)" }}>
-              <BRL value={rec.diferenca} />
-            </span>
+            <span className="text-h3 tabular-nums text-ink" data-valor="diferenca"><BRL value={rec.diferenca} /></span>
           </div>
         </div>
         <div className="flex flex-col gap-2 pt-1 border-t border-border-soft">
           {rec.parcelas.map((p) => (
-            <div key={p.rotulo} className="flex flex-col gap-[2px]">
+            <div key={p.id} className="flex flex-col gap-[2px]" data-parcela={p.id}>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[15px] text-ink">{p.rotulo}</span>
                 <span className="tabular-nums text-ink shrink-0"><BRL value={p.valor} /></span>
@@ -347,28 +422,16 @@ function ConciliacaoCaixa() {
               <span className="text-caption text-faint max-w-[70ch]">{p.explicacao}</span>
             </div>
           ))}
+          <span className="text-caption text-faint max-w-[70ch]">
+            Fora da conta: <span className="tabular-nums"><BRL value={rec.previstosForaDoRazao} /></span> em títulos ainda em aberto não estão nem no razão nem no extrato — existem no resultado por competência.
+          </span>
         </div>
-{/* ═══════════════════════════════════════════════════════════════════
-            ⚠️ **A PALAVRA "CONCILIADO" SAIU ENQUANTO A CONTA NÃO FECHAR DE VERDADE.**
-
-            A ONDA 4 já tinha corrigido este selo uma vez: ele dizia
-            "conciliado" sobre R$ 437.983,17 de resíduo, e passou a nomear as
-            parcelas. Só que a parcela de fechamento continuou sendo calculada
-            por DIFERENÇA (`extrato − liquidadoTotal`), então o resíduo era
-            `x − x` — zero para qualquer saldo. Medido: 600, 0, −999.999,
-            123.456,78 e um bilhão, todos com resíduo 0,00 e `fecha: true`.
-
-            ⚠️ Conserto que RENOMEIA a parcela sem mudar como ela é calculada
-            não é conserto — e esta é a segunda vez que isso acontece aqui.
-
-            Agora: sem fonte independente para a abertura, o selo diz NÃO
-            CONFERIDO e mostra quanto foi absorvido. "Conciliado" é literalmente
-            o que este produto vende; dizê-lo sobre uma conta que ninguém fechou
-            fabrica confiança falsa, que é pior que não ter conferência nenhuma.
-        ═══════════════════════════════════════════════════════════════════ */}
+        {/* A palavra "conciliado" só aparece quando a conta fecha contra uma
+            abertura de fonte independente (A4P-073): sem ela a parcela de
+            abertura fecha por construção e não confere nada. */}
         <StatusBadge tone={rec.fecha ? "positive" : "warning"}>
           {!rec.aberturaVerificada
-            ? `NÃO CONFERIDO — ${formatBRL(Math.abs(rec.diferenca))} de diferença absorvida em saldo anterior não verificado`
+            ? `NÃO CONFERIDO — ${formatBRL(Math.abs(rec.parcelas[0].valor))} absorvidos em saldo anterior não verificado`
             : rec.fecha
               ? `Conferido: fecha contra o saldo de abertura (${rec.aberturaOrigem})`
               : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação, mesmo com o saldo de abertura (${rec.aberturaOrigem})`}

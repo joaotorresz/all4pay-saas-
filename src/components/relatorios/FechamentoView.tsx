@@ -19,6 +19,8 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { baixarDOCX, type BlocoDocx } from "@/lib/docx";
 import { montarFechamento, rotuloColuna, type Fechamento } from "@/core/relatorios";
+import { linhasDeCategoria } from "@/lib/registros";
+import { getLinhasDeCategoria } from "@/lib/data";
 import { listarFechamentos, salvarFechamento, removerFechamento } from "@/lib/fechamentos";
 import { loadCompany } from "@/lib/company";
 import { pctDeInteiro, formatBRL } from "@/lib/format";
@@ -47,6 +49,13 @@ export function FechamentoView() {
   const { show, node } = useToast();
 
   React.useEffect(() => { setLista(listarFechamentos()); }, []);
+  // As MESMAS duas fontes de linha declarada que o DRE usa.
+  const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
+  React.useEffect(() => {
+    const local = linhasDeCategoria();
+    setLinhaPorCategoria(local);
+    getLinhasDeCategoria().then((b) => setLinhaPorCategoria({ ...b, ...local })).catch(() => {});
+  }, []);
 
   if (aberto) {
     return (
@@ -65,7 +74,7 @@ export function FechamentoView() {
         onCancelar={() => setModo("lista")}
         onGerar={(cfg) => {
           if (!input) return;
-          const f = montarFechamento(input, cfg);
+          const f = montarFechamento(input, cfg, linhaPorCategoria);
           setLista(salvarFechamento(f));
           setModo("lista");
           setAberto(f);

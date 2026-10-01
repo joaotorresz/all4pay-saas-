@@ -844,7 +844,7 @@ export interface Reconciliacao {
   derivado: number;
   diferenca: number;
   /** As parcelas que explicam a diferença, cada uma com seu valor. */
-  parcelas: { rotulo: string; valor: number; explicacao: string }[];
+  parcelas: { id: "previstos" | "abertura" | "sem_data"; rotulo: string; valor: number; explicacao: string }[];
   /**
    * ⚠️ `true` SÓ quando há fonte independente para a abertura E o resíduo é
    * zero. Sem fonte, nada foi conferido — e "conciliado" seria uma afirmação
@@ -950,12 +950,14 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
     diferenca: semZeroNegativo(extrato - derivado),
     parcelas: [
       {
+        id: "previstos",
         rotulo: "Títulos em aberto (previstos)",
         valor: semZeroNegativo(-previstoTotal),
         explicacao:
           "Contas a receber e a pagar ainda não liquidadas. Existem no resultado por competência e NÃO existem no caixa — postá-las no Razão é o que fazia o saldo contábil descolar do extrato.",
       },
       {
+        id: "abertura",
         rotulo: verificada
           ? `Saldo anterior ao histórico (${origemDaAbertura(verificada)})`
           : "Saldo anterior ao histórico — NÃO VERIFICADO",
@@ -965,6 +967,7 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
           : "Nenhuma fonte independente informou o saldo anterior ao primeiro lançamento conhecido, então este valor é o que SOBRA da conta — ele fecha por construção e não confere nada. Informe o saldo de abertura para que a diferença possa ser medida de verdade.",
       },
       {
+        id: "sem_data",
         rotulo: "Liquidados sem data",
         valor: semZeroNegativo(semData),
         explicacao:
