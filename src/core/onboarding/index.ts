@@ -43,7 +43,13 @@ export interface Participante {
   permissoes?: PermissoesUsuario;
 }
 export interface Estrutura {
-  contas: { banco: string; tipo: string }[];
+  /**
+   * `saldo` é o saldo ATUAL que a pessoa informou para aquela conta no
+   * cadastro. Sem ele, o "Saldo atual" do cadastro pessoal era perguntado e
+   * descartado — a conta nascia com R$ 0,00 e a Visão geral afirmava um caixa
+   * que ninguém informou.
+   */
+  contas: { banco: string; tipo: string; saldo?: number }[];
   centrosCusto: string[];
   unidades: string[];
   dre: string[];

@@ -5,8 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, Money, Avatar, Skeleton, InfoHint } from "@/components/ui";
 import { brlParts } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
-import { getTrashedMovements, restoreMovement } from "@/lib/data";
+import { getTrashedMovements } from "@/lib/data";
+import { relancarCancelado } from "@/lib/lixeira-relancar";
 import { excluirLogico } from "@/lib/exclusao";
+import { isDemo } from "@/lib/demo";
+import { removerImported } from "@/lib/imported";
 import { LixeiraLogica } from "@/components/lixeira/LixeiraLogica";
 import type { Movement, MovementType } from "@/lib/types";
 import { EmptyState } from "@/components/visao-geral/shared";
@@ -33,8 +36,11 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
 
   const restaurar = async (m: Movement) => {
     setBusy(m.id);
-    try { await restoreMovement(m.id); show("Lançamento restaurado — voltou para “A " + (m.type === "entrada" ? "receber" : "pagar") + "”."); await qc.invalidateQueries(); }
-    catch { show("Não foi possível restaurar"); }
+    // ⚠️ Não é mais `restoreMovement` (cancelado → previsto): o banco recusa
+    // essa transição — cancelado é terminal — e a tela escondia a recusa. Ver
+    // `lib/lixeira-relancar`.
+    try { await relancarCancelado(m); show("Lançado de novo — o título voltou para “A " + (m.type === "entrada" ? "receber" : "pagar") + "”."); await qc.invalidateQueries(); }
+    catch (e) { show(`Não foi possível lançar de novo: ${e instanceof Error ? e.message : String(e)}`); }
     finally { setBusy(null); }
   };
   /**
@@ -47,10 +53,19 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
   const excluir = async (m: Movement) => {
     setBusy(m.id);
     try {
+      // ⚠️ Em demonstração `excluirLogico` não faz nada (não há servidor), e a
+      // tela dizia "foi para a lixeira" sobre um lançamento que continuava ali.
+      // No dataset local não existe lixeira lógica: a remoção é dita como é.
+      if (isDemo) {
+        removerImported([m.id]);
+        show("Removido da demonstração (aqui não há lixeira lógica para restaurar).");
+        await qc.invalidateQueries();
+        return;
+      }
       await excluirLogico("movements", m.id, "Removido da lista de cancelados");
       show("Foi para a lixeira — dá para restaurar abaixo.");
       await qc.invalidateQueries();
-    } catch { show("Não foi possível excluir"); }
+    } catch (e) { show(`Não foi possível excluir: ${e instanceof Error ? e.message : String(e)}`); }
     finally { setBusy(null); }
   };
 
@@ -59,12 +74,12 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
       <Card className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Icon name="inbox" size={16} color="var(--color-text-secondary)" />
-          <span className="text-label font-medium text-muted">Lançamentos cancelados — restaure para “A receber/A pagar” ou exclua de vez</span>
+          <span className="text-label font-medium text-muted">Lançamentos cancelados — lance de novo em “A receber/A pagar” ou mande para a lixeira</span>
           <InfoHint
             align="left"
             titulo="Lixeira"
-            oQue="Guarda os lançamentos que você cancelou; dá para restaurá-los ou apagá-los de vez."
-            comoCalcula="Reúne os pagamentos e recebimentos marcados como cancelados; restaurar volta o lançamento para A receber ou A pagar."
+            oQue="Guarda os lançamentos que você cancelou; dá para lançá-los de novo ou mandá-los para a lixeira."
+            comoCalcula="Reúne os pagamentos e recebimentos marcados como cancelados. Cancelado não volta (é o fim da história daquele título): lançar de novo cria um título novo com os mesmos dados, e o cancelado vai para a lixeira, onde continua consultável."
           />
         </div>
         <div className="inline-flex rounded-md bg-surface-2 p-[3px]">
@@ -109,7 +124,7 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
                 </span>
                 <span className="w-[170px] flex justify-end gap-1">
                   <button onClick={() => restaurar(m)} disabled={busy === m.id} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px] disabled:opacity-45">
-                    {busy === m.id ? "…" : "Restaurar"}
+                    {busy === m.id ? "…" : "Lançar de novo"}
                   </button>
                   <button onClick={() => excluir(m)} disabled={busy === m.id} className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2 disabled:opacity-45">Excluir</button>
                 </span>

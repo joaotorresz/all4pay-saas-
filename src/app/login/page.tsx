@@ -7,6 +7,7 @@ import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
+import { MARCA } from "@/core/marca";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -76,8 +77,8 @@ export default function LoginPage() {
               {view === "reset"
                 ? "Informe seu e-mail e enviaremos um link de redefinição."
                 : pessoal
-                  ? "Controle seus gastos do dia a dia com a quattro."
-                  : "Acesse o painel financeiro quattro."}
+                  ? `Controle seus gastos do dia a dia com a ${MARCA}.`
+                  : `Acesse o painel financeiro ${MARCA}.`}
             </p>
           </div>
 

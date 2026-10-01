@@ -17,7 +17,8 @@ import {
   dashboardVazio, templateAcompanhamentoSemanal, widgetPadrao, sugerirWidgets, novoId,
   type DashboardCustom, type Widget, type TipoWidget, type Largura,
 } from "@/core/dashboards";
-import { listarDashboards, salvarDashboard, removerDashboard } from "@/lib/dashboards";
+import { listarDashboards, salvarDashboard, removerDashboard, usuarioAtualId, visiveisPara } from "@/lib/dashboards";
+import { inscrever, CHAVES_ORG } from "@/lib/store-org";
 import { WidgetRender } from "./WidgetRender";
 
 type Aba = "todos" | "pessoal" | "empresa";
@@ -35,16 +36,24 @@ export function DashboardsCustomView() {
     if (new URLSearchParams(window.location.search).get("novo")) setEditando(dashboardVazio());
   }, []);
 
-  React.useEffect(() => { setLista(listarDashboards()); }, []);
+  const [eu, setEu] = React.useState<string>("local");
+  React.useEffect(() => { void usuarioAtualId().then(setEu); }, []);
+  // A lista acompanha a hidratação do servidor (o estado é da organização):
+  // sem a inscrição, o painel que um colega salvou só apareceria ao recarregar.
+  React.useEffect(() => {
+    setLista(listarDashboards());
+    return inscrever(CHAVES_ORG.dashboardsCustom, () => setLista(listarDashboards()));
+  }, []);
 
-  const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d)); setEditando(null); };
+  const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d, eu)); setEditando(null); };
   const abrirTemplate = () => setEditando(templateAcompanhamentoSemanal());
 
   if (editando) {
     return <Editor inicial={editando} onSalvar={salvar} onCancelar={() => setEditando(null)} />;
   }
 
-  const visiveis = aba === "todos" ? lista : lista.filter((d) => d.escopo === aba);
+  const meus = visiveisPara(lista, eu);
+  const visiveis = aba === "todos" ? meus : meus.filter((d) => d.escopo === aba);
 
   return (
     <div className="flex flex-col gap-5 pb-4">

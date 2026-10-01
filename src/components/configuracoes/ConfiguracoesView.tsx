@@ -67,7 +67,10 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
     setEditando(false);
     persistCompany(novo)
       .then(() => onToast("Dados da empresa atualizados"))
-      .catch(() => onToast("Salvo localmente; falha ao sincronizar"));
+      // ⚠️ A mensagem do banco vai para a tela: "falha ao sincronizar" sozinho
+      // não diz se foi permissão, assinatura vencida ou rede — e é a única
+      // coisa que a pessoa pode fazer algo a respeito.
+      .catch((e: unknown) => onToast(`Salvo só neste navegador — o servidor recusou: ${e instanceof Error ? e.message : String(e)}`));
   };
 
   // ---- Governança: membros reais (demo: a4p_company; live: organization_members) ----

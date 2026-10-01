@@ -23,7 +23,7 @@ import { fetchCompany } from "@/lib/company";
 import {
   panoramaAssinatura, podeRemover, podeTrocarPerfil, filtrarUsuarios,
   filtrarLogs, periodoForaDaJanela, statusExportacao, filtrarExportacoes,
-  expiraEm, diasEntre,
+  expiraEm, diasEntre, identidadeDoCadastro, resumoDeMudanca,
   PERFIS, ACOES_LOG, ORIGENS_LOG, TIPOS_ENTIDADE, JANELA_LOGS_DIAS,
   LIMITE_PDF_LINHAS, LIMITE_XLSX_LINHAS, DIAS_RETENCAO_EXPORT,
   type PerfilUsuario, type UsuarioEmpresa, type RegistroLog, type FiltroLogs,
@@ -70,8 +70,12 @@ function usuariosDaEmpresa(
   return [
     {
       id: "owner",
-      nome: (db.representanteNome as string) || (db.nomeFantasia as string) || "Titular da conta",
-      email: (db.representanteEmail as string) || (db.email as string) || "—",
+      // ⚠️ As chaves que o cadastro de fato GRAVA (`repNome`/`repEmail` do
+      // onboarding, `fantasia` — ver `identidadeDoCadastro`). `representanteNome`
+      // e `nomeFantasia` não são escritas por tela nenhuma: o dono aparecia
+      // sempre como "Titular da conta", com o e-mail em branco.
+      nome: (db.repNome as string) || (db.representanteNome as string) || identidadeDoCadastro(db).nomeFantasia || "Titular da conta",
+      email: (db.repEmail as string) || (db.representanteEmail as string) || (db.email as string) || "—",
       perfil: "admin",
       dono: true,
     },
@@ -138,14 +142,14 @@ export function AssinaturaView() {
   const usuarios = usuariosDaEmpresa(membros.data ?? [], empresa.data);
 
   const nomeEmpresa =
-    (empresa.data?.db?.nomeFantasia as string) ||
-    (empresa.data?.db?.razaoSocial as string) ||
+    identidadeDoCadastro(empresa.data?.db).nomeFantasia ||
+    identidadeDoCadastro(empresa.data?.db).razaoSocial ||
     "Sua empresa";
 
   const panorama = panoramaAssinatura({
     hoje: hojeISO(),
     plano: local.plano,
-    empresaId: local.empresaId || (empresa.data?.db?.cnpj as string) || "—",
+    empresaId: local.empresaId || identidadeDoCadastro(empresa.data?.db).documento || "—",
     planoContratado: local.planoContratado,
     expiracao: local.expiracao,
     usuariosAtivos: usuarios.length,
@@ -330,7 +334,10 @@ export function UsuariosView() {
   async function remover(id: string) {
     const impedimento = podeRemover(usuarios, id);
     if (impedimento) { toast(impedimento); return; }
-    await removeMember(id);
+    // ⚠️ A recusa do servidor (papel, último dono, RPC) vai para a tela. Sem o
+    // `try` a promessa rejeitava solta: nada acontecia e nada era dito.
+    try { await removeMember(id); }
+    catch (e) { toast(`Não foi possível remover: ${e instanceof Error ? e.message : String(e)}`); return; }
     membros.refetch();
     toast("Usuário removido.");
   }
@@ -340,7 +347,8 @@ export function UsuariosView() {
     if (impedimento) { toast(impedimento); return; }
     const original = (membros.data ?? []).find((m) => m.id === u.id);
     if (!original) return;
-    await saveMember({ ...original, papel: PAPEL_DO_PERFIL[novo] });
+    try { await saveMember({ ...original, papel: PAPEL_DO_PERFIL[novo] }); }
+    catch (e) { toast(`Não foi possível trocar o perfil: ${e instanceof Error ? e.message : String(e)}`); return; }
     membros.refetch();
     toast(`Perfil de ${u.nome} alterado para ${PERFIS.find((p) => p.id === novo)?.label}.`);
   }
@@ -351,13 +359,19 @@ export function UsuariosView() {
       setErro("Este e-mail já tem acesso.");
       return;
     }
-    await saveMember({
-      id: "", nome: nome || email.split("@")[0], email, funcao: "",
-      aprovaPagamentos: false, limite: "", papel: PAPEL_DO_PERFIL[perfil],
-    } as GovMember);
+    // ⚠️ Em produção o vínculo só existe para quem JÁ TEM conta (a RPC recusa
+    // o e-mail desconhecido) — e a recusa vinha solta, sem tela. Agora ela
+    // aparece no próprio formulário. E o texto não promete e-mail: nenhum é
+    // enviado (CLAUDE.md, governança).
+    try {
+      await saveMember({
+        id: "", nome: nome || email.split("@")[0], email, funcao: "",
+        aprovaPagamentos: false, limite: "", papel: PAPEL_DO_PERFIL[perfil],
+      } as GovMember);
+    } catch (e) { setErro(e instanceof Error ? e.message : String(e)); return; }
     membros.refetch();
     setConvite(false); setEmail(""); setNome(""); setErro(null);
-    toast("Convite enviado. O usuário precisa ter conta para ser vinculado.");
+    toast("Usuário vinculado à empresa. Nenhum e-mail é enviado — avise a pessoa.");
   }
 
   const linhasXLSX = [
@@ -516,12 +530,7 @@ function resumoDoEvento(e: {
       : ` · ${kbLog(depois.bytes)}`;
     return `${nome}${versao}${tamanho}`;
   }
-  const mudou = Object.keys(depois).filter((k) => JSON.stringify(antes[k]) !== JSON.stringify(depois[k]));
-  if (mudou.length === 0) return e.action;
-  return mudou
-    .slice(0, 3)
-    .map((k) => (k in antes ? `${k}: de ${String(antes[k])} para ${String(depois[k])}` : `${k}: ${String(depois[k])}`))
-    .join(" · ");
+  return resumoDeMudanca(antes, depois, e.action);
 }
 
 export function LogsView() {

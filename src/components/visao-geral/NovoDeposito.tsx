@@ -116,7 +116,7 @@ export function NovoDeposito() {
         )}
       />
 
-      {renderForm(action, close, setToast)}
+      {renderForm(action, close, setToast, pessoal)}
 
       {toast && <Toast text={toast} />}
     </>
@@ -127,14 +127,18 @@ function renderForm(
   action: string | null,
   close: () => void,
   onToast: (m: string) => void,
+  pessoal = false,
 ) {
   if (!action) return null;
   const p = { onClose: close, onToast };
   switch (action) {
+    // No modo pessoal o título fala a língua de quem controla gasto — o MESMO
+    // texto que o painel "Criar" já usa (`CriarNovo`), para as duas portas não
+    // chamarem a mesma coisa por dois nomes.
     case "receita":
-      return <ReceitaForm kind="receita" {...p} />;
+      return <ReceitaForm kind="receita" {...(pessoal ? { titulo: "Nova receita" } : {})} {...p} />;
     case "despesa":
-      return <ReceitaForm kind="despesa" {...p} />;
+      return <ReceitaForm kind="despesa" {...(pessoal ? { titulo: "Nova despesa" } : {})} {...p} />;
     case "transferencia":
       return <TransferenciaForm {...p} />;
     case "venda-produto":

@@ -32,11 +32,7 @@ export function WidgetRender({ w }: { w: Widget }) {
   // Sem `input` e sem `isLoading` a busca FALHOU. Continuar pulsando seria
   // mentir — o widget diz o que houve, e o resto da página segue de pé.
   if (!input) return <Card className="h-full"><Vazio texto="Não foi possível carregar os dados." /></Card>;
-  const fontes: EntradaFontes = {
-    hoje: input.hoje,
-    saldoAtual: input.saldoAtual,
-    movements: input.movements,
-  };
+  const fontes: EntradaFontes = input;
 
   switch (w.tipo) {
     case "kpi": return <KPI w={w} i={fontes} />;
@@ -52,7 +48,20 @@ export function WidgetRender({ w }: { w: Widget }) {
 
 function KPI({ w, i }: { w: Extract<Widget, { tipo: "kpi" }>; i: EntradaFontes }) {
   const f = fonteMetrica(w.fonte);
-  const v = f.calcular(i);
+  const r = f.calcular(i);
+  const v = r.valor;
+  // ⚠️ Indisponível: o número NÃO aparece (nem cinza, nem pequeno). O motivo
+  // ocupa o lugar dele — um "0 meses" de runway para quem não queima caixa lê
+  // como "o caixa acaba agora".
+  if (r.indisponivel) {
+    return (
+      <Card className="h-full flex flex-col justify-between">
+        <span className="text-caption font-medium text-muted">{w.titulo || f.label}</span>
+        <span className="mt-2 text-label text-muted">Sem dado: {r.indisponivel.motivo}</span>
+        <span className="mt-2 text-caption text-faint">{f.label}</span>
+      </Card>
+    );
+  }
   return (
     <Card className="h-full flex flex-col justify-between">
       <span className="text-caption font-medium text-muted">{w.titulo || f.label}</span>
