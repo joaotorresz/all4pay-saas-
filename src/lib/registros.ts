@@ -11,6 +11,7 @@
  *
  * Síncrono de propósito — os formulários precisam do dado na hora.
  */
+import { chaveCategoria } from "@/core/categorias/chave";
 import type { ContaBancaria, CategoriaPlano, Contrato } from "@/core/registros";
 
 /* --------------------------------- base --------------------------------- */
@@ -161,7 +162,7 @@ export function salvarExtraProduto(id: string, e: ExtraProduto): void {
 export function linhasDeCategoria(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const c of listPlanoContas()) {
-    if (c.dreLinha) out[c.nome.trim().toLowerCase()] = c.dreLinha;
+    if (c.dreLinha) out[chaveCategoria(c.nome)] = c.dreLinha;
   }
   return out;
 }

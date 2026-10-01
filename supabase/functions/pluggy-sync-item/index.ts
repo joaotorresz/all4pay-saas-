@@ -7,6 +7,7 @@
 // Idempotente (ON CONFLICT/23505) → não duplica com o webhook. Secrets só via
 // Deno.env — nunca logar.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { categoriaDoOpenFinance } from "../_shared/categorias-open-finance.ts";
 
 const PLUGGY_API = "https://api.pluggy.ai";
 const cors = {
@@ -62,7 +63,7 @@ async function etlMovements(db: SupabaseClient, orgId: string, txs: PluggyTx[], 
         org_id: orgId, account_id: finAcc, type: entrada ? "entrada" : "saida",
         // `status` é GERADA de `situacao` (428C9 se mencionada) — Rodada 5.
         situacao: "baixado",
-        category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia, competence_date: dia,
+        category: categoriaDoOpenFinance(t.category), amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia, competence_date: dia,
         reconciled: true, description: t.description ?? "Open Finance", reference_code: ref,
         review_status: "pendente", // novo de origem OF → entra na fila de confirmação
         // ⚠️ **SEM `especie` O INSERT É RECUSADO.** `titulo_exige_origem()`

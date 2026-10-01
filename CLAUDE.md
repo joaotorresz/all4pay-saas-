@@ -135,6 +135,26 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ RODADA 7 — CLASSIFICAÇÃO DO DRE (01/10/2026, detalhe em `docs/rodada-7/`)
+
+- **Uma chave de categoria: `chaveCategoria`** (`core/categorias/chave` — sem
+  acento, sem caixa, espaço único). O DRE, o banco, o plano local e a
+  declaração do palpite usam a MESMA; eram duas, e declarar "Manutenção" não
+  alcançava o lançamento "Manutencao". Teto ZERO de montador à mão.
+- **Open Finance chega em português** por UMA tabela
+  (`supabase/functions/_shared/categorias-open-finance.ts`): as Edge Functions
+  traduzem ao gravar, o mapeador único (`lib/risco-linhas`) ao ler. ⚠️
+  Traduzir NÃO é classificar: fatura de cartão e boleto (ambíguos) ganham nome
+  literal e seguem no palpite para a empresa declarar.
+- **Restituição de imposto sobre a venda é estorno da dedução**, sem precisar
+  de declaração, e fica fora da base tributável. A receita líquida não muda; a
+  bruta deixa de ser inflada.
+- **O lançamento aponta para a categoria do cadastro** quando é seguro
+  (`vincular_categorias_por_nome`, migration `20261002130000`): pula mês
+  fechado, grupo, nome ambíguo, amostra e inativa. O DRE não muda.
+- ⚠️ **Declarar o palpite em massa por migration NÃO se faz**: apagaria o aviso
+  sem ninguém ter conferido. O caminho é "Revisar e declarar", por empresa.
+
 ## ⚠️ RODADA 4 — PRODUÇÃO DE VERDADE (01/10/2026, detalhe em `docs/rodada-4/`)
 
 - **A empresa é a ABERTA, nunca o primeiro vínculo.** Teto ZERO de

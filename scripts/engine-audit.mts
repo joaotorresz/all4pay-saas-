@@ -5,6 +5,9 @@
  *
  *   npm run audit   (também roda dentro de npm test)
  */
+import { chaveCategoria } from "@/core/categorias/chave";
+import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
+import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
@@ -6733,7 +6736,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const outroNome = par.map((m) => ({ ...m, category: "Movimento qualquer" }));
   ok("transferencia: controle — com outra categoria a entrada CAIRIA na receita (o caminho recebe valor)",
      v(rodarT([...base, ...outroNome]), "receita_bruta") === 10_500);
-  const declOutra = rodarT([...base, ...par], { [conv.CATEGORIA_TRANSFERENCIA.toLowerCase()]: "receita_bruta" });
+  const declOutra = rodarT([...base, ...par], { [chaveCategoria(conv.CATEGORIA_TRANSFERENCIA)]: "receita_bruta" });
   ok("transferencia: declaração explícita para outra linha continua vencendo",
      par.every((m) => declOutra.foraDoDre[m.id] === undefined) && v(declOutra, "receita_bruta") > 10_000);
   // As outras duas cascatas concordam com a referência.
@@ -10006,6 +10009,97 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const banner = readFileSync("src/components/app/BannerAmostra.tsx", "utf8");
   ok("amostra-contatos: o banner diz o que vai acontecer com os contatos (mesma consulta)",
      /contatosDaAmostra/.test(banner) && /para a lixeira/.test(banner));
+}
+
+// ═══ RODADA 7 — CLASSIFICAÇÃO DO DRE ════════════════════════════════════════
+{
+  const r7 = (movs: RiskMovement[], decl?: Record<string, string>) => montarRelatorio(
+    { hoje: "2026-08-31", saldoAtual: 0, partyNames: {}, movements: movs } as RiskInput, ESTRUTURA_DRE,
+    { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, tipo: "dre", regime: "competencia", linhaPorCategoria: decl });
+  const mv = (o: Partial<RiskMovement>) => ({ id: `r7-${Math.random()}`, type: "saida", amount: 100, due_date: "2026-08-10",
+    paid_date: "2026-08-10", status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const tot = (r: ReturnType<typeof r7>, id: string) => Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? NaN) * 100) / 100;
+
+  // 1. A CHAVE: quem declara e quem lê usam a mesma.
+  ok("rodada7: chave ignora acento, caixa e espaço",
+     chaveCategoria("  Manutenção ") === chaveCategoria("MANUTENCAO") && chaveCategoria("Manutenção") === "manutencao");
+  {
+    // A declaração vai para "Manutenção" (o cadastro); o lançamento diz "Manutencao".
+    const cats = [{ id: "m1", nome: "Manutenção", codigo: "", natureza: "despesa" as const, paiId: null, dreLinha: undefined, ativo: true }];
+    const plano = planoDeDeclaracaoA([{ nome: "Manutencao", natureza: "despesa", linha: "custos_variaveis" }], cats);
+    const mapa = Object.fromEntries(plano.map((p) => [chaveCategoria(p.nome), p.linha]));
+    const lanc = mv({ category: "Manutencao", amount: 700 });
+    const rel = r7([lanc], mapa);
+    ok("rodada7: declarar 'Manutenção' tira 'Manutencao' do palpite (o botão faz o que diz)",
+       plano[0]?.id === "m1" && rel.porPalpite.length === 0 && rel.classificacao[lanc.id]?.linha === "custos_variaveis",
+       JSON.stringify({ plano, palpite: rel.porPalpite, cl: rel.classificacao[lanc.id] }));
+    // O controle: com a chave antiga (com acento) a declaração não alcança o lançamento.
+    const antigo = Object.fromEntries(plano.map((p) => [p.nome.trim().toLowerCase(), p.linha]));
+    ok("rodada7: controle — a chave com acento NÃO casaria (é o defeito que a chave única fecha)",
+       r7([lanc], antigo).porPalpite.length === 1);
+  }
+  // Teto ZERO: ninguém monta a chave do mapa de linhas declaradas à mão.
+  const montadores = ["src/lib/data.ts", "src/lib/registros.ts", "src/core/relatorios/index.ts", "src/core/registros/hierarquia.ts"]
+    .filter((f) => /toLowerCase\(\)\]\s*=\s*c\.(dre_linha|dreLinha)|linhaPorCategoria\?\.\[\(m\.category/.test(readFileSync(f, "utf8")));
+  ok("rodada7: nenhum montador da chave de categoria fora de chaveCategoria", montadores.length === 0, montadores.join(", "));
+
+  // 2. OPEN FINANCE: traduzir não reclassifica o que já existe em produção.
+  const linhaDe = (nome: string, type: "entrada" | "saida") => {
+    const m = mv({ category: nome, type });
+    const r = r7([m]);
+    return r.classificacao[m.id]?.linha ?? (r.foraDoDre[m.id] ? "fora:" + r.foraDoDre[m.id] : "—");
+  };
+  const vistosEmProducao: [string, "entrada" | "saida"][] = [
+    ["Electricity", "saida"], ["Housing", "saida"], ["Telecommunications", "saida"], ["Music streaming", "saida"],
+    ["Video streaming", "saida"], ["Gyms and fitness centers", "saida"], ["Salary", "entrada"],
+    ["Credit card payment", "saida"], ["Transfer - Bank Slip", "saida"],
+  ];
+  const mudou = vistosEmProducao.filter(([n, t]) => linhaDe(n, t) !== linhaDe(categoriaDoOpenFinanceA(n) ?? n, t));
+  ok("rodada7: os 9 nomes do Open Finance vistos em produção chegam em português SEM mudar de linha do DRE",
+     mudou.length === 0 && vistosEmProducao.every(([n]) => categoriaDoOpenFinanceA(n) !== n),
+     mudou.map(([n, t]) => `${n}: ${linhaDe(n, t)} → ${linhaDe(categoriaDoOpenFinanceA(n)!, t)}`).join(" · "));
+  ok("rodada7: os ambíguos NÃO viram transferência (fatura de cartão e boleto continuam no palpite)",
+     linhaDe(categoriaDoOpenFinanceA("Credit card payment")!, "saida") === "despesas_operacionais"
+     && linhaDe(categoriaDoOpenFinanceA("Transfer - Bank Slip")!, "saida") === "despesas_operacionais");
+  ok("rodada7: as correções deliberadas — o nome em inglês que o palpite não lia",
+     linhaDe(categoriaDoOpenFinanceA("Taxes")!, "saida") === "deducoes"
+     && linhaDe(categoriaDoOpenFinanceA("Bank fees")!, "saida") === "resultado_financeiro"
+     && linhaDe(categoriaDoOpenFinanceA("Interests charged")!, "saida") === "resultado_financeiro"
+     && linhaDe(categoriaDoOpenFinanceA("Same person transfer")!, "saida").startsWith("fora:"),
+     ["Taxes", "Bank fees", "Interests charged", "Same person transfer"].map((n) => `${n}→${linhaDe(categoriaDoOpenFinanceA(n)!, "saida")}`).join(" · "));
+  ok("rodada7: o desconhecido fica como veio (nada inventado) e nulo continua nulo",
+     categoriaDoOpenFinanceA("Something new") === "Something new" && categoriaDoOpenFinanceA(null) === null);
+  const destinos = Object.values(CATEGORIAS_OPEN_FINANCE_A);
+  ok("rodada7: nenhum destino da tradução está em inglês ou vazio",
+     destinos.every((d) => d.trim() !== "" && !/(^|[^\p{L}])(payment|transfer|bank|fees|streaming|housing)(?![\p{L}])/iu.test(d)));
+  const ef = ["supabase/functions/pluggy-sync-item/index.ts", "supabase/functions/pluggy-webhook/index.ts"].map((f) => readFileSync(f, "utf8"));
+  ok("rodada7: as duas Edge Functions traduzem ao gravar (e não gravam o texto cru em movements)",
+     ef.every((t) => /category:\s*categoriaDoOpenFinance\(t\.category\)/.test(t)
+       && (t.match(/category:\s*t\.category \?\? null, amount/g) ?? []).length === 0));
+  ok("rodada7: o mapeador único traduz ao ler (o legado já gravado chega em português)",
+     /categoriaDoOpenFinance\(texto\(r\.category\)\)/.test(readFileSync("src/lib/risco-linhas.ts", "utf8")));
+
+  // 3. RESTITUIÇÃO DE IMPOSTO é a dedução voltando, não faturamento.
+  {
+    const venda = mv({ type: "entrada", category: "Vendas", amount: 10_000 });
+    const imposto = mv({ type: "saida", category: "Impostos", amount: 1_000 });
+    const restit = mv({ type: "entrada", category: "Restituição de impostos", amount: 655.30 });
+    const sem = r7([venda, imposto]), com = r7([venda, imposto, restit]);
+    ok("rodada7: restituição NÃO entra na Receita Bruta (R$ 655,30 medidos em produção)",
+       tot(com, "receita_bruta") === 10_000 && tot(sem, "receita_bruta") === 10_000, `${tot(com, "receita_bruta")}`);
+    ok("rodada7: ela REDUZ a dedução (estorno), e o resultado sobe pelo valor exato",
+       tot(com, "deducoes") === Math.round((1_000 - 655.30) * 100) / 100
+       && Math.round((tot(com, "resultado_liquido") - tot(sem, "resultado_liquido")) * 100) / 100 === 655.30,
+       `ded ${tot(com, "deducoes")} · Δ ${tot(com, "resultado_liquido") - tot(sem, "resultado_liquido")}`);
+    ok("rodada7: restituição fora da base do imposto",
+       foraDaBaseTributavelA("Restituição de impostos") && !foraDaBaseTributavelA("Vendas"));
+    const caucao = mv({ type: "entrada", category: "Restituição de caução", amount: 50 });
+    ok("rodada7: controle — restituição que não é de imposto segue o caminho de antes",
+       r7([caucao]).classificacao[caucao.id]?.linha === "receita_bruta");
+    const irpj = mv({ type: "entrada", category: "Restituição de IRPJ", amount: 80 });
+    ok("rodada7: restituição de imposto sobre o LUCRO não vira estorno de dedução sobre a venda",
+       r7([irpj]).classificacao[irpj.id]?.linha !== "deducoes");
+  }
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

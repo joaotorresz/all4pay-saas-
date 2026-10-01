@@ -768,7 +768,7 @@ export function inadimplenciaTaxa(input: RiskInput, j?: Janela): Indicador {
  * fazia `iss` casar dentro de "com**iss**ão" em `core/relatorios`.
  */
 const FORA_DA_BASE =
-  /\b(transfer[êe]ncia|transf|resgate|aplica[çc][ãa]o|rendimento|juros|empr[ée]stimo|financiamento|aporte|estorno|reembolso|devolu[çc][ãa]o)\b/i;
+  /\b(transfer[êe]ncia|transf|resgate|aplica[çc][ãa]o|rendimento|juros|empr[ée]stimo|financiamento|aporte|estorno|reembolso|devolu[çc][ãa]o|restitui[çc][ãa]o)\b/i;
 
 export const foraDaBaseTributavel = (categoria: string | null | undefined): boolean =>
   FORA_DA_BASE.test(categoria ?? "");
