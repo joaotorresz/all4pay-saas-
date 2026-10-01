@@ -6661,5 +6661,227 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
 }
 
+/* ── CAMP-A ── */
+// Checklist de fechamento com dono/prazo/revisor · aging de contas a pagar ·
+// previsão do mês em três camadas. Valores fechados sobre fixture, e cada regra
+// provada pelo defeito que ela proíbe.
+{
+  const ck = await import("@/core/close/checklist");
+  const { montarAgingContasPagar, faixaDoTitulo } = await import("@/core/contas-pagar/aging");
+  const { montarPrevisaoDoMes } = await import("@/core/previsao-mes");
+  type Mov = import("@/core/risk-engine/types").RiskMovement;
+
+  /* ---------------- 1. CHECKLIST ---------------- */
+  const geradas = ck.tarefasAGerar("2026-08", []);
+  ok("campa checklist: o mês nasce com as CINCO tarefas do modelo",
+     geradas.length === 5 && ["conciliar_bancos", "provisoes", "revisar_dre", "conferir_impostos", "exportar_contador"].every((k) => geradas.some((g) => g.chave === k)),
+     JSON.stringify(geradas.map((g) => g.chave)));
+  ok("campa checklist: todas nascem PENDENTES e sem carimbo", geradas.every((g) => g.status === "pending" && !g.concluidaPor && !g.revisadaPor));
+  ok("campa checklist: prazo no mês SEGUINTE (conciliação dia 3 → 2026-09-03)",
+     geradas.find((g) => g.chave === "conciliar_bancos")?.prazo === "2026-09-03");
+  ok("campa checklist: dezembro vira janeiro do ano seguinte (não mês 13)", ck.prazoDoModelo("2026-12", 8) === "2027-01-08");
+  ok("campa checklist: dia além do fim do mês vira o último dia", ck.prazoDoModelo("2027-01", 31) === "2027-02-28");
+
+  const comId = geradas.map((g, i) => ({ ...g, id: `t${i}` }));
+  ok("campa checklist: gerar de novo é IDEMPOTENTE (abrir a tela duas vezes não duplica)",
+     ck.tarefasAGerar("2026-08", comId).length === 0);
+  // A herança: quem cuidou da conciliação em agosto cuida em setembro.
+  const agoAtrib = comId.map((t) => (t.chave === "conciliar_bancos" ? { ...t, responsavelId: "ana", revisorId: "bia" } : t));
+  const set = ck.tarefasAGerar("2026-09", agoAtrib);
+  const conc = set.find((t) => t.chave === "conciliar_bancos");
+  ok("campa checklist: responsável e revisor se REPETEM do mês anterior",
+     conc?.responsavelId === "ana" && conc?.revisorId === "bia" && set.length === 5);
+
+  const membros2 = [
+    { id: "ana", nome: "Ana", podeRevisar: true },
+    { id: "bia", nome: "Bia", podeRevisar: true },
+    { id: "caio", nome: "Caio", podeRevisar: false },
+  ];
+  const membros1 = [{ id: "ana", nome: "Ana", podeRevisar: true }];
+  const t0 = comId[0];
+  const c = ck.concluir(t0, "ana", "2026-09-02T10:00:00Z");
+  ok("campa checklist: concluir carimba quem concluiu", c.ok && c.tarefa.status === "review" && c.tarefa.concluidaPor === "ana");
+  const concluida = c.ok ? c.tarefa : t0;
+  const auto = ck.revisar(concluida, "ana", membros2, "2026-09-02T11:00:00Z");
+  ok("campa checklist: AUTORREVISÃO BLOQUEADA quando existe outro membro habilitado",
+     !auto.ok && auto.codigo === "segregacao", JSON.stringify(auto));
+  const porBia = ck.revisar(concluida, "bia", membros2, "2026-09-02T11:00:00Z");
+  ok("campa checklist: outra pessoa habilitada revisa, sem carimbo de autorrevisão",
+     porBia.ok && porBia.tarefa.status === "done" && porBia.tarefa.revisadaPor === "bia" && !porBia.tarefa.autorrevisao);
+  const porCaio = ck.revisar(concluida, "caio", membros2, "2026-09-02T11:00:00Z");
+  ok("campa checklist: membro SEM o papel de fechamento não revisa", !porCaio.ok && porCaio.codigo === "permissao");
+  // ⚠️ Caio (sem papel) NÃO conta como "outro revisor": a pergunta é quem PODE revisar.
+  const soComCaio = ck.revisar(concluida, "ana", [membros2[0], membros2[2]], "2026-09-02T11:00:00Z");
+  ok("campa checklist: membro sem papel não torna a autorrevisão proibida (sai da matriz, não do quadro)",
+     soComCaio.ok && soComCaio.tarefa.autorrevisao);
+  const sozinha = ck.revisar(concluida, "ana", membros1, "2026-09-02T11:00:00Z");
+  ok("campa checklist: sem outro habilitado, a autorrevisão é PERMITIDA e CARIMBADA",
+     sozinha.ok && sozinha.tarefa.autorrevisao && sozinha.tarefa.autorrevisaoMotivo === ck.MOTIVO_AUTORREVISAO);
+  ok("campa checklist: pendente → revisada direto é recusado (pularia quem fez)",
+     !ck.revisar(t0, "bia", membros2, "x").ok);
+  ok("campa checklist: atribuir a quem não é membro é recusado",
+     !ck.atribuir(t0, { responsavelId: "estranho" }, membros2).ok && ck.atribuir(t0, { responsavelId: "caio" }, membros2).ok);
+
+  // Atrasada: passou do prazo SEM revisão; "vence hoje" ainda está no prazo.
+  ok("campa checklist: prazo de hoje NÃO é atraso", !ck.atrasada({ status: "pending", prazo: "2026-09-03" }, "2026-09-03"));
+  ok("campa checklist: passou do prazo e não foi revisada → atrasada", ck.atrasada({ status: "review", prazo: "2026-09-03" }, "2026-09-04"));
+  ok("campa checklist: revisada nunca atrasa", !ck.atrasada({ status: "done", prazo: "2026-09-03" }, "2026-12-01"));
+
+  // A trava: tudo revisado, ou motivo de 20+.
+  const tudoRevisado = comId.map((t) => ({ ...t, status: "done" as const }));
+  ok("campa checklist: com tudo revisado, trava sem motivo", ck.podeTravar(tudoRevisado, null).pode);
+  const umaAberta = tudoRevisado.map((t, i) => (i === 2 ? { ...t, status: "review" as const } : t));
+  const semMotivo = ck.podeTravar(umaAberta, "ok");
+  ok("campa checklist: com tarefa aberta, motivo de fachada NÃO trava", !semMotivo.pode && semMotivo.abertas === 1);
+  ok("campa checklist: com tarefa aberta, motivo de 20+ caracteres trava (registrado)",
+     (() => { const r = ck.podeTravar(umaAberta, "contador entrega a guia na segunda"); return r.pode && r.comMotivo; })());
+  const pr = ck.prontidao(umaAberta, "2026-09-10");
+  ok("campa checklist: prontidão conta só o REVISADO (concluída sem revisão não fecha)",
+     pr.revisadas === 4 && pr.aguardandoRevisao === 1 && pr.fracao === 0.8 && !pr.completa, JSON.stringify(pr));
+
+  // ⚠️ A cópia da regra na tela e o gatilho do banco têm de falar a mesma
+  // coisa: as duas mensagens de segregação e o piso do motivo.
+  const fsC = await import("node:fs");
+  const sql = fsC.readFileSync("supabase/migrations/20260930200000_fechamento_responsavel.sql", "utf8");
+  ok("campa checklist: o gatilho do banco tem a segregação e o carimbo",
+     /A4P-FECHAMENTO-SEGREGACAO/.test(sql) && /autorrevisao := true/.test(sql) && /role_permissions rp on rp\.papel = om\.role and rp\.acao = 'fechar'/.test(sql));
+  ok("campa checklist: o piso do motivo é o MESMO na tela e no banco",
+     new RegExp(`< ${ck.MOTIVO_MINIMO}`).test(sql));
+  // ⚠️ Uma morada só: a tela não volta a ler as tarefas do navegador unido ao banco.
+  const closeLib = fsC.readFileSync("src/lib/close.ts", "utf8");
+  ok("campa checklist: lib/close não guarda mais tarefa (era a segunda morada)",
+     !/a4p_close_tasks|saveCloseTask|loadCloseTasks/.test(closeLib.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")));
+
+  /* ---------------- 2. AGING DE CONTAS A PAGAR ---------------- */
+  const hoje = "2026-08-15";
+  const sai = (id: string, due: string, amount: number, extra: Partial<Mov> = {}): Mov =>
+    ({ id, type: "saida", status: "pendente", amount, due_date: due, category: "Fornecedores", party_id: "p-a", ...extra });
+  const carteira: Mov[] = [
+    sai("hoje", "2026-08-15", 100),
+    sai("v1", "2026-08-14", 200),
+    sai("v30", "2026-07-16", 300),
+    sai("v31", "2026-07-15", 400, { party_id: "p-b", category: "Aluguel" }),
+    sai("v90", "2026-05-17", 500, { party_id: "p-b", category: "Aluguel" }),
+    sai("v91", "2026-05-16", 600, { party_id: "p-b", category: "Aluguel" }),
+    sai("a7", "2026-08-22", 700),
+    sai("a8", "2026-08-23", 800),
+    sai("a30", "2026-09-14", 900),
+    sai("a31", "2026-09-15", 1000),
+    // FORA da carteira: pago, cancelado, e o que a empresa RECEBE.
+    sai("pago", "2026-07-01", 9999, { status: "pago", paid_date: "2026-07-01" }),
+    sai("canc", "2026-07-01", 8888, { status: "cancelado" }),
+    { id: "rec", type: "entrada", status: "pendente", amount: 7777, due_date: "2026-07-01" },
+  ];
+  const inpAging = { hoje, saldoAtual: 0, movements: carteira, partyNames: { "p-a": "Fornecedor A", "p-b": "Imobiliária B" } };
+  const ag = montarAgingContasPagar(inpAging);
+  const F = ag.totais.faixas;
+  ok("campa aging: limites das faixas um a um (hoje · 1 · 30 · 31 · 90 · 91 · +7 · +8 · +30 · +31)",
+     F.ate_7 === 800 && F.ate_30 === 500 && F.de_31_a_60 === 400 && F.de_61_a_90 === 500 && F.acima_90 === 600
+     && F.de_8_a_15 === 800 && F.de_16_a_30 === 900 && F.acima_30 === 1000, JSON.stringify(F));
+  ok("campa aging: o que vence HOJE é a vencer (nunca atraso)", faixaDoTitulo("2026-08-15", hoje) === "ate_7");
+  ok("campa aging: vencido 2.000 · a vencer 3.500 · total 5.500, só o EM ABERTO (pago, cancelado e receber ficam fora)",
+     ag.totais.vencido === 2000 && ag.totais.aVencer === 3500 && ag.totais.total === 5500 && ag.totais.quantidade === 10,
+     JSON.stringify(ag.totais));
+  const fA = ag.porFornecedor.find((l) => l.nome === "Fornecedor A");
+  const fB = ag.porFornecedor.find((l) => l.nome === "Imobiliária B");
+  ok("campa aging: por FORNECEDOR (A deve 4.000 com 500 vencido · B deve 1.500, tudo vencido)",
+     fA?.total === 4000 && fA.vencido === 500 && fB?.total === 1500 && fB.vencido === 1500 && fB.faixas.acima_90 === 600);
+  const cAl = ag.porCategoria.find((l) => l.nome === "Aluguel");
+  ok("campa aging: por CATEGORIA (Aluguel 1.500 · Fornecedores 4.000)",
+     cAl?.total === 1500 && ag.porCategoria.find((l) => l.nome === "Fornecedores")?.total === 4000);
+  const somaLinhas = (ls: { total: number }[]) => Math.round(ls.reduce((s, l) => s + l.total, 0) * 100) / 100;
+  ok("campa aging: as linhas FECHAM com a carteira nas duas dimensões",
+     somaLinhas(ag.porFornecedor) === ag.totais.total && somaLinhas(ag.porCategoria) === ag.totais.total);
+  // ⚠️ Mais de 10 fornecedores: o resto vira "Demais", não some.
+  const muitos: Mov[] = Array.from({ length: 14 }, (_, i) => sai(`m${i}`, "2026-08-20", 10 + i, { party_id: `p${i}` }));
+  const agM = montarAgingContasPagar({ hoje, saldoAtual: 0, movements: muitos,
+    partyNames: Object.fromEntries(muitos.map((m, i) => [m.party_id!, `F${i}`])) });
+  ok("campa aging: além do teto, o resto vira UMA linha 'Demais' e a soma continua fechando",
+     agM.porFornecedor.length === 10 && agM.agregadas.fornecedor === 5 && somaLinhas(agM.porFornecedor) === agM.totais.total);
+  // ⚠️ É POSIÇÃO: a carteira de hoje não depende de período nenhum — o vencido
+  // de maio está aqui em agosto.
+  ok("campa aging: a carteira enxerga o vencido de MESES atrás (maio em agosto)",
+     ag.totais.quantidades.acima_90 === 1 && ag.totais.quantidades.de_61_a_90 === 1);
+
+  /* ---------------- 3. PREVISÃO DO MÊS ---------------- */
+  const m = (id: string, type: "entrada" | "saida", status: "pago" | "pendente", amount: number, due: string, extra: Partial<Mov> = {}): Mov =>
+    ({ id, type, status, amount, due_date: due, paid_date: status === "pago" ? due : null, category: null, ...extra });
+  const hist: Mov[] = [];
+  for (const mm of ["02", "03", "04", "05", "06", "07"]) {
+    // Aluguel — título materializado da REGRA R1 (chave rec:R1:<data>).
+    hist.push(m(`alu${mm}`, "saida", "pago", 1500, `2026-${mm}-10`, { category: "Aluguel", party_id: "p-imob", referenceCode: `rec:R1:2026-${mm}-10` }));
+    // Energia — padrão inferido (sem regra), fixo em 400.
+    hist.push(m(`luz${mm}`, "saida", "pago", 400, `2026-${mm}-12`, { category: "Utilidades", party_id: "p-luz" }));
+    // Internet — padrão inferido que JÁ apareceu em agosto.
+    hist.push(m(`net${mm}`, "saida", "pago", 200, `2026-${mm}-03`, { category: "Internet", party_id: "p-net" }));
+    // Cliente fixo — receita que se repete, ainda não entrou em agosto.
+    hist.push(m(`cli${mm}`, "entrada", "pago", 2000, `2026-${mm}-07`, { category: "Receita de serviços", party_id: "p-cli" }));
+  }
+  const ago: Mov[] = [
+    m("venda", "entrada", "pago", 5000, "2026-08-05", { category: "Vendas", party_id: "p-x" }),
+    m("forn", "saida", "pago", 1000, "2026-08-10", { category: "Fornecedores", party_id: "p-y" }),
+    m("alu08", "saida", "pago", 1500, "2026-08-10", { category: "Aluguel", party_id: "p-imob", referenceCode: "rec:R1:2026-08-10" }),
+    m("net08", "saida", "pago", 200, "2026-08-03", { category: "Internet", party_id: "p-net" }),
+    m("receber", "entrada", "pendente", 3000, "2026-08-25", { category: "Vendas", party_id: "p-x" }),
+    m("pagar", "saida", "pendente", 2000, "2026-08-20", { category: "Fornecedores", party_id: "p-y" }),
+    m("setembro", "saida", "pendente", 999, "2026-09-05", { category: "Fornecedores", party_id: "p-y" }),
+    m("cancelada", "saida", "cancelado" as "pendente", 777, "2026-08-21", { status: "cancelado" }),
+  ];
+  const regras = [
+    { id: "R1", descricao: "Aluguel", contraparte: "Imobiliária", categoria: "Aluguel", valor: 1500, frequencia: "mensal" as const,
+      inicio: "2026-01-10", fim: null, diaVencimento: 10, ativa: true },
+    { id: "R2", descricao: "Software", contraparte: "SaaS", categoria: "Assinaturas", valor: 300, frequencia: "mensal" as const,
+      inicio: "2026-01-28", fim: null, diaVencimento: 28, ativa: true },
+  ];
+  const inpPrev = {
+    hoje, saldoAtual: 10000, movements: [...hist, ...ago],
+    partyNames: { "p-imob": "Imobiliária", "p-luz": "Companhia de Luz", "p-net": "Provedor", "p-cli": "Cliente Fixo", "p-x": "Cliente X", "p-y": "Fornecedor Y" },
+  };
+  const pv = montarPrevisaoDoMes({ input: inpPrev, regras });
+  const C = pv.camadas;
+  ok("campa previsao: REALIZADO = liquidado de 1º/08 até hoje (5.000 entrou · 2.700 saiu)",
+     C.realizado.entradas === 5000 && C.realizado.saidas === 2700 && C.realizado.natureza === "fato", JSON.stringify(C.realizado));
+  ok("campa previsao: AGENDADO = aberto até o FIM do mês (3.000 · 2.000; setembro e cancelado fora)",
+     C.agendado.entradas === 3000 && C.agendado.saidas === 2000 && C.agendado.natureza === "projecao", JSON.stringify(C.agendado));
+  ok("campa previsao: ESTIMADO = regra sem título (software 300) + padrão que não apareceu (luz 400; cliente 2.000)",
+     C.estimado.saidas === 700 && C.estimado.entradas === 2000 && C.estimado.natureza === "estimativa",
+     JSON.stringify(pv.estimados));
+  ok("campa previsao: a regra sem título entra pela chave rec:<regra>:<data>",
+     pv.estimados.some((e) => e.chave === "rec:R2:2026-08-28" && e.origem === "regra"));
+  // ⚠️ O defeito proibido: o título já lançado aparecer de novo como estimado.
+  ok("campa previsao: o aluguel JÁ LANÇADO (rec:R1) NÃO volta como estimado — nem pela regra, nem pelo padrão",
+     !pv.estimados.some((e) => /aluguel|imobili|R1/i.test(`${e.chave} ${e.descricao} ${e.categoria ?? ""}`)), JSON.stringify(pv.estimados));
+  ok("campa previsao: a internet que JÁ apareceu em agosto não é estimada",
+     !pv.estimados.some((e) => /internet|provedor/i.test(`${e.descricao} ${e.categoria ?? ""}`)));
+  ok("campa previsao: resultado previsto = soma das três camadas (10.000 − 5.400 = 4.600)",
+     pv.previsto.entradas === 10000 && pv.previsto.saidas === 5400 && pv.previsto.resultado === 4600, JSON.stringify(pv.previsto));
+  // Com o título de agosto da R2 lançado, a estimativa da R2 some (casamento por regra+MÊS, mesmo em outro dia).
+  const comR2 = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [...inpPrev.movements,
+    m("sw08", "saida", "pendente", 300, "2026-08-27", { category: "Assinaturas", referenceCode: "rec:R2:2026-08-27" })] }, regras });
+  ok("campa previsao: título da regra no mês (em OUTRO dia) suprime a estimativa — sai do estimado e entra no agendado",
+     !comR2.estimados.some((e) => e.chave.startsWith("rec:R2")) && comR2.camadas.agendado.saidas === 2300
+     && comR2.previsto.saidas === 5400, JSON.stringify(comR2.previsto));
+  // ⚠️ Sem o título de agosto do aluguel, ele é estimado UMA vez — pela regra —
+  // e não de novo pelo padrão inferido dos mesmos lançamentos (seriam dois aluguéis).
+  const semAlu08 = montarPrevisaoDoMes({ input: { ...inpPrev, movements: inpPrev.movements.filter((x) => x.id !== "alu08") }, regras });
+  const alugueis = semAlu08.estimados.filter((e) => /aluguel/i.test(`${e.descricao} ${e.categoria ?? ""}`));
+  ok("campa previsao: compromisso com regra é estimado UMA vez (a regra responde; o padrão não duplica)",
+     alugueis.length === 1 && alugueis[0].origem === "regra" && semAlu08.camadas.estimado.saidas === 2200, JSON.stringify(alugueis));
+  // O vencido de antes do mês entra no agendado, e é DITO à parte.
+  const comVencido = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [...inpPrev.movements,
+    m("velho", "saida", "pendente", 450, "2026-07-20", { category: "Fornecedores", party_id: "p-y" })] }, regras });
+  ok("campa previsao: o vencido não pago entra no agendado e é declarado à parte",
+     comVencido.camadas.agendado.saidas === 2450 && comVencido.vencidoNoAgendado.saidas === 450);
+  ok("campa previsao: cada camada declara a natureza na procedência (a tela marca o projetado por ela)",
+     C.realizado.procedencia.natureza === "fato" && C.agendado.procedencia.natureza === "projecao" && C.estimado.procedencia.natureza === "estimativa");
+
+  // ⚠️ Teto ZERO na tela: as duas telas novas não somam nada.
+  for (const arq of ["src/components/fluxo-caixa/PrevisaoDoMes.tsx", "src/components/contas-pagar/AgingContasPagar.tsx"]) {
+    const src = fsC.readFileSync(arq, "utf8");
+    ok(`campa: ${arq.split("/").pop()} não soma lançamento por conta própria`,
+       !/\.reduce\(/.test(src) && !/m\.amount|\.amount\b/.test(src));
+  }
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
