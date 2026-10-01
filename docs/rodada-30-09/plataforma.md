@@ -105,3 +105,67 @@ tela só). O rótulo agora ENVOLVE o campo (ou vai pela prop `label` do `Input`)
 - No cadastro de empresa, só o PRIMEIRO banco escolhido vira conta.
 - "Lançar de novo" não é exercitado por jornada: a demonstração não tem tela
   que cancele um lançamento.
+
+## ⚠️ Revisão adversarial (r3/plataforma-rev, 01/10/2026)
+
+Cada guarda nova do bloco `PLATAFORMA` foi plantada de volta e reprovou —
+com uma exceção, que virou o primeiro achado.
+
+### A guarda do onboarding era cega a meio conserto
+
+`aplicarEstrutura não transforma recusa…` só procurava a forma antiga
+(`if (!error)`). Apagar UMA das seis conferências (`if (error) falhou(...)`)
+passava verde. Agora a guarda CONTA: cada `await s.from(` do arquivo tem a sua
+conferência. Provada apagando a das contas e a das unidades.
+
+### "Lançar de novo" SUMIA com o título na demonstração
+
+O conserto do caçador acrescentava o título novo e só depois removia o
+cancelado. `appendImported` deduplica pela chave de idempotência (conta ·
+data · valor · sinal · descritivo) — e o novo tem exatamente os dados do
+cancelado. O novo era descartado como repetido, o cancelado era removido, e a
+tela dizia "Lançado de novo" sobre um título que não existia mais. A jornada
+`plataforma-lixeira` pegou pelo DINHEIRO: o total de Contas a pagar caía
+R$ 29.166,91 no cancelamento e não voltava. Agora: remove, acrescenta e
+CONFERE que o novo entrou (senão devolve o cancelado e diz por quê). Em
+produção o caminho não tinha o defeito (o insert não leva a chave).
+
+### "Nova empresa" reescrevia a empresa ABERTA
+
+`/empresas/nova` ("Abrir outra empresa") não criava organização nenhuma: o
+botão gravava os dados da "nova" por cima do cadastro da organização aberta —
+razão social, documento nas chaves históricas e o regime em BRANCO (o regime
+declarado sumia) — e levava a `/configuracoes`, que passava a anunciar
+"Organização: <a nova>". Medido no navegador. O banco não tem porta para o
+cliente criar a segunda organização (nenhuma política de INSERT em
+`organizations`; ela nasce no gatilho de signup), então a tela agora não grava
+nada e diz o caminho que existe: uma conta para a nova empresa, e o convite da
+conta atual para alternar pelo seletor.
+
+**Proposta (exige migration — não escrita):** `criar_organizacao(nome, cnpj)`
+`SECURITY DEFINER`, que insere a organização, o vínculo `owner` do
+`auth.uid()`, roda `seed_org`, dispara os gatilhos de assinatura e alçada e
+chama `trocar_organizacao` — com a guarda de isolamento cobrindo a org criada
+por ela.
+
+### O título do widget acompanha a fonte
+
+O KPI nasce "Saldo em caixa"; trocar a fonte para runway deixava o cartão com
+o título do saldo e o prazo embaixo. `tituloAoTrocarFonte`: o título segue a
+fonte enquanto a pessoa não o escreveu; título escrito à mão nunca é
+sobrescrito. E os cinco rótulos soltos que sobraram no editor (Título,
+Largura, Formato, Conteúdo, Mostrar) agora envolvem o campo — a correção de
+acessibilidade da rodada tinha parado nas fontes.
+
+### Cadastro só com CPF é pessoa física
+
+`identidadeDoCadastro` tratava todo cadastro sem `tipoPessoa` como jurídica;
+o salvar seguinte movia o CPF para `cnpj`. E `lib/qualidade` lia
+`cnpj ?? documento`, chaves que o salvar novo apaga para pessoa física — agora
+lê `identidadeDoCadastro`.
+
+### A jornada de dashboards passava sobre o vazio
+
+"O runway não diz 0 meses" passava se o widget não existisse. Agora ela lê o
+CARTÃO e exige o motivo da ausência ou um prazo positivo — e foi isso que
+expôs o título errado.

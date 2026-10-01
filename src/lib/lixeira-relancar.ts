@@ -27,7 +27,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
-import { appendImported, importedMovements, removerImported } from "@/lib/imported";
+import { appendImported, importedMovements, removerImported, setImported, updateImportedMovement } from "@/lib/imported";
 import { excluirLogico } from "@/lib/exclusao";
 import type { Movement } from "@/lib/types";
 import { semAmostra } from "@/lib/supabase/consulta";
@@ -39,11 +39,24 @@ export async function relancarCancelado(m: Movement): Promise<void> {
   if (isDemo) {
     // O dataset da demonstração não tem lixeira lógica: o cancelado sai e o
     // novo entra — o número volta para "A receber/A pagar" do mesmo jeito.
+    // Materializa o dataset local (parte do seed quando ainda não há um) — sem
+    // isso a remoção abaixo não teria onde agir.
+    updateImportedMovement(m.id, {});
     const original = (importedMovements() ?? []).find((x) => x.id === m.id) ?? m;
+    const antes = localStorage.getItem("a4p_imported_dataset");
+    const novoId = `mv_${Date.now().toString(36)}_relancado`;
+    // ⚠️ (revisão) REMOVER ANTES de acrescentar. `appendImported` deduplica
+    // pela chave de idempotência (conta · data · valor · sinal · descritivo), e
+    // o título novo tem EXATAMENTE os dados do cancelado: com o cancelado ainda
+    // no dataset, o novo era descartado como repetido e, em seguida, o
+    // cancelado era removido — o título SUMIA e a tela dizia "Lançado de novo".
+    // Pego pela jornada `plataforma-lixeira` (o total de Contas a pagar não
+    // voltava).
+    removerImported([m.id]);
     appendImported({
       movement: {
         ...original,
-        id: `mv_${Date.now().toString(36)}_relancado`,
+        id: novoId,
         status: "pendente",
         paid_date: null,
         reconciled: false,
@@ -52,7 +65,13 @@ export async function relancarCancelado(m: Movement): Promise<void> {
         reference_code: null,
       } as never,
     });
-    removerImported([m.id]);
+    // E o escritor CONFERE o que gravou: se a deduplicação ainda descartou o
+    // novo (há outro título idêntico em aberto), o cancelado volta e a recusa
+    // é dita — nunca "lançado" sobre um título que não existe.
+    if (!(importedMovements() ?? []).some((x) => x.id === novoId)) {
+      if (antes) setImported(JSON.parse(antes));
+      throw new Error("já existe um título em aberto idêntico (mesma conta, data, valor e descrição); nada foi lançado.");
+    }
     return;
   }
 

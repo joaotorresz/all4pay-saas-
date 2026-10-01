@@ -47,6 +47,17 @@ export default async function dashboards(navegador) {
   v.ok(Number.isFinite(saldoKpi) && Math.abs(saldoKpi - totalSaldos) < 0.01, "o KPI Saldo em caixa == total do widget Saldos das contas", `${saldoKpi} × ${totalSaldos}`);
   v.ok(Math.abs(Math.round(saldoKpi) - saldoHome) <= 1, "e == saldo da Visão geral", `${saldoKpi} × ${saldoHome}`);
   v.ok(!/Runway\s*0\s*meses/.test(t1), "o runway não diz \"0 meses\" para quem não queima caixa", t1.match(/Runway[^R]{0,80}/)?.[0] ?? "");
+  // ⚠️ (revisão) A asserção acima passava sobre o VAZIO: bastava o widget não
+  // existir. Esta afirma o que ele MOSTRA — o motivo da ausência (a demonstração
+  // gera caixa) ou um prazo positivo — e lê só o cartão do widget.
+  const cartoes = await u.page.locator("[data-card='1']").allInnerTexts();
+  const cartaoRunway = cartoes.map((c) => c.replace(/\n/g, " ")).find((c) => /Runway/.test(c) && !/Fonte da métrica/.test(c)) ?? "";
+  v.ok(/Sem dado:\s*\S+/.test(cartaoRunway) || /[1-9][\d.,]*\s*meses/.test(cartaoRunway),
+    "o KPI de runway mostra o motivo da ausência ou um prazo positivo", cartaoRunway.slice(0, 140));
+  // ⚠️ (revisão) O título acompanha a fonte: o cartão nascia "Saldo em caixa" e
+  // continuava assim depois de virar runway — um prazo sob o rótulo do saldo.
+  v.ok(/^\s*Runway\b/.test(cartaoRunway) && !/^\s*Saldo em caixa/.test(cartaoRunway),
+    "o cartão do runway se chama Runway (o título acompanhou a fonte)", cartaoRunway.slice(0, 60));
 
   await u.page.getByRole("button", { name: "Adicionar página" }).click();
   await adicionar(u, "Gráfico de pizza/rosca");

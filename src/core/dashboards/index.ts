@@ -293,6 +293,21 @@ let seq = 0;
 export const novoId = (p: string): string => `${p}_${Date.now().toString(36)}_${seq++}`;
 
 /** Widget novo já com padrões sensatos, para entrar na página funcionando. */
+/**
+ * O título de um widget quando a FONTE muda.
+ *
+ * ⚠️ (revisão, 01/10/2026) O KPI nasce com o título "Saldo em caixa" e, ao
+ * trocar a fonte para runway, o cartão continuava se chamando "Saldo em
+ * caixa" — com o prazo (ou o motivo da ausência dele) embaixo. Um número sob o
+ * rótulo de outro é a leitura errada pronta. Regra: o título ACOMPANHA a fonte
+ * enquanto a pessoa não o escreveu (vazio ou igual ao rótulo da fonte
+ * anterior); título escrito à mão nunca é sobrescrito.
+ */
+export function tituloAoTrocarFonte(tituloAtual: string, rotuloAnterior: string, rotuloNovo: string): string {
+  const t = tituloAtual.trim();
+  return !t || t === rotuloAnterior ? rotuloNovo : tituloAtual;
+}
+
 export function widgetPadrao(tipo: TipoWidget): Widget {
   const id = novoId("w");
   switch (tipo) {

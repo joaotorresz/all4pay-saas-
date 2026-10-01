@@ -12,6 +12,7 @@
 import { getRiscoInput } from "@/lib/data";
 import { listParties, listProducts } from "@/lib/cadastros";
 import { loadCompany } from "@/lib/company";
+import { identidadeDoCadastro } from "@/core/administracao";
 import {
   auditarQualidade, type BaseParaAuditar, type RelatorioQualidade,
 } from "@/core/qualidade";
@@ -65,8 +66,11 @@ export async function montarBaseDeQualidade(): Promise<BaseParaAuditar> {
       nome: p.name,
       codigo: (p as { sku?: string | null }).sku ?? null,
     })),
-    documentoDaOrganizacao: db.cnpj ?? db.documento ?? null,
-    nomeDaOrganizacao: db.razaoSocial ?? db.nomeFantasia ?? null,
+    // As chaves CANÔNICAS do cadastro (identidadeDoCadastro): depois que
+    // "Dados da empresa" salva, `documento`/`nomeFantasia` deixam de existir
+    // e o CPF de pessoa física mora em `cpf`.
+    documentoDaOrganizacao: identidadeDoCadastro(db).documento || null,
+    nomeDaOrganizacao: identidadeDoCadastro(db).razaoSocial || identidadeDoCadastro(db).nomeFantasia || null,
   };
 }
 

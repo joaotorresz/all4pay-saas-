@@ -198,7 +198,13 @@ export function identidadeDoCadastro(db: Record<string, unknown> | null | undefi
 } {
   const t = (v: unknown) => (typeof v === "string" ? v : "");
   const x = db ?? {};
-  const tipoPessoa: TipoPessoa = x.tipoPessoa === "fisica" ? "fisica" : "juridica";
+  // ⚠️ (revisão) Cadastro sem `tipoPessoa` declarado, com CPF e sem CNPJ, é de
+  // pessoa FÍSICA. Assumir jurídica aqui fazia o salvar seguinte mover o CPF
+  // para a chave `cnpj` (e apagar `cpf`): o arquivo do contador passava a
+  // carregar um CPF no campo do CNPJ.
+  const tipoPessoa: TipoPessoa = x.tipoPessoa === "fisica" || x.tipoPessoa === "juridica"
+    ? x.tipoPessoa
+    : t(x.cpf) && !t(x.cnpj) ? "fisica" : "juridica";
   const documento = tipoPessoa === "fisica"
     ? t(x.cpf) || t(x.documento) || t(x.cnpj)
     : t(x.cnpj) || t(x.documento) || t(x.cpf);

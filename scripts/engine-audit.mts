@@ -6701,6 +6701,18 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      Math.abs(recFx.valor - ind.entradas(FX, janelaDoMesDe(FX.hoje), "caixa").valor) < 0.01 && recFx.valor > 0, String(recFx.valor));
   const pizza = dash.fonteCategoria("despesa_categoria").calcular(FX).reduce((s, f) => s + f.valor, 0);
   const serie = dash.fonteSerie("despesa_12m").calcular(FX, 12).reduce((s, p) => s + p.valor, 0);
+  // ⚠️ (revisão) O título acompanha a fonte enquanto a pessoa não o escreveu:
+  // o KPI nascia "Saldo em caixa" e continuava assim depois de virar runway.
+  ok("plataforma: trocar a fonte troca o título padrão (Saldo em caixa → Runway)",
+     dash.tituloAoTrocarFonte("Saldo em caixa", "Saldo em caixa", "Runway") === "Runway"
+       && dash.tituloAoTrocarFonte("", "Saldo em caixa", "Runway") === "Runway");
+  ok("plataforma: trocar a fonte NÃO apaga um título escrito à mão",
+     dash.tituloAoTrocarFonte("Fôlego do caixa", "Saldo em caixa", "Runway") === "Fôlego do caixa");
+  const edDash = semComentario(fsP.readFileSync("src/components/dashboards-custom/DashboardsCustomView.tsx", "utf8"));
+  ok("plataforma: os três seletores de fonte do editor aplicam a regra do título",
+     (edDash.match(/titulo: tituloAoTrocarFonte\(/g) ?? []).length === 3);
+  ok("plataforma: nenhum rótulo solto no editor de dashboards (todo <label> envolve o campo)",
+     !/<label className="text-/.test(edDash));
   ok("plataforma: a pizza de despesas fecha com a série de 12 meses", pizza > 0 && Math.abs(pizza - serie) < 0.01, `${pizza} × ${serie}`);
 
   // ── Investor Update: o mês FECHADO, e receita e MoM na mesma base ──
@@ -6748,6 +6760,24 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("plataforma: o regime salvo é o que vale (as duas chaves que o resolvedor lê)",
      regimeDoCadastro(gravado) === "simples" && regimeDoCadastro(antigo) === "presumido");
   ok("plataforma: o que não é da tela continua no cadastro", gravado.repNome === "Ana");
+  // ⚠️ (revisão) Cadastro pessoal/antigo sem `tipoPessoa`, só com CPF: é pessoa
+  // FÍSICA. Assumir jurídica movia o CPF para `cnpj` no salvar seguinte.
+  const soCpf = { cpf: "123.456.789-09", razaoSocial: "Ana" };
+  const idCpf = adm.identidadeDoCadastro(soCpf);
+  const gravCpf = adm.cadastroParaGravar(soCpf, { ...idCpf, regime: "" } as unknown as Parameters<typeof adm.cadastroParaGravar>[1]);
+  ok("plataforma: cadastro só com CPF abre como pessoa física e o CPF continua em `cpf`",
+     idCpf.tipoPessoa === "fisica" && gravCpf.cpf === "123.456.789-09" && !("cnpj" in gravCpf), JSON.stringify(gravCpf));
+  ok("plataforma: o relatório de qualidade lê o documento pelas chaves canônicas",
+     /identidadeDoCadastro\(db\)\.documento/.test(fsP.readFileSync("src/lib/qualidade.ts", "utf8")));
+  // ⚠️ (revisão) "Nova empresa" REESCREVIA o cadastro da empresa aberta com os
+  // dados da "nova" (e apagava o regime declarado) — não existe porta no banco
+  // para o cliente criar uma segunda organização. A tela não grava cadastro.
+  const criarConta = semComentario(fsP.readFileSync("src/components/entrada/CriarContaView.tsx", "utf8"));
+  ok("plataforma: criar conta não mescla o cadastro guardado no navegador (de outra organização) no da nova",
+     /saveCompany\(/.test(criarConta) && !/saveCompany\(\{\s*\.\.\.\(?loadCompany/.test(criarConta));
+  const nova = semComentario(fsP.readFileSync("src/components/empresas/NovaEmpresaForm.tsx", "utf8"));
+  ok("plataforma: \"Nova empresa\" não grava por cima do cadastro da empresa aberta",
+     !/\b(saveCompany|persistCompany)\(/.test(nova) && !/localStorage\./.test(nova));
   const dev = semComentario(fsP.readFileSync("src/components/administracao/DadosEmpresaView.tsx", "utf8"));
   ok("plataforma: Dados da empresa grava no SERVIDOR (era só o cache do navegador — o escritor morto)",
      /await persistCompany\(/.test(dev) && !/\bsaveCompany\(/.test(dev));
@@ -6766,10 +6796,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const rel = fsP.readFileSync("src/lib/lixeira-relancar.ts", "utf8");
   ok("plataforma: lançar de novo tem procedência própria e não copia as chaves únicas",
      /origem: "manual"/.test(rel) && !/COLUNAS_DE_NEGOCIO =[^;]*\b(chave|reference_code)\b/.test(rel));
+  // ⚠️ (revisão) Na demonstração o novo título tem a MESMA chave de
+  // idempotência do cancelado: acrescentar com o cancelado ainda no dataset
+  // descartava o novo como repetido, e a remoção seguinte apagava o título —
+  // "Lançado de novo" sobre nada. A ordem é remover, acrescentar e CONFERIR.
+  const ramoDemoRel = semComentario(rel).split("if (isDemo)")[1]?.split("const supabase")[0] ?? "";
+  ok("plataforma: na demonstração, lançar de novo remove o cancelado ANTES de acrescentar o novo e confere que ele entrou",
+     ramoDemoRel.indexOf("removerImported(") > -1 && ramoDemoRel.indexOf("removerImported(") < ramoDemoRel.indexOf("appendImported(")
+       && (ramoDemoRel.match(/removerImported\(/g) ?? []).length === 1 && /some\(\(x\) => x\.id === novoId\)/.test(ramoDemoRel));
 
   // ── Onboarding: nenhuma recusa engolida; o saldo informado chega à conta ──
   const onb = semComentario(fsP.readFileSync("src/lib/onboarding.ts", "utf8"));
   ok("plataforma: aplicarEstrutura não transforma recusa do banco em \"zero criado\"", !/if \(!error\)/.test(onb) && /throw new Error/.test(onb));
+  // ⚠️ (revisão) A asserção acima só via a FORMA antiga (`if (!error)`): apagar
+  // UMA das conferências (`if (error) falhou(...)`) passava verde. Toda leitura
+  // e toda escrita do banco ali tem a sua conferência — contadas uma a uma.
+  const chamadasBanco = (onb.match(/await s\.from\(/g) ?? []).length;
+  const conferencias = (onb.match(/if \((?:error|e1)\) falhou\(/g) ?? []).length;
+  ok("plataforma: cada leitura/escrita de aplicarEstrutura confere o erro do banco",
+     chamadasBanco >= 6 && conferencias === chamadasBanco, `${conferencias} conferências para ${chamadasBanco} chamadas`);
   ok("plataforma: o saldo informado no cadastro vira o saldo da conta", /balance: Math\.round\(\(c\.saldo/.test(onb));
   for (const f of ["src/components/onboarding/OnboardingWizard.tsx", "src/components/onboarding/OnboardingPessoal.tsx"]) {
     const t = semComentario(fsP.readFileSync(f, "utf8"));
