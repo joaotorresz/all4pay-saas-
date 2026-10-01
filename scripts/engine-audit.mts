@@ -6841,5 +6841,61 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /const \{ error \} = await createClient\(\)\.from\("ai_actions"\)\.insert/.test(logIA) && /if \(error\) throw error/.test(logIA) && /reportar\(/.test(logIA));
 }
 
+/* ── IA — REVISÃO (01/10/2026): "a receber" é CONTA a receber ──
+ *
+ * A IA somava ao "a receber", aos vencimentos e à lista de devedores TODA
+ * entrada pendente — inclusive empréstimo a creditar e transferência entre
+ * contas próprias. O painel de Contas a receber (`ehContaAReceber`) não soma, e
+ * a pessoa via dois totais para a mesma pergunta. Provada plantando o defeito.
+ */
+{
+  const { montarPainelContasReceber } = await import("@/core/contas-receber");
+  const H = "2026-07-15";
+  let k = 0;
+  const mvR = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `rv${k++}`, type: "entrada", amount: 1000, due_date: H, paid_date: null, status: "pendente", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const inpR: RiskInput = { hoje: H, saldoAtual: 50000, partyNames: { c1: "Cliente Um" }, movements: [
+    mvR({ amount: 3000, due_date: "2026-07-17", party_id: "c1" }),
+    mvR({ amount: 2000, due_date: "2026-07-10", party_id: "c1" }),
+    mvR({ amount: 20000, due_date: "2026-07-16", category: "Empréstimo bancário" }),
+    mvR({ amount: 7000, due_date: "2026-07-08", category: "Transferência entre contas" }),
+  ] } as RiskInput;
+  const painel = montarPainelContasReceber(inpR, { de: "2026-01-01", ate: "2026-12-31" });
+  ok("ia-rev: âncora — a carteira do painel de Contas a receber é R$ 5.000,00 (sem empréstimo nem transferência)",
+     Math.abs(painel.carteira.emAberto - 5000) < 0.005, String(painel.carteira.emAberto));
+  const rRec = responderLocal("quanto tenho a receber?", inpR)?.resposta ?? "";
+  ok("ia-rev: \"quanto tenho a receber?\" é a carteira do painel (R$5.000,00), não R$32.000,00",
+     /Há R\$\s?5\.000,00 a receber em 2 título/.test(rRec), rRec.slice(0, 140));
+  const rDev = responderLocal("quem está me devendo?", inpR)?.resposta ?? "";
+  ok("ia-rev: a lista de devedores não cobra a transferência que a empresa fez para si mesma (vencido R$2.000,00)",
+     /R\$\s?2\.000,00 vencidos/.test(rDev) && !/9\.000,00|7\.000,00/.test(rDev), rDev.slice(0, 140));
+  const rSem = responderLocal("o que vence esta semana?", inpR)?.resposta ?? "";
+  ok("ia-rev: o \"a receber\" da semana não inclui o empréstimo a creditar (R$3.000,00)",
+     /R\$\s?3\.000,00 a receber/.test(rSem), rSem.slice(0, 140));
+
+  /* receita ≠ toda entrada; gasto ≠ toda saída */
+  const inpF: RiskInput = { hoje: H, saldoAtual: 10000, partyNames: { a: "Alfa" }, movements: [
+    mvR({ amount: 10000, party_id: "a", paid_date: H, status: "pago" }),
+    mvR({ amount: 20000, category: "Empréstimo bancário", paid_date: H, status: "pago" }),
+    mvR({ amount: 3000, category: "Transferência entre contas", paid_date: H, status: "pago" }),
+    mvR({ type: "saida", amount: 4000, category: "Fornecedores", paid_date: H, status: "pago" }),
+    mvR({ type: "saida", amount: 2500, category: "Transferência entre contas", paid_date: H, status: "pago" }),
+  ] } as RiskInput;
+  const rFat = responderLocal("quanto faturei esse mês?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"quanto faturei?\" é a receita (R$10.000,00), não o empréstimo somado (R$33.000,00)",
+     /receita recebida em julho soma R\$\s?10\.000,00/.test(rFat) && !/Principal origem: Empréstimo/.test(rFat), rFat.slice(0, 160));
+  ok("ia-rev: …e o que entrou sem ser faturamento é DITO, não some (R$23.000,00)", /R\$\s?23\.000,00 que não são faturamento/.test(rFat), rFat.slice(0, 220));
+  const rEnt = responderLocal("quanto entrou esse mês?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"quanto entrou?\" (caixa) cita o total das entradas E a parte que é receita",
+     /Entraram R\$\s?33\.000,00/.test(rEnt) && /R\$\s?10\.000,00 de receita/.test(rEnt), rEnt.slice(0, 160));
+  const rCli = responderLocal("quem é meu maior cliente?", inpF)?.resposta ?? "";
+  ok("ia-rev: a fatia do maior cliente é sobre a RECEITA (100%), não sobre o empréstimo junto (30%)", /100% da receita/.test(rCli), rCli.slice(0, 140));
+  const rOri = responderLocal("de onde vem minha receita?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"de onde vem a receita\" não lista empréstimo como fonte de receita", !/concentra-se em:[^.]*Empréstimo/.test(rOri), rOri.slice(0, 200));
+  const rGas = responderLocal("quanto gastei esse mês?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"quanto gastei?\" não conta a transferência entre contas próprias como gasto (R$4.000,00)",
+     /gastos pagos em julho somam R\$\s?4\.000,00/.test(rGas), rGas.slice(0, 160));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

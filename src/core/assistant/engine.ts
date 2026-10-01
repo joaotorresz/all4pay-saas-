@@ -32,7 +32,8 @@ import { cascataDRE, type CascataDRE, type LinhaCascata } from "@/core/relatorio
 // Fluxo de caixa e o DRE mostram. A IA lia o `ctx.runwayMeses` do quant, que
 // copiava só o `.valor` do canônico: "runway de 0 meses" para uma empresa com
 // R$ 2,2 milhões que gera caixa, ao lado de uma tela dizendo "não há queima".
-import { runway as runwayCanonico, burn as burnCanonico, geracaoCaixaMensal, formaCurta, JANELA_RITMO_DIAS } from "@/core/indicadores";
+import { runway as runwayCanonico, burn as burnCanonico, geracaoCaixaMensal, formaCurta, JANELA_RITMO_DIAS, foraDaBaseTributavel } from "@/core/indicadores";
+import { ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
 import { fraseRunway, classificar } from "@/core/quant/score";
 import type { ClassificacaoSaude } from "@/core/quant/types";
 import { avisoDeSaturacao } from "@/core/metodologia";
@@ -40,6 +41,11 @@ import { avisoDeSaturacao } from "@/core/metodologia";
 // receber. A IA usava domingo a sábado: "o que vence esta semana?" deixava de
 // fora o título do domingo que a tela "Essa semana" mostrava.
 import { periodoSemana } from "@/core/contas-pagar";
+// "A receber" é CONTA a receber — a mesma regra do painel de Contas a receber.
+// Transferência entre contas próprias, resgate, empréstimo e rendimento entram
+// no extrato como ENTRADA e não são algo que alguém deve à empresa: a IA os
+// somava ao "a receber" e à lista de devedores, e a tela não.
+import { ehContaAReceber } from "@/core/contas-receber";
 
 import { formatBRL, decimalBR, pct as pctBR } from "@/lib/format";
 const fmt = (v: number) => formatBRL(v);
@@ -97,6 +103,26 @@ const emMediaAoVencimento = (dias: number): string =>
 const within = (ds: string | null | undefined, w: Janela) => !!ds && ds.slice(0, 10) >= w.from && ds.slice(0, 10) <= w.to;
 const cashDate = (m: RiskMovement) => (m.paid_date || m.due_date || "").slice(0, 10);
 const ativos = (ms: RiskMovement[]) => ms.filter((m) => m.status !== "cancelado");
+
+/*
+ * ⚠️ RECEITA não é "toda entrada", e GASTO não é "toda saída" (revisão de
+ * 01/10/2026). A IA respondia "quanto faturei?" somando empréstimo, resgate,
+ * rendimento e transferência entre contas próprias — "Principal origem:
+ * Empréstimo bancário" — e "quanto gastei?" com a perna de saída da
+ * transferência. As telas (DRE, base do imposto, Contas a receber) já separam:
+ * a regra é a mesma `foraDaBaseTributavel` / `ehTransferenciaEntreContas`.
+ * O que fica de fora não some: a resposta o DIZ, separado, porque entrou ou
+ * saiu do caixa de verdade.
+ */
+const ehReceitaDeVenda = (m: RiskMovement) => m.type === "entrada" && !foraDaBaseTributavel(m.category);
+const ehGastoReal = (m: RiskMovement) => m.type === "saida" && !ehTransferenciaEntreContas(m.category);
+/** "Fora da receita, entraram também R$ X (empréstimo, transferência…)". */
+function foraDaReceita(ms: RiskMovement[]): string {
+  if (!ms.length) return "";
+  const tot = ms.reduce((s, m) => s + Math.abs(m.amount), 0);
+  const cats = Array.from(new Set(ms.map((m) => (m.category || "sem categoria").trim()))).slice(0, 3).join(", ");
+  return ` Fora da receita, entraram também ${formatBRL(tot)} que não são faturamento (${cats}).`;
+}
 
 function topCategorias(ms: RiskMovement[], n = 5) {
   const map = new Map<string, number>();
@@ -678,7 +704,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
   // "quem ... dev" é pergunta de QUEM (lista de devedores) → cai na inadimplência.
   if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem\b|me deve\b|v[ãa]o me pagar|ainda (vou|tenho a|falta) receber|falta (eu )?receber|quanto falta (eu )?receber/.test(p) && !/quem.*\bdev/.test(p)) {
-    const ab = movs.filter((m) => m.type === "entrada" && m.status === "pendente");
+    const ab = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
     const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -734,7 +760,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const temPeriodo = /semana|m[êe]s|hoje|ontem|amanh|dias|trimestre|semestre|\bano\b|passad|anterior/.test(p)
       || MES.some((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
     const w = temPeriodo ? janela(p, hoje) : { label: "nesta semana", ...semanaDe(hoje) };
-    const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w)).sort((a, b) => a.due_date.localeCompare(b.due_date));
+    const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && (m.type !== "entrada" || ehContaAReceber(m))).sort((a, b) => a.due_date.localeCompare(b.due_date));
     const receb = venc.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
     const pagar = venc.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R(`Nada vence ${w.label}. Sem títulos pendentes nesse intervalo.`, [], ["agenda de vencimentos"]);
@@ -746,7 +772,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— INADIMPLÊNCIA / quem está atrasado ———
   if (/inadimpl|em atraso|atrasad|quem.*dev|devendo|devedor|clientes? devendo|vencid|caloteir|pior (cliente|pagador)|cliente que (mais )?(atrasa|deve)/.test(p)) {
-    const venc = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
+    const venc = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
     const total = venc.reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [{ label: "Em atraso", valor: fmt(0) }], ["recebíveis vencidos"]);
     const porCliente = topClientes(venc, nomes, 3);
@@ -766,7 +792,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // rouba por substring.
   if (/(maior(es)?|melhor(es)?|principa(l|is)) clientes?|cliente (mais |que mais )?(rent[áa]ve|lucrativ|valioso|importante)|quem (mais|s[ãa]o) (paga|compra|fatura|me paga|meus? (melhor|maior))|quem (me )?paga mais|qual cliente (mais )?(compr\w*|pag\w*|fatur\w*|vend\w*|gast\w*)|cliente que (mais )?(compr\w*|pag\w*)|quem (mais )?compr\w* (comigo|de mim|aqui|mais)|top clientes?|melhores clientes|(quero ver|mostra|me mostra|lista|ver) (meus |os )?clientes/.test(p) && !/representa|depend|concentra|forneced|quant(os|as)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const ent = movs.filter((m) => ehReceitaDeVenda(m) && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(ent, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
     if (top.length === 0) return R(`Não há receita paga por cliente identificado ${w.label}.`, [], ["receita por cliente"]);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -911,13 +937,14 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— DE ONDE VEM A RECEITA (top categorias de entradas pagas) ———
   if (/(de onde|da onde).*(vem|v[êe]m|veio|vier).*(receita|dinheiro|faturamento|grana|entra)|origem (da|das) receita|receita por categoria|categorias? de (receita|entrada|faturamento)|de onde (vem|veio) (o|a) (dinheiro|receita)|(maior|principal) fonte de (receita|renda|faturamento)|fonte de (receita|renda)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const pagas = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const ent = pagas.filter(ehReceitaDeVenda);
     const top = topCategorias(ent, 5);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
-    if (top.length === 0) return R(`Não encontrei receita paga ${w.label}.`, [], ["receita por categoria"]);
+    if (top.length === 0) return R(`Não encontrei receita paga ${w.label}.${foraDaReceita(pagas.filter((m) => !ehReceitaDeVenda(m)))}`, [], ["receita por categoria"]);
     const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${tot > 0 ? Math.round((c.valor / tot) * 100) : 0}%)`).join(", ");
     return R(
-      `A receita apurada ${w.label} soma ${fmt(tot)} e concentra-se em: ${lista}.`,
+      `A receita apurada ${w.label} soma ${fmt(tot)} e concentra-se em: ${lista}.${foraDaReceita(pagas.filter((m) => !ehReceitaDeVenda(m)))}`,
       top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
       ["receita por categoria"], 0.9,
       barras(`Receita por categoria ${w.label}`, "entrada", top));
@@ -1266,11 +1293,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— GASTO total no período ———
   if ((/(quanto).*(gast|gastei|sa[íi]|paguei|despes|torr|queim)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) && !/entra e sai|entradas? e sa|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)/.test(p)) {
     const w = janela(p, hoje);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const pagos = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const sai = pagos.filter(ehGastoReal);
+    const transf = pagos.filter((m) => !ehGastoReal(m)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
     const top = topCategorias(sai, 3);
     return R(
-      `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}`,
+      `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}${transf > 0 ? ` Não entram ${fmt(transf)} transferidos entre contas da própria empresa — o dinheiro só mudou de conta (no caixa saíram ${fmt(tot + transf)} ao todo).` : ""}`,
       [{ label: `Gasto ${w.label}`, valor: fmt(tot) }, ...top.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["despesas realizadas"]);
   }
@@ -1390,11 +1419,26 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— RECEITA / RECEBI no período ———
   if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|esse|no)\s*m[êe]s|qual (a |o )?(minha |meu )?(receita|faturament)\b|\bminha receita\b|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/l[íi]quida|entra e sai|entradas? e sa|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const pagas = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const ent = pagas.filter(ehReceitaDeVenda);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const topC = topCategorias(ent, 3);
+    const fora = pagas.filter((m) => !ehReceitaDeVenda(m));
+    const totCaixa = pagas.reduce((s, m) => s + Math.abs(m.amount), 0);
+    // "Quanto recebi/entrou?" é pergunta de CAIXA (o "Entradas" da Visão geral,
+    // toda entrada liquidada); "faturei/receita/vendi" é pergunta de RECEITA.
+    // As duas respostas citam os dois números, com o nome certo em cada um.
+    const perguntouReceita = /fatur|receita|vend/.test(p);
+    if (!perguntouReceita && fora.length) {
+      const totFora = totCaixa - tot;
+      const cats = Array.from(new Set(fora.map((m) => (m.category || "sem categoria").trim()))).slice(0, 3).join(", ");
+      return R(
+        `Entraram ${fmt(totCaixa)} ${w.label}, em ${pagas.length} entrada(s): ${fmt(tot)} de receita e ${fmt(totFora)} que não são faturamento (${cats}).${topC.length ? ` Principal origem da receita: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
+        [{ label: `Entradas ${w.label}`, valor: fmt(totCaixa) }, { label: "Receita", valor: fmt(tot) }, { label: "Não é faturamento", valor: fmt(totFora) }],
+        ["entradas realizadas", "receita realizada"]);
+    }
     return R(
-      `A receita recebida ${w.label} soma ${fmt(tot)}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
+      `A receita recebida ${w.label} soma ${fmt(tot)}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}${foraDaReceita(fora)}`,
       [{ label: `Receita ${w.label}`, valor: fmt(tot) }, ...topC.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["receita realizada"]);
   }

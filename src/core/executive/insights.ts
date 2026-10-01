@@ -34,7 +34,7 @@ export function gerarInsights(
       descricao:
         ctx.rupturaDia != null
           ? `Projeção indica ruptura de caixa em ${ctx.rupturaDia} dias no cenário base.`
-          : `Probabilidade de deterioração de caixa em 90 dias é ${Math.round(ctx.probRuptura * 100)}%.`,
+          : `Chance de ruptura de caixa em 60 dias é de ${Math.round(ctx.probRuptura * 100)}%.`,
       impactoCentavos: C(ctx.burnRate),
       confianca: 0.8,
       recomendacoes: ["Antecipar recebíveis relevantes", "Revisar despesas não essenciais"],

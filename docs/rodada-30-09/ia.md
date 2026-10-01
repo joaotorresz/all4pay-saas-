@@ -117,3 +117,34 @@ A procedência de EBITDA/resultado vem vazia por construção (sai de fórmula),
 - **A aba Risco ainda mostra "Runway (base) 24+ meses / 999 dias"** (o teto do
   risk-engine como número) e os cenários do Fluxo de caixa saturam em 33,3
   meses — telas reservadas de outra área.
+
+### Revisão adversarial (01/10/2026)
+
+As correções acima conferem (plantados de volta: runway do quant, margem por
+caixa e semana dom–sáb reprovam no `engine-audit`; as jornadas afirmam sobre
+valores e passam no build de demonstração). A revisão achou o que ficou para trás:
+
+- ⚠️ **"A receber" na IA era toda entrada pendente.** Empréstimo a creditar,
+  rendimento, resgate e transferência entre contas próprias entravam no total a
+  receber, nos vencimentos da semana e na lista de devedores ("Sem cliente
+  (R$ 7.000)" cobrado por uma transferência da empresa para ela mesma). O painel
+  de Contas a receber já usava `ehContaAReceber`; a IA passou a usar a MESMA
+  regra. Jornada `ia-carteira`: lançar um rendimento a creditar de R$ 777,77 não
+  move o painel — e movia a IA.
+- ⚠️ **"Quanto faturei?" somava empréstimo e transferência; "quanto gastei?",
+  a perna de saída da transferência.** Medido: "Principal origem: Empréstimo
+  bancário", e o maior cliente com "30% da receita" quando era 100%. Receita é
+  `foraDaBaseTributavel` (a regra da base do imposto e de Contas a receber);
+  gasto exclui `ehTransferenciaEntreContas` (a do DRE). O que fica de fora é
+  DITO na resposta, não some — e "quanto entrou?" continua sendo pergunta de
+  CAIXA (o "Entradas" canônico), citando quanto daquilo é receita. Jornada
+  `ia-receita`: uma transferência de R$ 1.234,56 não move gasto nem
+  faturamento, e move o "entrou" pelo valor exato.
+- "Chance de ruptura em 90 dias" sobrava no copiloto de fallback e no insight
+  de pressão de caixa — o número é do motor de risco, de 60 dias.
+
+**Fica para decisão:** uma "Nova conta a receber" lançada na categoria
+"Juros e rendimentos" (ou qualquer uma que `foraDaBaseTributavel` casa) some do
+painel de Contas a receber, que a exclui por regra. A IA agora concorda com o
+painel; se a pessoa deve ver esse título no painel é decisão de produto
+(`core/contas-receber`), não da IA.

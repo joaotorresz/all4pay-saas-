@@ -152,7 +152,7 @@ export function copilotoFinanceiro(
   return {
     resposta:
       `Panorama atual: saldo de ${fmt(ctx.saldoAtual)}, ${fraseRunway(ctx)} e score de saúde ${ctx.scoreFinanceiro}/100. ` +
-      `Inadimplência em ${Math.round(ctx.inadimplencia * 100)}% e probabilidade de ruptura em 90 dias ${
+      `Inadimplência em ${Math.round(ctx.inadimplencia * 100)}% e chance de ruptura de caixa em 60 dias ${
         ctx.probRuptura >= 0.5 ? "elevada" : ctx.probRuptura >= 0.25 ? "moderada" : "baixa"
       }. Pergunte sobre contratação, capacidade de investimento, clientes de risco, despesas ou expansão.`,
     numeros: [
