@@ -141,7 +141,16 @@ export const BENEFICIOS_PRO: { titulo: string; descricao: string }[] = [
   { titulo: "Relatório ao investidor", descricao: "O relatório mensal para investidores, com os KPIs derivados dos seus próprios lançamentos." },
   { titulo: "Fiscal e contratações", descricao: "Apuração de impostos por venda e simulação do custo real de contratar." },
   { titulo: "Aprovações e governança", descricao: "Alçadas por valor, trilha de auditoria assinada e segregação de funções." },
-  { titulo: "Automações", descricao: "Regras SE→ENTÃO sobre os eventos financeiros, com notificação por WhatsApp e e-mail." },
+  /*
+   * ⚠️ "Automações" SAIU daqui (30/09/2026). A promessa ("regras SE→ENTÃO com
+   * notificação por WhatsApp e e-mail") não tinha executor: a tela de regras
+   * foi removida e o runner morria sem sessão. As automações de verdade
+   * (resumo do caixa, lembrete, alerta, fechamento, régua) nasceram em
+   * Configurações › Automações para TODOS os planos — o teste de 14 dias não é
+   * Pro, e gatear por plano faria a função não chegar a cliente nenhum. Se o
+   * dono quiser vendê-las como Pro, o gate tem de ser no SERVIDOR (o runner lê
+   * o plano), nunca só aqui.
+   */
   { titulo: "Consolidado multiempresa", descricao: "A posição somada de todas as organizações em que você é membro." },
   { titulo: "Dashboards personalizados", descricao: "Monte os seus próprios painéis, com as métricas e os gráficos que você acompanha — sobre os mesmos números do sistema." },
 ];

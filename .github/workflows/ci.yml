@@ -244,6 +244,15 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-maquina.sql
+      # ⚠️ Automações (e-mail e WhatsApp por empresa): a guarda pura prova a
+      # decisão (grava antes de enviar, simulado não é avisado); esta prova a
+      # FECHADURA — o índice único que impede o reenvio, o padrão desligado que
+      # nasce por GATILHO, a escrita por papel e o contexto do runner fechado à
+      # sessão. Nove casos, cada um lendo a mensagem do vermelho.
+      - name: Guarda das automações (trava do reenvio, padrão desligado, escrita por papel)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/automacoes.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

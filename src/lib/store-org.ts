@@ -99,9 +99,16 @@ export const CHAVES_ORG = {
   chamados: "a4p_chamados",
   logsAdmin: "a4p_logs_admin",
   // A régua de cobrança: o que já foi enviado a quem, em que etapa. É dado de
-  // NEGÓCIO (prova de que o cliente foi avisado antes de um protesto), então
-  // sobe para o servidor como as demais.
+  // NEGÓCIO (prova de que o cliente foi avisado antes de um protesto).
+  // ⚠️ CONGELADA desde 30/09/2026: o registro mora em `automacao_envios`
+  // (migration 20260930190000, que copiou o que havia aqui). Fica listada para
+  // o rastro antigo continuar classificado.
   reguaEnvios: "a4p_regua_envios",
+  // As automações de e-mail/WhatsApp e o registro dos envios. Em produção moram
+  // nas tabelas `automacoes`/`automacao_envios`; a chave local é a casa da
+  // DEMONSTRAÇÃO (congeladas em produção — ver CHAVES_CONGELADAS).
+  automacoes: "a4p_automacoes",
+  automacaoEnvios: "a4p_automacao_envios",
   regrasUso: "a4p_regras_uso",
   fdipMemory: "a4p_fdip_memory",
   iaMemory: "a4p_ia_memory",
@@ -149,6 +156,12 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   // O projeto do lançamento mora em `movements.project_id`; o mapa antigo do
   // navegador só é LIDO como queda em demonstração (lib/projeto-vinculo).
   "a4p_movimento_projeto",
+  // As automações e o registro dos envios moram em `automacoes` e
+  // `automacao_envios` desde 30/09/2026 (lib/automacoes). A régua gravava em
+  // `a4p_regua_envios`; a migration copiou o que havia para a tabela.
+  "a4p_regua_envios",
+  "a4p_automacoes",
+  "a4p_automacao_envios",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
@@ -272,7 +285,9 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_exportacoes: "Relatórios exportados",
   a4p_chamados: "Chamados de suporte",
   a4p_logs_admin: "Logs administrativos",
-  a4p_regua_envios: "Envios da régua de cobrança",
+  a4p_regua_envios: "Envios da régua de cobrança (antigo)",
+  a4p_automacoes: "Automações de e-mail e WhatsApp",
+  a4p_automacao_envios: "Envios das automações",
   a4p_regras_uso: "Uso das regras de categorização",
   a4p_fdip_memory: "Aprendizado da importação",
   a4p_ia_memory: "Memória do assistente",

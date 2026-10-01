@@ -161,6 +161,13 @@
         "impacto": "Até ser aplicada, as telas de Contas bancárias, Centros de custo, Projetos e Plano de contas (que passam a ler e gravar essas tabelas) mostram o erro do banco de coluna inexistente; os formulários de lançamento seguem funcionando (getCategories cai no select antigo, reportando). Aplicada, 16 cópias de categoria SEM USO (medidas em produção em 30/09) vão para a lixeira com motivo escrito, e o índice global parties_doc_unique é trocado por um por empresa.",
         "resolver_ate": "2026-10-07",
         "origem": "sessão Claude de 30/09/2026 (pacote CAD, parte 1) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930190000_automacoes",
+        "objetos_ausentes": ["automacoes", "automacao_envios", "automacao_envios_unico", "automacoes_padrao()", "automacoes_inicial()", "organizations_automacoes", "automacao_contexto(uuid)"],
+        "impacto": "Até ser aplicada, a aba Automações de Configurações não carrega em produção (as tabelas não existem), o runner diário devolve erro por empresa ao chamar automacao_contexto e a régua manual não consegue registrar 'marcar como avisado'. Nenhum envio sai. Todas as automações nascem DESLIGADAS: aplicar não dispara mensagem nenhuma sozinho.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote AUT — automações de e-mail e WhatsApp) — o job migrar do CI aplica no merge, depois do dono"
       }
     ],
     "objetos_sem_migration": [

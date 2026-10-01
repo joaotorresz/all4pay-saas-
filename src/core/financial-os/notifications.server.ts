@@ -1,49 +1,77 @@
 /**
  * Envio REAL de notificações — SERVER-ONLY (lê segredos de ambiente).
- * Importado apenas pelo runner (`/api/financial-os/run`), nunca no cliente.
+ * Importado só pelas rotas do servidor, nunca no cliente.
  *
- * WhatsApp via Twilio (sandbox/produção) e e-mail via Resend — escolhidos
- * por exigirem só chaves (sem SMTP/infra). Sem credenciais → no-op seguro.
+ * WhatsApp via Twilio e e-mail via Resend — escolhidos por exigirem só chaves
+ * (sem SMTP/infra). Sem credenciais → SIMULADO, e simulado NUNCA conta como
+ * avisado (quem registra olha `ativo(canal)` antes de chamar).
  *
- * Variáveis (definir na Vercel, server-side):
- *   WhatsApp (Twilio):
- *     TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM
- *     ALERTS_WHATSAPP_TO  (destino padrão dos alertas, ex.: +55119...)
- *   Templates aprovados (produção — fora da janela de 24h):
- *     TWILIO_TEMPLATE_COBRANCA_SID  (ContentSid HX... do template de cobrança)
- *     TWILIO_TEMPLATE_ALERTA_SID    (ContentSid HX... do template de alerta)
- *   E-mail (Resend):
- *     RESEND_API_KEY, ALERTS_EMAIL_FROM, ALERTS_EMAIL_TO
+ * Variáveis (definidas na Vercel, server-side — nenhuma é criada por código):
+ *   WhatsApp (Twilio): TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM
+ *   Teste de plataforma: ALERTS_WHATSAPP_TO (só o `/api/notificacoes/teste` usa)
+ *   Templates aprovados (fora da janela de 24h só sai template), UM POR FINALIDADE:
+ *     TWILIO_TEMPLATE_COBRANCA_LEMBRETE_SID · TWILIO_TEMPLATE_COBRANCA_ATRASO_SID ·
+ *     TWILIO_TEMPLATE_COBRANCA_FORMAL_SID  (variáveis 1 cliente · 2 credor ·
+ *       3 valor · 4 vencimento · 5 dias de atraso)
+ *     TWILIO_TEMPLATE_RESUMO_SID · TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID ·
+ *     TWILIO_TEMPLATE_ALERTA_SID · TWILIO_TEMPLATE_FECHAMENTO_SID
+ *       (variável 1 = o texto curto, numa linha)
+ *   E-mail (Resend): RESEND_API_KEY, ALERTS_EMAIL_FROM (remetente)
  *
- * No sandbox / dentro da janela de 24h, o envio é free-form (Body). Com um
- * ContentSid configurado, o mesmo envio passa a usar o template aprovado
- * (ContentVariables) — a transição ao número de produção é só de ambiente.
+ * ⚠️ `TWILIO_TEMPLATE_COBRANCA_SID` (o template ÚNICO) foi APOSENTADO: com ele
+ * configurado, todas as etapas da régua saíam com o mesmo texto — o lembrete
+ * amigável e o aviso formal diziam a mesma coisa. Cada tom tem o seu agora.
+ *
+ * ⚠️ O destino dos alertas NÃO é mais global. `ALERTS_EMAIL_TO` e o fallback de
+ * `ALERTS_WHATSAPP_TO` para alertas de empresa saíram: o alerta de qualquer
+ * organização ia parar no número do dono da plataforma. Cada automação tem os
+ * destinatários DA EMPRESA (`automacoes.destinatarios`).
+ *
+ * ⚠️ `ok` mede se o provedor ACEITOU (Twilio 201 / Resend 200), não se a
+ * mensagem foi ENTREGUE. Sem status callback, "enviado" é o máximo que se pode
+ * afirmar — e a tela diz "enviado", nunca "entregue".
  */
-import type { ExecucaoAcao } from "./types";
+import type { CanalEnvio, FinalidadeTemplate, MensagemAutomacao, ProvedorEnvio } from "@/core/automacoes";
 
 export interface EnvioResultado {
   canal: "whatsapp" | "email";
   para: string;
   ok: boolean;
   detalhe: string;
+  /** O identificador que o provedor devolveu (SID da Twilio, id da Resend). */
+  id?: string | null;
 }
 
+const TEMPLATE_DA_FINALIDADE: Record<FinalidadeTemplate, string> = {
+  cobranca_lembrete: "TWILIO_TEMPLATE_COBRANCA_LEMBRETE_SID",
+  cobranca_atraso: "TWILIO_TEMPLATE_COBRANCA_ATRASO_SID",
+  cobranca_formal: "TWILIO_TEMPLATE_COBRANCA_FORMAL_SID",
+  resumo_diario: "TWILIO_TEMPLATE_RESUMO_SID",
+  lembrete_pagar: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID",
+  alerta_caixa: "TWILIO_TEMPLATE_ALERTA_SID",
+  fechamento_pendente: "TWILIO_TEMPLATE_FECHAMENTO_SID",
+};
+
+export const templateDe = (f: FinalidadeTemplate): string | undefined =>
+  process.env[TEMPLATE_DA_FINALIDADE[f]] || undefined;
+
 export function statusNotificacoes() {
+  const templates = Object.fromEntries(
+    (Object.keys(TEMPLATE_DA_FINALIDADE) as FinalidadeTemplate[]).map((f) => [f, !!templateDe(f)]),
+  ) as Record<FinalidadeTemplate, boolean>;
   return {
     whatsapp: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM),
     email: !!process.env.RESEND_API_KEY,
-    templateCobranca: !!process.env.TWILIO_TEMPLATE_COBRANCA_SID,
-    templateAlerta: !!process.env.TWILIO_TEMPLATE_ALERTA_SID,
+    templates,
   };
 }
 
 const waAddr = (n: string) => (n.startsWith("whatsapp:") ? n : `whatsapp:${n.replace(/[^\d+]/g, "")}`);
-const ehEmail = (s?: string) => !!s && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 const ehTelefone = (s?: string) => !!s && s.replace(/\D/g, "").length >= 10;
 
 /** Envio de WhatsApp via Twilio. Com `opts.contentSid`, usa template aprovado
  * (ContentVariables); senão, mensagem livre (Body). */
-async function enviarWhatsapp(
+export async function enviarWhatsapp(
   to: string,
   msg: string,
   opts?: { contentSid?: string; contentVariables?: Record<string, string> },
@@ -70,14 +98,19 @@ async function enviarWhatsapp(
       },
       body,
     });
+    const j = (await res.json().catch(() => null)) as { sid?: string; message?: string } | null;
     const via = opts?.contentSid ? "template" : "Twilio";
-    return { canal: "whatsapp", para: to, ok: res.ok, detalhe: res.ok ? `enviado via ${via}` : `falha Twilio ${res.status}` };
+    return {
+      canal: "whatsapp", para: to, ok: res.ok, id: j?.sid ?? null,
+      detalhe: res.ok ? `aceito via ${via}` : `falha Twilio ${res.status}${j?.message ? `: ${j.message}` : ""}`,
+    };
   } catch (e) {
     return { canal: "whatsapp", para: to, ok: false, detalhe: e instanceof Error ? e.message : "erro de rede" };
   }
 }
 
-async function enviarEmail(to: string, subject: string, texto: string): Promise<EnvioResultado> {
+/** E-mail via Resend — texto E HTML (o HTML sai do núcleo, na paleta Quattro). */
+export async function enviarEmail(to: string, subject: string, texto: string, html?: string): Promise<EnvioResultado> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.ALERTS_EMAIL_FROM || "Quattro <alertas@all4pay.app>";
   if (!key || !to) return { canal: "email", para: to, ok: false, detalhe: "config/destino ausente" };
@@ -85,76 +118,80 @@ async function enviarEmail(to: string, subject: string, texto: string): Promise<
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject, text: texto }),
+      body: JSON.stringify({ from, to, subject, text: texto, ...(html ? { html } : {}) }),
     });
-    return { canal: "email", para: to, ok: res.ok, detalhe: res.ok ? "enviado via Resend" : `falha Resend ${res.status}` };
+    const j = (await res.json().catch(() => null)) as { id?: string; message?: string } | null;
+    return {
+      canal: "email", para: to, ok: res.ok, id: j?.id ?? null,
+      detalhe: res.ok ? "aceito via Resend" : `falha Resend ${res.status}${j?.message ? `: ${j.message}` : ""}`,
+    };
   } catch (e) {
     return { canal: "email", para: to, ok: false, detalhe: e instanceof Error ? e.message : "erro de rede" };
   }
+}
+
+/**
+ * O provedor que o runner e as rotas usam. `ativo` é a pergunta que decide
+ * entre ENVIAR e SIMULAR — e é feita ANTES de chamar, para que um simulado
+ * nunca seja gravado como enviado.
+ */
+export function provedorReal(): ProvedorEnvio {
+  const st = statusNotificacoes();
+  return {
+    ativo: (canal: CanalEnvio) => (canal === "email" ? st.email : st.whatsapp),
+    async enviar(m: MensagemAutomacao) {
+      const r = m.canal === "email"
+        ? await enviarEmail(m.destino, m.assunto, m.texto, m.html)
+        : await enviarWhatsapp(m.destino, m.texto.slice(0, 1500), (() => {
+            const sid = templateDe(m.finalidade);
+            return sid ? { contentSid: sid, contentVariables: m.variaveis } : undefined;
+          })());
+      return { ok: r.ok, id: r.id ?? null, erro: r.ok ? null : r.detalhe };
+    },
+  };
 }
 
 export interface AlvoCobranca {
   cliente: string;
   telefone: string;
   mensagem: string;
-  /** Variáveis do template aprovado (ContentVariables), ex.: {"1": nome, "2": valor}.
-   * Usadas só quando TWILIO_TEMPLATE_COBRANCA_SID estiver configurado. */
+  /** O tom da etapa decide o template aprovado (um por tom). */
+  finalidade?: FinalidadeTemplate;
+  /** Variáveis do template aprovado (1 cliente · 2 credor · 3 valor · 4 vencimento · 5 dias). */
   variaveis?: Record<string, string>;
-}/**
- * Teste manual de WhatsApp — valida as credenciais Twilio na hora, sem
- * depender de eventos/cron. Sem `to`, usa ALERTS_WHATSAPP_TO. Sem credenciais,
- * retorna "simulado". Server-side.
+}
+
+/**
+ * Teste manual de WhatsApp de PLATAFORMA — valida as credenciais Twilio na
+ * hora. Sem `to`, usa ALERTS_WHATSAPP_TO. Sem credenciais, "simulado".
  */
 export async function testarWhatsapp(to?: string, mensagem?: string): Promise<EnvioResultado> {
   const destino = (to && to.trim()) || process.env.ALERTS_WHATSAPP_TO || "";
   if (!ehTelefone(destino)) return { canal: "whatsapp", para: destino, ok: false, detalhe: "destino ausente (defina ALERTS_WHATSAPP_TO ou envie 'to')" };
   const msg = (mensagem && mensagem.trim().slice(0, 300)) || "Quattro · teste de notificação. Se você recebeu isto, o WhatsApp está configurado.";
-  if (!statusNotificacoes().whatsapp) return { canal: "whatsapp", para: destino, ok: true, detalhe: "simulado (sem credenciais Twilio)" };
+  if (!statusNotificacoes().whatsapp) return { canal: "whatsapp", para: destino, ok: false, detalhe: "simulado (sem credenciais Twilio)" };
   return enviarWhatsapp(destino, msg);
 }
 
 /**
- * Cobrança por cliente — envia uma mensagem de WhatsApp para cada alvo
- * (cliente + telefone + mensagem). Com credenciais Twilio, envia de verdade;
- * sem elas, retorna "simulado" (a UI mostra o fluxo). Server-side.
+ * Cobrança por cliente — um WhatsApp por alvo. O template sai da FINALIDADE do
+ * alvo (o tom da etapa); sem template configurado para aquele tom, vai o texto
+ * da própria etapa. Sem credenciais: nada é chamado (quem chama registra
+ * "simulado", nunca "avisado").
  */
 export async function dispararCobrancas(alvos: AlvoCobranca[]): Promise<{ cliente: string; resultado: EnvioResultado }[]> {
   const ativo = statusNotificacoes().whatsapp;
-  const contentSid = process.env.TWILIO_TEMPLATE_COBRANCA_SID || undefined;
   const out: { cliente: string; resultado: EnvioResultado }[] = [];
   for (const a of alvos) {
     if (!a.telefone) {
       out.push({ cliente: a.cliente, resultado: { canal: "whatsapp", para: "", ok: false, detalhe: "sem telefone" } });
       continue;
     }
+    const sid = a.finalidade ? templateDe(a.finalidade) : undefined;
     const resultado = ativo
-      ? await enviarWhatsapp(a.telefone, a.mensagem, contentSid ? { contentSid, contentVariables: a.variaveis } : undefined)
-      : { canal: "whatsapp" as const, para: a.telefone, ok: true, detalhe: "simulado (sem credenciais Twilio)" };
+      ? await enviarWhatsapp(a.telefone, a.mensagem, sid ? { contentSid: sid, contentVariables: a.variaveis } : undefined)
+      : { canal: "whatsapp" as const, para: a.telefone, ok: false, detalhe: "simulado (sem credenciais Twilio)" };
     out.push({ cliente: a.cliente, resultado });
-  }
-  return out;
-}
-
-/**
- * Dispara os envios reais para as execuções de WhatsApp/e-mail. Usa o
- * destino da regra quando for um telefone/e-mail válido; senão cai no
- * destinatário padrão de alertas (ALERTS_*). No-op por canal sem credencial.
- */
-export async function dispararNotificacoes(execs: ExecucaoAcao[]): Promise<EnvioResultado[]> {
-  const st = statusNotificacoes();
-  const contentSid = process.env.TWILIO_TEMPLATE_ALERTA_SID || undefined;
-  const out: EnvioResultado[] = [];
-  for (const e of execs) {
-    if (e.status !== "executada") continue;
-    const msg = `Quattro · ${e.ruleNome}: ${e.detalhe.replace(/ · provider .*/i, "")}`.slice(0, 300);
-    if (e.acao === "enviar_whatsapp" && st.whatsapp) {
-      const to = ehTelefone(e.destino) ? (e.destino as string) : process.env.ALERTS_WHATSAPP_TO || "";
-      // Template de alerta usa 1 variável (o texto do alerta); free-form no sandbox.
-      out.push(await enviarWhatsapp(to, msg, contentSid ? { contentSid, contentVariables: { "1": msg } } : undefined));
-    } else if (e.acao === "enviar_email" && st.email) {
-      const to = ehEmail(e.destino) ? (e.destino as string) : process.env.ALERTS_EMAIL_TO || "";
-      out.push(await enviarEmail(to, `Quattro · ${e.ruleNome}`, msg));
-    }
   }
   return out;
 }

@@ -3558,7 +3558,9 @@ const AGOSTO = janelaMes(2026, 7);
   const iSessao = rota.indexOf("auth.getUser()");
   const iPermissao = rota.indexOf('rpc("tem_permissao"');
   const iDestino = rota.indexOf('from("parties")');
-  const iEnvio = rota.indexOf("dispararCobrancas(alvos)");
+  // O envio passou a sair pelo despacho único (reservar → enviar → concluir),
+  // o mesmo do runner de automações — é ali que o provedor é chamado.
+  const iEnvio = rota.indexOf("despachar(");
   ok("cobranca-rota: exige sessão, permissão e destino conhecido ANTES de enviar",
      iSessao > 0 && iPermissao > iSessao && iDestino > iPermissao && iEnvio > iDestino,
      `sessão ${iSessao} · permissão ${iPermissao} · destino ${iDestino} · envio ${iEnvio}`);
@@ -4563,5 +4565,74 @@ const AGOSTO = janelaMes(2026, 7);
   ok("CAD: o hub está no inventário com o mesmo nome do menu",
      INVENTARIO.some((i) => i.rota === "/dashboard/registrations" && i.nome === "Estrutura e cadastros"));
 }
+/* ── AUT ── */
+/* AUTOMAÇÕES: nenhum texto que a pessoa LÊ nomeia variável de ambiente.
+ *
+ * ⚠️ A guarda de credenciais (ONDA 14) cobre as chaves de modelo e só acusa
+ * string com verbo de configuração. As automações trouxeram TRÊS provedores
+ * novos para a tela (e-mail, WhatsApp e o agendador) e um caminho novo até
+ * ela: o `erro`/`motivo` que a rota de teste e o registro de envios devolvem e
+ * que a aba Automações mostra. Quem opera o caixa não tem acesso ao servidor;
+ * "defina RESEND_API_KEY" é uma instrução que ninguém do lado de lá consegue
+ * cumprir — e ainda diz qual provedor está por trás. A tela diz "ativo" ou "não
+ * configurado — envios ficam simulados"; o nome da variável é assunto de quem
+ * administra a instalação.
+ *
+ * Varre QUALQUER texto de interface (JSX e literal), com os comentários FORA
+ * (a lição da guarda de credenciais: este repositório documenta cada correção
+ * citando o nome que ela tirou da tela). E varre também os literais das rotas e
+ * do núcleo de automações, porque a mensagem deles chega à tela como `motivo`
+ * ou `erro` de envio.
+ */
+{
+  const ENV_DE_PROVEDOR = /\b(?:ANTHROPIC_[A-Z_]+|TWILIO_[A-Z_]+|RESEND_[A-Z_]+|ALERTS_(?:WHATSAPP|EMAIL)_[A-Z_]+|CRON_SECRET|SUPABASE_SERVICE_ROLE_KEY)\b/;
+  const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1 ");
+  /** Os textos de interface de um arquivo: JSX entre tags e literais (aspas, crase). */
+  const textosDe = (fonte: string): string[] => {
+    const t = semComentarios(fonte);
+    const out: string[] = [];
+    for (const m of t.matchAll(/>\s*([^<>{}\n]{2,200})</g)) out.push(m[1]);
+    for (const m of t.matchAll(/"([^"\n]{2,300})"|'([^'\n]{2,300})'|`([^`]{2,400})`/g)) out.push(m[1] ?? m[2] ?? m[3] ?? "");
+    return out;
+  };
+  const acusacoes = (nome: string, fonte: string) =>
+    textosDe(fonte)
+      // `process.env["X"]` e o mapa finalidade → variável (servidor, nunca exibido) não são texto de tela.
+      .filter((x) => ENV_DE_PROVEDOR.test(x))
+      .map((x) => `${nome}: "${x.trim().slice(0, 70)}"`);
+
+  // Prova da própria guarda, antes de varrer: ela ACHA o nome em JSX e em
+  // literal, e NÃO acusa o comentário que documenta a correção.
+  const plantadoJsx = `export function X() { return <p>Defina RESEND_API_KEY no servidor</p>; }`;
+  const plantadoLiteral = `const m = "configure TWILIO_ACCOUNT_SID para enviar";`;
+  const plantadoCrase = "const e = `sem ${'x'} ALERTS_EMAIL_TO`;";
+  const soComentario = `/* a tela dizia "defina TWILIO_AUTH_TOKEN" */\n// e também RESEND_API_KEY\nexport const A = 1;`;
+  ok("aut-tela: a varredura ACHA o nome em JSX", acusacoes("x.tsx", plantadoJsx).length === 1);
+  ok("aut-tela: a varredura ACHA o nome em literal", acusacoes("x.tsx", plantadoLiteral).length === 1);
+  ok("aut-tela: a varredura ACHA o nome em template", acusacoes("x.tsx", plantadoCrase).length === 1);
+  ok("aut-tela: comentário que documenta a correção NÃO é acusado", acusacoes("x.tsx", soComentario).length === 0);
+
+  const achados: string[] = [];
+  const varrer = (dir: string, ext: RegExp) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho, ext); continue; }
+      if (ext.test(nome)) achados.push(...acusacoes(caminho, readFileSync(caminho, "utf8")));
+    }
+  };
+  varrer("src/components", /\.tsx$/);
+  varrer("src/app", /\.tsx$/);
+  // O que chega à tela como `motivo`/`erro`: a rota de teste, a rota de
+  // cobrança, o runner e o núcleo das automações.
+  varrer("src/app/api/automacoes", /\.ts$/);
+  varrer("src/app/api/cobranca", /\.ts$/);
+  varrer("src/core/automacoes", /\.ts$/);
+  ok(`aut-tela: nenhum texto de tela nomeia variável de ambiente de provedor (teto ZERO)`, achados.length === 0, achados.slice(0, 5).join(" | "));
+
+  // O status que a tela recebe diz SE está ativo, nunca o NOME do que falta.
+  const rotaTeste = semComentarios(readFileSync("src/app/api/automacoes/teste/route.ts", "utf8"));
+  ok("aut-tela: a rota de teste não devolve nome de variável ao navegador", !ENV_DE_PROVEDOR.test(rotaTeste.replace(/process\.env\.[A-Z_]+/g, "")));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
 if (fails > 0) process.exit(1);

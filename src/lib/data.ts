@@ -47,6 +47,7 @@ import type {
   LancamentoInput,
   SplitLine,
 } from "@/lib/types";
+import { linhasParaRiskInput, type LinhaMovimento } from "@/lib/risco-linhas";
 import type { RiskInput } from "@/core/risk-engine/types";
 import type { RegraRecorrente } from "@/core/contas-pagar/projecao";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
@@ -1221,67 +1222,22 @@ export async function getRiscoInput(): Promise<RiskInput> {
   ]);
   if (accRes.error) throw accRes.error;
   if (movRes.error) throw movRes.error;
-  const saldoAtual = (accRes.data ?? []).reduce(
-    (s, a) => s + Number((a as { balance: number }).balance),
-    0,
-  );
-  // ⚠️ O `select` traz um SUBCONJUNTO das colunas de `Movement` (sem
-  // `reconciled`/`description`), então a asserção direta deixou de compilar ao
-  // acrescentar as colunas de parcela. Passar por `unknown` é o que declara que
-  // a forma vinda do PostgREST é parcial de propósito — e não um `any` solto,
-  // que apagaria a checagem dos campos que o mapeamento usa.
-  const movements = ((movRes.data ?? []) as unknown as (Pick<
-    Movement, "id" | "type" | "status" | "amount" | "due_date" | "paid_date" | "party_id" | "account_id" | "category"
-  > & {
-    categoria?: unknown; centro?: unknown; projeto?: unknown;
-    installment_no?: number | null; installment_total?: number | null;
-    category_id?: string | null; cost_center_id?: string | null; project_id?: string | null;
-    rateio?: { percent?: number | null; amount?: number | null; projeto?: unknown; centro?: unknown }[] | null;
-  })[]).map((m) => ({
-    id: m.id,
-    type: m.type,
-    status: m.status,
-    amount: m.amount,
-    due_date: m.due_date,
-    paid_date: m.paid_date,
-    party_id: m.party_id ?? null,
-    accountId: m.account_id ?? null,
-    // categoria real (nome do cadastro) tem prioridade sobre o texto livre
-    category: embedName(m.categoria) ?? m.category,
-    // A competência e a descrição, que o motor não enxergava (ver RiskMovement).
-    competence_date: (m as { competence_date?: string | null }).competence_date ?? null,
-    descricao: (m as { description?: string | null }).description ?? null,
-    costCenter: embedName(m.centro),
-    // ⚠️ Só `movements.project_id`: o vínculo do navegador (id "5001" do
-    // cadastro antigo) não existe para outra máquina e nunca casou com UUID.
-    projeto: embedName(m.projeto),
-    projetoId: m.project_id ?? null,
-    centroId: m.cost_center_id ?? null,
-    categoriaId: m.category_id ?? null,
-    rateio: (m.rateio ?? []).map((sp) => ({
-      projeto: embedName(sp.projeto), centro: embedName(sp.centro),
-      percentual: Number(sp.percent ?? 0), valor: Number(sp.amount ?? 0),
-    })),
-    // Parcela: separa o compromisso que ACABA do que continua (ver RiskMovement).
-    parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
-    parcela: (m as { installment_no?: number | null }).installment_no ?? null,
-    // A chave que liga o título à REGRA de recorrência que o gerou.
-    referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
-    // Procedência e autoria — o razão do contador pergunta as duas.
-    origem: (m as { origem?: string | null }).origem ?? null,
-    lancadoPor: (m as { lancado_por?: string | null }).lancado_por ?? null,
-  }));
-  const partyNames: Record<string, string> = {};
-  (partyRes.data ?? []).forEach((p) => {
-    const row = p as { id: string; name: string };
-    partyNames[row.id] = row.name;
-  });
-  return {
-    hoje, saldoAtual, movements, partyNames, horizonDias: 60,
+  // ⚠️ O MAPEADOR ÚNICO (`lib/risco-linhas`). Esta tela, a consolidação e o
+  // runner de automações montam o `RiskInput` pela MESMA função — duas cópias
+  // do mapeamento divergem na primeira coluna nova, e aí o resumo do caixa que
+  // chega por e-mail discorda da Visão geral que a pessoa abre em seguida.
+  // ⚠️ Só `movements.project_id`: o vínculo do navegador (id "5001" do
+  // cadastro antigo) não existe para outra máquina e nunca casou com UUID —
+  // por isso nenhum `projetoLocal` aqui.
+  return linhasParaRiskInput({
+    hoje,
+    saldosDasContas: ((accRes.data ?? []) as { balance: number }[]).map((a) => a.balance),
+    linhas: (movRes.data ?? []) as unknown as LinhaMovimento[],
+    partes: (partyRes.data ?? []) as { id: string; name: string }[],
     // Em live só a fonte "informada" (cadastro) alimenta a abertura — o
     // `<LEDGERBAL>` importado ainda não persiste no servidor (ver lib/abertura).
     aberturaVerificada: resolverAberturaVerificada(false, conferidas),
-  };
+  });
 }
 
 export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
