@@ -21,7 +21,11 @@ export default async function orcamento(navegador) {
   v.ok(/Etapa 2 de 2/.test(await u.texto()), "a etapa 2 abre a tabela de alocação");
 
   await u.page.getByRole("button", { name: "Linha de receita" }).click();
-  await u.page.getByPlaceholder("Nome da categoria").last().fill("Vendas");
+  // A categoria vem do CADASTRO (plano de contas), não de texto livre.
+  const selCat = u.page.locator("tbody tr").last().locator("select").first();
+  const opcoes = await selCat.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+  v.ok(opcoes.length > 0, "a linha de receita oferece categorias do cadastro", `${opcoes.length} opção(ões)`);
+  await selCat.selectOption(opcoes[0] ?? "");
   // Janeiro recebe o ano inteiro, e "distribuir" espalha pelos 12 meses.
   const celulas = u.page.locator("tbody tr").last().locator('input[inputmode="decimal"], input[placeholder="0,00"]');
   await celulas.first().fill("12000000"); // máscara de centavos: 12000000 → R$ 120.000,00
