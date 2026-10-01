@@ -735,3 +735,40 @@ export function fatiasDoRateio(
   }
   return Array.from(m, ([id, percentual]) => ({ id, percentual }));
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * DECLARAR O PALPITE — a linha do DRE, confirmada em um clique (Rodada 5)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * O DRE de todo cliente novo é classificado por palavra-chave sobre o NOME da
+ * categoria, e a tela já DIZ isso. Este plano é a metade que resolve: para cada
+ * categoria adivinhada, a linha que a pessoa confirmou vira `dre_linha` no
+ * cadastro — o palpite passa a ser declaração e o aviso some.
+ *
+ * ⚠️ Casa pelo NOME normalizado, porque é por ele que a classificação lê
+ * (`linhaPorCategoria` é `nome minúsculo → linha`). A categoria que já existe
+ * ATUALIZA (mantém id, pai, código e natureza); a que só existe como texto nos
+ * lançamentos é CRIADA — sem ela a declaração não teria onde morar.
+ * ⚠️ "Sem categoria" não se declara: não há nome para casar.
+ * ⚠️ Item sem linha escolhida é PULADO, nunca gravado vazio — vazio é palpite.
+ */
+export interface ItemDeclaracao { nome: string; natureza: "receita" | "despesa"; linha: string }
+export interface PassoDeclaracao { nome: string; linha: string; natureza: "receita" | "despesa"; id: string | null }
+
+const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+
+export function planoDeDeclaracao(
+  itens: readonly ItemDeclaracao[], categorias: readonly CategoriaCadastro[],
+): PassoDeclaracao[] {
+  const porNome = new Map(categorias.map((c) => [norm(c.nome), c]));
+  const vistos = new Set<string>();
+  const out: PassoDeclaracao[] = [];
+  for (const it of itens) {
+    const k = norm(it.nome);
+    if (!k || k === "sem categoria" || !it.linha || vistos.has(k)) continue;
+    vistos.add(k);
+    const c = porNome.get(k);
+    out.push({ nome: c?.nome ?? it.nome.trim(), linha: it.linha, natureza: c?.natureza ?? it.natureza, id: c?.id ?? null });
+  }
+  return out;
+}

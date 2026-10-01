@@ -1601,6 +1601,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— SALDO / quanto tenho ———
   if (/\bsaldo\b|meu caixa|qual (o )?meu caixa|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|quanto de (dinheiro|grana)|(dinheiro|grana) eu tenho|quanta grana|\ba grana\b|cad[êe] (minha |a |o )?(grana|dinheiro|saldo|caixa)|\bna conta\b|dindin|como (t[áa]|est[áa]) (a |o )?(grana|caixa|dinheiro|saldo)|(o |meu )?caixa,? como (t[áa]|est[áa]|anda|vai)|folga (n?o|de|em|d[oa]) (caixa|saldo)|tenho folga|situa[çc][ãa]o (do|de) (caixa|financeira|do dinheiro)|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
+    // ⚠️ Sem conta cadastrada não há saldo — a IA diz a MESMA ausência que a
+    // tela, nunca "R$ 0,00" (Rodada 5).
+    if (input.contas === 0) {
+      return R("A empresa ainda não tem conta bancária cadastrada, então não há saldo para informar. Recomenda-se cadastrar a conta em Cadastros › Contas bancárias ou conectar o banco em Entrada de dados.",
+        [{ label: "Saldo", valor: `— ${formaCurta({ codigo: "sem_conta", motivo: "" })}` }], ["contas bancárias cadastradas"], 0.95);
+    }
     // ⚠️ O runway ao lado do saldo é o CANÔNICO (o do Fluxo de caixa). Vinha do
     // `ctx.runwayMeses` do quant e dizia "cobre cerca de 0 meses de operação"
     // sobre R$ 2,2 milhões de uma empresa que gera caixa.

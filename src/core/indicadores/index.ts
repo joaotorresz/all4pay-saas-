@@ -126,7 +126,9 @@ export type MotivoIndisponivel =
   /** O ponto de partida já é negativo; a projeção não se define. */
   | "caixa_negativo"
   /** Não houve consumo no período — não há prazo a projetar. */
-  | "sem_queima";
+  | "sem_queima"
+  /** A empresa não tem conta financeira: não existe posição de caixa. */
+  | "sem_conta";
 
 export interface Indisponivel {
   codigo: MotivoIndisponivel;
@@ -164,6 +166,7 @@ export const FORMA_CURTA: Record<MotivoIndisponivel, string> = {
   sem_base: "sem base de cálculo",
   caixa_negativo: "não se aplica",
   sem_queima: "não há queima",
+  sem_conta: "nenhuma conta cadastrada",
 };
 
 /** A forma curta de uma ausência (ou o motivo por extenso, se o código for novo). */
@@ -257,6 +260,19 @@ function naJanela(input: RiskInput, j: Janela, regime: Regime): RiskMovement[] {
  */
 export function saldo(input: RiskInput, j: Janela = janelaHoje(input.hoje)): Indicador {
   if (j.vazia) return vazio(j, "saldo consolidado das contas", "posicao");
+  // ⚠️ Sem conta não há posição: "R$ 0,00" afirmaria um caixa que existe e está
+  // vazio, quando a verdade é que ninguém cadastrou onde o dinheiro mora.
+  if (input.contas === 0) {
+    return {
+      valor: 0,
+      indisponivel: {
+        codigo: "sem_conta",
+        motivo: "a empresa ainda não tem conta bancária cadastrada — não há saldo para mostrar",
+        comoResolver: "Cadastre a conta em Cadastros › Contas bancárias (ou conecte o banco em Entrada de dados).",
+      },
+      procedencia: { lancamentos: input.movements.length, regime: "posicao", janela: j, formula: "saldo consolidado das contas financeiras", natureza: "fato" },
+    };
+  }
   const valor = saldoEm(input, j.ate);
   const hoje = input.hoje.slice(0, 10);
   const formula =

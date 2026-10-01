@@ -244,6 +244,8 @@ export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> 
       account_id: accId, type: "entrada", situacao: "previsto",
       category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
       amount: totalFatura(r), party_id: r.clienteId || null, due_date: d, paid_date: null,
+      // Cada fatura é um fato novo: competência = vencimento (como no cron).
+      competence_date: d,
       reconciled: false, description: r.titulo, reference_code: refFatura(r.id, d),
     });
     if (!error) { gravadas++; continue; }

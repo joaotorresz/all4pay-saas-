@@ -11,6 +11,7 @@
  */
 import * as React from "react";
 import Link from "next/link";
+import { origemDoNumero } from "@/core/assistant/origem-numero";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
@@ -255,12 +256,25 @@ export function BolhaResposta({
       {t.grafico && <GraficoDaResposta g={t.grafico} />}
       {t.numeros && t.numeros.length > 0 && (
         <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">
-          {t.numeros.map((n, i) => (
-            <div key={i}>
-              <div className="text-[11px] text-faint">{n.label}</div>
-              <div className="text-[16px] font-semibold tabular-nums text-ink">{n.valor}</div>
-            </div>
-          ))}
+          {t.numeros.map((n, i) => {
+            // O número leva à tela que mostra o MESMO número — só quando há
+            // uma tela só (`origemDoNumero` é conservador de propósito).
+            const origem = origemDoNumero(n.label);
+            const corpo = (
+              <>
+                <div className="text-[11px] text-faint">{n.label}</div>
+                <div className="text-[16px] font-semibold tabular-nums text-ink">{n.valor}</div>
+              </>
+            );
+            return origem ? (
+              <Link key={i} href={origem.rota} onClick={onNavegar} data-ia-numero={origem.rota}
+                title={`Ver em ${origem.tela}`} className="block rounded-sm hover:bg-surface-2 -mx-1 px-1 transition-colors">
+                {corpo}
+              </Link>
+            ) : (
+              <div key={i}>{corpo}</div>
+            );
+          })}
         </div>
       )}
       {t.acao && (

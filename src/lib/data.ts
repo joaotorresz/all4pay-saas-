@@ -1231,7 +1231,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
       if (m.party_id && !partyNames[m.party_id]) partyNames[m.party_id] = m.party_id;
     });
     return {
-      hoje, saldoAtual, movements, partyNames, horizonDias: 60,
+      hoje, saldoAtual, movements, partyNames, horizonDias: 60, contas: seedAccounts().length,
       aberturaVerificada: resolverAberturaVerificada(true, seedAccounts().map((a) => contaDaLinha(a as LinhaConta))),
     };
   }

@@ -132,6 +132,7 @@ import {
 import { gerarXLSX } from "@/lib/xlsx";
 import { gerarDOCX } from "@/lib/docx";
 import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA, palpiteDoRelatorio as palpiteDoRelatorioA } from "@/core/relatorios";
+import { planoDeDeclaracao as planoDeDeclaracaoA } from "@/core/registros/hierarquia";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
   montarPainelContasPagar, opcoesDeFiltro,
@@ -2950,6 +2951,46 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("t7: a linha declarada SAI da contagem de palpite",
      pCom.n === 1 && pCom.valor === 10_000 && pCom.categorias[0]?.nome === "Vendas", JSON.stringify(pCom));
   const telaDRE = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  // ⚠️ RODADA 5 — DECLARAR O PALPITE. A promessa da tela é "confirmar a
+  // sugestão não muda número nenhum": declarar a linha que o palpite escolheu
+  // tem de devolver o MESMO DRE, linha a linha, e zerar a contagem.
+  {
+    const decl: Record<string, string> = {};
+    for (const c of pSem.categorias) decl[c.nome.trim().toLowerCase()] = c.linha;
+    const declarado = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: decl });
+    const iguais = sem.linhas.every((l) => Math.abs((declarado.linhas.find((x) => x.id === l.id)?.celulas[0]?.valor ?? NaN) - (l.celulas[0]?.valor ?? 0)) < 0.005);
+    ok("t7: declarar a linha SUGERIDA não muda nenhuma linha do DRE", iguais);
+    ok("t7: depois de declarar, nada sobra no palpite", palpiteDoRelatorioA(declarado, IN_T7).n === 0);
+    ok("t7: a sugestão é a linha que o palpite usou (Ferramentas → despesas operacionais)",
+       pSem.categorias.find((c) => c.nome === "Ferramentas do time")?.linha === "despesas_operacionais");
+
+    // A sugestão é a linha que MAIS PESOU na categoria (uma categoria pode
+    // cair em duas linhas — entrada e saída do mesmo nome).
+    const misto = palpiteDoRelatorioA({
+      porPalpite: ["a", "b"],
+      classificacao: { a: { linha: "resultado_financeiro", valor: 50 }, b: { linha: "despesas_operacionais", valor: -900 } },
+    }, { hoje: "2026-08-11", saldoAtual: 0, movements: [
+      { id: "a", type: "entrada", status: "pago", amount: 50, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Juros" },
+      { id: "b", type: "saida", status: "pago", amount: 900, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Juros" },
+    ] } as RiskInput);
+    ok("t7: a sugestão é a linha de MAIOR valor da categoria, e a natureza segue o lado maior",
+       misto.categorias[0]?.linha === "despesas_operacionais" && misto.categorias[0]?.natureza === "despesa",
+       JSON.stringify(misto.categorias));
+
+    const cats = [{ id: "c1", nome: "Ferramentas do Time", codigo: "", natureza: "despesa" as const, paiId: null, dreLinha: undefined, ativo: true }];
+    const plano = planoDeDeclaracaoA([
+      { nome: "ferramentas do time", natureza: "despesa", linha: "custos_variaveis" },
+      { nome: "Vendas", natureza: "receita", linha: "receita_bruta" },
+      { nome: "Sem categoria", natureza: "despesa", linha: "despesas_operacionais" },
+      { nome: "Aluguel", natureza: "despesa", linha: "" },
+      { nome: "VENDAS", natureza: "receita", linha: "receita_bruta" },
+    ], cats);
+    ok("t7: a categoria que existe é ATUALIZADA pelo id (casa sem caixa nem acento)",
+       plano.find((x) => x.id === "c1")?.linha === "custos_variaveis" && plano.find((x) => x.id === "c1")?.nome === "Ferramentas do Time");
+    ok("t7: a que só existe como texto é CRIADA", plano.some((x) => x.nome === "Vendas" && x.id === null));
+    ok("t7: 'Sem categoria' e linha vazia NÃO são gravados; nome repetido entra uma vez",
+       plano.length === 2, JSON.stringify(plano));
+  }
   ok("t7: a tela do DRE mostra o aviso de palpite",
      /palpiteDoRelatorio\(/.test(telaDRE) && /data-aviso="palpite"/.test(telaDRE));
 }
@@ -9906,6 +9947,48 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const libE = semCom(fsE.readFileSync("src/lib/caixa-email.ts", "utf8"));
   ok("caixa-email: em demonstração a lista de e-mails é a do cache (vazia), nunca um seed inventado",
      /if \(isDemo\) return Promise\.resolve\(cache\)/.test(libE) && !/demo\/seed|DEMO_/.test(libE));
+}
+
+/* ── RODADA 5 · o número da IA leva à tela de origem ── */
+{
+  const { origemDoNumero, ROTAS_DE_ORIGEM } = await import("@/core/assistant/origem-numero");
+  const { INVENTARIO } = await import("@/core/rotas/inventario");
+  const { destinoDe } = await import("@/core/rotas/aliases");
+  const publicadas = new Set(INVENTARIO.map((r: { rota: string }) => r.rota));
+  const fora = ROTAS_DE_ORIGEM.filter((r) => !publicadas.has(r) || destinoDe(r) !== null);
+  ok("ia-origem: toda tela de origem existe no inventário e não é alias", fora.length === 0, fora.join(", "));
+  ok("ia-origem: EBITDA leva ao DRE · Runway ao fluxo · Saldo ao Início",
+     origemDoNumero("EBITDA")?.rota === "/dashboard/reports/dre"
+     && origemDoNumero("Runway")?.rota === "/fluxo-caixa"
+     && origemDoNumero("Saldo")?.rota === "/");
+  // ⚠️ Ambíguo fica sem link: levar à tela errada é pior que não levar.
+  const ambiguos = ["Vencido", "Total", "Valor", "Parcela", "Markup", "Em atraso", "Receita"];
+  const comLink = ambiguos.filter((r) => origemDoNumero(r) !== null);
+  ok("ia-origem: rótulo ambíguo ou de calculadora NÃO ganha link", comLink.length === 0, comLink.join(", "));
+  const kit = readFileSync("src/components/ia/chat-kit.tsx", "utf8");
+  ok("ia-origem: a bolha da resposta usa o mapa (o número vira link)",
+     /origemDoNumero\(n\.label\)/.test(kit) && /data-ia-numero=/.test(kit));
+}
+
+/* ── RODADA 5 · saldo zero × nenhuma conta cadastrada ── */
+{
+  const { saldo: saldoS } = await import("@/core/indicadores");
+  const { responderLocal: responderS } = await import("@/core/assistant/engine");
+  const { linhasParaRiskInput: mapS } = await import("@/lib/risco-linhas");
+  const base = { hoje: "2026-08-11", saldoAtual: 0, movements: [], partyNames: {} } as RiskInput;
+  const semConta = saldoS({ ...base, contas: 0 });
+  const zerada = saldoS({ ...base, contas: 2 });
+  const legado = saldoS(base);
+  ok("sem-conta: sem conta cadastrada o saldo é AUSENTE (sem_conta), não R$ 0", semConta.indisponivel?.codigo === "sem_conta");
+  ok("sem-conta: conta existente com saldo zero continua sendo ZERO (é resposta)", !zerada.indisponivel && zerada.valor === 0);
+  ok("sem-conta: sem a informação de contas nada muda (compatível)", !legado.indisponivel);
+  ok("sem-conta: o mapeador de linhas conta as contas", mapS({ hoje: "2026-08-11", saldosDasContas: [], linhas: [] }).contas === 0
+     && mapS({ hoje: "2026-08-11", saldosDasContas: [10, 0], linhas: [] }).contas === 2);
+  const r = responderS("qual meu saldo?", { ...base, contas: 0 });
+  ok("sem-conta: a IA diz a mesma ausência, nunca R$ 0,00",
+     /nenhuma conta cadastrada|não tem conta/i.test(r.resposta + r.numeros.map((n) => n.valor).join(" ")) && !/R\$\s?0,00/.test(r.resposta), r.resposta);
+  const home = readFileSync("src/components/visao-geral/HomeQuatro.tsx", "utf8");
+  ok("sem-conta: o saldo-herói da Home pergunta pela ausência antes do valor", /saldoInd\.indisponivel/.test(home));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

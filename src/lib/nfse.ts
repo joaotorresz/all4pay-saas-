@@ -196,7 +196,9 @@ async function refletirNaDRE(nf: Nfse): Promise<string[]> {
 
   const receita: Movement = {
     id: `${nf.id}-rec`, account_id: "", type: "entrada", status: "pendente", category: "Serviços",
-    amount: nf.valorServico, party_id: nf.tomadorId, due_date: hoje, paid_date: null, reconciled: false,
+    amount: nf.valorServico, party_id: nf.tomadorId, due_date: hoje,
+    // A NFS-e é o fato gerador: a competência é a da emissão (hoje).
+    competence_date: hoje, paid_date: null, reconciled: false,
     description: `NFS-e ${nf.numero} · ${nf.tomadorNome}`,
   } as Movement;
 
@@ -212,6 +214,7 @@ async function refletirNaDRE(nf: Nfse): Promise<string[]> {
     origem: "venda" as const,
     account_id: accId, type: "entrada", situacao: "previsto", category: "Serviços", amount: nf.valorServico,
     party_id: nf.tomadorId, due_date: hoje, paid_date: null, reconciled: false, description: receita.description,
+    competence_date: hoje, // a NFS-e é o fato gerador
   }).select("id").single();
   if (error) throw new Error(`Nota autorizada, mas a receita não foi lançada: ${error.message}`);
   if (data) ids.push((data as { id: string }).id);

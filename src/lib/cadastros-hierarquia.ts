@@ -47,7 +47,7 @@ import {
   linhaDoCentro, projetoDaLinha, linhaDoProjeto, validarCategoria, validarCentro,
   validarProjeto, contaComNomeRepetido, problemaDoGrupo, problemaDaExclusao,
   ordemDeExclusao, contasAntigas, contaCompletada, centrosAntigos, projetosAntigos,
-  categoriasAntigas, slugDoBanco,
+  categoriasAntigas, slugDoBanco, planoDeDeclaracao, type ItemDeclaracao,
   type LinhaConta, type LinhaCategoria, type LinhaCentro, type LinhaProjeto,
   type CategoriaCadastro, type CentroCustoCadastro, type ProjetoCadastro,
   type StatusProjeto, type PendenciaAntiga,
@@ -245,6 +245,30 @@ export async function salvarCategoria(entrada: CategoriaCadastro): Promise<Categ
   const { data, error } = await q.select(COLS_CATEGORIA).single();
   if (error) throw erroDoBanco(error);
   return categoriaDaLinha(data as LinhaCategoria);
+}
+
+/**
+ * Grava as linhas confirmadas na tela de palpite do DRE — pelo MESMO escritor
+ * do Plano de contas (`salvarCategoria`), uma categoria por vez, e devolve
+ * quantas foram gravadas e quais o banco recusou (com o motivo).
+ */
+export async function declararLinhas(itens: readonly ItemDeclaracao[]): Promise<{ gravadas: number; recusadas: { nome: string; motivo: string }[] }> {
+  const todas = await listarCategorias();
+  const plano = planoDeDeclaracao(itens, todas);
+  let gravadas = 0;
+  const recusadas: { nome: string; motivo: string }[] = [];
+  for (const p of plano) {
+    const atual = p.id ? todas.find((c) => c.id === p.id) : undefined;
+    try {
+      await salvarCategoria(atual
+        ? { ...atual, dreLinha: p.linha }
+        : { id: "", nome: p.nome, codigo: "", natureza: p.natureza, paiId: null, dreLinha: p.linha, ativo: true });
+      gravadas++;
+    } catch (e) {
+      recusadas.push({ nome: p.nome, motivo: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return { gravadas, recusadas };
 }
 
 export async function definirCategoriaAtiva(id: string, ativo: boolean): Promise<void> {

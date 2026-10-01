@@ -177,8 +177,8 @@ export async function createTransferencia(input: TransferenciaInput): Promise<st
   };
   const chegada = input.arrival_date || input.date;
   const { error } = await s.from("movements").insert([
-    { ...common, account_id: input.from_account_id, type: "saida", due_date: input.date, paid_date: input.date },
-    { ...common, account_id: input.to_account_id, type: "entrada", due_date: chegada, paid_date: chegada },
+    { ...common, account_id: input.from_account_id, type: "saida", due_date: input.date, paid_date: input.date, competence_date: input.date },
+    { ...common, account_id: input.to_account_id, type: "entrada", due_date: chegada, paid_date: chegada, competence_date: chegada },
   ]);
   if (error) throw error;
   return groupId;

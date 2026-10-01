@@ -40,6 +40,7 @@ import {
 import { loadCompany } from "@/lib/company";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro, type RegimeConfigurado } from "@/core/tax/duplicidade";
 import { CabecalhoImpressao } from "./CabecalhoImpressao";
+import { DeclararPalpite } from "./DeclararPalpite";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
  * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
@@ -71,6 +72,8 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   // (não no render) porque a fonte é o cache local, e ler no render quebra a
   // hidratação.
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
+  const [declarando, setDeclarando] = React.useState(false);
+  const [versaoLinhas, setVersaoLinhas] = React.useState(0);
   /*
    * ⚠️ **Uma leitura só, e o BANCO vence** (`linhasDeclaradasDasCategorias`):
    * `categories.dre_linha` é a tabela que os LANÇAMENTOS referenciam e a que a
@@ -84,7 +87,7 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       .then((m) => { if (vivo) setLinhaPorCategoria(m); })
       .catch(() => { /* sem leitura, o motor cai no palpite — e diz isso */ });
     return () => { vivo = false; };
-  }, []);
+  }, [versaoLinhas]);
 
   /**
    * ⚠️ **CONFIRMADO × PREVISTO — e o padrão preserva o comportamento de hoje,
@@ -376,13 +379,21 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
                 foram classificados por <b className="text-ink">palpite</b> — pelo nome da categoria, porque
                 ela não tem linha do DRE declarada
                 {palpite.categorias.length > 0 && <> (as que mais pesam: {palpite.categorias.slice(0, 3).map((c) => c.nome).join(", ")})</>}.{" "}
-                <Link href="/dashboard/registrations/chart-of-accounts" className="text-ink underline">Declarar no plano de contas</Link>.
+                <button type="button" className="text-ink underline" onClick={() => setDeclarando(true)}>Revisar e declarar</button>
+                {" "}· <Link href="/dashboard/registrations/chart-of-accounts" className="text-ink underline">abrir o plano de contas</Link>.
               </p>
             </div>
           )}
         </>
       )}
 
+      {declarando && palpite && (
+        <DeclararPalpite
+          categorias={palpite.categorias}
+          onFechar={() => setDeclarando(false)}
+          onDeclarado={() => setVersaoLinhas((v) => v + 1)}
+        />
+      )}
       {celula && <GavetaTransacoes celula={celula} onFechar={() => setCelula(null)} />}
     </div>
   );
