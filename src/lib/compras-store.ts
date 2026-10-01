@@ -166,6 +166,16 @@ export async function salvarCompra(c: Compra): Promise<Compra[]> {
       reportar("compras.titulos", e, "a compra paga foi recusada: os títulos não entraram no caixa");
       throw new Error(mensagem(e));
     }
+    // ⚠️ Daqui em diante os títulos JÁ estão no caixa. Se gravar a compra
+    // falhar (cota do navegador), "a compra não foi registrada" seria meia
+    // verdade: o dinheiro entrou. A mensagem diz as duas metades, e salvar de
+    // novo no mesmo formulário não duplica (mesmo id → mesma chave do título).
+    try {
+      return persistir(c);
+    } catch (e) {
+      reportar("compras.gravar", e, "os títulos da compra paga entraram no caixa e a compra não foi gravada");
+      throw new Error(`os títulos já entraram no caixa, mas a compra não foi gravada (${mensagem(e)}). Salve de novo neste formulário — não duplica.`);
+    }
   }
   return persistir(c);
 }

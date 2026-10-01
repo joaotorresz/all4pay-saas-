@@ -69,8 +69,14 @@ export function CompraForm() {
   const [salvando, setSalvando] = React.useState(false);
   const [erroGravar, setErroGravar] = React.useState<string | null>(null);
 
+  // ⚠️ O id nasce UMA vez por formulário, não a cada clique. A nova tentativa
+  // depois de uma falha tem de ser a MESMA compra: os títulos são deduplicados
+  // pela chave `compra:<id>:<parcela>`, e um id novo a cada "Criar compra"
+  // duplicaria no caixa os títulos que a tentativa anterior já tinha gravado.
+  const [idCompra] = React.useState(() => novoId("compra"));
+
   const rascunho = (): Compra => ({
-    id: novoId("compra"),
+    id: idCompra,
     numero: proximoNumeroCompra(),
     fornecedorId,
     fornecedor: fornecedores.data?.find((f) => f.id === fornecedorId)?.name ?? "",
@@ -126,7 +132,7 @@ export function CompraForm() {
       await salvarCompra(c);
     } catch (err) {
       // A recusa REAL do banco vai para a tela, inteira — "tente novamente"
-      // repetiria a mesma recusa. Nada foi gravado; o formulário fica aberto.
+      // repetiria a mesma recusa. O formulário fica aberto e a nova tentativa é a MESMA compra (mesmo id).
       const msg = err instanceof Error ? err.message : String(err);
       setErroGravar(msg);
       toast(`A compra não foi registrada: ${msg}`);

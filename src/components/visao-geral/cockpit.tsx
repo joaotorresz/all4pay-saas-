@@ -56,7 +56,7 @@ export function useCockpitCtx(): CockpitCtx {
   };
 }
 
-import { valorOuNulo, dataDe, type Indicador } from "@/core/indicadores";
+import { valorOuNulo, dataDe, rotuloRunwayLido, type Indicador } from "@/core/indicadores";
 import { rotuloRunway } from "@/core/quant/score";
 
 // Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a
@@ -1086,7 +1086,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       return (
         <MetricCard icon="triangle-alert" label="Pior teste de stress"
           value={<BRL value={pior.impactoSaldo} />}
-          answer={`${pior.label}: impacto de ${formatBRL(pior.impactoSaldo)} no saldo, runway cairia para ${pior.runwayDias} dias.`}
+          answer={`${pior.label}: impacto de ${formatBRL(pior.impactoSaldo)} no saldo, runway no cenário: ${rotuloRunwayLido(pior.runway)}.`}
           info={{ titulo: "Pior teste de stress", oQue: "O choque que mais derruba o caixa entre os testes simulados.", comoCalcula: "Simula choques (queda de receita, atraso de recebimento, alta de despesa) e destaca o de maior impacto negativo no saldo." }} />
       );
     },

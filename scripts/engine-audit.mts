@@ -9210,6 +9210,49 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok(`pagar-r3: ${f.split("/").pop()} exibe o runway de cenário pela leitura (não o número cru)`,
        /rotuloRunwayLido\(/.test(t) && !/\.runwayMeses\)?\}?m/.test(t) && !/runwayMeses\.toLocaleString/.test(t));
   }
+
+  /* ── REVISÃO ADVERSARIAL (r4/pagar-rev) — o que a rodada 3 deixou passar ── */
+  // A varredura acima listava ARQUIVOS; a narrativa da aba Risco, os fatores
+  // críticos, o pilar de liquidez e o cartão de estresse do cockpit seguiam
+  // lendo o número cru ("mais de 24 meses", "999 dias", "apenas 0 dias").
+  const fxRev = (saldo: number, rec: number, desp: number) => ({ hoje: "2026-09-15", saldoAtual: saldo, partyNames: {}, horizonDias: 60, movements:
+    ["06", "07", "08"].flatMap((mm) => [
+      { id: "r" + mm, type: "entrada", status: "pago", amount: rec, due_date: `2026-${mm}-10`, paid_date: `2026-${mm}-10`, party_id: "c1", category: "Vendas" },
+      { id: "d" + mm, type: "saida", status: "pago", amount: desp, due_date: `2026-${mm}-12`, paid_date: `2026-${mm}-12`, party_id: "f1", category: "Aluguel" },
+    ]) }) as never;
+  const noTetoR = scoreRiscoCaixa(fxRev(50_000_000, 50_000, 51_000));
+  ok("pagar-rev: a fixture do teto EXERCITA o teto (queima pequena sobre caixa enorme)",
+     noTetoR.runway.base === ind.RUNWAY_CAP_DIAS && noTetoR.burn.liquidoMensal < 0);
+  ok("pagar-rev: a narrativa da aba Risco declara o TETO (nunca 'mais de 24 meses')",
+     /teto do cálculo/.test(noTetoR.narrativa) && !/24 meses/.test(noTetoR.narrativa), noTetoR.narrativa);
+  ok("pagar-rev: o pilar de liquidez não diz '999 dias'",
+     !/999/.test(noTetoR.componentes.find((c: { id: string }) => c.id === "liquidez")!.detalhe));
+  const negR = scoreRiscoCaixa(fxRev(-5_000, 50_000, 60_000));
+  ok("pagar-rev: a fixture do caixa negativo queima (senão a narrativa iria pelo outro ramo)",
+     negR.burn.liquidoMensal < 0 && negR.runway.base === 0);
+  ok("pagar-rev: caixa negativo — a narrativa diz que não há runway, não '0.0 meses'",
+     /não há runway a projetar/.test(negR.narrativa) && !/0[.,]0 meses/.test(negR.narrativa), negR.narrativa);
+  ok("pagar-rev: caixa negativo — os fatores críticos não dizem 'apenas 0 dias'",
+     !negR.fatoresCriticos.some((f: string) => /apenas 0 dias/.test(f)), negR.fatoresCriticos.join(" | "));
+  ok("pagar-rev: caixa negativo — o pilar de liquidez diz a ausência",
+     /não se aplica/.test(negR.componentes.find((c: { id: string }) => c.id === "liquidez")!.detalhe));
+  const varrerRunway = (dir: string): string[] => fsR.readdirSync(dir, { withFileTypes: true }).flatMap((e: { name: string; isDirectory(): boolean }) => {
+    const p = `${dir}/${e.name}`;
+    if (e.isDirectory()) return varrerRunway(p);
+    if (!/\.tsx?$/.test(e.name)) return [];
+    const t = lerR(p);
+    return /runway[^\n]{0,80}>= ?999|24\+ ?m|mais de 24 meses|runwayDias\} dias/.test(t) ? [p] : [];
+  });
+  const cruRunway = [...varrerRunway("src/components"), ...varrerRunway("src/core/ai"), ...varrerRunway("src/core/financial-os"),
+    ...["src/core/risk-engine/score.engine.ts"].filter((p) => /runway\.base\} dias/.test(lerR(p)))];
+  ok("pagar-rev: nenhuma tela/narrativa traduz o teto do runway em número (teto ZERO)", cruRunway.length === 0, cruRunway.join(", "));
+
+  /* ---- a compra: a nova tentativa é a MESMA compra ---- */
+  ok("pagar-rev: o id da compra nasce uma vez por formulário (um id por clique duplicava os títulos na nova tentativa)",
+     /React\.useState\(\(\) => novoId\("compra"\)\)/.test(compraForm) && /id: idCompra,/.test(compraForm)
+     && !/id: novoId\("compra"\)/.test(compraForm));
+  ok("pagar-rev: se gravar a compra falha DEPOIS dos títulos, a mensagem diz que o dinheiro entrou",
+     /await criarTitulosDaCompra\(c\);[\s\S]*?try \{\s*return persistir\(c\);\s*\} catch[\s\S]*?já entraram no caixa/.test(storeR));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

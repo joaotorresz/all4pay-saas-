@@ -2,6 +2,7 @@
  * Motor de Score — combina os pilares num score multifatorial (0..100),
  * com pesos explícitos (rastreável/auditável). Score alto = mais saudável.
  */
+import { rotuloRunwayLido } from "@/core/indicadores";
 import type {
   RiskInput,
   PilarResult,
@@ -119,7 +120,7 @@ export function calcularScore(
   const compScore = clamp(coverage * 60);
 
   const componentes: PilarResult[] = [
-    { id: "liquidez", label: "Liquidez imediata", peso: PESOS.liquidez, score: Math.round(liquidezScore), valor: m.runway.base, detalhe: `Runway base de ${m.runway.base} dias${m.rupturaDia !== null ? `, ruptura projetada em ${m.rupturaDia} dias` : ""}.` },
+    { id: "liquidez", label: "Liquidez imediata", peso: PESOS.liquidez, score: Math.round(liquidezScore), valor: m.runway.base, detalhe: `Runway base: ${rotuloRunwayLido(m.runway.leitura.base)}${m.rupturaDia !== null ? `, ruptura projetada em ${m.rupturaDia} dias` : ""}.` },
     { id: "previsibilidade", label: "Previsibilidade de receita", peso: PESOS.previsibilidade, score: Math.round(previsScore), valor: cov, detalhe: `Coeficiente de variação da receita mensal: ${(cov * 100).toFixed(0)}%.` },
     { id: "concentracao", label: "Concentração de clientes", peso: PESOS.concentracao, score: Math.round(concScore), valor: ts, detalhe: `Maior cliente representa ${(ts * 100).toFixed(0)}% da receita.` },
     { id: "tendencia", label: "Tendência de caixa", peso: PESOS.tendencia, score: Math.round(tendScore), valor: slope, detalhe: slope >= 0 ? "Geração de caixa em melhora nos últimos 30 dias." : "Geração de caixa em piora nos últimos 30 dias." },

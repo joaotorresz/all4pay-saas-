@@ -6,6 +6,7 @@
  */
 import type { ScoreDetalhado } from "@/core/risk-engine/types";
 import { formatBRL } from "@/lib/format";
+import { rotuloRunwayLido } from "@/core/indicadores";
 
 type Diag = Omit<ScoreDetalhado, "narrativa" | "alertas" | "explicacoes" | "fatoresCriticos">;
 
@@ -35,8 +36,16 @@ export function narrativaExecutiva(d: Diag): string {
       `A operação gera caixa (${formatBRL(d.burn.liquidoMensal)}/mês), sustentando o runway.`,
     );
   } else {
-    partes.push(
-      `Mantido o ritmo atual de despesas, o runway projetado é de ${d.runway.base >= 999 ? "mais de 24 meses" : `${(d.runway.base / 30).toFixed(1)} meses`} no cenário base e ${(d.runway.pessimista / 30).toFixed(1)} meses no cenário pessimista.`,
+    const base = d.runway.leitura.base;
+    if (base.indisponivel) {
+      // Queima COM o caixa já zerado ou negativo: não existe prazo a projetar,
+      // e um "0,0 meses" diria que o fôlego acabou hoje, não que nem começou.
+      partes.push(`O caixa já está zerado ou negativo e a operação queima caixa: não há runway a projetar.`);
+    } else partes.push(
+      // ⚠️ Pela LEITURA, não pelo número cru: `>= 999 ? "mais de 24 meses"`
+      // chamava o teto do cálculo (33 meses) de 24, e o pessimista sem teto
+      // nenhum saía "33.3 meses" ou "0.0 meses" com o caixa já negativo.
+      `Mantido o ritmo atual de despesas, o runway projetado é de ${rotuloRunwayLido(d.runway.leitura.base)} no cenário base e ${rotuloRunwayLido(d.runway.leitura.pessimista)} no cenário pessimista.`,
     );
   }
 
