@@ -9,6 +9,7 @@
  * o que impede as quatro de divergirem.
  */
 import * as React from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { Card, Button, Icon, Select, DateField, Checkbox } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
@@ -538,9 +539,13 @@ function Valor({
 
 /** Gaveta com as transações que formaram a célula clicada. */
 export function GavetaTransacoes({
-  celula, onFechar, fonte,
+  celula, onFechar, fonte, tela, onNavegar,
 }: {
   celula: CelulaClicada; onFechar: () => void;
+  /** A tela que mostra o número — um link no pé da gaveta (a IA usa). */
+  tela?: { rota: string; nome: string };
+  /** Chamado ao seguir o link da tela (o painel flutuante da IA fecha). */
+  onNavegar?: () => void;
   /**
    * De onde vêm os lançamentos da célula. Padrão: a empresa aberta. O
    * consolidado PRECISA passar o próprio conjunto unido — os ids lá são
@@ -608,6 +613,15 @@ export function GavetaTransacoes({
             <p className="m-0 py-10 text-center text-label text-muted">Nenhuma transação nesta célula.</p>
           )}
         </div>
+        {tela && (
+          <div className="sticky bottom-0 bg-white border-t border-border-soft px-6 py-3">
+            <Link href={tela.rota} onClick={() => { onFechar(); onNavegar?.(); }} data-gaveta-tela={tela.rota}
+              className="inline-flex items-center gap-1 text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 rounded-pill px-3 py-[6px] transition-colors">
+              Abrir {tela.nome}
+              <Icon name="arrow-up-right" size={13} color="currentColor" />
+            </Link>
+          </div>
+        )}
       </div>
     </div>,
     document.body,

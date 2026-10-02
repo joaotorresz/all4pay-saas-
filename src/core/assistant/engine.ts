@@ -47,6 +47,8 @@ import { periodoSemana } from "@/core/contas-pagar";
 // somava ao "a receber" e à lista de devedores, e a tela não.
 import { ehContaAReceber } from "@/core/contas-receber";
 
+import { deLancamentos as L, sobreLancamentos as B, naTela as T, simulado, completarPorRotulo, type NumeroResposta } from "@/core/assistant/numero";
+
 import { formatBRL, decimalBR, pct as pctBR } from "@/lib/format";
 const fmt = (v: number) => formatBRL(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -103,6 +105,11 @@ const emMediaAoVencimento = (dias: number): string =>
 const within = (ds: string | null | undefined, w: Janela) => !!ds && ds.slice(0, 10) >= w.from && ds.slice(0, 10) <= w.to;
 const cashDate = (m: RiskMovement) => (m.paid_date || m.due_date || "").slice(0, 10);
 const ativos = (ms: RiskMovement[]) => ms.filter((m) => m.status !== "cancelado");
+/** Os lançamentos PAGOS de um tipo na janela, pela data de caixa. */
+const pagosNa = (ms: RiskMovement[], tipo: "entrada" | "saida", w: Janela) =>
+  ms.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w));
+const somaAbs = (ms: readonly RiskMovement[]) => ms.reduce((s, m) => s + Math.abs(m.amount), 0);
+const IMPOSTO_RE = /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/;
 
 /*
  * ⚠️ RECEITA não é "toda entrada", e GASTO não é "toda saída" (revisão de
@@ -124,15 +131,26 @@ function foraDaReceita(ms: RiskMovement[]): string {
   return ` Fora da receita, entraram também ${formatBRL(tot)} que não são faturamento (${cats}).`;
 }
 
+/**
+ * Agrupa e soma — e GUARDA os lançamentos de cada grupo (Rodada 9): o número
+ * "Marketing R$ 12.400" que a IA cita abre exatamente as linhas que o somam.
+ */
+function agrupar(ms: RiskMovement[], chave: (m: RiskMovement) => string) {
+  const map = new Map<string, { valor: number; movs: RiskMovement[] }>();
+  for (const m of ms) {
+    const k = chave(m);
+    const g = map.get(k) ?? map.set(k, { valor: 0, movs: [] }).get(k)!;
+    g.valor += Math.abs(m.amount); g.movs.push(m);
+  }
+  return Array.from(map.entries());
+}
 function topCategorias(ms: RiskMovement[], n = 5) {
-  const map = new Map<string, number>();
-  for (const m of ms) { const c = (m.category || "Outros").trim() || "Outros"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); }
-  return Array.from(map.entries()).map(([nome, valor]) => ({ nome: cap(nome), valor })).sort((a, b) => b.valor - a.valor).slice(0, n);
+  return agrupar(ms, (m) => (m.category || "Outros").trim() || "Outros")
+    .map(([nome, g]) => ({ nome: cap(nome), ...g })).sort((a, b) => b.valor - a.valor).slice(0, n);
 }
 function topClientes(ms: RiskMovement[], nomes: Record<string, string> | undefined, n = 5) {
-  const map = new Map<string, number>();
-  for (const m of ms) { const k = m.party_id || "—"; map.set(k, (map.get(k) || 0) + Math.abs(m.amount)); }
-  return Array.from(map.entries()).map(([id, valor]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : "Cliente"), valor })).sort((a, b) => b.valor - a.valor).slice(0, n);
+  return agrupar(ms, (m) => m.party_id || "—")
+    .map(([id, g]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : "Cliente"), ...g })).sort((a, b) => b.valor - a.valor).slice(0, n);
 }
 /**
  * Série mensal dos últimos `n` meses (do mais antigo ao atual), em ordem
@@ -184,19 +202,32 @@ export interface GraficoResposta {
 }
 
 /** Resposta do motor nativo — `RespostaCopiloto` + os extras da camada local. */
-export type RespostaLocal = RespostaCopiloto & { contatoId?: string; grafico?: GraficoResposta };
+export type RespostaLocal = Omit<RespostaCopiloto, "numeros"> & {
+  numeros: NumeroResposta[];
+  contatoId?: string;
+  grafico?: GraficoResposta;
+};
 
 const R = (
   resposta: string,
-  numeros: { label: string; valor: string }[],
+  numeros: NumeroResposta[],
   fontes: string[],
   confianca = 0.9,
   grafico?: GraficoResposta,
 ): RespostaLocal => ({ resposta, numeros, fontes, confianca, ...(grafico ? { grafico } : {}) });
 
+/**
+ * Resposta de CALCULADORA: todo número nasceu da pergunta (parcela, markup,
+ * DAS), então nenhum vira link — a bolha os marca como simulação.
+ */
+const S = (...a: Parameters<typeof R>): RespostaLocal => {
+  const r = R(...a);
+  return { ...r, numeros: r.numeros.map((n) => simulado(n.label, n.valor)) };
+};
+
 /** Série de barras a partir de um `{nome, valor}[]` já ordenado. */
 const barras = (titulo: string, tom: GraficoResposta["tom"], dados: { nome: string; valor: number }[], n = 5): GraficoResposta | undefined =>
-  dados.length >= 2 ? { tipo: "barras", titulo, tom, dados: dados.slice(0, n) } : undefined;
+  dados.length >= 2 ? { tipo: "barras", titulo, tom, dados: dados.slice(0, n).map(({ nome, valor }) => ({ nome, valor })) } : undefined;
 
 /* ── O DRE, lido da cascata (a mesma função que desenha o relatório) ─────── */
 
@@ -253,7 +284,22 @@ const SAUDE_NA_FRASE: Record<ClassificacaoSaude, string> = {
   excelente: "excelente", saudavel: "saudável", atencao: "em atenção", risco: "em risco elevado", critico: "crítica",
 };
 
+/**
+ * A resposta do motor com a ORIGEM de cada número resolvida (Rodada 9).
+ *
+ * Quem calcula diz de onde o número sai (`L` soma lançamentos, `T` aponta a
+ * tela, `S` marca a calculadora). O que sobrar sem origem passa pelo mapa de
+ * rótulos FIXOS da Rodada 5 — e o que nem ele conhece fica sem link, que é
+ * melhor que um link para a tela errada. A guarda `ia-origem` cobra que, no
+ * corpus inteiro, nenhum número fique nessa terceira situação.
+ */
 export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
+  const r = responderBruto(pergunta, input, ctx);
+  if (!r) return null;
+  return { ...r, numeros: completarPorRotulo(r.numeros) };
+}
+
+function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
   const p = pergunta.toLowerCase();
   const hoje = input.hoje;
   const movs = ativos(input.movements);
@@ -268,22 +314,24 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const totRec = rec.reduce((s, m) => s + Math.abs(m.amount), 0);
     const totPag = pag.reduce((s, m) => s + Math.abs(m.amount), 0);
     const geral = totRec + totPag;
-    if (vencidos.length === 0) return R("Nada está vencido no momento — não há títulos em atraso a receber nem a pagar.", [{ label: "Total em atraso", valor: fmt(0) }], ["títulos vencidos"]);
+    if (vencidos.length === 0) return R("Nada está vencido no momento — não há títulos em atraso a receber nem a pagar.", [T("Total em atraso", fmt(0), "vencidos")], ["títulos vencidos"]);
     return R(
       `Há ${fmt(geral)} vencidos em ${vencidos.length} título(s): ${fmt(totRec)} a receber (${rec.length}) e ${fmt(totPag)} a pagar (${pag.length}).`,
-      [{ label: "A receber vencido", valor: fmt(totRec) }, { label: "A pagar vencido", valor: fmt(totPag) }, { label: "Total em atraso", valor: fmt(geral) }],
+      [L("A receber vencido", fmt(totRec), rec, "vencidos"), L("A pagar vencido", fmt(totPag), pag, "pagar"), L("Total em atraso", fmt(geral), vencidos, "vencidos")],
       ["recebíveis vencidos", "contas a pagar vencidas"]);
   }
 
   // ——— TOTAL ACUMULADO (todo o histórico realizado) ———
   if (/total (geral )?(que )?(j[áa] )?(entrou|saiu|recebi|paguei|movimentei|movimentou|entrei)|(movimentei|movimentou) (no total|ao todo|na vida|at[ée] agora)|total geral (de )?(entrada|sa[íi]da|movim)|total (de )?(entrada|sa[íi]da) (acumulad|no total|de tudo)/.test(p)) {
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lEnt = movs.filter((m) => m.type === "entrada" && m.status === "pago");
+    const lSai = movs.filter((m) => m.type === "saida" && m.status === "pago");
+    const ent = lEnt.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const sai = lSai.reduce((s, m) => s + Math.abs(m.amount), 0);
     const soEnt = /entrou|recebi|entrada|entrei/.test(p) && !/saiu|paguei|sa[íi]da|movim/.test(p);
     const soSai = /saiu|paguei|sa[íi]da/.test(p) && !/entrou|recebi|movim/.test(p);
-    if (soEnt) return R(`No total você já recebeu ${fmt(ent)} (todo o histórico realizado).`, [{ label: "Total recebido", valor: fmt(ent) }], ["histórico realizado"]);
-    if (soSai) return R(`No total você já pagou ${fmt(sai)} (todo o histórico realizado).`, [{ label: "Total pago", valor: fmt(sai) }], ["histórico realizado"]);
-    return R(`No total você movimentou ${fmt(ent + sai)}: ${fmt(ent)} de entradas e ${fmt(sai)} de saídas (histórico realizado).`, [{ label: "Entradas", valor: fmt(ent) }, { label: "Saídas", valor: fmt(sai) }, { label: "Total", valor: fmt(ent + sai) }], ["histórico realizado"]);
+    if (soEnt) return R(`No total você já recebeu ${fmt(ent)} (todo o histórico realizado).`, [L("Total recebido", fmt(ent), lEnt, "extrato")], ["histórico realizado"]);
+    if (soSai) return R(`No total você já pagou ${fmt(sai)} (todo o histórico realizado).`, [L("Total pago", fmt(sai), lSai, "extrato")], ["histórico realizado"]);
+    return R(`No total você movimentou ${fmt(ent + sai)}: ${fmt(ent)} de entradas e ${fmt(sai)} de saídas (histórico realizado).`, [L("Entradas", fmt(ent), lEnt, "extrato"), L("Saídas", fmt(sai), lSai, "extrato"), L("Total", fmt(ent + sai), [...lEnt, ...lSai], "extrato")], ["histórico realizado"]);
   }
 
   // ——— VOU RECEBER / PAGAR no MÊS QUE VEM (janela FUTURA, pendentes) ———
@@ -310,8 +358,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const ab = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date >= from && m.due_date <= to);
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const verbo = tipo === "entrada" ? "receber" : "pagar";
-    if (!ab.length) return R(`Nada previsto para ${verbo} ${rotulo} (sem títulos pendentes nesse intervalo).`, [{ label: "Previsto", valor: fmt(0) }], ["previsto futuro"]);
-    return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s).`, [{ label: `A ${verbo}`, valor: fmt(total) }, { label: "Títulos", valor: String(ab.length) }], ["previsto futuro"]);
+    if (!ab.length) return R(`Nada previsto para ${verbo} ${rotulo} (sem títulos pendentes nesse intervalo).`, [T("Previsto", fmt(0), tipo === "entrada" ? "receber" : "pagar")], ["previsto futuro"]);
+    return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s).`, [L(`A ${verbo}`, fmt(total), ab, tipo === "entrada" ? "receber" : "pagar"), B("Títulos", String(ab.length), ab, tipo === "entrada" ? "receber" : "pagar")], ["previsto futuro"]);
   }
 
   // ——— POSSO COMPRAR? (decisão de aquisição sobre o MEU caixa) ———
@@ -366,7 +414,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
         ? ` Já incluí ~${fmt(Math.round((valor * pre.custoAnualPct) / 12))}/mês de custo de manter.`
         : "";
 
-      return R(
+      return S(
         `${r.resumo}${posse}${extra} Abra Orçamento → "Posso comprar?" para simular outras condições.`,
         [
           { label: "Parcela", valor: `${fmt(r.parcela)}/mês${parcelas > 0 ? ` × ${parcelas}` : ""}` },
@@ -395,11 +443,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const taxa = pt ? parseFloat(pt[1].replace(",", ".")) / 100 : 0;
       const r = simularFinanciamento(principal, taxa, parcelas, "price");
       if (taxa === 0) {
-        return R(
+        return S(
           `Um parcelamento de ${fmt(principal)} em ${parcelas}x SEM juros fica em ${fmt(r.parcela)}/mês. Me diga a taxa mensal (ex.: "a 2% ao mês") para eu calcular o custo real com juros.`,
           [{ label: "Parcela (sem juros)", valor: `${fmt(r.parcela)}/mês` }, { label: "Parcelas", valor: `${parcelas}x` }], ["simulador de financiamento"]);
       }
-      return R(
+      return S(
         `Empréstimo de ${fmt(principal)} em ${parcelas}x a ${Math.round(taxa * 10000) / 100}% ao mês (tabela Price): parcela fixa de ${fmt(r.parcela)}, total pago ${fmt(r.totalPago)} — ${fmt(r.jurosTotal)} de juros (${r.custoEfetivoPct}% sobre o valor emprestado).`,
         [{ label: "Parcela", valor: `${fmt(r.parcela)}/mês` }, { label: "Total pago", valor: fmt(r.totalPago) }, { label: "Juros total", valor: fmt(r.jurosTotal) }], ["simulador de financiamento"]);
     }
@@ -420,7 +468,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const acrescimo = /acr[ée]scim|\bmais\b|\ba mais\b|\+|juros|aument/.test(p) && !/desconto|menos|off|a menos/.test(p);
       const resultado = acrescimo ? base * (1 + pct / 100) : base * (1 - pct / 100);
       const delta = Math.abs(resultado - base);
-      return R(
+      return S(
         acrescimo
           ? `${fmt(base)} com ${pct % 1 === 0 ? pct : pct}% de acréscimo fica ${fmt(resultado)} (+${fmt(delta)}).`
           : `${fmt(base)} com ${pct % 1 === 0 ? pct : pct}% de desconto fica ${fmt(resultado)} (−${fmt(delta)}).`,
@@ -439,11 +487,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const origemMensal = orig ? /m[êe]s|mensa/.test(orig[1]) : true;
       if (origemMensal) {
         const anual = equivalenteAnual(taxa);
-        return R(`${pt[1]}% ao mês equivale a ${Math.round(anual * 10000) / 100}% ao ANO (juros compostos: (1+${pt[1].replace(".", ",")}%)¹² − 1). Muita gente multiplica por 12 (daria ${Math.round(taxa * 12 * 10000) / 100}%), mas com juros sobre juros é mais.`,
+        return S(`${pt[1]}% ao mês equivale a ${Math.round(anual * 10000) / 100}% ao ANO (juros compostos: (1+${pt[1].replace(".", ",")}%)¹² − 1). Muita gente multiplica por 12 (daria ${Math.round(taxa * 12 * 10000) / 100}%), mas com juros sobre juros é mais.`,
           [{ label: "Ao mês", valor: `${pt[1]}%` }, { label: "Ao ano (efetiva)", valor: `${Math.round(anual * 10000) / 100}%` }], ["conversão de taxa"]);
       }
       const mensal = equivalenteMensal(taxa);
-      return R(`${pt[1]}% ao ano equivale a ${Math.round(mensal * 10000) / 100}% ao MÊS (juros compostos: (1+${pt[1].replace(".", ",")}%)^(1/12) − 1).`,
+      return S(`${pt[1]}% ao ano equivale a ${Math.round(mensal * 10000) / 100}% ao MÊS (juros compostos: (1+${pt[1].replace(".", ",")}%)^(1/12) − 1).`,
         [{ label: "Ao ano", valor: `${pt[1]}%` }, { label: "Ao mês (efetiva)", valor: `${Math.round(mensal * 10000) / 100}%` }], ["conversão de taxa"]);
     }
   }
@@ -460,7 +508,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const meses = pm ? (/dia/.test(pm[2]) ? parseInt(pm[1], 10) / 30 : parseInt(pm[1], 10)) : 1;
       const r = antecipar(valor, taxa, meses);
       const taxaInfo = pt ? "" : " (assumi ~3%/mês; me diga a taxa real pra precisar)";
-      return R(
+      return S(
         `Antecipando ${fmt(valor)} que vence em ${meses % 1 === 0 ? meses : meses.toFixed(1)} ${meses === 1 ? "mês" : "meses"} a ${Math.round(taxa * 10000) / 100}% ao mês${taxaInfo}: cai ${fmt(r.liquido)} hoje — custo de ${fmt(r.custo)} (${r.custoPct}%). Vale se essa liquidez evita um crédito mais caro ou uma perda maior.`,
         [{ label: "Recebe hoje", valor: fmt(r.liquido) }, { label: "Custo (deságio)", valor: fmt(r.custo) }, { label: "Custo %", valor: `${r.custoPct}%` }], ["antecipação de recebíveis"]);
     }
@@ -475,7 +523,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     // 1º número = investimento; 2º = retorno mensal (heurística "invisto X e ganho Y/mês")
     if (nums.length >= 2) {
       const r = payback(nums[0], nums[1]);
-      return R(
+      return S(
         r.paga
           ? `Um investimento de ${fmt(nums[0])} que gera ${fmt(nums[1])} por mês se paga em ~${r.meses % 1 === 0 ? r.meses : r.meses.toFixed(1)} meses (${r.anos.toFixed(1)} anos). Depois disso, é lucro.`
           : `Sem retorno mensal positivo, o investimento de ${fmt(nums[0])} não se paga.`,
@@ -497,10 +545,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (meta != null && meta > 0 && aporte != null && aporte > 0) {
       const r = tempoParaMeta(meta, aporte, taxa);
       if (!r.atingivel) {
-        return R(`Sem aporte mensal nem rendimento, não dá para chegar a ${fmt(meta)}. Me diga quanto consegue guardar por mês.`, [], ["meta de poupança"]);
+        return S(`Sem aporte mensal nem rendimento, não dá para chegar a ${fmt(meta)}. Me diga quanto consegue guardar por mês.`, [], ["meta de poupança"]);
       }
       const anosTxt = r.meses >= 12 ? ` (${r.anos.toFixed(r.anos % 1 === 0 ? 0 : 1)} ${r.anos === 1 ? "ano" : "anos"})` : "";
-      return R(`Guardando ${fmt(aporte)} por mês${taxa > 0 ? ` a ${Math.round(taxa * 1000) / 10}% ao mês` : ""}, você junta ${fmt(meta)} em ${r.meses} mes${r.meses === 1 ? "" : "es"}${anosTxt}. Você deposita ${fmt(r.totalAportado)}${r.jurosGanhos > 0 ? ` — os juros abatem ${fmt(r.jurosGanhos)}` : ""}.`,
+      return S(`Guardando ${fmt(aporte)} por mês${taxa > 0 ? ` a ${Math.round(taxa * 1000) / 10}% ao mês` : ""}, você junta ${fmt(meta)} em ${r.meses} mes${r.meses === 1 ? "" : "es"}${anosTxt}. Você deposita ${fmt(r.totalAportado)}${r.jurosGanhos > 0 ? ` — os juros abatem ${fmt(r.jurosGanhos)}` : ""}.`,
         [{ label: "Tempo", valor: `${r.meses} meses` }, { label: "Você deposita", valor: fmt(r.totalAportado) }, ...(r.jurosGanhos > 0 ? [{ label: "Juros", valor: fmt(r.jurosGanhos) }] : [])], ["meta de poupança"]);
     }
   }
@@ -519,7 +567,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if ((aporte > 0 || principal > 0)) {
       const r = valorFuturo(principal, aporte, taxa, meses);
       const comoStr = aporte > 0 ? `guardar ${fmt(aporte)}/mês` : `aplicar ${fmt(principal)}`;
-      return R(
+      return S(
         taxa === 0
           ? `${comoStr[0].toUpperCase() + comoStr.slice(1)} por ${meses} meses junta ${fmt(r.montante)} (sem rendimento). Me diga a taxa mensal (ex.: "a 1% ao mês") para ver com juros.`
           : `${comoStr[0].toUpperCase() + comoStr.slice(1)} a ${Math.round(taxa * 10000) / 100}% ao mês por ${meses} meses vira ${fmt(r.montante)}: ${fmt(r.totalAportado)} aportados + ${fmt(r.jurosGanhos)} de juros.`,
@@ -537,10 +585,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const r = provisaoTrabalhista(folha);
       const so13 = /13|d[ée]cimo/.test(p) && !/f[ée]rias|custo (real|total)|folha (por ano|de verdade)/.test(p);
       if (so13) {
-        return R(`Para o 13º de uma folha de ${fmt(folha)}, provisione ${fmt(r.decimoTerceiroMes)} por mês (+ ${fmt(r.decimoTerceiroMes * 0.08)} de FGTS) — assim dezembro não vira aperto.`,
+        return S(`Para o 13º de uma folha de ${fmt(folha)}, provisione ${fmt(r.decimoTerceiroMes)} por mês (+ ${fmt(r.decimoTerceiroMes * 0.08)} de FGTS) — assim dezembro não vira aperto.`,
           [{ label: "Provisão 13º/mês", valor: fmt(r.decimoTerceiroMes) }, { label: "FGTS s/ 13º", valor: fmt(r.decimoTerceiroMes * 0.08) }], ["provisão trabalhista"]);
       }
-      return R(`Uma folha de ${fmt(folha)}/mês pede ${fmt(r.provisaoTotalMes)}/mês de provisão (${fmt(r.decimoTerceiroMes)} de 13º + ${fmt(r.feriasMes)} de férias+1/3 + ${fmt(r.fgtsMes)} de FGTS). O custo real anual da folha é ${fmt(r.custoAnualFolha)} — bem mais que 12×${fmt(folha)}.`,
+      return S(`Uma folha de ${fmt(folha)}/mês pede ${fmt(r.provisaoTotalMes)}/mês de provisão (${fmt(r.decimoTerceiroMes)} de 13º + ${fmt(r.feriasMes)} de férias+1/3 + ${fmt(r.fgtsMes)} de FGTS). O custo real anual da folha é ${fmt(r.custoAnualFolha)} — bem mais que 12×${fmt(folha)}.`,
         [{ label: "Provisão/mês", valor: fmt(r.provisaoTotalMes) }, { label: "Custo anual real", valor: fmt(r.custoAnualFolha) }, { label: "13º/mês", valor: fmt(r.decimoTerceiroMes) }], ["provisão trabalhista"]);
     }
   }
@@ -566,11 +614,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const jurosPct = jurosM ? parseFloat(jurosM[1].replace(",", ".")) / 100 : 0.01;
       if (principal != null && principal > 0 && dias != null && dias > 0) {
         const r = calcularMora(principal, dias, multaPct, jurosPct);
-        return R(`Um título de ${fmt(principal)} vencido há ${dias} dia${dias > 1 ? "s" : ""} fica em ${fmt(r.totalCorrigido)}: ${fmt(principal)} + ${fmt(r.multa)} de multa (${Math.round(multaPct * 1000) / 10}%) + ${fmt(r.juros)} de juros de mora (${Math.round(jurosPct * 1000) / 10}% ao mês pro rata). São ${fmt(r.totalEncargos)} de encargos (${r.encargoPct}% sobre o valor).`,
+        return S(`Um título de ${fmt(principal)} vencido há ${dias} dia${dias > 1 ? "s" : ""} fica em ${fmt(r.totalCorrigido)}: ${fmt(principal)} + ${fmt(r.multa)} de multa (${Math.round(multaPct * 1000) / 10}%) + ${fmt(r.juros)} de juros de mora (${Math.round(jurosPct * 1000) / 10}% ao mês pro rata). São ${fmt(r.totalEncargos)} de encargos (${r.encargoPct}% sobre o valor).`,
           [{ label: "Total corrigido", valor: fmt(r.totalCorrigido) }, { label: "Multa", valor: fmt(r.multa) }, { label: "Juros de mora", valor: fmt(r.juros) }], ["juros de mora", "multa de mora"]);
       }
       if (principal != null && principal > 0) {
-        return R(`Para calcular os encargos de ${fmt(principal)} eu preciso saber há quantos dias venceu. Ex.: "quanto cobrar de um boleto de ${fmt(principal)} vencido há 30 dias?". A praxe é multa de 2% + juros de mora de 1% ao mês (pro rata die).`,
+        return S(`Para calcular os encargos de ${fmt(principal)} eu preciso saber há quantos dias venceu. Ex.: "quanto cobrar de um boleto de ${fmt(principal)} vencido há 30 dias?". A praxe é multa de 2% + juros de mora de 1% ao mês (pro rata die).`,
           [], ["juros de mora"]);
       }
   }
@@ -597,13 +645,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
         const nomeAnexo = { I: "Anexo I (comércio)", II: "Anexo II (indústria)", III: "Anexo III (serviços)", V: "Anexo V (serviços técnicos)" }[anexo];
         const efPct = Math.round(r.aliquotaEfetiva * 1000) / 10;
         if (r.acimaDoTeto) {
-          return R(`Com faturamento de ${fmt(rbt12)} nos últimos 12 meses você ESTOURA o teto do Simples Nacional (${fmt(4800000)}/ano) — precisa migrar para Lucro Presumido/Real. Só para referência, a alíquota efetiva na última faixa do ${nomeAnexo} seria ~${efPct}%.`,
+          return S(`Com faturamento de ${fmt(rbt12)} nos últimos 12 meses você ESTOURA o teto do Simples Nacional (${fmt(4800000)}/ano) — precisa migrar para Lucro Presumido/Real. Só para referência, a alíquota efetiva na última faixa do ${nomeAnexo} seria ~${efPct}%.`,
             [{ label: "RBT12", valor: fmt(rbt12) }, { label: "Teto do Simples", valor: fmt(4800000) }, { label: "Alíquota efetiva", valor: `${efPct}%` }], ["Simples Nacional"]);
         }
-        return R(`No ${nomeAnexo}, com ${fmt(rbt12)} de faturamento nos últimos 12 meses (faixa ${r.faixa}), sua alíquota EFETIVA é ${efPct}% — não os ${Math.round(r.aliquotaNominal * 1000) / 10}% da tabela. Sobre uma receita de ${fmt(mes)} no mês, o DAS fica em ${fmt(r.das)}.`,
+        return S(`No ${nomeAnexo}, com ${fmt(rbt12)} de faturamento nos últimos 12 meses (faixa ${r.faixa}), sua alíquota EFETIVA é ${efPct}% — não os ${Math.round(r.aliquotaNominal * 1000) / 10}% da tabela. Sobre uma receita de ${fmt(mes)} no mês, o DAS fica em ${fmt(r.das)}.`,
           [{ label: "Alíquota efetiva", valor: `${efPct}%` }, { label: "DAS do mês", valor: fmt(r.das) }, { label: "Faixa", valor: `${r.faixa}ª` }], ["Simples Nacional", "alíquota efetiva"]);
       }
-      return R(`Para calcular seu Simples Nacional eu preciso do faturamento dos últimos 12 meses (RBT12) e do anexo. Ex.: "quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?". A alíquota efetiva não é a da tabela — ela sobe suave dentro da faixa.`,
+      return S(`Para calcular seu Simples Nacional eu preciso do faturamento dos últimos 12 meses (RBT12) e do anexo. Ex.: "quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?". A alíquota efetiva não é a da tabela — ela sobe suave dentro da faixa.`,
         [], ["Simples Nacional"]);
   }
 
@@ -618,7 +666,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const mc = margemUnit != null ? margemUnit : (preco != null && custoVar != null ? preco - custoVar : null);
     if (custoFixo != null && mc != null) {
       const r = pontoEquilibrioUnidades(custoFixo, mc, preco ?? 0);
-      return R(
+      return S(
         Number.isFinite(r.unidades)
           ? `Com ${fmt(custoFixo)} de custo fixo e ${fmt(mc)} de margem por unidade, você empata vendendo ${r.unidades} unidade(s)${r.faturamentoEquilibrio > 0 ? ` (${fmt(r.faturamentoEquilibrio)} de faturamento)` : ""}. A partir daí, é lucro.`
           : `Com margem por unidade ${mc <= 0 ? "zero ou negativa" : "indefinida"}, não há ponto de equilíbrio — cada venda não cobre o custo. Reveja preço/custo.`,
@@ -647,25 +695,25 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (custo != null && margemPct != null && impostoPct != null) {
       const r = precoComImpostos(custo, impostoPct / 100, margemPct / 100);
       if (!r.viavel) {
-        return R(`Não dá: margem de ${Math.round(margemPct)}% + imposto de ${Math.round(impostoPct)}% já passa de 100% do preço — não existe preço que feche essa conta. Reduza a margem alvo ou o imposto.`,
+        return S(`Não dá: margem de ${Math.round(margemPct)}% + imposto de ${Math.round(impostoPct)}% já passa de 100% do preço — não existe preço que feche essa conta. Reduza a margem alvo ou o imposto.`,
           [{ label: "Margem alvo", valor: `${Math.round(margemPct)}%` }, { label: "Imposto", valor: `${Math.round(impostoPct)}%` }], ["precificação com impostos"]);
       }
-      return R(`Para sobrar ${Math.round(margemPct)}% de margem LÍQUIDA depois de ${Math.round(impostoPct)}% de imposto, venda um custo de ${fmt(custo)} por ${fmt(r.preco)}: dá ${fmt(r.imposto)} de imposto e ${fmt(r.lucroLiquido)} de lucro líquido. (Não basta somar — o imposto incide sobre o preço, então tem que embutir.)`,
+      return S(`Para sobrar ${Math.round(margemPct)}% de margem LÍQUIDA depois de ${Math.round(impostoPct)}% de imposto, venda um custo de ${fmt(custo)} por ${fmt(r.preco)}: dá ${fmt(r.imposto)} de imposto e ${fmt(r.lucroLiquido)} de lucro líquido. (Não basta somar — o imposto incide sobre o preço, então tem que embutir.)`,
         [{ label: "Preço de venda", valor: fmt(r.preco) }, { label: "Imposto", valor: fmt(r.imposto) }, { label: "Lucro líquido", valor: fmt(r.lucroLiquido) }], ["precificação com impostos"]);
     }
     if (custo != null && margemPct != null) {
       const r = precoPorMargem(custo, margemPct / 100);
-      return R(`Para ${Math.round(margemPct)}% de margem sobre um custo de ${fmt(custo)}, venda por ${fmt(r.preco)} — isso é um markup de ${Math.round(r.markup * 100)}% e ${fmt(r.lucroUnitario)} de lucro por unidade. (Cuidado: margem ≠ markup — pôr "${Math.round(margemPct)}% em cima do custo" daria menos margem.)`,
+      return S(`Para ${Math.round(margemPct)}% de margem sobre um custo de ${fmt(custo)}, venda por ${fmt(r.preco)} — isso é um markup de ${Math.round(r.markup * 100)}% e ${fmt(r.lucroUnitario)} de lucro por unidade. (Cuidado: margem ≠ markup — pôr "${Math.round(margemPct)}% em cima do custo" daria menos margem.)`,
         [{ label: "Preço de venda", valor: fmt(r.preco) }, { label: "Markup", valor: `${Math.round(r.markup * 100)}%` }, { label: "Lucro/unid.", valor: fmt(r.lucroUnitario) }], ["precificação"]);
     }
     if (custo != null && markupPct != null) {
       const r = precoPorMarkup(custo, markupPct / 100);
-      return R(`Custo ${fmt(custo)} com markup de ${Math.round(markupPct)}% dá preço ${fmt(r.preco)} — mas isso é só ${Math.round(r.margem * 100)}% de MARGEM (sobre o preço), não ${Math.round(markupPct)}%. Lucro de ${fmt(r.lucroUnitario)}/unidade.`,
+      return S(`Custo ${fmt(custo)} com markup de ${Math.round(markupPct)}% dá preço ${fmt(r.preco)} — mas isso é só ${Math.round(r.margem * 100)}% de MARGEM (sobre o preço), não ${Math.round(markupPct)}%. Lucro de ${fmt(r.lucroUnitario)}/unidade.`,
         [{ label: "Preço de venda", valor: fmt(r.preco) }, { label: "Margem real", valor: `${Math.round(r.margem * 100)}%` }, { label: "Lucro/unid.", valor: fmt(r.lucroUnitario) }], ["precificação"]);
     }
     if (custo != null && precoPrat != null) {
       const r = analisarPreco(custo, precoPrat);
-      return R(`Vendendo por ${fmt(precoPrat)} um item de custo ${fmt(custo)}: margem de ${Math.round(r.margem * 100)}% (markup de ${Math.round(r.markup * 100)}%), lucro de ${fmt(r.lucroUnitario)} por unidade.`,
+      return S(`Vendendo por ${fmt(precoPrat)} um item de custo ${fmt(custo)}: margem de ${Math.round(r.margem * 100)}% (markup de ${Math.round(r.markup * 100)}%), lucro de ${fmt(r.lucroUnitario)} por unidade.`,
         [{ label: "Margem", valor: `${Math.round(r.margem * 100)}%` }, { label: "Markup", valor: `${Math.round(r.markup * 100)}%` }, { label: "Lucro/unid.", valor: fmt(r.lucroUnitario) }], ["precificação"]);
     }
   }
@@ -683,7 +731,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const frase = arred <= 0
       ? `Os clientes pagam em dia: ${emMediaAoVencimento(arred)}. ${pctPrazo}% dos títulos foram pagos no prazo.`
       : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Recomenda-se intensificar a cobrança.`;
-    return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento dos clientes"], 0.88);
+    return R(frase, [B("Atraso médio", `${arred} d`, pagos, "receber"), B("Pagos no prazo", `${pctPrazo}%`, pagos, "receber"), B("Títulos", String(atrasos.length), pagos, "receber")], ["comportamento de pagamento dos clientes"], 0.88);
   }
 
   // ——— PONTUALIDADE DE PAGAMENTO (atraso médio com que EU pago / DPO) ———
@@ -698,7 +746,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const frase = arred <= 0
       ? `Os pagamentos são feitos em dia: ${emMediaAoVencimento(arred)} (${pctPrazo}% no prazo). Disciplina adequada; ainda assim, pagar exatamente no vencimento preserva mais caixa.`
       : `Os pagamentos saem com ${arred} dia(s) de atraso em média (${pctPrazo}% no prazo). Atrasos recorrentes geram multa e juros e comprometem o relacionamento com fornecedores.`;
-    return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento a fornecedores"], 0.88);
+    return R(frase, [B("Atraso médio", `${arred} d`, pagos, "pagar"), B("Pagos no prazo", `${pctPrazo}%`, pagos, "pagar"), B("Títulos", String(atrasos.length), pagos, "pagar")], ["comportamento de pagamento a fornecedores"], 0.88);
   }
 
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
@@ -730,12 +778,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
         totVenc > 0
           ? `Há ${fmt(totVenc)} vencidos, em ${vencidos.length} título(s). O total a receber, incluindo o que ainda não venceu, é ${fmt(total)}.`
           : `Não há nada vencido a receber. O total em aberto é ${fmt(total)} em ${ab.length} título(s), todos ainda no prazo.`,
-        [{ label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos vencidos", valor: String(vencidos.length) }, { label: "Total a receber", valor: fmt(total) }],
+        [L("Vencido", fmt(totVenc), vencidos, "vencidos"), B("Títulos vencidos", String(vencidos.length), vencidos, "vencidos"), L("Total a receber", fmt(total), ab, "receber")],
         ["recebíveis vencidos"]);
     }
     return R(
       `Há ${fmt(total)} a receber em ${ab.length} título(s)${totVenc > 0 ? `, dos quais ${fmt(totVenc)} já estão vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
-      [{ label: "Total a receber", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
+      [L("Total a receber", fmt(total), ab, "receber"), L("Vencido", fmt(totVenc), vencidos, "vencidos"), B("Títulos", String(ab.length), ab, "receber")],
       ["recebíveis em aberto"]);
   }
 
@@ -748,7 +796,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
     return R(
       `Há ${fmt(total)} a pagar em ${ab.length} título(s)${totVenc > 0 ? `, sendo ${fmt(totVenc)} já vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
-      [{ label: "Total a pagar", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
+      [L("Total a pagar", fmt(total), ab, "pagar"), L("Vencido", fmt(totVenc), vencidos, "pagar"), B("Títulos", String(ab.length), ab, "pagar")],
       ["contas a pagar em aberto"]);
   }
 
@@ -761,12 +809,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       || MES.some((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
     const w = temPeriodo ? janela(p, hoje) : { label: "nesta semana", ...semanaDe(hoje) };
     const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && (m.type !== "entrada" || ehContaAReceber(m))).sort((a, b) => a.due_date.localeCompare(b.due_date));
-    const receb = venc.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const pagar = venc.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lRec = venc.filter((m) => m.type === "entrada"), lPag = venc.filter((m) => m.type === "saida");
+    const receb = lRec.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const pagar = lPag.reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R(`Nada vence ${w.label}. Sem títulos pendentes nesse intervalo.`, [], ["agenda de vencimentos"]);
     return R(
       `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} vencem ${venc.length} título(s): ${fmt(receb)} a receber e ${fmt(pagar)} a pagar — resultado de ${fmt(receb - pagar)} no caixa.`,
-      [{ label: "A receber", valor: fmt(receb) }, { label: "A pagar", valor: fmt(pagar) }, { label: "Líquido", valor: fmt(receb - pagar) }],
+      [L("A receber", fmt(receb), lRec, "receber"), L("A pagar", fmt(pagar), lPag, "pagar"), L("Líquido", fmt(receb - pagar), venc, "fluxoMes")],
       ["agenda de vencimentos"]);
   }
 
@@ -774,13 +823,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/inadimpl|em atraso|atrasad|quem.*dev|devendo|devedor|clientes? devendo|vencid|caloteir|pior (cliente|pagador)|cliente que (mais )?(atrasa|deve)/.test(p)) {
     const venc = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
     const total = venc.reduce((s, m) => s + Math.abs(m.amount), 0);
-    if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [{ label: "Em atraso", valor: fmt(0) }], ["recebíveis vencidos"]);
+    if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [T("Em atraso", fmt(0), "vencidos")], ["recebíveis vencidos"]);
     const porCliente = topClientes(venc, nomes, 3);
     const lista = porCliente.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ");
     return {
       ...R(
         `Há ${fmt(total)} vencidos e não pagos em ${venc.length} título(s). Os maiores devedores: ${lista}. Vale priorizar a cobrança desses clientes.`,
-        porCliente.slice(0, 3).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+        porCliente.slice(0, 3).map((c) => L(c.nome, fmt(c.valor), c.movs, "vencidos")),
         ["recebíveis vencidos", "motor de inadimplência"]),
       ...(topId(venc) ? { contatoId: topId(venc) } : {}),
     };
@@ -800,7 +849,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return {
       ...R(
         `O maior cliente ${w.label} é ${top[0].nome}, com ${fmt(top[0].valor)} — ${share}% da receita do período. Na sequência: ${top.slice(1).map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ") || "—"}.`,
-        top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+        top.map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato")),
         ["receita por cliente"], 0.9,
         barras(`Receita por cliente ${w.label}`, "entrada", top)),
       ...(topId(ent) ? { contatoId: topId(ent) } : {}),
@@ -824,7 +873,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return {
       ...R(
         `${alerta} Os 3 maiores respondem por ${top3}% da receita dos últimos 6 meses.`,
-        [{ label: `Maior (${top[0].nome})`, valor: `${share}%` }, { label: "Top 3", valor: `${top3}%` }, { label: "Receita 6m", valor: fmt(tot) }],
+        [B(`Maior (${top[0].nome})`, `${share}%`, top[0].movs, "extrato"), B("Top 3", `${top3}%`, top.slice(0, 3).flatMap((c) => c.movs), "extrato"), L("Receita 6m", fmt(tot), ent, "extrato")],
         ["receita por cliente", "índice de concentração"], 0.88,
         barras("Receita por cliente · últimos 6 meses", "entrada", top)),
       ...(topId(ent) ? { contatoId: topId(ent) } : {}),
@@ -837,13 +886,14 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const cat = (m: RiskMovement) => (m.category || "").toLowerCase();
-    const prod = ent.filter((m) => /venda|produto|mercadoria/.test(cat(m))).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const serv = ent.filter((m) => /servi/.test(cat(m))).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lProd = ent.filter((m) => /venda|produto|mercadoria/.test(cat(m))), lServ = ent.filter((m) => /servi/.test(cat(m)));
+    const prod = lProd.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const serv = lServ.reduce((s, m) => s + Math.abs(m.amount), 0);
     if (prod > 0 || serv > 0) {
       const maior = prod === serv ? "empate" : prod > serv ? "mais de produtos" : "mais de serviços";
       return R(
         `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} você recebeu ${fmt(prod)} de produtos e ${fmt(serv)} de serviços — ${maior}.`,
-        [{ label: "Produtos", valor: fmt(prod) }, { label: "Serviços", valor: fmt(serv) }],
+        [L("Produtos", fmt(prod), lProd, "extrato"), L("Serviços", fmt(serv), lServ, "extrato")],
         ["receita por tipo (produto/serviço)"]);
     }
   }
@@ -857,13 +907,15 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const winOf = (mi: number): Janela => { const yy = mi > cm ? cy - 1 : cy; return { label: `${MES[mi]}${yy !== cy ? `/${yy}` : ""}`, from: `${yy}-${pad(mi + 1)}-01`, to: `${yy}-${pad(mi + 1)}-${new Date(yy, mi + 1, 0).getDate()}` }; };
       const tipo: "entrada" | "saida" = /receb|receita|fatur|entr|vend/.test(p) ? "entrada" : "saida";
       const [wa, wb] = [winOf(achados[0]), winOf(achados[1])];
-      const soma = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-      const va = soma(wa), vb = soma(wb);
+      const doMes = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w));
+      const soma = (l: RiskMovement[]) => l.reduce((s, m) => s + Math.abs(m.amount), 0);
+      const la = doMes(wa), lb = doMes(wb);
+      const va = soma(la), vb = soma(lb);
       const verbo = tipo === "entrada" ? "recebidos" : "pagos";
       const maior = va >= vb ? wa : wb;
       return R(
         `Foram ${verbo} ${fmt(va)} em ${wa.label} e ${fmt(vb)} em ${wb.label} — ${va === vb ? "empate" : `mais em ${maior.label} (${fmt(Math.abs(va - vb))} de diferença)`}.`,
-        [{ label: cap(wa.label), valor: fmt(va) }, { label: cap(wb.label), valor: fmt(vb) }],
+        [L(cap(wa.label), fmt(va), la, "extrato"), L(cap(wb.label), fmt(vb), lb, "extrato")],
         ["comparação por mês"]);
     }
   }
@@ -887,8 +939,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const jw = temPeriodo ? janela(p, hoje) : null;
       const doParty = movs.filter((m) => m.party_id === id && (!jw || within(cashDate(m), jw)));
       const janelaTxt = jw ? ` ${jw.label}` : "";
-      const recebido = doParty.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
-      const pago = doParty.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+      const lRec = doParty.filter((m) => m.type === "entrada" && m.status === "pago");
+      const lPag = doParty.filter((m) => m.type === "saida" && m.status === "pago");
+      const recebido = lRec.reduce((s, m) => s + Math.abs(m.amount), 0);
+      const pago = lPag.reduce((s, m) => s + Math.abs(m.amount), 0);
       const aberto = doParty.filter((m) => m.status === "pendente").reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
       const partes: string[] = [];
       if (recebido > 0) partes.push(`recebeu ${fmt(recebido)}`);
@@ -897,7 +951,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       return {
         ...R(
           `Com ${nome}${janelaTxt} você ${partes.join(" e ") || "não teve movimento realizado"} em ${doParty.length} lançamento(s).${abertoTxt}`,
-          [...(recebido > 0 ? [{ label: "Recebido", valor: fmt(recebido) }] : []), ...(pago > 0 ? [{ label: "Pago", valor: fmt(pago) }] : [])],
+          [...(recebido > 0 ? [L("Recebido", fmt(recebido), lRec, "extrato")] : []), ...(pago > 0 ? [L("Pago", fmt(pago), lPag, "extrato")] : [])],
           ["histórico por contraparte"]),
         contatoId: id,
       };
@@ -914,7 +968,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return {
       ...R(
         `O maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
-        [{ label: "Maior gasto", valor: fmt(Math.abs(maior.amount)) }], ["despesas realizadas"]),
+        [L("Maior gasto", fmt(Math.abs(maior.amount)), [maior], "extrato")], ["despesas realizadas"]),
       ...(maior.party_id ? { contatoId: maior.party_id } : {}),
     };
   }
@@ -929,7 +983,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return {
       ...R(
         `O maior recebimento ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
-        [{ label: "Maior recebimento", valor: fmt(Math.abs(maior.amount)) }], ["receita realizada"]),
+        [L("Maior recebimento", fmt(Math.abs(maior.amount)), [maior], "extrato")], ["receita realizada"]),
       ...(maior.party_id ? { contatoId: maior.party_id } : {}),
     };
   }
@@ -945,7 +999,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${tot > 0 ? Math.round((c.valor / tot) * 100) : 0}%)`).join(", ");
     return R(
       `A receita apurada ${w.label} soma ${fmt(tot)} e concentra-se em: ${lista}.${foraDaReceita(pagas.filter((m) => !ehReceitaDeVenda(m)))}`,
-      top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+      top.slice(0, 4).map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato")),
       ["receita por categoria"], 0.9,
       barras(`Receita por categoria ${w.label}`, "entrada", top));
   }
@@ -953,12 +1007,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— POR CENTRO DE CUSTO / PROJETO ———
   if (/centro de custo|por projeto|no projeto|custo por/.test(p)) {
     const w = janela(p, hoje);
-    const map = new Map<string, number>();
-    for (const m of movs) { if (m.type !== "saida" || m.status !== "pago" || !within(cashDate(m), w)) continue; const c = (m.costCenter || "Sem centro").trim() || "Sem centro"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); }
-    const arr = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    const arr = agrupar(movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)),
+      (m) => (m.costCenter || "Sem centro").trim() || "Sem centro").sort((a, b) => b[1].valor - a[1].valor);
     if (!arr.length) return R(`Não há gastos com centro de custo definido ${w.label}.`, [], ["despesas por centro de custo"]);
     const top = arr.slice(0, 3);
-    return R(`Gastos por centro de custo ${w.label}: ${top.map(([n, v]) => `${cap(n)} (${fmt(v)})`).join(", ")}.`, top.map(([n, v]) => ({ label: cap(n), valor: fmt(v) })), ["despesas por centro de custo"]);
+    return R(`Gastos por centro de custo ${w.label}: ${top.map(([n, g]) => `${cap(n)} (${fmt(g.valor)})`).join(", ")}.`, top.map(([n, g]) => L(cap(n), fmt(g.valor), g.movs, "extrato")), ["despesas por centro de custo"]);
   }
 
   // ——— PESO DE UMA CATEGORIA NA RECEITA ("quanto a folha pesa na receita?") ———
@@ -966,15 +1019,17 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/(propor[çc][ãa]o|percentual|\bpes(a|o|am|ou)\b|quanto (%|por cento)|% (da |na )receita|representa .* (da |na )receita|quanto .* representa da receita)/.test(p) && /receita|faturament/.test(p) && /folha|pessoal|funcion|marketing|fornecedor|aluguel|imposto|luz|energia/.test(p)) {
     const w = janela(p, hoje);
     const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
-    const receita = jm.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lReceita = jm.filter((m) => m.type === "entrada");
+    const receita = lReceita.reduce((s, m) => s + Math.abs(m.amount), 0);
     const cats = Array.from(new Set(jm.filter((m) => m.type === "saida" && m.category).map((m) => (m.category as string).toLowerCase().trim())));
     let alvo = cats.find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}`, "i").test(p); });
     if (!alvo) { const SIN2: [RegExp, RegExp][] = [[/pessoal|funcion|colaborador|folha/, /folha|pessoal|sal[áa]r/], [/\bluz\b|energia|\b[áa]gua\b|internet/, /utilidad|energia|\bluz\b/]]; for (const [wq, cq] of SIN2) { if (wq.test(p)) { const c = cats.find((x) => cq.test(x)); if (c) { alvo = c; break; } } } }
     if (receita > 0 && alvo) {
-      const gasto = jm.filter((m) => m.type === "saida" && (m.category || "").toLowerCase().trim() === alvo).reduce((s, m) => s + Math.abs(m.amount), 0);
+      const lGasto = jm.filter((m) => m.type === "saida" && (m.category || "").toLowerCase().trim() === alvo);
+      const gasto = lGasto.reduce((s, m) => s + Math.abs(m.amount), 0);
       const pct = Math.round((gasto / receita) * 1000) / 10;
       return R(`${cap(alvo)} representa ${pct}% da sua receita ${w.label}: ${fmt(gasto)} de ${fmt(receita)} recebidos.`,
-        [{ label: `${cap(alvo)} / receita`, valor: `${pct}%` }, { label: cap(alvo), valor: fmt(gasto) }, { label: "Receita", valor: fmt(receita) }], ["custo sobre receita"]);
+        [B(`${cap(alvo)} / receita`, `${pct}%`, [...lGasto, ...lReceita], "extrato"), L(cap(alvo), fmt(gasto), lGasto, "extrato"), L("Receita", fmt(receita), lReceita, "extrato")], ["custo sobre receita"]);
     }
   }
 
@@ -1000,7 +1055,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const w = janela(p, hoje);
       const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
       const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
-      return R(`Foram pagos ${fmt(tot)} em ${cap(alvo)} ${w.label}, em ${sai.length} pagamento(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["despesas da categoria"]);
+      return R(`Foram pagos ${fmt(tot)} em ${cap(alvo)} ${w.label}, em ${sai.length} pagamento(s).`, [L(cap(alvo), fmt(tot), sai, "extrato")], ["despesas da categoria"]);
     }
   }
 
@@ -1014,7 +1069,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const w = janela(p, hoje);
       const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
       const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
-      return R(`Foram recebidos ${fmt(tot)} de ${cap(alvo)} ${w.label}, em ${ent.length} entrada(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["receita da categoria"]);
+      return R(`Foram recebidos ${fmt(tot)} de ${cap(alvo)} ${w.label}, em ${ent.length} entrada(s).`, [L(cap(alvo), fmt(tot), ent, "extrato")], ["receita da categoria"]);
     }
   }
 
@@ -1028,7 +1083,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${Math.round((c.valor / tot) * 100)}%)`).join(", ");
     return R(
       `Os maiores gastos ${w.label} totalizam ${fmt(tot)} e concentram-se em: ${lista}.`,
-      top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+      top.slice(0, 4).map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato")),
       ["despesas por categoria"], 0.9,
       barras(`Despesas por categoria ${w.label}`, "saida", top));
   }
@@ -1060,7 +1115,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (!top.length) return R(`Não há pagamentos a fornecedor identificado ${w.label}.`, [], ["pagamentos por fornecedor"]);
     return {
       ...R(`Os principais fornecedores ${w.label} são: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`,
-        top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"], 0.9,
+        top.map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato")), ["pagamentos por fornecedor"], 0.9,
         barras(`Pagamentos por fornecedor ${w.label}`, "saida", top)),
       ...(topId(sai) ? { contatoId: topId(sai) } : {}),
     };
@@ -1070,33 +1125,34 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/quant(os|as) (clientes|fornecedores|contatos|parceiros|contrapartes)/.test(p)) {
     const forn = /fornecedor/.test(p);
     const tipo: "entrada" | "saida" = forn ? "saida" : "entrada";
-    const set = new Set<string>();
-    for (const m of movs) if (m.type === tipo && m.party_id) set.add(m.party_id);
-    return R(`Há ${set.size} ${forn ? "fornecedor(es)" : "cliente(s)"} com movimento registrado.`, [{ label: forn ? "Fornecedores" : "Clientes", valor: String(set.size) }], ["contrapartes"]);
+    const comParte = movs.filter((m) => m.type === tipo && m.party_id);
+    const set = new Set(comParte.map((m) => m.party_id as string));
+    return R(`Há ${set.size} ${forn ? "fornecedor(es)" : "cliente(s)"} com movimento registrado.`, [B(forn ? "Fornecedores" : "Clientes", String(set.size), comParte, "extrato")], ["contrapartes"]);
   }
 
   // ——— ONDE ECONOMIZAR / CORTAR (categoria que mais cresceu MoM) ———
   if (/onde (posso |d[áa] (pra|para) )?(economiz|cortar|reduzir|cortar gasto)|como economizar|gastar menos|reduzir (custo|despesa|gasto)|onde estou gastando (mais|demais)|preciso (cortar|reduzir|economiz)|(devo|posso) cortar|cortar (os )?(gasto|custo|despesa)/.test(p)) {
     const wA = janela("mês", hoje), wB = janela("mês passado", hoje);
-    const catW = (w: Janela) => { const map = new Map<string, number>(); for (const m of movs) { if (m.type !== "saida" || m.status !== "pago" || !within(cashDate(m), w)) continue; const c = (m.category || "Outros").trim() || "Outros"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); } return map; };
+    const catW = (w: Janela) => new Map(agrupar(movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)),
+      (m) => (m.category || "Outros").trim() || "Outros"));
     const atual = catW(wA), ant = catW(wB);
     // ⚠️ Sem NENHUMA despesa paga no mês passado não há base de comparação — e
     // "Fornecedor subiu R$ 179 mil vs. o mês passado" é a categoria inteira
     // lida como aumento. Ausência de base é ausência de resposta (ONDA 4): diz
     // que não há como comparar e aponta onde o dinheiro está indo agora.
     if (ant.size === 0 && atual.size > 0) {
-      const top = Array.from(atual.entries()).sort((x, y) => y[1] - x[1]).slice(0, 3);
+      const top = Array.from(atual.entries()).sort((x, y) => y[1].valor - x[1].valor).slice(0, 3);
       return R(
-        `Não há despesa paga ${wB.label} para comparar, então não dá para dizer o que subiu. ${cap(wA.label)}, as maiores despesas pagas são: ${top.map(([c, v]) => `${cap(c)} (${fmt(v)})`).join(", ")} — é por elas que um corte teria mais impacto.`,
-        top.map(([c, v]) => ({ label: cap(c), valor: fmt(v) })),
+        `Não há despesa paga ${wB.label} para comparar, então não dá para dizer o que subiu. ${cap(wA.label)}, as maiores despesas pagas são: ${top.map(([c, g]) => `${cap(c)} (${fmt(g.valor)})`).join(", ")} — é por elas que um corte teria mais impacto.`,
+        top.map(([c, g]) => L(cap(c), fmt(g.valor), g.movs, "extrato")),
         ["despesas por categoria (mês vs. mês)"]);
     }
-    let melhor: { c: string; v: number; d: number } | null = null;
-    for (const [c, v] of Array.from(atual)) { const d = v - (ant.get(c) || 0); if (d > (melhor?.d ?? 0)) melhor = { c: cap(c), v, d }; }
+    let melhor: { c: string; v: number; d: number; movs: RiskMovement[] } | null = null;
+    for (const [c, g] of Array.from(atual)) { const d = g.valor - (ant.get(c)?.valor || 0); if (d > (melhor?.d ?? 0)) melhor = { c: cap(c), v: g.valor, d, movs: g.movs }; }
     if (melhor && melhor.d > 0) {
       return R(
         `Melhor lugar para cortar: ${melhor.c} subiu ${fmt(melhor.d)} vs. o mês passado (${fmt(melhor.v)} este mês). Reduzir aí tem o maior impacto imediato.`,
-        [{ label: melhor.c, valor: fmt(melhor.v) }, { label: "Alta vs. mês ant.", valor: `+${fmt(melhor.d)}` }],
+        [L(melhor.c, fmt(melhor.v), melhor.movs, "extrato"), T("Alta vs. mês ant.", `+${fmt(melhor.d)}`, "variacao")],
         ["despesas por categoria (mês vs. mês)"]);
     }
     return R("Nenhuma categoria de despesa cresceu vs. o mês passado — seus gastos estão controlados. Veja as maiores despesas para priorizar cortes.", [], ["despesas por categoria (mês vs. mês)"]);
@@ -1127,26 +1183,27 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     // ⚠️ Sem receita não existe margem — e "0%" leria "vendeu e não sobrou nada".
     if (margem.indisponivel) {
       return R(`Sem receita líquida ${w.label}, não existe ${nome} a calcular (${margem.indisponivel.motivo}). O ${nomeLinha} do período é ${fmt(linha.valor)}. ${origem}`,
-        [{ label: cap(nomeLinha), valor: fmt(linha.valor) }], ["DRE gerencial"]);
+        [T(cap(nomeLinha), fmt(linha.valor), "dre")], ["DRE gerencial"]);
     }
     const m = pctBR(margem.valor);
     return R(
       `A ${nome} ${w.label} é ${m}: ${nomeLinha} de ${fmt(linha.valor)} sobre ${fmt(c.linhas.receita_liquida.valor)} de receita líquida, pelo DRE (competência) — a mesma conta do relatório. ${origem}`,
-      [{ label: cap(nome), valor: m }, { label: "Receita líquida", valor: fmt(c.linhas.receita_liquida.valor) }, { label: cap(nomeLinha), valor: fmt(linha.valor) }],
+      [T(cap(nome), m, "dre"), T("Receita líquida", fmt(c.linhas.receita_liquida.valor), "dre"), T(cap(nomeLinha), fmt(linha.valor), "dre")],
       ["DRE gerencial", nome]);
   }
 
   // ——— CRESCIMENTO da receita (mês atual vs. mês anterior) ———
   if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|(receita|faturament\w*|vendas?) (subiu|caiu|cresceu|aument\w*|diminuiu|melhorou|piorou|subindo|caindo)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que|tend[êe]ncia|(estou|t[ôo]|to) (melhorando|piorando)|melhorando ou piorando|indo (melhor|pior)|\b(piorei|melhorei)\b|(resultado|neg[óo]cio|situa[çc][ãa]o) (melhorou|piorou)|(melhorou|piorou) (esse|este|no) m[êe]s/.test(p)) {
     const atual = janela("mês", hoje), ant = janela("mês passado", hoje);
-    const soma = (w: Janela) => movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const a = soma(atual), b = soma(ant);
-    if (b <= 0) return R(`Ainda não há receita no mês anterior para comparar o crescimento. Este mês você recebeu ${fmt(a)}.`, [{ label: cap(atual.label), valor: fmt(a) }], ["receita realizada"]);
+    const doMes = (w: Janela) => movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const la = doMes(atual), lb = doMes(ant);
+    const a = la.reduce((s, m) => s + Math.abs(m.amount), 0), b = lb.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (b <= 0) return R(`Ainda não há receita no mês anterior para comparar o crescimento. Este mês você recebeu ${fmt(a)}.`, [L(cap(atual.label), fmt(a), la, "extrato")], ["receita realizada"]);
     const pct = Math.round(((a - b) / b) * 100);
     const dir = a > b ? "crescendo" : a < b ? "caindo" : "estável";
     return R(
       `A receita está ${dir}: ${fmt(a)} ${atual.label} contra ${fmt(b)} ${ant.label} — variação de ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Recomenda-se manter o ritmo comercial." : "Recomenda-se investigar a origem da queda."}`,
-      [{ label: cap(atual.label), valor: fmt(a) }, { label: cap(ant.label), valor: fmt(b) }, { label: "Crescimento", valor: `${pct >= 0 ? "+" : ""}${pct}%` }],
+      [L(cap(atual.label), fmt(a), la, "extrato"), L(cap(ant.label), fmt(b), lb, "extrato"), B("Crescimento", `${pct >= 0 ? "+" : ""}${pct}%`, [...la, ...lb], "extrato")],
       ["receita realizada (mês vs. mês)"], 0.9,
       { tipo: "linha", titulo: "Receita mensal · últimos 6 meses", tom: "entrada", dados: serieMensal(movs, hoje, 6, "receita") });
   }
@@ -1156,17 +1213,18 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // substring "a pagar" e o intent A PAGAR (acima) o captura primeiro. Servimos
   // as frases limpas (empatar / fechar no zero / me pagar / não ter prejuízo).
   if (/ponto de equil[íi]brio|break.?even|equil[íi]brio|quanto preciso (faturar|vender|receber) (para|pra) (empatar|n[ãa]o ter preju[íi]zo|me pagar|fechar no zero)|quanto (tenho|preciso) (que )?(faturar|vender) (para|pra) (empatar|fechar|cobrir|n[ãa]o ter preju)/.test(p)) {
-    const meses = new Map<string, number>();
-    for (const m of movs) { if (m.type !== "saida" || m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; meses.set(k, (meses.get(k) || 0) + Math.abs(m.amount)); }
-    const ult = Array.from(meses.entries()).sort((x, y) => x[0].localeCompare(y[0])).slice(-6);
+    const ult = agrupar(movs.filter((m) => m.type === "saida" && m.status === "pago" && cashDate(m)), (m) => cashDate(m).slice(0, 7))
+      .sort((x, y) => x[0].localeCompare(y[0])).slice(-6);
     if (!ult.length) return R("Ainda não há despesas pagas suficientes para calcular seu ponto de equilíbrio.", [], ["despesas realizadas"]);
-    const breakeven = ult.reduce((s, [, v]) => s + v, 0) / ult.length;
+    const breakeven = ult.reduce((s, [, g]) => s + g.valor, 0) / ult.length;
+    const baseBE = ult.flatMap(([, g]) => g.movs);
     const wMes = janela("mês", hoje);
-    const recMes = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), wMes)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lRecMes = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), wMes));
+    const recMes = lRecMes.reduce((s, m) => s + Math.abs(m.amount), 0);
     const falta = breakeven - recMes;
     return R(
       `O ponto de equilíbrio é ${fmt(breakeven)}/mês — é o faturamento necessário para cobrir as despesas. Este mês já recebeu ${fmt(recMes)}, ${falta > 0 ? `faltam ${fmt(falta)} para empatar` : `${fmt(-falta)} acima do equilíbrio (no lucro)`}.`,
-      [{ label: "Ponto de equilíbrio", valor: fmt(breakeven) }, { label: "Recebido no mês", valor: fmt(recMes) }, { label: falta > 0 ? "Falta" : "Acima", valor: fmt(Math.abs(falta)) }],
+      [B("Ponto de equilíbrio", fmt(breakeven), baseBE, "extrato"), L("Recebido no mês", fmt(recMes), lRecMes, "extrato"), B(falta > 0 ? "Falta" : "Acima", fmt(Math.abs(falta)), [...baseBE, ...lRecMes], "extrato")],
       ["despesa média mensal", "receita do mês"]);
   }
 
@@ -1181,7 +1239,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const porCliente = tot / clientes;
     return R(
       `Cada cliente rende em média ${fmt(porCliente)} ${w.label} — ${fmt(tot)} de ${clientes} cliente(s) que pagaram. É uma proxy do LTV no período.`,
-      [{ label: "Receita/cliente", valor: fmt(porCliente) }, { label: "Clientes", valor: String(clientes) }, { label: "Receita", valor: fmt(tot) }],
+      [B("Receita/cliente", fmt(porCliente), ent, "extrato"), B("Clientes", String(clientes), ent, "extrato"), L("Receita", fmt(tot), ent, "extrato")],
       ["receita por cliente"], 0.88);
   }
 
@@ -1189,14 +1247,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|fatur|m[êe]s|mensal)/.test(p)) {
     // "faturo/faturamento/faturar" = receita → senão a média cai em "saida" (gasto).
     const tipo: "entrada" | "saida" = /receb|receita|entr|fatur/.test(p) ? "entrada" : "saida";
-    const byMonth = new Map<string, number>();
-    for (const m of movs) { if (m.type !== tipo || m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; byMonth.set(k, (byMonth.get(k) || 0) + Math.abs(m.amount)); }
-    const meses = Array.from(byMonth.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+    const meses = agrupar(movs.filter((m) => m.type === tipo && m.status === "pago" && cashDate(m)), (m) => cashDate(m).slice(0, 7))
+      .sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
     if (!meses.length) return R("Ainda não há histórico suficiente para calcular a média mensal.", [], ["histórico mensal"]);
-    const media = meses.reduce((s, [, v]) => s + v, 0) / meses.length;
+    const media = meses.reduce((s, [, g]) => s + g.valor, 0) / meses.length;
     return R(
       `A média ${tipo === "entrada" ? "de receita" : "de gasto"} é ${fmt(media)} por mês, considerando os últimos ${meses.length} ${meses.length === 1 ? "mês" : "meses"}.`,
-      [{ label: "Média mensal", valor: fmt(media) }], ["histórico mensal"]);
+      [B("Média mensal", fmt(media), meses.flatMap(([, g]) => g.movs), "extrato")], ["histórico mensal"]);
   }
 
   // ——— AFORDABILIDADE: posso gastar X? — o MESMO simulador da tela "Posso comprar?" ———
@@ -1222,7 +1279,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const cobre = sit.despesaMensal > 0 ? ` O caixa de ${fmt(sit.caixaAtual)} cobre ${mesesTxt(sit.caixaAtual / sit.despesaMensal)} meses da despesa média (${fmt(sit.despesaMensal)}/mês).` : "";
       return R(
         `Preservando ${RESERVA_IDEAL} meses de despesa média (${fmt(reserva)}), a folga do caixa é de ${fmt(folga)}.${cobre} Diga um valor que eu digo se cabe.`,
-        [{ label: "Folga segura", valor: fmt(folga) }, { label: `Reserva (${RESERVA_IDEAL} meses de despesa)`, valor: fmt(reserva) }],
+        [T("Folga segura", fmt(folga), "simulador"), T(`Reserva (${RESERVA_IDEAL} meses de despesa)`, fmt(reserva), "simulador")],
         ["simulador de decisão (seu caixa, entradas e saídas reais)"]);
     }
     // Contratar, dar aumento ou tirar pró-labore RECORRENTE é custo por mês, não
@@ -1238,11 +1295,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(
       `${VEREDITO_LABEL[r.veredito]}: ${oQue}.${depois} A folga acima da reserva de ${RESERVA_IDEAL} meses de despesa (${fmt(reserva)}) é de ${fmt(folga)} hoje. Abra Orçamento → "Posso comprar?" para simular outras condições.`,
       [
-        { label: "Valor", valor: mensal ? `${fmt(valor)}/mês` : fmt(valor) },
+        simulado("Valor", mensal ? `${fmt(valor)}/mês` : fmt(valor)),
         ...(mensal
-          ? [{ label: "Sobra depois", valor: `${fmt(r.sobraDepois)}/mês` }]
-          : [{ label: "Caixa depois", valor: fmt(r.caixaDepoisEntrada) }, { label: "Reserva depois", valor: `${mesesTxt(r.mesesDeReserva)} meses` }]),
-        { label: "Folga segura hoje", valor: fmt(folga) },
+          ? [simulado("Sobra depois", `${fmt(r.sobraDepois)}/mês`)]
+          : [simulado("Caixa depois", fmt(r.caixaDepoisEntrada)), simulado("Reserva depois", `${mesesTxt(r.mesesDeReserva)} meses`)]),
+        T("Folga segura hoje", fmt(folga), "simulador"),
       ],
       ["simulador de decisão (seu caixa, entradas e saídas reais)"]);
   }
@@ -1252,15 +1309,15 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     // "mais prejuízo/perda" = PIOR mês (mesmo com "mais", não "menos").
     const pior = (/pior|menos|pi[oó]r/.test(p) || /(mais|maior|muito).{0,12}(preju|perda)/.test(p)) && !/melhor/.test(p);
     const porReceita = /(vend|fatur|receb|receita)/.test(p);
-    const meses = new Map<string, { rec: number; desp: number }>();
+    const meses = new Map<string, { rec: number; desp: number; lRec: RiskMovement[]; lDesp: RiskMovement[] }>();
     for (const m of movs) {
       if (m.status !== "pago") continue;
       const k = cashDate(m).slice(0, 7); if (!k) continue;
-      const cur = meses.get(k) || { rec: 0, desp: 0 };
-      if (m.type === "entrada") cur.rec += Math.abs(m.amount); else cur.desp += Math.abs(m.amount);
+      const cur = meses.get(k) || { rec: 0, desp: 0, lRec: [], lDesp: [] };
+      if (m.type === "entrada") { cur.rec += Math.abs(m.amount); cur.lRec.push(m); } else { cur.desp += Math.abs(m.amount); cur.lDesp.push(m); }
       meses.set(k, cur);
     }
-    const arr = Array.from(meses.entries()).map(([k, v]) => ({ k, valor: porReceita ? v.rec : v.rec - v.desp, rec: v.rec, desp: v.desp }));
+    const arr = Array.from(meses.entries()).map(([k, v]) => ({ k, valor: porReceita ? v.rec : v.rec - v.desp, ...v }));
     if (!arr.length) return R("Ainda não há histórico mensal suficiente para apontar o melhor ou o pior mês.", [], ["histórico mensal"]);
     arr.sort((a, b) => pior ? a.valor - b.valor : b.valor - a.valor);
     const alvo = arr[0];
@@ -1269,7 +1326,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const metrica = porReceita ? "receita" : "resultado";
     return R(
       `O ${pior ? "pior" : "melhor"} mês por ${metrica} foi ${cap(rotulo)}, com ${fmt(alvo.valor)}${porReceita ? "" : ` (${fmt(alvo.rec)} de receita menos ${fmt(alvo.desp)} de despesa)`}.`,
-      [{ label: cap(rotulo), valor: fmt(alvo.valor) }, { label: "Receita", valor: fmt(alvo.rec) }, { label: "Despesa", valor: fmt(alvo.desp) }],
+      [L(cap(rotulo), fmt(alvo.valor), porReceita ? alvo.lRec : [...alvo.lRec, ...alvo.lDesp], "extrato"), L("Receita", fmt(alvo.rec), alvo.lRec, "extrato"), L("Despesa", fmt(alvo.desp), alvo.lDesp, "extrato")],
       ["histórico mensal realizado"], 0.88,
       { tipo: "linha", titulo: `${cap(metrica)} mensal · últimos 12 meses`, tom: porReceita ? "entrada" : "neutro", dados: serieMensal(movs, hoje, 12, porReceita ? "receita" : "resultado") });
   }
@@ -1286,7 +1343,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (tot <= 0) return R("Não houve gastos pagos nos últimos 30 dias para calcular o gasto diário.", [], ["despesas dos últimos 30 dias"]);
     return R(
       `O gasto médio é de ${fmt(porDia)} por dia — ${fmt(tot)} em despesas pagas nos últimos 30 dias. No mês, isso projeta ~${fmt(porDia * 30)}.`,
-      [{ label: "Gasto/dia", valor: fmt(porDia) }, { label: "30 dias", valor: fmt(tot) }],
+      [B("Gasto/dia", fmt(porDia), sai, "extrato"), L("30 dias", fmt(tot), sai, "extrato")],
       ["despesas dos últimos 30 dias"], 0.88);
   }
 
@@ -1300,7 +1357,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const top = topCategorias(sai, 3);
     return R(
       `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}${transf > 0 ? ` Não entram ${fmt(transf)} transferidos entre contas da própria empresa — o dinheiro só mudou de conta (no caixa saíram ${fmt(tot + transf)} ao todo).` : ""}`,
-      [{ label: `Gasto ${w.label}`, valor: fmt(tot) }, ...top.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
+      [L(`Gasto ${w.label}`, fmt(tot), sai, "extrato"), ...top.slice(0, 2).map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato"))],
       ["despesas realizadas"]);
   }
 
@@ -1308,31 +1365,30 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // Antes da receita genérica: "receita líquida" contém "receita".
   if (/receita l[íi]quida|faturamento l[íi]quido|receita ap[óo]s (os )?impostos|receita menos (os )?impostos|l[íi]quido de impostos/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
-    const bruta = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
-    const impostos = movs
-      .filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w) && /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/.test((m.category || "").toLowerCase()))
-      .reduce((s, m) => s + Math.abs(m.amount), 0);
+    const ent = pagosNa(movs, "entrada", w);
+    const bruta = somaAbs(ent);
+    const lImp = pagosNa(movs, "saida", w).filter((m) => IMPOSTO_RE.test((m.category || "").toLowerCase()));
+    const impostos = somaAbs(lImp);
     const liquida = bruta - impostos;
     if (bruta <= 0) return R(`Não houve receita paga ${w.label}, então não há receita líquida a calcular.`, [], ["receita líquida"]);
     return R(
       `A receita líquida ${w.label} é ${fmt(liquida)}: ${fmt(bruta)} de receita bruta menos ${fmt(impostos)} de impostos sobre a venda.`,
-      [{ label: "Receita líquida", valor: fmt(liquida) }, { label: "Receita bruta", valor: fmt(bruta) }, { label: "Impostos", valor: fmt(impostos) }],
+      [L("Receita líquida", fmt(liquida), [...ent, ...lImp], "extrato"), L("Receita bruta", fmt(bruta), ent, "extrato"), L("Impostos", fmt(impostos), lImp, "extrato")],
       ["receita líquida", "impostos sobre venda"]);
   }
 
   // ——— CARGA TRIBUTÁRIA (% da receita que vai em impostos) ———
   if (/carga tribut[áa]ria|(%|percentual|quanto por cento|quantos? por cento) (de |em |dos? )?imposto|peso dos impostos|imposto.*(sobre|em rela[çc]|na |da ).*(a )?(receita|faturament)|quanto (de |em |vai de )?imposto.*(sobre|na|da) (a |o )?(receita|faturament)/.test(p)) {
     const w = janela(p, hoje);
-    const bruta = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const impostos = movs
-      .filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w) && /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/.test((m.category || "").toLowerCase()))
-      .reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lBruta = pagosNa(movs, "entrada", w);
+    const bruta = somaAbs(lBruta);
+    const lImp = pagosNa(movs, "saida", w).filter((m) => IMPOSTO_RE.test((m.category || "").toLowerCase()));
+    const impostos = somaAbs(lImp);
     if (bruta <= 0) return R(`Não houve receita paga ${w.label} para medir a carga tributária.`, [], ["carga tributária"]);
     const pct = Math.round((impostos / bruta) * 1000) / 10;
     return R(
       `A carga tributária ${w.label} é ${pct}%: ${fmt(impostos)} de impostos sobre ${fmt(bruta)} de receita.`,
-      [{ label: "Carga tributária", valor: `${pct}%` }, { label: "Impostos", valor: fmt(impostos) }, { label: "Receita", valor: fmt(bruta) }],
+      [B("Carga tributária", `${pct}%`, [...lImp, ...lBruta], "extrato"), L("Impostos", fmt(impostos), lImp, "extrato"), L("Receita", fmt(bruta), lBruta, "extrato")],
       ["carga tributária"]);
   }
 
@@ -1394,9 +1450,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       `O EBITDA ${w.label} é ${fmt(eb.valor)} (${margemTxt}): a geração operacional, `
       + `antes de juros, impostos sobre o lucro e depreciação. ${origem}`,
       [
-        { label: "EBITDA", valor: fmt(eb.valor) },
-        { label: "Margem EBITDA", valor: m.indisponivel ? "—" : `${(m.valor * 100).toFixed(1).replace(".", ",")}%` },
-        { label: "Receita líquida", valor: fmt(c.linhas.receita_liquida.valor) },
+        T("EBITDA", fmt(eb.valor), "dre"),
+        T("Margem EBITDA", m.indisponivel ? "—" : `${(m.valor * 100).toFixed(1).replace(".", ",")}%`, "dre"),
+        T("Receita líquida", fmt(c.linhas.receita_liquida.valor), "dre"),
       ],
       ["EBITDA", "DRE gerencial"]);
   }
@@ -1406,13 +1462,14 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const w = janela(p, hoje);
     const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
     const ehFin = (c: string) => /empr[ée]stimo|financiamento|aporte|capital social|s[óo]cio|investiment/.test(c);
-    const entradas = jm.filter((m) => m.type === "entrada" && !ehFin((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const saidas = jm.filter((m) => m.type === "saida" && !ehFin((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lEnt = jm.filter((m) => m.type === "entrada" && !ehFin((m.category || "").toLowerCase()));
+    const lSai = jm.filter((m) => m.type === "saida" && !ehFin((m.category || "").toLowerCase()));
+    const entradas = somaAbs(lEnt), saidas = somaAbs(lSai);
     const fcf = entradas - saidas;
     if (entradas <= 0 && saidas <= 0) return R(`Não houve movimento realizado ${w.label} para calcular o fluxo de caixa livre.`, [], ["fluxo de caixa livre"]);
     return R(
       `O fluxo de caixa livre ${w.label} é ${fmt(fcf)}: ${fmt(entradas)} de entradas operacionais menos ${fmt(saidas)} de saídas — o caixa que ${fcf >= 0 ? "sobrou para reservar ou reinvestir" : "faltou e precisou vir do saldo/de fora"}.`,
-      [{ label: "Fluxo livre", valor: fmt(fcf) }, { label: "Entradas", valor: fmt(entradas) }, { label: "Saídas", valor: fmt(saidas) }],
+      [L("Fluxo livre", fmt(fcf), [...lEnt, ...lSai], "extrato"), L("Entradas", fmt(entradas), lEnt, "extrato"), L("Saídas", fmt(saidas), lSai, "extrato")],
       ["fluxo de caixa livre"]);
   }
 
@@ -1434,26 +1491,27 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const cats = Array.from(new Set(fora.map((m) => (m.category || "sem categoria").trim()))).slice(0, 3).join(", ");
       return R(
         `Entraram ${fmt(totCaixa)} ${w.label}, em ${pagas.length} entrada(s): ${fmt(tot)} de receita e ${fmt(totFora)} que não são faturamento (${cats}).${topC.length ? ` Principal origem da receita: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
-        [{ label: `Entradas ${w.label}`, valor: fmt(totCaixa) }, { label: "Receita", valor: fmt(tot) }, { label: "Não é faturamento", valor: fmt(totFora) }],
+        [L(`Entradas ${w.label}`, fmt(totCaixa), pagas, "extrato"), L("Receita", fmt(tot), ent, "extrato"), L("Não é faturamento", fmt(totFora), fora, "extrato")],
         ["entradas realizadas", "receita realizada"]);
     }
     return R(
       `A receita recebida ${w.label} soma ${fmt(tot)}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}${foraDaReceita(fora)}`,
-      [{ label: `Receita ${w.label}`, valor: fmt(tot) }, ...topC.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
+      [L(`Receita ${w.label}`, fmt(tot), ent, "extrato"), ...topC.slice(0, 2).map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato"))],
       ["receita realizada"]);
   }
 
   // ——— PREVISÃO: quanto vai sobrar no mês (antes do RESULTADO realizado) ———
   if (/(vai sobrar|vou sobrar|sobra prevista|previs[ãa]o|proje[çc][ãa]o|fech(a|ar|arei|o) o m[êe]s|fim do m[êe]s|vou conseguir pagar|(vou|vai) (fechar|terminar) o m[êe]s|fechar no (azul|positivo)|(t[ôo]|to|estou) conseguindo pagar|consigo pagar (as )?contas)/.test(p)) {
     const w = janela("mês", hoje);
-    const realRec = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const realPag = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const prevRec = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && within(m.due_date, w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const prevPag = movs.filter((m) => m.type === "saida" && m.status === "pendente" && within(m.due_date, w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lRealRec = pagosNa(movs, "entrada", w), lRealPag = pagosNa(movs, "saida", w);
+    const lPrevRec = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && within(m.due_date, w));
+    const lPrevPag = movs.filter((m) => m.type === "saida" && m.status === "pendente" && within(m.due_date, w));
+    const realRec = somaAbs(lRealRec), realPag = somaAbs(lRealPag), prevRec = somaAbs(lPrevRec), prevPag = somaAbs(lPrevPag);
     const ent = realRec + prevRec, sai = realPag + prevPag, proj = ent - sai;
     return R(
       `Projeção do mês: entradas ${fmt(ent)} (${fmt(realRec)} já entraram + ${fmt(prevRec)} previstas) e saídas ${fmt(sai)} — deve ${proj >= 0 ? `sobrar ${fmt(proj)}` : `faltar ${fmt(-proj)}`} no fim do mês.`,
-      [{ label: "Entradas (mês)", valor: fmt(ent) }, { label: "Saídas (mês)", valor: fmt(sai) }, { label: "Projeção", valor: fmt(proj) }],
+      [L("Entradas (mês)", fmt(ent), [...lRealRec, ...lPrevRec], "fluxoMes"), L("Saídas (mês)", fmt(sai), [...lRealPag, ...lPrevPag], "fluxoMes"),
+        L("Projeção", fmt(proj), [...lRealRec, ...lPrevRec, ...lRealPag, ...lPrevPag], "fluxoMes")],
       ["realizado + previsto do mês"]);
   }
 
@@ -1483,8 +1541,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const margem = bruto ? c.margemBruta : c.margemLiquida;
     const mTxt = margem.indisponivel ? "" : ` (margem ${bruto ? "bruta" : "líquida"} de ${pctBR(margem.valor)})`;
     const veredito = linha.valor > 0 ? "lucro" : linha.valor < 0 ? "prejuízo" : "resultado zero (empate)";
-    const entC = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s2, m) => s2 + Math.abs(m.amount), 0);
-    const saiC = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s2, m) => s2 + Math.abs(m.amount), 0);
+    const lEntC = pagosNa(movs, "entrada", w), lSaiC = pagosNa(movs, "saida", w);
+    const entC = somaAbs(lEntC), saiC = somaAbs(lSaiC);
     const caixa = entC - saiC;
     const ponte = bruto ? ""
       : Math.abs(caixa - linha.valor) < 0.005
@@ -1492,20 +1550,20 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
         : ` Pelo caixa — o que efetivamente entrou e saiu — ${caixa >= 0 ? `sobraram ${fmt(caixa)}` : `faltaram ${fmt(-caixa)}`}: a diferença é o que foi faturado e ainda não recebido, ou lançado e ainda não pago.`;
     return R(
       `O DRE ${w.label} fecha com ${veredito}: ${nomeLinha} de ${fmt(linha.valor)}${mTxt}, por competência.${ponte} ${origem}`,
-      [{ label: cap(nomeLinha), valor: fmt(linha.valor) }, ...(margem.indisponivel ? [] : [{ label: `Margem ${bruto ? "bruta" : "líquida"}`, valor: pctBR(margem.valor) }]),
-        ...(bruto ? [] : [{ label: "Resultado de caixa", valor: fmt(caixa) }])],
+      [T(cap(nomeLinha), fmt(linha.valor), "dre"), ...(margem.indisponivel ? [] : [T(`Margem ${bruto ? "bruta" : "líquida"}`, pctBR(margem.valor), "dre")]),
+        ...(bruto ? [] : [L("Resultado de caixa", fmt(caixa), [...lEntC, ...lSaiC], "extrato")])],
       ["DRE gerencial", ...(bruto ? [] : ["fluxo de caixa realizado"])]);
   }
 
   // ——— RESULTADO / sobrou (caixa — a pergunta da Visão geral) ———
   if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|lucrei|lucrou|lucrativ|t[ôo] no (azul|vermelho)|no lucro ou no preju|perdendo dinheiro|t[ôo] perdendo|ganhando (dinheiro|grana)|(t[ôo]|to|estou) ganhando|conseguindo poupar|consigo poupar|(t[ôo]|to|estou) poupando|(meu )?fluxo (t[áa]|est[áa]) (positiv|negativ)|(t[ôo]|to|estou) no positivo|no positivo esse m[êe]s|fechei no (positiv|azul|verde|negativ|vermelh|preju)|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lEnt = pagosNa(movs, "entrada", w), lSai = pagosNa(movs, "saida", w);
+    const ent = somaAbs(lEnt), sai = somaAbs(lSai);
     const res = ent - sai;
     return R(
       `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} entraram ${fmt(ent)} e saíram ${fmt(sai)} — ${res >= 0 ? `sobrou ${fmt(res)} (no azul)` : `faltou ${fmt(-res)} (no vermelho)`}.`,
-      [{ label: "Recebido", valor: fmt(ent) }, { label: "Gasto", valor: fmt(sai) }, { label: "Resultado", valor: fmt(res) }],
+      [L("Recebido", fmt(ent), lEnt, "extrato"), L("Gasto", fmt(sai), lSai, "extrato"), L("Resultado", fmt(res), [...lEnt, ...lSai], "extrato")],
       ["fluxo de caixa realizado"]);
   }
 
@@ -1514,13 +1572,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const tipo = /receb|fatur|vend|receita/.test(p) ? "entrada" : "saida";
     const atual = janela("mês", hoje);
     const ant = janela("mês passado", hoje);
-    const soma = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const a = soma(atual), b = soma(ant);
+    const la = pagosNa(movs, tipo, atual), lb = pagosNa(movs, tipo, ant);
+    const a = somaAbs(la), b = somaAbs(lb);
     const dlt = a - b; const pct = b > 0 ? Math.round((dlt / b) * 100) : 0;
     const verbo = tipo === "entrada" ? "recebidos" : "pagos";
     return R(
       `Foram ${verbo} ${fmt(a)} ${atual.label} vs. ${fmt(b)} ${ant.label} — ${dlt >= 0 ? "alta" : "queda"} de ${fmt(Math.abs(dlt))}${b > 0 ? ` (${Math.abs(pct)}%)` : ""}.`,
-      [{ label: cap(atual.label), valor: fmt(a) }, { label: cap(ant.label), valor: fmt(b) }, { label: "Variação", valor: `${dlt >= 0 ? "+" : "−"}${fmt(Math.abs(dlt))}` }],
+      [L(cap(atual.label), fmt(a), la, "extrato"), L(cap(ant.label), fmt(b), lb, "extrato"), T("Variação", `${dlt >= 0 ? "+" : "−"}${fmt(Math.abs(dlt))}`, "variacao")],
       ["fluxo de caixa realizado"]);
   }
 
@@ -1530,40 +1588,40 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const tm = ent.length ? tot / ent.length : 0;
-    return R(`O ticket médio ${w.label} é ${fmt(tm)} (${fmt(tot)} em ${ent.length} venda(s)).`, [{ label: "Ticket médio", valor: fmt(tm) }, { label: "Vendas", valor: String(ent.length) }], ["receita realizada"]);
+    return R(`O ticket médio ${w.label} é ${fmt(tm)} (${fmt(tot)} em ${ent.length} venda(s)).`, [B("Ticket médio", fmt(tm), ent, "extrato"), B("Vendas", String(ent.length), ent, "extrato")], ["receita realizada"]);
   }
 
   // ——— CONTAGEM de vendas/transações ———
   if (/quant(as|os).*(venda|transa[çc]|lan[çc]ament|movimenta|entrada|recebiment)/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && within(cashDate(m), w));
-    return R(`Foram ${ent.length} entrada(s)/venda(s) ${w.label}, somando ${fmt(ent.reduce((s, m) => s + Math.abs(m.amount), 0))}.`, [{ label: "Vendas", valor: String(ent.length) }], ["lançamentos"]);
+    return R(`Foram ${ent.length} entrada(s)/venda(s) ${w.label}, somando ${fmt(ent.reduce((s, m) => s + Math.abs(m.amount), 0))}.`, [B("Vendas", String(ent.length), ent, "extrato")], ["lançamentos"]);
   }
 
   // ——— RESUMO DO DIA / briefing ———
   if (/resumo (do|de) (dia|hoje)|como (foi|est[áa]|vai) (o |meu )?(dia|hoje)|briefing|o que (tem|rolou|entrou) hoje|meu dia/.test(p)) {
     const w: Janela = { label: "hoje", from: hoje, to: hoje };
-    const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lEntrou = pagosNa(movs, "entrada", w), lSaiu = pagosNa(movs, "saida", w);
+    const entrou = somaAbs(lEntrou), saiu = somaAbs(lSaiu);
     const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w));
     const vencVal = venc.reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
     return R(
       `Hoje entraram ${fmt(entrou)} e saíram ${fmt(saiu)}${venc.length ? `; vencem ${venc.length} título(s) (líquido ${fmt(vencVal)})` : "; nada vence hoje"}. Saldo atual: ${fmt(input.saldoAtual)}.`,
-      [{ label: "Entrou hoje", valor: fmt(entrou) }, { label: "Saiu hoje", valor: fmt(saiu) }, { label: "Saldo", valor: fmt(input.saldoAtual) }],
+      [L("Entrou hoje", fmt(entrou), lEntrou, "extrato"), L("Saiu hoje", fmt(saiu), lSaiu, "extrato"), T("Saldo", fmt(input.saldoAtual), "inicio")],
       ["resumo do dia"]);
   }
 
   // ——— RESUMO DO PERÍODO (mês/trimestre/semestre/ano) ———
   if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa/.test(p)) {
     const w = janela(p, hoje);
-    const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const lEntrou = pagosNa(movs, "entrada", w), lSaiu = pagosNa(movs, "saida", w);
+    const entrou = somaAbs(lEntrou), saiu = somaAbs(lSaiu);
     const res = entrou - saiu;
     const aVencer = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && m.due_date.slice(0, 10) >= hoje);
     const aVencerVal = aVencer.reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
     return R(
       `${cap(w.label)}: entraram ${fmt(entrou)} e saíram ${fmt(saiu)} — ${res >= 0 ? `sobrou ${fmt(res)}` : `faltou ${fmt(-res)}`}.${aVencer.length ? ` Ainda vencem ${aVencer.length} título(s) (líquido ${fmt(aVencerVal)}).` : ""}`,
-      [{ label: "Recebido", valor: fmt(entrou) }, { label: "Gasto", valor: fmt(saiu) }, { label: "Resultado", valor: fmt(res) }],
+      [L("Recebido", fmt(entrou), lEntrou, "extrato"), L("Gasto", fmt(saiu), lSaiu, "extrato"), L("Resultado", fmt(res), [...lEntrou, ...lSaiu], "extrato")],
       ["resumo do mês"]);
   }
 
@@ -1581,7 +1639,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       if (rt.codigo === "sem_queima") {
         const g = geracaoCaixaMensal(input);
         return R(`Sem previsão de ruptura: nos últimos ${JANELA_RITMO_DIAS} dias a empresa gerou caixa${g.valor > 0 ? ` (+${fmt(g.valor)}/mês em média)` : ""} — não há queima, então o saldo de ${fmt(input.saldoAtual)} não se esgota no ritmo atual. É a leitura do Fluxo de caixa: runway "não há queima".`,
-          [{ label: "Runway", valor: rt.chip }, { label: "Saldo", valor: fmt(input.saldoAtual) }, ...(g.valor > 0 ? [{ label: "Geração/mês", valor: fmt(g.valor) }] : [])],
+          [{ label: "Runway", valor: rt.chip }, { label: "Saldo", valor: fmt(input.saldoAtual) }, ...(g.valor > 0 ? [T("Geração/mês", fmt(g.valor), "fluxo")] : [])],
           ["runway (média dos últimos 90 dias)", "saldo"], 0.85);
       }
       return R(`Ainda não há como projetar ruptura: ${rt.r.indisponivel?.motivo ?? "sem base de cálculo"}.${rt.r.indisponivel?.comoResolver ? ` ${rt.r.indisponivel.comoResolver}` : ""}`,
@@ -1676,7 +1734,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const sat = avisoDeSaturacao("chance-ruptura", ctx.probRuptura);
     return R(
       `A saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100; ${fraseRunway(ctx)}; ${pctBR(ctx.inadimplencia)} da carteira a receber vencida. Chance de ruptura de caixa em 60 dias: ${pctBR(ctx.probRuptura)}.${sat ? ` ${sat}` : ""}`,
-      [{ label: "Score", valor: `${ctx.scoreFinanceiro}/100` }, { label: "Runway", valor: rotuloRunwayCtx(ctx) }, { label: "Prob. ruptura (60d)", valor: pctBR(ctx.probRuptura) }],
+      [T("Score", `${ctx.scoreFinanceiro}/100`, "quant"), { label: "Runway", valor: rotuloRunwayCtx(ctx) }, { label: "Prob. ruptura (60d)", valor: pctBR(ctx.probRuptura) }],
       ["motor quantitativo", "motor de risco"]);
   }
 
@@ -1698,7 +1756,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const nome = (prox.party_id && nomes?.[prox.party_id]) || prox.category || (tipo === "entrada" ? "Recebimento" : "Pagamento");
     return R(
       `O próximo ${tipo === "entrada" ? "recebimento" : "pagamento"} é ${fmt(Math.abs(prox.amount))} em ${dia(prox.due_date)} — ${cap(String(nome))}.`,
-      [{ label: "Valor", valor: fmt(Math.abs(prox.amount)) }, { label: "Vence", valor: dia(prox.due_date) }], ["agenda de vencimentos"]);
+      [L("Valor", fmt(Math.abs(prox.amount)), [prox], tipo === "entrada" ? "receber" : "pagar"), B("Vence", dia(prox.due_date), [prox], tipo === "entrada" ? "receber" : "pagar")], ["agenda de vencimentos"]);
   }
 
   return null; // sem intenção concreta → sobe para Claude / motor consultivo

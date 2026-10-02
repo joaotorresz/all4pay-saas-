@@ -1,0 +1,214 @@
+/**
+ * ia-origem — a guarda da Rodada 9: TODO número que a IA cita leva à origem.
+ *
+ *   npm run ia-origem
+ *
+ * Sobre o corpus inteiro (as 247 perguntas da guarda de roteamento), rodado
+ * em DOIS conjuntos de dados — o do corpus e um com títulos vencidos,
+ * transferência, cancelado e lançamento de hoje —, ela cobra:
+ *
+ *  1. TETO ZERO de número sem destino: cada número tem `origem` (tela, e os
+ *     lançamentos quando é soma) ou é `simulacao` (nasceu da pergunta).
+ *  2. A GAVETA FECHA COM O NÚMERO: quando a origem diz `soma`, os lançamentos
+ *     somam exatamente o valor exibido (um centavo de tolerância); numa
+ *     contagem, são exatamente tantos quantos o número diz.
+ *  3. Toda tela de origem existe no inventário e não é alias.
+ *  4. Calculadora não ganha link: parcela, markup e DAS são simulação.
+ *  5. O número que vem DE FORA (Claude) perde qualquer origem que o modelo
+ *     escrevesse — a origem é dita por quem calculou.
+ *  6. O histórico guardado não leva a lista de lançamentos (amanhã ela não
+ *     fecharia com o número de hoje).
+ *  7. A IA SUGERE, NÃO EXECUTA: o chat não tem caminho de escrita; a única
+ *     execução da aba Sugestões é a seção Executar, que confirma quem recebe
+ *     a cobrança antes de enviar.
+ *
+ * E o teste NEGATIVO mora aqui dentro: um número com a lista errada, um com a
+ * soma errada e um sem origem são montados à mão e o conferente TEM de
+ * reprová-los, nomeando o defeito. Sem isso a guarda poderia passar por não
+ * conferir nada.
+ */
+import { readFileSync } from "node:fs";
+import { responderLocal } from "@/core/assistant/engine";
+import { TELAS, valorDoTexto, numerosDeFora, type NumeroResposta } from "@/core/assistant/numero";
+import { INVENTARIO } from "@/core/rotas/inventario";
+import { destinoDe } from "@/core/rotas/aliases";
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { CORPUS, input, ctx } from "./fixtures/corpus-ia.mts";
+
+let falhas = 0;
+const ok = (nome: string, cond: boolean, detalhe = "") => {
+  if (cond) console.log(`✓ ${nome}`);
+  else { falhas++; console.log(`✗ ${nome}${detalhe ? `\n    ${detalhe}` : ""}`); }
+};
+
+/* ── o segundo conjunto: o que o primeiro não exercita ── */
+const HOJE = input.hoje;
+let seq = 0;
+const mk = (o: Partial<RiskMovement>): RiskMovement =>
+  ({ id: `x${seq++}`, type: "entrada", amount: 1000, due_date: HOJE, paid_date: HOJE, status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+const input2: RiskInput = {
+  ...input,
+  movements: [
+    ...input.movements,
+    mk({ type: "entrada", amount: 2500, status: "pendente", paid_date: null, due_date: "2026-07-02", party_id: "C" }),
+    mk({ type: "entrada", amount: 1300.55, status: "pendente", paid_date: null, due_date: "2026-06-20", party_id: "A" }),
+    mk({ type: "saida", amount: 870.1, status: "pendente", paid_date: null, due_date: "2026-07-05", party_id: "F1", category: "Fornecedores" }),
+    mk({ type: "saida", amount: 4000, status: "pago", category: "Transferência entre contas" }),
+    mk({ type: "entrada", amount: 4000, status: "pago", category: "Transferência entre contas" }),
+    mk({ type: "entrada", amount: 9999, status: "cancelado", party_id: "A" }),
+    mk({ type: "saida", amount: 333.33, status: "pago", party_id: "F2", category: "Marketing" }),
+    mk({ type: "entrada", amount: 777.77, status: "pendente", paid_date: null, due_date: HOJE, party_id: "B", category: "Servicos" }),
+  ],
+} as RiskInput;
+
+/** O conferente — devolve o defeito por extenso, ou `null`. */
+function conferir(n: NumeroResposta, porId: Map<string, RiskMovement>): string | null {
+  if (n.simulacao) return n.origem ? "simulação com origem — ou nasceu da pergunta, ou da base" : null;
+  if (!n.origem) return "número sem origem e sem marca de simulação";
+  const o = n.origem;
+  if (!o.rota || !o.tela) return "origem sem tela";
+  if (!o.movimentos) return o.soma ? "origem diz soma mas não traz lançamentos" : null;
+  const ms = o.movimentos.map((id) => porId.get(id));
+  if (ms.some((m) => !m)) return "a lista aponta lançamento que não existe";
+  if (new Set(o.movimentos).size !== o.movimentos.length) return "a lista repete lançamento";
+  if (!o.soma) return null;
+  const lista = ms as RiskMovement[];
+  const v = valorDoTexto(n.valor);
+  if (v === null) {
+    return /^\d+$/.test(n.valor) && Number(n.valor) === lista.length ? null
+      : `a gaveta tem ${lista.length} lançamento(s) e o número diz "${n.valor}"`;
+  }
+  const abs = lista.reduce((s, m) => s + Math.abs(m.amount), 0);
+  const sig = lista.reduce((s, m) => s + (m.type === "entrada" ? 1 : -1) * Math.abs(m.amount), 0);
+  const fecha = Math.abs(Math.abs(v) - abs) <= 0.01 || Math.abs(v - sig) <= 0.01;
+  return fecha ? null : `a gaveta soma ${abs.toFixed(2)} (assinado ${sig.toFixed(2)}) e o número diz ${n.valor}`;
+}
+
+/* ── 0. o conferente reprova o defeito plantado (o teste negativo) ── */
+{
+  const porId = new Map(input.movements.map((m) => [m.id, m]));
+  const [a, b] = input.movements;
+  const plantados: [string, NumeroResposta, RegExp][] = [
+    ["sem origem", { label: "Gasto", valor: "R$100,00" }, /sem origem/],
+    ["lista errada", { label: "Gasto", valor: `R$${Math.abs(a.amount).toFixed(2).replace(".", ",")}`, origem: { ...TELAS.extrato, movimentos: [a.id, b.id], soma: true } }, /a gaveta soma/],
+    ["contagem errada", { label: "Títulos", valor: "3", origem: { ...TELAS.receber, movimentos: [a.id], soma: true } }, /lançamento\(s\) e o número diz/],
+    ["id inexistente", { label: "Gasto", valor: "R$1,00", origem: { ...TELAS.extrato, movimentos: ["nao-existe"], soma: true } }, /não existe/],
+  ];
+  for (const [nome, n, re] of plantados) {
+    const d = conferir(n, porId);
+    ok(`negativo: o conferente reprova "${nome}" nomeando o defeito`, !!d && re.test(d), `veio: ${d}`);
+  }
+}
+
+/* ── 1 e 2. o corpus inteiro, nos dois conjuntos ── */
+for (const [nomeConj, base] of [["corpus", input], ["vencidos+transferência", input2]] as const) {
+  const porId = new Map(base.movements.map((m) => [m.id, m]));
+  let total = 0, somas = 0, sims = 0;
+  const ruins: string[] = [];
+  for (const [q] of CORPUS) {
+    const r = responderLocal(q, base, ctx);
+    if (!r) continue;
+    for (const n of r.numeros) {
+      total++;
+      if (n.simulacao) sims++;
+      if (n.origem?.soma) somas++;
+      const d = conferir(n, porId);
+      if (d) ruins.push(`"${q}" · ${n.label} = ${n.valor}: ${d}`);
+    }
+  }
+  console.log(`  ${nomeConj}: ${total} números · ${somas} somas conferidas · ${sims} simulações`);
+  ok(`origem (${nomeConj}): nenhum número sem destino, e toda gaveta fecha com o número`, ruins.length === 0,
+    ruins.slice(0, 8).join("\n    "));
+  // ⚠️ Verde sobre o vazio é pior que vermelho: exige que o caminho recebeu valor.
+  ok(`origem (${nomeConj}): a conferência exercitou somas de verdade (> 200)`, somas > 200, `somas = ${somas}`);
+}
+
+/* ── 3. toda tela de origem existe e não é alias ── */
+{
+  const publicadas = new Set(INVENTARIO.map((r: { rota: string }) => r.rota));
+  const rotas = new Set<string>(Object.values(TELAS).map((t) => t.rota));
+  for (const [q] of CORPUS) for (const n of responderLocal(q, input2, ctx)?.numeros ?? []) if (n.origem) rotas.add(n.origem.rota);
+  const fora = Array.from(rotas).filter((r) => {
+    const caminho = r.split("?")[0];
+    return !publicadas.has(caminho) || destinoDe(r) !== null || destinoDe(caminho) !== null;
+  });
+  ok("telas: toda tela de origem existe no inventário e não é alias", fora.length === 0, fora.join(", "));
+}
+
+/* ── 4. calculadora não vira link ── */
+{
+  const calc = [
+    "simular financiamento de 100 mil em 24x a 1,5% ao mês",
+    "que preço vender um produto de custo 100 com margem de 30%?",
+    "quanto pago de Simples no Anexo III com faturamento de 500 mil por ano?",
+    "quantas unidades preciso vender pra empatar com custo fixo de 10 mil e margem de 50 por unidade?",
+  ];
+  const comLink = calc.flatMap((q) => (responderLocal(q, input, ctx)?.numeros ?? []).filter((n) => !n.simulacao).map((n) => `${q} · ${n.label}`));
+  const vazias = calc.filter((q) => !(responderLocal(q, input, ctx)?.numeros.length));
+  ok("calculadora: todo número é simulação (o 'Custo fixo' da conta de empate não leva às contas recorrentes)",
+    comLink.length === 0 && vazias.length === 0, [...comLink, ...vazias.map((q) => `sem números: ${q}`)].join("; "));
+}
+
+/* ── 5. o número que vem do Claude perde a origem que o modelo escrevesse ── */
+{
+  const de = numerosDeFora([
+    { label: "Saldo", valor: "R$10,00", origem: { rota: "https://golpe.example", tela: "x", movimentos: ["a"], soma: true } },
+    { label: "Qualquer", valor: "1" },
+    "lixo",
+  ]);
+  ok("de fora: a origem do JSON é descartada e o rótulo fixo vale",
+    de.length === 2 && de[0].origem?.rota === "/" && !de[0].origem?.movimentos && !de[1].origem);
+}
+
+/* ── 6. o histórico guardado não leva a lista ── */
+{
+  const t = readFileSync("src/lib/ia-conversas.ts", "utf8");
+  ok("histórico: a conversa é gravada SEM a lista de lançamentos",
+    /turnosVivos\.map\(semListaDeLancamentos\)/.test(t) && /movimentos: _ids/.test(t));
+}
+
+/* ── 7. a IA sugere, não executa ── */
+{
+  const semComentario = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\/.*$/gm, "");
+  const chat = ["src/components/ia/chat-kit.tsx", "src/components/ia/useChatIA.ts", "src/components/ia/IAView.tsx", "src/components/app/AssistantWidget.tsx"];
+  const escritas = chat.flatMap((f) => {
+    const t = semComentario(f);
+    const fetches = Array.from(t.matchAll(/fetch\(\s*["'`]([^"'`]+)/g)).map((m) => m[1]);
+    return fetches.filter((u) => u !== "/api/ai/copiloto").map((u) => `${f}: ${u}`);
+  });
+  ok("executa: o chat só chama a rota de resposta — nenhuma escrita", escritas.length === 0, escritas.join(", "));
+  const kit = semComentario("src/components/ia/chat-kit.tsx");
+  ok("executa: a sugestão do Claude diz que é sugestão (o rótulo 'Ação:' saiu)",
+    !/>Ação:</.test(kit) && /data-ia="sugestao"/.test(kit) && /não executa nada/.test(kit));
+  ok("executa: a bolha abre a gaveta dos lançamentos e marca a simulação",
+    /<GavetaTransacoes/.test(kit) && /data-ia-numero=\{o\.soma \? "soma" : "base"\}/.test(kit) && /simulação/.test(kit));
+  const auto = semComentario("src/components/autonomo/AutonomoView.tsx");
+  ok("executa: a aba Sugestões monta a seção Executar e não tem disparo próprio",
+    /<AcoesCopiloto \/>/.test(auto) && !/\/api\/cobranca/.test(auto) && !/Disparar no WhatsApp/.test(auto));
+  const acoes = semComentario("src/components/copiloto/AcoesCopiloto.tsx");
+  ok("executa: a cobrança pede confirmação com os nomes de quem recebe antes de enviar",
+    /onClick=\{\(\) => \(cobra \? setConfirmando\(d\.id\) : agir\(d\)\)\}/.test(acoes)
+    && /data-confirmar-cobranca/.test(acoes) && /alvos\.map\(\(c\) => c\.cliente\)/.test(acoes));
+  ok("executa: o selo sai do STATUS da execução (simulado nunca é 'Enviada')",
+    /done\.status === "executada" \? "Enviada" : cobra \? "Não enviada"/.test(acoes) && !/done\.includes\(/.test(acoes));
+  const rota = semComentario("src/app/api/cobranca/whatsapp/route.ts");
+  ok("executa: a resposta de demonstração tem o mesmo formato da de produção (cliente + situação)",
+    /enviados: candidatos\.map\(\(a\) => \(\{\s*cliente: a\.cliente,/.test(rota) && /situacao: "simulado"/.test(rota));
+}
+
+/* ── 8. a sugestão tem id ESTÁVEL (o motor roda a cada renderização) ── */
+{
+  const { operacaoAutonoma } = await import("@/core/autonomous");
+  const contas = [{ id: "c1", name: "Conta", bank: "Itaú", balance: 1000, type: "corrente" }] as never;
+  // Uma empresa apertada: saldo baixo e títulos vencidos fazem as políticas dispararem.
+  const apertada = { ...input2, saldoAtual: 1000 } as RiskInput;
+  const a = operacaoAutonoma(apertada, contas).decisoes.map((d) => d.id);
+  const b = operacaoAutonoma(apertada, contas).decisoes.map((d) => d.id);
+  ok("sugestão: o motor disparou sugestões nesta fixture (senão a asserção abaixo não mede nada)", a.length > 0, `${a.length}`);
+  ok("sugestão: rodar o motor duas vezes dá os MESMOS ids (a confirmação e o selo não somem no redesenho)",
+    a.length > 0 && a.join("|") === b.join("|"), `${a.join(",")} × ${b.join(",")}`);
+  ok("sugestão: os ids são únicos", new Set(a).size === a.length, a.join(","));
+}
+
+console.log(falhas === 0 ? "\n✓ ia-origem: tudo verde" : `\n✗ ia-origem: ${falhas} falha(s)`);
+if (falhas > 0) process.exit(1);

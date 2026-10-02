@@ -91,7 +91,13 @@ export async function POST(req: Request) {
       total: candidatos.length,
       sucesso: 0,
       simulado: true,
-      enviados: candidatos.map((a) => ({ alvo: a, resultado: { ok: false, simulado: true } })),
+      // O MESMO formato da resposta de produção (cliente + resultado com
+      // `situacao`) — a demonstração devolvia `alvo` no lugar de `cliente`, e
+      // a tela lia "falha: undefined" (Rodada 9).
+      enviados: candidatos.map((a) => ({
+        cliente: a.cliente,
+        resultado: { canal: "whatsapp", para: mascarar("whatsapp", a.telefone), ok: false, detalhe: "simulado (demonstração)", situacao: "simulado" },
+      })),
     });
   }
 

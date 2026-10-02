@@ -11,7 +11,8 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { origemDoNumero } from "@/core/assistant/origem-numero";
+import { valorDoTexto, type NumeroResposta } from "@/core/assistant/numero";
+import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
@@ -60,7 +61,7 @@ export interface Turno {
   id: number;
   q: string;
   resposta?: string;
-  numeros?: { label: string; valor: string }[];
+  numeros?: NumeroResposta[];
   fontes?: string[];
   acao?: string | null;
   fonte: "kb" | "ia" | "motor" | "carregando";
@@ -254,33 +255,18 @@ export function BolhaResposta({
     <div data-ia="resposta" className="self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2">
       <p className="m-0 text-[15px] leading-[1.5] text-ink whitespace-pre-wrap">{t.resposta}</p>
       {t.grafico && <GraficoDaResposta g={t.grafico} />}
-      {t.numeros && t.numeros.length > 0 && (
-        <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">
-          {t.numeros.map((n, i) => {
-            // O número leva à tela que mostra o MESMO número — só quando há
-            // uma tela só (`origemDoNumero` é conservador de propósito).
-            const origem = origemDoNumero(n.label);
-            const corpo = (
-              <>
-                <div className="text-[11px] text-faint">{n.label}</div>
-                <div className="text-[16px] font-semibold tabular-nums text-ink">{n.valor}</div>
-              </>
-            );
-            return origem ? (
-              <Link key={i} href={origem.rota} onClick={onNavegar} data-ia-numero={origem.rota}
-                title={`Ver em ${origem.tela}`} className="block rounded-sm hover:bg-surface-2 -mx-1 px-1 transition-colors">
-                {corpo}
-              </Link>
-            ) : (
-              <div key={i}>{corpo}</div>
-            );
-          })}
-        </div>
-      )}
+      {t.numeros && t.numeros.length > 0 && <NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} />}
+      {/* ⚠️ A IA SUGERE, NÃO EXECUTA (Rodada 9). O rótulo era "Ação:", e quem
+          lê "Ação: antecipar o recebível da Alpha" conclui que algo foi feito.
+          Nada foi: o chat não tem caminho de escrita nenhum (a guarda
+          `ia-executa` cobra isso). A sugestão diz que é sugestão e onde agir. */}
       {t.acao && (
-        <div className="flex items-start gap-2 rounded-md bg-white border border-border-soft p-2">
+        <div data-ia="sugestao" className="flex items-start gap-2 rounded-md bg-white border border-border-soft p-2">
           <Icon name="sparkles" size={13} color="var(--color-lime)" />
-          <span className="text-caption text-ink"><b className="font-medium">Ação:</b> {t.acao}</span>
+          <span className="text-caption text-ink">
+            <b className="font-medium">Sugestão</b> {t.acao}
+            <span className="block text-faint">A IA não executa nada: quem decide e age é você, na tela correspondente.</span>
+          </span>
         </div>
       )}
       {t.rota && (
@@ -314,6 +300,74 @@ export function BolhaResposta({
         </div>
       )}
     </div>
+  );
+}
+
+/* ======================== NÚMEROS DA RESPOSTA ======================== */
+
+/**
+ * Os números da resposta, cada um com o caminho até a sua origem (Rodada 9):
+ *
+ *  · soma de lançamentos → abre a GAVETA com as linhas, e o total dela é o
+ *    próprio número (o mesmo `GavetaTransacoes` do drill-down do DRE);
+ *  · base de cálculo (média, razão, contagem) → abre a gaveta com a base, e o
+ *    total que aparece é o DELA, não o do número;
+ *  · número de tela (índice, linha "=" do DRE) → leva à tela;
+ *  · simulação → marcada, sem link: o número nasceu da pergunta.
+ */
+function NumerosDaResposta({ numeros, onNavegar }: { numeros: NumeroResposta[]; onNavegar?: () => void }) {
+  const [aberto, setAberto] = React.useState<{ celula: CelulaClicada; tela: { rota: string; nome: string } } | null>(null);
+  return (
+    <>
+      <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">
+        {numeros.map((n, i) => {
+          const corpo = (
+            <>
+              <div className="text-[11px] text-faint">{n.label}</div>
+              <div className="text-[16px] font-semibold tabular-nums text-ink">{n.valor}</div>
+            </>
+          );
+          const o = n.origem;
+          if (o?.movimentos) {
+            const abrir = () => setAberto({
+              celula: {
+                linha: n.label,
+                coluna: o.soma ? `${n.valor} · ${o.tela}` : `base de cálculo de ${n.valor} · ${o.tela}`,
+                movimentos: o.movimentos!,
+                // Soma: o total da gaveta É o número. Base: a gaveta soma as
+                // próprias linhas — o número ao lado é uma média ou uma razão.
+                valor: o.soma ? (valorDoTexto(n.valor) ?? undefined) : undefined,
+              },
+              tela: { rota: o.rota, nome: o.tela },
+            });
+            return (
+              <button key={i} type="button" onClick={abrir} data-ia-numero={o.soma ? "soma" : "base"}
+                title={o.soma ? "Ver os lançamentos que somam este número" : "Ver os lançamentos usados no cálculo"}
+                className="block text-left rounded-sm hover:bg-surface-2 -mx-1 px-1 transition-colors">
+                {corpo}
+              </button>
+            );
+          }
+          if (o) {
+            return (
+              <Link key={i} href={o.rota} onClick={onNavegar} data-ia-numero="tela"
+                title={`Ver em ${o.tela}`} className="block rounded-sm hover:bg-surface-2 -mx-1 px-1 transition-colors">
+                {corpo}
+              </Link>
+            );
+          }
+          return (
+            <div key={i} data-ia-numero={n.simulacao ? "simulacao" : "sem-origem"}>
+              {corpo}
+              {n.simulacao && <div className="text-[11px] text-faint">simulação</div>}
+            </div>
+          );
+        })}
+      </div>
+      {aberto && (
+        <GavetaTransacoes celula={aberto.celula} tela={aberto.tela} onNavegar={onNavegar} onFechar={() => setAberto(null)} />
+      )}
+    </>
   );
 }
 

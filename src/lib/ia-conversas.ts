@@ -80,6 +80,26 @@ export function getConversa(id: string): Conversa | undefined {
   return ler().find((c) => c.id === id);
 }
 
+/**
+ * ⚠️ A conversa guardada NÃO leva a lista de lançamentos de cada número
+ * (Rodada 9). Por dois motivos, e o segundo é o que decide: a lista pode ter
+ * centenas de ids por número e o histórico mora no `org_state`; e reabrir a
+ * conversa amanhã mostraria os lançamentos de HOJE sob um número calculado
+ * ontem — uma gaveta que não fecha com o número ao lado. Guardado, o número
+ * continua levando à TELA de origem; a gaveta é só da resposta viva.
+ */
+function semListaDeLancamentos(t: Turno): Turno {
+  if (!t.numeros?.some((n) => n.origem?.movimentos)) return t;
+  return {
+    ...t,
+    numeros: t.numeros.map((n) => {
+      if (!n.origem?.movimentos) return n;
+      const { movimentos: _ids, soma: _s, ...resto } = n.origem;
+      return { ...n, origem: resto };
+    }),
+  };
+}
+
 /** Título = a primeira pergunta, enxugada. É como o usuário reconhece a conversa. */
 export function tituloDe(turnos: Turno[]): string {
   const q = turnos[0]?.q?.trim() || "Nova conversa";
@@ -90,8 +110,9 @@ export function tituloDe(turnos: Turno[]): string {
  * Cria ou atualiza a conversa. Devolve o id (o chamador guarda para as
  * próximas gravações). Conversa sem turno não é salva — o usuário só abriu.
  */
-export function salvarConversa(id: string | null, turnos: Turno[]): string | null {
-  if (!turnos.length) return id;
+export function salvarConversa(id: string | null, turnosVivos: Turno[]): string | null {
+  if (!turnosVivos.length) return id;
+  const turnos = turnosVivos.map(semListaDeLancamentos);
   const cs = ler();
   const t = agora();
   const existente = id ? cs.find((c) => c.id === id) : undefined;

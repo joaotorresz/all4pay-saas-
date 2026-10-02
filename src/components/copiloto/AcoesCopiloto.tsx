@@ -14,6 +14,14 @@
  *   - cobrança → sai de verdade por WhatsApp (simulada, e dito, sem chave);
  *   - acima da alçada → abre uma solicitação em /aprovações;
  *   - o resto → fica registrada na trilha, e nada mais acontece.
+ *
+ * ⚠️ RODADA 9 — este card estava ÓRFÃO. Ele morava no `/copiloto`, e a fusão
+ * na Quattro AI não o levou junto: a aba "Sugestões" passou a dizer "quem age
+ * é uma pessoa, no card de sugestões do copiloto" — um card que não aparecia
+ * em tela nenhuma — e ganhou um disparo de WhatsApp próprio, cru, que chamava
+ * simulado de "falha". Agora ele é a seção EXECUTAR da aba Sugestões, e a
+ * cobrança — a única linha que sai do sistema — pede CONFIRMAÇÃO com os nomes
+ * de quem vai receber antes de enviar.
  */
 import * as React from "react";
 
@@ -29,7 +37,7 @@ import { Card, BRL, Button, Icon, StatusBadge, Skeleton, InfoHint } from "@/comp
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
 import { listParties } from "@/lib/cadastros";
 import { TIPO_LABEL, type FinancialDecision } from "@/core/autonomous/types";
-import { executarDecisao, dispararCobranca, listAcoesIA, type AcaoIA } from "@/lib/ai-copilot";
+import { executarDecisao, dispararCobranca, alvosDeCobranca, listAcoesIA, type AcaoIA, type ResultadoExecucao } from "@/lib/ai-copilot";
 import { credorDe } from "@/lib/automacoes-contexto";
 import { fetchCompany, getOrganizationName } from "@/lib/company";
 
@@ -44,8 +52,11 @@ export function AcoesCopiloto() {
     queryFn: async () => credorDe(await getOrganizationName(), ((await fetchCompany())?.db ?? null) as Record<string, unknown> | null),
   });
   const [trail, setTrail] = React.useState<AcaoIA[]>([]);
-  const [feito, setFeito] = React.useState<Record<string, string>>({});
+  const [feito, setFeito] = React.useState<Record<string, ResultadoExecucao>>({});
   const [busy, setBusy] = React.useState<string | null>(null);
+  /** A cobrança à espera da confirmação (o id da sugestão). */
+  const [confirmando, setConfirmando] = React.useState<string | null>(null);
+  const alvos = alvosDeCobranca(data?.collections ?? [], parties ?? []);
 
   React.useEffect(() => { listAcoesIA().then(setTrail).catch(() => setTrail([])); }, []);
 
@@ -56,10 +67,10 @@ export function AcoesCopiloto() {
       const r = d.tipo === "cobranca" && d.modo === "automatico"
         ? await dispararCobranca(data?.collections ?? [], parties ?? [], credor)
         : await executarDecisao(d);
-      setFeito((f) => ({ ...f, [d.id]: r.mensagem }));
+      setFeito((f) => ({ ...f, [d.id]: r }));
       setTrail(await listAcoesIA());
       await qc.invalidateQueries({ queryKey: ["aprovacoes"] }).catch(() => {});
-    } finally { setBusy(null); }
+    } finally { setBusy(null); setConfirmando(null); }
   };
 
   const decisoes = (data?.decisoes ?? []).slice(0, 6);
@@ -107,18 +118,38 @@ export function AcoesCopiloto() {
                     {d.impactoEsperado > 0 && <span>impacto ≈ <BRL value={d.impactoEsperado} /></span>}
                     <span>confiança {Math.round(d.confianca * 100)}%</span>
                   </div>
-                  {done && <div className="text-caption text-positive mt-1">✓ {done}</div>}
+                  {/* O texto do resultado fica em tinta: "enviada" × "simulação" ×
+                      "registrada" é dito em palavras e no selo — um ✓ verde ao lado
+                      de "Simulação: nenhuma enviada" afirmava o contrário do texto. */}
+                  {done && <div className="text-caption text-muted mt-1" data-resultado-execucao={done.status}>{done.mensagem}</div>}
+                  {cobra && confirmando === d.id && !done && (
+                    <div className="mt-2 rounded-md bg-surface-1 p-3 flex flex-col gap-2" data-confirmar-cobranca>
+                      <span className="text-caption text-ink">
+                        {alvos.length > 0
+                          ? `Envia WhatsApp de verdade para ${alvos.length} cliente(s): ${alvos.map((c) => c.cliente).join(", ")}.`
+                          : "Nenhum cliente em cobrança tem WhatsApp cadastrado — nada seria enviado."}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="primary" disabled={busy === d.id || alvos.length === 0} onClick={() => agir(d)}>
+                          {busy === d.id ? "Enviando…" : "Confirmar envio"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {done ? (
-                  // ⚠️ "Feita" some. O selo repete o que a mensagem do motor
-                  // disse ter acontecido — e ela agora distingue enviada de
-                  // registrada, que é a distinção inteira.
-                  <StatusBadge tone={done.includes("Nenhuma ação") || done.startsWith("Simulação") ? "neutral" : "positive"}>
-                    {done.includes("aprovação") ? "Em aprovação" : done.includes("enviada") ? "Enviada" : "Registrada"}
+                  // ⚠️ O selo sai do STATUS que a execução devolveu, não de
+                  // procurar palavras na mensagem.
+                  // Na cobrança, tudo o que não é "executada" é NÃO ENVIADA (simulação,
+                  // recusa, falha) — "Em aprovação" ali seria inventar um trâmite.
+                  <StatusBadge tone={done.status === "executada" ? "positive" : !cobra && done.status === "proposta" ? "warning" : "neutral"}>
+                    {done.status === "executada" ? "Enviada" : cobra ? "Não enviada" : done.status === "proposta" ? "Em aprovação" : "Registrada"}
                   </StatusBadge>
                 ) : (
-                  <Button size="sm" variant="secondary" disabled={busy === d.id} onClick={() => agir(d)}>
-                    {busy === d.id ? "…" : cobra ? "Enviar cobrança" : auto ? "Registrar sugestão" : "Enviar p/ aprovação"}
+                  <Button size="sm" variant="secondary" disabled={busy === d.id || (cobra && confirmando === d.id)}
+                    onClick={() => (cobra ? setConfirmando(d.id) : agir(d))} data-executa={cobra ? "envia" : auto ? "registra" : "aprovacao"}>
+                    {busy === d.id ? "…" : cobra ? `Enviar cobrança (${alvos.length})` : auto ? "Registrar sugestão" : "Enviar p/ aprovação"}
                   </Button>
                 )}
               </div>

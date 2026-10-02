@@ -9969,9 +9969,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const ambiguos = ["Vencido", "Total", "Valor", "Parcela", "Markup", "Em atraso", "Receita"];
   const comLink = ambiguos.filter((r) => origemDoNumero(r) !== null);
   ok("ia-origem: rótulo ambíguo ou de calculadora NÃO ganha link", comLink.length === 0, comLink.join(", "));
+  // Rodada 9: a origem passou a ser DITA pelo motor; o mapa por rótulo virou
+  // reserva (`completarPorRotulo`) e a cobertura inteira é da guarda
+  // `npm run ia-origem`. Aqui fica só a amarração da bolha.
   const kit = readFileSync("src/components/ia/chat-kit.tsx", "utf8");
-  ok("ia-origem: a bolha da resposta usa o mapa (o número vira link)",
-     /origemDoNumero\(n\.label\)/.test(kit) && /data-ia-numero=/.test(kit));
+  ok("ia-origem: a bolha da resposta leva cada número à origem (gaveta ou tela)",
+     /<NumerosDaResposta numeros=\{t\.numeros\}/.test(kit) && /data-ia-numero=/.test(kit));
 }
 
 /* ── RODADA 5 · saldo zero × nenhuma conta cadastrada ── */

@@ -8,6 +8,7 @@ import { listParties } from "@/lib/cadastros";
 import { useUpdateParty } from "@/components/lancamentos/hooks";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
 import type { Party } from "@/lib/types";
+import { AcoesCopiloto } from "@/components/copiloto/AcoesCopiloto";
 import {
   TIPO_LABEL,
   type FinancialDecision,
@@ -54,8 +55,8 @@ export function AutonomoView() {
       {/*
         * ⚠️ "Operação financeira autônoma" descrevia uma coisa que não existe.
         * Nada aqui roda sozinho: o motor lê o estado, aplica as políticas e
-        * PROPÕE. Quem age é uma pessoa, clicando, no card de sugestões do
-        * copiloto. O nome antigo não era só otimista — ele fazia o operador
+        * PROPÕE. Quem age é uma pessoa, clicando, na seção EXECUTAR logo
+        * abaixo. O nome antigo não era só otimista — ele fazia o operador
         * supor que a cobrança estava saindo enquanto ele não fizesse nada.
         */}
       <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Sugestões do motor", oQue: "O diagnóstico geral e a sugestão de maior prioridade agora. São sugestões — nada é executado sem você." }}>
@@ -76,6 +77,13 @@ export function AutonomoView() {
         )}
       </Card>
 
+      {/* ⚠️ EXECUTAR (Rodada 9): a ÚNICA seção desta tela em que um clique faz
+          algo fora dela — a cobrança sai por WhatsApp, a sugestão acima da
+          alçada abre uma solicitação. O resto da tela só LÊ. Antes este card
+          estava órfão (morava no /copiloto aposentado) e a tela apontava para
+          ele sem mostrá-lo. */}
+      <AcoesCopiloto />
+
       {/* Decisões */}
       <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Sugestões por prioridade", oQue: "O que o motor sugere fazer (cobrar, pagar, mover capital, reduzir risco), em ordem de prioridade. Executar é decisão sua, no copiloto.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada sugestão com impacto esperado, confiança e os fatores que a explicam." }}>
         <span className="text-label font-medium text-muted">Sugestões por prioridade</span>
@@ -92,7 +100,7 @@ export function AutonomoView() {
         <div className="flex gap-6">
           <div>
             <div className="text-caption text-faint">Direto com você</div>
-            <div className="text-h2 font-medium tabular-nums text-positive leading-none">{hitl.automaticas}</div>
+            <div className="text-h2 font-medium tabular-nums text-ink leading-none">{hitl.automaticas}</div>
           </div>
           <div>
             <div className="text-caption text-faint">Aguardam aprovação</div>
@@ -100,7 +108,7 @@ export function AutonomoView() {
           </div>
         </div>
         <span className="text-caption text-faint">
-          Até <BRL value={hitl.limiteAutomatico} /> e confiança ≥ {Math.round(hitl.confiancaMinima * 100)}%, a sugestão fica na sua mão; acima disso, só segue por aprovação. ⚠️ Nada é executado sem alguém clicar — nem aqui, nem depois.
+          Até <BRL value={hitl.limiteAutomatico} /> e confiança ≥ {Math.round(hitl.confiancaMinima * 100)}%, a sugestão fica na sua mão; acima disso, só segue por aprovação. Nada é executado sem alguém clicar em Executar.
         </span>
         {decisoes.filter((d) => d.modo === "requer_aprovacao").length > 0 && (
           <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
@@ -193,7 +201,6 @@ function mensagemCobranca(c: CollectionPlan): string {
 }
 
 function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[]; partyDe: (n: string) => Party | null }) {
-  const [enviando, setEnviando] = React.useState(false);
   const [status, setStatus] = React.useState<Record<string, string>>({});
   const [tels, setTels] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState<string | null>(null);
@@ -203,30 +210,16 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
     const party = partyDe(c.cliente);
     return { c, party, tel: party?.phone ?? null };
   });
-  const enviaveis = linhas.filter((l) => l.tel && l.c.canal === "whatsapp");
 
-  const disparar = async () => {
-    setEnviando(true);
-    try {
-      const alvos = enviaveis.map(({ c, tel }) => ({
-        cliente: c.cliente,
-        telefone: tel as string,
-        mensagem: mensagemCobranca(c),
-        // Variáveis do template aprovado (usadas em produção): 1 = nome, 2 = valor.
-        variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
-      }));
-      const res = await fetch("/api/cobranca/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alvos }) });
-      const j = await res.json();
-      const map: Record<string, string> = {};
-      for (const e of j.enviados ?? []) map[e.cliente] = e.resultado.ok ? e.resultado.detalhe : `falha: ${e.resultado.detalhe}`;
-      setStatus(map);
-    } catch {
-      setStatus({ _erro: "Não foi possível disparar agora." });
-    } finally {
-      setEnviando(false);
-    }
-  };
-
+  /*
+   * ⚠️ Este card tinha o PRÓPRIO botão "Disparar no WhatsApp" (Rodada 9). Ele
+   * mandava mensagem de verdade de dentro de uma tela chamada "Sugestões", sem
+   * confirmação, e lia o resultado errado: em demonstração mostrava
+   * "falha: undefined" (a resposta simulada não traz o nome do cliente) e em
+   * produção pintava o envio SIMULADO de vermelho como falha. Duas portas para
+   * o mesmo ato — a outra é a seção Executar, que confirma, nomeia quem recebe
+   * e distingue enviado de simulado. Ficou uma porta só.
+   */
   const salvarTelefone = async (cliente: string, partyId: string) => {
     const fone = (tels[cliente] ?? "").trim();
     if (!fone) return;
@@ -248,9 +241,6 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
           Cobrança sugerida · canal · horário · estratégia
           <InfoHint align="left" oQue="Organiza a cobrança dos clientes em aberto, definindo canal, horário e tom para cada um." comoCalcula="Um modelo preditivo escolhe canal, horário e estratégia por cliente a partir do comportamento de pagamento dele." />
         </span>
-        <Button variant="primary" size="sm" disabled={enviando || enviaveis.length === 0} onClick={disparar}>
-          {enviando ? "Disparando…" : `Disparar no WhatsApp (${enviaveis.length})`}
-        </Button>
       </div>
       {collections.length === 0 ? (
         <span className="text-caption text-faint">Sem clientes em cobrança no momento.</span>
@@ -278,15 +268,12 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
                 <span className="text-caption w-[150px] text-right" style={{ color: "var(--color-text-tertiary)" }}>sem cadastro</span>
               )}
               <span className="text-caption text-muted tabular-nums w-[90px] text-right"><BRL value={c.exposicao} /></span>
-              <span className="text-caption w-[120px] text-right truncate" style={{ color: status[c.cliente]?.startsWith("falha") ? "var(--color-negative)" : "var(--color-positive)" }}>
-                {status[c.cliente] ?? ""}
-              </span>
             </div>
           ))}
         </div>
       )}
       <span className="text-caption text-faint">
-        Os alvos com telefone cadastrado recebem a cobrança no WhatsApp (via Twilio, server-side). Adicione o telefone aqui (ou em Contatos) para ativar mais clientes. Sem credenciais, o envio é simulado; em produção, com um template aprovado, a mensagem usa o template (variável 1 = nome · 2 = valor).
+        Este card só PLANEJA: canal, horário e tom por cliente. Enviar é na seção Executar, acima, que confirma quem recebe antes de mandar. Adicione o telefone aqui (ou em Contatos) para o cliente poder ser cobrado por WhatsApp.
       </span>
       {status._erro && <span className="text-caption text-negative">{status._erro}</span>}
     </Card>
