@@ -135,6 +135,26 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
+
+- **A origem do número é DITA por quem calcula** (`core/assistant/numero`):
+  soma de lançamentos (`L`, a gaveta fecha com o número), base de cálculo
+  (`B`), número de tela (`T`) ou simulação (`S`, calculadoras). O mapa por
+  rótulo da Rodada 5 virou reserva. Medido: 636 de 636 números do corpus com
+  destino, contra 123 antes. Teto ZERO em `npm run ia-origem`.
+- A gaveta é a do drill-down do DRE (`GavetaTransacoes`). ⚠️ Número vindo do
+  Claude perde a origem que o modelo escrevesse. ⚠️ O histórico guardado não
+  leva a lista de lançamentos (amanhã ela não fecharia com o número).
+- **A IA sugere; executar é na seção Executar** da aba Sugestões
+  (`AcoesCopiloto`, que estava órfão desde a aposentadoria do `/copiloto`).
+  Cobrança pede confirmação com os nomes; o selo sai do status, e simulado é
+  "Não enviada". O chat não tem caminho de escrita.
+- ⚠️ **Id de sugestão é derivado do conteúdo, nunca de contador**: o motor roda
+  a cada renderização, e o id do contador fazia a mesma sugestão ir duas vezes
+  para a alçada.
+- Pendência: o `CopilotoView` inteiro segue órfão. Conferir bloco a bloco antes
+  de portar ou apagar.
+
 ## ⚠️ RODADA 8 — COMPETÊNCIA NA IMPORTAÇÃO (01/10/2026, detalhe em `docs/rodada-8/`)
 
 - **`core/importacao/competencia`** é a regra única: célula em branco é

@@ -14,6 +14,7 @@ import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { responderLocal } from "@/core/assistant/engine";
+import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
@@ -152,10 +153,10 @@ export function useChatIA({ inicial = [], onMudou }: {
 
       let turno: Turno;
       if (j?.ok) {
-        turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: Array.isArray(j.numeros) ? j.numeros : [], fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia" };
+        turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: numerosDeFora(j.numeros), fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia" };
       } else if (ctx) {
         const exec: RespostaCopiloto = copilotoFinanceiro(q, ctx);
-        turno = { id, q, resposta: exec.resposta, numeros: exec.numeros, fontes: exec.fontes, fonte: "motor" };
+        turno = { id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" };
       } else {
         turno = { id, q, resposta: "Esta consulta cobre saldo, gastos, receita, contas a receber e a pagar, vencimentos, inadimplência, clientes, runway e saúde financeira. Reformule a pergunta nesses termos.", fonte: "motor" };
       }
@@ -164,7 +165,7 @@ export function useChatIA({ inicial = [], onMudou }: {
       force();
     } catch {
       setPergunta(null);
-      if (ctx) { const exec = copilotoFinanceiro(q, ctx); registrar({ id, q, resposta: exec.resposta, numeros: exec.numeros, fontes: exec.fontes, fonte: "motor" }); }
+      if (ctx) { const exec = copilotoFinanceiro(q, ctx); registrar({ id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" }); }
       else { registrar({ id, q, resposta: "Não foi possível processar a consulta. Tente novamente.", fonte: "motor" }); }
     } finally { setPensando(false); setPergunta(null); }
   }, [pensando, input, ctx, anomalias, insights, turnos, analisar, registrar]);

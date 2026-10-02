@@ -192,10 +192,20 @@ async function mensagensAdaptativas(collections: CollectionPlan[]): Promise<Map<
  * canal WhatsApp, envia (Twilio em live; simulado sem chave) e registra na
  * trilha. A segmentação é do Quattro; a Twilio só entrega.
  */
+/**
+ * QUEM a cobrança alcançaria — a mesma conta que `dispararCobranca` faz, para
+ * a tela dizer os nomes ANTES do clique (Rodada 9). Executar sem mostrar o
+ * alvo é pedir confiança onde dá para mostrar o fato.
+ */
+export function alvosDeCobranca(collections: CollectionPlan[], parties: Party[]): CollectionPlan[] {
+  const fone = (nome: string) => parties.find((p) => norm(p.name) === norm(nome))?.phone ?? null;
+  return collections.filter((c) => c.canal === "whatsapp" && fone(c.cliente));
+}
+
 export async function dispararCobranca(collections: CollectionPlan[], parties: Party[], credor?: Credor | null): Promise<ResultadoExecucao> {
   const parteDe = (nome: string) => parties.find((p) => norm(p.name) === norm(nome));
   const foneDe = (nome: string) => parteDe(nome)?.phone ?? null;
-  const enviaveis = collections.filter((c) => c.canal === "whatsapp" && foneDe(c.cliente));
+  const enviaveis = alvosDeCobranca(collections, parties);
 
   // Cobrança adaptativa: mensagem por perfil do cliente via IA (1 chamada);
   // fallback determinístico (template) por cliente quando não há chave/erro.
@@ -240,7 +250,7 @@ export async function dispararCobranca(collections: CollectionPlan[], parties: P
     const msg = !res.ok
       ? String(j?.motivo ?? "A cobrança foi recusada.")
       : real
-        ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.${jaHoje ? ` ${jaHoje} já tinha(m) sido cobrado(s) hoje e não recebeu(ram) de novo.` : ""}`
+        ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.${jaHoje ? ` ${jaHoje} já tinha(m) sido cobrado(s) hoje e não recebeu(ram) de novo.` : ""}${Number(j?.recusados ?? 0) ? ` ${j.recusados} telefone(s) recusado(s): não são de contato cadastrado.` : ""}`
         : `Simulação: ${alvos.length} cobrança(s) preparada(s), nenhuma enviada — o envio por WhatsApp não está configurado.`;
     await logAcaoIA({
       kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg,

@@ -18,7 +18,7 @@ import type {
   NextBestAction,
   PoliticaAutonoma,
 } from "./types";
-import { VERSAO_AUTONOMOUS, uid } from "./types";
+import { VERSAO_AUTONOMOUS } from "./types";
 import { POLITICAS, type DecisionContext, type DecisionDraft } from "./policies";
 import { planoDeCobranca } from "./collections";
 import { rotearPagamentos } from "./payment-routing";
@@ -80,6 +80,19 @@ export function operacaoAutonoma(input: RiskInput, accounts: FinancialAccount[])
     })),
   };
 
+  /*
+   * ⚠️ O id da sugestão é DERIVADO DO CONTEÚDO, não de um contador (Rodada 9).
+   * Era `uid("dec")`, um contador global — e o motor roda de novo a cada
+   * renderização da tela. A mesma sugestão nascia com outro id a cada
+   * redesenho: a confirmação da cobrança sumia no instante em que abria, e o
+   * selo "Em aprovação" desaparecia na renderização seguinte, devolvendo o
+   * botão — a mesma sugestão podia ir para a alçada duas vezes. Mesma
+   * política, mesmo tipo e mesmo título são a MESMA sugestão; quando a
+   * situação muda (outro valor, outros clientes), o título muda e ela é outra.
+   */
+  const idEstavel = (d: DecisionDraft) =>
+    `dec:${d.origem}:${d.tipo}:${d.titulo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
   // Roda as políticas.
   const politicas: PoliticaAutonoma[] = [];
   const drafts: DecisionDraft[] = [];
@@ -95,7 +108,15 @@ export function operacaoAutonoma(input: RiskInput, accounts: FinancialAccount[])
   const decisoes: FinancialDecision[] = drafts
     .map((d) => ({ d, s: pont(d) }))
     .sort((a, b) => b.s - a.s)
-    .map(({ d }, i) => ({ ...d, id: uid("dec"), prioridade: i + 1, modo: modoExecucao(d) }));
+    .map(({ d }, i) => ({ ...d, id: idEstavel(d), prioridade: i + 1, modo: modoExecucao(d) }));
+  // Duas sugestões com a mesma chave (mesma política, tipo e título) ganham um
+  // sufixo pela ordem — sem isso a tela misturaria o estado das duas.
+  const vistos = new Map<string, number>();
+  for (const d of decisoes) {
+    const n = vistos.get(d.id) ?? 0;
+    vistos.set(d.id, n + 1);
+    if (n > 0) d.id = `${d.id}#${n}`;
+  }
 
   const automaticas = decisoes.filter((d) => d.modo === "automatico").length;
   const pendentes = decisoes.length - automaticas;
