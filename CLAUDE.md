@@ -152,8 +152,16 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - ⚠️ **Id de sugestão é derivado do conteúdo, nunca de contador**: o motor roda
   a cada renderização, e o id do contador fazia a mesma sugestão ir duas vezes
   para a alçada.
-- Pendência: o `CopilotoView` inteiro segue órfão. Conferir bloco a bloco antes
-  de portar ou apagar.
+- **O `/copiloto` órfão foi conferido bloco a bloco e apagado** (05/10/2026,
+  `docs/rodada-9/copiloto-orfao.md`). Só as **Leituras priorizadas** e as
+  **Anomalias para revisar** não tinham equivalente vivo — foram MOVIDAS para a
+  aba Sugestões (medido: as leituras não repetem nenhuma sugestão). O resto vive
+  em Decisão, Risco, Quant, no What-If/Cenários do Fluxo de caixa e no catálogo
+  da Home. Saíram `CopilotoView`, `CopilotoChat` (terceiro chat, com escrita no
+  razão), `InteligenciaShell` e `/api/ai/narrar`. ⚠️ O id de leitura e de
+  anomalia do motor EXECUTIVO também era contador — virou conteúdo, com guarda.
+  Pendências: `/api/ledger/assistant` sem consumidor (Razão ou aposentar — o
+  dono decide) e `ResumoHojeCard` órfão no cockpit.
 
 ## ⚠️ RODADA 8 — COMPETÊNCIA NA IMPORTAÇÃO (01/10/2026, detalhe em `docs/rodada-8/`)
 
@@ -4072,11 +4080,17 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 - **`executiveBriefing()`** (`briefing.ts`), **`memoryEngine()`** (`memory.ts`:
   sazonalidade, despesas recorrentes, clientes críticos) e **`simularCenario()`**
   (`scenario.ts`: recalcula runway/score/burn via `scoreDeIndicadores`).
-- **Dados:** reutiliza `getRiscoInput()`; hook `useCentroInteligencia()`. UI em
-  `src/components/copiloto/CopilotoView.tsx` (Intelligence Center: copiloto +
-  briefing + insights + anomalias + forecast + simulador + memória).
+- **Dados:** reutiliza `getRiscoInput()`; hook `useCentroInteligencia()`
+  (memorizado pelo dado). ⚠️ O `CopilotoView` (o antigo Intelligence Center) foi
+  APAGADO: as leituras e as anomalias moram na aba Sugestões da Quattro AI
+  (`autonomo/LeiturasPriorizadas.tsx`, `autonomo/AnomaliasParaRevisar.tsx`), e o
+  resto tem casa viva — ver `docs/rodada-9/copiloto-orfao.md`.
+- ⚠️ **Id de leitura e de anomalia DERIVADO DO CONTEÚDO** (`chaveDeTexto` +
+  `semIdRepetido` em `types.ts`), nunca contador: o motor roda a cada
+  renderização, e o contador deixou inertes o "Marcar revisada" e a narração
+  por IA do `/copiloto`. Guarda no `ia-origem` (8b).
 - **Copiloto Ember (Claude grounded)** (`POST /api/ai/copiloto`, `runtime nodejs`,
-  gated por `ANTHROPIC_API_KEY`): o chat do `/copiloto` (`CopilotoChat`) manda o
+  gated por `ANTHROPIC_API_KEY`): a conversa da Quattro AI (`useChatIA`) manda o
   **contexto numérico** (`ExecutiveContext` + anomalias + insights) e o Claude
   responde **ancorado nos números**, citando fontes e sugerindo **1 ação**.
   Determinístico (`copilotoFinanceiro`) é o **fallback** (sem chave/erro). Some

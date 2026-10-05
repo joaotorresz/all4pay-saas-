@@ -242,5 +242,50 @@ for (const [nomeConj, base] of [["corpus", input], ["vencidos+transferência", i
     ids(a).join(","));
 }
 
+/* ── 9. o /copiloto órfão não volta, e o que ele tinha de único continua montado ──
+ * `CopilotoView`, `CopilotoChat` e `InteligenciaShell` ficaram sem rota quando
+ * o /copiloto foi aposentado. Conferidos bloco a bloco: as Leituras e as
+ * Anomalias não existiam em tela nenhuma e foram MOVIDAS para a aba Sugestões;
+ * o resto tem equivalente vivo. O `CopilotoChat` era um terceiro chat da IA,
+ * com caminho de escrita no razão — o que a Rodada 9 tirou do chat. */
+{
+  const { existsSync, readdirSync, statSync } = await import("node:fs");
+  const apagados = [
+    "src/components/copiloto/CopilotoView.tsx",
+    "src/components/copiloto/CopilotoChat.tsx",
+    "src/components/copiloto/InteligenciaShell.tsx",
+    "src/app/api/ai/narrar/route.ts",
+  ];
+  const voltaram = apagados.filter((f) => existsSync(f));
+  ok("copiloto: os órfãos continuam apagados (e a narração que só eles chamavam)", voltaram.length === 0, voltaram.join(", "));
+  const arquivos: string[] = [];
+  const varrer = (d: string) => {
+    for (const n of readdirSync(d)) {
+      const f = `${d}/${n}`;
+      if (statSync(f).isDirectory()) varrer(f);
+      else if (/\.(tsx?|mts)$/.test(n)) arquivos.push(f);
+    }
+  };
+  varrer("src");
+  // Comentário fora: um arquivo que EXPLICA por que o órfão saiu não o importa.
+  const semNota = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const quemImporta = arquivos.filter((f) => /copiloto\/(CopilotoView|CopilotoChat|InteligenciaShell)\b|\/api\/ai\/narrar/.test(semNota(readFileSync(f, "utf8"))));
+  ok("copiloto: teto ZERO — nada em src/ importa os órfãos nem chama a narração", quemImporta.length === 0, quemImporta.join(", "));
+  const sem = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\/.*$/gm, "");
+  const auto = sem("src/components/autonomo/AutonomoView.tsx");
+  ok("copiloto: a aba Sugestões monta as Leituras e as Anomalias que vieram de lá",
+    /<LeiturasPriorizadas \/>/.test(auto) && /<AnomaliasParaRevisar \/>/.test(auto));
+  const leit = sem("src/components/autonomo/LeiturasPriorizadas.tsx");
+  const anom = sem("src/components/autonomo/AnomaliasParaRevisar.tsx");
+  ok("copiloto: as linhas portadas usam o id ESTÁVEL do motor como chave (nem índice, nem narração por id)",
+    /key=\{i\.id\}/.test(leit) && /key=\{a\.id\}/.test(anom) && !/narr/.test(leit + anom));
+  ok("copiloto: o 'Marcar revisada' (selo que some ao recarregar) não voltou", !/Marcar revisada|revisadas\[/.test(anom));
+  const publicadas = new Map(INVENTARIO.map((r: { rota: string; status: string }) => [r.rota, r.status]));
+  const hrefs = Array.from(anom.matchAll(/href: "([^"]+)"/g)).map((m) => m[1]);
+  const ruins = hrefs.filter((h) => publicadas.get(h) !== "canonica" || destinoDe(h) !== null);
+  ok("copiloto: onde conferir cada anomalia é rota CANÔNICA do inventário, nunca alias",
+    hrefs.length === 3 && ruins.length === 0, `${hrefs.length} destino(s) · ${ruins.join(", ")}`);
+}
+
 console.log(falhas === 0 ? "\n✓ ia-origem: tudo verde" : `\n✗ ia-origem: ${falhas} falha(s)`);
 if (falhas > 0) process.exit(1);

@@ -9559,7 +9559,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   for (const f of ["src/components/risco/RiscoView.tsx", "src/core/financial-os/bridges/risco.bridge.ts"]) {
     ok(`pagar-r3: ${f.split("/").pop()} não traduz o teto (999) em "24+"`, !/>= ?999/.test(lerR(f)) && !/24\+/.test(lerR(f)));
   }
-  for (const f of ["src/components/fluxo-caixa/FluxoCaixaView.tsx", "src/components/copiloto/CopilotoView.tsx", "src/components/contratacoes/HeadcountView.tsx"]) {
+  // O `CopilotoView` saiu desta lista ao ser apagado (órfão desde a aposentadoria
+  // do /copiloto): o simulador e o planner dele vivem no `FluxoCaixaView`
+  // (What-If e Cenários, o mesmo `simularCenario`), que continua aqui.
+  for (const f of ["src/components/fluxo-caixa/FluxoCaixaView.tsx", "src/components/contratacoes/HeadcountView.tsx"]) {
     const t = lerR(f);
     ok(`pagar-r3: ${f.split("/").pop()} exibe o runway de cenário pela leitura (não o número cru)`,
        /rotuloRunwayLido\(/.test(t) && !/\.runwayMeses\)?\}?m/.test(t) && !/runwayMeses\.toLocaleString/.test(t));

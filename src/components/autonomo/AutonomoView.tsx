@@ -87,7 +87,7 @@ export function AutonomoView() {
       <AcoesCopiloto />
 
       {/* Decisões */}
-      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Sugestões por prioridade", oQue: "O que o motor sugere fazer (cobrar, pagar, mover capital, reduzir risco), em ordem de prioridade. Executar é decisão sua, no copiloto.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada sugestão com impacto esperado, confiança e os fatores que a explicam." }}>
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Sugestões por prioridade", oQue: "O que o motor sugere fazer (cobrar, pagar, mover capital, reduzir risco), em ordem de prioridade. Executar é decisão sua, na seção Executar acima.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada sugestão com impacto esperado, confiança e os fatores que a explicam." }}>
         <span className="text-label font-medium text-muted">Sugestões por prioridade</span>
         {decisoes.length === 0 ? (
           <span className="text-caption text-faint">Operação estável — nada a sugerir agora.</span>

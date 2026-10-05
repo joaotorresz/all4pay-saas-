@@ -116,3 +116,6 @@ gaveta fechando com o número, centavo a centavo.
   rota o monta desde a aposentadoria do `/copiloto`. Pela regra "fundir não é
   apagar", cada bloco precisa ser conferido contra o que a Quattro AI já
   mostra antes de apagar ou portar. Fica para uma rodada própria.
+  - **Resolvida em 05/10/2026** — ver `copiloto-orfao.md`: leituras e
+    anomalias portadas para a aba Sugestões, o resto com equivalente vivo, os
+    três arquivos apagados.
