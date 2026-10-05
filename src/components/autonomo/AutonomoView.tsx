@@ -9,6 +9,8 @@ import { useUpdateParty } from "@/components/lancamentos/hooks";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
 import type { Party } from "@/lib/types";
 import { AcoesCopiloto } from "@/components/copiloto/AcoesCopiloto";
+import { LeiturasPriorizadas } from "./LeiturasPriorizadas";
+import { AnomaliasParaRevisar } from "./AnomaliasParaRevisar";
 import {
   TIPO_LABEL,
   type FinancialDecision,
@@ -85,7 +87,7 @@ export function AutonomoView() {
       <AcoesCopiloto />
 
       {/* Decisões */}
-      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Sugestões por prioridade", oQue: "O que o motor sugere fazer (cobrar, pagar, mover capital, reduzir risco), em ordem de prioridade. Executar é decisão sua, no copiloto.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada sugestão com impacto esperado, confiança e os fatores que a explicam." }}>
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Sugestões por prioridade", oQue: "O que o motor sugere fazer (cobrar, pagar, mover capital, reduzir risco), em ordem de prioridade. Executar é decisão sua, na seção Executar acima.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada sugestão com impacto esperado, confiança e os fatores que a explicam." }}>
         <span className="text-label font-medium text-muted">Sugestões por prioridade</span>
         {decisoes.length === 0 ? (
           <span className="text-caption text-faint">Operação estável — nada a sugerir agora.</span>
@@ -119,6 +121,12 @@ export function AutonomoView() {
           </div>
         )}
       </Card>
+
+      {/* Leituras e anomalias (motor executivo): o que está ACONTECENDO, ao
+          lado do que o motor sugere FAZER. Vieram do antigo /copiloto — ver
+          os arquivos. */}
+      <LeiturasPriorizadas />
+      <AnomaliasParaRevisar />
 
       {/* Políticas */}
       <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Políticas", oQue: "As regras SE→ENTÃO que produzem as sugestões, e quais delas o estado de hoje acionou.", comoCalcula: "Cada política avalia o contexto (risco, saldo, inadimplência, concentração) e emite a sugestão quando a condição é atendida." }}>

@@ -5,6 +5,7 @@
  * corresponding `data.ts` accessor, so widgets stay isolated and load
  * independently (their own skeleton, error and empty states).
  */
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   getReceivables,
@@ -155,10 +156,11 @@ export function useOrquestracaoInput() {
 /** IA executiva: centro de inteligência (briefing, insights, forecast…). */
 export function useCentroInteligencia() {
   const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
-  return {
-    ...q,
-    data: q.data ? centroInteligencia(q.data) : undefined,
-  };
+  // Memorizado pelo DADO: o motor roda vários motores por baixo, e a aba
+  // Sugestões tem dois cartões que o consomem (Leituras e Anomalias). Puro
+  // sobre a entrada, então mesma entrada = mesmo resultado.
+  const data = useMemo(() => (q.data ? centroInteligencia(q.data) : undefined), [q.data]);
+  return { ...q, data };
 }
 
 /** Trilha de auditoria institucional (hash-chain) — demo ou live. */

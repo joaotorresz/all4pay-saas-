@@ -5,7 +5,7 @@
  */
 import type { RiskInput } from "@/core/risk-engine/types";
 import type { Anomalia, Severidade } from "./types";
-import { uid } from "./types";
+import { chaveDeTexto, semIdRepetido } from "./types";
 
 const media = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const desvio = (xs: number[]) => {
@@ -42,7 +42,7 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
     if (z >= 1.5 && atual > m) {
       const pctAcima = Math.round(((atual - m) / m) * 100);
       out.push({
-        id: uid("anom"),
+        id: `anom:despesa:${chaveDeTexto(cat)}`,
         classe: "despesa",
         severidade: z >= 3 ? "critica" : z >= 2 ? "alta" : "media",
         titulo: `Despesa de ${cat} acima do padrão`,
@@ -68,7 +68,7 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
       );
       if (dias <= 3 && x.amount > 0) {
         out.push({
-          id: uid("anom"),
+          id: `anom:duplicidade:${chaveDeTexto(x.party_id ?? "sem-contraparte")}:${Math.round(x.amount * 100)}`,
           classe: "duplicidade",
           severidade: "alta",
           titulo: "Possível pagamento duplicado",
@@ -88,7 +88,7 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
     const id = m.party_id ?? "—";
     (porParte.get(id) ?? porParte.set(id, []).get(id)!).push(m.amount);
   }
-  for (const [, vals] of Array.from(porParte)) {
+  for (const [parte, vals] of Array.from(porParte)) {
     if (vals.length < 4) continue;
     const m = media(vals);
     const s = desvio(vals);
@@ -97,7 +97,7 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
     const z = (max - m) / s;
     if (z >= 3) {
       out.push({
-        id: uid("anom"),
+        id: `anom:fraude:${chaveDeTexto(parte)}:${Math.round(max * 100)}`,
         classe: "fraude",
         severidade: "alta",
         titulo: "Pagamento fora do padrão da contraparte",
@@ -109,5 +109,5 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
     }
   }
 
-  return out.sort((a, b) => b.valor - a.valor).slice(0, 8);
+  return semIdRepetido(out.sort((a, b) => b.valor - a.valor).slice(0, 8));
 }
