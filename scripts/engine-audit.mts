@@ -182,6 +182,10 @@ import {
   type Orcamento,
 } from "@/core/orcamento";
 import type { Movement } from "@/lib/types";
+import * as PB from "@/core/pinbank";
+import { chavesDoJwks as chavesDoJwksPB, verificarAssinatura as verificarAssinaturaPB } from "@/lib/pinbank/assinatura";
+import { vendaDaPinbank as vendaDaPinbankPB, documentoDaVenda as documentoDaVendaPB } from "@/core/vendas/documento";
+import { generateKeyPairSync as gerarParPB, sign as assinarPB } from "node:crypto";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -2540,9 +2544,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   /* ---------------------------- integrações ---------------------------- */
 
-  ok("integracoes: o catálogo tem os 8 cartões", CATALOGO_INTEGRACOES.length === 8);
+  // 9: a maquininha Pinbank entrou em 05/10/2026 (o vínculo mora no banco).
+  ok("integracoes: o catálogo tem os 9 cartões", CATALOGO_INTEGRACOES.length === 9);
   ok("integracoes: ids do catálogo são únicos",
-    new Set(CATALOGO_INTEGRACOES.map((c) => c.id)).size === 8);
+    new Set(CATALOGO_INTEGRACOES.map((c) => c.id)).size === 9);
   ok("integracoes: 18 plataformas de venda", PLATAFORMAS_VENDAS.length === 18, String(PLATAFORMAS_VENDAS.length));
   ok("integracoes: 19 bancos homologados", BANCOS_OPEN_FINANCE.length === 19, String(BANCOS_OPEN_FINANCE.length));
 
@@ -10182,6 +10187,215 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /competence_date:\s*m\.competence_date \?\? null/.test(ramoDemo));
   ok("rodada8: confirmar o extrato leva as competências escolhidas",
      /aplicarOnboarding\(\{\s*\.\.\.report,\s*records:\s*comCompetencias\(report\.records,\s*competencias\)\s*\}\)/.test(up));
+}
+
+// ═══ MAQUININHA PINBANK — o evento vira venda (e o ciclo só anda para a frente) ═══
+{
+  const UUID_EV = "0e6b4f1c-9f2a-4c41-8a33-1b2c3d4e5f60";
+  const envelope = (over: Record<string, unknown> = {}, data: Record<string, unknown> = {}) => ({
+    EventType: "Compra.TransacaoRealizada", EventVersion: "v1", EventId: UUID_EV, EntityId: "123456",
+    OccurredAt: "2026-10-05T14:00:00Z", ...over,
+    Data: {
+      nsu: 123456, status: "Aprovada", valor: 30000, valorOriginal: 30000, formaPagamento: "PARCELADO_LOJISTA",
+      numeroParcelas: 3, data: "2026-10-05T13:59:00", estabelecimento: { id: 77, chaveGateway: "abc", nome: "Loja X", documento: "915***46" },
+      cartao: { bandeira: "VISA", bin: "411111", pan: "411111******1111" }, assinaturaEletronica: "xx",
+      ...data,
+    },
+  });
+  const tx = (over: Record<string, unknown> = {}, data: Record<string, unknown> = {}) => {
+    const e = PB.lerEnvelope(envelope(over, data));
+    if (!e.ok) throw new Error(e.motivo);
+    const t = PB.transacaoDoEvento(e.valor);
+    if (!t.ok) throw new Error(t.motivo);
+    return t.valor;
+  };
+  const VIN = { id: "v", orgId: "o", ativo: true, contaId: "c", taxas: { parcelado: 0.035, debito: 0.0199, pix: 0.0099 }, prazos: {}, antecipado: false };
+  const plano = (t: PB.TransacaoPinbank, extra: Partial<PB.EntradaPlano> = {}) =>
+    PB.planejarEvento({ transacao: t, estado: null, vinculo: VIN, titulos: [], hoje: "2026-10-05", ...extra });
+
+  /* ── 1. o envelope ─────────────────────────────────────────────────────── */
+  ok("pinbank: envelope sem EventId UUID é recusado", !PB.lerEnvelope(envelope({ EventId: "123" })).ok);
+  ok("pinbank: envelope sem Data é recusado", !PB.lerEnvelope({ ...envelope(), Data: null }).ok);
+  ok("pinbank: NSU do Data diferente do EntityId é recusado (não se escolhe um dos dois em silêncio)",
+     (() => { const e = PB.lerEnvelope(envelope({ EntityId: "999" })); return e.ok && !PB.transacaoDoEvento(e.valor).ok; })());
+
+  /* ── 2. o dado sensível sai antes do banco ─────────────────────────────── */
+  const dataOriginal = envelope().Data as Record<string, unknown>;
+  const limpo = PB.semDadoSensivel(dataOriginal) as { cartao?: Record<string, unknown>; assinaturaEletronica?: unknown };
+  ok("pinbank: PAN, BIN e assinatura eletrônica saem; a bandeira fica",
+     !("pan" in (limpo.cartao ?? {})) && !("bin" in (limpo.cartao ?? {})) && !("assinaturaEletronica" in limpo) && limpo.cartao?.bandeira === "VISA");
+  ok("pinbank: tirar o dado sensível não muda o objeto recebido (a cópia é que vai ao banco)",
+     (dataOriginal.cartao as Record<string, unknown>).pan === "411111******1111");
+
+  /* ── 3. a transação: centavos, forma, data ─────────────────────────────── */
+  const t3 = tx();
+  ok("pinbank: o valor chega em CENTAVOS e vira reais (30000 → 300)", t3.valor === 300 && t3.valorOriginal === 300);
+  ok("pinbank: a data da venda é fatiada da string (nunca new Date)", t3.dataVenda === "2026-10-05");
+  ok("pinbank: parcelado em 3x é 'parcelado'; parcelado em 1x é crédito à vista; AVISTA, DEBITO e Pix",
+     t3.forma === "parcelado"
+     && tx({}, { numeroParcelas: 1 }).forma === "credito_vista"
+     && tx({}, { formaPagamento: "AVISTA", numeroParcelas: 1 }).forma === "credito_vista"
+     && tx({}, { formaPagamento: "DEBITO", numeroParcelas: 1 }).forma === "debito"
+     && tx({ EventType: "Compra.PixTransferenciaRealizada" }, { formaPagamento: null }).forma === "pix");
+
+  /* ── 4. o ciclo só anda para a frente ──────────────────────────────────── */
+  const cancelada = { status: "Cancelada" as const, ocorridoEm: "2026-10-05T15:00:00Z" };
+  ok("pinbank: a Aprovada RETENTADA depois da Cancelada não volta o ciclo",
+     !PB.consolidarStatus(cancelada, { status: "Aprovada", ocorridoEm: "2026-10-05T16:00:00Z" }).mudou);
+  ok("pinbank: Reembolsada depois de Aprovada anda",
+     PB.consolidarStatus({ status: "Aprovada", ocorridoEm: "2026-10-05T14:00:00Z" }, { status: "Reembolsada", ocorridoEm: "2026-10-05T13:00:00Z" }).mudou);
+  ok("pinbank: o MESMO evento repetido não muda nada",
+     !PB.consolidarStatus(cancelada, cancelada).mudou);
+
+  /* ── 5. a venda aprovada: os VALORES e as datas ────────────────────────── */
+  const p5 = plano(t3);
+  const tit = p5.acao === "criar_venda" ? p5.titulos : [];
+  const entradas = tit.filter((x) => x.type === "entrada");
+  const taxas = tit.filter((x) => x.type === "saida");
+  ok("pinbank: 300 em 3x com 3,5% → 3 receitas de 100 e 3 taxas de 3,50",
+     entradas.length === 3 && entradas.every((x) => x.amount === 100) && taxas.length === 3 && taxas.every((x) => x.amount === 3.5),
+     JSON.stringify(tit.map((x) => x.amount)));
+  ok("pinbank: o líquido fecha em total − taxa (289,50)",
+     Math.round((entradas.reduce((a, x) => a + x.amount, 0) - taxas.reduce((a, x) => a + x.amount, 0)) * 100) === 28950);
+  ok("pinbank: a 1ª parcela em D+30 e as seguintes de mês em mês; receita e taxa na MESMA data",
+     entradas.map((x) => x.due_date).join() === "2026-11-04,2026-12-04,2027-01-04"
+     && taxas.map((x) => x.due_date).join() === entradas.map((x) => x.due_date).join());
+  ok("pinbank: a competência NÃO se parcela (todas na data da venda)", tit.every((x) => x.competence_date === "2026-10-05"));
+  ok("pinbank: chaves únicas e do NSU", new Set(tit.map((x) => x.chave)).size === tit.length && tit.every((x) => x.chave.startsWith("pinbank:123456:")));
+  ok("pinbank: categorias da maquininha (as do POS)",
+     entradas.every((x) => x.category === "Vendas") && taxas.every((x) => x.category === "Tarifas de adquirência"));
+  const fimDeMes = plano(tx({}, { data: "2026-12-31T10:00:00" }));
+  ok("pinbank: 31/12 + 30 dias = 30/01, e o mês seguinte NÃO escorrega (28/02, nunca 02/03)",
+     fimDeMes.acao === "criar_venda" && fimDeMes.titulos.filter((x) => x.type === "entrada").map((x) => x.due_date).join() === "2027-01-30,2027-02-28,2027-03-30");
+  const deb = plano(tx({}, { formaPagamento: "DEBITO", numeroParcelas: 1 }));
+  const pix = plano(tx({ EventType: "Compra.PixTransferenciaRealizada" }, { formaPagamento: null, numeroParcelas: 1 }));
+  ok("pinbank: débito em D+1 e Pix em D+0",
+     deb.acao === "criar_venda" && deb.titulos[0].due_date === "2026-10-06"
+     && pix.acao === "criar_venda" && pix.titulos[0].due_date === "2026-10-05");
+  const ant = PB.planejarEvento({ transacao: t3, estado: null, vinculo: { ...VIN, antecipado: true }, titulos: [], hoje: "2026-10-05" });
+  ok("pinbank: antecipado → as 3 parcelas no prazo da antecipação (D+1)",
+     ant.acao === "criar_venda" && ant.titulos.every((x) => x.due_date === "2026-10-06"));
+  const semTaxa = PB.planejarEvento({ transacao: t3, estado: null, vinculo: { ...VIN, taxas: {} }, titulos: [], hoje: "2026-10-05" });
+  ok("pinbank: sem taxa cadastrada → nenhuma taxa inventada, e o AVISO diz isso",
+     semTaxa.acao === "criar_venda" && semTaxa.titulos.every((x) => x.type === "entrada") && semTaxa.avisos.some((a) => /taxa/.test(a)));
+
+  /* ── 6. as duas chaves e a conta ───────────────────────────────────────── */
+  ok("pinbank: sem vínculo → sem_vinculo", PB.planejarEvento({ transacao: t3, estado: null, vinculo: null, titulos: [], hoje: "2026-10-05" }).acao === "sem_vinculo");
+  ok("pinbank: vínculo não ATIVADO → aguardando_ativacao (nada vira dinheiro)",
+     PB.planejarEvento({ transacao: t3, estado: null, vinculo: { ...VIN, ativo: false }, titulos: [], hoje: "2026-10-05" }).acao === "aguardando_ativacao");
+  ok("pinbank: sem conta de repasse → erro nomeado, não um título sem conta",
+     PB.planejarEvento({ transacao: t3, estado: null, vinculo: { ...VIN, contaId: null }, titulos: [], hoje: "2026-10-05" }).acao === "erro");
+
+  /* ── 7. desfazer: o que não se moveu é cancelado; o que caiu é estornado ── */
+  const estado = { status: "Aprovada" as const, ocorridoEm: "2026-10-05T14:00:00Z", valor: 300, valorOriginal: 300, saleDocId: "doc", versao: 1 };
+  const titulosVivos: PB.TituloExistente[] = tit.map((x, i) => ({ id: `m${i}`, type: x.type, situacao: "previsto", amount: x.amount, chave: x.chave }));
+  const canc = plano(tx({ EventType: "Compra.TransacaoCancelada", OccurredAt: "2026-10-05T15:00:00Z" }, { status: "Cancelada" }), { estado, titulos: titulosVivos });
+  ok("pinbank: cancelada com tudo previsto → cancela os 6 títulos, nenhum estorno",
+     canc.acao === "desfazer_venda" && canc.cancelar.length === 6 && canc.estornos.length === 0 && canc.statusVenda === "cancelada");
+  const recebeuUma = titulosVivos.map((x, i) => (i < 2 ? { ...x, situacao: "baixado" } : x));
+  const canc2 = plano(tx({ EventType: "Compra.TransacaoCancelada", OccurredAt: "2026-10-05T15:00:00Z" }, { status: "Cancelada" }), { estado, titulos: recebeuUma });
+  ok("pinbank: com a 1ª parcela já RECEBIDA → cancela as 4 em aberto e estorna o LÍQUIDO recebido (96,50)",
+     canc2.acao === "desfazer_venda" && canc2.cancelar.length === 4 && canc2.estornos.length === 1 && canc2.estornos[0].amount === 96.5
+     && canc2.estornos[0].category === PB.CATEGORIA_ESTORNO_POS && canc2.estornos[0].type === "saida",
+     JSON.stringify(canc2));
+  const jaEstornado = [...recebeuUma, { id: "e1", type: "saida" as const, situacao: "previsto", amount: 96.5, chave: "pinbank:123456:estorno:total" }];
+  const reemb = plano(tx({ EventType: "Compra.TransacaoReembolsada", OccurredAt: "2026-10-06T10:00:00Z" }, { status: "Reembolsada", valor: 0 }),
+    { estado: { ...estado, status: "Cancelada" }, titulos: jaEstornado });
+  ok("pinbank: o estorno é INCREMENTO — um segundo evento de desfazer não estorna de novo",
+     reemb.acao === "desfazer_venda" && reemb.estornos.length === 0);
+
+  /* ── 8. reembolso parcial ──────────────────────────────────────────────── */
+  const parc = plano(tx({ EventType: "Compra.TransacaoReembolsada" }, { status: "Reembolsada", valor: 20000 }), { estado, titulos: titulosVivos });
+  ok("pinbank: reembolso parcial de 300 para 200 → estorno de 100, nada cancelado",
+     parc.acao === "desfazer_venda" && parc.cancelar.length === 0 && parc.estornos.length === 1 && parc.estornos[0].amount === 100
+     && parc.estornos[0].chave === "pinbank:123456:estorno:10000");
+  const parc2 = plano(tx({ EventType: "Compra.TransacaoReembolsada", OccurredAt: "2026-10-06T10:00:00Z" }, { status: "Reembolsada", valor: 15000 }),
+    { estado: { ...estado, status: "Reembolsada", valor: 200 }, titulos: [...titulosVivos, { id: "e1", type: "saida", situacao: "previsto", amount: 100, chave: "pinbank:123456:estorno:10000" }] });
+  ok("pinbank: o SEGUNDO reembolso parcial (para 150) estorna só os 50 que faltam",
+     parc2.acao === "desfazer_venda" && parc2.estornos.length === 1 && parc2.estornos[0].amount === 50);
+  const parcDepois = plano(tx({ EventType: "Compra.TransacaoReembolsada", OccurredAt: "2026-10-06T10:00:00Z" }, { status: "Reembolsada", valor: 20000 }),
+    { estado: { ...estado, status: "Cancelada" }, titulos: titulosVivos.map((x) => ({ ...x, situacao: "cancelado" })) });
+  ok("pinbank: reembolso parcial de venda JÁ desfeita não lança saída de dinheiro que nunca entrou",
+     parcDepois.acao === "registrar");
+
+  /* ── 9. o que não lança nada ───────────────────────────────────────────── */
+  ok("pinbank: Pendente só registra", plano(tx({ EventType: "Compra.TransacaoPendente" }, { status: "Pendente" })).acao === "registrar");
+  ok("pinbank: Negada sem venda só registra", plano(tx({ EventType: "Compra.TransacaoNegada" }, { status: "Negada" })).acao === "registrar");
+  ok("pinbank: Pix com cobrança INVALIDADA (QR expirado) não desfaz nada",
+     plano(tx({ EventType: "Compra.PixCobrancaInvalidada" }, { status: undefined, formaPagamento: null })).acao === "registrar");
+  ok("pinbank: Aprovada com a venda já lançada não lança de novo",
+     plano(t3, { estado: { ...estado, ocorridoEm: "2026-10-05T13:00:00Z" } }).acao === "registrar");
+
+  /* ── 10. o documento da venda ──────────────────────────────────────────── */
+  if (p5.acao === "criar_venda") {
+    const v = vendaDaPinbankPB(p5.venda, "00000000-0000-4000-8000-000000000001", "", "00000000-0000-4000-8000-000000000002");
+    const d = documentoDaVendaPB(v);
+    ok("pinbank: o documento leva o total BRUTO, a data da VENDA, o NSU e a taxa",
+       d.total === 300 && d.competence_date === "2026-10-05" && v.idExterno === "123456" && v.taxaPlataforma.valor === 10.5
+       && v.plataforma === "Maquininha Pinbank" && v.status === "aprovada" && v.tipoPagamento === "parcelado");
+  } else ok("pinbank: plano de venda aprovada", false, p5.acao);
+
+  /* ── 11. o estorno cai na DEDUÇÃO do DRE (não em despesa) ──────────────── */
+  const relEst = montarDRE({ hoje: "2026-10-31", saldoAtual: 0, partyNames: {}, movements: [
+    { id: "pbr", type: "entrada", amount: 300, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Vendas", party_id: null },
+    { id: "pbe", type: "saida", amount: 100, due_date: "2026-10-06", paid_date: null, status: "pendente", category: PB.CATEGORIA_ESTORNO_POS, party_id: null },
+  ] } as unknown as RiskInput, { intervalo: { de: "2026-10-01", ate: "2026-10-31" }, tipo: "vertical" });
+  ok("pinbank: o estorno da maquininha é DEDUÇÃO da receita", relEst.classificacao.pbe?.linha === "deducoes", JSON.stringify(relEst.classificacao.pbe));
+
+  /* ── 12. a assinatura Ed25519 ──────────────────────────────────────────── */
+  const par1 = gerarParPB("ed25519");
+  const par2 = gerarParPB("ed25519");
+  const jwk1 = par1.publicKey.export({ format: "jwk" }) as { x: string };
+  const jwk2 = par2.publicKey.export({ format: "jwk" }) as { x: string };
+  const chaves = chavesDoJwksPB({ jwks: { keys: [
+    { kty: "OKP", crv: "Ed25519", kid: "2026-07", use: "sig", x: jwk1.x },
+    { kty: "OKP", crv: "Ed25519", kid: "2026-04", use: "sig", x: jwk2.x },
+  ] } });
+  const corpo = JSON.stringify(envelope());
+  const ts = "1791200000";
+  const assina = (priv: typeof par1.privateKey, c = corpo, t = ts) => "v1a," + assinarPB(null, Buffer.from(`${t}.${c}`), priv).toString("base64");
+  const ver = (o: Partial<Parameters<typeof verificarAssinaturaPB>[0]>) =>
+    verificarAssinaturaPB({ corpo, timestamp: ts, assinatura: assina(par1.privateKey), kid: "2026-07", agoraSegundos: Number(ts) + 10, chaves, ...o });
+  ok("pinbank: assinatura válida confere", ver({}).ok);
+  ok("pinbank: a chave ANTERIOR (rotação) confere pelo kid dela",
+     ver({ assinatura: assina(par2.privateKey), kid: "2026-04" }).ok);
+  ok("pinbank: corpo alterado em UM caractere reprova", !ver({ corpo: corpo.replace("30000", "30001") }).ok);
+  ok("pinbank: assinatura da chave certa com o kid ERRADO reprova", !ver({ kid: "2026-04" }).ok);
+  ok("pinbank: fora da janela de 5 minutos reprova (replay)", !ver({ agoraSegundos: Number(ts) + 301 }).ok);
+  ok("pinbank: kid desconhecido reprova e pede nova busca da chave", (() => { const r = ver({ kid: "2027-01" }); return !r.ok && r.kidDesconhecido === true; })());
+  ok("pinbank: sem o prefixo v1a reprova", !ver({ assinatura: assina(par1.privateKey).slice(4) }).ok);
+
+  /* ── 13. a rota: interruptor → assinatura → envelope → só então o banco ── */
+  const semComPB = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const ordemPB = (src: string): boolean => {
+    const s = semComPB(src);
+    const iGate = s.indexOf('process.env.PINBANK_WEBHOOK !== "ligado"');
+    const iTexto = s.indexOf("await req.text()");
+    const iAss = s.indexOf("verificarAssinatura(");
+    const i401 = s.indexOf("resposta(401");
+    const iEnv = s.indexOf("lerEnvelope(");
+    const iAdmin = s.indexOf("createAdmin()");
+    const iRpc = s.indexOf(".rpc(");
+    const iSens = s.indexOf("semDadoSensivel(");
+    return iGate > 0 && iTexto > iGate && iAss > iTexto && i401 > iAss && iEnv > i401 && iAdmin > iEnv && iRpc > iAdmin
+      && iSens > iRpc && !/req\.json\(/.test(s) && (s.match(/createAdmin\(\)/g) ?? []).length === 1;
+  };
+  const rotaPB = readFileSync("src/app/api/pinbank/webhook/route.ts", "utf8");
+  ok("pinbank: a rota confere interruptor e assinatura (sobre o corpo BRUTO) antes do banco, e tira o dado sensível",
+     ordemPB(rotaPB));
+  const plantadaPB = rotaPB.replace("  // 1. O INTERRUPTOR", "  const cedo = createAdmin();\n  // 1. O INTERRUPTOR");
+  ok("pinbank: (defeito plantado) banco antes do interruptor é REPROVADO", plantadaPB !== rotaPB && !ordemPB(plantadaPB));
+  const plantadaJson = rotaPB.replace("const corpo = await req.text();", "const corpo = JSON.stringify(await req.json());");
+  ok("pinbank: (defeito plantado) corpo reserializado em vez do BRUTO é REPROVADO", plantadaJson !== rotaPB && !ordemPB(plantadaJson));
+
+  /* ── 14. ninguém além do banco escreve o dinheiro da maquininha ────────── */
+  const escreveDireto = (src: string) => /from\(\s*["'](movements|sales_docs|sale_items)["']\s*\)|criarTitulos|salvarVenda/.test(semComPB(src));
+  const arquivosPB = ["src/app/api/pinbank/webhook/route.ts", "src/app/api/pinbank/reprocessar/route.ts", "src/lib/pinbank/processar.ts"];
+  const diretos = arquivosPB.filter((f) => escreveDireto(readFileSync(f, "utf8")));
+  ok("pinbank: a venda da maquininha só é gravada por pinbank_aplicar (uma transação), nunca por escrita solta",
+     diretos.length === 0, diretos.join(", "));
+  ok("pinbank: (defeito plantado) um insert em movements no processador é ACUSADO",
+     escreveDireto('await admin.from("movements").insert({});'));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

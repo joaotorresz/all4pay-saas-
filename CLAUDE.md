@@ -135,6 +135,26 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ RODADA 10 — A MAQUININHA PINBANK (05/10/2026, detalhe em `docs/rodada-10/pinbank.md`)
+
+- **Webhook `Compra.*` → venda** (`/api/pinbank/webhook`, DESLIGADO por padrão:
+  `PINBANK_WEBHOOK=ligado`). Portas: interruptor → assinatura **Ed25519 sobre o
+  corpo BRUTO** (chave pelo `kid`) → envelope → banco. 401/400 a Pinbank não
+  reenvia; 503 reenvia; evento guardado é 200.
+- **O vínculo tem DUAS chaves**: só a PLATAFORMA liga estabelecimento → empresa
+  (`/admin`, índice único GLOBAL); a EMPRESA ativa em Integrações (conta e
+  taxas). Sem a segunda, o evento espera; sem a primeira, vai à quarentena.
+- **Uma escrita só**: `core/pinbank` planeja (puro), `pinbank_aplicar` grava
+  documento + títulos numa transação, com versão da transação (evento fora de
+  ordem não volta o ciclo) e chave `pinbank:<nsu>:…` (reentrega não duplica).
+  Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
+- ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
+  taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
+  (OAuth2 + AES) é a próxima fase — faltam as credenciais.
+- **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
+  `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
+  vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.
+
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
 - **A origem do número é DITA por quem calcula** (`core/assistant/numero`):

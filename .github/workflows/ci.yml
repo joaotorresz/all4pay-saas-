@@ -297,6 +297,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/categoria-vinculo.sql
+      # ⚠️ Maquininha Pinbank: só a plataforma vincula estabelecimento, um
+      # estabelecimento cai em UMA empresa, vínculo não ativado não vira
+      # dinheiro, a versão velha e a chave de outro NSU são recusadas, dado
+      # sensível não entra e a empresa B não lê a maquininha de A.
+      - name: Guarda da maquininha Pinbank (vínculo, segunda chave, versão, sensível, isolamento)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
