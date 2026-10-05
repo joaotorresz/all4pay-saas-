@@ -210,5 +210,37 @@ for (const [nomeConj, base] of [["corpus", input], ["vencidos+transferência", i
   ok("sugestão: os ids são únicos", new Set(a).size === a.length, a.join(","));
 }
 
+/* ── 8b. a LEITURA e a ANOMALIA do motor executivo também têm id ESTÁVEL ──
+ * Eram `uid()`, um contador de módulo: a mesma leitura nascia com outro id a
+ * cada redesenho (medido: `anom_0` e depois `anom_7` sobre a mesma entrada).
+ * Era o que tornava inertes o "Marcar revisada" e a narração por IA do antigo
+ * `/copiloto`, e é o que a aba Sugestões usa como chave das linhas portadas. */
+{
+  const { centroInteligencia } = await import("@/core/executive");
+  const pg = (id: string, valor: number, d: string, party: string, category: string) =>
+    ({ id, type: "saida", status: "pago", amount: valor, due_date: d, paid_date: d, party_id: party, category });
+  const fx = { hoje: "2026-09-15", saldoAtual: 20_000, partyNames: {}, horizonDias: 60, movements: [
+    ...["05", "06", "07", "08", "09"].map((mm) => ({ id: "r" + mm, type: "entrada", status: "pago", amount: 30_000, due_date: `2026-${mm}-05`, paid_date: `2026-${mm}-05`, party_id: "c1", category: "Vendas" })),
+    // Aluguel dispara no mês corrente: anomalia de despesa.
+    ...([["05", 5000], ["06", 5100], ["07", 4900], ["08", 5050], ["09", 9000]] as const).map(([mm, v]) => pg("a" + mm, v, `2026-${mm}-10`, "f1", "Aluguel")),
+    // DUAS duplicidades de MESMO valor e título, em contrapartes diferentes —
+    // a chave não pode colidir entre elas.
+    pg("g1", 1234, "2026-09-02", "f2", "Gráfica"), pg("g2", 1234, "2026-09-03", "f2", "Gráfica"),
+    pg("h1", 1234, "2026-09-04", "f3", "Frete"), pg("h2", 1234, "2026-09-05", "f3", "Frete"),
+  ] } as unknown as RiskInput;
+  const a = centroInteligencia(fx);
+  const b = centroInteligencia(fx);
+  const dup = a.anomalias.filter((x) => x.classe === "duplicidade");
+  ok("leitura: a fixture dispara anomalias de duas classes e leituras (senão a asserção abaixo não mede nada)",
+    dup.length === 2 && a.anomalias.some((x) => x.classe === "despesa") && a.insights.length >= 3,
+    `${a.anomalias.map((x) => x.classe).join(",")} · ${a.insights.length} leituras`);
+  const ids = (c: typeof a) => [...c.anomalias.map((x) => x.id), ...c.insights.map((x) => x.id)];
+  ok("leitura: rodar o motor executivo duas vezes dá os MESMOS ids (anomalias e leituras)",
+    ids(a).join("|") === ids(b).join("|"), `${ids(a).join(",")} × ${ids(b).join(",")}`);
+  ok("leitura: os ids são únicos — duas duplicidades de mesmo valor e título não colidem",
+    new Set(a.anomalias.map((x) => x.id)).size === a.anomalias.length && new Set(a.insights.map((x) => x.id)).size === a.insights.length,
+    ids(a).join(","));
+}
+
 console.log(falhas === 0 ? "\n✓ ia-origem: tudo verde" : `\n✗ ia-origem: ${falhas} falha(s)`);
 if (falhas > 0) process.exit(1);

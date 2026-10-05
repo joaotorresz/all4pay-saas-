@@ -143,5 +143,33 @@ export interface CentroInteligencia {
 
 export const VERSAO_EXECUTIVO = "executivo/1.0.0";
 
-let _seq = 0;
-export const uid = (p: string) => `${p}_${(_seq++).toString(36)}`;
+/*
+ * ⚠️ ID DERIVADO DO CONTEÚDO, NUNCA DE CONTADOR — a regra da Rodada 9 (que
+ * `core/autonomous` já segue), agora também no motor executivo.
+ *
+ * Era `uid()`, um contador de módulo, e o motor roda de novo a cada
+ * renderização (`useCentroInteligencia` não memoriza). A MESMA leitura nascia
+ * com outro id a cada redesenho — medido: duas execuções sobre a mesma entrada
+ * davam `anom_0` e `anom_7`. No antigo `/copiloto` isso tornava dois controles
+ * inertes sem erro nenhum: o "Marcar revisada" gravava o selo sob um id que já
+ * não existia no redesenho seguinte (o selo nunca apareceu), e a narração por
+ * IA, casada pelo id, nunca casou com nada.
+ *
+ * Mesmo conteúdo é a mesma leitura; quando a situação muda, o conteúdo muda e
+ * ela é outra.
+ */
+export const chaveDeTexto = (s: string): string =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+/**
+ * Duas entradas com a mesma chave ganham sufixo pela ORDEM em que aparecem — e
+ * a ordem é a mesma para a mesma entrada, então o sufixo também é estável.
+ */
+export function semIdRepetido<T extends { id: string }>(xs: T[]): T[] {
+  const vistos = new Map<string, number>();
+  return xs.map((x) => {
+    const n = (vistos.get(x.id) ?? 0) + 1;
+    vistos.set(x.id, n);
+    return n === 1 ? x : { ...x, id: `${x.id}#${n}` };
+  });
+}

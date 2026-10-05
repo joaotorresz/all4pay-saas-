@@ -11,7 +11,7 @@ import type {
   Forecast,
   Severidade,
 } from "./types";
-import { uid } from "./types";
+import { chaveDeTexto, semIdRepetido } from "./types";
 
 const reais = (centavos: number) => centavos / 100;
 const C = (v: number) => Math.round(v * 100); // reais → centavos
@@ -21,13 +21,14 @@ export function gerarInsights(
   anomalias: Anomalia[],
   forecast: Forecast,
 ): ExecutiveInsight[] {
-  const out: ExecutiveInsight[] = [];
+  // O id sai do CONTEÚDO no fim (ver `chaveDeTexto` em ./types); só a leitura
+  // que nasce de uma anomalia o traz pronto — o da própria anomalia.
+  const out: Array<Omit<ExecutiveInsight, "id"> & { id?: string }> = [];
   const now = ctx.hoje;
 
   // Ruptura / caixa
   if (ctx.probRuptura >= 0.25 || (ctx.rupturaDia != null && ctx.rupturaDia < 60)) {
     out.push({
-      id: uid("ins"),
       tipo: "caixa",
       severidade: ctx.probRuptura >= 0.5 ? "critica" : "alta",
       titulo: "Pressão de caixa no horizonte",
@@ -46,7 +47,6 @@ export function gerarInsights(
   if (ctx.clientesRisco.length > 0) {
     const exposicao = ctx.clientesRisco.reduce((s, c) => s + c.exposicao, 0);
     out.push({
-      id: uid("ins"),
       tipo: "inadimplencia",
       severidade: ctx.inadimplencia > 0.2 ? "alta" : "media",
       titulo: `${ctx.clientesRisco.length} cliente(s) em risco de inadimplência`,
@@ -62,7 +62,6 @@ export function gerarInsights(
   const conc = ctx.concentracao[0];
   if (conc && conc.percentual >= 40) {
     out.push({
-      id: uid("ins"),
       tipo: "risco",
       severidade: conc.percentual >= 60 ? "alta" : "media",
       titulo: "Concentração de receita elevada",
@@ -77,7 +76,6 @@ export function gerarInsights(
   // Margem
   if (ctx.margemCaixa90d < 0.1) {
     out.push({
-      id: uid("ins"),
       tipo: "margem",
       severidade: ctx.margemCaixa90d < 0 ? "critica" : "media",
       titulo: "Margem operacional comprimida",
@@ -92,7 +90,6 @@ export function gerarInsights(
   // Crescimento (oportunidade)
   if (ctx.crescimentoMensal >= 0.05) {
     out.push({
-      id: uid("ins"),
       tipo: "crescimento",
       severidade: "baixa",
       titulo: "Crescimento de receita consistente",
@@ -107,7 +104,7 @@ export function gerarInsights(
   // Anomalias → insights
   for (const a of anomalias.slice(0, 3)) {
     out.push({
-      id: uid("ins"),
+      id: `ins:${a.id}`,
       tipo: "anomalia",
       severidade: a.severidade,
       titulo: a.titulo,
@@ -122,7 +119,6 @@ export function gerarInsights(
   // Forecast (pressão futura)
   if (forecast.janelaPressao) {
     out.push({
-      id: uid("ins"),
       tipo: "caixa",
       severidade: "media",
       titulo: "Pressão de caixa prevista",
@@ -134,7 +130,8 @@ export function gerarInsights(
     });
   }
 
-  return priorizar(out);
+  const comId: ExecutiveInsight[] = out.map((i) => ({ ...i, id: i.id ?? `ins:${i.tipo}:${chaveDeTexto(i.titulo)}` }));
+  return priorizar(semIdRepetido(comId));
 }
 
 const SEV_PESO: Record<Severidade, number> = { baixa: 0.25, media: 0.5, alta: 0.8, critica: 1 };
