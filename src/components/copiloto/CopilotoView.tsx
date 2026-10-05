@@ -21,6 +21,7 @@ import type { ScenarioInput, Severidade } from "@/core/executive/types";
 import { logAcaoIA } from "@/lib/ai-copilot";
 import { AcoesCopiloto } from "./AcoesCopiloto";
 import { CopilotoChat } from "./CopilotoChat";
+import { LeiturasPriorizadas } from "@/components/autonomo/LeiturasPriorizadas";
 import Link from "next/link";
 
 const SEV_COR: Record<Severidade, string> = {
@@ -74,7 +75,7 @@ export function CopilotoView() {
       <AcoesCopiloto />
       <CopilotoChat ctx={data.context} anomalias={data.anomalias} insights={data.insights} />
       <BriefingCard b={data.briefing} resumo={narr.resumo} />
-      <InsightsCard insights={data.insights} narr={narr.itens} />
+      <LeiturasPriorizadas />
       <AnomaliasCard anomalias={data.anomalias} narr={narr.itens} />
       <ForecastCard forecast={data.forecast} />
       <SimuladorCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
@@ -124,38 +125,6 @@ function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Brief
       <div className="flex items-center justify-between pt-1 border-t border-border-soft">
         <span className="text-caption text-faint">Risco de ruptura</span>
         <span className="text-label font-medium" style={{ color: cor }}>{b.riscoRuptura}</span>
-      </div>
-    </Card>
-  );
-}
-
-/* ---------- Insights ---------- */
-function InsightsCard({ insights, narr = {} }: { insights: import("@/core/executive/types").ExecutiveInsight[]; narr?: Record<string, string> }) {
-  return (
-    <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Leituras priorizadas", oQue: "Lista o que merece sua atenção agora, do mais relevante para o menos, com a ação sugerida.", comoCalcula: "Cada leitura é ordenada por impacto em reais, urgência, probabilidade e criticidade calculados sobre os seus dados." }}>
-      <span className="text-label font-medium text-muted">Leituras priorizadas · impacto × urgência</span>
-      {insights.length === 0 && <span className="text-caption text-faint">Nenhum insight relevante no momento.</span>}
-      <div className="flex flex-col">
-        {insights.map((i) => (
-          <div key={i.id} className="flex gap-3 py-[10px] border-t border-border-soft first:border-t-0">
-            <span className="text-caption font-medium text-faint tabular-nums w-[20px] pt-[2px]">#{i.prioridade}</span>
-            <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: SEV_COR[i.severidade] }} />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[17px] font-medium text-ink">{i.titulo}</span>
-                {i.impactoCentavos > 0 && (
-                  <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={i.impactoCentavos / 100} /></span>
-                )}
-              </div>
-              <span className="text-caption text-muted">{narr[i.id] ?? i.descricao}</span>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {i.recomendacoes.map((r, j) => (
-                  <span key={j} className="text-caption text-faint bg-surface-2 rounded-pill px-2 py-[2px]">{r}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
     </Card>
   );

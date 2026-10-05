@@ -9,6 +9,7 @@ import { useUpdateParty } from "@/components/lancamentos/hooks";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
 import type { Party } from "@/lib/types";
 import { AcoesCopiloto } from "@/components/copiloto/AcoesCopiloto";
+import { LeiturasPriorizadas } from "./LeiturasPriorizadas";
 import {
   TIPO_LABEL,
   type FinancialDecision,
@@ -119,6 +120,10 @@ export function AutonomoView() {
           </div>
         )}
       </Card>
+
+      {/* Leituras (motor executivo): o que está ACONTECENDO, ao lado do que
+          o motor sugere FAZER. Veio do antigo /copiloto — ver o arquivo. */}
+      <LeiturasPriorizadas />
 
       {/* Políticas */}
       <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Políticas", oQue: "As regras SE→ENTÃO que produzem as sugestões, e quais delas o estado de hoje acionou.", comoCalcula: "Cada política avalia o contexto (risco, saldo, inadimplência, concentração) e emite a sugestão quando a condição é atendida." }}>
