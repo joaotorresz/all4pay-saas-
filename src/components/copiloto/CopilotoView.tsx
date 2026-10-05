@@ -22,6 +22,7 @@ import { logAcaoIA } from "@/lib/ai-copilot";
 import { AcoesCopiloto } from "./AcoesCopiloto";
 import { CopilotoChat } from "./CopilotoChat";
 import { LeiturasPriorizadas } from "@/components/autonomo/LeiturasPriorizadas";
+import { AnomaliasParaRevisar } from "@/components/autonomo/AnomaliasParaRevisar";
 import Link from "next/link";
 
 const SEV_COR: Record<Severidade, string> = {
@@ -76,7 +77,7 @@ export function CopilotoView() {
       <CopilotoChat ctx={data.context} anomalias={data.anomalias} insights={data.insights} />
       <BriefingCard b={data.briefing} resumo={narr.resumo} />
       <LeiturasPriorizadas />
-      <AnomaliasCard anomalias={data.anomalias} narr={narr.itens} />
+      <AnomaliasParaRevisar />
       <ForecastCard forecast={data.forecast} />
       <SimuladorCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
       <PlannerCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
@@ -126,56 +127,6 @@ function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Brief
         <span className="text-caption text-faint">Risco de ruptura</span>
         <span className="text-label font-medium" style={{ color: cor }}>{b.riscoRuptura}</span>
       </div>
-    </Card>
-  );
-}
-
-/* ---------- Anomalias ---------- */
-type ClasseAnom = import("@/core/executive/types").Anomalia["classe"];
-const ACAO_ANOM: Record<ClasseAnom, { label: string; href: string }> = {
-  despesa: { label: "Revisar despesa", href: "/dashboard/reports/dre" },
-  duplicidade: { label: "Verificar duplicidade", href: "/contas-a-pagar/titulos" },
-  fraude: { label: "Investigar pagamento", href: "/contas-a-pagar/titulos" },
-};
-
-function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/executive/types").Anomalia[]; narr?: Record<string, string> }) {
-  const [revisadas, setRevisadas] = React.useState<Record<string, boolean>>({});
-  const marcar = (a: import("@/core/executive/types").Anomalia) => {
-    setRevisadas((r) => ({ ...r, [a.id]: true }));
-    void logAcaoIA({ kind: "anomalia", titulo: `Revisada: ${a.titulo}`, detalhe: narr[a.id] ?? a.descricao, status: "executada" });
-  };
-  return (
-    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Anomalias", oQue: "Aponta despesas, duplicidades e pagamentos fora do padrão para você revisar antes que virem problema.", comoCalcula: "Compara cada gasto com o histórico da categoria (z-score) e cruza valores para achar duplicidade e pagamento atípico." }}>
-      <div className="flex items-center gap-2">
-        <Icon name="triangle-alert" size={16} color="var(--color-text-secondary)" />
-        <span className="text-label font-medium text-muted">Anomalias</span>
-      </div>
-      {anomalias.length === 0 ? (
-        <span className="text-caption text-faint">Nenhuma anomalia detectada — despesas e pagamentos dentro do padrão histórico.</span>
-      ) : (
-        anomalias.map((a) => {
-          const acao = ACAO_ANOM[a.classe] ?? ACAO_ANOM.despesa;
-          return (
-            <div key={a.id} className="flex flex-col gap-1 rounded-md border border-border-soft p-3">
-              <span className="inline-flex items-center gap-[6px] text-label font-medium" style={{ color: SEV_COR[a.severidade] }}>
-                <span className="w-2 h-2 rounded-pill" style={{ background: SEV_COR[a.severidade] }} />{a.titulo}
-              </span>
-              <span className="text-caption text-muted">{narr[a.id] ?? a.descricao}</span>
-              <span className="text-caption text-faint tabular-nums"><BRL value={a.valor} /></span>
-              <div className="flex items-center gap-3 mt-1">
-                {revisadas[a.id] ? (
-                  <StatusBadge tone="positive">revisada</StatusBadge>
-                ) : (
-                  <>
-                    <Link href={acao.href} className="text-caption font-medium text-ink underline">{acao.label} →</Link>
-                    <button onClick={() => marcar(a)} className="text-caption text-muted hover:text-ink ml-auto">Marcar revisada</button>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })
-      )}
     </Card>
   );
 }
