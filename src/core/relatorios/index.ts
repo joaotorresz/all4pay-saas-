@@ -20,6 +20,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dataDe, ehTransferenciaEntreContas, liquidado, assinado } from "@/core/indicadores/convencoes";
 import { chaveCategoria } from "@/core/categorias/chave";
+import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
 
 import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
@@ -127,8 +128,22 @@ const ehImpostoVenda = (m: RiskMovement) =>
   /imposto|tribut|simples nacional|\bdas\b|\bicms\b|\biss\b|\bpis\b|\bcofins\b|\bipi\b|\binss\b|\birpj\b|\bcsll\b/.test(cat(m));
 const ehDevolucao = (m: RiskMovement) => /devolu|desconto|reembols|estorno|chargeback|reclamad|cancelad/.test(cat(m));
 const ehCustoVariavel = (m: RiskMovement) => /cmv|mercadoria|insumo|fornecedor|frete|embalagem|custo de produ/.test(cat(m));
-const ehDespesaVariavel = (m: RiskMovement) => /comiss|taxa|gateway|adquiren|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m));
-const ehFinanceiro = (m: RiskMovement) => /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
+/*
+ * ⚠️ **A TAXA DA MAQUININHA (MDR) é despesa VARIÁVEL, não financeira**
+ * (`ehTaxaAdquirencia`, a regra única em `core/indicadores/classificacao`).
+ * "Tarifas de adquirência" — a categoria que a maquininha grava — casava
+ * "tarifa" no financeiro e o padrão antigo daqui (`adquiren`) não casava com o
+ * "ê": o MDR caía ABAIXO do EBITDA e o EBITDA de quem vende no cartão saía maior
+ * que o real pelo valor dele. O resultado líquido não muda: é reclassificação
+ * DENTRO do DRE. A tarifa BANCÁRIA continua no Resultado Financeiro.
+ */
+const ehDespesaVariavel = (m: RiskMovement) =>
+  ehTaxaAdquirencia(m.category)
+  || /comiss|taxa|gateway|adquir[eê]n|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m));
+const ehFinanceiro = (m: RiskMovement) =>
+  !ehTaxaAdquirencia(m.category) && /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
+/** A taxa da maquininha que VOLTA (estorno do MDR): reduz a despesa variável, não é faturamento. */
+const ehEstornoTaxaAdquirencia = (m: RiskMovement) => entrada(m) && ehTaxaAdquirencia(m.category);
 const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o lucro/.test(cat(m));
 /**
  * ⚠️ **RESTITUIÇÃO DE IMPOSTO não é faturamento** (Rodada 7). É a dedução
@@ -158,7 +173,7 @@ const ehRestituicaoImposto = (m: RiskMovement) =>
  */
 export const ehReceitaOperacional = (m: RiskMovement) =>
   entrada(m) && !ehTransferenciaEntreContas(m.category) && !ehFinanceiro(m) && !ehNaoOperacional(m)
-  && !ehRestituicaoImposto(m);
+  && !ehRestituicaoImposto(m) && !ehEstornoTaxaAdquirencia(m);
 const ehNaoOperacional = (m: RiskMovement) => /n[ãa]o operacional|venda de ativo|imobilizado|indeniza|multa contratual/.test(cat(m));
 /**
  * ⚠️ **DEPRECIAÇÃO E AMORTIZAÇÃO — a linha que faltava, e que tornava o rótulo
@@ -205,8 +220,9 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "receita_bruta", label: "Receita Bruta Operacional", tipo: "soma", sinal: "+", nivel: 1,
     entra:
-      "Toda ENTRADA de dinheiro que não seja financeira nem não operacional: venda de produto, prestação de serviço, mensalidade, assinatura. Rendimento de aplicação, venda de ativo e restituição de imposto NÃO entram aqui.",
-    casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m) && !ehRestituicaoImposto(m),
+      "Toda ENTRADA de dinheiro que não seja financeira nem não operacional: venda de produto, prestação de serviço, mensalidade, assinatura. Rendimento de aplicação, venda de ativo, restituição de imposto e taxa da maquininha devolvida NÃO entram aqui.",
+    casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m) && !ehRestituicaoImposto(m)
+      && !ehEstornoTaxaAdquirencia(m),
   },
   {
     id: "deducoes", label: "Dedução sobre Produtos e Serviços", tipo: "soma", sinal: "-", nivel: 1,
@@ -251,8 +267,12 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "despesas_variaveis", label: "Despesas Variáveis", tipo: "soma", sinal: "-", nivel: 1,
     entra:
-      "O que varia com a venda mas não é custo do produto: comissão, taxa de gateway, adquirente e plataforma, antecipação de recebível, marketing, anúncios e tráfego pago.",
-    casa: (m) => saida(m) && !ehImpostoVenda(m) && !ehDevolucao(m) && !ehCustoVariavel(m) && ehDespesaVariavel(m),
+      "O que varia com a venda mas não é custo do produto: comissão, taxa de gateway e plataforma, a taxa da maquininha (tarifa de adquirência, MDR), antecipação de recebível, marketing, anúncios e tráfego pago. A taxa da maquininha devolvida entra aqui como estorno, reduzindo a despesa.",
+    // A taxa da maquininha que VOLTA entra como estorno (o montador a faz
+    // negativa): sem isto ela, deixando de ser financeira, cairia na Receita
+    // Bruta e inflaria o faturamento.
+    casa: (m) => (saida(m) && !ehImpostoVenda(m) && !ehDevolucao(m) && !ehCustoVariavel(m) && ehDespesaVariavel(m))
+      || ehEstornoTaxaAdquirencia(m),
   },
   {
     id: "margem_contribuicao", label: "Margem de Contribuição", tipo: "total", sinal: "=", nivel: 1,

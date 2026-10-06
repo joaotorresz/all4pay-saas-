@@ -8752,6 +8752,79 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/pos: no DRE a receita bruta é a venda cheia", lPos("receita_bruta") === 100, `${lPos("receita_bruta")}`);
   ok("vender/pos: no DRE o resultado é venda − taxa (a taxa dupla dava 94)", lPos("resultado_liquido") === 97, `${lPos("resultado_liquido")}`);
   ok("vender/pos: a taxa é despesa de adquirência nomeada", t1.some((t) => t.category === CATEGORIA_TAXA_POS));
+
+  /* ---- MDR: a taxa da maquininha é DESPESA VARIÁVEL, acima do EBITDA ----
+   *
+   * ⚠️ "Tarifas de adquirência" caía no Resultado Financeiro: "tarifa" casava o
+   * financeiro e o padrão da despesa variável (`adquiren`) não casava com o
+   * "ê". O EBITDA de quem vende no cartão saía maior que o real pelo valor do
+   * MDR — aqui, 100 em vez de 97. O resultado líquido NÃO muda (97 nos dois):
+   * é reclassificação dentro do DRE. Provado plantando o padrão antigo de volta.
+   */
+  ok("adquirência: o MDR da maquininha é Despesa Variável no DRE", lPos("despesas_variaveis") === 3, `${lPos("despesas_variaveis")}`);
+  ok("adquirência: o EBITDA da venda de 100 com 3% de MDR é 97 (era 100)", lPos("ebitda") === 97, `${lPos("ebitda")}`);
+  ok("adquirência: o MDR NÃO está no Resultado Financeiro", lPos("resultado_financeiro") === 0, `${lPos("resultado_financeiro")}`);
+  {
+    const { classificarDespesa: classDesp, ehTaxaAdquirencia } = await import("@/core/indicadores/classificacao");
+    const { categorizarPorRegras } = await import("@/core/ledger/categorize");
+    const { dreComparativo } = await import("@/core/dre/engine");
+    const mvA = (id: string, type: "entrada" | "saida", amount: number, category: string): RiskMovement =>
+      ({ id, type, amount, category, status: "pago", due_date: "2026-06-10", paid_date: "2026-06-10", party_id: null }) as RiskMovement;
+    const INTERVALO = { de: "2026-06-01", ate: "2026-06-30" };
+    const inA = (movs: RiskMovement[]): RiskInput => ({ hoje: "2026-06-30", saldoAtual: 0, partyNames: {}, movements: movs }) as RiskInput;
+    const linhaA = (r: ReturnType<typeof montarDRE>, id: string) => r.linhas.find((l) => l.id === id)?.total.valor ?? NaN;
+
+    // As grafias que chegam: sem acento (extrato), caixa alta, MDR, taxa.
+    const grafias = ["Tarifas de adquirência", "Tarifas de adquirencia", "TARIFA ADQUIRÊNCIA", "Taxa MDR", "Taxa da adquirente"];
+    const dG = montarDRE(inA([mvA("v", "entrada", 1_000, "Vendas"), ...grafias.map((g, k) => mvA(`g${k}`, "saida", 10, g))]), { intervalo: INTERVALO, tipo: "vertical" });
+    ok("adquirência: toda grafia da taxa (sem acento, caixa alta, MDR) cai em Despesas Variáveis",
+       linhaA(dG, "despesas_variaveis") === 50 && linhaA(dG, "resultado_financeiro") === 0,
+       `variáveis ${linhaA(dG, "despesas_variaveis")} · financeiro ${linhaA(dG, "resultado_financeiro")}`);
+
+    // CONTROLE: tarifa BANCÁRIA continua financeira; o repasse da adquirente é venda.
+    const dC = montarDRE(inA([
+      mvA("v", "entrada", 1_000, "Repasse da adquirente"),
+      mvA("b1", "saida", 7, "Tarifas bancárias"), mvA("b2", "saida", 5, "Tarifa TED/PIX"),
+      mvA("t", "saida", 30, "Tarifas de adquirência"),
+    ]), { intervalo: INTERVALO, tipo: "vertical" });
+    ok("adquirência: tarifa BANCÁRIA continua no Resultado Financeiro (controle)",
+       linhaA(dC, "resultado_financeiro") === -12 && linhaA(dC, "despesas_variaveis") === 30,
+       `financeiro ${linhaA(dC, "resultado_financeiro")} · variáveis ${linhaA(dC, "despesas_variaveis")}`);
+    ok("adquirência: o REPASSE da adquirente é receita, não estorno de taxa",
+       linhaA(dC, "receita_bruta") === 1_000 && !ehTaxaAdquirencia("Repasse da adquirente"), `${linhaA(dC, "receita_bruta")}`);
+    ok("adquirência: reclassificar não move o resultado líquido (1.000 − 12 − 30)",
+       linhaA(dC, "resultado_liquido") === 958, `${linhaA(dC, "resultado_liquido")}`);
+
+    // A taxa que VOLTA: estorno da despesa variável, nunca faturamento.
+    const dE = montarDRE(inA([
+      mvA("v", "entrada", 100, "Vendas"), mvA("t", "saida", 3, "Tarifas de adquirência"),
+      mvA("e", "entrada", 1, "Estorno de tarifas de adquirência"),
+    ]), { intervalo: INTERVALO, tipo: "vertical" });
+    ok("adquirência: a taxa devolvida reduz a Despesa Variável e não infla a Receita Bruta",
+       linhaA(dE, "receita_bruta") === 100 && linhaA(dE, "despesas_variaveis") === 2 && linhaA(dE, "resultado_liquido") === 98,
+       `receita ${linhaA(dE, "receita_bruta")} · variáveis ${linhaA(dE, "despesas_variaveis")} · líquido ${linhaA(dE, "resultado_liquido")}`);
+
+    // DFC: o MDR é caixa OPERACIONAL; a tarifa bancária segue no financiamento.
+    const dfcA = montarDFC(inA([
+      mvA("v", "entrada", 100, "Vendas"), mvA("t", "saida", 3, "Tarifas de adquirência"), mvA("b", "saida", 2, "Tarifas bancárias"),
+    ]), { intervalo: INTERVALO, tipo: "dfc" });
+    const dfcL = (id: string) => dfcA.linhas.find((l) => l.id === id)?.total.valor ?? NaN;
+    ok("adquirência: no DFC o MDR é saída OPERACIONAL e a tarifa bancária é financiamento",
+       dfcL("saidas_operacionais") === 3 && dfcL("fluxo_financiamento") === -2,
+       `operacionais ${dfcL("saidas_operacionais")} · financiamento ${dfcL("fluxo_financiamento")}`);
+
+    // O SEGUNDO classificador (comparativo, orçamento, razão, IA) e a sugestão do razão.
+    ok("adquirência: classificarDespesa põe o MDR no opex e a tarifa bancária no financeiro",
+       classDesp("Tarifas de adquirência") === "opex" && classDesp("Tarifas de adquirencia") === "opex"
+       && classDesp("Tarifas bancárias") === "financeiro",
+       `${classDesp("Tarifas de adquirência")} · ${classDesp("Tarifas bancárias")}`);
+    const comp = dreComparativo(inA([mvA("v", "entrada", 100, "Vendas"), mvA("t", "saida", 3, "Tarifas de adquirência")]), "competencia");
+    ok("adquirência: o EBITDA do comparativo bate com o da cascata (97)",
+       comp.periodos[0].ebitda === 97 && lPos("ebitda") === comp.periodos[0].ebitda, `${comp.periodos[0].ebitda}`);
+    ok("adquirência: a sugestão do razão leva o MDR para despesa operacional, não para Financeiras",
+       categorizarPorRegras({ id: "x", descricao: "TARIFA ADQUIRENCIA CIELO", valor: 3, tipo: "saida" }).code === "4.1.09"
+       && categorizarPorRegras({ id: "y", descricao: "TARIFA BANCARIA", valor: 3, tipo: "saida" }).code === "4.2.01");
+  }
   const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",
      !/\bstatus\s*:/.test(posLib) && /salvarVendaComTitulos\(/.test(posLib));

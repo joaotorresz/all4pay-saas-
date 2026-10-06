@@ -151,6 +151,14 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
   taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
   (OAuth2 + AES) é a próxima fase — faltam as credenciais.
+- ⚠️ **A taxa da maquininha (MDR) é DESPESA VARIÁVEL, acima do EBITDA**
+  (06/10/2026). "Tarifas de adquirência" caía no Resultado Financeiro ("tarifa"
+  casava o financeiro e o padrão antigo `adquiren` não casava com o "ê"). A
+  regra é UMA (`ehTaxaAdquirencia`, `core/indicadores/classificacao`): tarifa ou
+  taxa DA adquirência, ou MDR — o "Repasse da adquirente" é venda e continua
+  receita; tarifa BANCÁRIA continua financeira; a taxa devolvida é estorno da
+  despesa variável, nunca faturamento. O EBITDA cai pelo MDR; o resultado
+  líquido não muda.
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
   `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
   vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.

@@ -93,10 +93,17 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   `CodigoCanal`) que ainda não temos. Ela traz a data real do repasse e a taxa
   cobrada; com ela, os títulos estimados passam a ser os conferidos. O campo
   `codigo_cliente` do vínculo já existe para isso.
-- **"Tarifas de adquirência" cai no Resultado Financeiro do DRE**, não em
-  Despesas Variáveis: o padrão `adquiren` não casa com "adquir**ê**ncia". Vale
-  para a maquininha que já existia. Consertar move o EBITDA de quem já usa POS —
-  é decisão à parte.
+- ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —
+  **resolvido em 06/10/2026**: a taxa da maquininha (MDR) é Despesa Variável,
+  acima do EBITDA, pela regra única `ehTaxaAdquirencia`
+  (`core/indicadores/classificacao`), usada pelos dois classificadores do
+  resultado, pelo DFC (saída operacional) e pela sugestão do razão. O EBITDA de
+  quem vende no cartão cai pelo valor do MDR; o resultado líquido não muda.
+  Medido em produção: uma empresa só tinha a taxa (10 lançamentos, R$ 39,40) e
+  ela já estava declarada em Despesas Variáveis — no DRE dela nada muda; no
+  comparativo, no orçamento e no razão, R$ 39,40 saem do financeiro para o
+  operacional. Guarda: bloco `adquirência:` do `engine-audit`, provada
+  plantando quatro defeitos.
 - **Mudança de quem pode chamar o quê** (rota pública desligada, RPCs só da
   chave de serviço, RPCs da plataforma, RPC da empresa que administra): o dono
   decide o merge.

@@ -41,6 +41,28 @@ export const LABEL_RECEITA: Record<LinhaReceita, string> = {
   outras: "Outras receitas",
 };
 
+/**
+ * ⚠️ **A TAXA DA MAQUININHA É CUSTO DE VENDER, não resultado financeiro.**
+ *
+ * A adquirente desconta o MDR de cada venda no cartão: ele só existe porque
+ * houve venda e cresce com ela — é despesa VARIÁVEL, acima do EBITDA. A
+ * categoria que a maquininha grava é "Tarifas de adquirência", e a palavra
+ * "tarifa" a jogava no Resultado Financeiro (junto de juros e tarifa bancária),
+ * ABAIXO do EBITDA: o EBITDA de quem vende no cartão saía maior que o real pelo
+ * valor do MDR. O padrão antigo da despesa variável (`adquiren`) não casava com
+ * "adquir**ê**ncia" — o acento era o defeito inteiro.
+ *
+ * Uma regra só, usada pelos DOIS classificadores do resultado
+ * (`core/relatorios` e `classificarDespesa` abaixo) e pela sugestão do razão:
+ * tarifa ou taxa DA ADQUIRÊNCIA, ou MDR. Exige "tarifa"/"taxa" junto de
+ * "adquir…" de propósito: "Repasse da adquirente" é a VENDA chegando na conta,
+ * e não pode virar estorno de despesa. Tarifa BANCÁRIA continua financeira.
+ */
+export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
+  const c = (cat ?? "").toLowerCase();
+  return /\bmdr\b/.test(c) || (/adquir[eê]n/.test(c) && /tarifa|taxa/.test(c));
+}
+
 export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {
   const c = (cat ?? "").toLowerCase();
   if (/imposto|tribut|\bdas\b|irpj|iss|icms|pis|cofins/.test(c)) return "impostos";
@@ -48,6 +70,9 @@ export function classificarDespesa(cat: string | null | undefined): LinhaDespesa
   // palavras de cmv (mercadoria/fornecedor/insumo/combust) não casam folha.
   if (/folha|sal[aá]r|pessoal|encargo|pró-labore|pro-labore/.test(c)) return "folha";
   if (/fornecedor|cmv|custo|mercadoria|insumo|combust/.test(c)) return "cmv";
+  // A taxa da maquininha ANTES do financeiro: "Tarifas de adquirência" casa
+  // "tarifa" e é custo de vender (opex, acima do EBITDA), não juros.
+  if (ehTaxaAdquirencia(c)) return "opex";
   if (/tarifa|juros|banc|financ|iof/.test(c)) return "financeiro";
   return "opex";
 }

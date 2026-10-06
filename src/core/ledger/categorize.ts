@@ -3,6 +3,8 @@
  * grátis, demo-safe) por palavra-chave pt-BR. A IA (Claude) reforça as de baixa
  * confiança quando a chave existir (ver /api/ledger/categorize). Fase 1b.
  */
+import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+
 export interface TxParaCategorizar { id: string; descricao: string; valor: number; tipo: "entrada" | "saida" }
 export interface Categorizacao { id: string; code: string; confianca: number; motivo: string }
 
@@ -20,6 +22,11 @@ const REGRAS_ENTRADA: { re: RegExp; code: string; cat: string }[] = [
 ];
 
 export function categorizarPorRegras(tx: TxParaCategorizar): Categorizacao {
+  // A taxa da maquininha (MDR) é custo de vender: a regra de "Financeiras"
+  // abaixo a pegaria pela palavra "tarifa". A regra é a MESMA do DRE.
+  if (tx.tipo === "saida" && ehTaxaAdquirencia(tx.descricao)) {
+    return { id: tx.id, code: "4.1.09", confianca: 0.9, motivo: "Regra: Taxa da maquininha (adquirência)" };
+  }
   const regras = tx.tipo === "saida" ? REGRAS_SAIDA : REGRAS_ENTRADA;
   for (const r of regras) {
     if (r.re.test(tx.descricao || "")) return { id: tx.id, code: r.code, confianca: 0.9, motivo: `Regra: ${r.cat}` };
