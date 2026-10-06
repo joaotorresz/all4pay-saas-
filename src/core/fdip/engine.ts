@@ -6,6 +6,8 @@
 import { limparContraparte, fingerprint } from "@/core/financial-os/gateway";
 import { melhorNome } from "@/core/ingestao/contraparte";
 import { memoriaDe } from "./learning";
+import { ehTaxaAdquirencia, ehLancamentoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 import type {
   FinancialRecord,
   Classificacao,
@@ -283,6 +285,18 @@ export function classificarRecord(r: FinancialRecord): Classificacao {
   }
 
   const hit = CATS.find((c) => c.re.test(txt));
+  /*
+   * ⚠️ A TAXA DA MAQUININHA (MDR) — "TARIFA ADQUIRENCIA CIELO", "TARIFA MDR
+   * STONE", "MDR REDE". Ela casava "tarifa" e entrava como tarifa do banco,
+   * ABAIXO do EBITDA; é custo de vender. A regra é a ÚNICA do sistema
+   * (`ehLancamentoDeTaxaAdquirencia`), a mesma da prévia em `core/ingestao`, e
+   * só toma o lugar do que iria para "Tarifas bancárias" ou para o genérico:
+   * folha, imposto ou fornecedor que citem "MDR" continuam onde estavam.
+   * Na entrada, só a devolução nomeada — o crédito da adquirente é a venda.
+   */
+  if ((!hit || hit.id === "Tarifas bancárias") && ehLancamentoDeTaxaAdquirencia(txt, r.tipo)) {
+    return { recordId: r.id, destino: "Despesa", categoria: CATEGORIA_TAXA_POS, contraparteTipo: "fornecedor", confianca: 0.92, motivo: r.tipo === "entrada" ? "correspondência: devolução da taxa da maquininha" : "correspondência: taxa da maquininha (adquirência)", aprendido: false };
+  }
   if (hit) {
     const categoria = hit.id;
     const destino = hit.destino ?? destinoPara(r.tipo, categoria);
@@ -299,6 +313,8 @@ function destinoPara(tipo: FinancialRecord["tipo"], categoria: string): Destino 
   if (tipo === "transferencia") return "Transferência";
   if (tipo === "entrada") return "Receita";
   if (/imposto/i.test(categoria)) return "Imposto";
+  // "Tarifas de adquirência" contém "tarifa" e não é do banco.
+  if (ehTaxaAdquirencia(categoria)) return "Despesa";
   if (/tarifa/i.test(categoria)) return "Tarifa bancária";
   return "Despesa";
 }
@@ -410,6 +426,8 @@ const CENTRO: Record<string, string> = {
   "Fornecedores / insumos": "Operações", Combustível: "Operações",
   "Folha de pagamento": "Administrativo", Aluguel: "Administrativo", Utilidades: "Administrativo",
   Impostos: "Financeiro", "Tarifas bancárias": "Financeiro", "Assinaturas / software": "Administrativo",
+  // A taxa da maquininha é custo de VENDER, ao lado de Vendas e Marketing.
+  [CATEGORIA_TAXA_POS]: "Comercial",
   "Outras despesas": "Administrativo",
 };
 

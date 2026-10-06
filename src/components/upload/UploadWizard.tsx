@@ -11,11 +11,12 @@ import { estacionarOCR } from "@/lib/caixa-entrada";
 import { analisarDocumento, confirmarDocumento, ACAO_MAP, type AnaliseDocumento, type AcaoFinal } from "@/lib/upload-doc";
 import type { Party, Movement } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 const CATEGORIAS = [
   "Vendas", "Serviços", "Fornecedores / insumos", "Folha de pagamento", "Aluguel",
   "Utilidades", "Marketing", "Combustível", "Assinaturas / software", "Impostos",
-  "Tarifas bancárias", "Outras despesas",
+  "Tarifas bancárias", CATEGORIA_TAXA_POS, "Outras despesas",
 ];
 
 type Etapa = 1 | 2 | 3 | 4; // 4 = concluído

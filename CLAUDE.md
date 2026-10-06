@@ -160,7 +160,12 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
   despesa variável, nunca faturamento — mas ENTRADA com repasse/receita/venda/
   líquido no nome ("Receita de MDR") é venda, não estorno. O orçamento usa a
   MESMA regra de sinal do montador (`valorNaLinha`). O EBITDA cai pelo MDR; o
-  resultado líquido não muda.
+  resultado líquido não muda. **No extrato também**: a prévia (`core/ingestao`) e
+  a gravação (`core/fdip`) usam `ehLancamentoDeTaxaAdquirencia` só no lugar do
+  que iria para "Tarifas bancárias" ou para o genérico; na entrada, só a
+  devolução nomeada. Teto ZERO de cópia do padrão fora de
+  `core/indicadores/classificacao` (bloco `adq-extrato:`). Open Finance pende de
+  decisão (ler a descrição contraria "traduzir não é classificar").
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
   `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
   vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.

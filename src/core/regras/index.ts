@@ -13,6 +13,8 @@
  * Versão regras/1.0.0.
  */
 
+import { sanearContraparte } from "@/core/ingestao/contraparte";
+
 export const REGRAS_VERSION = "regras/1.0.0";
 
 export type OperadorTexto = "contem" | "igual" | "comeca";
@@ -147,17 +149,35 @@ export function contarAplicacoes(res: ResultadoRegra[]): Record<string, number> 
  */
 export function sugerirRegra(alvo: AlvoRegra, categoria: string): RegraCategorizacao | null {
   const base = nucleoContraparte(alvo.contraparte ?? alvo.descricao ?? "");
-  if (!base) return null;
-  return {
-    id: `r_${base.replace(/\s+/g, "_")}_${alvo.tipo}`,
-    nome: `${base} → ${categoria}`,
-    ativa: true,
-    quando: { contraparte: { op: "contem", valor: base }, tipo: alvo.tipo },
-    entao: { categoria },
-    criadaEm: "",
-    origem: "aprendida",
-  };
+  if (base && !soCobranca(base)) return regra("contraparte", base);
+  /*
+   * ⚠️ NÚCLEO QUE É SÓ A PALAVRA DA COBRANÇA não vira regra de contraparte. O
+   * extrato tira a marca da contraparte ("TARIFA CIELO" → "TARIFA"), e corrigir
+   * essa linha para "Tarifas de adquirência" propunha "contraparte contém
+   * 'tarifa' → Tarifas de adquirência": aceita, a regra vale para a empresa
+   * inteira, roda ANTES de tudo, e levava TODA tarifa bancária para a despesa
+   * variável. A descrição ainda tem a marca ("tarifa cielo") — a regra sai
+   * dela; se nem ela identifica nada, não há regra a propor.
+   */
+  const porDescricao = nucleoContraparte(alvo.descricao ?? "");
+  if (porDescricao && !soCobranca(porDescricao)) return regra("descricao", porDescricao);
+  return null;
+
+  function regra(campo: "contraparte" | "descricao", valor: string): RegraCategorizacao {
+    return {
+      id: `r_${valor.replace(/\s+/g, "_")}_${alvo.tipo}`,
+      nome: `${valor} → ${categoria}`,
+      ativa: true,
+      quando: { [campo]: { op: "contem", valor }, tipo: alvo.tipo },
+      entao: { categoria },
+      criadaEm: "",
+      origem: "aprendida",
+    };
+  }
 }
+
+/** Uma palavra só, e ela não identifica ninguém ("tarifa", "taxa", "mdr", "juros"). */
+const soCobranca = (nucleo: string): boolean => !nucleo.includes(" ") && !sanearContraparte(nucleo).ehPessoa;
 
 /**
  * Núcleo do nome: tira números, sufixos de filial/terminal e ruído de extrato

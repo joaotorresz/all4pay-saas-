@@ -72,9 +72,20 @@ export async function enriquecerPorCNPJ(
   }
 
   // 3) aplicar a sugestão onde há dúvida
+  /*
+   * ⚠️ SÓ NA SAÍDA. O CNAE diz o que a contraparte VENDE — e toda categoria que
+   * ele produz é de despesa (ou "Tarifas bancárias"). Numa ENTRADA a
+   * contraparte é quem PAGOU: o repasse da Cielo carrega o CNPJ da Cielo
+   * (CNAE 6613-4/00), e a passada o trocava de "Vendas" para "Tarifas
+   * bancárias" — a venda saía da Receita Bruta e ia para o Resultado
+   * Financeiro. É a regra da taxonomia única: categoria de despesa não
+   * classifica entrada.
+   */
+  const tipoPorId = new Map(records.map((r) => [r.id, r.tipo]));
   let recategorizados = 0;
   const saida = classificacoes.map((c): Classificacao => {
     if (c.aprendido || c.confianca >= limite) return c;
+    if (tipoPorId.get(c.recordId) !== "saida") return c;
     const cnpj = porRecord.get(c.recordId);
     if (!cnpj) return c;
     const emp = empresas.get(cnpj);

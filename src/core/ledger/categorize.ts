@@ -37,6 +37,12 @@ export function categorizarPorRegras(tx: TxParaCategorizar): Categorizacao {
     }
     return { id: tx.id, code: r.code, confianca: 0.9, motivo: `Regra: ${r.cat}` };
   }
+  // "MDR REDE" não casa regra nenhuma: é a taxa da maquininha, e com certeza
+  // (0.9) — no 0.5 do padrão ela iria para a IA, que podia mandá-la para as
+  // Financeiras. Folha, imposto e financeiras já foram conferidos acima.
+  if (tx.tipo === "saida" && ehTaxaAdquirencia(tx.descricao)) {
+    return { id: tx.id, code: "4.1.09", confianca: 0.9, motivo: "Regra: Taxa da maquininha (adquirência)" };
+  }
   return tx.tipo === "saida"
     ? { id: tx.id, code: "4.1.09", confianca: 0.5, motivo: "Padrão: despesa operacional" }
     : { id: tx.id, code: "3.1.09", confianca: 0.5, motivo: "Padrão: outras receitas" };

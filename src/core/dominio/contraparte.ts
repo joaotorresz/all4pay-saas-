@@ -30,6 +30,8 @@
 import {
   type TipoContraparte, type NaturezaLancamento, podeTerScore,
 } from "./index";
+import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 /* ========================================================================== */
 /* Documento                                                                   */
@@ -119,6 +121,15 @@ export function contraparteSuspeita(nome: string | null | undefined): Contrapart
   if (!n.trim()) return null;
   for (const p of PADROES) {
     if (!p.re.test(n)) continue;
+    /*
+     * ⚠️ "TARIFA MDR STONE" casa "tarifa", e NÃO é cobrança do banco: é a taxa
+     * da maquininha, custo de vender (Despesa Variável, acima do EBITDA). Sem
+     * este desvio, a correção em lote de qualidade REESCREVIA todos os
+     * lançamentos dessa contraparte para "Tarifas bancárias" e devolvia o MDR
+     * ao Resultado Financeiro — desfazendo a classificação da importação.
+     * A regra é a única do sistema; o estorno (acima) continua vencendo.
+     */
+    if (p.natureza === "financeiro" && ehTaxaAdquirencia(n)) return taxaDaMaquininha();
     return {
       natureza: p.natureza,
       porque: p.porque,
@@ -126,7 +137,19 @@ export function contraparteSuspeita(nome: string | null | undefined): Contrapart
       categoriaSugerida: CATEGORIA_POR_NATUREZA[p.natureza] ?? "Outras despesas",
     };
   }
+  // "MDR REDE", "TAXA ADQUIRENTE GETNET": não casam padrão nenhum, e também
+  // não são alguém com quem se negocia.
+  if (ehTaxaAdquirencia(n)) return taxaDaMaquininha();
   return null;
+}
+
+function taxaDaMaquininha(): ContraparteSuspeita {
+  return {
+    natureza: "despesa",
+    porque: "é a taxa da maquininha sobre as vendas no cartão, cobrada pela adquirente — não um fornecedor com quem se negocia",
+    tipoSugerido: "instituicao_financeira",
+    categoriaSugerida: CATEGORIA_TAXA_POS,
+  };
 }
 
 /* ========================================================================== */

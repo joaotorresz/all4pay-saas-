@@ -8850,6 +8850,152 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        orcV("despesas_variaveis") === -1_000 && orcV("resultado_liquido") === 1_000 && linhaA(realE, "resultado_liquido") === 1_000,
        `orçado variáveis ${orcV("despesas_variaveis")} · orçado líquido ${orcV("resultado_liquido")} · realizado ${linhaA(realE, "resultado_liquido")}`);
   }
+
+
+  /* ---- A TAXA DA MAQUININHA QUE CHEGA PELO EXTRATO ----
+   *
+   * ⚠️ O DRE já punha "Tarifas de adquirência" na Despesa Variável — mas o
+   * extrato nunca gravava essa categoria: "TARIFA ADQUIRENCIA CIELO" casava
+   * "tarifa" nos DOIS classificadores da importação (a prévia em
+   * `core/ingestao` e o que grava em `core/fdip`) e entrava como tarifa do
+   * banco, abaixo do EBITDA. A regra é a ÚNICA (`ehLancamentoDeTaxaAdquirencia`).
+   * Provado plantando o defeito de volta em cada porta.
+   */
+  {
+    const { classificar, normalizarDescritivo, CATEGORIAS_TODAS } = await import("@/core/ingestao");
+    const { contraparteSuspeita } = await import("@/core/dominio/contraparte");
+    const { sanearContraparte } = await import("@/core/ingestao/contraparte");
+    const { enriquecerPorCNPJ } = await import("@/lib/cnae-enrich");
+    const { categorizarPorRegras: catRazao } = await import("@/core/ledger/categorize");
+    const { CATEGORIAS_DESPESA } = await import("@/lib/puzzlebot");
+    const ADQ = CATEGORIA_TAXA_POS;
+
+    const LINHAS: [string, number][] = [
+      ["VENDAS CARTAO CREDITO", 1000], ["REPASSE CIELO", 500], ["RECEBIMENTO STONE", 300], ["CRED STONE LIQ MDR", 200],
+      ["TARIFA ADQUIRENCIA CIELO", -30], ["TARIFA MDR STONE", -20], ["MDR REDE", -9], ["TAXA ADQUIRENTE GETNET", -7], ["Tarifa de adquirência", -3],
+      ["TARIFA BANCARIA", -12], ["TARIFA PIX", -2], ["CESTA DE SERVICOS", -40], ["IOF", -1],
+      ["FOLHA PAGAMENTO MDR SERVICOS", -500], ["DARF MDR", -100], ["ESTORNO TARIFA MDR STONE", 5],
+    ];
+    const TAXAS = ["TARIFA ADQUIRENCIA CIELO", "TARIFA MDR STONE", "MDR REDE", "TAXA ADQUIRENTE GETNET", "Tarifa de adquirência"];
+    const BANCO = ["TARIFA BANCARIA", "TARIFA PIX", "CESTA DE SERVICOS", "IOF"];
+    const VENDAS = ["VENDAS CARTAO CREDITO", "REPASSE CIELO", "RECEBIMENTO STONE", "CRED STONE LIQ MDR"];
+    const csv = "Data;Descrição;Valor\n" + LINHAS.map(([d, v]) => `10/06/2026;${d};${v.toFixed(2).replace(".", ",")}`).join("\n");
+    const rep = analisarImportacao(csv);
+    const fdip = (d: string) => {
+      const r = rep.records.find((x) => x.descricao === d);
+      return r ? rep.classificacoes.find((c) => c.recordId === r.id) : undefined;
+    };
+    const tipoDe = (d: string): "entrada" | "saida" => (LINHAS.find(([x]) => x === d)![1] > 0 ? "entrada" : "saida");
+    const prev = (d: string) => classificar(normalizarDescritivo(d), tipoDe(d));
+    ok("adq-extrato: o arquivo de teste foi lido inteiro (16 linhas)", rep.records.length === LINHAS.length, String(rep.records.length));
+
+    ok("adq-extrato: a taxa da maquininha GRAVA como 'Tarifas de adquirência' (FDIP), nas cinco grafias",
+       TAXAS.every((d) => fdip(d)?.categoria === ADQ && fdip(d)?.destino === "Despesa" && (fdip(d)?.confianca ?? 0) >= 0.9),
+       TAXAS.map((d) => `${d}→${fdip(d)?.categoria}`).join(" · "));
+    ok("adq-extrato: a PRÉVIA da importação diz o mesmo que a gravação (taxonomia única)",
+       TAXAS.every((d) => prev(d).categoria === ADQ && prev(d).natureza === "despesa")
+       && LINHAS.every(([d]) => (prev(d).categoria === ADQ) === (fdip(d)?.categoria === ADQ)),
+       LINHAS.filter(([d]) => (prev(d).categoria === ADQ) !== (fdip(d)?.categoria === ADQ)).map(([d]) => d).join(" · "));
+    ok("adq-extrato: a categoria da taxa sai da lista única e é a MESMA da maquininha e da Pinbank",
+       CATEGORIAS_TODAS.some((c) => c.id === ADQ && c.natureza === "despesa") && ADQ === "Tarifas de adquirência");
+    ok("adq-extrato: tarifa do BANCO continua tarifa bancária nas duas portas (controle)",
+       BANCO.every((d) => fdip(d)?.categoria === "Tarifas bancárias" && prev(d).categoria === "Tarifas bancárias"),
+       BANCO.map((d) => `${d}→${fdip(d)?.categoria}/${prev(d).categoria}`).join(" · "));
+    ok("adq-extrato: o crédito da adquirente é VENDA, mesmo citando MDR ('CRED STONE LIQ MDR')",
+       VENDAS.every((d) => fdip(d)?.categoria !== ADQ && prev(d).natureza === "receita"),
+       VENDAS.map((d) => `${d}→${fdip(d)?.categoria}/${prev(d).categoria}`).join(" · "));
+    ok("adq-extrato: folha e imposto que citam 'MDR' não viram taxa da maquininha",
+       fdip("FOLHA PAGAMENTO MDR SERVICOS")?.categoria === "Folha de pagamento" && prev("FOLHA PAGAMENTO MDR SERVICOS").categoria === "Folha de pagamento"
+       && fdip("DARF MDR")?.categoria === "Impostos" && prev("DARF MDR").categoria === "Impostos",
+       `${fdip("FOLHA PAGAMENTO MDR SERVICOS")?.categoria} · ${fdip("DARF MDR")?.categoria}`);
+    ok("adq-extrato: a devolução NOMEADA da taxa é estorno da taxa nas duas portas",
+       fdip("ESTORNO TARIFA MDR STONE")?.categoria === ADQ && prev("ESTORNO TARIFA MDR STONE").categoria === ADQ);
+
+    // Ponta a ponta: o arquivo → o lançamento gravado → o DRE. O número MOVE.
+    const ds = montarDataset(rep);
+    const dreDe = (movs: RiskMovement[]) => montarDRE({ hoje: "2026-06-30", saldoAtual: 0, partyNames: {}, movements: movs } as RiskInput,
+      { intervalo: { de: "2026-06-01", ate: "2026-06-30" }, tipo: "vertical" });
+    const ln = (r: ReturnType<typeof montarDRE>, id: string) => r.linhas.find((x) => x.id === id)?.total.valor ?? NaN;
+    const agora = dreDe(ds.movements as unknown as RiskMovement[]);
+    // O mesmo arquivo com a taxa gravada como tarifa do banco — o comportamento antigo.
+    const antes = dreDe((ds.movements as unknown as RiskMovement[]).map((m) => m.category === ADQ ? { ...m, category: "Tarifas bancárias" } : m));
+    ok("adq-extrato: no DRE o MDR importado é Despesa Variável (30+20+9+7+3 − 5 de estorno) e o financeiro só tem o banco",
+       ln(agora, "despesas_variaveis") === 64 && ln(agora, "resultado_financeiro") === -55 && ln(agora, "receita_bruta") === 2000,
+       `variáveis ${ln(agora, "despesas_variaveis")} · financeiro ${ln(agora, "resultado_financeiro")} · receita ${ln(agora, "receita_bruta")}`);
+    ok("adq-extrato: o EBITDA cai pelo MDR líquido (64) e o resultado líquido NÃO muda",
+       ln(antes, "ebitda") - ln(agora, "ebitda") === 64 && ln(antes, "resultado_liquido") === ln(agora, "resultado_liquido"),
+       `EBITDA ${ln(antes, "ebitda")} → ${ln(agora, "ebitda")} · líquido ${ln(antes, "resultado_liquido")} → ${ln(agora, "resultado_liquido")}`);
+
+    // A correção de qualidade não pode DESFAZER a importação.
+    ok("adq-extrato: contraparte suspeita sugere 'Tarifas de adquirência' para a taxa e 'Tarifas bancárias' para o banco",
+       contraparteSuspeita("TARIFA MDR STONE")?.categoriaSugerida === ADQ && contraparteSuspeita("Tarifa de adquirência")?.categoriaSugerida === ADQ
+       && contraparteSuspeita("MDR REDE")?.categoriaSugerida === ADQ && contraparteSuspeita("TARIFA BANCARIA")?.categoriaSugerida === "Tarifas bancárias"
+       && contraparteSuspeita("ESTORNO TARIFA MDR")?.natureza === "estorno" && contraparteSuspeita("REPASSE CIELO") === null,
+       ["TARIFA MDR STONE", "MDR REDE", "TARIFA BANCARIA", "REPASSE CIELO"].map((n) => `${n}→${contraparteSuspeita(n)?.categoriaSugerida ?? "null"}`).join(" · "));
+    ok("adq-extrato: a taxa não vira cadastro (nem com acento); empresas de verdade continuam aceitas",
+       ["MDR REDE", "TAXA ADQUIRENTE GETNET", "Tarifa de adquirência", "Tarifa de manutenção"].every((n) => !sanearContraparte(n).ehPessoa)
+       && ["Mensalidade Serviços Ltda", "Taxa Consultoria EIRELI", "Taxationi Consultoria", "Padaria do Bairro", "Pixel Design"].every((n) => sanearContraparte(n).ehPessoa),
+       ["MDR REDE", "Tarifa de adquirência", "Tarifa de manutenção", "Taxationi Consultoria"].map((n) => `${n}→${sanearContraparte(n).ehPessoa}`).join(" · "));
+
+    // O CNPJ da adquirente no REPASSE não tira a venda da receita.
+    const fetchOriginal = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      if (!String(url).includes("/cnpj/v1/")) return fetchOriginal(url);
+      return new Response(JSON.stringify({ cnae_fiscal: 6613400, cnae_fiscal_descricao: "Administração de cartões de crédito", razao_social: "CIELO S.A.", nome_fantasia: "CIELO", situacao_cadastral: 2 }), { status: 200 });
+    }) as typeof fetch;
+    let enr: Awaited<ReturnType<typeof enriquecerPorCNPJ>> | null = null;
+    const repCnpj = analisarImportacao("Data;Descrição;Valor\n10/06/2026;REPASSE CIELO 01.027.058/0001-91;500,00\n10/06/2026;PIX ENVIADO CIELO 01.027.058/0001-91;-80,00");
+    try { enr = await enriquecerPorCNPJ(repCnpj.records, repCnpj.classificacoes); } finally { globalThis.fetch = fetchOriginal; }
+    const catCnpj = (sinal: "entrada" | "saida") => {
+      const r = repCnpj.records.find((x) => x.tipo === sinal);
+      return enr?.classificacoes.find((c) => c.recordId === r?.id)?.categoria;
+    };
+    ok("adq-extrato: o CNAE da adquirente não troca o REPASSE (entrada) para tarifa — e continua valendo na saída",
+       catCnpj("entrada") === "Vendas" && catCnpj("saida") === "Tarifas bancárias",
+       `entrada ${catCnpj("entrada")} · saída ${catCnpj("saida")}`);
+
+    // A regra sugerida a partir de uma correção não pode pegar TODA tarifa.
+    const sugT = sugerirRegra({ id: "t", tipo: "saida", valor: 3, contraparte: "TARIFA", descricao: "TARIFA CIELO" }, ADQ);
+    const alvoR = (d: string): AlvoRegra => ({ id: d, tipo: "saida", valor: 3, contraparte: "TARIFA", descricao: d });
+    ok("adq-extrato: corrigir 'TARIFA CIELO' propõe regra pela DESCRIÇÃO com a marca, nunca 'contém tarifa'",
+       !!sugT && !sugT.quando.contraparte && sugT.quando.descricao?.valor === "tarifa cielo"
+       && regraCasa(sugT, alvoR("TARIFA CIELO")) && !regraCasa(sugT, alvoR("TARIFA PIX")) && !regraCasa(sugT, alvoR("TARIFA BANCARIA")),
+       JSON.stringify(sugT?.quando));
+    ok("adq-extrato: sem marca nenhuma ('TARIFA PIX'), não há regra a propor",
+       sugerirRegra({ id: "p", tipo: "saida", valor: 3, contraparte: "TARIFA", descricao: "TARIFA PIX" }, ADQ) === null);
+
+    // O razão e a IA enxergam a mesma categoria.
+    ok("adq-extrato: a sugestão do razão manda 'MDR REDE' para despesa operacional com certeza (não para a IA)",
+       catRazao({ id: "m", descricao: "MDR REDE", valor: 9, tipo: "saida" }).code === "4.1.09"
+       && catRazao({ id: "m", descricao: "MDR REDE", valor: 9, tipo: "saida" }).confianca >= 0.9);
+    const fsA = await import("node:fs");
+    ok("adq-extrato: a IA e as telas de regra e de documento podem escolher 'Tarifas de adquirência'",
+       CATEGORIAS_DESPESA.includes(ADQ)
+       && ["src/components/ingestao/RegrasView.tsx", "src/components/upload/UploadWizard.tsx"].every((f) => /CATEGORIA_TAXA_POS/.test(fsA.readFileSync(f, "utf8"))));
+
+    // TETO ZERO: a regra é UMA. Nenhuma cópia do padrão da adquirência fora dela.
+    const EXCECOES_ADQ: Record<string, string> = {
+      "src/core/indicadores/classificacao.ts": "é a regra",
+      "src/lib/assistant-kb.ts": "vocabulário da base de conhecimento (o que a pessoa PERGUNTA), não classificação",
+      "src/core/relatorios/index.ts": "palavra 'adquirente' da despesa variável por CATEGORIA, ao lado da regra (ehTaxaAdquirencia vem antes no mesmo OU)",
+    };
+    const copias: string[] = [];
+    const varrer = (dir: string) => {
+      for (const e of fsA.readdirSync(dir, { withFileTypes: true })) {
+        const f = `${dir}/${e.name}`;
+        if (e.isDirectory()) { if (e.name !== "node_modules") varrer(f); continue; }
+        if (!/\.(ts|tsx)$/.test(e.name) || EXCECOES_ADQ[f]) continue;
+        const t = fsA.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+        t.split("\n").forEach((l, i) => {
+          if (/\/[^/\n]*(adquir(\[|e|ê)|\\bmdr|mdr\\b)[^/\n]*\/[gimsuy]*/.test(l)) copias.push(`${f}:${i + 1}`);
+        });
+      }
+    };
+    varrer("src"); varrer("supabase/functions");
+    ok("adq-extrato: teto ZERO — nenhuma cópia do padrão da adquirência fora da regra única", copias.length === 0, copias.join(" · "));
+    ok("adq-extrato: toda exceção do teto aponta para arquivo que existe",
+       Object.keys(EXCECOES_ADQ).every((f) => fsA.existsSync(f)));
+  }
   const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",
      !/\bstatus\s*:/.test(posLib) && /salvarVendaComTitulos\(/.test(posLib));

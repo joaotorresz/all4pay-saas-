@@ -1135,6 +1135,27 @@ const AGOSTO = janelaMes(2026, 7);
   ]);
   ok("taxonomia: o que não se reconhece cai em 'revisar'", opaco.linhas[0].situacao === "revisar");
   ok("taxonomia: e diz por quê", opaco.linhas[0].classificacao.motivo.includes("confira"));
+
+  // ⚠️ A taxa da maquininha pelas duas portas: a mesma categoria, da lista
+  // única, e é a MESMA que a maquininha e a Pinbank gravam. Antes as duas
+  // portas concordavam — em "Tarifas bancárias", abaixo do EBITDA.
+  const mdrExtrato = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 30, tipo: "saida", descritivo: "TARIFA MDR STONE", origem: "extrato" },
+  ]);
+  const mdrOcr = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 30, tipo: "saida", descritivo: "Tarifa MDR Stone", origem: "ocr" },
+  ]);
+  ok("taxonomia: a taxa da maquininha entra como 'Tarifas de adquirência' pelo extrato e pelo OCR",
+     mdrExtrato.linhas[0].classificacao.categoria === "Tarifas de adquirência"
+     && mdrOcr.linhas[0].classificacao.categoria === mdrExtrato.linhas[0].classificacao.categoria
+     && CATEGORIAS_TODAS.some((c) => c.id === mdrOcr.linhas[0].classificacao.categoria),
+     `${mdrExtrato.linhas[0].classificacao.categoria} · ${mdrOcr.linhas[0].classificacao.categoria}`);
+  // E o repasse da adquirente (ENTRADA) nunca vira a despesa.
+  const repasse = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 970, tipo: "entrada", descritivo: "REPASSE CIELO LIQ MDR", origem: "extrato" },
+  ]);
+  ok("taxonomia: o repasse da adquirente continua receita, mesmo citando MDR",
+     repasse.linhas[0].classificacao.natureza === "receita", `caiu em ${repasse.linhas[0].classificacao.categoria}`);
 }
 
 /* ========================================================================== */

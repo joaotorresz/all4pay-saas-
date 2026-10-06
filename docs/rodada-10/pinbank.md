@@ -106,6 +106,30 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   plantando sete defeitos (os três últimos vieram da revisão adversarial:
   entrada de receita citando MDR virando estorno, o sinal do estorno no
   orçamento e um "MDR" solto no extrato furando as regras de folha e imposto).
+- **A taxa da maquininha que chega pelo EXTRATO** (06/10/2026). O DRE já punha
+  "Tarifas de adquirência" na despesa variável, mas a importação nunca gravava
+  essa categoria: "TARIFA ADQUIRENCIA CIELO" casava "tarifa" nos dois
+  classificadores (a prévia em `core/ingestao` e o que grava em `core/fdip`) e
+  entrava como tarifa do banco. Agora os dois usam a regra única
+  (`ehLancamentoDeTaxaAdquirencia`), só no lugar do que iria para "Tarifas
+  bancárias" ou para o genérico — folha e imposto que citam "MDR" ficam onde
+  estavam. Na ENTRADA, só a devolução nomeada ("ESTORNO TARIFA MDR") vira a
+  taxa; o crédito da adquirente é venda. Fechadas no mesmo gesto as portas que
+  desfaziam a importação: a correção de qualidade (contraparte suspeita), o
+  cadastro de contraparte ("MDR REDE" e o acento de "Tarifa de manutenção"), a
+  consulta de CNPJ (o repasse com o CNPJ da Cielo virava tarifa — antes desta
+  mudança), a regra sugerida a partir de uma correção (propunha "contém
+  'tarifa'") e o vocabulário da IA e das telas. Guarda: bloco `adq-extrato:` do
+  `engine-audit` + a linha 16 da matriz, provadas plantando doze defeitos.
+  - ⚠️ **Não é retroativo**: o que já foi importado como "Tarifas bancárias"
+    fica assim (Rodada 7: nada de declarar em massa). No primeiro mês, a análise
+    de variação mostra a troca de linha como uma categoria "nova".
+  - ⚠️ **Domínio**: a categoria nova precisa de código contábil no plano de
+    contas; sem ele, a linha vai para as pendências do TXT (visível, não some).
+  - **Pendente — decisão do dono: Open Finance.** A Pluggy não tem categoria de
+    adquirência; só a DESCRIÇÃO diz que é MDR, e a Rodada 7 decidiu que
+    "traduzir não é classificar". Ler a descrição ali é exceção a essa regra, e
+    as Edge Functions precisam ser republicadas — fica para o dono decidir.
 - **Mudança de quem pode chamar o quê** (rota pública desligada, RPCs só da
   chave de serviço, RPCs da plataforma, RPC da empresa que administra): o dono
   decide o merge.

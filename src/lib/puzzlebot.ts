@@ -7,11 +7,12 @@
  * é como a acurácia sobe a ~90%+ a cada upload. Gated por ANTHROPIC_API_KEY.
  */
 import { aprender, type FDIPReport } from "@/core/fdip";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 /** Vocabulário de categorias oferecido ao modelo (rótulos do FDIP). */
 export const CATEGORIAS_DESPESA = [
   "Marketing", "Assinaturas / software", "Combustível", "Folha de pagamento",
-  "Aluguel", "Utilidades", "Impostos", "Tarifas bancárias", "Fornecedores / insumos", "Outras despesas",
+  "Aluguel", "Utilidades", "Impostos", "Tarifas bancárias", CATEGORIA_TAXA_POS, "Fornecedores / insumos", "Outras despesas",
 ];
 export const CATEGORIAS_RECEITA = ["Vendas", "Serviços", "Outras receitas"];
 

@@ -14,6 +14,8 @@
  *
  * Puro, tipado, sem I/O.
  */
+import { ehLancamentoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 export type Natureza = "receita" | "despesa" | "transferencia" | "imposto" | "financeiro";
 
@@ -36,6 +38,15 @@ export interface Categoria {
 export const TAXONOMIA: Categoria[] = [
   { id: "Transferência entre contas", natureza: "transferencia", re: /\b(entre contas|movimentacao interna|p2p interno|resgate|aplicacao)\b/ },
   { id: "Impostos", natureza: "imposto", re: /\b(das|darf|gps|inss|fgts|iss|icms|pis|cofins|irpj|csll|simples nacional|imposto|tributo)\b/ },
+  /*
+   * ⚠️ A TAXA DA MAQUININHA (MDR) não tem padrão próprio: ela é decidida pela
+   * regra única `ehLancamentoDeTaxaAdquirencia` (`core/indicadores/
+   * classificacao`), e só no lugar do que IRIA para "Tarifas bancárias" ou para
+   * o genérico — ver `classificar`. Uma posição nesta lista a faria passar na
+   * frente de Folha, Marketing ou Serviços quando o texto também cita "MDR".
+   * Ela está aqui para a lista ser UMA: a tela, a fila e a guarda a enxergam.
+   */
+  { id: CATEGORIA_TAXA_POS, natureza: "despesa" },
   { id: "Tarifas bancárias", natureza: "financeiro", re: /\b(tarifa|iof|cesta de|manutencao de conta|pacote de servico|taxa bancaria)\b/ },
   { id: "Juros e encargos", natureza: "financeiro", re: /\b(juros|mora|multa|encargo|rotativo|cheque especial)\b/ },
   { id: "Empréstimos e financiamentos", natureza: "financeiro", re: /\b(emprestimo|financiamento|capital de giro|antecipacao)\b/ },
@@ -107,8 +118,14 @@ export function classificar(
     // padrão de recebimento da plataforma.
     if (c.natureza === "receita" && tipo === "saida") continue;
     if (c.natureza === "despesa" && tipo === "entrada") continue;
+    // "TARIFA ADQUIRENCIA CIELO" casa "tarifa", e é a taxa da maquininha —
+    // custo de vender, acima do EBITDA — não tarifa do banco.
+    if (c.id === "Tarifas bancárias" && ehLancamentoDeTaxaAdquirencia(txt, tipo)) return taxaDaMaquininha(tipo);
     return { categoria: c.id, natureza: c.natureza, confianca: 0.85, motivo: `padrão "${c.id.toLowerCase()}" no descritivo`, assinatura: !!c.assinatura };
   }
+
+  // "MDR REDE" não casa padrão nenhum e cairia no genérico.
+  if (ehLancamentoDeTaxaAdquirencia(txt, tipo)) return taxaDaMaquininha(tipo);
 
   return {
     categoria: tipo === "entrada" ? PADRAO_RECEITA : PADRAO_DESPESA,
@@ -117,6 +134,22 @@ export function classificar(
     // tela de revisão precisa destacá-lo em vez de deixá-lo passar batido.
     confianca: 0.4,
     motivo: "nenhum padrão reconhecido — confira a categoria",
+    assinatura: false,
+  };
+}
+
+/**
+ * A taxa da maquininha no extrato. Na ENTRADA ela só chega aqui nomeada como
+ * devolução, e o DRE a lê como estorno da despesa variável (nunca receita).
+ */
+function taxaDaMaquininha(tipo: "entrada" | "saida"): Classificacao {
+  return {
+    categoria: CATEGORIA_TAXA_POS,
+    natureza: "despesa",
+    confianca: 0.85,
+    motivo: tipo === "entrada"
+      ? "devolução da taxa da maquininha no descritivo"
+      : "taxa da maquininha (adquirência/MDR) no descritivo",
     assinatura: false,
   };
 }

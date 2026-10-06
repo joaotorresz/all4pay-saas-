@@ -66,6 +66,34 @@ export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
   return /\bmdr\b/.test(c) || (/adquiren/.test(c) && /tarifa|taxa/.test(c));
 }
 
+/** A palavra que diz que o dinheiro VOLTOU: estorno, devolução, reembolso, reversão, restituição, ressarcimento. */
+const DEVOLUCAO = /estorno|devolu|reembols|revers|restitu|ressarc/;
+
+/**
+ * A taxa da maquininha que VOLTOU, e o texto diz isso ("Estorno de tarifa de
+ * adquirência"). É estorno da despesa variável — nunca faturamento.
+ */
+export function ehDevolucaoDeTaxaAdquirencia(texto: string | null | undefined): boolean {
+  return ehTaxaAdquirencia(texto) && DEVOLUCAO.test(chaveCategoria(texto));
+}
+
+/**
+ * ⚠️ **Um lançamento de EXTRATO é a taxa da maquininha?** — a pergunta das
+ * portas de importação (a prévia em `core/ingestao` e o classificador que grava
+ * em `core/fdip`), que leem o DESCRITIVO do banco, não uma categoria escolhida.
+ *
+ * Na SAÍDA, a regra é a de cima. Na ENTRADA, só quando a devolução está
+ * nomeada: um crédito que cita a adquirente quase sempre é a VENDA chegando
+ * ("CRED STONE LIQ MDR", "REPASSE CIELO"), e chamá-lo de taxa tiraria a venda
+ * do faturamento. Mais estreita que a do DRE (que lê a categoria, já
+ * escolhida) de propósito: no extrato, "liq" abreviado não casa com "líquido".
+ */
+export function ehLancamentoDeTaxaAdquirencia(texto: string | null | undefined, tipo: string): boolean {
+  if (tipo === "saida") return ehTaxaAdquirencia(texto);
+  if (tipo === "entrada") return ehDevolucaoDeTaxaAdquirencia(texto);
+  return false;
+}
+
 export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {
   const c = (cat ?? "").toLowerCase();
   if (/imposto|tribut|\bdas\b|irpj|iss|icms|pis|cofins/.test(c)) return "impostos";
