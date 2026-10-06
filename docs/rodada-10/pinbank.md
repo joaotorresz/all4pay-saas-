@@ -103,7 +103,9 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   ela já estava declarada em Despesas Variáveis — no DRE dela nada muda; no
   comparativo, no orçamento e no razão, R$ 39,40 saem do financeiro para o
   operacional. Guarda: bloco `adquirência:` do `engine-audit`, provada
-  plantando quatro defeitos.
+  plantando sete defeitos (os três últimos vieram da revisão adversarial:
+  entrada de receita citando MDR virando estorno, o sinal do estorno no
+  orçamento e um "MDR" solto no extrato furando as regras de folha e imposto).
 - **Mudança de quem pode chamar o quê** (rota pública desligada, RPCs só da
   chave de serviço, RPCs da plataforma, RPC da empresa que administra): o dono
   decide o merge.

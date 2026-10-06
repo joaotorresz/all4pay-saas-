@@ -157,8 +157,10 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
   regra é UMA (`ehTaxaAdquirencia`, `core/indicadores/classificacao`): tarifa ou
   taxa DA adquirência, ou MDR — o "Repasse da adquirente" é venda e continua
   receita; tarifa BANCÁRIA continua financeira; a taxa devolvida é estorno da
-  despesa variável, nunca faturamento. O EBITDA cai pelo MDR; o resultado
-  líquido não muda.
+  despesa variável, nunca faturamento — mas ENTRADA com repasse/receita/venda/
+  líquido no nome ("Receita de MDR") é venda, não estorno. O orçamento usa a
+  MESMA regra de sinal do montador (`valorNaLinha`). O EBITDA cai pelo MDR; o
+  resultado líquido não muda.
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
   `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
   vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.

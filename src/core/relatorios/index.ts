@@ -142,8 +142,21 @@ const ehDespesaVariavel = (m: RiskMovement) =>
   || /comiss|taxa|gateway|adquir[eê]n|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m));
 const ehFinanceiro = (m: RiskMovement) =>
   !ehTaxaAdquirencia(m.category) && /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
-/** A taxa da maquininha que VOLTA (estorno do MDR): reduz a despesa variável, não é faturamento. */
-const ehEstornoTaxaAdquirencia = (m: RiskMovement) => entrada(m) && ehTaxaAdquirencia(m.category);
+/**
+ * A taxa da maquininha que VOLTA (estorno do MDR): reduz a despesa variável,
+ * não é faturamento.
+ *
+ * ⚠️ **Uma ENTRADA que cita a adquirência quase sempre é a VENDA chegando**, não
+ * a taxa voltando: "Repasse da adquirente (líquido de taxas)", "Receita de MDR"
+ * (o subcredenciador vive dela), "Vendas no cartão (líquido de MDR)". Tratá-las
+ * como estorno zerava a Receita Bruta e deixava a margem indisponível com "não
+ * houve receita" — achado da revisão adversarial. Então: palavra de devolução
+ * vence; sem ela, palavra de receita/repasse/venda devolve a entrada à receita.
+ */
+const ehEstornoTaxaAdquirencia = (m: RiskMovement) =>
+  entrada(m) && ehTaxaAdquirencia(m.category)
+  && (/estorno|devolu|reembols|revers|restitu|ressarc/.test(cat(m))
+    || !/receita|repasse|receb|venda|l[ií]quid/.test(cat(m)));
 const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o lucro/.test(cat(m));
 /**
  * ⚠️ **RESTITUIÇÃO DE IMPOSTO não é faturamento** (Rodada 7). É a dedução
@@ -215,6 +228,19 @@ const ehDepreciacao = (m: RiskMovement) =>
  * seções operacionais.
  */
 export const LINHA_TRANSFERENCIA = "transferencia";
+
+/**
+ * O valor com que um movimento entra numa linha — a regra de SINAL do
+ * montador, exportada para o orçamento usar a MESMA (`core/orcamento`
+ * `orcadoPorLinha`). Ela somava magnitude em toda linha que não fosse "+/-", e
+ * um estorno orçado (restituição de imposto, taxa da maquininha devolvida)
+ * saía com o sinal trocado: previsto e realizado divergiam pelo dobro.
+ */
+export function valorNaLinha(sinal: LinhaEstrutura["sinal"], type: RiskMovement["type"], amount: number): number {
+  if (sinal === "+/-") return type === "entrada" ? amount : -amount;
+  // ENTRADA numa linha "-" é ESTORNO e entra negativa (ver o montador).
+  return sinal === "-" && type === "entrada" ? -amount : amount;
+}
 
 export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
@@ -637,10 +663,7 @@ export function montarRelatorio(
      * receita — e aí ela infla o faturamento, que foi exatamente o defeito
      * medido (R$ 655,30 de restituição dentro da receita bruta).
      */
-    const estorno = linha.sinal === "-" && m.type === "entrada";
-    const v = linha.sinal === "+/-"
-      ? (m.type === "entrada" ? m.amount : -m.amount)
-      : estorno ? -Math.abs(m.amount) : Math.abs(m.amount);
+    const v = valorNaLinha(linha.sinal, m.type, linha.sinal === "+/-" ? m.amount : Math.abs(m.amount));
     soma.get(linha.id)![k] += v;
     movsPorLinha.get(linha.id)![k].push(m.id);
     classificacao[m.id] = { linha: linha.id, valor: v };

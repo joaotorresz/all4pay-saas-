@@ -8792,6 +8792,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        `financeiro ${linhaA(dC, "resultado_financeiro")} · variáveis ${linhaA(dC, "despesas_variaveis")}`);
     ok("adquirência: o REPASSE da adquirente é receita, não estorno de taxa",
        linhaA(dC, "receita_bruta") === 1_000 && !ehTaxaAdquirencia("Repasse da adquirente"), `${linhaA(dC, "receita_bruta")}`);
+    // ⚠️ Revisão adversarial: uma ENTRADA que cita MDR/taxa de adquirência quase
+    // sempre é a venda chegando. Tratá-las como estorno zerava a Receita Bruta.
+    const receitas = ["Receita de MDR", "Repasse da adquirente (líquido de taxas)", "Vendas no cartão (líquido de MDR)", "Taxas de adquirência recebidas"];
+    const dR = montarDRE(inA(receitas.map((c, k) => mvA(`r${k}`, "entrada", 100, c))), { intervalo: INTERVALO, tipo: "vertical" });
+    ok("adquirência: entrada que é RECEITA citando MDR/taxa (repasse, receita de MDR, líquido) continua Receita Bruta",
+       linhaA(dR, "receita_bruta") === 400 && linhaA(dR, "despesas_variaveis") === 0,
+       `receita ${linhaA(dR, "receita_bruta")} · variáveis ${linhaA(dR, "despesas_variaveis")}`);
     ok("adquirência: reclassificar não move o resultado líquido (1.000 − 12 − 30)",
        linhaA(dC, "resultado_liquido") === 958, `${linhaA(dC, "resultado_liquido")}`);
 
@@ -8823,7 +8830,24 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        comp.periodos[0].ebitda === 97 && lPos("ebitda") === comp.periodos[0].ebitda, `${comp.periodos[0].ebitda}`);
     ok("adquirência: a sugestão do razão leva o MDR para despesa operacional, não para Financeiras",
        categorizarPorRegras({ id: "x", descricao: "TARIFA ADQUIRENCIA CIELO", valor: 3, tipo: "saida" }).code === "4.1.09"
+       && categorizarPorRegras({ id: "w", descricao: "TARIFA MDR STONE", valor: 3, tipo: "saida" }).code === "4.1.09"
        && categorizarPorRegras({ id: "y", descricao: "TARIFA BANCARIA", valor: 3, tipo: "saida" }).code === "4.2.01");
+    // O texto do extrato é livre: um "MDR" solto não passa na frente da folha nem do imposto.
+    ok("adquirência: na sugestão do razão, MDR solto não fura as regras de folha e imposto",
+       categorizarPorRegras({ id: "f", descricao: "FOLHA PAGAMENTO MDR SERVICOS", valor: 3, tipo: "saida" }).code === "4.1.03"
+       && categorizarPorRegras({ id: "i", descricao: "DARF IMPOSTO MDR", valor: 3, tipo: "saida" }).code === "4.1.01");
+
+    // O ORÇAMENTO usa a MESMA regra de sinal: a taxa devolvida orçada é estorno.
+    const { orcadoPorLinha: orcLinha } = await import("@/core/orcamento");
+    const orcE = orcLinha({
+      id: "o", nome: "o", periodo: { de: "2026-06-01", ate: "2026-06-30" }, regime: "competencia", formato: "detalhado",
+      alocacoes: [{ categoria: "Estorno de tarifas de adquirência", tipo: "entrada", valores: [1_000] }],
+    } as unknown as Parameters<typeof orcLinha>[0], ESTRUTURA_DRE, mesesDoIntervalo(INTERVALO));
+    const orcV = (id: string) => orcE.find((l) => l.id === id)?.valores[0] ?? NaN;
+    const realE = montarDRE(inA([mvA("e", "entrada", 1_000, "Estorno de tarifas de adquirência")]), { intervalo: INTERVALO, tipo: "vertical" });
+    ok("adquirência: o estorno da taxa ORÇADO tem o mesmo sinal do realizado (resultado +1.000 nos dois)",
+       orcV("despesas_variaveis") === -1_000 && orcV("resultado_liquido") === 1_000 && linhaA(realE, "resultado_liquido") === 1_000,
+       `orçado variáveis ${orcV("despesas_variaveis")} · orçado líquido ${orcV("resultado_liquido")} · realizado ${linhaA(realE, "resultado_liquido")}`);
   }
   const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",

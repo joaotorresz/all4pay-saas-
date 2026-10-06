@@ -12,7 +12,7 @@
  */
 import type { RiskMovement } from "@/core/risk-engine/types";
 import {
-  mesesDoIntervalo, type Intervalo, type LinhaEstrutura, type LinhaOrcada,
+  mesesDoIntervalo, valorNaLinha, type Intervalo, type LinhaEstrutura, type LinhaOrcada,
 } from "@/core/relatorios";
 
 export const ORCAMENTO_VERSION = "orcamento/1.0.0";
@@ -147,7 +147,9 @@ export function orcadoPorLinha(
       const col = colunas.indexOf(m);
       if (col < 0) return; // mês do orçamento fora da janela do relatório
       const v = Number(a.valores[k]) || 0;
-      alvo[col] += linha.sinal === "+/-" ? (a.tipo === "entrada" ? v : -v) : v;
+      // A MESMA regra de sinal do realizado: um estorno orçado (entrada numa
+      // linha "-") entra negativo, senão previsto e realizado divergem pelo dobro.
+      alvo[col] += valorNaLinha(linha.sinal, a.tipo, v);
     });
   }
 
