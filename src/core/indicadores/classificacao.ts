@@ -22,6 +22,7 @@
  *
  * Puro, sem I/O. Versão `indicadores/1.0.0`.
  */
+import { chaveCategoria } from "@/core/categorias/chave";
 
 export type LinhaDespesa = "impostos" | "cmv" | "folha" | "financeiro" | "opex";
 export type LinhaReceita = "vendas" | "servicos" | "juros" | "outras";
@@ -59,8 +60,10 @@ export const LABEL_RECEITA: Record<LinhaReceita, string> = {
  * e não pode virar estorno de despesa. Tarifa BANCÁRIA continua financeira.
  */
 export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
-  const c = (cat ?? "").toLowerCase();
-  return /\bmdr\b/.test(c) || (/adquir[eê]n/.test(c) && /tarifa|taxa/.test(c));
+  // A chave única da categoria (sem acento, sem caixa): "adquirência" digitada
+  // ou importada em forma DECOMPOSTA (e + U+0302) também casa.
+  const c = chaveCategoria(cat);
+  return /\bmdr\b/.test(c) || (/adquiren/.test(c) && /tarifa|taxa/.test(c));
 }
 
 export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {

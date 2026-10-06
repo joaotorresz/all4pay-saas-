@@ -8775,10 +8775,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const linhaA = (r: ReturnType<typeof montarDRE>, id: string) => r.linhas.find((l) => l.id === id)?.total.valor ?? NaN;
 
     // As grafias que chegam: sem acento (extrato), caixa alta, MDR, taxa.
-    const grafias = ["Tarifas de adquirência", "Tarifas de adquirencia", "TARIFA ADQUIRÊNCIA", "Taxa MDR", "Taxa da adquirente"];
+    const grafias = ["Tarifas de adquirência", "Tarifas de adquirencia", "TARIFA ADQUIRÊNCIA", "Taxa MDR", "Taxa da adquirente",
+      "Tarifas de adquirência".normalize("NFD")];
     const dG = montarDRE(inA([mvA("v", "entrada", 1_000, "Vendas"), ...grafias.map((g, k) => mvA(`g${k}`, "saida", 10, g))]), { intervalo: INTERVALO, tipo: "vertical" });
-    ok("adquirência: toda grafia da taxa (sem acento, caixa alta, MDR) cai em Despesas Variáveis",
-       linhaA(dG, "despesas_variaveis") === 50 && linhaA(dG, "resultado_financeiro") === 0,
+    ok("adquirência: toda grafia da taxa (sem acento, caixa alta, MDR, decomposta) cai em Despesas Variáveis",
+       linhaA(dG, "despesas_variaveis") === 60 && linhaA(dG, "resultado_financeiro") === 0,
        `variáveis ${linhaA(dG, "despesas_variaveis")} · financeiro ${linhaA(dG, "resultado_financeiro")}`);
 
     // CONTROLE: tarifa BANCÁRIA continua financeira; o repasse da adquirente é venda.
