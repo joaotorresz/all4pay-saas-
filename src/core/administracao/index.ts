@@ -509,6 +509,10 @@ export const CATALOGO_INTEGRACOES: CartaoIntegracao[] = [
     descricao: "Débito Direto Autorizado: receba na plataforma todos os boletos emitidos contra o seu CNPJ via CIP.",
   },
   {
+    id: "maquininha-pinbank", titulo: "Maquininha Pinbank", icone: "smartphone",
+    descricao: "Vendas, cancelamentos e estornos das maquininhas Pinbank vinculadas entram sozinhos como venda e contas a receber, com a taxa de cada parcela.",
+  },
+  {
     id: "open-finance", titulo: "Open Finance", icone: "building",
     descricao: "Sincronização automática de extratos e saldos bancários das contas conectadas via Open Finance.",
   },

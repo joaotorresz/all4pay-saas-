@@ -135,6 +135,47 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ RODADA 10 — A MAQUININHA PINBANK (05/10/2026, detalhe em `docs/rodada-10/pinbank.md`)
+
+- **Webhook `Compra.*` → venda** (`/api/pinbank/webhook`, DESLIGADO por padrão:
+  `PINBANK_WEBHOOK=ligado`). Portas: interruptor → assinatura **Ed25519 sobre o
+  corpo BRUTO** (chave pelo `kid`) → envelope → banco. 401/400 a Pinbank não
+  reenvia; 503 reenvia; evento guardado é 200.
+- **O vínculo tem DUAS chaves**: só a PLATAFORMA liga estabelecimento → empresa
+  (`/admin`, índice único GLOBAL); a EMPRESA ativa em Integrações (conta e
+  taxas). Sem a segunda, o evento espera; sem a primeira, vai à quarentena.
+- **Uma escrita só**: `core/pinbank` planeja (puro), `pinbank_aplicar` grava
+  documento + títulos numa transação, com versão da transação (evento fora de
+  ordem não volta o ciclo) e chave `pinbank:<nsu>:…` (reentrega não duplica).
+  Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
+- ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
+  taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
+  (OAuth2 + AES) é a próxima fase — faltam as credenciais.
+- ⚠️ **A taxa da maquininha (MDR) é DESPESA VARIÁVEL, acima do EBITDA**
+  (06/10/2026). "Tarifas de adquirência" caía no Resultado Financeiro ("tarifa"
+  casava o financeiro e o padrão antigo `adquiren` não casava com o "ê"). A
+  regra é UMA (`ehTaxaAdquirencia`, `core/indicadores/classificacao`): tarifa ou
+  taxa DA adquirência, ou MDR — o "Repasse da adquirente" é venda e continua
+  receita; tarifa BANCÁRIA continua financeira; a taxa devolvida é estorno da
+  despesa variável, nunca faturamento — mas ENTRADA com repasse/receita/venda/
+  líquido no nome ("Receita de MDR") é venda, não estorno. O orçamento usa a
+  MESMA regra de sinal do montador (`valorNaLinha`). O EBITDA cai pelo MDR; o
+  resultado líquido não muda. **No extrato também**: QUEM DECIDE é a prévia
+  (`core/ingestao`), com `ehLancamentoDeTaxaAdquirencia` ("tarifa"/"taxa" +
+  adquirência/MDR — "MDR" solto é sigla de empresa), só no lugar do que iria
+  para "Tarifas bancárias" ou para o genérico; a gravação (`core/fdip`) SEGUE a
+  prévia. Na entrada, só a devolução nomeada. ⚠️ A MEMÓRIA da correção e da IA
+  usa `chaveDaMemoria` (contraparte que não identifica ninguém → o descritivo
+  inteiro: corrigir "TARIFA CIELO" ensinava "tarifa" → taxa a toda tarifa do
+  banco) e a prévia recebe POR LINHA o que o dono já decidiu
+  (`linhasParaPrevia`). Teto ZERO de cópia do padrão fora de
+  `core/indicadores/classificacao`, exceções por trecho (bloco
+  `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
+  "traduzir não é classificar").
+- **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
+  `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
+  vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.
+
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
 - **A origem do número é DITA por quem calcula** (`core/assistant/numero`):

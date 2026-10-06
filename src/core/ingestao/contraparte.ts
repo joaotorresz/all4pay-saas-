@@ -17,6 +17,7 @@
  * Puro, sem I/O.
  */
 import { validateCPF, validateCNPJ } from "@/lib/validators";
+import { ehLancamentoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
 
 export interface ContraparteSaneada {
   /** O nome limpo — sem documento, sem pontuação órfã, em caixa de título. */
@@ -47,7 +48,11 @@ const RE_DOC = /(\d{2}[.\s]?\d{3}[.\s]?\d{3}[/\s]?\d{4}[-\s]?\d{2}|\d{3}[.\s]?\d
  * um cliente real é pior do que aceitar um nome feio.
  */
 const RE_DESCRICAO_DE_COBRANCA =
-  /^(anuidade|mensalidade|parcela|presta[çc][ãa]o|taxa|tarifa|juros|multa|encargo|desconto|acr[ée]scimo|estorno|reembolso|cr[ée]dito|d[ée]bito|dep[óo]sito|saque|resgate|aplica[çc][ãa]o|rendimento|transfer[êe]ncia|pagamento|recebimento|cobran[çc]a|fatura|boleto|pix|ted|doc)\b[\w\s\-.,/]*$/i;
+  // ⚠️ O resto do texto aceita letra ACENTUADA (`À-ÿ`), não só `\w`: `\w` não
+  // casa "ç" nem "ã", e "Tarifa de manutenção" virava cadastro enquanto "Tarifa
+  // de manutencao" era recusada — o acento decidia, o mesmo defeito que deixou
+  // "Tarifas de adquirência" fora da despesa variável do DRE.
+  /^(anuidade|mensalidade|parcela|presta[çc][ãa]o|taxa|tarifa|juros|multa|encargo|desconto|acr[ée]scimo|estorno|reembolso|cr[ée]dito|d[ée]bito|dep[óo]sito|saque|resgate|aplica[çc][ãa]o|rendimento|transfer[êe]ncia|pagamento|recebimento|cobran[çc]a|fatura|boleto|pix|ted|doc)(?![\wÀ-ÿ])[\wÀ-ÿ\s\-.,/]*$/i;
 
 /**
  * ⚠️ O ANTÍDOTO CONTRA O FALSO POSITIVO — e ele é o que decide se este detector
@@ -138,6 +143,12 @@ export function sanearContraparte(bruto: string | null | undefined): Contraparte
     // "ANUIDADE DIFERENCIADA" é o histórico da cobrança que o extrato pôs no
     // lugar do favorecido.
     return { nome: caixaDeTitulo(nomeCru), documento, tipoDocumento, ehPessoa: false, motivo: "descrição de cobrança, não uma contraparte" };
+  }
+  if (ehLancamentoDeTaxaAdquirencia(nomeCru, "saida") && !pareceEmpresa(nomeCru, documento)) {
+    // "CIELO TARIFA MDR": a taxa da maquininha que o extrato pôs no lugar do
+    // favorecido. É a regra do EXTRATO (exige "tarifa"/"taxa"): "MDR
+    // ENGENHARIA" é empresa, e o sufixo societário já chega cortado aqui.
+    return { nome: caixaDeTitulo(nomeCru), documento, tipoDocumento, ehPessoa: false, motivo: "taxa da maquininha, não uma contraparte" };
   }
   if (nomeCru.replace(/\s/g, "").length < 3) {
     return { nome: caixaDeTitulo(nomeCru), documento, tipoDocumento, ehPessoa: false, motivo: "curto demais para identificar" };

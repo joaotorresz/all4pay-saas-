@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Integrações — o catálogo de oito cartões e o painel de cada um.
+ * Integrações — o catálogo de nove cartões e o painel de cada um.
  *
  * ⚠️ A regra que atravessa a tela inteira: **um segredo se mostra UMA vez**.
  * Chave de API, token e senha de certificado são exibidos no momento em que
@@ -19,6 +19,8 @@ import {
   CONSENTIMENTO_MESES, consentimentoOpenFinance, certificadoValido, mascararSegredo,
   type CartaoIntegracao,
 } from "@/core/administracao";
+import { PinbankPainel } from "@/components/administracao/PinbankPainel";
+import { lerPinbank } from "@/lib/pinbank/cliente";
 import {
   lerIntegracoes, salvarIntegracao, guardarCredencial,
   type EstadoIntegracao,
@@ -44,9 +46,15 @@ export function IntegracoesView() {
   // Só depois de montado a tela mostra o que está guardado.
   const [montado, setMontado] = React.useState(false);
 
+  // ⚠️ A maquininha Pinbank mora no BANCO (o vínculo), não no navegador: o
+  // "Ativa" do cartão dela vem de lá, senão a lista diria "Inativa" para uma
+  // maquininha que está lançando venda.
+  const [pinbankAtiva, setPinbankAtiva] = React.useState(false);
+
   React.useEffect(() => {
     setEstados(lerIntegracoes());
     setMontado(true);
+    lerPinbank().then((p) => setPinbankAtiva(p.vinculos.some((v) => v.ativo))).catch(() => setPinbankAtiva(false));
   }, []);
 
   const cartao = CATALOGO_INTEGRACOES.find((c) => c.id === aberto) ?? null;
@@ -86,7 +94,7 @@ export function IntegracoesView() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {CATALOGO_INTEGRACOES.map((c) => {
           const e = estados[c.id];
-          const ativa = e?.ativa ?? false;
+          const ativa = c.id === "maquininha-pinbank" ? pinbankAtiva : (e?.ativa ?? false);
           return (
             <Card key={c.id} className="cursor-pointer hover:bg-surface-2/40 transition-colors"
               onClick={() => router.push(`/dashboard/administration/integrations?cartao=${c.id}`)}>
@@ -221,6 +229,8 @@ function PainelIntegracao({
           </div>
         </Card>
       )}
+
+      {cartao.id === "maquininha-pinbank" && <PinbankPainel toast={toast} />}
 
       {cartao.id === "open-finance" && (
         <OpenFinance estado={estado} onMudar={onMudar} toast={toast} hoje={hoje} />

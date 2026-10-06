@@ -21,7 +21,7 @@
  * diz quantos entraram, quantos ficaram e por quê.
  */
 import { traduzirCategoria } from "@/core/dominio";
-import { contraparteSuspeita } from "@/core/dominio/contraparte";
+import { contraparteSuspeita, correcaoReescreve } from "@/core/dominio/contraparte";
 import type { Achado, CodigoAchado } from "@/core/qualidade";
 import { updateImportedMovement, importedMovements } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
@@ -174,7 +174,8 @@ async function reclassificarSuspeitas(achado: Achado): Promise<ResultadoCorrecao
   if (destino.size === 0) return nada();
 
   if (isDemo) {
-    const alvos = (importedMovements() ?? []).filter((m) => m.party_id && destino.has(m.party_id));
+    const alvos = (importedMovements() ?? []).filter((m) =>
+      m.party_id && destino.has(m.party_id) && correcaoReescreve(destino.get(m.party_id)!, m.type));
     const antes = alvos.map((m) => ({ id: m.id, category: m.category }));
     for (const m of alvos) updateImportedMovement(m.id, { category: destino.get(m.party_id!)! });
     return {
@@ -187,11 +188,14 @@ async function reclassificarSuspeitas(achado: Achado): Promise<ResultadoCorrecao
   let corrigidos = 0;
   const reverter: { id: string; category: string | null }[] = [];
   for (const [partyId, categoria] of Array.from(destino)) {
-    const { data: antes } = await semAmostra(s
-      .from("movements").select("id,category")).eq("party_id", partyId).limit(TETO_LINHAS);
+    // A MESMA regra do caminho de demonstração (`correcaoReescreve`): para a
+    // taxa da maquininha, só as saídas da contraparte.
+    const soSaidas = !correcaoReescreve(categoria, "entrada");
+    const lerQ = semAmostra(s.from("movements").select("id,category")).eq("party_id", partyId).limit(TETO_LINHAS);
+    const { data: antes } = await (soSaidas ? lerQ.eq("type", "saida") : lerQ);
     reverter.push(...((antes ?? []) as { id: string; category: string | null }[]));
-    const { data: feitas } = await s
-      .from("movements").update({ category: categoria }).eq("party_id", partyId)
+    const escreverQ = s.from("movements").update({ category: categoria }).eq("party_id", partyId);
+    const { data: feitas } = await (soSaidas ? escreverQ.eq("type", "saida") : escreverQ)
       .select("id").limit(TETO_LINHAS);
     corrigidos += (feitas ?? []).length;
   }

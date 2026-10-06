@@ -13,6 +13,9 @@
  * Versão regras/1.0.0.
  */
 
+import { sanearContraparte } from "@/core/ingestao/contraparte";
+import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+
 export const REGRAS_VERSION = "regras/1.0.0";
 
 export type OperadorTexto = "contem" | "igual" | "comeca";
@@ -147,17 +150,47 @@ export function contarAplicacoes(res: ResultadoRegra[]): Record<string, number> 
  */
 export function sugerirRegra(alvo: AlvoRegra, categoria: string): RegraCategorizacao | null {
   const base = nucleoContraparte(alvo.contraparte ?? alvo.descricao ?? "");
-  if (!base) return null;
-  return {
-    id: `r_${base.replace(/\s+/g, "_")}_${alvo.tipo}`,
-    nome: `${base} → ${categoria}`,
-    ativa: true,
-    quando: { contraparte: { op: "contem", valor: base }, tipo: alvo.tipo },
-    entao: { categoria },
-    criadaEm: "",
-    origem: "aprendida",
-  };
+  if (base && !soCobranca(base)) return regra("contraparte", base);
+  /*
+   * ⚠️ NÚCLEO QUE É SÓ A PALAVRA DA COBRANÇA não vira regra de contraparte. O
+   * extrato tira a marca da contraparte ("TARIFA CIELO" → "TARIFA"), e corrigir
+   * essa linha para "Tarifas de adquirência" propunha "contraparte contém
+   * 'tarifa' → Tarifas de adquirência": aceita, a regra vale para a empresa
+   * inteira, roda ANTES de tudo, e levava TODA tarifa bancária para a despesa
+   * variável. A descrição ainda tem a marca ("tarifa cielo") — a regra sai
+   * dela; se nem ela identifica nada, não há regra a propor.
+   */
+  const porDescricao = nucleoContraparte(alvo.descricao ?? "");
+  if (porDescricao && !soCobranca(porDescricao)) {
+    // O núcleo tira ruído do MEIO ("TARIFA CREDITO CIELO" → "tarifa cielo"), e
+    // a descrição é comparada inteira: uma regra que não pega nem a linha de
+    // onde nasceu não é proposta.
+    const r = regra("descricao", porDescricao);
+    return regraCasa(r, alvo) ? r : null;
+  }
+  return null;
+
+  function regra(campo: "contraparte" | "descricao", valor: string): RegraCategorizacao {
+    return {
+      id: `r_${valor.replace(/\s+/g, "_")}_${alvo.tipo}`,
+      nome: `${valor} → ${categoria}`,
+      ativa: true,
+      quando: { [campo]: { op: "contem", valor }, tipo: alvo.tipo },
+      entao: { categoria },
+      criadaEm: "",
+      origem: "aprendida",
+    };
+  }
 }
+
+/**
+ * Uma palavra só, e ela não identifica ninguém ("tarifa", "taxa", "mdr", "juros").
+ * ⚠️ "mdr" passa no cadastro (é sigla de empresa — "MDR Engenharia"), mas
+ * SOZINHO, como núcleo de regra, ele é a taxa: corrigir "MDR REDE" propunha
+ * "contraparte contém 'mdr'", que pegava folha, imposto e o fornecedor MDR.
+ */
+const soCobranca = (nucleo: string): boolean =>
+  !nucleo.includes(" ") && (!sanearContraparte(nucleo).ehPessoa || ehTaxaAdquirencia(nucleo));
 
 /**
  * Núcleo do nome: tira números, sufixos de filial/terminal e ruído de extrato

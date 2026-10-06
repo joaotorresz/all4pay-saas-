@@ -26,7 +26,12 @@ declare
     'rota_alias_acessos','ddl_log','raw_events',
     -- central_transicoes é ela mesma uma trilha (quem/quando/de/para de cada
     -- transição da máquina de estados) — o papel de raw_events.
-    'central_transicoes'
+    'central_transicoes',
+    -- pinbank_eventos é a caixa de entrada BRUTA do webhook da maquininha
+    -- (o papel de raw_events), e o evento sem vínculo não tem empresa — a
+    -- trilha exige uma. O que mexe em dinheiro (vínculo, transação, venda,
+    -- títulos) segue com gatilho. Declarado em 20261005120000.
+    'pinbank_eventos'
   ];
   faltando text[];
   n_ok int;

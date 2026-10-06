@@ -8,6 +8,7 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { chaveCategoria } from "@/core/categorias/chave";
+import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
 import { isDemo } from "@/lib/demo";
 import { vinculosProjeto } from "@/lib/projeto-vinculo";
 import { listProjetos } from "@/lib/iuli-cadastros";
@@ -1082,6 +1083,8 @@ function demoCostCenter(cat: string | null): string {
   if (/venda|outros/.test(c)) return "Comercial";
   if (/fornecedor/.test(c)) return "Operações";
   if (/folha/.test(c)) return "Administrativo";
+  // A taxa da maquininha é custo de vender — o mesmo centro do FDIP (Comercial).
+  if (ehTaxaAdquirencia(cat)) return "Comercial";
   if (/imposto|tarifa|financ/.test(c)) return "Financeiro";
   return "Administrativo";
 }

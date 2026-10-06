@@ -9,7 +9,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
+import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
@@ -19,6 +19,7 @@ import { useToast } from "@/components/listas/ListChrome";
 import {
   isPlatformAdmin, getAdminOverview, getAdminOrgs, getAdminUsers, getAdminPlans, setSubscription,
   getAdminGrowth, getAdminOrgDetail, getMrrHistory, getAuditLog, impersonar, getAdminUserDetail,
+  getPinbankAdmin, vincularPinbank, desvincularPinbank, type PinbankVinculoAdmin, type PinbankQuarentena,
   type SubStatus, type AdminPlan, type UserDetalhe, type AdminOrg,
 } from "@/lib/admin";
 
@@ -313,6 +314,8 @@ function AdminBody() {
       </Card>
 
       {/* Auditoria das ações do admin */}
+      <PinbankAdminCard orgs={orgs.data ?? []} toast={show} />
+
       <AuditCard />
 
       <span className="text-caption text-faint inline-flex items-center gap-2">
@@ -393,11 +396,101 @@ function MrrCard() {
   );
 }
 
+/* ---------- Maquininha Pinbank: a primeira chave do vínculo ---------- */
+/**
+ * ⚠️ Só a plataforma liga um estabelecimento da Pinbank a uma empresa: se a
+ * empresa pudesse se vincular sozinha, bastaria digitar o número da loja
+ * vizinha para receber as vendas dela. A empresa dá a SEGUNDA chave (conta e
+ * taxas) em Integrações. A quarentena mostra o que chegou de loja sem dono —
+ * é dali que sai o número a vincular.
+ */
+function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string) => void }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["admin-pinbank"], queryFn: getPinbankAdmin });
+  const [org, setOrg] = React.useState("");
+  const [estab, setEstab] = React.useState("");
+  const [chave, setChave] = React.useState("");
+  const [nome, setNome] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  const recarregar = () => qc.invalidateQueries({ queryKey: ["admin-pinbank"] });
+  async function vincular() {
+    const id = estab.trim() ? Number(estab.trim()) : null;
+    if (!org) { toast("Escolha a empresa."); return; }
+    if (id == null && !chave.trim()) { toast("Informe o código do estabelecimento ou a chave do gateway."); return; }
+    if (id != null && (!Number.isInteger(id) || id <= 0)) { toast("O código do estabelecimento é um número inteiro."); return; }
+    setBusy(true);
+    try {
+      await vincularPinbank({ orgId: org, estabelecimentoId: id, chaveGateway: chave.trim() || null, nome: nome.trim() || null });
+      setEstab(""); setChave(""); setNome("");
+      toast("Vinculado. A empresa ativa em Integrações.");
+      await recarregar();
+    } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
+  }
+  async function desvincular(v: PinbankVinculoAdmin) {
+    const motivo = window.prompt(`Desvincular ${v.nome ?? v.estabelecimentoId ?? v.chaveGateway} de ${v.empresa}? Diga o motivo (10+ caracteres).`);
+    if (!motivo) return;
+    try { await desvincularPinbank(v.id, motivo); toast("Desvinculado."); await recarregar(); }
+    catch (e) { toast((e as Error).message); }
+  }
+  const usarDaQuarentena = (x: PinbankQuarentena) => {
+    setEstab(x.estabelecimentoId ? String(x.estabelecimentoId) : ""); setChave(x.chaveGateway ?? ""); setNome(x.nome ?? "");
+  };
+  const orgOpts = orgs.map((o) => ({ value: o.orgId, label: o.nome }));
+
+  return (
+    <Card padded={false} info={{ titulo: "Maquininha Pinbank", oQue: "Liga o estabelecimento da Pinbank à empresa cliente. Sem o vínculo, as vendas da maquininha ficam na quarentena.", comoCalcula: "A quarentena agrupa os eventos recebidos de estabelecimentos sem vínculo. Vincular os entrega à empresa, que ativa em Integrações." }}>
+      <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Maquininha Pinbank · vínculos e quarentena</div>
+      <div className="p-5 flex flex-col gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <Select label="Empresa" value={org} onChange={setOrg} placeholder="Escolha" options={orgOpts} />
+          <Input label="Código do estabelecimento" inputMode="numeric" className="tabular-nums" value={estab} onChange={(e) => setEstab(e.target.value)} />
+          <Input label="Chave do gateway" value={chave} onChange={(e) => setChave(e.target.value)} />
+          <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+          <Button variant="primary" disabled={busy} onClick={vincular}>Vincular</Button>
+        </div>
+
+        {q.isLoading ? <Skeleton className="h-16 w-full" /> : q.error ? (
+          <span className="text-caption text-negative">Não foi possível ler: {(q.error as Error).message}</span>
+        ) : (
+          <>
+            <div className="flex flex-col">
+              <span className="a4p-label text-muted mb-2">Vinculadas</span>
+              {(q.data?.vinculos ?? []).length === 0 ? <span className="text-caption text-faint">Nenhuma maquininha vinculada.</span> :
+                (q.data?.vinculos ?? []).map((v, i) => (
+                  <div key={v.id} className={`flex flex-wrap items-center gap-3 py-2 text-caption ${i ? "border-t border-border-soft" : ""}`}>
+                    <span className="text-ink font-medium min-w-[180px]">{v.nome ?? "—"}</span>
+                    <span className="text-muted tabular-nums">{v.estabelecimentoId ?? v.chaveGateway}</span>
+                    <span className="text-muted flex-1">{v.empresa}</span>
+                    <StatusBadge tone={v.ativo ? "positive" : "warning"}>{v.ativo ? "Ativa" : "Aguardando a empresa"}</StatusBadge>
+                    <button className="text-muted hover:text-ink underline" onClick={() => desvincular(v)}>Desvincular</button>
+                  </div>
+                ))}
+            </div>
+            <div className="flex flex-col">
+              <span className="a4p-label text-muted mb-2">Quarentena · eventos sem vínculo</span>
+              {(q.data?.quarentena ?? []).length === 0 ? <span className="text-caption text-faint">Nenhum evento de estabelecimento desconhecido.</span> :
+                (q.data?.quarentena ?? []).map((x, i) => (
+                  <div key={`${x.estabelecimentoId}-${x.chaveGateway}`} className={`flex flex-wrap items-center gap-3 py-2 text-caption ${i ? "border-t border-border-soft" : ""}`}>
+                    <span className="text-ink font-medium min-w-[180px]">{x.nome ?? "—"}</span>
+                    <span className="text-muted tabular-nums">{x.estabelecimentoId ?? x.chaveGateway}</span>
+                    <span className="text-muted flex-1">{x.eventos} evento(s) · último em {x.ultimo.slice(0, 10).split("-").reverse().join("/")}</span>
+                    <button className="text-muted hover:text-ink underline" onClick={() => usarDaQuarentena(x)}>Usar no vínculo</button>
+                  </div>
+                ))}
+            </div>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 /* ---------- Auditoria das ações do admin ---------- */
 function AuditCard() {
   const a = useQuery({ queryKey: ["admin-audit"], queryFn: getAuditLog });
   const quando = (iso: string) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
-  const ACAO: Record<string, string> = { "subscription.set": "Cobrança alterada", "plan.upsert": "Plano alterado", impersonate: "Logou como cliente" };
+  const ACAO: Record<string, string> = { "subscription.set": "Cobrança alterada", "plan.upsert": "Plano alterado", impersonate: "Logou como cliente", "pinbank.vincular": "Maquininha vinculada", "pinbank.desvincular": "Maquininha desvinculada" };
   return (
     <Card padded={false} info={{ titulo: "Auditoria do admin", oQue: "Registra cada ação sensível do administrador da plataforma, para rastreabilidade.", comoCalcula: "Toda alteração de cobrança, de plano ou impersonação grava uma linha com quem fez, o alvo e quando." }}>
       <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Auditoria · ações do administrador</div>

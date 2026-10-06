@@ -5,7 +5,11 @@
  */
 import { limparContraparte, fingerprint } from "@/core/financial-os/gateway";
 import { melhorNome } from "@/core/ingestao/contraparte";
-import { memoriaDe } from "./learning";
+import { memoriaDe, chaveDaMemoria } from "./learning";
+import { ehTaxaAdquirencia, citaDevolucao } from "@/core/indicadores/classificacao";
+import { classificar as classificarNaPrevia } from "@/core/ingestao/taxonomia";
+import { normalizarDescritivo } from "@/core/ingestao/chave";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 import type {
   FinancialRecord,
   Classificacao,
@@ -276,10 +280,36 @@ export function classificarRecord(r: FinancialRecord): Classificacao {
   }
 
   // memória (self-learning)
-  const aprendida = memoriaDe(r.contraparteNorm);
-  if (aprendida) {
+  const aprendida = memoriaDe(chaveDaMemoria(r));
+  // ⚠️ Na ENTRADA, a taxa da maquininha só vale com a devolução NOMEADA — a
+  // mesma regra da prévia. A memória não sabe o lado: aprendida numa saída
+  // ("MDR REDE" → taxa), ela levava o crédito da venda ("CREDITO MDR") para
+  // estorno da despesa, e a venda saía da Receita Bruta.
+  const memoriaVale = !!aprendida && !(r.tipo === "entrada" && ehTaxaAdquirencia(aprendida) && !citaDevolucao(txt));
+  if (aprendida && memoriaVale) {
     const destino = destinoPara(r.tipo, aprendida);
     return { recordId: r.id, destino, categoria: aprendida, contraparteTipo: r.tipo === "entrada" ? "cliente" : "fornecedor", confianca: 0.99, motivo: "confirmado anteriormente", aprendido: true };
+  }
+
+  /*
+   * ⚠️ A TAXA DA MAQUININHA (MDR) — "TARIFA ADQUIRENCIA CIELO", "TARIFA MDR
+   * STONE". Ela casava "tarifa" e entrava como tarifa do banco, ABAIXO do
+   * EBITDA; é custo de vender. QUEM DECIDE é a prévia da importação
+   * (`core/ingestao` `classificar`, com a regra única
+   * `ehLancamentoDeTaxaAdquirencia`), sobre o MESMO texto que a tela de revisão
+   * mostra (contraparte + descritivo, montado como em `UploadView`). A primeira
+   * versão decidia aqui também, com a ordem destas `CATS` — e a revisão
+   * adversarial mostrou a prévia dizendo "Receita de vendas" e a gravação
+   * gravando a taxa, e a gravação passando por cima de Juros e Serviços que a
+   * prévia mantinha. Duas decisões divergem; uma, não.
+   */
+  const descritivo = r.descricao || r.contraparte || "";
+  const naPrevia = classificarNaPrevia(
+    normalizarDescritivo(r.contraparte ? `${r.contraparte} ${descritivo}` : descritivo),
+    r.tipo === "entrada" ? "entrada" : "saida",
+  );
+  if (naPrevia.categoria === CATEGORIA_TAXA_POS) {
+    return { recordId: r.id, destino: "Despesa", categoria: CATEGORIA_TAXA_POS, contraparteTipo: "fornecedor", confianca: 0.92, motivo: r.tipo === "entrada" ? "correspondência: devolução da taxa da maquininha" : "correspondência: taxa da maquininha (adquirência)", aprendido: false };
   }
 
   const hit = CATS.find((c) => c.re.test(txt));
@@ -299,6 +329,8 @@ function destinoPara(tipo: FinancialRecord["tipo"], categoria: string): Destino 
   if (tipo === "transferencia") return "Transferência";
   if (tipo === "entrada") return "Receita";
   if (/imposto/i.test(categoria)) return "Imposto";
+  // "Tarifas de adquirência" contém "tarifa" e não é do banco.
+  if (ehTaxaAdquirencia(categoria)) return "Despesa";
   if (/tarifa/i.test(categoria)) return "Tarifa bancária";
   return "Despesa";
 }
@@ -410,6 +442,8 @@ const CENTRO: Record<string, string> = {
   "Fornecedores / insumos": "Operações", Combustível: "Operações",
   "Folha de pagamento": "Administrativo", Aluguel: "Administrativo", Utilidades: "Administrativo",
   Impostos: "Financeiro", "Tarifas bancárias": "Financeiro", "Assinaturas / software": "Administrativo",
+  // A taxa da maquininha é custo de VENDER, ao lado de Vendas e Marketing.
+  [CATEGORIA_TAXA_POS]: "Comercial",
   "Outras despesas": "Administrativo",
 };
 

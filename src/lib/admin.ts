@@ -275,3 +275,49 @@ export async function getAdminUserDetail(userId: string): Promise<UserDetalhe> {
     })),
   };
 }
+
+/* ---------------- Maquininha Pinbank: vínculo e quarentena ---------------- */
+/**
+ * A PRIMEIRA chave do vínculo — só a plataforma liga um estabelecimento da
+ * Pinbank a uma empresa (a empresa ativa depois, em Integrações). As três RPCs
+ * passam pelo portão administrativo, que registra o acesso.
+ */
+export interface PinbankVinculoAdmin {
+  id: string; orgId: string; empresa: string; estabelecimentoId: number | null;
+  chaveGateway: string | null; nome: string | null; ativo: boolean; criadoEm: string;
+}
+export interface PinbankQuarentena {
+  estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null; eventos: number; ultimo: string;
+}
+
+export async function getPinbankAdmin(): Promise<{ vinculos: PinbankVinculoAdmin[]; quarentena: PinbankQuarentena[] }> {
+  if (isDemo) return { vinculos: [], quarentena: [] };
+  const { data, error } = await createClient().rpc("admin_pinbank_painel");
+  if (error) throw error;
+  const d = (data ?? {}) as { vinculos?: Array<Record<string, unknown>>; quarentena?: Array<Record<string, unknown>> };
+  return {
+    vinculos: (d.vinculos ?? []).map((r) => ({
+      id: String(r.id), orgId: String(r.org_id), empresa: String(r.empresa ?? "—"),
+      estabelecimentoId: r.estabelecimento_id == null ? null : Number(r.estabelecimento_id),
+      chaveGateway: r.chave_gateway ? String(r.chave_gateway) : null, nome: r.nome ? String(r.nome) : null,
+      ativo: !!r.ativo, criadoEm: String(r.criado_em ?? ""),
+    })),
+    quarentena: (d.quarentena ?? []).map((r) => ({
+      estabelecimentoId: r.estabelecimento_id == null ? null : Number(r.estabelecimento_id),
+      chaveGateway: r.chave_gateway ? String(r.chave_gateway) : null, nome: r.nome ? String(r.nome) : null,
+      eventos: Number(r.eventos ?? 0), ultimo: String(r.ultimo ?? ""),
+    })),
+  };
+}
+
+export async function vincularPinbank(p: { orgId: string; estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null }): Promise<void> {
+  const { error } = await createClient().rpc("admin_pinbank_vincular", {
+    p_org: p.orgId, p_estabelecimento_id: p.estabelecimentoId, p_chave_gateway: p.chaveGateway, p_nome: p.nome,
+  });
+  if (error) throw error;
+}
+
+export async function desvincularPinbank(vinculoId: string, motivo: string): Promise<void> {
+  const { error } = await createClient().rpc("admin_pinbank_desvincular", { p_vinculo: vinculoId, p_motivo: motivo });
+  if (error) throw error;
+}

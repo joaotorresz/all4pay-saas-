@@ -266,3 +266,46 @@ export function vendaDaMaquininha(
     observacoes: "", criadoEm: hoje,
   };
 }
+
+/**
+ * A venda da MAQUININHA PINBANK como documento de venda.
+ *
+ * É a mesma venda da maquininha acima, com o que a adquirente informa: o NSU
+ * vira o `idExterno` (é por ele que o suporte da Pinbank acha a transação) e a
+ * autorização/NSU da adquirente vira a `chaveTransacao`. A competência é a DATA
+ * DA VENDA, não a do dia em que o evento chegou — um webhook reentregue no dia
+ * seguinte não pode mudar o mês da receita.
+ */
+export function vendaDaPinbank(
+  v: {
+    nsu: number; total: number; taxaTotal: number; parcelas: number;
+    forma: "debito" | "credito_vista" | "parcelado" | "voucher" | "pix" | "desconhecida";
+    dataVenda: string; descricao: string;
+    autorizacao: string | null; nsuAdquirente: string | null;
+  },
+  id: string, numero: string, contaId: string,
+): Venda {
+  const total = Math.max(0, Math.round(v.total * 100) / 100);
+  const n = v.forma === "parcelado" ? Math.max(1, Math.floor(v.parcelas || 1)) : 1;
+  const metodo = v.forma === "debito" ? "debito" : v.forma === "pix" ? "pix" : v.forma === "desconhecida" ? "outros" : "credito";
+  return {
+    ...semDetalhe(),
+    id, numero,
+    clienteId: "", clienteNome: "Consumidor (maquininha)",
+    competencia: v.dataVenda, vencimento: v.dataVenda,
+    itens: [{ produtoId: "", nome: v.descricao || "Venda na maquininha", quantidade: 1, precoUnitario: total }],
+    valorTotal: total, valorTotalComJuros: total,
+    contaId,
+    status: "aprovada",
+    metodo,
+    tipoPagamento: n > 1 ? "parcelado" : "avista",
+    plataforma: "Maquininha Pinbank",
+    idExterno: String(v.nsu),
+    chaveTransacao: v.nsuAdquirente ?? v.autorizacao ?? "",
+    taxaPlataforma: { valor: Math.max(0, Math.round(v.taxaTotal * 100) / 100), fornecedorId: "" },
+    categoria: "Vendas", categoriaNome: "Vendas",
+    descricao: v.descricao,
+    statusNF: "a_emitir", numeroNF: "",
+    observacoes: "", criadoEm: v.dataVenda,
+  };
+}
