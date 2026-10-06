@@ -142,7 +142,8 @@
     "20261001140000_aprovacao_por_whatsapp",
     "20261001150000_caixa_entrada_email",
     "20261002120000_papel_nas_tabelas_de_dinheiro",
-    "20261002130000_lancamento_aponta_para_categoria"
+    "20261002130000_lancamento_aponta_para_categoria",
+    "20261005120000_pinbank_maquininha"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -156,29 +157,7 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [
-      {
-        "nome": "20261005120000_pinbank_maquininha",
-        "objetos_ausentes": [
-          "pinbank_vinculos",
-          "pinbank_eventos",
-          "pinbank_transacoes",
-          "pinbank_registrar_evento(uuid,text,text,text,timestamptz,bigint,bigint,text,text,jsonb)",
-          "pinbank_contexto(uuid)",
-          "pinbank_marcar_evento(uuid,text,text)",
-          "pinbank_aplicar(uuid,integer,jsonb)",
-          "pinbank_inserir_titulo(uuid,uuid,uuid,uuid,bigint,jsonb)",
-          "admin_pinbank_vincular(uuid,bigint,text,text,bigint)",
-          "admin_pinbank_desvincular(uuid,text)",
-          "admin_pinbank_painel()",
-          "pinbank_configurar_vinculo(uuid,uuid,jsonb,jsonb,boolean,boolean)",
-          "pinbank_eventos_para_reprocessar(integer)"
-        ],
-        "impacto": "Até ser aplicada, o cartão 'Maquininha Pinbank' em Integrações mostra a recusa do banco ao ler os vínculos, e o webhook (DESLIGADO por padrão, PINBANK_WEBHOOK) responde erro ao registrar o evento — a Pinbank reentrega. Nenhuma venda existente muda; aplicada, nada acontece até a plataforma vincular um estabelecimento E a empresa ativá-lo.",
-        "resolver_ate": "2026-10-12",
-        "origem": "sessão Claude de 05/10/2026 (integração Pinbank) — o job migrar do CI aplica no merge, depois do dono"
-      }
-    ],
+    "arquivo_sem_aplicacao": [],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
