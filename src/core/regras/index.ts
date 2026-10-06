@@ -160,7 +160,13 @@ export function sugerirRegra(alvo: AlvoRegra, categoria: string): RegraCategoriz
    * dela; se nem ela identifica nada, não há regra a propor.
    */
   const porDescricao = nucleoContraparte(alvo.descricao ?? "");
-  if (porDescricao && !soCobranca(porDescricao)) return regra("descricao", porDescricao);
+  if (porDescricao && !soCobranca(porDescricao)) {
+    // O núcleo tira ruído do MEIO ("TARIFA CREDITO CIELO" → "tarifa cielo"), e
+    // a descrição é comparada inteira: uma regra que não pega nem a linha de
+    // onde nasceu não é proposta.
+    const r = regra("descricao", porDescricao);
+    return regraCasa(r, alvo) ? r : null;
+  }
   return null;
 
   function regra(campo: "contraparte" | "descricao", valor: string): RegraCategorizacao {

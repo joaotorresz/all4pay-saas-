@@ -17,7 +17,7 @@
  * Puro, sem I/O.
  */
 import { validateCPF, validateCNPJ } from "@/lib/validators";
-import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { ehLancamentoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
 
 export interface ContraparteSaneada {
   /** O nome limpo — sem documento, sem pontuação órfã, em caixa de título. */
@@ -144,10 +144,10 @@ export function sanearContraparte(bruto: string | null | undefined): Contraparte
     // lugar do favorecido.
     return { nome: caixaDeTitulo(nomeCru), documento, tipoDocumento, ehPessoa: false, motivo: "descrição de cobrança, não uma contraparte" };
   }
-  if (ehTaxaAdquirencia(nomeCru) && !pareceEmpresa(nomeCru, documento)) {
-    // "MDR REDE", "TAXA ADQUIRENTE GETNET": a taxa da maquininha que o extrato
-    // pôs no lugar do favorecido. A regra é a única do sistema (DRE e
-    // importação a usam), e o antídoto acima continua valendo.
+  if (ehLancamentoDeTaxaAdquirencia(nomeCru, "saida") && !pareceEmpresa(nomeCru, documento)) {
+    // "CIELO TARIFA MDR": a taxa da maquininha que o extrato pôs no lugar do
+    // favorecido. É a regra do EXTRATO (exige "tarifa"/"taxa"): "MDR
+    // ENGENHARIA" é empresa, e o sufixo societário já chega cortado aqui.
     return { nome: caixaDeTitulo(nomeCru), documento, tipoDocumento, ehPessoa: false, motivo: "taxa da maquininha, não uma contraparte" };
   }
   if (nomeCru.replace(/\s/g, "").length < 3) {

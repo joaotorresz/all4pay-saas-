@@ -110,17 +110,27 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   "Tarifas de adquirência" na despesa variável, mas a importação nunca gravava
   essa categoria: "TARIFA ADQUIRENCIA CIELO" casava "tarifa" nos dois
   classificadores (a prévia em `core/ingestao` e o que grava em `core/fdip`) e
-  entrava como tarifa do banco. Agora os dois usam a regra única
-  (`ehLancamentoDeTaxaAdquirencia`), só no lugar do que iria para "Tarifas
-  bancárias" ou para o genérico — folha e imposto que citam "MDR" ficam onde
-  estavam. Na ENTRADA, só a devolução nomeada ("ESTORNO TARIFA MDR") vira a
-  taxa; o crédito da adquirente é venda. Fechadas no mesmo gesto as portas que
+  entrava como tarifa do banco. Agora QUEM DECIDE é a prévia, com a regra do
+  extrato (`ehLancamentoDeTaxaAdquirencia`: "tarifa"/"taxa" + adquirência ou
+  MDR), só no lugar do que iria para "Tarifas bancárias" ou para o genérico; a
+  gravação SEGUE a prévia — uma decisão, não duas (a primeira versão tinha
+  duas, e a revisão adversarial mostrou a prévia dizendo receita e a gravação
+  gravando a taxa). "MDR" sozinho não basta no extrato: é sigla de empresa e
+  aparece no crédito da venda. Folha, imposto e juros que citam "MDR" ficam
+  onde estavam. Na ENTRADA, só a devolução nomeada ("ESTORNO TARIFA MDR") vira
+  a taxa; o crédito da adquirente é venda. Fechadas no mesmo gesto as portas que
   desfaziam a importação: a correção de qualidade (contraparte suspeita), o
   cadastro de contraparte ("MDR REDE" e o acento de "Tarifa de manutenção"), a
   consulta de CNPJ (o repasse com o CNPJ da Cielo virava tarifa — antes desta
   mudança), a regra sugerida a partir de uma correção (propunha "contém
   'tarifa'") e o vocabulário da IA e das telas. Guarda: bloco `adq-extrato:` do
-  `engine-audit` + a linha 16 da matriz, provadas plantando doze defeitos.
+  `engine-audit` (com os casos da revisão adversarial e o teto ZERO de cópia
+  do padrão, com as exceções declaradas por trecho) + a linha 16 da matriz,
+  provadas plantando os defeitos de volta.
+  - ⚠️ **"MDR REDE" sem "tarifa"/"taxa" fica no genérico** (despesa
+    operacional, abaixo de 0.9: o CNPJ e a IA ainda podem corrigi-lo). Achado
+    conservador de propósito — uma sigla de empresa virando taxa com certeza
+    alta é pior que uma taxa esperando revisão.
   - ⚠️ **Não é retroativo**: o que já foi importado como "Tarifas bancárias"
     fica assim (Rodada 7: nada de declarar em massa). No primeiro mês, a análise
     de variação mostra a troca de linha como uma categoria "nova".

@@ -30,7 +30,7 @@
 import {
   type TipoContraparte, type NaturezaLancamento, podeTerScore,
 } from "./index";
-import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { ehLancamentoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
 import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 /* ========================================================================== */
@@ -129,7 +129,7 @@ export function contraparteSuspeita(nome: string | null | undefined): Contrapart
      * ao Resultado Financeiro — desfazendo a classificação da importação.
      * A regra é a única do sistema; o estorno (acima) continua vencendo.
      */
-    if (p.natureza === "financeiro" && ehTaxaAdquirencia(n)) return taxaDaMaquininha();
+    if (p.natureza === "financeiro" && ehLancamentoDeTaxaAdquirencia(n, "saida")) return taxaDaMaquininha();
     return {
       natureza: p.natureza,
       porque: p.porque,
@@ -137,9 +137,11 @@ export function contraparteSuspeita(nome: string | null | undefined): Contrapart
       categoriaSugerida: CATEGORIA_POR_NATUREZA[p.natureza] ?? "Outras despesas",
     };
   }
-  // "MDR REDE", "TAXA ADQUIRENTE GETNET": não casam padrão nenhum, e também
-  // não são alguém com quem se negocia.
-  if (ehTaxaAdquirencia(n)) return taxaDaMaquininha();
+  // "TAXA ADQUIRENTE GETNET": não casa padrão nenhum, e também não é alguém
+  // com quem se negocia. ⚠️ Com a palavra da cobrança: "MDR Engenharia Ltda" e
+  // "Cred Liq Mdr" (o pagador da venda) não são taxa — e a correção em lote
+  // reescreveria a RECEITA dessa contraparte para despesa.
+  if (ehLancamentoDeTaxaAdquirencia(n, "saida")) return taxaDaMaquininha();
   return null;
 }
 

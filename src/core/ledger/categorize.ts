@@ -3,7 +3,7 @@
  * grátis, demo-safe) por palavra-chave pt-BR. A IA (Claude) reforça as de baixa
  * confiança quando a chave existir (ver /api/ledger/categorize). Fase 1b.
  */
-import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { ehLancamentoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
 
 export interface TxParaCategorizar { id: string; descricao: string; valor: number; tipo: "entrada" | "saida" }
 export interface Categorizacao { id: string; code: string; confianca: number; motivo: string }
@@ -32,15 +32,15 @@ export function categorizarPorRegras(tx: TxParaCategorizar): Categorizacao {
      * extrato é texto livre, e um "MDR" solto (nome de empresa, folha, guia)
      * não pode passar na frente das regras de folha e imposto.
      */
-    if (r.code === "4.2.01" && /tarifa|taxa/i.test(tx.descricao || "") && ehTaxaAdquirencia(tx.descricao)) {
+    if (r.code === "4.2.01" && ehLancamentoDeTaxaAdquirencia(tx.descricao, "saida")) {
       return { id: tx.id, code: "4.1.09", confianca: 0.9, motivo: "Regra: Taxa da maquininha (adquirência)" };
     }
     return { id: tx.id, code: r.code, confianca: 0.9, motivo: `Regra: ${r.cat}` };
   }
-  // "MDR REDE" não casa regra nenhuma: é a taxa da maquininha, e com certeza
-  // (0.9) — no 0.5 do padrão ela iria para a IA, que podia mandá-la para as
-  // Financeiras. Folha, imposto e financeiras já foram conferidos acima.
-  if (tx.tipo === "saida" && ehTaxaAdquirencia(tx.descricao)) {
+  // "TAXA ADQUIRENTE GETNET" não casa regra nenhuma: é a taxa da maquininha, e
+  // com certeza (0.9) — no 0.5 do padrão ela iria para a IA, que podia mandá-la
+  // para as Financeiras. A mesma regra do extrato da importação.
+  if (tx.tipo === "saida" && ehLancamentoDeTaxaAdquirencia(tx.descricao, "saida")) {
     return { id: tx.id, code: "4.1.09", confianca: 0.9, motivo: "Regra: Taxa da maquininha (adquirência)" };
   }
   return tx.tipo === "saida"

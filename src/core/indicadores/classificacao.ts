@@ -79,18 +79,24 @@ export function ehDevolucaoDeTaxaAdquirencia(texto: string | null | undefined): 
 
 /**
  * ⚠️ **Um lançamento de EXTRATO é a taxa da maquininha?** — a pergunta das
- * portas de importação (a prévia em `core/ingestao` e o classificador que grava
- * em `core/fdip`), que leem o DESCRITIVO do banco, não uma categoria escolhida.
+ * portas de importação, que leem o DESCRITIVO do banco, não uma categoria
+ * escolhida. Mais ESTREITA que a de cima, de propósito, em dois pontos:
  *
- * Na SAÍDA, a regra é a de cima. Na ENTRADA, só quando a devolução está
- * nomeada: um crédito que cita a adquirente quase sempre é a VENDA chegando
- * ("CRED STONE LIQ MDR", "REPASSE CIELO"), e chamá-lo de taxa tiraria a venda
- * do faturamento. Mais estreita que a do DRE (que lê a categoria, já
- * escolhida) de propósito: no extrato, "liq" abreviado não casa com "líquido".
+ *  1. **Exige a palavra da cobrança** ("tarifa"/"taxa"). Numa categoria,
+ *     "MDR" sozinho é a taxa; num extrato, "MDR" é também sigla de empresa
+ *     ("PIX ENVIADO MDR CONSULTORIA LTDA", "MDR ENGENHARIA") e aparece no
+ *     crédito da venda ("CRED STONE LIQ MDR") — achado da revisão adversarial:
+ *     o "MDR" solto levava fornecedor e venda para a taxa com certeza alta.
+ *  2. **Na ENTRADA, só a devolução nomeada** ("ESTORNO TARIFA MDR"): o crédito
+ *     que cita a adquirente quase sempre é a VENDA chegando.
+ *
+ * Quem DECIDE no extrato é a prévia (`core/ingestao` `classificar`), e o
+ * classificador que grava (`core/fdip`) a segue — uma decisão, não duas.
  */
 export function ehLancamentoDeTaxaAdquirencia(texto: string | null | undefined, tipo: string): boolean {
-  if (tipo === "saida") return ehTaxaAdquirencia(texto);
-  if (tipo === "entrada") return ehDevolucaoDeTaxaAdquirencia(texto);
+  if (!ehTaxaAdquirencia(texto) || !/tarifa|taxa/.test(chaveCategoria(texto))) return false;
+  if (tipo === "saida") return true;
+  if (tipo === "entrada") return DEVOLUCAO.test(chaveCategoria(texto));
   return false;
 }
 
