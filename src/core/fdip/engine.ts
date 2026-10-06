@@ -259,16 +259,31 @@ interface Cat {
   destino?: Destino;
   assinatura?: boolean;
 }
+/*
+ * ⚠️ TODO PADRÃO É ANCORADO NO INÍCIO DA PALAVRA (`\b`). Sem a âncora,
+ * "posto" casa dentro de "im**posto**" e todo DARF entrava como Combustível —
+ * a 0,92 de confiança, que a revisão não destaca —, porque Combustível vem
+ * antes de Impostos e a primeira que casa vence. A mesma doença levava
+ * "a**locacao**" para Aluguel, "f**light**" e "con**vivo**" para Utilidades,
+ * "a**tribut**o" para Impostos. A prévia (`core/ingestao/taxonomia`) já
+ * ancorava e dizia Impostos: as duas portas discordavam sobre a mesma linha.
+ *
+ * O FIM fica aberto onde o padrão é RADICAL de propósito (rescis·ão, atacad·o,
+ * telefon·ia, tribut·o, salario·s) — fechá-lo perderia o que o padrão sempre
+ * pegou. Fecha (`\b` dos dois lados) onde um sufixo vira OUTRA palavra
+ * (folha·gem, canva·s, light·ning, zoom·p) e nas palavras e siglas curtas
+ * (posto, shell, enel, vivo, claro, icms, irpj…).
+ */
 const CATS: Cat[] = [
-  { id: "Marketing", re: /google ads|meta ads|facebook ads|instagram ads|\bads\b|marketing|midia|impulsionamento/ },
-  { id: "Assinaturas / software", re: /netflix|spotify|amazon web|\baws\b|adobe|openai|chatgpt|google (cloud|workspace)|gworkspace|microsoft|office ?365|github|figma|slack|notion|dropbox|hubspot|salesforce|vercel|cloudflare|canva|zoom/, assinatura: true },
-  { id: "Combustível", re: /posto|shell|ipiranga|petrobras|br distribu|texaco|ale combust|combustivel/ },
-  { id: "Folha de pagamento", re: /folha|salario|pro.?labore|rescis|ferias|decimo terceiro|13.? salario|vale (transporte|refeic|aliment)|pessoal/ },
-  { id: "Aluguel", re: /aluguel|locacao|condominio|imobiliaria/ },
-  { id: "Utilidades", re: /energia|enel|cemig|copel|light|cpfl|sabesp|comgas|\bagua\b|internet|vivo|claro|\btim\b|telefon|net ?claro/ },
-  { id: "Impostos", re: /\bdas\b|\bdarf\b|\bgps\b|\binss\b|\bfgts\b|\biss\b|icms|\bpis\b|cofins|irpj|csll|simples nacional|imposto|tribut/, destino: "Imposto" },
-  { id: "Tarifas bancárias", re: /tarifa|\biof\b|juros|cesta de|manutencao de conta|pacote de servic|taxa banc/, destino: "Tarifa bancária" },
-  { id: "Fornecedores / insumos", re: /fornecedor|atacad|distribuidora|insumo|materia.?prima|comercio|industria|compra/ },
+  { id: "Marketing", re: /\b(google ads|meta ads|facebook ads|instagram ads|ads)\b|\b(marketing|midia|impulsionamento)/ },
+  { id: "Assinaturas / software", re: /\b(canva|zoom|aws)\b|\b(netflix|spotify|amazon web|adobe|openai|chatgpt|google (cloud|workspace)|gworkspace|microsoft|office ?365|github|figma|slack|notion|dropbox|hubspot|salesforce|vercel|cloudflare)/, assinatura: true },
+  { id: "Combustível", re: /\b(postos?|shell|ipiranga)\b|\b(petrobras|br distribu|texaco|ale combust|combustivel)/ },
+  { id: "Folha de pagamento", re: /\bfolhas?\b|\b(salario|pro.?labore|rescis|ferias|decimo terceiro|13.? salario|vale (transporte|refeic|aliment)|pessoal)/ },
+  { id: "Aluguel", re: /\b(aluguel|locacao|condominio|imobiliaria)/ },
+  { id: "Utilidades", re: /\b(enel|copel|light|cpfl|agua|vivo|claro|tim|net ?claro)\b|\b(energia|cemig|sabesp|comgas|internet|telefon)/ },
+  { id: "Impostos", re: /\b(das|darf|gps|inss|fgts|iss|icms|pis|cofins|irpj|csll)\b|\b(simples nacional|imposto|tribut)/, destino: "Imposto" },
+  { id: "Tarifas bancárias", re: /\biof\b|\b(tarifa|juros|cesta de|manutencao de conta|pacote de servic|taxa banc)/, destino: "Tarifa bancária" },
+  { id: "Fornecedores / insumos", re: /\b(fornecedor|atacad|distribuidora|insumo|materia.?prima|comercio|industria|compra)/ },
 ];
 export const TRANSFER_RE = /transfer|ted entre|entre contas|resgate|aplicac|movimentacao interna|p2p interno/;
 

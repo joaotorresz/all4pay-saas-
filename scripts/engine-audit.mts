@@ -6196,6 +6196,67 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FDIP — PADRÃO DE CATEGORIA ANCORADO: IMPOSTO NÃO É COMBUSTÍVEL
+//
+// ⚠️ Os padrões de `CATS` (`core/fdip/engine`) não tinham `\b`: "posto" casava
+// dentro de "im**posto**", Combustível vem antes de Impostos e a primeira que
+// casa vence — todo DARF entrava como Combustível a 0,92. A prévia
+// (`core/ingestao/taxonomia`) já ancorava e dizia Impostos: as duas portas de
+// importação discordavam sobre a mesma linha. A guarda cobra as duas metades —
+// o nome da categoria E o acordo entre os dois classificadores — e o caminho
+// testado é o da PALAVRA-CHAVE (nada de memória), senão ela passaria provando
+// outra coisa.
+{
+  const { classificar: classificarPrevia } = await import("@/core/ingestao/taxonomia");
+  const { normalizarDescritivo } = await import("@/core/ingestao/chave");
+  const LINHAS: [string, string][] = [
+    ["DARF IMPOSTO", "Impostos"],
+    ["IMPOSTO DE RENDA", "Impostos"],
+    ["POSTO SHELL 042", "Combustível"],
+    ["COMPOSTO QUIMICO LTDA", "Outras despesas"],
+    // A mesma doença nos outros padrões — infixo que vira categoria:
+    ["ALOCACAO DE RECURSOS", "Outras despesas"],  // a·LOCACAO → Aluguel
+    ["FLIGHT CENTRE", "Outras despesas"],         // f·LIGHT → Utilidades
+    ["CONVIVO BAR", "Outras despesas"],           // con·VIVO → Utilidades
+    ["ATRIBUTO DESIGN", "Outras despesas"],       // a·TRIBUT·o → Impostos
+    ["LOJA CANVAS", "Outras despesas"],           // CANVA·s → Assinaturas
+    ["FOLHAGEM PAISAGISMO", "Outras despesas"],   // FOLHA·gem → Folha
+  ];
+  // E o radical que o padrão SEMPRE pegou continua pegando (âncora só no início):
+  const RADICAIS: [string, string][] = [
+    ["RESCISAO JOAO", "Folha de pagamento"],
+    ["TRIBUTOS MUNICIPAIS", "Impostos"],
+    ["POSTOS IPIRANGA", "Combustível"],
+    ["CONTA LIGHT RIO", "Utilidades"],
+    ["TELEFONICA", "Utilidades"],
+  ];
+  const todas = [...LINHAS, ...RADICAIS];
+  const rep = analisarImportacao("Data;Descrição;Valor\n" + todas.map(([d]) => `10/06/2026;${d};-100,00`).join("\n"));
+  ok("fdip-ancora: o extrato de teste foi lido inteiro",
+     rep.records.length === todas.length, `${rep.records.length} de ${todas.length}`);
+  const grava = (d: string) => {
+    const r = rep.records.find((x) => x.descricao === d);
+    return rep.classificacoes.find((c) => c.recordId === r?.id);
+  };
+  ok("fdip-ancora: o caminho testado é a palavra-chave, não a memória",
+     todas.every(([d]) => grava(d) && grava(d)!.aprendido === false),
+     todas.filter(([d]) => grava(d)?.aprendido !== false).map(([d]) => d).join(" · "));
+
+  ok("fdip-ancora: nenhuma linha de imposto é classificada como Combustível",
+     ["DARF IMPOSTO", "IMPOSTO DE RENDA"].every((d) => grava(d)?.categoria !== "Combustível"),
+     ["DARF IMPOSTO", "IMPOSTO DE RENDA"].map((d) => `${d}→${grava(d)?.categoria}`).join(" · "));
+  for (const [d, esperada] of todas) {
+    ok(`fdip-ancora: "${d}" é ${esperada}`, grava(d)?.categoria === esperada, `veio ${grava(d)?.categoria}`);
+  }
+
+  // As duas portas de importação concordam sobre as linhas da prova.
+  const prev = (d: string) => classificarPrevia(normalizarDescritivo(d), "saida").categoria;
+  ok("fdip-ancora: a prévia (taxonomia) e o FDIP dizem o MESMO nas linhas de teste",
+     LINHAS.every(([d]) => prev(d) === grava(d)?.categoria),
+     LINHAS.filter(([d]) => prev(d) !== grava(d)?.categoria).map(([d]) => `${d}: prévia ${prev(d)} × FDIP ${grava(d)?.categoria}`).join(" · "));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // A4P-079 — A TELA DE GOVERNANÇA NÃO AFIRMA INTEGRIDADE QUE NÃO PODE CONFERIR
 //
 // ⚠️ Esta guarda existe porque a verificação de integridade, em produção, era
