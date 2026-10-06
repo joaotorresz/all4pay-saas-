@@ -20,7 +20,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dataDe, ehTransferenciaEntreContas, liquidado, assinado } from "@/core/indicadores/convencoes";
 import { chaveCategoria } from "@/core/categorias/chave";
-import { ehTaxaAdquirencia, ehDevolucaoDeTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { ehTaxaAdquirencia, ehDevolucaoDeTaxaAdquirencia, citaVendaOuRepasse } from "@/core/indicadores/classificacao";
 
 import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
@@ -155,7 +155,7 @@ const ehFinanceiro = (m: RiskMovement) =>
  */
 const ehEstornoTaxaAdquirencia = (m: RiskMovement) =>
   entrada(m) && ehTaxaAdquirencia(m.category)
-  && (ehDevolucaoDeTaxaAdquirencia(m.category) || !/receita|repasse|receb|venda|l[ií]quid/.test(cat(m)));
+  && (ehDevolucaoDeTaxaAdquirencia(m.category) || !citaVendaOuRepasse(m.category));
 const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o lucro/.test(cat(m));
 /**
  * ⚠️ **RESTITUIÇÃO DE IMPOSTO não é faturamento** (Rodada 7). É a dedução

@@ -164,8 +164,12 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
   (`core/ingestao`), com `ehLancamentoDeTaxaAdquirencia` ("tarifa"/"taxa" +
   adquirência/MDR — "MDR" solto é sigla de empresa), só no lugar do que iria
   para "Tarifas bancárias" ou para o genérico; a gravação (`core/fdip`) SEGUE a
-  prévia. Na entrada, só a devolução nomeada. Teto ZERO de cópia do padrão fora
-  de `core/indicadores/classificacao`, exceções por trecho (bloco
+  prévia. Na entrada, só a devolução nomeada. ⚠️ A MEMÓRIA da correção e da IA
+  usa `chaveDaMemoria` (contraparte que não identifica ninguém → o descritivo
+  inteiro: corrigir "TARIFA CIELO" ensinava "tarifa" → taxa a toda tarifa do
+  banco) e a prévia recebe POR LINHA o que o dono já decidiu
+  (`linhasParaPrevia`). Teto ZERO de cópia do padrão fora de
+  `core/indicadores/classificacao`, exceções por trecho (bloco
   `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
   "traduzir não é classificar").
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.

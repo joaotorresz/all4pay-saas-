@@ -8877,13 +8877,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
     const csvDe = (linhas: [string, number][]) =>
       "Data;Descrição;Valor\n" + linhas.map(([d, v]) => `10/06/2026;${d};${v.toFixed(2).replace(".", ",")}`).join("\n");
-    /** A prévia EXATAMENTE como a tela de revisão a monta (`UploadView`). */
-    const previaDe = (rep: ReturnType<typeof analisarImportacao>) => {
-      const plano = prepararIngestao(rep.records.map((r) => ({
-        idOrigem: r.id, contaId: "acc-import", data: r.data, valor: r.valor,
-        tipo: r.tipo === "entrada" ? "entrada" as const : "saida" as const,
-        descritivo: r.descricao || r.contraparte || "", contraparte: r.contraparte || null, origem: "extrato",
-      })));
+    const { aprender, chaveDaMemoria, linhasParaPrevia } = await import("@/core/fdip");
+    const { gravar: gravarOrgAdq } = await import("@/lib/store-org");
+    const { aplicarRegrasNoRelatorio } = await import("@/lib/regras-aplicar");
+    const { correcaoReescreve } = await import("@/core/dominio/contraparte");
+    /**
+     * A prévia pela MESMA função da tela de revisão (`linhasParaPrevia`). A cópia
+     * que existia aqui não passava a memória nem as regras — e por isso a guarda
+     * não via a prévia divergir da gravação (achado da segunda revisão).
+     */
+    const previaDe = (rep: Pick<ReturnType<typeof analisarImportacao>, "records" | "classificacoes">) => {
+      const plano = prepararIngestao(linhasParaPrevia(rep as ReturnType<typeof analisarImportacao>));
       return new Map(plano.linhas.map((l, i) => [rep.records[i].descricao, l.classificacao]));
     };
     const ladoALado = (linhas: [string, number][]) => {
@@ -9015,6 +9019,82 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("adq-extrato: toda regra proposta pega ao menos a linha de onde nasceu ('TARIFA CREDITO CIELO')",
        sugMeio === null || regraCasa(sugMeio, alvoR("TARIFA CREDITO CIELO")), JSON.stringify(sugMeio?.quando));
 
+    /*
+     * A MEMÓRIA da correção — a porta que a regra sugerida já não abria e a
+     * memória continuava abrindo (segunda revisão adversarial). O extrato tira a
+     * marca da contraparte ("TARIFA CIELO" → "tarifa"), e a memória guardada por
+     * ela ensinava "tarifa" → taxa da maquininha a TODA tarifa bancária do
+     * extrato seguinte; a IA do Puzzlebot fazia o mesmo com "TAXA STONE" →
+     * "taxa". E a memória "mdr" (aprendida numa saída) levava o crédito da venda
+     * ("CREDITO MDR") para estorno da despesa. Exercita o caminho da tela:
+     * `aprender(chaveDaMemoria(linha), categoria)`.
+     */
+    const g = globalThis as unknown as Record<string, unknown>;
+    const lsMem: Record<string, string> = {};
+    const tinhaLs = "localStorage" in g, lsAntes = g.localStorage;
+    g.localStorage = { getItem: (k: string) => lsMem[k] ?? null, setItem: (k: string, v: string) => { lsMem[k] = v; }, removeItem: (k: string) => { delete lsMem[k]; } };
+    try {
+      gravarOrgAdq("a4p_fdip_memory", {});
+      const corrigidas = analisarImportacao(csvDe([["TARIFA CIELO", -3], ["TAXA STONE", -4], ["MDR REDE", -9]]));
+      g.window = g; // `aprender` só grava no navegador
+      try { for (const r of corrigidas.records) aprender(chaveDaMemoria(r), ADQ); } finally { delete g.window; }
+      const M = ladoALado([
+        ["TARIFA CIELO", -3], ["TARIFA PIX", -2], ["TARIFA TED", -2], ["TARIFA BOLETO", -2], ["TARIFA", -1],
+        ["TAXA STONE", -4], ["TAXA PIX", -1], ["TAXA SAQUE", -1], ["MDR REDE", -9], ["CREDITO MDR", 200],
+      ]);
+      ok("adq-extrato: a correção memorizada vale para a linha corrigida ('TARIFA CIELO', 'TAXA STONE', 'MDR REDE')",
+         ["TARIFA CIELO", "TAXA STONE", "MDR REDE"].every((d) => M.grava(d)?.categoria === ADQ),
+         ["TARIFA CIELO", "TAXA STONE", "MDR REDE"].map((d) => `${d}→${M.grava(d)?.categoria}`).join(" · "));
+      const bancoM = ["TARIFA PIX", "TARIFA TED", "TARIFA BOLETO", "TARIFA", "TAXA PIX", "TAXA SAQUE"];
+      ok("adq-extrato: corrigir 'TARIFA CIELO' (ou a IA em 'TAXA STONE') NÃO ensina 'tarifa'/'taxa' → taxa da maquininha",
+         bancoM.every((d) => M.grava(d)?.categoria !== ADQ) && M.grava("TARIFA PIX")?.categoria === "Tarifas bancárias",
+         bancoM.map((d) => `${d}→${M.grava(d)?.categoria}`).join(" · "));
+      ok("adq-extrato: a memória 'mdr' aprendida numa saída NÃO leva o crédito da venda ('CREDITO MDR') para a taxa",
+         M.grava("CREDITO MDR")?.categoria === "Vendas", String(M.grava("CREDITO MDR")?.categoria));
+      const memo = M.rep.records.filter((r) => M.rep.classificacoes.find((c) => c.recordId === r.id)?.aprendido);
+      ok("adq-extrato: com memória, a prévia mostra EXATAMENTE a categoria que a gravação grava",
+         memo.length === 3 && memo.every((r) => M.mostra(r.descricao)?.categoria === M.grava(r.descricao)?.categoria)
+         && M.rep.records.every((r) => (M.mostra(r.descricao)?.categoria === ADQ) === (M.grava(r.descricao)?.categoria === ADQ)),
+         M.rep.records.map((r) => `${r.descricao}: ${M.grava(r.descricao)?.categoria}/${M.mostra(r.descricao)?.categoria}`).join(" · "));
+    } finally {
+      gravarOrgAdq("a4p_fdip_memory", {});
+      if (tinhaLs) g.localStorage = lsAntes; else delete g.localStorage;
+    }
+
+    // A REGRA do dono que tira uma linha da taxa: a prévia tem de mostrar o que a gravação grava.
+    const repR = analisarImportacao(csvDe([["TARIFA ADQUIRENCIA CIELO", -30], ["TARIFA MDR STONE", -20], ["TARIFA PIX", -2]]));
+    const regraDono: RegraCategorizacao = { id: "r_dono", nome: "tarifa → bancária", ativa: true, criadaEm: "", origem: "manual",
+      quando: { descricao: { op: "contem", valor: "tarifa" }, tipo: "saida" }, entao: { categoria: "Tarifas bancárias" } } as RegraCategorizacao;
+    const comRegra = { records: repR.records, classificacoes: aplicarRegrasNoRelatorio(repR.records, repR.classificacoes, [regraDono]).classificacoes };
+    const prevR = previaDe(comRegra);
+    const gravaR = (d: string) => comRegra.classificacoes.find((c) => c.recordId === repR.records.find((r) => r.descricao === d)?.id)?.categoria;
+    ok("adq-extrato: com regra do dono, a prévia mostra EXATAMENTE a categoria que a gravação grava",
+       ["TARIFA ADQUIRENCIA CIELO", "TARIFA MDR STONE", "TARIFA PIX"].every((d) => gravaR(d) === "Tarifas bancárias" && prevR.get(d)?.categoria === gravaR(d)),
+       ["TARIFA ADQUIRENCIA CIELO", "TARIFA MDR STONE"].map((d) => `${d}: ${gravaR(d)}/${prevR.get(d)?.categoria}`).join(" · "));
+
+    // A contraparte do REPASSE que cita a taxa não é "a taxa": a correção em lote levaria as VENDAS para estorno.
+    const repasses = ["LIQUIDO VENDAS TAXA MDR", "LIQUIDACAO VENDAS TAXA MDR", "REPASSE VENDAS TAXA ADQUIRENCIA", "VENDAS LIQ TARIFA MDR"];
+    ok("adq-extrato: a contraparte do repasse que cita a taxa ('LIQUIDO VENDAS TAXA MDR') NÃO é suspeita",
+       repasses.every((n) => contraparteSuspeita(n) === null),
+       repasses.map((n) => `${n}→${contraparteSuspeita(n)?.categoriaSugerida ?? "null"}`).join(" · "));
+    ok("adq-extrato: a correção em lote para a taxa reescreve só as SAÍDAS da contraparte (as outras naturezas, tudo)",
+       correcaoReescreve(ADQ, "saida") && !correcaoReescreve(ADQ, "entrada") && correcaoReescreve("Tarifas bancárias", "entrada")
+       && correcaoReescreve("Impostos", "saida"));
+    const corrTxt = readFileSync("src/lib/qualidade-corrigir.ts", "utf8");
+    ok("adq-extrato: os dois caminhos da correção em lote (demonstração e banco) passam pela mesma regra de lado",
+       (corrTxt.match(/correcaoReescreve\(/g) ?? []).length >= 2 && /soSaidas \? lerQ\.eq\("type", "saida"\)/.test(corrTxt)
+       && /soSaidas \? escreverQ\.eq\("type", "saida"\)/.test(corrTxt));
+
+    // "MDR" sozinho, como núcleo de regra, é a taxa — não vira "contraparte contém 'mdr'".
+    const recMdr = analisarImportacao(csvDe([["MDR REDE", -9]])).records[0];
+    const sugMdr = sugerirRegra({ id: "mdr", tipo: "saida", valor: 9, descricao: recMdr.descricao, contraparte: recMdr.contraparte || recMdr.contraparteNorm }, ADQ);
+    const alvoMdr = (d: string, contraparte: string): AlvoRegra => ({ id: d, tipo: "saida", valor: 9, descricao: d, contraparte });
+    ok("adq-extrato: corrigir 'MDR REDE' não propõe 'contraparte contém mdr' (pegaria folha, imposto e o fornecedor MDR)",
+       !sugMdr?.quando.contraparte && (!sugMdr || (regraCasa(sugMdr, alvoMdr("MDR REDE", "MDR"))
+         && !regraCasa(sugMdr, alvoMdr("FOLHA PAGAMENTO MDR SERVICOS", "MDR")) && !regraCasa(sugMdr, alvoMdr("DARF MDR", "MDR"))
+         && !regraCasa(sugMdr, alvoMdr("PIX ENVIADO MDR ENGENHARIA LTDA", "MDR ENGENHARIA")))),
+       JSON.stringify(sugMdr?.quando));
+
     // O razão e a IA enxergam a mesma categoria.
     ok("adq-extrato: a sugestão do razão manda 'TAXA ADQUIRENTE GETNET' para despesa operacional com certeza (não para a IA)",
        catRazao({ id: "m", descricao: "TAXA ADQUIRENTE GETNET", valor: 7, tipo: "saida" }).code === "4.1.09"
@@ -9058,6 +9138,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     };
     varrer("src"); varrer("supabase/functions");
     ok("adq-extrato: teto ZERO — nenhuma cópia do padrão da adquirência fora da regra única", copias.length === 0, copias.join(" · "));
+    // Toda porta que APRENDE usa a chave que a leitura usa (a correção na revisão, a IA do Puzzlebot).
+    const portasAprender: string[] = [];
+    const varrerAprender = (dir: string) => {
+      for (const e of fsA.readdirSync(dir, { withFileTypes: true })) {
+        const f = `${dir}/${e.name}`;
+        if (e.isDirectory()) { if (e.name !== "node_modules") varrerAprender(f); continue; }
+        if (!/\.(ts|tsx)$/.test(e.name) || f === "src/core/fdip/learning.ts") continue;
+        semComentarios(fsA.readFileSync(f, "utf8")).split("\n").forEach((l, i) => {
+          if (/\baprender\(/.test(l)) portasAprender.push(`${f}:${i + 1}:${l.trim()}`);
+        });
+      }
+    };
+    varrerAprender("src");
+    ok("adq-extrato: toda chamada de aprender() passa a chave da leitura (chaveDaMemoria), nunca a contraparte crua",
+       portasAprender.length >= 2 && portasAprender.every((l) => /\baprender\(chaveDaMemoria\(/.test(l)),
+       portasAprender.filter((l) => !/\baprender\(chaveDaMemoria\(/.test(l)).join(" | ") || String(portasAprender.length));
     // O detector pega as formas que a revisão mostrou escapando — e não acusa o vocabulário de tela.
     ok("adq-extrato: o detector de cópia pega /mdr/i, RegExp(\"adquiren\") e /adquir[eê]ncia/, depois de um accept=\"image/*\"",
        ["const a = /mdr/i;", 'const b = new RegExp("adquiren");', "if (/adquir[eê]ncia/.test(x)) {}", "const c = /\\bMDR\\b/;"].every(ehCopia)

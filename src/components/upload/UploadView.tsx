@@ -11,7 +11,7 @@ import * as React from "react";
 import { comCompetencias } from "@/core/importacao/competencia";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, InfoHint } from "@/components/ui";
-import { analisarImportacao, amostraExtrato, aprender, csvDeLinhas, type FDIPReport } from "@/core/fdip";
+import { analisarImportacao, amostraExtrato, aprender, chaveDaMemoria, csvDeLinhas, linhasParaPrevia, type FDIPReport } from "@/core/fdip";
 import { lerXLSX } from "@/lib/xlsx";
 import { enriquecerPorCNPJ } from "@/lib/cnae-enrich";
 import { listarRegras } from "@/lib/regras";
@@ -102,30 +102,17 @@ export function UploadView() {
    */
   const plano = React.useMemo(() => {
     if (!report) return null;
-    const cls = new Map(report.classificacoes.map((c) => [c.recordId, c]));
-    const linhas: LinhaBruta[] = report.records.map((r) => ({
-      idOrigem: r.id,
-      contaId: "acc-import",
-      data: r.data,
-      valor: r.valor,
-      tipo: r.tipo === "entrada" ? "entrada" : "saida",
-      descritivo: r.descricao || r.contraparte || "",
-      contraparte: r.contraparte || null,
-      origem: "extrato",
-    }));
+    // ⚠️ A categoria que o dono já decidiu (memória ou regra) viaja POR LINHA
+    // (`linhasParaPrevia`). O mapa por texto que vinha daqui era montado com a
+    // contraparte do FDIP e procurado pelo descritivo — nunca casava, e a
+    // prévia mostrava uma categoria enquanto a gravação gravava outra.
+    const linhas: LinhaBruta[] = linhasParaPrevia(report);
     const existentes: LinhaExistente[] = (importedMovements() ?? []).map((m) => ({
       id: m.id, chave: m.chave ?? null, account_id: m.account_id,
       paid_date: m.paid_date, due_date: m.due_date, amount: m.amount, type: m.type,
       description: m.description, descritivo_bruto: m.descritivo_bruto, category: m.category,
     }));
-    // O aprendizado do FDIP já resolveu parte da classificação — passar adiante
-    // evita que a pré-visualização "reaprenda" errado o que o dono confirmou.
-    const aprendizado: Record<string, string> = {};
-    for (const r of report.records) {
-      const c = cls.get(r.id);
-      if (c?.aprendido && c.categoria) aprendizado[r.contraparteNorm ?? ""] = c.categoria;
-    }
-    return prepararIngestao(linhas, existentes, aprendizado, report.entidades.map((e) => e.nome));
+    return prepararIngestao(linhas, existentes, {}, report.entidades.map((e) => e.nome));
   }, [report]);
 
   const temBaixaConfianca = (rep: FDIPReport) =>
@@ -223,7 +210,9 @@ export function UploadView() {
    * próximas variações do mesmo fornecedor. A regra só entra se o dono aceitar.
    */
   const corrigir = (r: FinancialRecord, novaCat: string) => {
-    aprender(r.contraparteNorm, novaCat);
+    // A MESMA chave que a leitura usa: corrigir "TARIFA CIELO" não pode ensinar
+    // "tarifa" → taxa da maquininha para todo "TARIFA PIX" do próximo extrato.
+    aprender(chaveDaMemoria(r), novaCat);
     const s = sugerirRegra(
       { id: r.id, tipo: r.tipo === "entrada" ? "entrada" : "saida", valor: r.valor, descricao: r.descricao, contraparte: r.contraparte || r.contraparteNorm },
       novaCat,

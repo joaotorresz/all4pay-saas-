@@ -89,6 +89,7 @@ export function planoDeOnboarding(report: FDIPReport): OnboardingPlan {
 }
 
 export { amostraExtrato } from "./sample";
-export { aprender } from "./learning";
+export { aprender, chaveDaMemoria } from "./learning";
+export { linhasParaPrevia } from "./previa";
 export type { FDIPReport } from "./types";
 export { analisarImportacao as default };

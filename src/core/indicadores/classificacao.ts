@@ -69,12 +69,28 @@ export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
 /** A palavra que diz que o dinheiro VOLTOU: estorno, devolução, reembolso, reversão, restituição, ressarcimento. */
 const DEVOLUCAO = /estorno|devolu|reembols|revers|restitu|ressarc/;
 
+/** O texto diz que o dinheiro VOLTOU (estorno, devolução, reembolso…). */
+export function citaDevolucao(texto: string | null | undefined): boolean {
+  return DEVOLUCAO.test(chaveCategoria(texto));
+}
+
+/**
+ * O texto diz que o dinheiro é a VENDA chegando: receita, repasse, recebimento,
+ * venda, líquido ("Repasse da adquirente (líquido de taxas)", "Receita de
+ * MDR", "LIQUIDO VENDAS TAXA MDR"). Uma regra só para o DRE (a entrada que cita
+ * a adquirência continua receita) e para a qualidade de cadastro (a
+ * contraparte do repasse não é "a taxa").
+ */
+export function citaVendaOuRepasse(texto: string | null | undefined): boolean {
+  return /receita|repasse|receb|venda|liquid/.test(chaveCategoria(texto));
+}
+
 /**
  * A taxa da maquininha que VOLTOU, e o texto diz isso ("Estorno de tarifa de
  * adquirência"). É estorno da despesa variável — nunca faturamento.
  */
 export function ehDevolucaoDeTaxaAdquirencia(texto: string | null | undefined): boolean {
-  return ehTaxaAdquirencia(texto) && DEVOLUCAO.test(chaveCategoria(texto));
+  return ehTaxaAdquirencia(texto) && citaDevolucao(texto);
 }
 
 /**
@@ -96,7 +112,7 @@ export function ehDevolucaoDeTaxaAdquirencia(texto: string | null | undefined): 
 export function ehLancamentoDeTaxaAdquirencia(texto: string | null | undefined, tipo: string): boolean {
   if (!ehTaxaAdquirencia(texto) || !/tarifa|taxa/.test(chaveCategoria(texto))) return false;
   if (tipo === "saida") return true;
-  if (tipo === "entrada") return DEVOLUCAO.test(chaveCategoria(texto));
+  if (tipo === "entrada") return citaDevolucao(texto);
   return false;
 }
 

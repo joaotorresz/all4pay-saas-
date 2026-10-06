@@ -14,6 +14,7 @@
  */
 
 import { sanearContraparte } from "@/core/ingestao/contraparte";
+import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
 
 export const REGRAS_VERSION = "regras/1.0.0";
 
@@ -182,8 +183,14 @@ export function sugerirRegra(alvo: AlvoRegra, categoria: string): RegraCategoriz
   }
 }
 
-/** Uma palavra só, e ela não identifica ninguém ("tarifa", "taxa", "mdr", "juros"). */
-const soCobranca = (nucleo: string): boolean => !nucleo.includes(" ") && !sanearContraparte(nucleo).ehPessoa;
+/**
+ * Uma palavra só, e ela não identifica ninguém ("tarifa", "taxa", "mdr", "juros").
+ * ⚠️ "mdr" passa no cadastro (é sigla de empresa — "MDR Engenharia"), mas
+ * SOZINHO, como núcleo de regra, ele é a taxa: corrigir "MDR REDE" propunha
+ * "contraparte contém 'mdr'", que pegava folha, imposto e o fornecedor MDR.
+ */
+const soCobranca = (nucleo: string): boolean =>
+  !nucleo.includes(" ") && (!sanearContraparte(nucleo).ehPessoa || ehTaxaAdquirencia(nucleo));
 
 /**
  * Núcleo do nome: tira números, sufixos de filial/terminal e ruído de extrato

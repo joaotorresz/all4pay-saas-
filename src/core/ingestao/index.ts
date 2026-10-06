@@ -48,6 +48,15 @@ export interface LinhaBruta {
   documento?: string | null;
   /** De onde veio: extrato, ocr, openfinance, planilha, manual. */
   origem: OrigemIngestao;
+  /**
+   * A categoria que o dono JÁ decidiu para esta linha (correção memorizada ou
+   * regra), vinda de quem leu o arquivo. Vence o `aprendizado` por texto.
+   * ⚠️ Sem ela a prévia não via a memória nem as regras: a chave que a tela
+   * montava (a contraparte do FDIP) nunca casava com a que esta função procura
+   * (o descritivo normalizado) — medido: 0 de 157 linhas —, e a prévia
+   * mostrava uma categoria enquanto a gravação gravava outra.
+   */
+  categoriaConfirmada?: string | null;
 }
 
 export type OrigemIngestao = "extrato" | "ocr" | "openfinance" | "planilha" | "manual" | "recorrencia";
@@ -183,7 +192,7 @@ export function prepararIngestao(
       contaId: l.contaId, data: l.data, valor: l.valor, tipo: l.tipo, descritivo: descritivoBruto,
     });
 
-    const cls = classificar(normalizado, l.tipo, aprendizado[normalizado]);
+    const cls = classificar(normalizado, l.tipo, l.categoriaConfirmada || aprendizado[normalizado]);
 
     let situacao: SituacaoLinha;
     let duplicataDe: string | undefined;

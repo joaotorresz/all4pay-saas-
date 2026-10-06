@@ -5,8 +5,8 @@
  */
 import { limparContraparte, fingerprint } from "@/core/financial-os/gateway";
 import { melhorNome } from "@/core/ingestao/contraparte";
-import { memoriaDe } from "./learning";
-import { ehTaxaAdquirencia } from "@/core/indicadores/classificacao";
+import { memoriaDe, chaveDaMemoria } from "./learning";
+import { ehTaxaAdquirencia, citaDevolucao } from "@/core/indicadores/classificacao";
 import { classificar as classificarNaPrevia } from "@/core/ingestao/taxonomia";
 import { normalizarDescritivo } from "@/core/ingestao/chave";
 import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
@@ -280,8 +280,13 @@ export function classificarRecord(r: FinancialRecord): Classificacao {
   }
 
   // memória (self-learning)
-  const aprendida = memoriaDe(r.contraparteNorm);
-  if (aprendida) {
+  const aprendida = memoriaDe(chaveDaMemoria(r));
+  // ⚠️ Na ENTRADA, a taxa da maquininha só vale com a devolução NOMEADA — a
+  // mesma regra da prévia. A memória não sabe o lado: aprendida numa saída
+  // ("MDR REDE" → taxa), ela levava o crédito da venda ("CREDITO MDR") para
+  // estorno da despesa, e a venda saía da Receita Bruta.
+  const memoriaVale = !!aprendida && !(r.tipo === "entrada" && ehTaxaAdquirencia(aprendida) && !citaDevolucao(txt));
+  if (aprendida && memoriaVale) {
     const destino = destinoPara(r.tipo, aprendida);
     return { recordId: r.id, destino, categoria: aprendida, contraparteTipo: r.tipo === "entrada" ? "cliente" : "fornecedor", confianca: 0.99, motivo: "confirmado anteriormente", aprendido: true };
   }

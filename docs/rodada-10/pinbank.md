@@ -118,19 +118,37 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   gravando a taxa). "MDR" sozinho não basta no extrato: é sigla de empresa e
   aparece no crédito da venda. Folha, imposto e juros que citam "MDR" ficam
   onde estavam. Na ENTRADA, só a devolução nomeada ("ESTORNO TARIFA MDR") vira
-  a taxa; o crédito da adquirente é venda. Fechadas no mesmo gesto as portas que
-  desfaziam a importação: a correção de qualidade (contraparte suspeita), o
-  cadastro de contraparte ("MDR REDE" e o acento de "Tarifa de manutenção"), a
-  consulta de CNPJ (o repasse com o CNPJ da Cielo virava tarifa — antes desta
-  mudança), a regra sugerida a partir de uma correção (propunha "contém
-  'tarifa'") e o vocabulário da IA e das telas. Guarda: bloco `adq-extrato:` do
-  `engine-audit` (com os casos da revisão adversarial e o teto ZERO de cópia
-  do padrão, com as exceções declaradas por trecho) + a linha 16 da matriz,
-  provadas plantando os defeitos de volta.
+  a taxa; o crédito da adquirente é venda.
+  - **A prévia também mostra o que o dono já decidiu.** A correção memorizada e
+    a regra vencem a classificação na gravação; a prévia não as via (a chave que
+    a tela montava nunca casava com a que a prévia procura — 0 de 157 linhas).
+    Agora a categoria confirmada viaja POR LINHA (`linhasParaPrevia`, a mesma
+    função para a tela e para a guarda).
+  - **Portas fechadas, todas pela mesma regra:** a correção de qualidade
+    (contraparte suspeita — e o nome do REPASSE que cita a taxa, "LIQUIDO
+    VENDAS TAXA MDR", não é suspeito; a correção em lote para a taxa só
+    reescreve as SAÍDAS da contraparte, senão as vendas dela saíam da Receita
+    Bruta); o cadastro de contraparte ("CIELO TARIFA MDR" não vira cliente, e o
+    acento de "Tarifa de manutenção" deixou de decidir); a consulta de CNPJ (o
+    repasse com o CNPJ da Cielo virava tarifa — antes desta mudança); a regra
+    sugerida a partir de uma correção (propunha "contém 'tarifa'" e "contém
+    'mdr'"); a MEMÓRIA da correção e da IA (a chave era a contraparte sem a
+    marca: corrigir "TARIFA CIELO" ensinava "tarifa" → taxa a toda tarifa
+    bancária; agora, quando a contraparte não identifica ninguém, a chave é o
+    descritivo inteiro, `chaveDaMemoria`, e a memória da taxa não vale numa
+    entrada sem devolução nomeada); e o vocabulário da IA e das telas.
+  - Guarda: bloco `adq-extrato:` do `engine-audit` (com os casos das duas
+    revisões adversariais e o teto ZERO de cópia do padrão, com as exceções
+    declaradas por trecho) + a linha 16 da matriz, provadas plantando os
+    defeitos de volta.
   - ⚠️ **"MDR REDE" sem "tarifa"/"taxa" fica no genérico** (despesa
-    operacional, abaixo de 0.9: o CNPJ e a IA ainda podem corrigi-lo). Achado
-    conservador de propósito — uma sigla de empresa virando taxa com certeza
-    alta é pior que uma taxa esperando revisão.
+    operacional, abaixo de 0.9: a IA e a revisão ainda podem corrigi-lo).
+    Conservador de propósito — uma sigla de empresa virando taxa com certeza
+    alta é pior que uma taxa esperando revisão. Duas consequências DECLARADAS:
+    ela continua virando o cadastro "Mdr", como antes desta mudança ("MDR" é
+    sigla de empresa, e recusar o cadastro recusaria "MDR Engenharia"); e, com
+    o CNPJ da adquirente na linha, a consulta de CNPJ a leva para "Tarifas
+    bancárias" (a tabela de CNAE não tem a taxa da maquininha).
   - ⚠️ **Não é retroativo**: o que já foi importado como "Tarifas bancárias"
     fica assim (Rodada 7: nada de declarar em massa). No primeiro mês, a análise
     de variação mostra a troca de linha como uma categoria "nova".
