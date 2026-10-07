@@ -41,8 +41,9 @@ novo.
 
 O login é por e-mail e senha (`signInWithPassword`) e **não passa por
 redirecionamento** do Auth. Só dois caminhos usam `redirectTo`, ambos montados
-pela origem da página: o "esqueci a senha" (`login/page.tsx`) e o "Logar como"
-do `/admin` (`api/admin/impersonate`). `http://localhost:3000/**` só faz falta
+pela origem da página: o "esqueci a senha" (`pedirRedefinicao` em
+`lib/entrada`, que volta para `/api/auth/recuperar`) e o "Logar como" do
+`/admin` (`api/admin/impersonate`). `http://localhost:3000/**` só faz falta
 para testar esses dois rodando o sistema na própria máquina contra o banco de
 produção — e o certo, nesse caso, é o banco local (`supabase start`).
 
@@ -53,8 +54,49 @@ produção — e o certo, nesse caso, é o banco local (`supabase start`).
   o sistema sai do ar em `app.quattro.finance`.
 - **Renovação:** o `.finance` custa US$ 6,99 no primeiro ano e US$ 74,99/ano
   depois, com renovação automática ligada. Domínio vencido derruba o sistema.
-- ⚠️ **"Esqueci a senha" não tem onde definir a senha nova** (achado em
-  07/10/2026, ao mapear os `redirectTo`). O e-mail sai e o link volta para a
-  tela de login, mas nenhum código do app trata a recuperação: nada escuta o
-  evento `PASSWORD_RECOVERY`, nada chama `updateUser`, e não há tela de nova
-  senha. Defeito anterior ao domínio; independe dele.
+- ~~"Esqueci a senha" não tem onde definir a senha nova~~ — **resolvido em
+  07/10/2026** (achado ao mapear os `redirectTo`; defeito anterior ao domínio).
+  O caminho e a prova estão na seção abaixo.
+
+## "Esqueci a senha" — o caminho inteiro (07/10/2026)
+
+O e-mail saía e o link voltava para `/login?code=…`, onde nada trocava o
+código pela sessão: não havia tela de senha nova nem chamada a `updateUser`.
+
+```
+login ── pedirRedefinicao (lib/entrada) ──▶ e-mail
+link ──▶ /api/auth/recuperar   troca o código pela sessão, NO SERVIDOR
+         ├─ certo  ──▶ /redefinir-senha   senha nova + repetida → redefinirSenha
+         └─ errado ──▶ /login?recuperacao=expirado | outro-navegador | invalido | falha
+```
+
+- **As regras moram num lugar só** (`core/recuperacao`): mínimo de senha (o
+  mesmo do cadastro), os destinos, o motivo de cada falha e a frase dele.
+- ⚠️ **A rota fica sob `/api`**, que o middleware já deixa passar sem sessão —
+  nenhuma rota nova foi aberta no portão. A tela `/redefinir-senha` NÃO é
+  pública: sem a sessão de recuperação, o middleware devolve ao login.
+- ⚠️ **Destino fixo e RELATIVO** (`Location: /redefinir-senha`, 303). Nada lê
+  `?next=` (seria redirecionamento aberto), e o relativo existe porque, medido
+  com `next start`, a origem absoluta saía `localhost` para quem abriu
+  `127.0.0.1` — trocar de domínio no meio deixa para trás o cookie da sessão.
+- ⚠️ **O link só vale no navegador que pediu.** É PKCE: a prova de que foi a
+  mesma pessoa fica num cookie dele. Aberto noutro aparelho, a tela diz isso
+  (motivo `outro-navegador`), em vez de mandar pedir outro link e repetir a
+  falha.
+- **Um `?code=` parado no login é encaminhado à rota** — os links enviados
+  antes do conserto e a queda do Auth no endereço padrão.
+- **Trocar a senha encerra as outras sessões.** Medido: o Auth já faz isso
+  sozinho; a chamada `signOut({ scope: "others" })` é a segunda trava.
+- **Entrar recarrega a página inteira** (`go` no login). O `router.push` +
+  `router.refresh` deixava o endereço parado em `/login` com a Home na tela.
+
+**Prova:** `npm run senha` (`scripts/redefinir-senha.mjs`) dirige o navegador
+contra o Supabase LOCAL com o servidor de e-mail e abre o e-mail de verdade —
+17 passos verdes, e vermelha com o defeito original plantado. Fica fora do CI
+porque o CI sobe o Supabase sem o servidor de e-mail. As regras e as portas
+únicas estão no bloco "ESQUECI A SENHA" do `engine-audit`, provado plantando
+seis defeitos.
+
+⚠️ **O que só a produção responde:** o mínimo de senha do painel do Supabase
+(o app supõe 6), se o modelo de e-mail "Reset password" foi personalizado, e o
+SMTP — o padrão do Supabase é limitado e não entrega de forma confiável.

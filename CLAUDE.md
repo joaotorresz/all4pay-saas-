@@ -59,8 +59,15 @@ Auth (era `http://localhost:3000`). O webhook da Pinbank é
 `https://app.quattro.finance/api/pinbank/webhook`. **`all4pay-saas.vercel.app`
 continua respondendo e NÃO pode ganhar "Redirect to"**: o pg_cron do Open
 Finance e a guarda `no-ar` chamam por ele. Detalhe e pendências (verificação
-do titular até 21/10, "esqueci a senha" sem tela de nova senha) em
-`docs/rodada-10/dominio.md`.
+do titular até 21/10) em `docs/rodada-10/dominio.md`.
+
+⚠️ **"ESQUECI A SENHA" (07/10/2026):** o link volta para `/api/auth/recuperar`,
+que troca o código PKCE pela sessão NO SERVIDOR e manda, por destino FIXO e
+relativo, para `/redefinir-senha` (ou para `/login?recuperacao=<motivo>`). As
+regras moram em `core/recuperacao`; as chamadas de auth da recuperação têm
+porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
+ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
+COM o servidor de e-mail (fora do CI, que sobe sem ele).
 
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 

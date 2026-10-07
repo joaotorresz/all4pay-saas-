@@ -10809,6 +10809,112 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      escreveDireto('await admin.from("movements").insert({});'));
 }
 
+// ═══ ESQUECI A SENHA — o link leva à senha nova, e só por uma porta ═══════════
+{
+  const fsS = await import("node:fs");
+  const R = await import("@/core/recuperacao");
+  const semComS = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const lerS = (p: string) => (fsS.existsSync(p) ? fsS.readFileSync(p, "utf8") : "");
+
+  /* ── 1. as regras puras ─────────────────────────────────────────────────── */
+  ok("senha: verificador ausente (outro navegador) tem motivo próprio",
+     R.motivoDaFalha({ codigo: "pkce_code_verifier_not_found" }) === "outro-navegador"
+     && R.motivoDaFalha({ codigo: "bad_code_verifier" }) === "outro-navegador"
+     && R.motivoDaFalha({ mensagem: "PKCE code verifier not found in storage." }) === "outro-navegador");
+  ok("senha: link vencido OU já usado é 'expirado' (o fluxo some depois do primeiro uso)",
+     R.motivoDaFalha({ codigo: "otp_expired" }) === "expirado"
+     && R.motivoDaFalha({ codigo: "flow_state_expired" }) === "expirado"
+     && R.motivoDaFalha({ codigo: "flow_state_not_found" }) === "expirado"
+     && R.motivoDaFalha({ mensagem: "Email link is invalid or has expired" }) === "expirado");
+  ok("senha: erro desconhecido ou vazio cai em 'invalido', nunca em silêncio",
+     R.motivoDaFalha({ codigo: "qualquer_coisa" }) === "invalido" && R.motivoDaFalha({}) === "invalido");
+  ok("senha: o motivo da URL só entra se for palavra da lista (nada da URL vai cru para a tela)",
+     R.lerMotivo("expirado") === "expirado" && R.lerMotivo("outro-navegador") === "outro-navegador"
+     && R.lerMotivo("<script>alert(1)</script>") === null && R.lerMotivo("Expirado") === null
+     && R.lerMotivo(null) === null && R.lerMotivo(undefined) === null);
+  const motivos = ["expirado", "outro-navegador", "invalido", "falha"] as const;
+  ok("senha: todo motivo tem frase E o que fazer agora",
+     motivos.every((m) => R.MENSAGEM_RECUPERACAO[m]?.motivo.length > 10 && R.MENSAGEM_RECUPERACAO[m]?.comoResolver.length > 10));
+  ok("senha: o mínimo é 6, e a senha curta é recusada antes da rede",
+     R.MIN_SENHA === 6 && R.problemaDaSenha("12345", "12345") === "Use pelo menos 6 caracteres.");
+  ok("senha: as duas senhas diferentes são recusadas antes da rede",
+     R.problemaDaSenha("123456", "1234567") === "As duas senhas não são iguais.");
+  ok("senha: a senha certa passa", R.problemaDaSenha("abc123", "abc123") === null);
+
+  /* ── 2. TETO ZERO: cada chamada de recuperação tem UMA porta ────────────── */
+  const ENTRADA_S = "src/lib/entrada.ts";
+  const ROTA_S = "src/app/api/auth/recuperar/route.ts";
+  const PORTAS: [RegExp, string, string][] = [
+    [/\.auth\.resetPasswordForEmail\s*\(/, ENTRADA_S, "pedir o e-mail de redefinição (use pedirRedefinicao)"],
+    [/\.auth\.updateUser\s*\(/, ENTRADA_S, "gravar a senha nova (use redefinirSenha)"],
+    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)"],
+  ];
+  const arquivosS: string[] = [];
+  const andarS = (dir: string) => {
+    for (const e of fsS.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) andarS(p);
+      else if (/\.(ts|tsx)$/.test(e.name)) arquivosS.push(p);
+    }
+  };
+  andarS("src");
+  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string) =>
+    arquivosS.filter((p) => p !== dono && padrao.test(semComS(conteudo(p))));
+  for (const [padrao, dono, oQue] of PORTAS) {
+    const fora = porFora(padrao, dono, lerS);
+    ok(`senha: só ${dono} chama ${padrao.source.replace(/\\/g, "").replace("s*(", "(")} — ${oQue}`, fora.length === 0, fora.join(", "));
+    ok(`senha: a varredura ainda ENXERGA a porta ${dono}`, padrao.test(semComS(lerS(dono))), "o padrão parou de casar — a guarda ficou cega");
+  }
+  const plantadaPorta = porFora(PORTAS[1][0], ENTRADA_S, (p) => p === "src/components/entrada/RedefinirSenhaView.tsx"
+    ? lerS(p) + "\nawait createClient().auth.updateUser({ password: nova });" : lerS(p));
+  ok("senha: (defeito plantado) a tela chamando updateUser por fora é ACUSADA",
+     plantadaPorta.includes("src/components/entrada/RedefinirSenhaView.tsx"));
+
+  /* ── 3. o link volta para a rota que troca o código, e ela é pública ───── */
+  const entradaS = semComS(lerS(ENTRADA_S));
+  ok("senha: o e-mail volta para a ROTA DE RETORNO, não para /login",
+     /redirectTo:\s*`\$\{window\.location\.origin\}\$\{ROTA_RETORNO\}`/.test(entradaS)
+     && R.ROTA_RETORNO === "/api/auth/recuperar" && fsS.existsSync(ROTA_S));
+  ok("senha: a rota de retorno mora sob /api, que o middleware já deixa passar sem sessão",
+     R.ROTA_RETORNO.startsWith("/api/") && semComS(lerS("src/middleware.ts")).includes('pathname.startsWith("/api")'));
+  ok("senha: trocar a senha encerra as OUTRAS sessões da conta",
+     /signOut\(\s*\{\s*scope:\s*"others"\s*\}\s*\)/.test(entradaS));
+  ok("senha: senha repetida e sessão vencida são traduzidas ANTES de 'curta demais'",
+     entradaS.indexOf("same_password") > 0 && entradaS.indexOf("session missing") > 0
+     && entradaS.indexOf("same_password") < entradaS.indexOf("A senha é curta demais.")
+     && entradaS.indexOf("session missing") < entradaS.indexOf("A senha é curta demais."));
+
+  /* ── 4. a rota não tem destino aberto ───────────────────────────────────── */
+  const destinoFechado = (src: string) => {
+    const t = semComS(src);
+    const lidos = [...t.matchAll(/searchParams\.get\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1]);
+    const permitidos = new Set(["code", "error_code", "error_description"]);
+    return lidos.length > 0 && lidos.every((n) => permitidos.has(n))
+      && /redirectType/.test(t) && /===\s*"recovery"\s*\?\s*DESTINO_RECUPERACAO/.test(t)
+      && !/para\(\s*url\.searchParams/.test(t);
+  };
+  const rotaS = lerS(ROTA_S);
+  ok("senha: a rota só lê code/erro da URL e decide a tela pelo tipo do código (destino FIXO)", destinoFechado(rotaS));
+  const plantadaAberta = rotaS.replace("  try {\n", '  const next = url.searchParams.get("next");\n  if (next) return para(next);\n  try {\n');
+  ok("senha: (defeito plantado) um ?next= lido como destino é REPROVADO", plantadaAberta !== rotaS && !destinoFechado(plantadaAberta));
+
+  /* ── 5. as telas ────────────────────────────────────────────────────────── */
+  const loginS = semComS(lerS("src/app/login/page.tsx"));
+  ok("senha: o login mostra o motivo pela LISTA (lerMotivo), nunca o texto da URL",
+     /lerMotivo\(\s*q\.get\("recuperacao"\)\s*\)/.test(loginS) && !/error_description/.test(loginS));
+  ok("senha: o login encaminha um ?code= parado para a rota de retorno",
+     /window\.location\.replace\(`\$\{ROTA_RETORNO\}\?code=/.test(loginS));
+  ok("senha: o login não chama mais resetPasswordForEmail por conta própria", !/resetPasswordForEmail/.test(loginS));
+  const telaS = lerS("src/components/entrada/RedefinirSenhaView.tsx");
+  const telaSemRede = (t: string) => !/createClient/.test(semComS(t)) && /problemaDaSenha\(/.test(t) && /redefinirSenha\(/.test(t);
+  ok("senha: a tela nova não cria cliente (abre no build de demonstração) e confere antes da rede", telaSemRede(telaS));
+  ok("senha: (defeito plantado) a tela criando o cliente na montagem é REPROVADA",
+     !telaSemRede(telaS.replace("export function RedefinirSenhaView() {", "export function RedefinirSenhaView() {\n  createClient();")));
+  const cadastroS = semComS(lerS("src/components/entrada/CriarContaView.tsx"));
+  ok("senha: o cadastro usa o MESMO mínimo (MIN_SENHA), sem um 6 escrito à mão",
+     /senha\.length\s*>=\s*MIN_SENHA/.test(cadastroS) && !/senha\.length\s*>=\s*\d/.test(cadastroS));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

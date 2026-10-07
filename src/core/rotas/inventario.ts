@@ -177,6 +177,9 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/metodologia", nome: "Metodologia", dono: "acesso", status: "canonica", criterio: "nucleo" },
   // A porta de entrada: três campos, uma tela.
   { rota: "/criar-conta", nome: "Criar conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  // O fim do "esqueci a senha": só abre com a sessão de recuperação que a
+  // rota de retorno do link (/api/auth/recuperar) acabou de criar.
+  { rota: "/redefinir-senha", nome: "Nova senha", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/pos/venda", nome: "Simulador de venda", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/exportar", nome: "Exportar para o contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },

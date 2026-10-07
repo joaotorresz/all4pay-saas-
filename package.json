@@ -55,7 +55,8 @@
     "fila-500": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/fila-500.mts",
     "travar": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/travar-numeros.mts",
     "cron-auth": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/prova-cron-auth.mts",
-    "recorrencias-simulacao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/recorrencias-simulacao.mts"
+    "recorrencias-simulacao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/recorrencias-simulacao.mts",
+    "senha": "node scripts/redefinir-senha.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",
