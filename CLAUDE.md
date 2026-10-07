@@ -76,13 +76,18 @@ COM o servidor de e-mail (fora do CI, que sobe sem ele).
 aplicativo autenticador da conta se cadastra em `/configuracoes/seguranca`
 ("Segurança da conta", no ⋮). Quem o tem e entra só com a senha (aal1) vai a
 `/segundo-fator` e SÓ a ele — o middleware decide pelo `user.factors` FRESCO
-do `getUser`, antes do perímetro da plataforma, fora de `/api`, falhando
-fechado; o destino depois do código é FIXO (recuperação → `/redefinir-senha`,
-o resto → `/`). Todo `auth.mfa.*` mora em `lib/entrada` (teto ZERO, bloco
-`segundo-fator:`). Prova: `npm run segundo-fator -- --api` no CI e a jornada
-`npm run segundo-fator` com build real. ⚠️ Protege as TELAS e o `/admin`
-(o banco exige aal2 do administrador), NÃO a API de dados: nenhuma política de
-linha olha o `aal` — fechar isso é decisão do dono e migration à parte.
+do `getUser`, antes do perímetro da plataforma, falhando fechado; em `/api` a
+mesma sessão leva **401 JSON** (`codigo_pendente`, menos `/api/auth/*` — medido:
+sem isso ela mandava WhatsApp da empresa com a senha só). O destino depois do
+código é FIXO (recuperação → `/redefinir-senha`, o resto → `/`). Todo
+`auth.mfa.*` mora em `lib/entrada` (teto ZERO, bloco `segundo-fator:`). Prova:
+`npm run segundo-fator -- --api` no CI e a jornada `npm run segundo-fator` com
+build real. ⚠️ Protege as TELAS, as rotas de API e o `/admin`, NÃO a API de
+dados do Supabase: nenhuma política de linha olha o `aal` — fechar isso é
+decisão do dono e migration à parte. ⚠️ **Sem teto de tentativas do código
+por conta**: o gancho do Auth que o daria é dos planos Teams/Enterprise, e o
+projeto é Free — só o limite por IP do Auth (15/min) separa a senha vazada do
+código; a tela diz que o aplicativo SOMA à senha, nunca que a substitui.
 
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 

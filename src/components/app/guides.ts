@@ -620,7 +620,7 @@ const PADRAO_DO_HUB: Record<string, string> = {
 Object.assign(GUIDES, {
   "/configuracoes/seguranca": {
     titulo: "Segurança da conta — o segundo fator",
-    intro: "Cadastra o aplicativo autenticador do seu celular. Depois de ativado, cada entrada pede, além da senha, o código de 6 dígitos que o aplicativo mostra — quem descobrir a sua senha não entra sem o celular.",
+    intro: "Cadastra o aplicativo autenticador do seu celular. Depois de ativado, cada entrada pede, além da senha, o código de 6 dígitos que o aplicativo mostra; trocar a senha e remover o aplicativo também pedem o código. Ele soma à senha, não a substitui.",
     comoUsar: "Toque em 'Cadastrar aplicativo autenticador', leia o código QR com o aplicativo (ou digite a chave) e confirme com o primeiro código. Cadastre um segundo aparelho como reserva.",
     exemplo: "Com o aplicativo ativo, a entrada pede a senha e, em seguida, o código; o código de qualquer aparelho cadastrado serve.",
     secoes: [

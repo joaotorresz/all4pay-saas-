@@ -84,12 +84,25 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
    * O inverso também vale: quem NÃO precisa do código e abre o passo vai ao
    * início, para a tela nunca pedir um código que não existe.
    *
-   * `/api` fica de fora: as rotas respondem JSON (um desvio HTML quebraria
-   * quem chama), a rota de retorno do "esqueci a senha" troca o código sem
-   * sessão, e o banco — não esta porta — é quem recusa o administrador sem o
-   * código (`admin_veredito`, pelo nível do token).
+   * ⚠️ **`/api` também é barrada, com JSON.** Uma sessão que deve o código
+   * não chama rota de API nenhuma: medido, ela mandava WhatsApp da empresa
+   * (`/api/cobranca/whatsapp`, texto livre) com a senha só — o banco não
+   * olha o nível do token fora do `admin_veredito`. A resposta é 401 em JSON
+   * (um desvio HTML quebraria quem chama). Webhook e cron chegam sem cookie
+   * de sessão (`user` nulo) e não passam por aqui. A exceção é
+   * `/api/auth/*`: o retorno do "esqueci a senha" abre a sessão nova e
+   * precisa rodar mesmo com uma sessão antiga sem o código no navegador.
    */
-  if (user && supabase && !pathname.startsWith("/api")) {
+  if (user && supabase && pathname.startsWith("/api")) {
+    if (!pathname.startsWith("/api/auth/") && (await exigeCodigo(supabase, user))) {
+      const semCodigo = NextResponse.json(
+        { erro: "codigo_pendente", mensagem: "Digite o código do aplicativo autenticador para continuar." },
+        { status: 401 },
+      );
+      response.cookies.getAll().forEach((c) => semCodigo.cookies.set(c));
+      return semCodigo;
+    }
+  } else if (user && supabase) {
     const pedeCodigo = await exigeCodigo(supabase, user);
     if (pedeCodigo !== ehRotaDoCodigo(pathname)) {
       const url = request.nextUrl.clone();

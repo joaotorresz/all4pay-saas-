@@ -136,9 +136,13 @@ async function criarConta(email) {
   return r.json.id;
 }
 const apagarConta = (id) => auth(`/admin/users/${id}`, { metodo: "DELETE", servico: true });
+// ⚠️ Sem lista, LANÇA: devolver [] num erro deixaria verdes "nada foi ativado"
+// e "foi removido" sem ter lido coisa nenhuma (o verde sobre o vazio).
 const fatoresDe = async (id) => {
   const r = await auth(`/admin/users/${id}/factors`, { metodo: "GET", servico: true });
-  return Array.isArray(r.json) ? r.json : (r.json?.factors ?? []);
+  const lista = Array.isArray(r.json) ? r.json : r.json?.factors;
+  if (r.erro || !Array.isArray(lista)) throw new Error(`listar aplicativos: ${r.erro ?? "resposta sem lista"}`);
+  return lista;
 };
 function tornarAdministrador(id, email) {
   sql(`insert into public.platform_admin_permitidos (email, motivo) values ('${email}', 'prova do segundo fator (npm run segundo-fator)') on conflict (email) do nothing;
@@ -193,11 +197,41 @@ async function provaDeApi() {
     const rem1 = await auth(`/factors/${fator}`, { metodo: "DELETE", token: t1 });
     ok(rem1.erro === "insufficient_aal", "remover o aplicativo só com a senha é recusado", rem1.erro ?? "aceitou");
 
-    const v2 = await conferir(t1, fator, await codigoNovo(chave, certo));
+    const c2 = await codigoNovo(chave, certo);
+    const v2 = await conferir(t1, fator, c2);
     const t3 = v2.json?.access_token ?? "";
     ok(!v2.erro && (await rpc("is_platform_admin", t3)) === true, "depois do código, a sessão passa no portão do banco", v2.erro ?? "");
-    const rem2 = await auth(`/factors/${fator}`, { metodo: "DELETE", token: t3 });
-    ok(!rem2.erro && (await fatoresDe(id)).length === 0, "com o código, remover o aplicativo funciona", rem2.erro ?? "");
+
+    // Um SEGUNDO aparelho (B), e uma sessão nova que entra com o código do PRIMEIRO (A).
+    const enB = await cadastrar(t3, "Aplicativo autenticador 2");
+    const chaveB = base32(enB.json?.totp?.secret ?? "");
+    const vB = await conferir(t3, enB.json?.id, await codigoAgora(chaveB));
+    const tB = vB.json?.access_token ?? "";
+    ok(!enB.erro && !vB.erro && nivel(tB) === "aal2", "um segundo aparelho é cadastrado e confirmado", enB.erro ?? vB.erro ?? "");
+    const tP = await entrarComSenha(email);
+    const vA = await conferir(tP, fator, await codigoNovo(chave, c2));
+    const tA = vA.json?.access_token ?? "";
+    const rA = vA.json?.refresh_token ?? "";
+    ok(!vA.erro && nivel(tA) === "aal2", "a sessão nova entra com o código do aparelho A", vA.erro ?? "");
+
+    const rem2 = await auth(`/factors/${fator}`, { metodo: "DELETE", token: tA });
+    ok(!rem2.erro && (await fatoresDe(id)).filter((f) => f.status === "verified").length === 1, "com o código, remover o aplicativo funciona", rem2.erro ?? "");
+    const renovada = await auth("/token?grant_type=refresh_token", { corpo: { refresh_token: rA } });
+    ok(!renovada.erro && nivel(renovada.json?.access_token ?? "") === "aal1",
+       "remover o aparelho com que a sessão entrou a REBAIXA no próximo refresh (por isso a porta renova na hora e a tela pede o código do outro)",
+       renovada.erro ?? nivel(renovada.json?.access_token ?? ""));
+
+    // Sair: o escopo LOCAL encerra só a sessão de quem saiu; o global derruba a do outro aparelho.
+    const tLocal = await entrarComSenha(email);
+    const sairLocal = await auth("/logout?scope=local", { token: tLocal });
+    const bVive = await auth("/user", { metodo: "GET", token: tB });
+    ok(!sairLocal.erro && !bVive.erro, "sair com escopo local NÃO derruba a sessão verificada do outro aparelho", sairLocal.erro ?? bVive.erro ?? "");
+    const tGlobal = await entrarComSenha(email);
+    await auth("/logout?scope=global", { token: tGlobal });
+    const bMorre = await auth("/user", { metodo: "GET", token: tB });
+    ok(bMorre.erro === "session_not_found",
+       "o escopo global (o padrão do cliente) derrubaria a sessão do outro aparelho — e a recusa é 'session_not_found', dita como sessão encerrada",
+       bMorre.erro ?? "a sessão sobreviveu");
   } finally {
     limpar(id, email);
     await apagarConta(id);
@@ -280,8 +314,8 @@ async function jornada() {
 
     /* 3. A sessão do outro aparelho NÃO entra só com a senha. */
     const rotaOutro = await ir(outro.page, "/");
-    ok(rotaOutro === "/segundo-fator" || rotaOutro === "/login",
-       "a sessão aberta ANTES do cadastro não chega ao sistema (vai ao código ou foi encerrada)", rotaOutro);
+    ok(rotaOutro === "/login",
+       "confirmar o aplicativo encerra a sessão do outro aparelho, como a tela promete", rotaOutro);
 
     /* 4. A entrada com o aplicativo. */
     const b = await novo();
@@ -289,6 +323,12 @@ async function jornada() {
     ok(caminho(b.page) === "/segundo-fator", "com aplicativo, a senha leva ao passo do código", caminho(b.page));
     ok((await ir(b.page, "/")) === "/segundo-fator", "abrir o início direto continua no código (sem laço)", caminho(b.page));
     ok((await ir(b.page, "/admin")) === "/segundo-fator", "a área da plataforma também pede o código antes de qualquer outra resposta", caminho(b.page));
+    const apiSemCodigo = await b.page.request.get(`${ALVO}/api/versao`);
+    const corpoSemCodigo = await apiSemCodigo.json().catch(() => ({}));
+    ok(apiSemCodigo.status() === 401 && corpoSemCodigo?.erro === "codigo_pendente",
+       "as rotas de API recusam a sessão que ainda deve o código, em JSON (401 codigo_pendente)", `${apiSemCodigo.status()} ${JSON.stringify(corpoSemCodigo).slice(0, 80)}`);
+    const recuperar = await b.page.request.get(`${ALVO}/api/auth/recuperar`, { maxRedirects: 0 });
+    ok(recuperar.status() !== 401, "o retorno do 'esqueci a senha' (/api/auth/*) não é barrado pela sessão sem o código", String(recuperar.status()));
     const c2 = await codigoNovo(chave2, c1);
     await digitar(b.page, errado(c2));
     await b.page.waitForTimeout(800);
@@ -296,6 +336,8 @@ async function jornada() {
     await digitar(b.page, c2);
     await b.page.waitForURL((u) => u.pathname === "/", { timeout: 10000 }).catch(() => {});
     ok(caminho(b.page) === "/", "código certo entra no sistema", caminho(b.page));
+    const apiComCodigo = await b.page.request.get(`${ALVO}/api/versao`);
+    ok(apiComCodigo.status() === 200, "depois do código, as rotas de API respondem", String(apiComCodigo.status()));
     ok((await ir(b.page, "/segundo-fator")) === "/", "depois do código, o passo devolve ao início", caminho(b.page));
 
     /* 5. O administrador: o banco recusa sem o código e aceita com ele. */
@@ -307,6 +349,11 @@ async function jornada() {
     ok((await ir(c.page, "/admin")) === "/segundo-fator", "o administrador que entrou só com a senha é levado ao código, não à recusa", caminho(c.page));
     const aal = sql(`select count(*) from public.admin_acessos where admin_id = '${id}' and permitido`);
     ok(Number(aal) >= 1, "o acesso permitido ficou registrado na trilha do administrador", aal);
+    // Quem está sem o celular desiste: sai SÓ deste navegador.
+    await c.page.getByRole("button", { name: "Sair e entrar com outra conta" }).click();
+    await c.page.waitForURL((u) => u.pathname.startsWith("/login"), { timeout: 10000 }).catch(() => {});
+    ok(caminho(c.page) === "/login", "'Sair e entrar com outra conta' leva ao login", caminho(c.page));
+    ok((await ir(b.page, "/")) === "/", "e a sessão já verificada do outro aparelho continua aberta (sair é só deste navegador)", caminho(b.page));
 
     /* 6. Remover: a confirmação não promete desfazer, e a entrada volta a um passo. */
     await ir(b.page, "/configuracoes/seguranca");

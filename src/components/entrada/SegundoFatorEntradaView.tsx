@@ -55,7 +55,17 @@ export function SegundoFatorEntradaView() {
   }
 
   async function sair() {
-    if (configured) await sairDaConta();
+    if (busy) return;
+    if (configured) {
+      setBusy(true); setMsg(null);
+      const r = await sairDaConta();
+      if (!r.ok) {
+        // Sem sair de verdade, ir ao login devolveria a pessoa a este passo.
+        setBusy(false);
+        setMsg({ tone: "error", text: `Não foi possível sair agora. ${r.comoResolver ?? "Tente de novo em alguns segundos."}` });
+        return;
+      }
+    }
     window.location.assign("/login");
   }
 
@@ -73,7 +83,7 @@ export function SegundoFatorEntradaView() {
 
           {!configured && (
             <p className="m-0 text-caption text-warning">
-              Supabase não configurado neste ambiente — modo demonstração, sem conta para verificar.
+              Modo demonstração: não há conta para verificar aqui.
             </p>
           )}
 
@@ -89,7 +99,7 @@ export function SegundoFatorEntradaView() {
             <Button variant="primary" fullWidth disabled={busy} aria-busy={busy} onClick={confirmar}>
               {busy ? <Spinner /> : "Confirmar"}
             </Button>
-            <button type="button" className="text-label text-muted hover:text-ink text-center" onClick={sair}>
+            <button type="button" className="text-label text-muted hover:text-ink text-center" disabled={busy} onClick={sair}>
               Sair e entrar com outra conta
             </button>
           </div>

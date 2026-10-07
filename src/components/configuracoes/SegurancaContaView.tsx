@@ -9,7 +9,7 @@ import {
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { dataBR } from "@/lib/format";
 import { MARCA } from "@/core/marca";
-import { DIGITOS_CODIGO, blocosDaChave, codigoCompleto, type FatorDaConta } from "@/core/segundo-fator";
+import { DIGITOS_CODIGO, ROTA_CODIGO, blocosDaChave, codigoCompleto, type FatorDaConta } from "@/core/segundo-fator";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -40,11 +40,19 @@ export function SegurancaContaView() {
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<Msg>(null);
   const [copiada, setCopiada] = React.useState<boolean | null>(null);
+  const [pedeCodigo, setPedeCodigo] = React.useState(false);
+  // Ao fechar o painel do cadastro (confirmado ou cancelado), o foco volta ao
+  // título da conta — senão cai no BODY junto com o painel que desmontou.
+  const tituloConta = React.useRef<HTMLSpanElement>(null);
+  const voltarFoco = () => requestAnimationFrame(() => tituloConta.current?.focus());
 
+  // ⚠️ Lista que não veio fica AUSENTE (`null`), nunca vazia: vazia mostraria
+  // "Desligado" e o convite para cadastrar a quem já tem aplicativo, e o
+  // clique criaria um segundo aparelho que a pessoa acha que é o primeiro.
   const carregar = React.useCallback(async () => {
     const r = await fatoresDaConta();
     if (r.ok) { setFatores(r.fatores); setErroLista(null); }
-    else { setFatores([]); setErroLista(r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo); }
+    else { setFatores(null); setErroLista(r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo); }
   }, []);
 
   React.useEffect(() => { if (configured) void carregar(); }, [carregar]);
@@ -79,6 +87,7 @@ export function SegurancaContaView() {
     }
     setCadastro(null); setCodigo("");
     setMsg({ tone: "ok", text: `Aplicativo autenticador ativado. A partir da próxima entrada, a ${MARCA} pede o código depois da senha.` });
+    voltarFoco();
     await carregar();
   }
 
@@ -86,6 +95,7 @@ export function SegurancaContaView() {
     if (!cadastro) return;
     const id = cadastro.factorId;
     setCadastro(null); setCodigo(""); setMsg(null);
+    voltarFoco();
     await cancelarCadastroDoFator(id);
     await carregar();
   }
@@ -97,8 +107,16 @@ export function SegurancaContaView() {
 
   async function remover(f: FatorDaConta) {
     const r = await removerFator(f.id);
-    if (!r.ok) setMsg({ tone: "error", text: "comoResolver" in r && r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo });
-    else setMsg({ tone: "ok", text: `${f.nome} removido.` });
+    if (!r.ok) {
+      setMsg({ tone: "error", text: r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo });
+    } else if (r.pedeCodigo) {
+      // Esta sessão tinha entrado com o aparelho removido: sem o código de
+      // outro, nada mais abre. Dito agora, e não no meio do próximo trabalho.
+      setPedeCodigo(true);
+      setMsg({ tone: "ok", text: `${f.nome} removido. Esta sessão tinha entrado com ele: digite agora o código de outro aparelho cadastrado.` });
+    } else {
+      setMsg({ tone: "ok", text: `${f.nome} removido.` });
+    }
     await carregar();
   }
 
@@ -109,7 +127,7 @@ export function SegurancaContaView() {
         <p className="m-0 text-label text-muted max-w-[72ch]">
           No modo demonstração não há conta para proteger. Na conta de verdade, esta tela cadastra o aplicativo
           autenticador do seu celular: depois da senha, a {MARCA} passa a pedir o código de {DIGITOS_CODIGO} dígitos que
-          ele mostra, e quem souber só a sua senha não entra.
+          ele mostra para abrir o sistema.
         </p>
       </Card>
     );
@@ -121,23 +139,30 @@ export function SegurancaContaView() {
         className="flex flex-col gap-4"
         info={{
           titulo: "Segundo fator",
-          oQue: `Uma segunda prova de que é você: além da senha, a ${MARCA} pede o código que o aplicativo autenticador do seu celular mostra. Quem descobrir a sua senha não entra sem o celular.`,
+          oQue: `Uma segunda prova de que é você: além da senha, a ${MARCA} pede o código que o aplicativo autenticador do seu celular mostra para abrir o sistema, trocar a senha ou remover o aplicativo. Ele soma à senha, não a substitui: se desconfiar que ela vazou, troque-a.`,
           comoCalcula: "O código muda a cada 30 segundos e é calculado pelo aplicativo a partir de uma chave que só ele e a sua conta conhecem. Cadastrar dois aparelhos vale como reserva: o código de qualquer um deles serve.",
         }}
       >
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-h3 font-medium text-ink">Aplicativo autenticador</span>
+          <span ref={tituloConta} tabIndex={-1} className="text-h3 font-medium text-ink outline-none">Aplicativo autenticador</span>
           {fatores === null ? null : ativo
             ? <StatusBadge tone="positive">Ativo</StatusBadge>
             : <StatusBadge tone="warning">Desligado</StatusBadge>}
         </div>
+        {fatores !== null && (
         <p className="m-0 text-label text-muted max-w-[72ch]">
           {ativo
             ? "A cada entrada, depois da senha, a conta pede o código do aplicativo. Cadastre um segundo aparelho como reserva: sem o celular, só o suporte consegue retirar o segundo fator."
             : `Proteja a conta com o código do aplicativo autenticador do celular (Google Authenticator, Microsoft Authenticator, 1Password ou outro). Depois de ativado, a ${MARCA} pede o código a cada entrada.`}
         </p>
+        )}
 
-        {erroLista && <p role="alert" className="m-0 text-caption text-negative">{erroLista}</p>}
+        {erroLista && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <p role="alert" className="m-0 text-caption text-negative">{erroLista}</p>
+            <Button variant="secondary" onClick={() => { setErroLista(null); void carregar(); }}>Tentar de novo</Button>
+          </div>
+        )}
 
         {verificados.length + pendentes.length > 0 && (
           <ul className="m-0 p-0 list-none flex flex-col">
@@ -147,7 +172,7 @@ export function SegurancaContaView() {
                   <Icon name="smartphone" size={16} color="var(--color-text-secondary)" />
                   <div className="min-w-0">
                     <div className="text-label font-medium text-ink truncate">{f.nome}</div>
-                    <span className="a4p-label text-muted tabular-nums">Cadastrado em {dataBR(f.criadoEm)}</span>
+                    <span className="a4p-label text-muted">Cadastrado em {dataBR(f.criadoEm)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -157,10 +182,10 @@ export function SegurancaContaView() {
                   {f.verificado ? (
                     <AcaoDestrutiva
                       rotulo="Remover"
-                      titulo={`Remover ${f.nome}?`}
+                      titulo="Remover este aparelho?"
                       descricao={verificados.length > 1
-                        ? "Este aparelho deixa de gerar códigos aceitos. O outro aparelho cadastrado continua valendo na entrada."
-                        : "A conta volta a entrar só com a senha. Para quem administra a plataforma, a área administrativa passa a recusar o acesso quando o prazo do segundo fator vencer."}
+                        ? `“${f.nome}” deixa de gerar códigos aceitos. O outro aparelho cadastrado continua valendo na entrada — e, se você entrou hoje com o código deste, a conta pede em seguida o código do outro.`
+                        : `“${f.nome}” sai, e a conta volta a entrar só com a senha. Para quem administra a plataforma, a área administrativa passa a recusar o acesso quando o prazo do segundo fator vencer.`}
                       confirmarRotulo="Remover"
                       desfaz={false}
                       onConfirmar={() => remover(f)}
@@ -177,7 +202,15 @@ export function SegurancaContaView() {
           </ul>
         )}
 
-        {!cadastro && (
+        {pedeCodigo && (
+          <div>
+            <Button variant="primary" onClick={() => window.location.assign(ROTA_CODIGO)} leftIcon={<Icon name="shield-check" size={15} />}>
+              Digitar o código de outro aparelho
+            </Button>
+          </div>
+        )}
+
+        {!cadastro && !pedeCodigo && fatores !== null && (
           <div>
             <Button variant={ativo ? "secondary" : "primary"} disabled={busy || fatores === null} aria-busy={busy} onClick={comecar}
               leftIcon={<Icon name={ativo ? "plus" : "shield-check"} size={15} />}>
@@ -234,11 +267,16 @@ function PainelCadastro({
     }
   }, [cadastro.uri]);
 
+  // O botão que abriu o painel some da árvore; sem levar o foco ao passo 1,
+  // ele cai no BODY e quem usa teclado ou leitor de tela não sabe onde está.
+  const titulo = React.useRef<HTMLSpanElement>(null);
+  React.useEffect(() => { titulo.current?.focus(); }, []);
+
   return (
     <Card className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <span className="a4p-label text-muted">Passo 1 de 2</span>
-        <span className="text-h3 font-medium text-ink">Adicione a conta no aplicativo</span>
+        <span ref={titulo} tabIndex={-1} className="text-h3 font-medium text-ink outline-none">Adicione a conta no aplicativo</span>
         <p className="m-0 text-label text-muted max-w-[72ch]">
           No computador, leia o código QR com o aplicativo autenticador do celular. No próprio celular, toque em
           “Abrir no aplicativo autenticador” ou digite a chave.
@@ -246,17 +284,18 @@ function PainelCadastro({
       </div>
 
       <div className="flex flex-col sm:flex-row gap-5 sm:items-start">
+        {/* No telefone o link vem primeiro: o QR não se lê com o próprio aparelho. */}
         {svg ? (
-          <div className="rounded-card bg-white p-2 self-start" dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="order-last sm:order-none rounded-card bg-white p-2 self-start" dangerouslySetInnerHTML={{ __html: svg }} />
         ) : (
-          <p className="m-0 text-caption text-faint max-w-[36ch]">
+          <p className="order-last sm:order-none m-0 text-caption text-faint max-w-[36ch]">
             O endereço desta conta é longo demais para caber num código QR. Use a chave ao lado.
           </p>
         )}
         <div className="flex flex-col gap-2 min-w-0">
           <a href={cadastro.uri} className="text-label font-medium text-ink underline">Abrir no aplicativo autenticador</a>
           <span className="text-caption text-muted">Ou digite esta chave no aplicativo:</span>
-          <div className="rounded-md bg-surface-2 px-3 py-2 font-mono tabular-nums text-label text-ink break-all">
+          <div className="rounded-md bg-surface-2 px-3 py-2 font-mono text-label text-ink break-all">
             {blocosDaChave(cadastro.chave)}
           </div>
           <div className="flex items-center gap-3">
@@ -281,7 +320,7 @@ function PainelCadastro({
             {msg.text}
           </p>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" disabled={busy} aria-busy={busy} onClick={aoConfirmar}>Confirmar código</Button>
           <Button variant="secondary" disabled={busy} onClick={aoCancelar}>Cancelar</Button>
         </div>

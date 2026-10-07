@@ -107,13 +107,33 @@ export interface FatorDaConta {
   nome: string;
   /** Só o verificado protege a conta; o não verificado é um cadastro abandonado. */
   verificado: boolean;
-  /** AAAA-MM-DD, fatiado da string (nunca `new Date` — fuso). */
+  /** AAAA-MM-DD — o DIA no fuso de quem vê (`diaDoInstante`). */
   criadoEm: string;
 }
 
-/** Traduz a lista do Auth para a tela, verificados primeiro. */
+/**
+ * O dia (AAAA-MM-DD) de um INSTANTE, no fuso de quem vê.
+ *
+ * ⚠️ **Fatiar só vale para data pura.** O Auth devolve o instante em UTC com
+ * `Z` (medido: "2026-10-07T22:20:57Z"), e fatiá-lo daria o dia de Greenwich:
+ * um aparelho cadastrado às 21h30 em Brasília apareceria com a data de
+ * amanhã. Data pura ("AAAA-MM-DD"), sem hora, continua fatiada — convertê-la
+ * por `Date` a jogaria para o dia anterior em UTC−3.
+ */
+export function diaDoInstante(instante: string | null | undefined, fuso?: string): string {
+  const t = (instante ?? "").trim();
+  if (!t.includes("T")) return t.slice(0, 10);
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return t.slice(0, 10);
+  const partes = new Intl.DateTimeFormat("en-CA", { timeZone: fuso, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+  const p = (tipo: string) => partes.find((x) => x.type === tipo)?.value ?? "";
+  return `${p("year")}-${p("month")}-${p("day")}`;
+}
+
+/** Traduz a lista do Auth para a tela, verificados primeiro. `fuso` só para a guarda — a tela usa o do navegador. */
 export function fatoresParaTela(
   lista: readonly { id: string; friendly_name?: string | null; factor_type?: string; status?: string; created_at?: string }[],
+  fuso?: string,
 ): FatorDaConta[] {
   return lista
     .filter((f) => (f.factor_type ?? "totp") === "totp")
@@ -121,7 +141,7 @@ export function fatoresParaTela(
       id: f.id,
       nome: (f.friendly_name ?? "").trim() || NOME_APARELHO,
       verificado: f.status === "verified",
-      criadoEm: (f.created_at ?? "").slice(0, 10),
+      criadoEm: diaDoInstante(f.created_at, fuso),
     }))
     .sort((a, b) => Number(b.verificado) - Number(a.verificado) || a.criadoEm.localeCompare(b.criadoEm));
 }

@@ -16,7 +16,14 @@ import { DIGITOS_CODIGO, normalizarCodigo } from "@/core/segundo-fator";
  *   · `autoComplete="one-time-code"` deixa o sistema sugerir o código;
  *   · o que se digita passa por `normalizarCodigo` (espaço e hífen somem: o
  *     aplicativo mostra "123 456" e quem copia leva o espaço junto);
- *   · números tabulares, para os dígitos não dançarem enquanto se digita.
+ *   · números tabulares, para os dígitos não dançarem enquanto se digita —
+ *     na sans (`a4p-valor-texto`), igual dentro e fora do app: só
+ *     `tabular-nums` puxaria a display em `.ds-visor`;
+ *   · ⚠️ **durante o envio o campo fica SÓ LEITURA, nunca `disabled`**: o
+ *     navegador tira o foco de campo desabilitado, e depois de um código errado
+ *     o teclado do telefone fechava bem quando a pessoa precisa digitar outro;
+ *   · Enter sempre confirma — com o código incompleto, a tela diz o que falta
+ *     (antes, Enter com 5 dígitos não fazia nada, sem retorno nenhum).
  */
 export function CampoCodigo({
   valor,
@@ -29,7 +36,7 @@ export function CampoCodigo({
 }: {
   valor: string;
   onMudar: (codigo: string) => void;
-  /** Enter com o código completo. */
+  /** Enter (a tela confere o tamanho e diz o que falta). */
   onConfirmar?: () => void;
   label?: string;
   invalido?: boolean;
@@ -46,15 +53,16 @@ export function CampoCodigo({
       pattern="[0-9]*"
       maxLength={DIGITOS_CODIGO + 2}
       placeholder="000000"
-      className="tabular-nums"
+      className="tabular-nums a4p-valor-texto"
       autoFocus={autoFocus}
-      disabled={disabled}
+      readOnly={disabled}
+      aria-disabled={disabled || undefined}
       invalid={invalido}
       aria-invalid={invalido}
       value={valor}
       onChange={(e) => onMudar(normalizarCodigo(e.target.value))}
       onKeyDown={(e) => {
-        if (e.key === "Enter" && valor.length === DIGITOS_CODIGO) onConfirmar?.();
+        if (e.key === "Enter" && !disabled) onConfirmar?.();
       }}
     />
   );

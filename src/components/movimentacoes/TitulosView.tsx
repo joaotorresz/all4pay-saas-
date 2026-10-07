@@ -590,7 +590,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                           muda com a direção (Pago × Recebido) porque é a palavra
                           que a pessoa usa ao falar com o outro lado. */}
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
                           <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: COR_STATUS[st] }} aria-hidden />
                           <span className="text-label text-ink">{rotuloSituacao(st, direcao)}</span>
                         </span>
@@ -635,7 +635,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                           identificam nada para quem lê nem servem para procurar o
                           título no suporte. `IdCopiavel` é o mesmo componente das
                           outras tabelas do produto — uma leitura só. */}
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <IdCopiavel id={m.id} />
                       </td>
                     </tr>

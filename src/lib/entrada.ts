@@ -261,11 +261,26 @@ export async function redefinirSenha(nova: string): Promise<ResultadoEntrada> {
  */
 
 type Recusa = { ok: false; motivo: string; comoResolver?: string };
+/**
+ * A recusa de uma chamada do segundo fator, na língua de quem opera.
+ *
+ * ⚠️ **Sessão encerrada é dita como sessão encerrada**, antes de `traduzir`:
+ * lá, "session missing" é o ramo do LINK de redefinição, e quem só digitou o
+ * código leria "o link de redefinição expirou" sem ter pedido link nenhum
+ * (medido: com a sessão derrubada noutro aparelho, o Auth responde
+ * `session_not_found` e o cliente devolve "Auth session missing!").
+ *
+ * ⚠️ **Código e mensagem se juntam SEM separador vazio**: com `code`
+ * ausente, um espaço na frente de `__prazo__` escondia a frase do prazo.
+ */
 const recusa = (e: unknown): Recusa => {
-  const err = e as { code?: string; message?: string } | null;
+  const err = e as { code?: string; message?: string; name?: string } | null;
   const bruto = err && typeof err === "object" && "message" in err
-    ? `${err.code ?? ""} ${err.message ?? ""}`
+    ? [err.code, err.message].filter(Boolean).join(" ")
     : e instanceof Error ? e.message : String(e);
+  if (err?.name === "AuthSessionMissingError" || /session[_ ](missing|not_found)/i.test(bruto)) {
+    return { ok: false, motivo: "A sua sessão terminou.", comoResolver: "Saia e entre de novo." };
+  }
   return { ok: false, ...traduzir(bruto) };
 };
 
@@ -351,14 +366,29 @@ export async function cancelarCadastroDoFator(factorId: string): Promise<void> {
  * Remove um aplicativo. O Auth só aceita com a sessão em `aal2` (medido:
  * `insufficient_aal` em `aal1`) — é o que impede quem só tem a senha de
  * desligar a proteção.
+ *
+ * ⚠️ **Remover o aparelho com que ESTA sessão entrou a rebaixa para `aal1`**
+ * (medido: o próximo refresh volta sem o código), e o token no cookie ainda
+ * diria `aal2` por até uma hora — "adicionar outro" seria recusado e a pessoa
+ * cairia no passo do código no meio do trabalho. Por isso a sessão é
+ * renovada aqui e `pedeCodigo` diz à tela, na hora, que falta o código de
+ * outro aparelho.
  */
-export async function removerFator(factorId: string): Promise<ResultadoEntrada> {
+export async function removerFator(factorId: string): Promise<{ ok: true; pedeCodigo: boolean } | Recusa> {
+  const s = createClient();
   try {
-    const { error } = await comPrazo(createClient().auth.mfa.unenroll({ factorId }), "fatores");
-    return error ? recusa(error) : { ok: true };
+    const { error } = await comPrazo(s.auth.mfa.unenroll({ factorId }), "fatores");
+    if (error) return recusa(error);
   } catch (e) {
     return recusa(e);
   }
+  try {
+    const { error } = await comPrazo(s.auth.refreshSession(), "sessao");
+    if (error) reportar("acesso.renovar_depois_de_remover", error, "Depois de remover um aplicativo, a sessão não foi renovada; o pedido do código pode chegar só na próxima renovação.", true);
+  } catch (e) {
+    reportar("acesso.renovar_depois_de_remover", e, "Depois de remover um aplicativo, a sessão não foi renovada; o pedido do código pode chegar só na próxima renovação.", true);
+  }
+  return { ok: true, pedeCodigo: await precisaDoCodigoAgora() };
 }
 
 /**
@@ -414,11 +444,26 @@ export async function entrarComCodigo(digitado: string): Promise<{ ok: true; des
   }
 }
 
-/** Sai da conta neste navegador — a saída de quem está no passo do código sem o celular. */
-export async function sairDaConta(): Promise<void> {
+/**
+ * Sai da conta NESTE navegador — a saída de quem está no passo do código sem
+ * o celular.
+ *
+ * ⚠️ **`scope: "local"`, nunca o padrão.** O padrão do cliente é `global`:
+ * medido, a sessão só com a senha derrubava a sessão JÁ VERIFICADA do outro
+ * aparelho, e quem está sem o celular perdia também o escritório.
+ *
+ * ⚠️ **A falha é DITA.** Em erro de rede o cliente devolve `{ error }` e
+ * MANTÉM a sessão local; navegar como se tivesse saído mandaria a pessoa de
+ * volta ao código, sem explicação.
+ */
+export async function sairDaConta(): Promise<{ ok: true } | Recusa> {
   try {
-    await comPrazo(createClient().auth.signOut(), "sair");
+    const { error } = await comPrazo(createClient().auth.signOut({ scope: "local" }), "sair");
+    if (!error) return { ok: true };
+    reportar("acesso.sair", error, "A saída da conta não encerrou a sessão neste navegador.", false);
+    return recusa(error);
   } catch (e) {
-    reportar("acesso.sair", e, "A saída da conta pode não ter encerrado a sessão no servidor.", true);
+    reportar("acesso.sair", e, "A saída da conta não encerrou a sessão neste navegador.", false);
+    return recusa(e);
   }
 }
