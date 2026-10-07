@@ -53,6 +53,15 @@ de backup antigo (continua aceito na restauração), o endereço
 `all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
 navegador e as migrations já aplicadas.
 
+⚠️ **O DOMÍNIO OFICIAL É `app.quattro.finance` (desde 07/10/2026)** — DNS na
+Hostinger (CNAME `app` → o alvo do projeto na Vercel) e Site URL do Supabase
+Auth (era `http://localhost:3000`). O webhook da Pinbank é
+`https://app.quattro.finance/api/pinbank/webhook`. **`all4pay-saas.vercel.app`
+continua respondendo e NÃO pode ganhar "Redirect to"**: o pg_cron do Open
+Finance e a guarda `no-ar` chamam por ele. Detalhe e pendências (verificação
+do titular até 21/10, "esqueci a senha" sem tela de nova senha) em
+`docs/rodada-10/dominio.md`.
+
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 
 **Verde para positivo e vermelho para negativo saíram do sistema inteiro.**
