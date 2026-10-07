@@ -13,7 +13,6 @@ import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
-import { NavHorizontal } from "@/components/app/NavHorizontal";
 import { CriarNovo } from "@/components/app/CriarNovo";
 
 /**
@@ -67,15 +66,16 @@ export function AppShell({
               `style` porque precisa sobreviver a qualquer fonte que o
               Laboratório injete — inclusive uma mais alta que a Roobert. */}
           <h1
-            className="m-0 text-[29px] text-ink truncate"
+            className="m-0 text-[23px] text-ink truncate"
             style={{
-              // Guia Quattro: título de tela em Centra No.2 Black, CAIXA ALTA,
-              // tracking −0.02em (a display vem do token `--font-display`).
-              fontFamily: 'var(--font-display, "Centra No2", "Roobert", sans-serif)',
+              // PROPOSTA "Quattro · Home" (out/2026): título de tela em Roobert
+              // Black 23px, caixa de frase, tracking −0.01em — escolhido no
+              // canvas. Substitui o Centra em CAIXA ALTA.
+              fontFamily: '"Roobert", sans-serif',
               fontWeight: 900,
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.01em",
               lineHeight: 1.1,
-              textTransform: "uppercase",
+              textTransform: "none",
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",
             }}
@@ -95,19 +95,16 @@ export function AppShell({
     // fundo agora vem do token da moldura, e a utility venceria a regra do CSS.
     <div className="a4p-canvas fixed inset-0 flex flex-col overflow-hidden">
       <TopBar />
-      {/* Segunda linha da moldura: os GRUPOS. A lateral, abaixo, lista os itens
-          do grupo ativo — os dois níveis da mesma árvore, um por superfície. */}
-      <NavHorizontal />
-      {/* Margens do cartão == padding da TopBar (`px-4 lg:px-6`): a marca e a
-          borda esquerda do cartão caem na MESMA vertical. Com 12 aqui e 16 lá
-          a moldura ficava com dois alinhamentos, que é o tipo de desencontro
-          que se sente sem saber nomear. */}
-      <div className="a4p-app-card flex-1 flex min-h-0 mx-4 mb-4 lg:mx-6 lg:mb-6">
+      {/* PROPOSTA "Quattro · Home" (out/2026): abaixo da barra, DOIS cartões
+          lado a lado sobre a moldura — o menu lateral (todos os grupos, em
+          acordeão) e a área de trabalho. A barra de pílulas saiu: os grupos
+          moram no menu. */}
+      <div className="flex-1 flex min-h-0 gap-3 p-3">
       {/* A lateral lê o `?tab=` para saber QUAL item está na tela (três deles
           apontam para o mesmo caminho). `useSearchParams` exige a fronteira de
           Suspense — a mesma que o `PageGuide` já usa logo abaixo. */}
       <React.Suspense fallback={null}><Sidebar /></React.Suspense>
-      <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
+      <main className={`a4p-app-card flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`} style={{ background: "var(--color-white)" }}>
         {/* ⚠️ ACIMA do cabeçalho e FORA da área que rola: o aviso de dado de
             demonstração precisa valer para toda tela e não pode sair de vista
             quando a pessoa rola o DRE — que é exatamente onde a contaminação
