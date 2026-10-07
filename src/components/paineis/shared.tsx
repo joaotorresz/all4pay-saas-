@@ -9,7 +9,7 @@
  * comportamento do seletor de mês muda em seis telas de uma vez.
  */
 import * as React from "react";
-import { Card, Icon, Select, BRL, InfoHint } from "@/components/ui";
+import { Card, Icon, Select, BRL, InfoHint, PontoStatus } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { deslocarMes, rotuloMesAno, type FiltroPainel } from "@/core/paineis";
 import { pctDeInteiro, decimalBR } from "@/lib/format";
@@ -149,6 +149,15 @@ const COR_TOM: Record<TomKpi, string> = {
   negativo: "var(--color-negative)",
 };
 
+/**
+ * ⚠️ O NÚMERO FICA NA TINTA (decisão do dono, 30/09/2026). O tom vira um PONTO
+ * ao lado do rótulo — e só quando pede atenção: "está tudo bem" não ganha
+ * marca (a mesma regra do `MetricCard` do cockpit).
+ */
+function PontoDeAlerta({ tom }: { tom: TomKpi }) {
+  return <PontoStatus cor={tom === "atencao" || tom === "negativo" ? COR_TOM[tom] : null} />;
+}
+
 /** Indicador simples: micro-label em caixa-alta + valor herói. */
 export function KpiSimples({
   label, valor, tom = "neutro", rodape, info,
@@ -158,8 +167,10 @@ export function KpiSimples({
 }) {
   return (
     <Card className="h-full flex flex-col justify-between" info={info}>
-      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
-      <span className="mt-3 text-[28px] leading-none font-semibold tabular-nums" style={{ color: COR_TOM[tom] }}>
+      <span className="inline-flex items-center gap-[6px] text-[11px] font-medium tracking-[0.08em] text-faint">
+        <PontoDeAlerta tom={tom} />{label}
+      </span>
+      <span className="mt-3 text-[28px] leading-none font-semibold tabular-nums text-ink">
         <BRL value={valor} />
       </span>
       {rodape && <span className="mt-2 text-caption text-faint">{rodape}</span>}
@@ -212,7 +223,7 @@ export function KpiStatus({
     <Card className="h-full relative overflow-hidden" info={info}>
       <span className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: COR_TOM[tom] }} />
       <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
-      <span className="block mt-3 text-[28px] leading-none font-semibold tabular-nums" style={{ color: COR_TOM[tom] }}>
+      <span className="block mt-3 text-[28px] leading-none font-semibold tabular-nums text-ink">
         <BRL value={valor} />
       </span>
       <span className="block mt-2 text-caption text-faint tabular-nums">

@@ -10,7 +10,7 @@
  * mostrar zeros sem explicação faria parecer que a empresa não movimenta.
  */
 import * as React from "react";
-import { Card, Button, Icon, Select, DateField, Switch, BRL, Skeleton } from "@/components/ui";
+import { Card, Button, Icon, Select, DateField, Switch, BRL, Skeleton, PontoStatus } from "@/components/ui";
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { listarTransferencias } from "@/lib/movimentacoes";
@@ -421,7 +421,7 @@ export function FaturaCartaoView() {
                 <div className="text-right shrink-0">
                   <div className="text-[20px] leading-none font-semibold text-ink tabular-nums"><BRL value={f.total} /></div>
                   {f.pago > 0 && f.pago < f.total && (
-                    <div className="text-caption text-positive tabular-nums mt-1">pago <BRL value={f.pago} /></div>
+                    <div className="text-caption text-muted tabular-nums mt-1">pago <BRL value={f.pago} /></div>
                   )}
                 </div>
               </div>
@@ -446,10 +446,10 @@ export function FaturaCartaoView() {
 function Kpi({ label, valor, cor, forte }: { label: string; valor: number; cor?: string; forte?: boolean }) {
   return (
     <Card>
-      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
+      <span className="inline-flex items-center gap-[6px] text-[11px] font-medium tracking-[0.08em] text-faint">{label}<PontoStatus cor={cor} /></span>
       <span
-        className={`block mt-2 text-[${forte ? 24 : 22}px] leading-none font-semibold tabular-nums`}
-        style={{ color: cor ?? "var(--color-ink)", fontSize: forte ? 24 : 22 }}
+        className={`block mt-2 text-[${forte ? 24 : 22}px] leading-none font-semibold tabular-nums text-ink`}
+        style={{ fontSize: forte ? 24 : 22 }}
       >
         <BRL value={valor} />
       </span>

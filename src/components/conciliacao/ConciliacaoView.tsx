@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, StatusBadge, Skeleton, InfoHint } from "@/components/ui";
+import { Card, Icon, BRL, Button, StatusBadge, Skeleton, InfoHint, PontoStatus } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { isDemo } from "@/lib/demo";
 import { getConciliacaoOF, conciliar, avaliarComIA, iaConciliacaoAtiva, type MatchConc, type AvaliacaoIA } from "@/lib/conciliacao-of";
@@ -174,8 +174,8 @@ export function ConciliacaoView() {
 function Resumo({ label, valor, contagem, tone = "var(--color-ink)", info }: { label: string; valor: number; contagem?: boolean; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
     <Card className="flex flex-col gap-1" info={info}>
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">{label}<PontoStatus cor={tone} /></span>
+      <span className="text-[18px] font-semibold tabular-nums text-ink">
         {contagem ? valor.toLocaleString("pt-BR") : <BRL value={valor} />}
       </span>
     </Card>

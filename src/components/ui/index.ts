@@ -23,6 +23,7 @@ export { SplitButton, type SplitButtonProps } from "./SplitButton";
 export { Money, type MoneyProps } from "./Money";
 export { BRL } from "./BRL";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
+export { PontoStatus } from "./PontoStatus";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
 export {
   DropdownMenu,

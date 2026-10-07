@@ -50,7 +50,10 @@ export function SegurancaContaView() {
   React.useEffect(() => { if (configured) void carregar(); }, [carregar]);
 
   const verificados = (fatores ?? []).filter((f) => f.verificado);
-  const pendentes = (fatores ?? []).filter((f) => !f.verificado);
+  // O aparelho que está sendo cadastrado AGORA não entra na lista: ali ele
+  // apareceria como "Não confirmado" com um "Descartar" ao lado do próprio
+  // QR que a pessoa está lendo. Pendente é só o cadastro abandonado de antes.
+  const pendentes = (fatores ?? []).filter((f) => !f.verificado && f.id !== cadastro?.factorId);
   const ativo = verificados.length > 0;
 
   async function comecar() {
@@ -136,7 +139,7 @@ export function SegurancaContaView() {
 
         {erroLista && <p role="alert" className="m-0 text-caption text-negative">{erroLista}</p>}
 
-        {(fatores ?? []).length > 0 && (
+        {verificados.length + pendentes.length > 0 && (
           <ul className="m-0 p-0 list-none flex flex-col">
             {[...verificados, ...pendentes].map((f, i) => (
               <li key={f.id} className={`flex items-center justify-between gap-3 py-3 ${i > 0 ? "border-t border-border-soft" : ""}`}>

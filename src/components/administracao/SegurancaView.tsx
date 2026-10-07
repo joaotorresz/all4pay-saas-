@@ -17,7 +17,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Button, Icon, StatusBadge, Badge, Textarea } from "@/components/ui";
+import { Card, Button, Icon, StatusBadge, Badge, Textarea, PontoStatus } from "@/components/ui";
 import {
   rodarIsolamentoCompleto, auditoriaRLS, listarRevisaoAdmin, listarAcessosAdmin,
   revisarAdmin, adminPosso, semServidor, type AcessoAdmin,
@@ -305,8 +305,11 @@ export function SegurancaView() {
 function Numero({ rotulo, valor, nota, cor }: { rotulo: string; valor: number; nota: string; cor?: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-caption text-faint">{rotulo}</span>
-      <span className="text-[22px] font-semibold tabular-nums" style={{ color: cor ?? "var(--color-ink)" }}>{valor}</span>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">
+        {rotulo}
+        <PontoStatus cor={cor} />
+      </span>
+      <span className="text-[22px] font-semibold tabular-nums text-ink">{valor}</span>
       <span className="text-caption text-faint">{nota}</span>
     </div>
   );
