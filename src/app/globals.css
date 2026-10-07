@@ -1207,9 +1207,12 @@ html.dark .a4p-canvas {
    Quem for reunificar as duas peças um dia: elas deixaram de ser o mesmo
    material de propósito, e o motivo é a referência Sphere UI. */
 .a4p-topbar {
-  background: transparent;
-  border-color: transparent;
-  color: var(--a4p-chrome-ink);
+  /* PROPOSTA "Quattro · Home" (out/2026): a barra de cima VOLTOU a ser cartão
+     branco com a borda dos cards — logo Quattro à esquerda, ações à direita,
+     sobre a moldura verde-base. */
+  background: var(--color-white);
+  border-color: var(--color-border);
+  color: var(--color-ink);
 }
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
@@ -1501,3 +1504,31 @@ html.dark .a4p-canvas {
 
 /* Fora da impressão, o cabeçalho do documento não existe. */
 [data-imprimir-cabecalho] { display: none; }
+
+/* ============================================================
+   HOME DA PROPOSTA (canvas "Quattro · Home", out/2026).
+   Os valores da Home são Roobert 500 — o canvas escolheu uma família só para
+   todos os números da tela, sem o Centra Black da regra global. Escopado ao
+   contêiner da Home (`.a4p-home`) para não mudar as outras telas sem decisão.
+   Precisa de TRÊS classes para vencer `.ds-visor .a4p-num`.
+   ============================================================ */
+.ds-visor .a4p-home .a4p-num,
+.ds-visor .a4p-home .a4p-num *,
+.ds-visor .a4p-home .tabular-nums,
+.ds-visor .a4p-home .a4p-heroi {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.ds-visor .a4p-home .a4p-heroi {
+  font-size: 36px;
+  text-transform: none;
+}
+.ds-visor .a4p-home .a4p-label {
+  font-family: var(--font-sans);
+}
+/* O prefixo R$ do herói segue a mesma família e peso do número na Home. */
+.ds-visor .a4p-home .a4p-heroi .a4p-num > span:first-child {
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
