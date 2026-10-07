@@ -93,6 +93,8 @@ export class ChaveIndisponivel extends Error {
 let cache: { chaves: Map<string, KeyObject>; em: number } | null = null;
 let ultimaTentativa = 0;
 const VALIDADE_MS = 60 * 60 * 1000;
+/** Busca falhou e o cache venceu: o vencido ainda serve até aqui (stale-if-error). */
+const VALIDADE_NA_FALHA_MS = 24 * 60 * 60 * 1000;
 const INTERVALO_MINIMO_MS = 5 * 60 * 1000;
 
 /** Só para teste: volta ao estado de uma instância recém-criada. */
@@ -137,6 +139,22 @@ function juntar(a: Map<string, KeyObject>, b: Map<string, KeyObject>): Map<strin
   return juntas;
 }
 
+async function buscarChaves(): Promise<Map<string, KeyObject>> {
+  const url = process.env.PINBANK_SIGNING_KEY_URL || URL_CHAVE_PUBLICA;
+  let buscadas: Map<string, KeyObject>;
+  try {
+    // `publico`: com os dois servidores fora, a chave PÚBLICA ainda pode vir
+    // direto (conferida pelo TLS) — ver PUBLICOS em saida.ts.
+    const r = await buscarPinbank(url, { timeoutMs: 8000, publico: url === URL_CHAVE_PUBLICA });
+    if (r.status !== 200) throw new Error(`signing-key respondeu ${r.status} (via ${r.via})`);
+    buscadas = chavesDoJwks(JSON.parse(r.corpo));
+  } catch (e) {
+    throw new ChaveIndisponivel(`não foi possível buscar a chave pública: ${(e as Error).message}`);
+  }
+  if (buscadas.size === 0) throw new ChaveIndisponivel("signing-key sem chave Ed25519 utilizável");
+  return buscadas;
+}
+
 /**
  * As chaves públicas. `PINBANK_WEBHOOK_JWKS` tem precedência — é o que a
  * documentação recomenda ("salve a resposta na sua aplicação") e o que deixa a
@@ -145,46 +163,50 @@ function juntar(a: Map<string, KeyObject>, b: Map<string, KeyObject>): Map<strin
  * fixas: depois de uma rotação, a chave nova vale para as entregas seguintes
  * sem uma busca por entrega.
  *
- * `forcar` é a ROTAÇÃO: um `kid` desconhecido pede uma busca nova — inclusive
- * com a JWKS fixa, que não conhece a chave que acabou de nascer.
- * `assinadoEmS` é o `Webhook-Timestamp` da entrega.
+ * ⚠️ **Busca que falha com cache VENCIDO usa o vencido (até 24 h)** — uma chave
+ * Ed25519 não "estraga" em uma hora; a hora é só a cadência de aprender chave
+ * nova. Sem isso, os servidores da saída fora por uma tarde = TODA entrega em
+ * 503, inclusive as assinadas pela chave que já conhecíamos. E, enquanto a
+ * falha for recente (5 min), nem tenta de novo: cada entrega pagaria o tempo
+ * de esgotar a busca antes de usar a mesma chave.
  *
- * ⚠️ **Só é 401 quando é CONCLUSIVO que o `kid` não existe**: houve uma busca
- * BEM-SUCEDIDA depois de a entrega ser assinada, e o `kid` não estava nela.
- * Sem isso — a busca falhou (rede, servidores da saída fora, endpoint em erro),
- * ou foi feita ANTES da assinatura e não pode ser repetida agora (uma busca a
- * cada 5 min, senão uma enxurrada de assinaturas falsas viraria uma enxurrada
- * de buscas) — lança `ChaveIndisponivel` → 503, e a Pinbank reenvia. Antes, a
- * falha devolvia o cache velho e a venda assinada com a chave nova levava 401
- * e se perdia. E comparar com a hora da ASSINATURA, não só com a da busca, é o
- * que impede alguém de mandar `kid` falso a cada 5 minutos para manter a
- * rotação legítima em 503 até a Pinbank desistir: a busca que o falso provoca
- * traz a chave nova, e a próxima reentrega legítima já a encontra.
- * (Supõe o que a rotação bem-feita garante: a chave é publicada ANTES de assinar.)
+ * `forcar` é a ROTAÇÃO: um `kid` desconhecido pede uma busca nova — inclusive
+ * com a JWKS fixa, que não conhece a chave que acabou de nascer. No máximo uma
+ * a cada 5 min (senão uma enxurrada de `kid` falso vira uma enxurrada de
+ * buscas); dentro do intervalo, ou se a busca falhar, é `ChaveIndisponivel` →
+ * **503, e a Pinbank reenvia**. O 401 só acontece logo depois de uma busca
+ * BEM-SUCEDIDA nesta mesma chamada que não trouxe o `kid` — é o único caso
+ * conclusivo. (Comparar com a hora da assinatura dependeria do relógio da
+ * Pinbank, que a janela de ±5 min já admite que difere do nosso.)
  */
-export async function chavesPinbank(forcar = false, assinadoEmS?: number): Promise<Map<string, KeyObject>> {
+export async function chavesPinbank(forcar = false): Promise<Map<string, KeyObject>> {
   const fixas = chavesFixas();
+  const com = (m: Map<string, KeyObject>) => (fixas ? juntar(fixas, m) : m);
   const agora = Date.now();
-  const fresco = cache && agora - cache.em < VALIDADE_MS ? cache : null;
-  if (!forcar) {
-    if (fixas) return fresco ? juntar(fixas, fresco.chaves) : fixas;
-    if (fresco) return fresco.chaves;
-  } else if (agora - ultimaTentativa < INTERVALO_MINIMO_MS) {
-    if (cache && assinadoEmS !== undefined && cache.em >= assinadoEmS * 1000) {
-      return fixas ? juntar(fixas, cache.chaves) : cache.chaves; // conclusivo: o kid não estava lá
+  const fresco = !!cache && agora - cache.em < VALIDADE_MS;
+  const servivel = !!cache && agora - cache.em < VALIDADE_NA_FALHA_MS;
+  const tentouHaPouco = agora - ultimaTentativa < INTERVALO_MINIMO_MS;
+
+  if (forcar) {
+    if (tentouHaPouco) {
+      throw new ChaveIndisponivel("chave desconhecida e a busca que a esclareceria não pode ser feita agora; reenvie.");
     }
-    throw new ChaveIndisponivel("chave desconhecida e a busca que a esclareceria não pode ser feita agora; reenvie.");
+  } else {
+    if (fresco && cache) return com(cache.chaves);
+    if (fixas) return servivel && cache ? juntar(fixas, cache.chaves) : fixas;
+    if (servivel && cache && tentouHaPouco) return cache.chaves;
   }
+
   ultimaTentativa = agora;
-  let buscadas: Map<string, KeyObject>;
   try {
-    const r = await buscarPinbank(process.env.PINBANK_SIGNING_KEY_URL || URL_CHAVE_PUBLICA, { timeoutMs: 8000 });
-    if (r.status !== 200) throw new Error(`signing-key respondeu ${r.status} (via ${r.via})`);
-    buscadas = chavesDoJwks(JSON.parse(r.corpo));
+    const buscadas = await buscarChaves();
+    cache = { chaves: buscadas, em: agora };
+    return com(buscadas);
   } catch (e) {
-    throw new ChaveIndisponivel(`não foi possível buscar a chave pública: ${(e as Error).message}`);
+    if (!forcar && servivel && cache) {
+      console.warn("[falha·pinbank] pinbank.chave_publica: usando a chave já conhecida (vencida há menos de 24 h):", (e as Error).message);
+      return cache.chaves;
+    }
+    throw e;
   }
-  if (buscadas.size === 0) throw new ChaveIndisponivel("signing-key sem chave Ed25519 utilizável");
-  cache = { chaves: buscadas, em: agora };
-  return fixas ? juntar(fixas, buscadas) : buscadas;
 }

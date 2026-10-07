@@ -101,7 +101,10 @@ Pinbank ──POST──▶ /api/pinbank/webhook
    busca a chave — pela saída fixa — e guarda por uma hora). ⚠️ Com a JWKS
    fixa, uma ROTAÇÃO de chave ainda busca a nova; se a busca falhar, o webhook
    responde 503 (a Pinbank reenvia), nunca o 401 que perderia a venda — e JSON
-   ilegível na variável também é 503, não "nenhuma chave".
+   ilegível na variável também é 503, não "nenhuma chave". Sem a JWKS fixa,
+   busca que falha com o cache vencido usa a chave já conhecida (até 24 h), e a
+   chave pública — só ela — volta ao caminho direto se os dois servidores da
+   saída fixa estiverem fora.
 4. `PINBANK_WEBHOOK=ligado`.
 5. No `/admin`, vincular cada estabelecimento (o código aparece na quarentena
    assim que a primeira venda chega); a empresa ativa em Integrações.

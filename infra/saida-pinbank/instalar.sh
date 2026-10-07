@@ -12,38 +12,16 @@
 #
 #   SERVIDOR=1 bash instalar.sh
 #
-# Variáveis de entrada:
-#   SERVIDOR             1 ou 2 (obrigatória). Decide a hora do reinício e o
-#                        nome da variável na Vercel (PINBANK_SAIDA_1 / _2).
-#   PROXY_SENHA          opcional. Sem ela, a senha é GERADA aqui, na própria
-#                        máquina (openssl rand), e guardada em
-#                        /root/quattro-saida/credencial (root, 0600). É o
-#                        caminho recomendado: a senha nunca passa por console,
-#                        user-data, documento ou chat.
-#   PROXY_SENHA_ARQUIVO  alternativa a PROXY_SENHA: arquivo com a senha na 1ª linha.
-#   PROXY_USUARIO        opcional. Sem ele, um usuário ALEATÓRIO é gerado. ⚠️
-#                        Usuário previsível ("quattro") deixa qualquer um mandar
-#                        senha errada nele e enfileirar o bcrypt — medido: o
-#                        cliente legítimo passou de ~0 s para 1,2–4,8 s por
-#                        túnel. Com usuário desconhecido isso não acontece.
-#   REINICIO_HORA        opcional (HH:MM, UTC). Padrão: 07:10 no servidor 1 e
-#                        07:40 no 2 (04:10 e 04:40 de Brasília) — HORAS
-#                        DIFERENTES, senão os dois reiniciam juntos e não sobra
-#                        saída nenhuma durante o reboot.
+# Entrada: SERVIDOR=1|2 (obrigatória). Opcionais: PROXY_SENHA ou
+# PROXY_SENHA_ARQUIVO (sem elas a senha é GERADA aqui e guardada em
+# /root/quattro-saida/credencial, 0600 — o caminho recomendado), PROXY_USUARIO
+# (sem ele, aleatório) e REINICIO_HORA (HH:MM UTC; padrão 07:10 no 1 e 07:40 no
+# 2 — horas DIFERENTES, para os dois nunca reiniciarem juntos).
+# Depois de anexar o IP fixo: `sudo quattro-saida-url`.
 #
-# Depois de anexar o IP fixo no Lightsail, `sudo quattro-saida-url` mostra o
-# IP fixo deste servidor e o valor da variável PINBANK_SAIDA_<n> da Vercel.
-#
-# ⚠️ A senha NUNCA aparece em argumento de processo (ps), em log, nem na saída
-# deste script (nada de `set -x`: o launch script vai para o log do cloud-init).
-# O marcador TROQUE_ESTA_SENHA é RECUSADO: subir um proxy com senha conhecida é
-# pior que não subir.
-#
-# ⚠️ /etc/squid/squid.conf (o do pacote) NÃO é tocado. Ele é "conffile" do
-# Debian; editá-lo faria o unattended-upgrades PULAR as atualizações de
-# segurança do Squid sempre que o pacote trouxer um squid.conf novo (ele não
-# atualiza pacote que pediria pergunta de conffile). A configuração mora em
-# /etc/squid/quattro-saida.conf e o systemd a aponta por um drop-in.
+# ⚠️ A senha nunca vai para argumento de processo, log ou saída (nada de
+# `set -x`). O squid.conf do pacote NÃO é tocado (é conffile: editá-lo faria o
+# unattended-upgrades pular as correções do Squid). Os porquês: o documento.
 # =============================================================================
 set -Eeuo pipefail
 umask 027
@@ -58,19 +36,16 @@ readonly DROPIN_DIR=/etc/systemd/system/squid.service.d
 readonly DROPIN="$DROPIN_DIR/quattro-saida.conf"
 readonly HELPER=/usr/lib/squid/basic_ncsa_auth
 readonly APT_AUTO=/etc/apt/apt.conf.d/20auto-upgrades
-# "zz-": o apt lê apt.conf.d em ordem alfabética e o ÚLTIMO vence. Com "99-",
-# um arquivo de imagem como "docker-disable-periodic-update" (Enable "0") vinha
-# depois e desligava as atualizações em silêncio — medido no teste.
+# "zz-": o apt lê apt.conf.d em ordem alfabética e o ÚLTIMO vence (com "99-",
+# o "docker-disable-periodic-update" de uma imagem vinha depois — medido).
 readonly APT_QUATTRO=/etc/apt/apt.conf.d/zz-quattro-saida
 readonly SYSCTL_V6=/etc/sysctl.d/60-quattro-saida-sem-ipv6.conf
 readonly DIR_CRED=/root/quattro-saida
 readonly ARQ_CRED="$DIR_CRED/credencial"
 readonly COMANDO_URL=/usr/local/sbin/quattro-saida-url
 
-# Destinos permitidos — o ÚNICO lugar onde a lista mora.
-#   .pinbank.com.br        a API e a chave do webhook (o ponto inicial cobre o
-#                          domínio e todo subdomínio)
-#   checkip.amazonaws.com  o teste de saúde: devolve o IP de saída do servidor
+# Destinos permitidos — o ÚNICO lugar da lista: a Pinbank (domínio e todo
+# subdomínio) e o eco de IP do teste de saúde.
 readonly DESTINOS='.pinbank.com.br checkip.amazonaws.com'
 
 falha() { printf 'ERRO: %s\n' "$*" >&2; exit 1; }
@@ -141,12 +116,11 @@ tem_systemd() { [ -d /run/systemd/system ]; }
 # ---------------------------------------------------------------------------
 # 2. Só IPv4 na saída
 # ---------------------------------------------------------------------------
-# ⚠️ A Pinbank libera o IPv4 FIXO. O domínio dela tem AAAA (Cloudflare): com
-# IPv6 na máquina, o Squid poderia sair por IPv6 e a Pinbank veria outro
-# endereço — "funciona às vezes", que é o pior defeito de achar. O Lightsail
-# nasce com IPv6 ligado, então o script o DESLIGA no sistema (e o passo a passo
-# o desliga também no console, o que fecha o firewall IPv6). Se mesmo assim
-# sobrar endereço IPv6 global, o script PARA.
+# ⚠️ A Pinbank libera o IPv4 FIXO e o domínio dela tem AAAA: saindo por IPv6,
+# ela veria outro endereço. Três camadas (o sysctl sozinho não sobrevive ao
+# boot): o console do Lightsail tira o IPv6 da instância; este sysctl; e o
+# Squid o reaplica a cada partida (passo 6). Sem `ipv6.disable=1` no GRUB, de
+# propósito: mexer no boot de uma máquina só alcançável pelo navegador é pior.
 if [ -d /proc/sys/net/ipv6 ]; then
   cat >"$SYSCTL_V6.novo" <<'EOF'
 # Gerado por instalar.sh (saída fixa da Quattro): só IPv4, porque a Pinbank
@@ -158,7 +132,7 @@ EOF
   sysctl -q -p "$SYSCTL_V6" >/dev/null 2>&1 || true
 fi
 if command -v ip >/dev/null 2>&1 && [ -n "$(ip -6 addr show scope global 2>/dev/null)" ]; then
-  falha "esta máquina continua com IPv6 global depois de desligá-lo; a saída poderia não usar o IP fixo."
+  falha "esta máquina continua com IPv6 global depois de desligá-lo; a saída poderia não usar o IP fixo. Desligue o IPv6 no console do Lightsail (aba Networking) e rode de novo."
 fi
 
 # Hora do reinício em UTC de propósito: a imagem do Ubuntu já nasce em UTC, e
@@ -171,13 +145,35 @@ fi
 # 3. Pacotes (sem deixar o Squid subir com a configuração padrão do pacote)
 # ---------------------------------------------------------------------------
 POLICY_CRIADO=0
+# ⚠️ Temporários numa pasta PRIVADA que some inteira na saída. (Guardar os
+# nomes num array dentro de `$(novo_tmp)` — subshell — deixava cópias da
+# credencial em /tmp: medido, 12 arquivos em três rotações.)
+TMPD="$(mktemp -d)"
+chmod 0700 "$TMPD"
 limpar() {
   if [ "$POLICY_CRIADO" = 1 ]; then rm -f /usr/sbin/policy-rc.d; fi
-  rm -f "${TMPS[@]:-}" 2>/dev/null || true
+  rm -rf "$TMPD"
 }
-TMPS=()
 trap limpar EXIT
-novo_tmp() { local t; t="$(mktemp)"; TMPS+=("$t"); printf '%s' "$t"; }
+novo_tmp() { mktemp -p "$TMPD"; }
+
+# ⚠️ `DPkg::Lock::Timeout` não cobre a trava das LISTAS: com o apt-daily do
+# Ubuntu rodando, `apt-get update` sai na hora com "Could not get lock" (medido,
+# apt 2.8.3). Então: repetir enquanto o motivo for trava, por até 10 min.
+apt_esperando() {
+  local saida limite=$((SECONDS + 600))
+  saida="$(novo_tmp)"
+  while :; do
+    if apt-get "$@" >"$saida" 2>&1; then cat "$saida"; return 0; fi
+    if grep -qE 'Could not get lock|Unable to lock|is held by process' "$saida" && [ "$SECONDS" -lt "$limite" ]; then
+      info "outro apt está rodando; esperando a trava (até 10 min)..."
+      sleep 10
+      continue
+    fi
+    cat "$saida" >&2
+    return 1
+  done
+}
 
 APT_OPTS=(-y -q -o DPkg::Lock::Timeout=600 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 PACOTES=(squid apache2-utils unattended-upgrades curl ca-certificates iproute2 openssl)
@@ -187,18 +183,15 @@ for p in "${PACOTES[@]}"; do
 done
 if [ "${#faltando[@]}" -gt 0 ]; then
   info "instalando: ${faltando[*]}"
-  # policy-rc.d = 101 impede o postinst de subir o Squid com o squid.conf do
-  # pacote (porta 3128 aberta para a rede local) antes de a nossa configuração
-  # existir. Só removemos o arquivo se fomos nós que o criamos.
+  # policy-rc.d = 101: o postinst não sobe o Squid com o squid.conf do pacote
+  # antes de a nossa configuração existir (só removemos o que criamos).
   if [ ! -e /usr/sbin/policy-rc.d ]; then
     printf '#!/bin/sh\nexit 101\n' >/usr/sbin/policy-rc.d
     chmod 0755 /usr/sbin/policy-rc.d
     POLICY_CRIADO=1
   fi
-  # A trava do dpkg no primeiro boot (o apt-daily do próprio Ubuntu) espera em
-  # vez de abortar: DPkg::Lock::Timeout.
-  apt-get -q -o DPkg::Lock::Timeout=600 update
-  apt-get install "${APT_OPTS[@]}" --no-install-recommends "${faltando[@]}"
+  apt_esperando -q -o DPkg::Lock::Timeout=600 update || falha "apt-get update falhou."
+  apt_esperando install "${APT_OPTS[@]}" --no-install-recommends "${faltando[@]}" || falha "apt-get install falhou."
   if [ "$POLICY_CRIADO" = 1 ]; then rm -f /usr/sbin/policy-rc.d; POLICY_CRIADO=0; fi
 fi
 [ -x "$HELPER" ] || falha "não achei $HELPER (o caminho mudou nesta versão do pacote?)."
@@ -338,6 +331,8 @@ if gravar "$DROPIN" 0644 root:root <<EOF
 # Gerado por instalar.sh
 [Service]
 ExecStartPre=
+# Só IPv4 (passo 2): "all" vale para toda interface; o "-" não trava o Squid.
+ExecStartPre=-/usr/sbin/sysctl -q -w net.ipv6.conf.all.disable_ipv6=1 net.ipv6.conf.default.disable_ipv6=1
 ExecStartPre=/usr/sbin/squid --foreground -z -f ${CONF}
 ExecStart=
 ExecStart=/usr/sbin/squid --foreground -sYC -f ${CONF}
@@ -417,11 +412,8 @@ done
 # ---------------------------------------------------------------------------
 gravar "$COMANDO_URL" 0750 root:root <<'EOF' && info "comando quattro-saida-url instalado." || true
 #!/usr/bin/env bash
-# Gerado por instalar.sh. Mostra o IP fixo de SAÍDA deste servidor (medido
-# passando pelo próprio proxy) e o valor da variável PINBANK_SAIDA_<n> da
-# Vercel. ⚠️ O valor contém a SENHA do proxy: cole direto na Vercel
-# (Environment Variables, só Production, marcada como Sensitive), nunca em
-# documento, e-mail ou chat.
+# Gerado por instalar.sh: o IP de SAÍDA (medido pelo próprio proxy) e o valor
+# de PINBANK_SAIDA_<n>. ⚠️ Contém a SENHA: só na Vercel (Production, Sensitive).
 set -Eeuo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "Use: sudo quattro-saida-url" >&2; exit 1; }
 SERVIDOR=""; PROXY_USUARIO=""; PROXY_SENHA=""; PORTA=""
@@ -441,6 +433,11 @@ for tentativa in 1 2 3; do
 done
 [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "ERRO: o proxy não conseguiu sair para medir o IP." >&2; exit 1; }
 echo
+if command -v ip >/dev/null 2>&1 && [ -n "$(ip -6 addr show scope global 2>/dev/null)" ]; then
+  echo "ATENÇÃO: este servidor tem IPv6 global — a saída para a Pinbank pode não usar o IP fixo."
+  echo "         Desligue o IPv6 no console do Lightsail (aba Networking) e reinicie o servidor."
+  echo
+fi
 echo "Servidor ${SERVIDOR} — IP de SAÍDA medido agora: ${ip}"
 echo "  (confira que é o mesmo IP fixo do Lightsail: é ESTE que vai para a Pinbank)"
 echo

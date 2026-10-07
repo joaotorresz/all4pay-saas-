@@ -30,8 +30,23 @@ que evita:
   log ou chat. O usuário também é aleatório: com usuário previsível, qualquer um
   manda senha errada nele e enfileira o bcrypt (medido: o túnel legítimo foi de
   ~0 s para 1,2–4,8 s).
-- ⚠️ **IPv6 desligado** no sistema: o domínio da Pinbank tem AAAA (Cloudflare), e
+- ⚠️ **Só IPv4, em três camadas**: o domínio da Pinbank tem AAAA (Cloudflare), e
   o Squid poderia sair por IPv6 — a Pinbank veria um endereço que não liberou.
+  O `sysctl` sozinho não sobrevive ao boot (o systemd-networkd reescreve o
+  `disable_ipv6` da interface), então: (1) o **console** do Lightsail tira o
+  IPv6 da instância — sem endereço da AWS não há rota IPv6; (2) o `sysctl` na
+  instalação; (3) o serviço do Squid o **reaplica a cada partida** (drop-in),
+  inclusive depois do reboot das atualizações. Sobrando IPv6 global, a
+  instalação PARA e o `quattro-saida-url` avisa. `ipv6.disable=1` no GRUB foi
+  descartado: mexer no boot de uma máquina que só se alcança pelo SSH do
+  navegador troca "IPv6 que volta" por "servidor que pode não voltar".
+- ⚠️ **O apt espera a trava das listas**: no primeiro boot o `apt-daily` do
+  Ubuntu costuma estar rodando, e `DPkg::Lock::Timeout` não cobre a trava das
+  LISTAS — `apt-get update` saía na hora com "Could not get lock" (medido). O
+  instalador repete enquanto o motivo for trava, por até 10 minutos.
+- ⚠️ **Temporários numa pasta privada que some inteira na saída**: a versão
+  anterior perdia os nomes dentro de um subshell e deixava cópias da credencial
+  em `/tmp` (medido: 12 arquivos em três rotações).
 - ⚠️ **A senha é conferida ANTES da lista por endereço**: aquela lista faz o Squid
   resolver o nome, e antes da senha qualquer um faria o servidor consultar DNS.
 - ⚠️ **O `squid.conf` do pacote NÃO é tocado**: ele é "conffile", e editá-lo faria
@@ -42,19 +57,33 @@ que evita:
 - ⚠️ **Nada de `set -x`**: a saída do launch script vai para o log do cloud-init.
 - O **launch script** é sh POSIX (o Lightsail mistura conteúdo próprio no
   user-data e não documenta em que shell roda), **compactado** (o user-data tem
-  teto de 16 KB; o script comentado tem 22 KB) e **conferido por SHA-256**:
-  colagem cortada é recusada com a mensagem "chegou CORTADO", nunca roda meio
-  script.
+  teto de 16 KB; o script comentado tem 22 KB; compactado, ~12,7 KB) e
+  **conferido por SHA-256**. ⚠️ **Colagem cortada em QUALQUER ponto diz "chegou
+  CORTADO"**: o embrulho só define coisas até a última linha (a única que age),
+  e quem decide é um `trap` de saída armado na segunda linha. Antes, um corte
+  no meio do texto compactado morria num erro de sintaxe que ninguém associaria
+  à colagem. O gerador é portável (Linux e macOS: `openssl` no lugar de
+  `base64 -w`/`sha256sum`) e só escreve a saída no fim.
 - `sudo quattro-saida-url` mede o IP de saída PASSANDO pelo próprio proxy e
   mostra o valor da variável da Vercel (`PINBANK_SAIDA_<n>`).
 
 ## O código
 
-- **`src/lib/pinbank/saida.ts` é a ÚNICA porta.** Com `PINBANK_SAIDA_1/2`, toda
-  chamada passa por um dos servidores e **nunca sai direto** — se os dois
-  falharem, a chamada falha (sair por um IP não liberado só trocaria o erro de
-  lugar). Sem as variáveis (local, preview, antes de ligar), sai direto e
-  **diz** que saiu direto (`via: "direto"`).
+- **`src/lib/pinbank/saida.ts` é a ÚNICA porta.** `requisicaoPinbank` (a API,
+  com credencial) **exige** os servidores: sem `PINBANK_SAIDA_<n>` ela recusa, e
+  com elas **nunca sai direto** — se os dois falharem, a chamada falha (sair por
+  um IP não liberado só trocaria o erro de lugar). `buscarPinbank` (GET simples)
+  sai direto quando não há servidor configurado (local, preview, antes de
+  ligar) e **diz** que saiu direto (`via: "direto"`).
+- ⚠️ **A reserva direta é só para o que é PÚBLICO** (`PUBLICOS`, hoje só a chave
+  do webhook, e só com `publico: true`): com os dois servidores fora — ou a
+  variável ilegível —, a chave pública ainda vem direto, conferida pelo TLS de
+  `pinbank.com.br` (`via: "direto-reserva"`, motivo no log). Sem ela, servidor
+  fora por mais tempo que a fila de reenvio da Pinbank = webhook em 503 até ela
+  desistir = venda perdida. Para qualquer outra URL, `publico` é recusado.
+- ⚠️ **O túnel não come a reserva do envio** (`minEnvioMs`, 1 s): um túnel que
+  abrisse no último instante mandaria o pedido com 1 ms de prazo, e "não saiu,
+  repita" viraria "pode ter chegado".
 - ⚠️ **A regra de troca de servidor é a FRONTEIRA DE FASE.** Fase 1 (TCP →
   CONNECT → TLS com a Pinbank): nada do pedido saiu, falha aqui tenta o outro
   servidor. Fase 2 (o pedido pelo túnel): **nunca se repete** — o pedido pode ter
@@ -72,6 +101,13 @@ que evita:
   `PINBANK_WEBHOOK_JWKS` com JSON ilegível virava "nenhuma chave" → 401 em toda
   entrega. O motivo vai para o log, não para a resposta pública (ele cita o
   endereço dos servidores).
+- ⚠️ **Busca que falha com o cache vencido usa a chave já conhecida (até 24 h)**
+  — uma chave Ed25519 não estraga em uma hora; a hora é só a cadência de
+  aprender chave nova. E o **401 só sai logo depois de uma busca BEM-SUCEDIDA
+  na mesma chamada** que não trouxe o `kid`: rotação repetida em menos de 5 min
+  é sempre 503. (Uma versão intermediária decidia o 401 comparando com a hora
+  da assinatura — que vem do relógio da Pinbank, e a janela de ±5 min já admite
+  que ele difere do nosso.)
 - **`/api/admin/saida-fixa`** (só administrador da plataforma) prova, DE DENTRO
   da função da Vercel e com as variáveis de produção, o IP de saída de CADA
   servidor (sem troca: um fora aparece fora), e confere que o IP medido é o da
@@ -80,12 +116,15 @@ que evita:
 
 ## As provas
 
-- **`npm run saida-pinbank`** (no `npm test`): dois proxies CONNECT de mentira e
-  uma "Pinbank" HTTPS local com CA de teste — 21 casos (troca na fase 1 por
-  recusa, travamento e 407; quarentena; 500 sem troca; queda depois do envio sem
-  repetição; os dois fora sem saída direta; destino fora da lista; variável
-  ruim sem ecoar a senha; prova dos IPs servidor a servidor) e **4 defeitos
-  plantados**, cada um derrubando o caso que o nomeia.
+- **`npm run saida-pinbank`** (no `npm test`): três proxies CONNECT de mentira
+  (um por TLS), uma "Pinbank" HTTPS local com CA de teste e um impostor com
+  certificado válido de OUTRO nome — 33 casos (troca na fase 1 por recusa,
+  travamento, 407, certificado de outro nome e CA do proxy errada; quarentena;
+  500 sem troca; queda e silêncio depois do envio sem repetição, no prazo
+  total; túnel lento que não manda o pedido sem prazo; os dois fora sem saída
+  direta; a reserva direta só para a chave pública; destino fora da lista;
+  nenhuma mensagem, tentativa ou log com a senha ou o base64 dela) e **10
+  defeitos plantados**, cada um derrubando o caso que o nomeia.
 - **`engine-audit`, bloco `saida-fixa:`** — teto ZERO do endereço da Pinbank e de
   socket próprio fora da porta (inclusive em `supabase/functions`), fetch de URL
   vinda de variável nas pastas da Pinbank, rota que chega à porta em runtime
@@ -95,12 +134,16 @@ que evita:
   portas fechadas), a ordem dos portões da rota de prova e as variáveis no
   `.env.example`. Defeitos plantados em cada metade.
 - **O instalador, num Ubuntu 24.04 do zero** (fora do CI: precisa de root e
-  apt): 59 casos — recusas antes de instalar (sem servidor, senha-marcador,
-  senha fraca), launch script pelo `dash`, colagem cortada no meio, no fim e com
-  um caractere trocado, senha fora de todo log, idempotência, rotação (a senha
-  velha morre na hora) e a política do proxy (407 sem senha, 403 fora da lista,
-  em outra porta, por IP literal, para nome que resolve à rede interna e em GET
-  simples).
+  apt): 68 casos — recusas antes de instalar (sem servidor, senha-marcador,
+  senha fraca), launch script pelo `dash`, colagem cortada (linhas faltando no
+  meio, no fim, no meio de uma linha, sem a última linha, um caractere
+  trocado), senha fora de todo log, nenhum temporário sobrando depois de duas
+  execuções, idempotência, rotação (a senha velha morre na hora), o apt
+  esperando a trava das listas presa por outro processo (com o defeito
+  plantado: sem a espera, morre na hora) e a política do proxy (407 sem senha,
+  403 fora da lista, em outra porta, por IP literal, para nome que resolve à
+  rede interna e em GET simples). À parte, o launch script cortado em **1.085
+  pontos**, no `dash` e no `bash`: todos dizem "chegou CORTADO", nenhum instala.
 
 ## O que NÃO está provado aqui, e onde se prova
 

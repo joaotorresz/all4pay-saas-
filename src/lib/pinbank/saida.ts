@@ -18,10 +18,13 @@ import type { IncomingHttpHeaders } from "node:http";
  *                                                     mostra em cada servidor)
  *   PINBANK_SAIDA_CA=<PEM>  só se um proxy for https:// (TLS até o proxy)
  *
- * Sem nenhuma `PINBANK_SAIDA_<n>` (local, preview, antes de ligar) a chamada sai
- * DIRETO, e quem pergunta fica sabendo (`via: "direto"`). Com elas, NUNCA sai
- * direto: se os dois servidores falharem, a chamada falha — sair por um IP que
- * a Pinbank não liberou só trocaria o erro de lugar.
+ * `requisicaoPinbank` (a API, com credencial) EXIGE os servidores: sem nenhuma
+ * `PINBANK_SAIDA_<n>` ela recusa, e com elas NUNCA sai direto — se os dois
+ * falharem, a chamada falha (sair por um IP que a Pinbank não liberou só
+ * trocaria o erro de lugar). `buscarPinbank` (GET simples) sai direto quando
+ * não há servidor configurado (local, preview, antes de ligar) e DIZ isso
+ * (`via: "direto"`); com servidor configurado, só volta ao direto para o que
+ * está em `PUBLICOS` (a chave pública do webhook) e só se pedir `publico`.
  *
  * ⚠️ A REGRA DE TROCA DE SERVIDOR, que é a decisão inteira deste arquivo:
  *   FASE 1 — abrir o túnel: TCP até o proxy → CONNECT → 200 → TLS com a
@@ -47,6 +50,15 @@ import type { IncomingHttpHeaders } from "node:http";
 
 /** A chave pública do webhook (Ed25519). Pública, mas sai pela mesma porta. */
 export const URL_CHAVE_PUBLICA = "https://pinbank.com.br/webhook/signing-key";
+/**
+ * O que é PÚBLICO de verdade (sem credencial, GET, só leitura): o único caso em
+ * que, com os dois servidores fora, vale buscar direto. Sem isso, servidor fora
+ * por mais tempo que a fila de reenvio da Pinbank = webhook em 503 até ela
+ * desistir = venda perdida. Direto, a chave continua conferida pelo TLS (o
+ * certificado de pinbank.com.br) — o IP de saída só importa para o que a
+ * Pinbank tranca por IP, e uma chave pública não é isso.
+ */
+export const PUBLICOS: readonly string[] = [URL_CHAVE_PUBLICA];
 /** O eco de IP da AWS: é por ele que se prova POR ONDE a chamada saiu. */
 export const URL_ECO_DE_IP = "https://checkip.amazonaws.com/";
 
@@ -89,6 +101,13 @@ export type PedidoPinbank = {
   timeoutConexaoMs?: number;
   /** Do início ao último byte da resposta, somando as tentativas. Padrão 25 s. */
   timeoutTotalMs?: number;
+  /**
+   * O pedido só SAI se sobrar ao menos isto do prazo total. Padrão 1 s. Sem a
+   * reserva, um túnel que abre no último instante manda o pedido com 1 ms de
+   * prazo: ele estoura DEPOIS de enviado, e o que era "não saiu, repita" vira
+   * "pode ter chegado" — a pior resposta para um pedido de dinheiro.
+   */
+  minEnvioMs?: number;
   /** Teto do corpo da resposta. Padrão 5 MB. */
   maxBytesResposta?: number;
   signal?: AbortSignal;
@@ -348,17 +367,19 @@ export async function requisicaoPinbank(p: PedidoPinbank): Promise<RespostaPinba
 
   const inicio = Date.now();
   const prazo = inicio + (p.timeoutTotalMs ?? 25_000);
+  const minEnvio = p.minEnvioMs ?? 1_000;
   const tentativas: Tentativa[] = [];
   let sock: tls.TLSSocket | undefined;
   let via = "";
 
   for (const proxy of ordenar(proxies, inicio)) {
-    const restante = prazo - Date.now();
-    if (restante <= 0 || p.signal?.aborted) break;
+    // O túnel nunca come a reserva do envio.
+    const janela = prazo - Date.now() - minEnvio;
+    if (janela <= 0 || p.signal?.aborted) break;
     const t0 = Date.now();
     try {
       sock = await abrirTunel(proxy, u.hostname, Number(u.port || 443), {
-        timeoutMs: Math.min(p.timeoutConexaoMs ?? 4_000, restante),
+        timeoutMs: Math.min(p.timeoutConexaoMs ?? 4_000, janela),
         caDestino: p.caDestino,
         caProxy,
         signal: p.signal,
@@ -374,6 +395,10 @@ export async function requisicaoPinbank(p: PedidoPinbank): Promise<RespostaPinba
   if (!sock) {
     const resumo = tentativas.map((t) => `${t.proxy}: ${t.motivo}`).join(" | ") || "nenhuma tentativa coube no prazo";
     throw new ErroSaida("conexao", `Nenhum servidor de saída abriu o túnel para ${u.hostname}. ${resumo}`, tentativas);
+  }
+  if (prazo - Date.now() < minEnvio || p.signal?.aborted) {
+    sock.destroy();
+    throw new ErroSaida("conexao", `O túnel por ${via} abriu sem prazo para o envio: o pedido NÃO saiu (seguro repetir).`, tentativas, via);
   }
 
   try {
@@ -394,20 +419,43 @@ export async function requisicaoPinbank(p: PedidoPinbank): Promise<RespostaPinba
  * Um GET simples à Pinbank (ex.: a chave pública do webhook) pela porta única:
  * pelos servidores da saída fixa quando há `PINBANK_SAIDA_<n>`, direto quando
  * não há. `via` diz qual dos dois aconteceu.
+ *
+ * `publico: true` (só para URL em `PUBLICOS`): se os servidores falharem — ou a
+ * variável estiver ilegível —, tenta DIRETO e devolve `via: "direto-reserva"`,
+ * com o motivo no log. Para qualquer outra URL, `publico` é recusado: o que
+ * leva credencial ou muda estado nunca sai por IP não liberado.
  */
 export async function buscarPinbank(
   url: string,
-  o: { timeoutMs?: number; env?: Ambiente; fetchDireto?: typeof fetch; caDestino?: string | Buffer } = {},
+  o: { timeoutMs?: number; env?: Ambiente; fetchDireto?: typeof fetch; caDestino?: string | Buffer; publico?: boolean } = {},
 ): Promise<{ status: number; corpo: string; via: string }> {
   urlDestino(url);
+  if (o.publico && !PUBLICOS.includes(url)) {
+    throw new ErroSaida("configuracao", "Só o que está em PUBLICOS pode voltar ao caminho direto.");
+  }
   const timeoutMs = o.timeoutMs ?? 8_000;
-  const proxies = lerProxies(o.env);
-  if (proxies.length > 0) {
+  const direto = async (via: string) => {
+    const r = await (o.fetchDireto ?? fetch)(url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+    return { status: r.status, corpo: await r.text(), via };
+  };
+  let proxies: ProxySaida[];
+  try {
+    proxies = lerProxies(o.env);
+  } catch (e) {
+    if (!o.publico) throw e;
+    console.warn("[falha·pinbank] saida_fixa.reserva_publica:", (e as Error).message);
+    return direto("direto-reserva");
+  }
+  if (proxies.length === 0) return direto("direto");
+  try {
     const r = await requisicaoPinbank({ url, proxies, timeoutTotalMs: timeoutMs, caDestino: o.caDestino });
     return { status: r.status, corpo: r.corpo.toString("utf8"), via: r.via };
+  } catch (e) {
+    if (!o.publico) throw e;
+    // A mensagem traz só "IP:porta" e o motivo — nunca a credencial.
+    console.warn("[falha·pinbank] saida_fixa.reserva_publica:", (e as Error).message);
+    return direto("direto-reserva");
   }
-  const r = await (o.fetchDireto ?? fetch)(url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
-  return { status: r.status, corpo: await r.text(), via: "direto" };
 }
 
 /**

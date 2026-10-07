@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     // 401 do veredito anterior — 401 a Pinbank não reenvia, e a venda
     // assinada com a chave nova se perderia.
     try {
-      v = verificarAssinatura({ corpo, ...cab, agoraSegundos, chaves: await chavesPinbank(true, Number(cab.timestamp)) });
+      v = verificarAssinatura({ corpo, ...cab, agoraSegundos, chaves: await chavesPinbank(true) });
     } catch (e) {
       return chaveIndisponivel(e);
     }
