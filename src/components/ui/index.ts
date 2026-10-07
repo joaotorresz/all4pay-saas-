@@ -10,6 +10,7 @@ export { Badge, type BadgeProps } from "./Badge";
 export { Pill, type PillProps } from "./Pill";
 export { Avatar, type AvatarProps } from "./Avatar";
 export { Input, type InputProps } from "./Input";
+export { CampoCodigo } from "./CampoCodigo";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Select, type SelectProps, type SelectOption } from "./Select";
 export { SelectBusca, type SelectBuscaProps, type OpcaoBusca } from "./SelectBusca";
@@ -22,6 +23,7 @@ export { SplitButton, type SplitButtonProps } from "./SplitButton";
 export { Money, type MoneyProps } from "./Money";
 export { BRL } from "./BRL";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
+export { PontoStatus } from "./PontoStatus";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
 export {
   DropdownMenu,

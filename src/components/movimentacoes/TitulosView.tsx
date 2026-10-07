@@ -559,15 +559,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                         : new Set())}
                     />
                   </Th>
-                  <Th>ID</Th>
                   <Th>Descrição</Th>
                   <Th>Situação</Th>
                   <Th>Vencimento / {liquidado.toLowerCase()}</Th>
-                  <Th>Conta</Th>
-                  <Th>Categoria</Th>
-                  <Th>{parte}</Th>
                   <Th direita>Valor</Th>
                   <Th direita>{liquidado}</Th>
+                  <Th>{parte}</Th>
+                  <Th>Categoria</Th>
+                  <Th>Conta</Th>
+                  <Th>ID</Th>
                 </tr>
               </thead>
               <tbody>
@@ -575,35 +575,27 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                   const st = input ? statusDoTitulo(m, input.hoje) : "aberto";
                   return (
                     <tr key={m.id} onClick={() => setBaixa(m)} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors cursor-pointer">
-                      <td className="px-6 py-3">
+                      <td className="px-4 py-3">
                         <span onClick={(e) => e.stopPropagation()}><Checkbox checked={marcados.has(m.id)} onChange={() => alternar(m.id)} /></span>
-                      </td>
-                      {/* ⚠️ A4P-045 — o id sai INTEIRO e copiável. `m.id.slice(0, 10)`
-                          mostrava "16ab4f3c-4": dez caracteres de um UUID, que não
-                          identificam nada para quem lê nem servem para procurar o
-                          título no suporte. `IdCopiavel` é o mesmo componente das
-                          outras tabelas do produto — uma leitura só. */}
-                      <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                        <IdCopiavel id={m.id} />
                       </td>
                       {/* A DESCRIÇÃO é o que a pessoa digitou ao lançar ("Aluguel
                           de outubro", "Salário · Ana · 09/2026") — sem ela, duas
                           contas da mesma categoria e do mesmo fornecedor eram
                           indistinguíveis na lista. */}
-                      <td className="px-6 py-3 text-label text-ink max-w-[260px] truncate" title={m.descricao ?? undefined}>
+                      <td className="px-4 py-3 text-label text-ink max-w-[260px] truncate" title={m.descricao ?? undefined}>
                         {m.descricao?.trim() ? m.descricao : <span className="text-muted">—</span>}
                       </td>
                       {/* ⚠️ A situação em PALAVRA, não só na cor. O ponto fica como
                           reforço; quem não distingue as cores lê o rótulo, e ele
                           muda com a direção (Pago × Recebido) porque é a palavra
                           que a pessoa usa ao falar com o outro lado. */}
-                      <td className="px-6 py-3">
-                        <span className="inline-flex items-center gap-2">
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
                           <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: COR_STATUS[st] }} aria-hidden />
                           <span className="text-label text-ink">{rotuloSituacao(st, direcao)}</span>
                         </span>
                       </td>
-                      <td className="px-6 py-3">
+                      <td className="px-4 py-3">
                         <div className="flex flex-col">
                           <span className="text-label text-ink tabular-nums">{fmtDia(m.due_date)}</span>
                           {/* Data não tem cor por sinal: tinta do texto, e o rótulo da
@@ -611,9 +603,18 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                           {m.paid_date && <span className="text-caption text-ink tabular-nums">{fmtDia(m.paid_date)}</span>}
                         </div>
                       </td>
-                      <td className="px-6 py-3 text-label text-muted">{nomeConta(m.accountId)}</td>
-                      <td className="px-6 py-3 text-label text-muted">{m.category ?? "—"}</td>
-                      <td className="px-6 py-3">
+                      {/* ⚠️ Valor e baixa logo depois do vencimento: com a ordem antiga
+                          (ID inteiro primeiro, valor no fim), numa tela de notebook
+                          (1440px) a coluna Valor ficava fora da área visível — a
+                          lista de títulos sem o valor dos títulos. O ID continua
+                          INTEIRO (A4P-045), agora na última coluna. */}
+                      <td className="px-4 py-3 text-right text-label text-ink tabular-nums"><BRL value={Math.abs(m.amount)} /></td>
+                      <td className="px-4 py-3 text-right text-label tabular-nums">
+                        {m.status === "pago"
+                          ? <span className="text-ink"><BRL value={Math.abs(m.amount)} /></span>
+                          : <span className="text-faint">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
                         {m.party_id ? (
                           <button
                             // ⚠️ CAMP-B: sem parar a propagação, o clique no nome
@@ -627,11 +628,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                           </button>
                         ) : <span className="text-muted">—</span>}
                       </td>
-                      <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={Math.abs(m.amount)} /></td>
-                      <td className="px-6 py-3 text-right text-label tabular-nums">
-                        {m.status === "pago"
-                          ? <span className="text-ink"><BRL value={Math.abs(m.amount)} /></span>
-                          : <span className="text-faint">—</span>}
+                      <td className="px-4 py-3 text-label text-muted">{m.category ?? "—"}</td>
+                      <td className="px-4 py-3 text-label text-muted">{nomeConta(m.accountId)}</td>
+                      {/* ⚠️ A4P-045 — o id sai INTEIRO e copiável. `m.id.slice(0, 10)`
+                          mostrava "16ab4f3c-4": dez caracteres de um UUID, que não
+                          identificam nada para quem lê nem servem para procurar o
+                          título no suporte. `IdCopiavel` é o mesmo componente das
+                          outras tabelas do produto — uma leitura só. */}
+                      <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <IdCopiavel id={m.id} />
                       </td>
                     </tr>
                   );
@@ -740,7 +745,11 @@ function CardTitulo({
           <div className="text-caption text-muted">
             {c.label} <span className="text-faint tabular-nums">({c.quantidade})</span>
           </div>
-          <div className="text-[22px] leading-none font-semibold tabular-nums mt-1" style={{ color: cor }}>
+          {/* ⚠️ O número fica na TINTA do texto (decisão do dono, 30/09/2026):
+              o status já está no anel ao lado e na palavra do rótulo. Pintar o
+              valor de verde, laranja ou vermelho repetia a cor no lugar em que
+              ela não pode estar. */}
+          <div className="text-[22px] leading-none font-semibold tabular-nums mt-1 text-ink">
             <BRL value={c.valor} />
           </div>
         </div>
@@ -752,7 +761,7 @@ function CardTitulo({
 
 function Th({ children, direita, className }: { children?: React.ReactNode; direita?: boolean; className?: string }) {
   return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"} ${className ?? ""}`}>
+    <th className={`px-4 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"} ${className ?? ""}`}>
       {children}
     </th>
   );

@@ -107,7 +107,17 @@ export const CONTROLES: Controle[] = [
     tipo: "navegacao", destino: "/empresas/nova",
   },
 
+  { id: "topbar.segurancaConta", tela: "Visão geral", rotulo: "Segurança da conta", tipo: "navegacao", destino: "/configuracoes/seguranca" },
+
   /* ------------------------------ destrutivas ---------------------------- */
+  {
+    // ⚠️ Sem desfazer: a chave do aplicativo morre com o cadastro, e voltar
+    // exige um QR novo. A confirmação diz isso e mostra o impacto ANTES.
+    id: "conta.removerFator", tela: "Segurança da conta", rotulo: "Remover",
+    tipo: "destrutiva", confirma: true, desfaz: false,
+    efeito: "remove o aplicativo autenticador, mostrando ANTES o que muda (a conta volta a entrar só com a senha, se era o último)",
+    fechaPorEsc: true,
+  },
   {
     id: "upload.limpar", tela: "Upload de dados", rotulo: "Limpar dados importados",
     tipo: "destrutiva", confirma: true, desfaz: true,

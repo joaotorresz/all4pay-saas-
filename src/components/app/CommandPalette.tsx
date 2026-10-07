@@ -99,6 +99,7 @@ const ROUTES: RouteItem[] = [
   { label: "Contratos", href: "/dashboard/registrations/contracts", icon: "file-text", kw: "contrato fornecedor cliente vigencia rateio vendas recorrentes anexo" },
   { label: "Orçamentos", href: "/dashboard/registrations/budgets", icon: "target", kw: "orcamento budget planejamento previsto alocacao mensal por categoria previsto realizado" },
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
+  { label: "Segurança da conta", href: "/configuracoes/seguranca", icon: "shield-check", kw: "segundo fator autenticador codigo verificacao duas etapas celular aplicativo proteger conta acesso" },
   // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
   { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },
   // ⚠️ ÚNICA porta do painel Criar depois que o botão saiu da lateral. Sem
