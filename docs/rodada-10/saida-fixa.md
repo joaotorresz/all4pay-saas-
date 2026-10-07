@@ -1,0 +1,130 @@
+# A saída fixa para a Pinbank: dois IPs, uma porta (07/10/2026)
+
+A Pinbank libera em produção os IPs de onde **nós** chamamos a API dela (o dev
+confirmou: "os dois IPs serão para o ambiente de produção, precisam ser IPs
+fixos"). As funções da Vercel não têm IP fixo de saída. O Static IPs da própria
+Vercel custa US$ 100/mês por projeto e só existe no Pro (par compartilhado com
+outros clientes dela). O dono escolheu **dois servidores próprios na AWS**.
+
+```
+função da Vercel ── src/lib/pinbank/saida.ts ──┬─ servidor 1 (IP fixo 1) ─┐
+   (sem IP fixo)     a ÚNICA porta             └─ servidor 2 (IP fixo 2) ─┴─▶ Pinbank (só libera os 2 IPs)
+```
+
+## A infraestrutura (`infra/saida-pinbank/`)
+
+| O quê | Como |
+| --- | --- |
+| Servidores | 2 × Amazon Lightsail, **São Paulo** (`sa-east-1`), Ubuntu 24.04 LTS, plano de US$ 5/mês (IPv4 incluso), em **zonas diferentes** |
+| IP fixo | Um **Static IP** do Lightsail por servidor. Grátis enquanto anexado. O endereço é do RECURSO, não da máquina: recriar o servidor e reanexar mantém o IP que a Pinbank liberou. ⚠️ **Nunca apagar os static IPs** (`ip-saida-1`/`ip-saida-2`). |
+| Proxy | Squid só **CONNECT**, só porta **443**, só `*.pinbank.com.br` e `checkip.amazonaws.com` (o eco de IP do teste), só com **usuário e senha** (bcrypt). Todo o resto: 403/407. |
+| Firewall | Entrada só TCP **31280** (de qualquer origem: a Vercel não tem IP fixo — por isso a senha é obrigatória) e SSH só pelo navegador do console. HTTP 80 apagado, IPv6 desligado. |
+| Custo | US$ 10/mês os dois, sem impostos. |
+
+`instalar.sh` roda uma vez em cada servidor, pelo **launch script** que
+`gerar-launch-script.sh <1|2>` produz. As decisões dele, cada uma com o defeito
+que evita:
+
+- ⚠️ **Usuário e senha nascem NO SERVIDOR** (`openssl rand`) e moram em
+  `/root/quattro-saida/credencial` (0600). Nunca passam por console, user-data,
+  log ou chat. O usuário também é aleatório: com usuário previsível, qualquer um
+  manda senha errada nele e enfileira o bcrypt (medido: o túnel legítimo foi de
+  ~0 s para 1,2–4,8 s).
+- ⚠️ **IPv6 desligado** no sistema: o domínio da Pinbank tem AAAA (Cloudflare), e
+  o Squid poderia sair por IPv6 — a Pinbank veria um endereço que não liberou.
+- ⚠️ **A senha é conferida ANTES da lista por endereço**: aquela lista faz o Squid
+  resolver o nome, e antes da senha qualquer um faria o servidor consultar DNS.
+- ⚠️ **O `squid.conf` do pacote NÃO é tocado**: ele é "conffile", e editá-lo faria
+  o unattended-upgrades pular as correções de segurança do Squid em silêncio. A
+  configuração mora em `/etc/squid/quattro-saida.conf`, apontada por drop-in.
+- **Atualizações automáticas** com reinício em horas DIFERENTES (servidor 1
+  04:10, servidor 2 04:40 de Brasília): os dois nunca caem juntos.
+- ⚠️ **Nada de `set -x`**: a saída do launch script vai para o log do cloud-init.
+- O **launch script** é sh POSIX (o Lightsail mistura conteúdo próprio no
+  user-data e não documenta em que shell roda), **compactado** (o user-data tem
+  teto de 16 KB; o script comentado tem 22 KB) e **conferido por SHA-256**:
+  colagem cortada é recusada com a mensagem "chegou CORTADO", nunca roda meio
+  script.
+- `sudo quattro-saida-url` mede o IP de saída PASSANDO pelo próprio proxy e
+  mostra o valor da variável da Vercel (`PINBANK_SAIDA_<n>`).
+
+## O código
+
+- **`src/lib/pinbank/saida.ts` é a ÚNICA porta.** Com `PINBANK_SAIDA_1/2`, toda
+  chamada passa por um dos servidores e **nunca sai direto** — se os dois
+  falharem, a chamada falha (sair por um IP não liberado só trocaria o erro de
+  lugar). Sem as variáveis (local, preview, antes de ligar), sai direto e
+  **diz** que saiu direto (`via: "direto"`).
+- ⚠️ **A regra de troca de servidor é a FRONTEIRA DE FASE.** Fase 1 (TCP →
+  CONNECT → TLS com a Pinbank): nada do pedido saiu, falha aqui tenta o outro
+  servidor. Fase 2 (o pedido pelo túnel): **nunca se repete** — o pedido pode ter
+  chegado, e repetir um POST de dinheiro pelo outro servidor pode duplicá-lo.
+  Resposta 4xx/5xx da Pinbank é resposta, não falha de saída.
+- ⚠️ **Sem `undici`, de propósito.** Medido: com o `ProxyAgent`, proxy fora, 407
+  e conexão caída DEPOIS do envio chegam todos como `TypeError: fetch failed` —
+  decidir a troca por texto de erro é casar substring. E o `ProxyAgent` de outra
+  versão quebra o `fetch` do Node (Node 22 + undici 8). O cliente é
+  `node:net`/`node:tls`/`node:https`, testado em Node 22 e 24.
+- A **chave pública do webhook** passa pela porta (`buscarPinbank`). E o webhook
+  ficou mais seguro no caminho: **chave que não vem é 503** (a Pinbank reenvia),
+  nunca 401 (que ela não reenvia e perderia a venda). Antes, uma falha na busca
+  durante a rotação de chave devolvia o cache velho → 401; e uma
+  `PINBANK_WEBHOOK_JWKS` com JSON ilegível virava "nenhuma chave" → 401 em toda
+  entrega. O motivo vai para o log, não para a resposta pública (ele cita o
+  endereço dos servidores).
+- **`/api/admin/saida-fixa`** (só administrador da plataforma) prova, DE DENTRO
+  da função da Vercel e com as variáveis de produção, o IP de saída de CADA
+  servidor (sem troca: um fora aparece fora), e confere que o IP medido é o da
+  própria variável. ⚠️ É rota nova — muda quem pode chamar o quê; o merge
+  espera o OK do dono.
+
+## As provas
+
+- **`npm run saida-pinbank`** (no `npm test`): dois proxies CONNECT de mentira e
+  uma "Pinbank" HTTPS local com CA de teste — 21 casos (troca na fase 1 por
+  recusa, travamento e 407; quarentena; 500 sem troca; queda depois do envio sem
+  repetição; os dois fora sem saída direta; destino fora da lista; variável
+  ruim sem ecoar a senha; prova dos IPs servidor a servidor) e **4 defeitos
+  plantados**, cada um derrubando o caso que o nomeia.
+- **`engine-audit`, bloco `saida-fixa:`** — teto ZERO do endereço da Pinbank e de
+  socket próprio fora da porta (inclusive em `supabase/functions`), fetch de URL
+  vinda de variável nas pastas da Pinbank, rota que chega à porta em runtime
+  Node, a lista de destinos do Squid IGUAL à da função, instalador sem `set -x`
+  e com `bash -n`, os 503 do webhook (JSON ilegível, busca falhando na rotação,
+  rotação repetida em menos de 5 min — sem rede: os servidores apontam para
+  portas fechadas), a ordem dos portões da rota de prova e as variáveis no
+  `.env.example`. Defeitos plantados em cada metade.
+- **O instalador, num Ubuntu 24.04 do zero** (fora do CI: precisa de root e
+  apt): 59 casos — recusas antes de instalar (sem servidor, senha-marcador,
+  senha fraca), launch script pelo `dash`, colagem cortada no meio, no fim e com
+  um caractere trocado, senha fora de todo log, idempotência, rotação (a senha
+  velha morre na hora) e a política do proxy (407 sem senha, 403 fora da lista,
+  em outra porta, por IP literal, para nome que resolve à rede interna e em GET
+  simples).
+
+## O que NÃO está provado aqui, e onde se prova
+
+- **A instância Lightsail de verdade** — systemd, o IPv6 desligado pelo `sysctl`
+  (o contêiner de teste não tem IPv6) e o IP fixo. Prova-se com
+  `sudo quattro-saida-url` em cada servidor e, de ponta a ponta, com
+  `/api/admin/saida-fixa` em produção.
+- **A API da Pinbank em si** (OAuth2 + AES, `ExtratoPos`): o cliente ainda não
+  existe e as credenciais não chegaram. Quando chegar, ele chama
+  `requisicaoPinbank` — nunca outra porta.
+
+## Riscos aceitos, declarados
+
+- **A senha do proxy vai em texto no trecho Vercel → servidor** (proxy HTTP com
+  autenticação básica, como Fixie e QuotaGuard fazem). O conteúdo para a Pinbank
+  continua TLS ponta a ponta dentro do túnel, e quem pegasse a senha só abriria
+  túnel para `*.pinbank.com.br:443` a partir dos nossos IPs — ainda sem a
+  credencial OAuth2/AES. A troca para TLS até o proxy está pronta no cliente
+  (`https://` + `PINBANK_SAIDA_CA`) e testada; no servidor é trocar `http_port`
+  por `https_port` com um certificado — fazer se a Pinbank ou uma auditoria
+  pedir cifra em todo trecho, ou ao primeiro sinal de vazamento.
+- **A Pinbank está atrás da Cloudflare**: com a senha, alguém poderia abrir túnel
+  para o IP dela e pedir OUTRO site da Cloudflare por dentro (domain fronting),
+  saindo pelos nossos IPs. Exige a senha; mitigado por senha e usuário
+  aleatórios e por servidor.
+- **O servidor não guarda dado** e se refaz do script em minutos: sem snapshot
+  automático. O que precisa de proteção é o **Static IP** (nunca apagar).

@@ -10949,6 +10949,161 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /senha\.length\s*>=\s*MIN_SENHA/.test(cadastroS) && !/senha\.length\s*>=\s*\d/.test(cadastroS));
 }
 
+// ═══ SAÍDA FIXA — a Pinbank só é chamada por UMA porta (os 2 IPs fixos) ═══════
+// O COMPORTAMENTO da porta (troca de servidor só antes de o pedido sair, nunca
+// direto com os servidores configurados) é provado em `npm run saida-pinbank`.
+// Aqui: que ela é a ÚNICA, que o webhook não perde venda quando a chave não
+// vem, que a rota de prova confere quem chama antes de tocar na rede, e que a
+// lista de destinos do servidor e a da função são a MESMA.
+{
+  const fsF = await import("node:fs");
+  const cp = await import("node:child_process");
+  const SF = await import("@/lib/pinbank/saida");
+  const AS = await import("@/lib/pinbank/assinatura");
+  const semComF = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const lerF = (p: string) => (fsF.existsSync(p) ? fsF.readFileSync(p, "utf8") : "");
+  const PORTA_F = "src/lib/pinbank/saida.ts";
+  const arqsF: string[] = [];
+  const andarF = (d: string) => {
+    if (!fsF.existsSync(d)) return;
+    for (const e of fsF.readdirSync(d, { withFileTypes: true })) {
+      const p = `${d}/${e.name}`;
+      if (e.isDirectory()) andarF(p);
+      else if (/\.(ts|tsx|mts|js|mjs)$/.test(e.name)) arqsF.push(p);
+    }
+  };
+  andarF("src");
+  andarF("supabase/functions"); // Edge Function não sai pelos 2 IPs: falar com a Pinbank de lá também é proibido
+
+  /* ── 1. TETO ZERO: o endereço da Pinbank e as primitivas de rede só na porta ── */
+  const HOST_PB = /pinbank\.com\.br/i;
+  const comHost = (ler: (p: string) => string) => arqsF.filter((p) => p !== PORTA_F && HOST_PB.test(semComF(ler(p))));
+  ok("saida-fixa: o endereço pinbank.com.br só aparece na porta (src/lib/pinbank/saida.ts)", comHost(lerF).length === 0, comHost(lerF).join(", "));
+  ok("saida-fixa: a varredura ainda ENXERGA o endereço na porta", HOST_PB.test(semComF(lerF(PORTA_F))), "o padrão parou de casar — a guarda ficou cega");
+  // Socket próprio, https.request ou undici fora da porta = um segundo caminho
+  // de saída que não passa pelos 2 IPs (nem pela troca de servidor).
+  const REDE = /from\s+["'](node:)?(net|tls|https|http2)["']|from\s+["']undici["']|require\(\s*["'](node:)?(net|tls|https|undici)["']\s*\)/;
+  const comRede = (ler: (p: string) => string) => arqsF.filter((p) => p !== PORTA_F && p.startsWith("src/") && REDE.test(semComF(ler(p))));
+  ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora da porta", comRede(lerF).length === 0, comRede(lerF).join(", "));
+  // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
+  // ambiente escaparia da varredura do endereço.
+  const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/saida-fixa)\//.test(p) && p !== PORTA_F);
+  const fetchExterno = (t: string) => /\bfetch\s*\(\s*(?!["'`]\/)/.test(semComF(t));
+  const comFetch = (ler: (p: string) => string) => pastaPB.filter((p) => fetchExterno(ler(p)));
+  ok("saida-fixa: nenhum fetch externo nas pastas da Pinbank fora da porta", pastaPB.length >= 4 && comFetch(lerF).length === 0, comFetch(lerF).join(", "));
+  const P_PROC = "src/lib/pinbank/processar.ts";
+  ok("saida-fixa: (defeito plantado) fetch direto à Pinbank no processador é ACUSADO",
+     comHost((p) => (p === P_PROC ? lerF(p) + '\nawait fetch("https://pinbank.com.br/services/api");' : lerF(p))).includes(P_PROC));
+  ok("saida-fixa: (defeito plantado) fetch de URL vinda de variável na pasta da Pinbank é ACUSADO",
+     comFetch((p) => (p === P_PROC ? lerF(p) + "\nawait fetch(process.env.PINBANK_API_URL!);" : lerF(p))).includes(P_PROC));
+  ok("saida-fixa: (defeito plantado) um https.request por fora é ACUSADO",
+     comRede((p) => (p === P_PROC ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes(P_PROC));
+  const assinaturaF = semComF(lerF("src/lib/pinbank/assinatura.ts"));
+  ok("saida-fixa: a chave pública do webhook é buscada PELA porta (buscarPinbank)",
+     /buscarPinbank\(/.test(assinaturaF) && /URL_CHAVE_PUBLICA/.test(assinaturaF) && !fetchExterno(assinaturaF));
+
+  /* ── 2. quem importa a porta roda em Node, e o middleware não a toca ───────── */
+  const importaPorta = arqsF.filter((p) => /lib\/pinbank\/(saida|assinatura)["']/.test(semComF(lerF(p))));
+  const rotasSemNode = importaPorta.filter((p) => /\/route\.ts$/.test(p) && !/export const runtime = "nodejs"/.test(lerF(p)));
+  ok("saida-fixa: toda rota que chega à porta é runtime nodejs; o middleware não a importa",
+     importaPorta.length >= 3 && rotasSemNode.length === 0 && !importaPorta.includes("src/middleware.ts"),
+     `${importaPorta.join(", ")} | sem nodejs: ${rotasSemNode.join(", ")}`);
+
+  /* ── 3. a lista de destinos do SERVIDOR e a da FUNÇÃO são a mesma ──────────── */
+  const instalar = lerF("infra/saida-pinbank/instalar.sh");
+  const destinosSh = /^readonly DESTINOS='([^']+)'$/m.exec(instalar)?.[1] ?? "";
+  ok("saida-fixa: o Squid libera exatamente .pinbank.com.br e o eco de IP — a mesma lista da função",
+     destinosSh === ".pinbank.com.br checkip.amazonaws.com"
+     && SF.destinoPermitido("pinbank.com.br") && SF.destinoPermitido("api.pinbank.com.br") && SF.destinoPermitido("checkip.amazonaws.com")
+     && !SF.destinoPermitido("naopinbank.com.br") && !SF.destinoPermitido("pinbank.com.br.evil.com") && !SF.destinoPermitido("example.com"),
+     destinosSh);
+  ok("saida-fixa: o instalador nunca liga 'set -x' (a senha iria para o log do cloud-init)",
+     !/^\s*set\s+-[a-zA-Z]*x/m.test(instalar) && /DPkg::Lock::Timeout=600/.test(instalar));
+  const shOk = (arq: string) => { try { cp.execFileSync("bash", ["-n", arq], { stdio: "ignore" }); return true; } catch { return false; } };
+  ok("saida-fixa: instalar.sh e o gerador do launch script passam no bash -n",
+     shOk("infra/saida-pinbank/instalar.sh") && shOk("infra/saida-pinbank/gerar-launch-script.sh"));
+
+  /* ── 4. o webhook: chave que não vem é 503 (a Pinbank reenvia), nunca 401 ─── */
+  const envAntes = { j: process.env.PINBANK_WEBHOOK_JWKS, s1: process.env.PINBANK_SAIDA_1, s2: process.env.PINBANK_SAIDA_2 };
+  const rejeita = async (f: () => Promise<unknown>) => { try { await f(); return null; } catch (e) { return e as Error; } };
+  process.env.PINBANK_WEBHOOK_JWKS = "{isto não é json";
+  let eF = await rejeita(() => AS.chavesPinbank());
+  ok("saida-fixa: PINBANK_WEBHOOK_JWKS ilegível é ChaveIndisponivel (503), não 'nenhuma chave' (401)", eF instanceof AS.ChaveIndisponivel, eF?.message);
+  process.env.PINBANK_WEBHOOK_JWKS = "{}";
+  eF = await rejeita(() => AS.chavesPinbank());
+  ok("saida-fixa: PINBANK_WEBHOOK_JWKS sem chave Ed25519 também é ChaveIndisponivel", eF instanceof AS.ChaveIndisponivel, eF?.message);
+  delete process.env.PINBANK_WEBHOOK_JWKS;
+  // Sem rede: os dois servidores apontam para portas FECHADAS, então a busca
+  // falha na hora — é o caso "servidores fora no meio de uma rotação de chave".
+  process.env.PINBANK_SAIDA_1 = "http://u:senha0123456789abcdef0123456789ab@127.0.0.1:1";
+  process.env.PINBANK_SAIDA_2 = "http://u:senha0123456789abcdef0123456789ab@127.0.0.1:2";
+  AS.esquecerChaves();
+  eF = await rejeita(() => AS.chavesPinbank(true));
+  ok("saida-fixa: rotação com a busca FALHANDO é ChaveIndisponivel (503), nunca o cache velho (401)",
+     eF instanceof AS.ChaveIndisponivel && /buscar a chave/.test(eF.message), eF?.message);
+  eF = await rejeita(() => AS.chavesPinbank(true, Math.floor(Date.now() / 1000)));
+  ok("saida-fixa: rotação pedida de novo em menos de 5 min, sem busca boa, também é 503 (e não busca de novo)",
+     eF instanceof AS.ChaveIndisponivel && /não pode ser feita agora/.test(eF.message), eF?.message);
+  // 401 só quando é CONCLUSIVO: uma busca BEM-SUCEDIDA depois da assinatura.
+  const cr = await import("node:crypto");
+  const jwk = (kid: string) => ({ ...(cr.generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }) as object), kid });
+  const nova = AS.chavesDoJwks({ keys: [jwk("k-nova")] });
+  const agoraMs = Date.now();
+  AS.lembrarChaves(nova, agoraMs);
+  let conclusivo: Map<string, unknown> | Error;
+  try { conclusivo = await AS.chavesPinbank(true, Math.floor(agoraMs / 1000) - 30); } catch (e) { conclusivo = e as Error; }
+  ok("saida-fixa: busca boa DEPOIS da assinatura e kid ausente → devolve as chaves (o 401 é conclusivo)",
+     conclusivo instanceof Map && conclusivo.has("k-nova"), conclusivo instanceof Error ? conclusivo.message : "");
+  AS.lembrarChaves(nova, agoraMs - 60_000);
+  eF = await rejeita(() => AS.chavesPinbank(true, Math.floor(agoraMs / 1000) - 30));
+  ok("saida-fixa: busca feita ANTES da assinatura e sem poder repetir → 503, não 401 (o kid falso a cada 5 min não segura a rotação)",
+     eF instanceof AS.ChaveIndisponivel, eF?.message);
+  process.env.PINBANK_WEBHOOK_JWKS = JSON.stringify({ keys: [jwk("k-fixa")] });
+  AS.lembrarChaves(nova, Date.now());
+  const somadas = await AS.chavesPinbank();
+  ok("saida-fixa: a chave aprendida na rotação SOMA-SE à JWKS fixa (as entregas seguintes não buscam de novo)",
+     somadas.has("k-fixa") && somadas.has("k-nova"), [...somadas.keys()].join(","));
+  delete process.env.PINBANK_WEBHOOK_JWKS;
+  AS.esquecerChaves();
+  for (const [k, v] of [["PINBANK_WEBHOOK_JWKS", envAntes.j], ["PINBANK_SAIDA_1", envAntes.s1], ["PINBANK_SAIDA_2", envAntes.s2]] as const) {
+    if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+  const rotaWebhook = lerF("src/app/api/pinbank/webhook/route.ts");
+  const rotacao503 = (t: string) => /chavesPinbank\(true,[^\n]*\n\s*\}\s*catch\s*\(e\)\s*\{\s*return chaveIndisponivel\(e\);/.test(semComF(t));
+  ok("saida-fixa: no webhook, a falha da busca na ROTAÇÃO responde 503", rotacao503(rotaWebhook));
+  ok("saida-fixa: a rotação passa a HORA DA ASSINATURA (é ela que decide se o 401 é conclusivo)",
+     /chavesPinbank\(true,\s*Number\(cab\.timestamp\)\)/.test(semComF(rotaWebhook)));
+  const rotacaoPlantada = rotaWebhook.replace(/(chavesPinbank\(true,[^\n]*\n\s*\})\s*catch \(e\) \{\s*return chaveIndisponivel\(e\);\s*\}/,
+    "$1 catch {\n      /* fica o veredito anterior */\n    }");
+  ok("saida-fixa: (defeito plantado) o catch vazio da rotação (volta ao 401) é REPROVADO",
+     rotacaoPlantada !== rotaWebhook && !rotacao503(rotacaoPlantada));
+  ok("saida-fixa: o motivo da chave indisponível vai para o log, não para a resposta pública",
+     /console\.error\([^)]*pinbank\.chave_publica/.test(rotaWebhook) && !/motivo:\s*`Chave pública da Pinbank indisponível: \$\{/.test(rotaWebhook));
+
+  /* ── 5. a rota de prova: quem chama ANTES da rede ──────────────────────────── */
+  const ROTA_PROVA = "src/app/api/admin/saida-fixa/route.ts";
+  const ordemProva = (t: string) => {
+    const x = semComF(t);
+    const iDemo = x.indexOf("NEXT_PUBLIC_SUPABASE_URL");
+    const iUser = x.indexOf("auth.getUser()");
+    const iPortao = x.indexOf('rpc("admin_exigir_acesso"');
+    const iRede = x.indexOf("provarSaidas(");
+    return iDemo > 0 && iUser > iDemo && iPortao > iUser && iRede > iPortao && /export const runtime = "nodejs"/.test(x);
+  };
+  const rotaProva = lerF(ROTA_PROVA);
+  ok("saida-fixa: a rota de prova recusa sem banco → sessão → admin_exigir_acesso → só então a rede", ordemProva(rotaProva));
+  ok("saida-fixa: (defeito plantado) a prova antes do portão é REPROVADA",
+     !ordemProva(rotaProva.replace("export async function GET() {", "export async function GET() {\n  await provarSaidas();")));
+  ok("saida-fixa: a rota de prova nunca devolve a URL do proxy (só IP:porta)",
+     !/autorizacao|PINBANK_SAIDA_1\s*\]|process\.env\.PINBANK_SAIDA/.test(semComF(rotaProva)));
+
+  /* ── 6. as variáveis estão documentadas ────────────────────────────────────── */
+  const docEnv = lerF(".env.example");
+  const lidas = [...SF.VARIAVEIS_SAIDA, ...[...semComF(lerF(PORTA_F)).matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((m) => m[1])];
+  const semDoc = lidas.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
+  ok("saida-fixa: toda variável lida pela porta está no .env.example", lidas.length >= 3 && semDoc.length === 0, semDoc.join(", "));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

@@ -23,7 +23,8 @@ import { ehEventoDeCompra, lerEnvelope, semDadoSensivel, transacaoDoEvento } fro
  *   · assinatura inválida ou fora da janela → 401 (não há o que reenviar);
  *   · envelope malformado → 400;
  *   · evento que não é de venda → 200 (entregue; nada a fazer);
- *   · banco fora, chave pública indisponível → 503 (reenvie, por favor);
+ *   · banco fora, chave pública indisponível (inclusive na rotação de chave,
+ *     quando a busca da nova falha) → 503 (reenvie, por favor);
  *   · evento GUARDADO → 200, mesmo quando o processamento parou num motivo
  *     nomeado (sem vínculo, aguardando ativação, erro): o evento está seguro na
  *     caixa de entrada e entra pelo reprocessamento. Reenviar não mudaria nada.
@@ -46,20 +47,29 @@ export async function POST(req: Request) {
     assinatura: req.headers.get("webhook-signature"),
     kid: req.headers.get("webhook-key-id"),
   };
+  // ⚠️ Chave indisponível é 503 (a Pinbank reenvia), e o motivo vai para o
+  // LOG, não para a resposta: a rota é pública, e o motivo pode citar o
+  // endereço dos servidores da saída fixa.
+  const chaveIndisponivel = (e: unknown) => {
+    console.error("[falha·pinbank] pinbank.chave_publica:", (e as Error).message);
+    return resposta(503, { ok: false, motivo: "Chave pública da Pinbank indisponível; reenvie." });
+  };
   let chaves;
   try {
     chaves = await chavesPinbank();
   } catch (e) {
-    return resposta(503, { ok: false, motivo: `Chave pública da Pinbank indisponível: ${(e as Error).message}` });
+    return chaveIndisponivel(e);
   }
   const agoraSegundos = Math.floor(Date.now() / 1000);
   let v = verificarAssinatura({ corpo, ...cab, agoraSegundos, chaves });
   if (!v.ok && v.kidDesconhecido) {
-    // Rotação de chave: busca de novo, uma vez.
+    // Rotação de chave: busca de novo. ⚠️ Não conseguir buscar é 503, nunca o
+    // 401 do veredito anterior — 401 a Pinbank não reenvia, e a venda
+    // assinada com a chave nova se perderia.
     try {
-      v = verificarAssinatura({ corpo, ...cab, agoraSegundos, chaves: await chavesPinbank(true) });
-    } catch {
-      /* fica o veredito anterior */
+      v = verificarAssinatura({ corpo, ...cab, agoraSegundos, chaves: await chavesPinbank(true, Number(cab.timestamp)) });
+    } catch (e) {
+      return chaveIndisponivel(e);
     }
   }
   if (!v.ok) return resposta(401, { ok: false, motivo: "não autorizado" });
