@@ -82,7 +82,7 @@ function tresMeses(input: RiskInput): Mes[] {
   return out;
 }
 
-function Resumo({ input }: { input: RiskInput }) {
+export function Resumo({ input, titulo = "Resumo", className = "" }: { input: RiskInput; titulo?: string; className?: string }) {
   const meses = React.useMemo(() => tresMeses(input), [input]);
   const jMes = janelaDoMesDe(input.hoje);
   const saldoInd = saldoDe(input);
@@ -102,9 +102,9 @@ function Resumo({ input }: { input: RiskInput }) {
 
   return (
     <Card
-      className="flex flex-col lg:flex-row gap-6"
+      className={`flex flex-col lg:flex-row gap-6 ${className}`}
       info={{
-        titulo: "Resumo",
+        titulo,
         oQue: "O caixa dos três últimos meses e a posição do mês corrente.",
         comoCalcula:
           "Barras: entradas e saídas liquidadas de cada mês, pela data de pagamento. Saldo: o saldo das contas hoje. Tudo pela camada canônica de indicadores.",
@@ -112,7 +112,7 @@ function Resumo({ input }: { input: RiskInput }) {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-h2 m-0">Resumo</h2>
+          <h2 className="text-h2 m-0">{titulo}</h2>
           {/* Mesma tipografia e corpo do título "Resumo", em caixa Aa: os
               dois são o cabeçalho do card, e um deles em micro-caixa-alta
               fazia a dupla parecer de sistemas diferentes. */}

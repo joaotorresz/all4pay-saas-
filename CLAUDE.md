@@ -154,6 +154,27 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home")
+
+O dono desenhou a Home no canvas de design e aprovou a prancheta "Proposta —
+nova Home". Ela foi levada ao código com a MOLDURA do app junto:
+
+- **Moldura (todas as telas):** barra de cima em cartão BRANCO com o **logo
+  Quattro** (`public/quattro-logo.webp`, o primeiro arquivo de logo Quattro —
+  os `all4pay-*` seguem só onde ainda não foram trocados); abaixo, DOIS cartões
+  sobre a moldura verde-base: o **menu lateral em acordeão** com TODOS os grupos
+  (`dashboard/Sidebar.tsx`, "Criar" + recolher no topo, Modo Pro e empresa no
+  pé) e a área de trabalho branca. A barra de pílulas (`NavHorizontal`) SAIU.
+  O título de tela virou **Roobert Black 23px em caixa de frase**.
+- **Home (`HomeProposta.tsx`):** grade de 12 colunas — Fluxo de caixa (o
+  `Resumo`, 8) + Saúde financeira (`core/quant`, 4) · Calendário de transações
+  (4) + Distribuição dos gastos (`painelFinanceiro`, 8) · Operação: a receber,
+  a pagar e vencidos (`summarizeOpen` e `inadimplencia`, 4+4+4) · Transações
+  recentes (12). Mesmo espaço entre todos os cards. Os centavos voltaram.
+- **Números da Home em Roobert 500**, escopados por `.a4p-home` em
+  `globals.css` — as outras telas seguem com a regra global do valor até o dono
+  decidir estender.
+
 ## ⚠️ RODADA 10 — A MAQUININHA PINBANK (05/10/2026, detalhe em `docs/rodada-10/pinbank.md`)
 
 - **Webhook `Compra.*` → venda** (`/api/pinbank/webhook`, DESLIGADO por padrão:

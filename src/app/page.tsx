@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { InicioActions } from "@/components/visao-geral/InicioActions";
-import { InicioTitle } from "@/components/visao-geral/InicioTitle";
-import { HomeQuatro } from "@/components/visao-geral/HomeQuatro";
+import { HomeProposta } from "@/components/visao-geral/HomeProposta";
 import { PeriodProvider } from "@/components/visao-geral/PeriodContext";
-import { SemCentavos } from "@/components/ui/SemCentavos";
 
 export const metadata: Metadata = {
   title: "Visão geral · Quattro",
@@ -16,18 +14,12 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <PeriodProvider>
-      {/* Na Home os valores aparecem ARREDONDADOS ao real (sem vírgula): o
-          `SemCentavos` arredonda no `<BRL>` — esconder por CSS truncava. */}
-      <AppShell title={<InicioTitle />} tituloAba="Visão geral" actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor" stickyHeader={false}>
-        {/* ⚠️ A Home tem QUATRO cards e só eles: Resumo · Calendário de
-            transações · Dicas Quattro · Transações recentes. O cockpit
-            modular (`OverviewGrid`, ~94 widgets) e o topo antigo
-            (`VisorHomeTop`) saíram daqui — a Home deixou de ser um painel
-            que se monta e virou uma composição fixa. Os widgets continuam
-            existindo nas telas que respondem por eles. */}
-        <SemCentavos>
-          <HomeQuatro />
-        </SemCentavos>
+      <AppShell title="Página inicial" tituloAba="Visão geral" actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor" stickyHeader={false}>
+        {/* ⚠️ A HOME DA PROPOSTA (canvas "Quattro · Home", out/2026): Fluxo de
+            caixa + Saúde, Calendário + Distribuição, Operação e Transações
+            recentes, numa grade de 12 colunas. Os valores voltam a mostrar os
+            centavos, como o desenho aprovado. Ver `HomeProposta.tsx`. */}
+        <HomeProposta />
       </AppShell>
     </PeriodProvider>
   );

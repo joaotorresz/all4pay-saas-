@@ -4,6 +4,8 @@ import * as React from "react";
 import { DemoBadge } from "./DemoBadge";
 import { MesAtual } from "./MesAtual";
 import { NovoDeposito } from "./NovoDeposito";
+import Link from "next/link";
+import { Button } from "@/components/ui";
 import { useTipoConta } from "@/components/app/useTipoConta";
 
 /**
@@ -25,8 +27,24 @@ export function InicioActions({ demo }: { demo: boolean }) {
   return (
     <>
       {demo && <DemoBadge />}
-      <MesAtual />
+      <span className="inline-flex items-center rounded-pill bg-white border border-border px-4 h-11">
+        <MesAtual />
+      </span>
       {pessoal && <NovoDeposito />}
+      {!pessoal && (
+        <>
+          {/* A HOME DA PROPOSTA (out/2026) devolve as duas portas de entrada de
+              dado ao cabeçalho da empresa: importar é a casa da entrada em lote
+              (`/upload`), e "Novo lançamento" abre o MESMO modal dos lançamentos
+              — nenhum formulário novo. */}
+          <Link href="/upload" className="inline-flex items-center rounded-pill border border-[color:var(--a4p-borda-controle)] px-6 h-11 text-[14px] font-medium text-ink no-underline">
+            Importar extrato
+          </Link>
+          <Button pill onClick={() => window.dispatchEvent(new Event("a4p:open-nova-transacao"))}>
+            Novo lançamento
+          </Button>
+        </>
+      )}
     </>
   );
 }
