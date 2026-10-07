@@ -2825,6 +2825,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     "/dashboard/sales-invoices", "/dashboard/accounting/dominio-export",
     "/dashboard/administration/users", "/fluxo-caixa", "/upload",
     "/dashboard/financial/reconciliation", "/dashboard/registrations/bank-accounts",
+    "/configuracoes/seguranca",
   ];
   // ⚠️ Quatro telas NÃO estão no menu de propósito, e a exceção não é branda:
   // cada uma declara em `ACOES_GLOBAIS` onde mora (o botão flutuante da IA, o
@@ -10947,6 +10948,196 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const cadastroS = semComS(lerS("src/components/entrada/CriarContaView.tsx"));
   ok("senha: o cadastro usa o MESMO mínimo (MIN_SENHA), sem um 6 escrito à mão",
      /senha\.length\s*>=\s*MIN_SENHA/.test(cadastroS) && !/senha\.length\s*>=\s*\d/.test(cadastroS));
+}
+
+// ═══ SEGUNDO FATOR — o aplicativo autenticador, por UMA porta, sem laço ═══════
+// O COMPORTAMENTO contra o Auth de verdade (cadastrar, entrar com o código,
+// sessão antiga sem o aplicativo, cadastro abandonado, remover) é provado em
+// `npm run segundo-fator`, contra o Supabase local. Aqui: as regras puras, a
+// porta única, a ordem do middleware e o que as telas NÃO podem fazer —
+// cada uma com o defeito plantado que precisa reprovar.
+{
+  const fs2 = await import("node:fs");
+  const F = await import("@/core/segundo-fator");
+  const semCom2 = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const ler2 = (p: string) => (fs2.existsSync(p) ? fs2.readFileSync(p, "utf8") : "");
+
+  /* ── 1. as regras puras ─────────────────────────────────────────────────── */
+  ok("segundo-fator: o código digitado perde espaço e hífen e fica com 6 dígitos",
+     F.normalizarCodigo("123 456") === "123456" && F.normalizarCodigo("12-34-56") === "123456"
+     && F.normalizarCodigo("1234567") === "123456" && F.normalizarCodigo("") === "");
+  ok("segundo-fator: código incompleto, longo ou com letra é recusado ANTES da rede",
+     !F.codigoCompleto("12345") && !F.codigoCompleto("1234567") && !F.codigoCompleto("12a456") && !F.codigoCompleto("")
+     && F.codigoCompleto("123456") && F.codigoCompleto("123 456"));
+  const tabelaCodigo = (f: (s: { nivelAtual: string | null | undefined; temFatorVerificado: boolean }) => boolean) =>
+    f({ nivelAtual: "aal1", temFatorVerificado: true }) === true
+    && f({ nivelAtual: "aal2", temFatorVerificado: true }) === false
+    && f({ nivelAtual: null, temFatorVerificado: true }) === true
+    && f({ nivelAtual: undefined, temFatorVerificado: true }) === true
+    && f({ nivelAtual: "aal1", temFatorVerificado: false }) === false
+    && f({ nivelAtual: "aal2", temFatorVerificado: false }) === false;
+  ok("segundo-fator: pede o código só a quem tem aplicativo e não está em aal2 — e na dúvida (nível ilegível) PEDE",
+     tabelaCodigo(F.precisaDoCodigo));
+  ok("segundo-fator: (defeito plantado) perguntar só 'tem aplicativo?' — o laço de quem acabou de digitar — é REPROVADO",
+     !tabelaCodigo((s) => s.temFatorVerificado));
+  ok("segundo-fator: (defeito plantado) abrir quando o nível não pôde ser lido é REPROVADO",
+     !tabelaCodigo((s) => s.temFatorVerificado && s.nivelAtual === "aal1"));
+  const agora2 = 1_800_000_000;
+  ok("segundo-fator: depois do código, quem veio do 'esqueci a senha' volta à senha nova; o resto vai ao início",
+     F.destinoDepoisDoCodigo([{ method: "totp", timestamp: agora2 }, { method: "recovery", timestamp: agora2 - 60 }], agora2) === "/redefinir-senha"
+     && F.destinoDepoisDoCodigo([{ method: "totp", timestamp: agora2 }, { method: "password", timestamp: agora2 - 60 }], agora2) === "/"
+     && F.destinoDepoisDoCodigo(undefined, agora2) === "/");
+  ok("segundo-fator: o nome de cada aparelho é ÚNICO na conta (o Auth recusa o repetido, inclusive o vazio)",
+     F.nomeDoNovoAparelho([]) === "Aplicativo autenticador"
+     && F.nomeDoNovoAparelho(["Aplicativo autenticador"]) === "Aplicativo autenticador 2"
+     && F.nomeDoNovoAparelho(["aplicativo autenticador", "Aplicativo autenticador 2"]) === "Aplicativo autenticador 3");
+  const tela2 = F.fatoresParaTela([
+    { id: "b", friendly_name: "", factor_type: "totp", status: "unverified", created_at: "2026-10-07T10:00:00Z" },
+    { id: "a", friendly_name: "Celular", factor_type: "totp", status: "verified", created_at: "2026-10-01T10:00:00Z" },
+    { id: "c", friendly_name: "Chave", factor_type: "webauthn", status: "verified", created_at: "2026-10-01T10:00:00Z" },
+  ]);
+  ok("segundo-fator: a lista mostra o verificado primeiro, marca o abandonado e ignora o que não é aplicativo",
+     tela2.length === 2 && tela2[0].id === "a" && tela2[0].verificado && !tela2[1].verificado
+     && tela2[1].nome === "Aplicativo autenticador" && tela2[0].criadoEm === "2026-10-01");
+  ok("segundo-fator: a chave manual aparece em blocos de 4", F.blocosDaChave("ABCDEFGHIJ") === "ABCD EFGH IJ");
+  ok("segundo-fator: o passo do código tem rota própria FORA de /login e de /api",
+     F.ROTA_CODIGO === "/segundo-fator" && F.ehRotaDoCodigo("/segundo-fator") && !F.ehRotaDoCodigo("/segundo-fatorx")
+     && !F.ehRotaDoCodigo("/login") && fs2.existsSync("src/app/segundo-fator/page.tsx"));
+
+  /* ── 2. TETO ZERO: o aplicativo autenticador tem UMA porta ──────────────── */
+  const ENTRADA_2 = "src/lib/entrada.ts";
+  const MW_LIB = "src/lib/supabase/middleware.ts";
+  const arquivos2: string[] = [];
+  const andar2 = (dir: string) => {
+    for (const e of fs2.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) andar2(p);
+      else if (/\.(ts|tsx)$/.test(e.name)) arquivos2.push(p);
+    }
+  };
+  andar2("src");
+  const MFA_ESCRITA = /\.auth\.mfa\.(enroll|challenge|verify|challengeAndVerify|unenroll|listFactors)\s*\(/;
+  const MFA_NIVEL = /\.auth\.mfa\.getAuthenticatorAssuranceLevel\s*\(/;
+  const fora2 = (padrao: RegExp, donos: string[], conteudo: (p: string) => string) =>
+    arquivos2.filter((p) => !donos.includes(p) && padrao.test(semCom2(conteudo(p))));
+  const foraEscrita = fora2(MFA_ESCRITA, [ENTRADA_2], ler2);
+  ok("segundo-fator: só src/lib/entrada.ts cadastra, confere ou remove o aplicativo (auth.mfa.*)", foraEscrita.length === 0, foraEscrita.join(", "));
+  ok("segundo-fator: a varredura ainda ENXERGA a porta de cadastro e código", MFA_ESCRITA.test(semCom2(ler2(ENTRADA_2))), "o padrão parou de casar — a guarda ficou cega");
+  const foraNivel = fora2(MFA_NIVEL, [ENTRADA_2, MW_LIB], ler2);
+  ok("segundo-fator: só a porta e o middleware leem o nível da sessão", foraNivel.length === 0, foraNivel.join(", "));
+  ok("segundo-fator: a varredura ainda ENXERGA a leitura do nível no middleware", MFA_NIVEL.test(semCom2(ler2(MW_LIB))));
+  const VIEW_CONTA = "src/components/configuracoes/SegurancaContaView.tsx";
+  const VIEW_CODIGO = "src/components/entrada/SegundoFatorEntradaView.tsx";
+  ok("segundo-fator: (defeito plantado) a tela conferindo o código por conta própria é ACUSADA",
+     fora2(MFA_ESCRITA, [ENTRADA_2], (p) => (p === VIEW_CONTA ? ler2(p) + "\nawait createClient().auth.mfa.verify({ factorId, challengeId, code });" : ler2(p))).includes(VIEW_CONTA));
+
+  /* ── 3. o middleware: antes das outras portas, sem laço, sem /api ───────── */
+  const mwSrc2 = ler2("src/middleware.ts");
+  const INICIO_BLOCO = '  if (user && supabase && !pathname.startsWith("/api")) {';
+  const ordemMw2 = (src: string) => {
+    const t = semCom2(src);
+    const i = t.indexOf("exigeCodigo(supabase, user)");
+    return i > 0 && i > t.indexOf("if (!user && !isPublic)") && i < t.indexOf("areaDaPlataforma") && i < t.indexOf("exigePro(")
+      && t.includes(INICIO_BLOCO) && /!==\s*ehRotaDoCodigo\(pathname\)/.test(t)
+      && /response\.cookies\.getAll\(\)\.forEach\(\(c\)\s*=>\s*aoCodigo\.cookies\.set\(c\)\)/.test(t);
+  };
+  ok("segundo-fator: o middleware pede o código ANTES do perímetro da plataforma e do plano, fora de /api, sem laço, com o token renovado",
+     ordemMw2(mwSrc2));
+  const blocoMw = (() => {
+    const a = mwSrc2.indexOf(INICIO_BLOCO);
+    const b = mwSrc2.indexOf("      return aoCodigo;\n    }\n  }\n", a);
+    return a > 0 && b > a ? mwSrc2.slice(a, b + "      return aoCodigo;\n    }\n  }\n".length) : "";
+  })();
+  ok("segundo-fator: (defeito plantado) o pedido do código DEPOIS do perímetro da plataforma é REPROVADO",
+     blocoMw.length > 0 && !ordemMw2(mwSrc2.replace(blocoMw, "").replace("  return response;\n}", blocoMw + "  return response;\n}")));
+  ok("segundo-fator: (defeito plantado) mandar ao código mesmo quem já está nele (o laço) é REPROVADO",
+     !ordemMw2(mwSrc2.replace(/pedeCodigo\s*!==\s*ehRotaDoCodigo\(pathname\)/, "pedeCodigo")));
+  ok("segundo-fator: (defeito plantado) o desvio também em /api (JSON virando HTML) é REPROVADO",
+     !ordemMw2(mwSrc2.replace(INICIO_BLOCO, "  if (user && supabase) {")));
+  const mwLib2 = ler2(MW_LIB);
+  const decideFresco = (src: string) => {
+    const t = semCom2(src);
+    const a = t.indexOf("export async function exigeCodigo(");
+    const corpo = a >= 0 ? t.slice(a, t.indexOf("\n}\n", a)) : "";
+    return /user\?\.factors/.test(corpo) && !/getSession\(/.test(corpo)
+      && /getAuthenticatorAssuranceLevel\(\)/.test(corpo)
+      && /if\s*\(error\s*\|\|\s*!data\)\s*return true;/.test(corpo) && /catch\s*\{\s*return true;/.test(corpo);
+  };
+  ok("segundo-fator: 'tem aplicativo' vem do usuário FRESCO do servidor, e a leitura que falha PEDE o código", decideFresco(mwLib2));
+  ok("segundo-fator: (defeito plantado) decidir pela cópia do usuário guardada no cookie é REPROVADO",
+     !decideFresco(mwLib2.replace("(user?.factors ?? [])", "((await supabase.auth.getSession()).data.session?.user.factors ?? [])")));
+  ok("segundo-fator: (defeito plantado) abrir quando a leitura do nível falha é REPROVADO",
+     !decideFresco(mwLib2.replace("if (error || !data) return true;", "if (error || !data) return false;")));
+
+  /* ── 4. a porta: cadastro limpo, marca no aplicativo, destino da sessão ─── */
+  const ent2 = ler2(ENTRADA_2);
+  const cadastroLimpo = (src: string) => {
+    const t = semCom2(src);
+    const a = t.indexOf("export async function iniciarCadastroDoFator(");
+    const corpo = a >= 0 ? t.slice(a, t.indexOf("\n}\n", a)) : "";
+    const iLimpa = corpo.search(/status\s*!==\s*"verified"[\s\S]*?\.unenroll\(/);
+    return iLimpa >= 0 && iLimpa < corpo.indexOf(".enroll(") && /issuer:\s*MARCA/.test(corpo);
+  };
+  ok("segundo-fator: o cadastro apaga os abandonados ANTES de cadastrar, e o aplicativo mostra a marca", cadastroLimpo(ent2));
+  ok("segundo-fator: (defeito plantado) cadastrar sem apagar o abandonado (o nome repetido trava a tela) é REPROVADO",
+     !cadastroLimpo(ent2.replace(/for \(const f of todos\.filter\(\(x\) => x\.status !== "verified"\)\) \{[\s\S]*?\n    \}\n/, "")));
+  ok("segundo-fator: (defeito plantado) cadastrar sem o nome da marca é REPROVADO",
+     !cadastroLimpo(ent2.replace("issuer: MARCA, ", "")));
+  const destinoDaSessao = (src: string) => {
+    const t = semCom2(src);
+    const a = t.indexOf("export async function entrarComCodigo(");
+    const corpo = a >= 0 ? t.slice(a, t.indexOf("\n}\n", a)) : "";
+    return /destinoDepoisDoCodigo\(\s*data\?\.currentAuthenticationMethods/.test(corpo) && !/location|searchParams|URLSearchParams/.test(corpo);
+  };
+  ok("segundo-fator: o destino depois do código sai da SESSÃO, nunca da URL", destinoDaSessao(ent2));
+  const telaCodigo = ler2(VIEW_CODIGO) + ler2("src/app/segundo-fator/page.tsx");
+  const telaSemDestinoDaUrl = (t: string) => !/searchParams|URLSearchParams|location\.search/.test(semCom2(t)) && /window\.location\.assign\(r\.destino\)/.test(t);
+  ok("segundo-fator: o passo do código não lê destino da URL (redirecionamento aberto com sessão)", telaSemDestinoDaUrl(telaCodigo));
+  ok("segundo-fator: (defeito plantado) um ?next= lido pela tela é REPROVADO",
+     !telaSemDestinoDaUrl(telaCodigo.replace("async function confirmar() {", 'async function confirmar() {\n    const next = new URLSearchParams(window.location.search).get("next");')));
+  const ordemTraducao = (t: string) => t.indexOf("mfa_verification_failed") > 0 && t.indexOf("insufficient_aal") > 0
+    && t.indexOf("mfa_verification_failed") < t.indexOf("session missing") && t.indexOf("insufficient_aal") < t.indexOf("session missing");
+  ok("segundo-fator: as recusas do código são traduzidas ANTES do ramo 'link de redefinição expirou'", ordemTraducao(semCom2(ent2)));
+
+  /* ── 5. a chave aparece UMA vez, e as telas não falam com o servidor na montagem ─ */
+  const vazaChave = (t: string) => /(console\.\w+|localStorage|sessionStorage|reportar)\([^)]*\b(chave|secret)\b/.test(semCom2(t))
+    || /(alt|title|aria-label)=\{[^}]*\b(uri|chave)\b/.test(semCom2(t));
+  const viewConta = ler2(VIEW_CONTA);
+  ok("segundo-fator: a chave do aplicativo não vai para log, armazenamento, canal de falhas nem atributo de acessibilidade",
+     !vazaChave(ent2) && !vazaChave(viewConta));
+  ok("segundo-fator: (defeito plantado) registrar a chave no console é ACUSADO",
+     vazaChave(ent2 + "\nconsole.log(data.totp.secret);"));
+  const semRedeNaMontagem = (t: string) => !/createClient/.test(semCom2(t));
+  ok("segundo-fator: as duas telas não criam cliente (abrem no build de demonstração)",
+     semRedeNaMontagem(viewConta) && semRedeNaMontagem(ler2(VIEW_CODIGO)) && /if \(configured\) void carregar\(\)/.test(viewConta));
+  ok("segundo-fator: (defeito plantado) a tela criando o cliente é REPROVADA",
+     !semRedeNaMontagem(viewConta.replace("export function SegurancaContaView() {", "export function SegurancaContaView() {\n  createClient();")));
+  const textoDeTela = (t: string) => [...semCom2(t).matchAll(/>([^<>{}]+)</g)].map((m) => m[1]).join(" ")
+    + " " + [...semCom2(t).matchAll(/"([^"]*\s[^"]*)"|`([^`]*\s[^`]*)`/g)].map((m) => m[1] ?? m[2]).join(" ");
+  const jargao = (t: string) => /\b(TOTP|MFA|aal\d?|factor|JWT)\b/i.test(textoDeTela(t));
+  ok("segundo-fator: o texto das telas fala de 'aplicativo autenticador' e 'código', nunca de TOTP, MFA ou aal",
+     !jargao(viewConta) && !jargao(ler2(VIEW_CODIGO)));
+  ok("segundo-fator: (defeito plantado) 'Digite o código TOTP' na tela é ACUSADO",
+     jargao(ler2(VIEW_CODIGO).replace("Código de verificação</h1>", "Código TOTP</h1>")));
+  const removerHonesto = (t: string) => /<AcaoDestrutiva[\s\S]*?desfaz=\{false\}[\s\S]*?\/>/.test(t);
+  ok("segundo-fator: remover o aparelho NÃO promete desfazer (a chave morre com ele)", removerHonesto(viewConta));
+  ok("segundo-fator: (defeito plantado) a remoção prometendo '8 segundos para desfazer' é REPROVADA",
+     !removerHonesto(viewConta.replace("desfaz={false}", "")));
+  const acao2 = ler2("src/components/ui/AcaoDestrutiva.tsx");
+  ok("segundo-fator: sem desfazer, a confirmação diz que a ação não volta",
+     /desfaz\s*\n?\s*\?\s*`Você terá/.test(acao2) && /"Esta ação não pode ser desfeita\."/.test(acao2));
+
+  /* ── 6. o login entra no passo do código ────────────────────────────────── */
+  const loginComCodigo = (t: string) => {
+    const x = semCom2(t);
+    const i = x.indexOf("precisaDoCodigoAgora()");
+    const j = x.indexOf("go();", x.indexOf("signInWithPassword"));
+    return i > 0 && j > i && /window\.location\.assign\(ROTA_CODIGO\)/.test(x);
+  };
+  const login2 = ler2("src/app/login/page.tsx");
+  ok("segundo-fator: o login com aplicativo cadastrado vai ao passo do código antes de entrar", loginComCodigo(login2));
+  ok("segundo-fator: (defeito plantado) o login entrando direto (sem perguntar) é REPROVADO",
+     !loginComCodigo(login2.replace(/if \(await precisaDoCodigoAgora\(\)\)[^\n]*\n/, "")));
 }
 
 // ═══ SAÍDA FIXA — a Pinbank só é chamada por UMA porta (os 2 IPs fixos) ═══════

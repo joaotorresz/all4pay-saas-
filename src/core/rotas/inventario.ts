@@ -180,6 +180,12 @@ export const INVENTARIO: RotaInventario[] = [
   // O fim do "esqueci a senha": só abre com a sessão de recuperação que a
   // rota de retorno do link (/api/auth/recuperar) acabou de criar.
   { rota: "/redefinir-senha", nome: "Nova senha", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  // O passo do código de quem cadastrou o aplicativo autenticador: a ÚNICA
+  // rota que uma sessão de primeiro nível com segundo fator abre.
+  { rota: "/segundo-fator", nome: "Código de verificação", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  // O segundo fator é da PESSOA: mora em "Meu perfil", não na administração
+  // (que recusa justamente quem ainda não o cadastrou).
+  { rota: "/configuracoes/seguranca", nome: "Segurança da conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/pos/venda", nome: "Simulador de venda", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/exportar", nome: "Exportar para o contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },

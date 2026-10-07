@@ -72,6 +72,18 @@ porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
 ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
 COM o servidor de e-mail (fora do CI, que sobe sem ele).
 
+⚠️ **SEGUNDO FATOR (07/10/2026, `docs/rodada-10/segundo-fator.md`):** o
+aplicativo autenticador da conta se cadastra em `/configuracoes/seguranca`
+("Segurança da conta", no ⋮). Quem o tem e entra só com a senha (aal1) vai a
+`/segundo-fator` e SÓ a ele — o middleware decide pelo `user.factors` FRESCO
+do `getUser`, antes do perímetro da plataforma, fora de `/api`, falhando
+fechado; o destino depois do código é FIXO (recuperação → `/redefinir-senha`,
+o resto → `/`). Todo `auth.mfa.*` mora em `lib/entrada` (teto ZERO, bloco
+`segundo-fator:`). Prova: `npm run segundo-fator -- --api` no CI e a jornada
+`npm run segundo-fator` com build real. ⚠️ Protege as TELAS e o `/admin`
+(o banco exige aal2 do administrador), NÃO a API de dados: nenhuma política de
+linha olha o `aal` — fechar isso é decisão do dono e migration à parte.
+
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 
 **Verde para positivo e vermelho para negativo saíram do sistema inteiro.**

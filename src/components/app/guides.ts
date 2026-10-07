@@ -618,6 +618,19 @@ const PADRAO_DO_HUB: Record<string, string> = {
 /* --------- telas de Compras, Contabilidade, Administração e Ajuda --------- */
 
 Object.assign(GUIDES, {
+  "/configuracoes/seguranca": {
+    titulo: "Segurança da conta — o segundo fator",
+    intro: "Cadastra o aplicativo autenticador do seu celular. Depois de ativado, cada entrada pede, além da senha, o código de 6 dígitos que o aplicativo mostra — quem descobrir a sua senha não entra sem o celular.",
+    comoUsar: "Toque em 'Cadastrar aplicativo autenticador', leia o código QR com o aplicativo (ou digite a chave) e confirme com o primeiro código. Cadastre um segundo aparelho como reserva.",
+    exemplo: "Com o aplicativo ativo, a entrada pede a senha e, em seguida, o código; o código de qualquer aparelho cadastrado serve.",
+    secoes: [
+      acoes([
+        { nome: "Cadastrar aplicativo autenticador", desc: "Mostra o código QR e a chave, e pede o primeiro código para confirmar.", match: "Cadastrar aplicativo autenticador" },
+        { nome: "Adicionar outro aparelho", desc: "Um segundo celular como reserva: sem nenhum, só o suporte retira o segundo fator." },
+        { nome: "Remover", desc: "Retira um aparelho. Removido o último, a conta volta a entrar só com a senha." },
+      ]),
+    ],
+  },
   "/dashboard/purchases": {
     titulo: "Compras — pedidos com aprovação",
     intro: "A compra nasce como PEDIDO, não como despesa. Ela só vira conta a pagar quando alguém aprova — é isso que separa esta tela de Contas a pagar.",

@@ -1,5 +1,6 @@
 import { type NextRequest, type NextFetchEvent, NextResponse } from "next/server";
-import { updateSession, planoDoUsuario, ehDonoDaPlataforma } from "@/lib/supabase/middleware";
+import { updateSession, planoDoUsuario, ehDonoDaPlataforma, exigeCodigo } from "@/lib/supabase/middleware";
+import { ROTA_CODIGO, ehRotaDoCodigo } from "@/core/segundo-fator";
 import { exigePro } from "@/core/planos";
 import { destinoDe } from "@/core/rotas/aliases";
 import { lerMotivo } from "@/core/recuperacao";
@@ -71,6 +72,35 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  /*
+   * ⚠️ **O SEGUNDO FATOR, antes de qualquer outra porta.** Quem tem aplicativo
+   * autenticador e entrou só com a senha (sessão aal1) vai ao passo do código
+   * — e só a ele — até digitá-lo. Vem ANTES do perímetro da plataforma: sem
+   * isso, o administrador com aplicativo veria "área exclusiva do
+   * administrador" (a frase errada) em vez do pedido do código.
+   *
+   * O inverso também vale: quem NÃO precisa do código e abre o passo vai ao
+   * início, para a tela nunca pedir um código que não existe.
+   *
+   * `/api` fica de fora: as rotas respondem JSON (um desvio HTML quebraria
+   * quem chama), a rota de retorno do "esqueci a senha" troca o código sem
+   * sessão, e o banco — não esta porta — é quem recusa o administrador sem o
+   * código (`admin_veredito`, pelo nível do token).
+   */
+  if (user && supabase && !pathname.startsWith("/api")) {
+    const pedeCodigo = await exigeCodigo(supabase, user);
+    if (pedeCodigo !== ehRotaDoCodigo(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = pedeCodigo ? ROTA_CODIGO : "/";
+      url.search = "";
+      const aoCodigo = NextResponse.redirect(url);
+      // O token renovado pelo `getUser` vai junto: um redirecionamento que o
+      // perde faria o navegador reapresentar o token antigo, já trocado.
+      response.cookies.getAll().forEach((c) => aoCodigo.cookies.set(c));
+      return aoCodigo;
+    }
   }
   /*
    * ⚠️ **A volta de um link de redefinição fica no login mesmo com sessão.**

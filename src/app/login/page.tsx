@@ -9,7 +9,8 @@ import { useTipoConta } from "@/components/app/useTipoConta";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { MARCA } from "@/core/marca";
 import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
-import { pedirRedefinicao } from "@/lib/entrada";
+import { pedirRedefinicao, precisaDoCodigoAgora } from "@/lib/entrada";
+import { ROTA_CODIGO } from "@/core/segundo-fator";
 import { lerMotivo, MENSAGEM_RECUPERACAO, ROTA_RETORNO } from "@/core/recuperacao";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -45,6 +46,10 @@ export default function LoginPage() {
       const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
       // Anti-enumeração: mensagem genérica, nunca revela se o e-mail existe.
       if (error) { setMsg({ tone: "error", text: "E-mail ou senha inválidos." }); return; }
+      // ⚠️ Quem cadastrou o aplicativo autenticador ainda não entrou: a senha
+      // abriu uma sessão de primeiro nível, e o passo do código vem agora.
+      // Na dúvida a função diz "não" e o middleware decide na próxima página.
+      if (await precisaDoCodigoAgora()) { window.location.assign(ROTA_CODIGO); return; }
       go();
     } catch {
       setMsg({ tone: "error", text: "Não foi possível entrar agora. Tente novamente." });

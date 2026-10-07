@@ -28,6 +28,8 @@ import {
   type Achado, type Gravidade, type TentativaIsolamento, type AdminRevisao,
 } from "@/core/seguranca";
 import { usePermissoes } from "@/components/app/usePermissoes";
+import Link from "next/link";
+import { ROTA_SEGURANCA_CONTA } from "@/core/segundo-fator";
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 
@@ -232,9 +234,17 @@ export function SegurancaView() {
             {revisao.data.veredito.motivo ? ` — ${revisao.data.veredito.motivo}` : ""}, e a
             tentativa ficou registrada.
           </p>
+          {revisao.data.veredito.exigeMfa && revisao.data.veredito.fatores === 0 && (
+            <AvisoSegundoFator prazo={revisao.data.veredito.mfaPrazo} vencido />
+          )}
         </Card>
       ) : revisao.data?.lista ? (
         <>
+          {revisao.data.veredito.exigeMfa && revisao.data.veredito.fatores === 0 && (
+            <Card className="flex flex-col gap-2">
+              <AvisoSegundoFator prazo={revisao.data.veredito.mfaPrazo} vencido={false} />
+            </Card>
+          )}
           <Card padded={false}>
             <div className="px-5 py-3 border-b border-border-soft flex items-center justify-between gap-3 flex-wrap">
               <div>
@@ -493,6 +503,26 @@ function ListaAchados({ achados }: { achados: Achado[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * ⚠️ A PORTA que resolve, onde o problema aparece: o acesso administrativo
+ * exige o segundo fator, e a recusa sem o caminho do cadastro deixava o
+ * administrador travado diante de um erro que ele não tinha como cumprir.
+ * Ainda no prazo é aviso (`warning`), não erro: nada foi recusado.
+ */
+function AvisoSegundoFator({ prazo, vencido }: { prazo: string | null; vencido: boolean }) {
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <StatusBadge tone="warning">{vencido ? "Segundo fator obrigatório" : "Segundo fator pendente"}</StatusBadge>
+      <span className="text-caption text-muted">
+        {vencido
+          ? "O acesso administrativo exige o aplicativo autenticador cadastrado."
+          : `O acesso administrativo passa a exigir o aplicativo autenticador${prazo ? ` em ${prazo.split("-").reverse().join("/")}` : ""}.`}
+      </span>
+      <Link href={ROTA_SEGURANCA_CONTA} className="text-caption font-medium text-ink underline">Cadastrar o segundo fator</Link>
     </div>
   );
 }

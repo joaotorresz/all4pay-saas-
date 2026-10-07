@@ -57,6 +57,7 @@
     "cron-auth": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/prova-cron-auth.mts",
     "recorrencias-simulacao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/recorrencias-simulacao.mts",
     "senha": "node scripts/redefinir-senha.mjs",
+    "segundo-fator": "node scripts/segundo-fator.mjs",
     "saida-pinbank": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/saida-pinbank.mts"
   },
   "dependencies": {
