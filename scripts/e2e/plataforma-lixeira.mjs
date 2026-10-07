@@ -15,11 +15,21 @@
  */
 import { novoUsuario, verificador, brl } from "./kit.mjs";
 
-async function contasAPagar(u) {
+/**
+ * Os cards da tela de títulos. ⚠️ O título cancelado mora no card da SITUAÇÃO
+ * dele: "Contas a pagar" só conta o que ainda vai vencer (vence hoje inclusive),
+ * e o que já venceu está em "Contas atrasadas". A versão anterior lia sempre
+ * "Contas a pagar" e só passava quando o primeiro título do mês ainda não tinha
+ * vencido — o teste dependia do DIA em que rodava. O "Total" soma os dois.
+ */
+async function cardsDePagar(u) {
   await u.ir("/contas-a-pagar/titulos");
   const t = (await u.texto()).replace(/\n/g, " ");
-  const m = t.match(/Contas a pagar \((\d+)\)\s*R\$\s*([\d.\s]+,\s*\d{2})/);
-  return m ? { n: Number(m[1]), total: brl(m[2]) } : { n: NaN, total: NaN };
+  const card = (rotulo) => {
+    const m = t.match(new RegExp(`${rotulo} \\((\\d+)\\)\\s*R\\$\\s*([\\d.\\s]+,\\s*\\d{2})`));
+    return m ? { n: Number(m[1]), total: brl(m[2]) } : { n: NaN, total: NaN };
+  };
+  return { aVencer: card("Contas a pagar"), atrasadas: card("Contas atrasadas"), todos: card("Total") };
 }
 
 export default async function lixeira(navegador) {
@@ -36,26 +46,33 @@ export default async function lixeira(navegador) {
   await u.page.getByRole("button", { name: "Salvar transferência" }).click();
   await u.page.waitForTimeout(1500);
 
-  const antes = await contasAPagar(u);
-  v.ok(antes.n > 1 && antes.total > 0, "Contas a pagar do mês tem títulos para começar", `${antes.n} · ${antes.total}`);
+  const antes = await cardsDePagar(u);
+  v.ok(antes.todos.n > 1 && antes.todos.total > 0, "Contas a pagar do mês tem títulos para começar", `${antes.todos.n} · ${antes.todos.total}`);
 
   // O título que vai ser cancelado: o primeiro a pagar pendente do mês corrente.
   const alvo = await u.page.evaluate(() => {
     const d = JSON.parse(localStorage.getItem("a4p_imported_dataset") || "null");
     const hoje = new Date();
     const mes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+    const hojeISO = `${mes}-${String(hoje.getDate()).padStart(2, "0")}`;
     const m = d?.movements.find((x) => x.type === "saida" && x.status === "pendente" && x.due_date.startsWith(mes));
     if (!m) return null;
     m.status = "cancelado";
     localStorage.setItem("a4p_imported_dataset", JSON.stringify(d));
-    return { id: m.id, amount: m.amount, due_date: m.due_date, account_id: m.account_id, description: m.description };
+    // Vence hoje ainda é "a vencer"; só o que venceu ANTES de hoje é atrasado.
+    const card = m.due_date < hojeISO ? "atrasadas" : "aVencer";
+    return { id: m.id, amount: m.amount, due_date: m.due_date, account_id: m.account_id, description: m.description, card };
   });
   v.ok(!!alvo, "há um título a pagar pendente no mês para cancelar", JSON.stringify(alvo));
   if (!alvo) { await u.ctx.close(); return v.falhas(); }
 
-  const cancelado = await contasAPagar(u);
-  v.ok(cancelado.n === antes.n - 1 && Math.abs(cancelado.total - (antes.total - alvo.amount)) < 0.01,
-    "cancelar tira o título — e o valor exato — de Contas a pagar", `${antes.total} → ${cancelado.total} (−${alvo.amount})`);
+  const cancelado = await cardsDePagar(u);
+  const doCard = (c) => c[alvo.card];
+  v.ok(doCard(cancelado).n === doCard(antes).n - 1 && Math.abs(doCard(cancelado).total - (doCard(antes).total - alvo.amount)) < 0.01,
+    `cancelar tira o título — e o valor exato — do card da situação dele (${alvo.card})`,
+    `${doCard(antes).total} → ${doCard(cancelado).total} (−${alvo.amount})`);
+  v.ok(cancelado.todos.n === antes.todos.n - 1 && Math.abs(cancelado.todos.total - (antes.todos.total - alvo.amount)) < 0.01,
+    "cancelar tira o título — e o valor exato — do Total", `${antes.todos.total} → ${cancelado.todos.total} (−${alvo.amount})`);
 
   await u.ir("/lixeira");
   const lista = (await u.texto()).replace(/\n/g, " ");
@@ -76,9 +93,11 @@ export default async function lixeira(navegador) {
     "o título novo tem a mesma conta e descrição, com procedência manual", JSON.stringify(novos[0] ?? {}).slice(0, 200));
   v.ok(!ds.movements.some((x) => x.id === alvo.id), "o cancelado não fica no dataset ao lado do novo");
 
-  const depois = await contasAPagar(u);
-  v.ok(depois.n === antes.n && Math.abs(depois.total - antes.total) < 0.01,
-    "Contas a pagar volta EXATAMENTE ao total de antes do cancelamento", `${antes.total} → ${depois.total}`);
+  const depois = await cardsDePagar(u);
+  v.ok(doCard(depois).n === doCard(antes).n && Math.abs(doCard(depois).total - doCard(antes).total) < 0.01,
+    `o card da situação (${alvo.card}) volta EXATAMENTE ao total de antes do cancelamento`, `${doCard(antes).total} → ${doCard(depois).total}`);
+  v.ok(depois.todos.n === antes.todos.n && Math.abs(depois.todos.total - antes.todos.total) < 0.01,
+    "o Total volta EXATAMENTE ao de antes do cancelamento", `${antes.todos.total} → ${depois.todos.total}`);
 
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));
   await u.ctx.close();
