@@ -69,6 +69,8 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   origem/espécie/autor/NSU/chave e trilha, reentrega, versão velha recusada,
   cancelamento pela máquina de estados, chave de outro NSU, dado sensível,
   assinatura vencida, isolamento. Provado plantando oito defeitos.
+- `engine-audit`, bloco `saida-fixa:` e `npm run saida-pinbank` — a porta
+  única para a Pinbank (07/10/2026, `docs/rodada-10/saida-fixa.md`).
 - Ponta a ponta contra o banco local, com eventos assinados de verdade: venda
   3x, reentrega, assinatura adulterada (401), fora da janela (401), sem vínculo
   (quarentena), cancelamento, aprovada atrasada (ignorada), débito — e, pela
@@ -83,19 +85,26 @@ Pinbank ──POST──▶ /api/pinbank/webhook
    **`https://app.quattro.finance/api/pinbank/webhook`** (o domínio oficial,
    `docs/rodada-10/dominio.md`), eventos `Compra.*`, integração com o nome
    Quattro. Duas perguntas em aberto com o dev da Pinbank:
-   - **"Os dois IPs"** — a documentação pública deles não fala de IP em
-     nenhuma das 119 páginas. Na ENTRADA (o webhook) não há IP fixo: a Vercel
-     responde por anycast, e quem garante a origem é a assinatura Ed25519. Se
-     for allowlist das NOSSAS chamadas à API deles (`ExtratoPos`), aí sim é
-     preciso IP fixo de SAÍDA: Vercel Static IPs (plano Pro, US$ 100/mês por
-     projeto + tráfego, par compartilhado com poucos clientes) ou um proxy de
-     IP fixo (QuotaGuard, ~US$ 19/mês, região São Paulo).
+   - ~~**"Os dois IPs"**~~ — **decidido em 07/10/2026**: são os IPs de onde
+     NÓS chamamos a Pinbank (o dev confirmou "produção, IPs fixos"; na ENTRADA,
+     o webhook, quem garante a origem é a assinatura Ed25519, e a Vercel não
+     tem IP fixo de entrada). O dono escolheu **dois servidores próprios na AWS**
+     (Lightsail São Paulo, US$ 5/mês cada) em vez do Static IPs da Vercel
+     (US$ 100/mês, só no Pro) — detalhe, passo a passo e provas em
+     `docs/rodada-10/saida-fixa.md`. Toda chamada à Pinbank passa pela porta
+     única `src/lib/pinbank/saida.ts`.
    - **O ambiente de teste envia webhook, e com qual chave?** O host
      `dev.pinbank.com.br` não publica `/webhook/signing-key` (404). Se o teste
      assinar com outra chave, toda entrega de teste volta 401.
 3. Salvar a resposta de `GET https://pinbank.com.br/webhook/signing-key` em
    `PINBANK_WEBHOOK_JWKS` (recomendado pela própria Pinbank; sem ela a rota
-   busca a chave e guarda por uma hora).
+   busca a chave — pela saída fixa — e guarda por uma hora). ⚠️ Com a JWKS
+   fixa, uma ROTAÇÃO de chave ainda busca a nova; se a busca falhar, o webhook
+   responde 503 (a Pinbank reenvia), nunca o 401 que perderia a venda — e JSON
+   ilegível na variável também é 503, não "nenhuma chave". Sem a JWKS fixa,
+   busca que falha com o cache vencido usa a chave já conhecida (até 24 h), e a
+   chave pública — só ela — volta ao caminho direto se os dois servidores da
+   saída fixa estiverem fora.
 4. `PINBANK_WEBHOOK=ligado`.
 5. No `/admin`, vincular cada estabelecimento (o código aparece na quarentena
    assim que a primeira venda chega); a empresa ativa em Integrações.
@@ -104,7 +113,9 @@ Pinbank ──POST──▶ /api/pinbank/webhook
 
 - **Conferência pelo extrato (`ExtratoPos`)**: a API exige OAuth2 + criptografia
   AES-128-CBC e credenciais (`UserName`, `KeyValue`, `RequestOrigin`,
-  `CodigoCanal`) que ainda não temos. Ela traz a data real do repasse e a taxa
+  `CodigoCanal`) que ainda não temos — e os 2 IPs fixos liberados pela
+  Pinbank (a saída fixa já existe; o cliente da API deve chamá-la por
+  `requisicaoPinbank`, que nunca repete um pedido que já saiu). Ela traz a data real do repasse e a taxa
   cobrada; com ela, os títulos estimados passam a ser os conferidos. O campo
   `codigo_cliente` do vínculo já existe para isso.
 - ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —

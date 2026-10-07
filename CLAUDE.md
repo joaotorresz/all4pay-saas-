@@ -194,6 +194,21 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
   `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
   vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.
+- ⚠️ **A PINBANK SÓ É CHAMADA POR UMA PORTA: `src/lib/pinbank/saida.ts`**
+  (07/10/2026, `docs/rodada-10/saida-fixa.md`). Ela libera em produção os 2
+  IPs FIXOS de onde a chamamos: dois servidores próprios no Lightsail São Paulo
+  (`infra/saida-pinbank/`, Squid só CONNECT/443/`*.pinbank.com.br`, senha
+  gerada no servidor). Com `PINBANK_SAIDA_1/2`, nunca sai direto; a troca de
+  servidor só acontece ANTES de o pedido sair (repetir depois pode duplicar
+  dinheiro). Sem `undici`, de propósito (medido: as falhas chegam todas como
+  `fetch failed`). Teto ZERO do endereço da Pinbank e de socket próprio fora da
+  porta (bloco `saida-fixa:`), comportamento em `npm run saida-pinbank`. No
+  webhook, chave que não vem (busca falhando na rotação, JWKS ilegível) é 503,
+  nunca 401; cache vencido serve até 24 h se a busca falhar; e só a chave
+  PÚBLICA (`PUBLICOS`) volta ao direto com os dois servidores fora — a API com
+  credencial, nunca. O túnel não come a reserva do envio (1 s). Launch script
+  cortado em qualquer ponto diz "chegou CORTADO". `/api/admin/saida-fixa` prova
+  os 2 IPs de dentro da função.
 
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
