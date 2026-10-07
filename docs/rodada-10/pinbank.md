@@ -76,9 +76,23 @@ Pinbank ──POST──▶ /api/pinbank/webhook
 
 ## Para ligar em produção (ordem)
 
-1. Aplicar `20261005120000_pinbank_maquininha.sql` (o job `migrar` no merge).
+1. ~~Aplicar `20261005120000_pinbank_maquininha.sql`~~ — **aplicada em
+   06/10/2026** pelo job `migrar` do merge do PR #172 (110 de 110); o retrato
+   de produção a registra desde o PR #173.
 2. Pedir ao suporte da Pinbank o cadastro do webhook: URL
-   `https://<app>/api/pinbank/webhook`, eventos `Compra.*`.
+   **`https://app.quattro.finance/api/pinbank/webhook`** (o domínio oficial,
+   `docs/rodada-10/dominio.md`), eventos `Compra.*`, integração com o nome
+   Quattro. Duas perguntas em aberto com o dev da Pinbank:
+   - **"Os dois IPs"** — a documentação pública deles não fala de IP em
+     nenhuma das 119 páginas. Na ENTRADA (o webhook) não há IP fixo: a Vercel
+     responde por anycast, e quem garante a origem é a assinatura Ed25519. Se
+     for allowlist das NOSSAS chamadas à API deles (`ExtratoPos`), aí sim é
+     preciso IP fixo de SAÍDA: Vercel Static IPs (plano Pro, US$ 100/mês por
+     projeto + tráfego, par compartilhado com poucos clientes) ou um proxy de
+     IP fixo (QuotaGuard, ~US$ 19/mês, região São Paulo).
+   - **O ambiente de teste envia webhook, e com qual chave?** O host
+     `dev.pinbank.com.br` não publica `/webhook/signing-key` (404). Se o teste
+     assinar com outra chave, toda entrega de teste volta 401.
 3. Salvar a resposta de `GET https://pinbank.com.br/webhook/signing-key` em
    `PINBANK_WEBHOOK_JWKS` (recomendado pela própria Pinbank; sem ela a rota
    busca a chave e guarda por uma hora).
