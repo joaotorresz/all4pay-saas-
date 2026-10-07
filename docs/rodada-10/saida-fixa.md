@@ -145,6 +145,37 @@ que evita:
   rede interna e em GET simples). À parte, o launch script cortado em **1.085
   pontos**, no `dash` e no `bash`: todos dizem "chegou CORTADO", nenhum instala.
 
+## Em produção (07/10/2026)
+
+| Servidor | Zona | Static IP | IP de saída medido (`quattro-saida-url`) |
+| --- | --- | --- | --- |
+| `quattro-saida-1` | São Paulo A | `ip-saida-1` = **54.232.7.164** | 54.232.7.164 ✅ |
+| `quattro-saida-2` | São Paulo B | `ip-saida-2` = **56.126.71.195** | 56.126.71.195 ✅ |
+
+Enviados à Pinbank para liberação, junto com o webhook
+`https://app.quattro.finance/api/pinbank/webhook`. Os IPs provisórios da
+criação (18.229.132.246 e 56.125.1.154) sumiram ao anexar os static IPs e não
+servem para nada.
+
+- **O console de hoje não é o da documentação.** Não há a caixa "Restrict to IP
+  address": o SSH 22 foi restrito removendo as origens "Anywhere" e mantendo o
+  acesso pelo navegador — a linha aparece como **"Lightsail browser SSH only"**.
+  O firewall é UM só para IPv4 e IPv6 (a documentação ainda descreve dois), e o
+  IPv6 se desliga pelo botão **"Disable IPv6 networking"** da aba Networking.
+  ⚠️ Nunca "Change networking type": vira IPv6-only, perde o IPv4 e solta o
+  static IP (static IP não se anexa a instância IPv6-only).
+- ⚠️ **O terminal não prova o IPv6 do console.** `ip -6 addr show scope global`
+  vazio e a falta do "ATENÇÃO" no `quattro-saida-url` acontecem MESMO com o IPv6
+  ligado no console, porque o `sysctl` do instalador já o desliga no sistema. E o
+  `checkip.amazonaws.com` não tem AAAA (medido), então o IP medido prova só a
+  saída IPv4 — a Pinbank tem AAAA. A prova da camada (1) é o console dizer
+  "IPv6 networking is disabled"; é ela que segura o IPv6 depois de um boot,
+  quando o netplan do primeiro boot (`dhcp6: true`) volta a pedir endereço.
+- O `quattro-saida-url` testa pelo proxy LOCAL (`127.0.0.1`), então não
+  atravessa o firewall do Lightsail: uma regra 31280 errada só aparece no
+  `/api/admin/saida-fixa`. O reinício automático não é diário — só quando uma
+  atualização o pede, no horário de cada servidor.
+
 ## O que NÃO está provado aqui, e onde se prova
 
 - **A instância Lightsail de verdade** — systemd, o IPv6 desligado pelo `sysctl`
