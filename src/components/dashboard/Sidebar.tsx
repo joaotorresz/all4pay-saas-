@@ -159,8 +159,8 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
-            aria-label="Criar"
-            title="Criar"
+            aria-label="Criar novo registro"
+            title="Criar novo registro"
             className={cn(
               "h-11 rounded-pill bg-lime text-on-lime text-[14px] font-medium inline-flex items-center justify-center gap-2",
               col ? "w-11" : "flex-1 min-w-0",
