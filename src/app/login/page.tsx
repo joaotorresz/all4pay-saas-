@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { MARCA } from "@/core/marca";
+import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
+import { pedirRedefinicao } from "@/lib/entrada";
+import { lerMotivo, MENSAGEM_RECUPERACAO, ROTA_RETORNO } from "@/core/recuperacao";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -25,7 +28,14 @@ export default function LoginPage() {
   const [touched, setTouched] = React.useState(false);
   const [msg, setMsg] = React.useState<{ tone: "error" | "ok"; text: string } | null>(null);
 
-  const go = () => { router.push("/"); router.refresh(); };
+  /*
+   * ⚠️ **Navegação COMPLETA, não `router.push` + `router.refresh`.** Medido em
+   * 07/10/2026: o refresh disparado logo depois do push ainda pedia `/login`;
+   * o middleware (sessão já aberta) respondia com o conteúdo da Home, e o
+   * endereço ficava parado em `/login` com a Home na tela. Recarregar a página
+   * inteira faz o servidor ler os cookies novos uma vez, e o endereço bate.
+   */
+  const go = () => { window.location.assign("/"); };
 
   async function entrar() {
     setTouched(true);
@@ -44,18 +54,47 @@ export default function LoginPage() {
   async function resetar() {
     setTouched(true);
     if (!emailOk(email)) return;
-    setBusy(true); setMsg(null);
-    try {
-      await createClient().auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
-      });
-    } catch { /* silencioso de propósito */ }
-    finally {
-      setBusy(false);
-      // Mensagem neutra SEMPRE (exista ou não o e-mail) — anti-enumeração.
-      setMsg({ tone: "ok", text: "Se houver uma conta com esse e-mail, enviamos um link de redefinição." });
+    if (!configured) {
+      setMsg({ tone: "error", text: "A redefinição de senha não existe no modo demonstração." });
+      return;
     }
+    setBusy(true); setMsg(null);
+    // A falha vai para o canal de falhas dentro de `pedirRedefinicao`; a tela
+    // não a mostra, de propósito (ver a mensagem neutra abaixo).
+    await pedirRedefinicao(email);
+    setBusy(false);
+    // Mensagem neutra SEMPRE (exista ou não o e-mail) — anti-enumeração.
+    setMsg({ tone: "ok", text: "Se houver uma conta com esse e-mail, enviamos um link de redefinição. Abra-o neste mesmo navegador." });
   }
+
+  /*
+   * ⚠️ **O login recebe a volta de um link que não abriu.** A rota de retorno
+   * (`ROTA_RETORNO`) manda para cá `?recuperacao=<motivo>` quando o link
+   * venceu, já foi usado ou foi aberto noutro navegador — e a tela abre direto
+   * no pedido de um link novo, dizendo o porquê.
+   *
+   * ⚠️ **E um `?code=` que chegue aqui é encaminhado à rota de retorno.** É o
+   * link enviado antes deste conserto (que voltava para `/login`) e o caso em
+   * que o Auth, sem o endereço na lista dele, devolve para o endereço padrão.
+   * Deixado aqui, o código ficava parado na URL, e era esse o defeito.
+   *
+   * Lido de `window.location`, e não de `useSearchParams`, para a página não
+   * precisar de Suspense — e uma vez só, na montagem.
+   */
+  React.useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const code = q.get("code");
+    if (code && configured) {
+      window.location.replace(`${ROTA_RETORNO}?code=${encodeURIComponent(code)}`);
+      return;
+    }
+    const motivo = lerMotivo(q.get("recuperacao"));
+    if (motivo) {
+      const m = MENSAGEM_RECUPERACAO[motivo];
+      setView("reset");
+      setMsg({ tone: "error", text: `${m.motivo} ${m.comoResolver}` });
+    }
+  }, []);
 
   // TODO pré-BACEN: rate-limit / lockout de tentativas de login (anti brute-force).
 
@@ -189,40 +228,5 @@ export default function LoginPage() {
       {/* Coluna direita — arte (camadas de fluxo financeiro), some no mobile */}
       <ArtPanel pessoal={pessoal} />
     </MolduraPublica>
-  );
-}
-
-function Spinner() {
-  return <span className="inline-block w-4 h-4 rounded-full border-2 border-on-lime/30 border-t-on-lime animate-spin" aria-hidden />;
-}
-
-/** Composição geométrica lime → dark (tokens), inspirada na Payfy. */
-function ArtPanel({ pessoal }: { pessoal: boolean }) {
-  return (
-    <div
-      className="hidden lg:block relative overflow-hidden"
-      style={{ background: "linear-gradient(135deg, var(--color-lime) 0%, var(--color-ink) 78%)" }}
-      aria-hidden
-    >
-      {/* camadas/quadrados arredondados sobrepostos */}
-      <div className="absolute rounded-card" style={{ width: 360, height: 360, top: "12%", left: "18%", background: "rgba(255,255,255,0.10)", transform: "rotate(14deg)" }} />
-      <div className="absolute rounded-card" style={{ width: 280, height: 280, top: "34%", left: "40%", background: "var(--color-lime-tint)", opacity: 0.18, transform: "rotate(-10deg)" }} />
-      <div className="absolute rounded-card" style={{ width: 220, height: 220, top: "52%", left: "20%", background: "rgba(0,0,0,0.18)", transform: "rotate(8deg)" }} />
-      <div className="absolute rounded-pill" style={{ width: 520, height: 520, top: "-10%", right: "-12%", background: "rgba(200,217,48,0.18)", filter: "blur(2px)" }} />
-      <div className="absolute inset-0 flex items-end p-12">
-        <div className="max-w-[420px]">
-          <p className="m-0 text-h3 font-medium leading-tight" style={{ color: "var(--color-white)" }}>
-            {pessoal
-              ? "Seu dinheiro do dia a dia, organizado e sob controle."
-              : "O sistema operacional financeiro que também guarda e move o seu dinheiro."}
-          </p>
-          <p className="m-0 mt-3 text-label" style={{ color: "var(--color-white)", opacity: 0.75 }}>
-            {pessoal
-              ? "Gastos, contas e orçamento — tudo num lugar só, sem planilha."
-              : "Caixa, risco, cobrança e pagamento — em camadas, num lugar só."}
-          </p>
-        </div>
-      </div>
-    </div>
   );
 }

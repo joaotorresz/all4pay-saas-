@@ -2,6 +2,7 @@ import { type NextRequest, type NextFetchEvent, NextResponse } from "next/server
 import { updateSession, planoDoUsuario, ehDonoDaPlataforma } from "@/lib/supabase/middleware";
 import { exigePro } from "@/core/planos";
 import { destinoDe } from "@/core/rotas/aliases";
+import { lerMotivo } from "@/core/recuperacao";
 import { registrarAcessoAlias } from "@/lib/supabase/middleware";
 
 /**
@@ -71,7 +72,16 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
-  if (user && pathname.startsWith("/login")) {
+  /*
+   * ⚠️ **A volta de um link de redefinição fica no login mesmo com sessão.**
+   * Quem já está logado e abre um link vencido, usado ou de outro navegador
+   * precisa LER por que ele falhou (`?recuperacao=`), e um `?code=` parado
+   * precisa chegar ao login para ser encaminhado à rota de retorno. Mandados
+   * para a Home, o motivo some e o código cai numa tela que não o trata.
+   */
+  const voltaDeLink =
+    lerMotivo(request.nextUrl.searchParams.get("recuperacao")) !== null || request.nextUrl.searchParams.has("code");
+  if (user && pathname.startsWith("/login") && !voltaDeLink) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

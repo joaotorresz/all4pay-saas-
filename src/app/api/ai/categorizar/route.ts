@@ -30,6 +30,7 @@ export async function POST(req: Request) {
 
   const prompt = `Você é um contador brasileiro que categoriza transações financeiras de uma PME.
 Para cada transação, escolha a MELHOR categoria da lista do tipo correspondente. Use EXATAMENTE um dos rótulos fornecidos (não invente). Em dúvida, escolha "Outras despesas" (saída) ou "Vendas" (entrada).
+A taxa da maquininha (MDR, tarifa ou taxa da adquirente: Cielo, Stone, Rede, Getnet…) é "Tarifas de adquirência" quando o rótulo estiver na lista — não é tarifa bancária. O repasse das vendas no cartão (entrada) é venda.
 
 CATEGORIAS DE DESPESA (para tipo "saida"): ${JSON.stringify(cDesp)}
 CATEGORIAS DE RECEITA (para tipo "entrada"): ${JSON.stringify(cRec)}

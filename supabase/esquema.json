@@ -142,7 +142,8 @@
     "20261001140000_aprovacao_por_whatsapp",
     "20261001150000_caixa_entrada_email",
     "20261002120000_papel_nas_tabelas_de_dinheiro",
-    "20261002130000_lancamento_aponta_para_categoria"
+    "20261002130000_lancamento_aponta_para_categoria",
+    "20261005120000_pinbank_maquininha"
   ],
   "divergencias_conhecidas": {
     "_regra": [

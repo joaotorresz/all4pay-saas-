@@ -2,16 +2,17 @@
  * Puzzlebot — auto-categorização por IA da importação (FDIP). Pega os
  * lançamentos de BAIXA confiança da leitura por regras, manda para o Claude
  * (`/api/ai/categorizar`) escolher a melhor categoria do vocabulário, e
- * MEMORIZA a escolha (self-learning) via `aprender(contraparteNorm, categoria)`.
+ * MEMORIZA a escolha (self-learning) via `aprender(chaveDaMemoria(linha), categoria)`.
  * Depois é só re-analisar: a regra já acerta (confiança ~0.99) na sequência —
  * é como a acurácia sobe a ~90%+ a cada upload. Gated por ANTHROPIC_API_KEY.
  */
-import { aprender, type FDIPReport } from "@/core/fdip";
+import { aprender, chaveDaMemoria, type FDIPReport } from "@/core/fdip";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 /** Vocabulário de categorias oferecido ao modelo (rótulos do FDIP). */
 export const CATEGORIAS_DESPESA = [
   "Marketing", "Assinaturas / software", "Combustível", "Folha de pagamento",
-  "Aluguel", "Utilidades", "Impostos", "Tarifas bancárias", "Fornecedores / insumos", "Outras despesas",
+  "Aluguel", "Utilidades", "Impostos", "Tarifas bancárias", CATEGORIA_TAXA_POS, "Fornecedores / insumos", "Outras despesas",
 ];
 export const CATEGORIAS_RECEITA = ["Vendas", "Serviços", "Outras receitas"];
 
@@ -50,7 +51,9 @@ export async function autoCategorizar(report: FDIPReport): Promise<ResultadoPuzz
   for (const c of j.categorias as Array<{ id: string; categoria: string; confianca?: number }>) {
     const rec = porId.get(c.id);
     if (!rec || !validas.has(c.categoria)) continue;
-    aprender(rec.contraparteNorm, c.categoria); // self-learning → próxima leitura já acerta
+    // A MESMA chave que a leitura usa: "TAXA STONE" não pode ensinar "taxa" → a
+    // taxa da maquininha para todo "TAXA PIX" do extrato seguinte.
+    aprender(chaveDaMemoria(rec), c.categoria); // self-learning → próxima leitura já acerta
     aplicados++;
   }
   return { revisados: alvos.length, aplicados };

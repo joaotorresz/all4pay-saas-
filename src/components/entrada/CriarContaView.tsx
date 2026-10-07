@@ -30,6 +30,7 @@ import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { Button, Card, Input } from "@/components/ui";
 import { criarContaEEntrar } from "@/lib/entrada";
 import { loadCompany, saveCompany } from "@/lib/company";
+import { MIN_SENHA } from "@/core/recuperacao";
 
 export function CriarContaView() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export function CriarContaView() {
    */
   const [erroEmpresa, setErroEmpresa] = React.useState<string | null>(null);
 
-  const podeEnviar = email.trim().length > 3 && senha.length >= 6 && empresa.trim().length > 0;
+  const podeEnviar = email.trim().length > 3 && senha.length >= MIN_SENHA && empresa.trim().length > 0;
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +128,7 @@ export function CriarContaView() {
             <Input
               label="Senha" type="password" autoComplete="new-password" required
               value={senha} onChange={(e) => setSenha(e.target.value)}
-              placeholder="pelo menos 6 caracteres"
+              placeholder={`pelo menos ${MIN_SENHA} caracteres`}
             />
             <Input
               label="Nome da empresa" required

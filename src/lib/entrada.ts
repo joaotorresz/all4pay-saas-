@@ -17,6 +17,8 @@
  * quebrado. Estourou o prazo, a pessoa recebe uma frase e o botão volta.
  */
 import { createClient } from "@/lib/supabase/client";
+import { reportar } from "@/lib/erros";
+import { MIN_SENHA, ROTA_RETORNO } from "@/core/recuperacao";
 
 /** Prazo de qualquer chamada de autenticação. Acima disto, a pessoa desiste. */
 const PRAZO_MS = 15_000;
@@ -56,8 +58,23 @@ function traduzir(bruto: string): { motivo: string; comoResolver?: string } {
   if (m.includes("invalid login") || m.includes("invalid_credentials")) {
     return { motivo: "E-mail ou senha não conferem.", comoResolver: "Confira os dois e tente de novo." };
   }
-  if (m.includes("password") && (m.includes("short") || m.includes("weak") || m.includes("6 characters"))) {
-    return { motivo: "A senha é curta demais.", comoResolver: "Use pelo menos 6 caracteres." };
+  // ⚠️ A troca de senha tem três recusas próprias, e as três vêm ANTES da
+  // regra de "curta demais": senão a senha repetida ou a sessão vencida
+  // virariam "use pelo menos 6 caracteres", o conselho que não resolve.
+  if (m.includes("same_password") || m.includes("different from the old")) {
+    return { motivo: "A nova senha é igual à anterior.", comoResolver: "Escolha uma senha diferente." };
+  }
+  if (
+    m.includes("session missing") || m.includes("session_not_found") || m.includes("session_expired")
+    || m.includes("reauthentication_needed") || m.includes("reauth_nonce_missing")
+  ) {
+    return { motivo: "O link de redefinição expirou.", comoResolver: "Peça um novo link na tela de entrar." };
+  }
+  if (m.includes("password") && m.includes("should contain")) {
+    return { motivo: "A senha não atende às regras de segurança.", comoResolver: "Misture letras e números." };
+  }
+  if (m.includes("password") && (m.includes("short") || m.includes("weak") || m.includes(`${MIN_SENHA} characters`))) {
+    return { motivo: "A senha é curta demais.", comoResolver: `Use pelo menos ${MIN_SENHA} caracteres.` };
   }
   if (m.includes("invalid") && m.includes("email")) {
     return { motivo: "Este e-mail não parece válido.", comoResolver: "Confira se não falta o @ ou o domínio." };
@@ -146,4 +163,60 @@ export async function entrarComSenha(email: string, senha: string): Promise<Resu
   } catch (e) {
     return { ok: false, ...traduzir(e instanceof Error ? e.message : String(e)) };
   }
+}
+
+/**
+ * Pede o e-mail de redefinição.
+ *
+ * ⚠️ **NUNCA diz se a conta existe.** A tela mostra a mesma frase com ou sem
+ * envio — senão o formulário vira um verificador de quais e-mails são
+ * clientes. A falha não some: vai para o canal de falhas, onde alguém olha.
+ *
+ * ⚠️ **O link volta para a rota que troca o código NO SERVIDOR**
+ * (`ROTA_RETORNO`), não para `/login`: no login nada trocava o código, e o
+ * e-mail chegava para levar a lugar nenhum. A origem é a da página, porque a
+ * prova de que foi esta pessoa que pediu fica num cookie DESTE domínio.
+ */
+export async function pedirRedefinicao(email: string): Promise<void> {
+  try {
+    const s = createClient();
+    const { error } = await comPrazo(
+      s.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}${ROTA_RETORNO}` }),
+      "recuperar",
+    );
+    if (error) reportar("acesso.pedir_redefinicao", error, "O e-mail de redefinição de senha pode não ter saído.", true);
+  } catch (e) {
+    reportar("acesso.pedir_redefinicao", e, "O e-mail de redefinição de senha pode não ter saído.", true);
+  }
+}
+
+/**
+ * Grava a senha nova com a sessão de recuperação aberta pelo link.
+ *
+ * ⚠️ **Depois de trocar, encerra as OUTRAS sessões da conta.** Quem pede
+ * redefinição às vezes pede porque alguém entrou no lugar dela; trocar a senha
+ * e deixar a sessão do outro aberta não resolve o motivo do pedido. É o melhor
+ * esforço: se falhar, a senha já mudou e a falha vai para o canal.
+ *
+ * ⚠️ **É a SEGUNDA trava, e isso foi medido.** Na jornada `npm run senha`, com
+ * esta chamada removida, a sessão do outro aparelho caiu do mesmo jeito: o
+ * próprio Auth (local, v2.197) encerra as outras sessões quando a senha muda.
+ * Ela fica para não depender da versão do servidor — e quem cobra a presença
+ * dela é o `engine-audit` (bloco `senha:`), não a jornada, que mede o resultado.
+ */
+export async function redefinirSenha(nova: string): Promise<ResultadoEntrada> {
+  const s = createClient();
+  try {
+    const { error } = await comPrazo(s.auth.updateUser({ password: nova }), "senha");
+    if (error) return { ok: false, ...traduzir(`${error.code ?? ""} ${error.message}`) };
+  } catch (e) {
+    return { ok: false, ...traduzir(e instanceof Error ? e.message : String(e)) };
+  }
+  try {
+    const { error } = await comPrazo(s.auth.signOut({ scope: "others" }), "sessoes");
+    if (error) reportar("acesso.encerrar_outras_sessoes", error, "As outras sessões da conta seguem abertas depois da troca de senha.", true);
+  } catch (e) {
+    reportar("acesso.encerrar_outras_sessoes", e, "As outras sessões da conta seguem abertas depois da troca de senha.", true);
+  }
+  return { ok: true };
 }

@@ -49,7 +49,7 @@ export function somaMeses(iso: string, m: number): string {
 }
 
 /** Divide `valor` em `n` partes; o resto dos centavos vai na ÚLTIMA. */
-function dividir(valor: number, n: number): number[] {
+export function dividir(valor: number, n: number): number[] {
   const parte = r2(valor / n);
   return Array.from({ length: n }, (_, i) => (i === n - 1 ? r2(valor - parte * (n - 1)) : parte));
 }

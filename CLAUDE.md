@@ -53,6 +53,25 @@ de backup antigo (continua aceito na restauração), o endereço
 `all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
 navegador e as migrations já aplicadas.
 
+⚠️ **O DOMÍNIO OFICIAL É `app.quattro.finance` (desde 07/10/2026)** — DNS na
+Hostinger (CNAME `app` → o alvo do projeto na Vercel) e Site URL do Supabase
+Auth (era `http://localhost:3000`). O webhook da Pinbank é
+`https://app.quattro.finance/api/pinbank/webhook`. **`all4pay-saas.vercel.app`
+continua respondendo e NÃO pode ganhar "Redirect to"**: o pg_cron do Open
+Finance e a guarda `no-ar` chamam por ele. Detalhe e pendências (verificação
+do titular até 21/10) em `docs/rodada-10/dominio.md`.
+
+⚠️ **"ESQUECI A SENHA" (07/10/2026):** o link volta para `/api/auth/recuperar`,
+que troca o código PKCE pela sessão NO SERVIDOR e manda, por destino FIXO e
+relativo, para `/redefinir-senha` (ou para `/login?recuperacao=<motivo>`).
+⚠️ A tela só abre com a sessão VINDA DO LINK (marca `recovery` no token, com
+menos de 1 hora, conferida no servidor) — uma sessão comum trocaria a senha de
+quem deixou o sistema aberto sem pedir a atual. As
+regras moram em `core/recuperacao`; as chamadas de auth da recuperação têm
+porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
+ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
+COM o servidor de e-mail (fora do CI, que sobe sem ele).
+
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 
 **Verde para positivo e vermelho para negativo saíram do sistema inteiro.**
@@ -156,7 +175,48 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `globals.css` — as outras telas seguem com a regra global do valor até o dono
   decidir estender.
 
- (02/10/2026, detalhe em `docs/rodada-9/`)
+## ⚠️ RODADA 10 — A MAQUININHA PINBANK (05/10/2026, detalhe em `docs/rodada-10/pinbank.md`)
+
+- **Webhook `Compra.*` → venda** (`/api/pinbank/webhook`, DESLIGADO por padrão:
+  `PINBANK_WEBHOOK=ligado`). Portas: interruptor → assinatura **Ed25519 sobre o
+  corpo BRUTO** (chave pelo `kid`) → envelope → banco. 401/400 a Pinbank não
+  reenvia; 503 reenvia; evento guardado é 200.
+- **O vínculo tem DUAS chaves**: só a PLATAFORMA liga estabelecimento → empresa
+  (`/admin`, índice único GLOBAL); a EMPRESA ativa em Integrações (conta e
+  taxas). Sem a segunda, o evento espera; sem a primeira, vai à quarentena.
+- **Uma escrita só**: `core/pinbank` planeja (puro), `pinbank_aplicar` grava
+  documento + títulos numa transação, com versão da transação (evento fora de
+  ordem não volta o ciclo) e chave `pinbank:<nsu>:…` (reentrega não duplica).
+  Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
+- ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
+  taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
+  (OAuth2 + AES) é a próxima fase — faltam as credenciais.
+- ⚠️ **A taxa da maquininha (MDR) é DESPESA VARIÁVEL, acima do EBITDA**
+  (06/10/2026). "Tarifas de adquirência" caía no Resultado Financeiro ("tarifa"
+  casava o financeiro e o padrão antigo `adquiren` não casava com o "ê"). A
+  regra é UMA (`ehTaxaAdquirencia`, `core/indicadores/classificacao`): tarifa ou
+  taxa DA adquirência, ou MDR — o "Repasse da adquirente" é venda e continua
+  receita; tarifa BANCÁRIA continua financeira; a taxa devolvida é estorno da
+  despesa variável, nunca faturamento — mas ENTRADA com repasse/receita/venda/
+  líquido no nome ("Receita de MDR") é venda, não estorno. O orçamento usa a
+  MESMA regra de sinal do montador (`valorNaLinha`). O EBITDA cai pelo MDR; o
+  resultado líquido não muda. **No extrato também**: QUEM DECIDE é a prévia
+  (`core/ingestao`), com `ehLancamentoDeTaxaAdquirencia` ("tarifa"/"taxa" +
+  adquirência/MDR — "MDR" solto é sigla de empresa), só no lugar do que iria
+  para "Tarifas bancárias" ou para o genérico; a gravação (`core/fdip`) SEGUE a
+  prévia. Na entrada, só a devolução nomeada. ⚠️ A MEMÓRIA da correção e da IA
+  usa `chaveDaMemoria` (contraparte que não identifica ninguém → o descritivo
+  inteiro: corrigir "TARIFA CIELO" ensinava "tarifa" → taxa a toda tarifa do
+  banco) e a prévia recebe POR LINHA o que o dono já decidiu
+  (`linhasParaPrevia`). Teto ZERO de cópia do padrão fora de
+  `core/indicadores/classificacao`, exceções por trecho (bloco
+  `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
+  "traduzir não é classificar").
+- **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
+  `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
+  vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.
+
+## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
 - **A origem do número é DITA por quem calcula** (`core/assistant/numero`):
   soma de lançamentos (`L`, a gaveta fecha com o número), base de cálculo

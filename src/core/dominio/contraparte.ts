@@ -30,6 +30,8 @@
 import {
   type TipoContraparte, type NaturezaLancamento, podeTerScore,
 } from "./index";
+import { ehLancamentoDeTaxaAdquirencia, citaVendaOuRepasse } from "@/core/indicadores/classificacao";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 /* ========================================================================== */
 /* Documento                                                                   */
@@ -119,6 +121,15 @@ export function contraparteSuspeita(nome: string | null | undefined): Contrapart
   if (!n.trim()) return null;
   for (const p of PADROES) {
     if (!p.re.test(n)) continue;
+    /*
+     * ⚠️ "TARIFA MDR STONE" casa "tarifa", e NÃO é cobrança do banco: é a taxa
+     * da maquininha, custo de vender (Despesa Variável, acima do EBITDA). Sem
+     * este desvio, a correção em lote de qualidade REESCREVIA todos os
+     * lançamentos dessa contraparte para "Tarifas bancárias" e devolvia o MDR
+     * ao Resultado Financeiro — desfazendo a classificação da importação.
+     * A regra é a única do sistema; o estorno (acima) continua vencendo.
+     */
+    if (p.natureza === "financeiro" && ehLancamentoDeTaxaAdquirencia(n, "saida")) return taxaOuRepasse(n);
     return {
       natureza: p.natureza,
       porque: p.porque,
@@ -126,7 +137,46 @@ export function contraparteSuspeita(nome: string | null | undefined): Contrapart
       categoriaSugerida: CATEGORIA_POR_NATUREZA[p.natureza] ?? "Outras despesas",
     };
   }
+  // "TAXA ADQUIRENTE GETNET": não casa padrão nenhum, e também não é alguém
+  // com quem se negocia. ⚠️ Com a palavra da cobrança: "MDR Engenharia Ltda" e
+  // "Cred Liq Mdr" (o pagador da venda) não são taxa — e a correção em lote
+  // reescreveria a RECEITA dessa contraparte para despesa.
+  if (ehLancamentoDeTaxaAdquirencia(n, "saida")) return taxaOuRepasse(n);
   return null;
+}
+
+/**
+ * ⚠️ "LIQUIDO VENDAS TAXA MDR", "REPASSE VENDAS TAXA ADQUIRENCIA": o nome cita a
+ * taxa, mas a contraparte é o REPASSE — a venda chegando. Importações antigas a
+ * cadastraram como cliente, e sugerir "a taxa da maquininha" aqui fazia a
+ * correção em lote reescrever as VENDAS dela para estorno da despesa: Receita
+ * Bruta de 30.000 a 0 (achado da revisão adversarial). Nome de repasse não é
+ * suspeito por citar a taxa.
+ */
+function taxaOuRepasse(n: string): ContraparteSuspeita | null {
+  return citaVendaOuRepasse(n) ? null : taxaDaMaquininha();
+}
+
+/**
+ * A correção em lote reescreve ESTE lançamento da contraparte suspeita?
+ *
+ * ⚠️ Para a taxa da maquininha, só as SAÍDAS: a correção troca a categoria de
+ * todo lançamento da contraparte, e uma ENTRADA com a categoria da taxa vira
+ * estorno da despesa variável no DRE — se a contraparte também recebeu venda,
+ * a venda sai da Receita Bruta. Na entrada, só a devolução NOMEADA é a taxa, e
+ * o nome da contraparte não diz isso. As outras naturezas seguem como sempre.
+ */
+export function correcaoReescreve(categoriaSugerida: string, tipo: string | null | undefined): boolean {
+  return categoriaSugerida !== CATEGORIA_TAXA_POS || tipo === "saida";
+}
+
+function taxaDaMaquininha(): ContraparteSuspeita {
+  return {
+    natureza: "despesa",
+    porque: "é a taxa da maquininha sobre as vendas no cartão, cobrada pela adquirente — não um fornecedor com quem se negocia",
+    tipoSugerido: "instituicao_financeira",
+    categoriaSugerida: CATEGORIA_TAXA_POS,
+  };
 }
 
 /* ========================================================================== */

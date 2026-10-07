@@ -18,11 +18,12 @@ import {
 } from "@/lib/regras";
 import type { OperadorTexto, RegraCategorizacao } from "@/core/regras";
 import { formatBRL } from "@/lib/format";
+import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
 
 /** Vocabulário do FDIP + as categorias que o CNAE produz. */
 const CATEGORIAS = [
   "Fornecedores / insumos", "Folha de pagamento", "Aluguel", "Utilidades", "Impostos",
-  "Tarifas bancárias", "Marketing", "Assinaturas / software", "Combustível",
+  "Tarifas bancárias", CATEGORIA_TAXA_POS, "Marketing", "Assinaturas / software", "Combustível",
   "Alimentação", "Frete e logística", "Serviços profissionais", "Manutenção",
   "Seguros", "Saúde", "Educação", "Viagens", "Obras e instalações", "Lazer",
   "Vendas", "Outras despesas",
