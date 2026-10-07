@@ -10910,6 +10910,40 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("senha: a tela nova não cria cliente (abre no build de demonstração) e confere antes da rede", telaSemRede(telaS));
   ok("senha: (defeito plantado) a tela criando o cliente na montagem é REPROVADA",
      !telaSemRede(telaS.replace("export function RedefinirSenhaView() {", "export function RedefinirSenhaView() {\n  createClient();")));
+  /* ── 6. a tela de senha nova só abre com a sessão do LINK (revisão) ────── */
+  const agoraS = 1_800_000_000;
+  ok("senha: sessão vinda do link, há pouco, abre a tela",
+     R.sessaoDeRecuperacaoValida([{ method: "password", timestamp: agoraS - 99_999 }, { method: "recovery", timestamp: agoraS - 60 }], agoraS));
+  ok("senha: sessão COMUM (só senha) NÃO abre a tela — o computador que o dono deixou aberto",
+     !R.sessaoDeRecuperacaoValida([{ method: "password", timestamp: agoraS - 60 }], agoraS));
+  ok("senha: sessão de recuperação VELHA (mais de 1 hora) não abre a tela",
+     !R.sessaoDeRecuperacaoValida([{ method: "recovery", timestamp: agoraS - R.JANELA_RECUPERACAO_S - 1 }], agoraS));
+  ok("senha: amr ausente, malformado ou do futuro não abre a tela",
+     !R.sessaoDeRecuperacaoValida(undefined, agoraS) && !R.sessaoDeRecuperacaoValida(["recovery"], agoraS)
+     && !R.sessaoDeRecuperacaoValida([{ method: "recovery", timestamp: agoraS + 600 }], agoraS));
+  const paginaS = (t: string) => {
+    const x = semComS(t);
+    return /getClaims\(\)/.test(x) && /sessaoDeRecuperacaoValida\(\s*data\?\.claims\?\.amr/.test(x) && /redirect\(\s*"\/"\s*\)/.test(x);
+  };
+  const paginaSrc = lerS("src/app/redefinir-senha/page.tsx");
+  ok("senha: a página confere a marca de recuperação NO SERVIDOR antes de abrir", paginaS(paginaSrc));
+  ok("senha: (defeito plantado) a página sem a conferência é REPROVADA",
+     !paginaS(paginaSrc.replace(/if \(!sessaoDeRecuperacaoValida[^\n]*\n/, "")));
+  const mwS = (t: string) => {
+    const x = semComS(t);
+    return /lerMotivo\(\s*request\.nextUrl\.searchParams\.get\("recuperacao"\)\s*\)/.test(x)
+      && /searchParams\.has\("code"\)/.test(x) && /user\s*&&\s*pathname\.startsWith\("\/login"\)\s*&&\s*!voltaDeLink/.test(x);
+  };
+  const mwSrc = lerS("src/middleware.ts");
+  ok("senha: com sessão, a volta de um link (motivo ou código) fica no login em vez de ir para a Home", mwS(mwSrc));
+  ok("senha: (defeito plantado) o login com sessão sempre mandado para a Home é REPROVADO",
+     !mwS(mwSrc.replace("&& !voltaDeLink", "")));
+  ok("senha: falha passageira do servidor é 'falha', nunca 'link inválido'",
+     R.motivoDaFalha({ nome: "AuthRetryableFetchError" }) === "falha" && R.motivoDaFalha({ status: 503 }) === "falha"
+     && R.motivoDaFalha({ status: 429 }) === "falha" && R.motivoDaFalha({ status: 400, codigo: "qualquer" }) === "invalido");
+  ok("senha: o conselho de 'falha' é pedir um link novo (o mesmo link já foi consumido)",
+     /novo link/.test(R.MENSAGEM_RECUPERACAO.falha.comoResolver));
+
   const cadastroS = semComS(lerS("src/components/entrada/CriarContaView.tsx"));
   ok("senha: o cadastro usa o MESMO mínimo (MIN_SENHA), sem um 6 escrito à mão",
      /senha\.length\s*>=\s*MIN_SENHA/.test(cadastroS) && !/senha\.length\s*>=\s*\d/.test(cadastroS));

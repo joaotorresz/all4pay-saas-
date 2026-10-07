@@ -55,7 +55,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const { data, error } = await createClient().auth.exchangeCodeForSession(code);
-    if (error) return falhou(motivoDaFalha({ codigo: error.code, mensagem: error.message }));
+    if (error) {
+      const motivo = motivoDaFalha({ codigo: error.code, mensagem: error.message, status: error.status, nome: error.name });
+      // "expirado" e "outro-navegador" são o caminho esperado de quem demorou
+      // ou trocou de aparelho; o resto é o que alguém precisa ver no log.
+      if (motivo === "invalido" || motivo === "falha") {
+        console.error("[falha·acesso] acesso.recuperar_senha:", error.name, error.code ?? "-", error.status ?? "-", error.message);
+      }
+      return falhou(motivo);
+    }
     // ⚠️ O tipo publicado não declara `redirectType`, mas a biblioteca o
     // devolve (auth-js, `_exchangeCodeForSession`): "recovery" quando o código
     // nasceu de um pedido de redefinição. É ele — e não um parâmetro da URL —

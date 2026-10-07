@@ -74,7 +74,17 @@ link ──▶ /api/auth/recuperar   troca o código pela sessão, NO SERVIDOR
   mesmo do cadastro), os destinos, o motivo de cada falha e a frase dele.
 - ⚠️ **A rota fica sob `/api`**, que o middleware já deixa passar sem sessão —
   nenhuma rota nova foi aberta no portão. A tela `/redefinir-senha` NÃO é
-  pública: sem a sessão de recuperação, o middleware devolve ao login.
+  pública: sem sessão, o middleware devolve ao login.
+- ⚠️ **E uma sessão COMUM também não a abre** (achado da revisão adversarial).
+  O middleware só pergunta se há sessão; quem estivesse diante do computador
+  em que o dono deixou o sistema aberto trocaria a senha dele sem saber a
+  atual — e a troca derruba as outras sessões do dono. A página confere NO
+  SERVIDOR (`getClaims`, que verifica a assinatura) a marca `recovery` que o
+  Auth põe na sessão vinda do link, com menos de 1 hora
+  (`sessaoDeRecuperacaoValida`); sem ela, manda para `/`.
+- **Já logado, a volta de um link fica no login.** O middleware mandava todo
+  `/login` com sessão para a Home, e o motivo (`?recuperacao=`) ou o código
+  (`?code=`) sumiam; agora só a volta de link é exceção.
 - ⚠️ **Destino fixo e RELATIVO** (`Location: /redefinir-senha`, 303). Nada lê
   `?next=` (seria redirecionamento aberto), e o relativo existe porque, medido
   com `next start`, a origem absoluta saía `localhost` para quem abriu
@@ -92,10 +102,17 @@ link ──▶ /api/auth/recuperar   troca o código pela sessão, NO SERVIDOR
 
 **Prova:** `npm run senha` (`scripts/redefinir-senha.mjs`) dirige o navegador
 contra o Supabase LOCAL com o servidor de e-mail e abre o e-mail de verdade —
-17 passos verdes, e vermelha com o defeito original plantado. Fica fora do CI
-porque o CI sobe o Supabase sem o servidor de e-mail. As regras e as portas
+19 passos verdes; vermelha com o defeito original plantado (link para `/login`
+sem encaminhamento) e com a página sem a conferência da sessão. Fica fora do
+CI porque o CI sobe o Supabase sem o servidor de e-mail. As regras e as portas
 únicas estão no bloco "ESQUECI A SENHA" do `engine-audit`, provado plantando
-seis defeitos.
+dez defeitos.
+
+**Pendência registrada (revisão):** a confirmação de e-mail está desligada.
+Se for religada, o link de confirmação de cadastro também cairia nesta rota
+(o cadastro não passa `emailRedirectTo`, o Auth usa o endereço padrão e o
+login encaminha o `?code=`) — dê ao cadastro a sua própria marca de volta
+antes de religar.
 
 ⚠️ **O que só a produção responde:** o mínimo de senha do painel do Supabase
 (o app supõe 6), se o modelo de e-mail "Reset password" foi personalizado, e o

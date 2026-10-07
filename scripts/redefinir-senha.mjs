@@ -166,6 +166,17 @@ ok(caminho(b.page) === "/login" && /inválidos/.test(await aviso(b.page)), "a se
 await entrar(b.page, u1, SENHA_NOVA);
 ok(caminho(b.page) === "/", "a senha NOVA entra", caminho(b.page));
 
+/* 7b. Sessão COMUM (entrou com senha) não abre a tela de senha nova — senão
+   quem estiver diante do computador em que o dono deixou o sistema aberto
+   troca a senha dele sem saber a atual (achado da revisão). */
+await b.page.goto(`${ALVO}/redefinir-senha`, { waitUntil: "networkidle" });
+ok(caminho(b.page) === "/", "a sessão comum NÃO abre a tela de senha nova", caminho(b.page));
+
+/* 7c. Já logado, um link que falha volta ao login COM o motivo — não à Home. */
+await abrirLink(b.page, link1);
+ok(caminho(b.page) === "/login" && /Peça um novo link/.test(await aviso(b.page)),
+   "já logado, o link usado volta ao login dizendo o que fazer", `${b.page.url()} · ${await aviso(b.page)}`);
+
 /* 8. O mesmo link, de novo, num navegador sem sessão. */
 const c = await novoNavegador();
 await abrirLink(c.page, link1);
@@ -179,7 +190,7 @@ const link2 = await linkDoEmail(u2, desde2);
 const e = await novoNavegador();
 await abrirLink(e.page, link2);
 ok(caminho(e.page) === "/login" && new URL(e.page.url()).searchParams.get("recuperacao") === "outro-navegador"
-   && /navegador diferente/.test(await aviso(e.page)),
+   && /navegador diferente daquele em que foi pedido/.test(await aviso(e.page)),
    "o link aberto noutro navegador explica o motivo certo", `${e.page.url()} · ${await aviso(e.page)}`);
 
 /* 10. Um ?code= parado no login (link antigo) é encaminhado. */

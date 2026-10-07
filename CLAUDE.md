@@ -63,7 +63,10 @@ do titular até 21/10) em `docs/rodada-10/dominio.md`.
 
 ⚠️ **"ESQUECI A SENHA" (07/10/2026):** o link volta para `/api/auth/recuperar`,
 que troca o código PKCE pela sessão NO SERVIDOR e manda, por destino FIXO e
-relativo, para `/redefinir-senha` (ou para `/login?recuperacao=<motivo>`). As
+relativo, para `/redefinir-senha` (ou para `/login?recuperacao=<motivo>`).
+⚠️ A tela só abre com a sessão VINDA DO LINK (marca `recovery` no token, com
+menos de 1 hora, conferida no servidor) — uma sessão comum trocaria a senha de
+quem deixou o sistema aberto sem pedir a atual. As
 regras moram em `core/recuperacao`; as chamadas de auth da recuperação têm
 porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
 ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
