@@ -11559,6 +11559,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: a rota só diz ok com a LISTA de parcelas recebida (zero sem lista não é 'sem vendas')", okPelaLista(rotaExt));
   ok("extrato-pos: (defeito plantado) ok só pela ausência de Errors é REPROVADO",
      !okPelaLista(rotaExt.replace("const ok = r.resposta.erros.length === 0 && r.resposta.listaRecebida;", "const ok = r.resposta.erros.length === 0;")));
+  // Sem o RequestOrigin, "a Pinbank aceitou" só pode sair no ramo do ok — ela
+  // também recusa dentro de um HTTP 200 (envelope sem a lista, ValidationData).
+  const aceitouSoComOk = (t: string) => /avisoOrigem:\s*ok\s*\?\s*"[^"]*aceitou\."\s*:\s*"(?![^"]*aceitou)[^"]*"/.test(semComF(t));
+  ok("extrato-pos: o aviso de RequestOrigin só diz 'aceitou' quando a rota diz ok", aceitouSoComOk(rotaExt));
+  ok("extrato-pos: (defeito plantado) 'aceitou' em toda resposta sem RequestOrigin é REPROVADO",
+     !aceitouSoComOk(rotaExt.replace(/avisoOrigem: ok\s*\?\s*("[^"]*")\s*:\s*"[^"]*",/, "avisoOrigem: $1,")));
   const semDocApi = API.VARIAVEIS_API_PINBANK.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }

@@ -80,7 +80,12 @@ export async function GET(req: Request) {
       amostra: r.resposta.linhas.slice(0, AMOSTRA),
       ...(r.resposta.linhas.length > AMOSTRA ? { aviso: `Mostrando ${AMOSTRA} de ${r.resposta.linhas.length} parcelas; o resumo conta todas.` } : {}),
       ...(codigoIncomum ? { avisoCodigo: `A Pinbank devolveu o código ${r.resposta.codigo}: confira a mensagem.` } : {}),
-      ...(r.semRequestOrigin ? { avisoOrigem: "O pedido saiu sem o RequestOrigin (PINBANK_API_ORIGEM vazia) e a Pinbank aceitou." } : {}),
+      // "Aceitou" só com a lista na mão: a Pinbank também recusa DENTRO de um 200.
+      ...(r.semRequestOrigin ? {
+        avisoOrigem: ok
+          ? "O pedido saiu sem o RequestOrigin (PINBANK_API_ORIGEM vazia) e a Pinbank aceitou."
+          : "O pedido saiu sem o RequestOrigin (PINBANK_API_ORIGEM vazia) e a Pinbank não devolveu a lista: se pinbank.erros e mensagem não nomearem outro motivo, ele é o primeiro suspeito — peça o valor à Pinbank.",
+      } : {}),
     });
   } catch (e) {
     const d = descreverErroApi(e);
