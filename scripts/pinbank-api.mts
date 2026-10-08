@@ -82,7 +82,7 @@ const PESSOAIS = {
   DadosExtra: "observação livre do lojista",
   SerialNumber: "SN-998877",
 };
-const VALORES_PESSOAIS = ["12345678000199", "98765432100", "Maria Compradora", "4321", "Sub Loja", "11222333000144", "55566677788", "Agente Comercial", "observação livre", "SN-998877"];
+const VALORES_PESSOAIS = ["12345678000199", "98765432100", "Maria Compradora", "550209******4321", "Sub Loja", "11222333000144", "55566677788", "Agente Comercial", "observação livre", "SN-998877"];
 const linha = (parcela: number) => ({
   IdTerminal: "PB-T-0042",
   CodigoCliente: 3510,
@@ -111,7 +111,7 @@ const linha = (parcela: number) => ({
   ...PESSOAIS,
 });
 
-type FormatoSrv = "envelope-cifrado" | "data-cifrado" | "aberto-erro" | "chave-errada" | "ecoa-senha";
+type FormatoSrv = "envelope-cifrado" | "data-cifrado" | "aberto-erro" | "chave-errada" | "ecoa-senha" | "ecoa-senha-longa" | "erro-500" | "sem-lista" | "gigante";
 const srv = {
   formato: "envelope-cifrado" as FormatoSrv,
   tokensValidos: new Set<string>(),
@@ -126,6 +126,7 @@ const srv = {
 const resetSrv = (formato: FormatoSrv = "envelope-cifrado") => {
   srv.formato = formato;
   srv.tokensValidos.clear();
+  srv.emitidos = 0;
   srv.hitsToken = 0;
   srv.hitsMetodo = 0;
   srv.ultimoPedido = null;
@@ -151,7 +152,9 @@ const pinbank = https.createServer(
         const f = new URLSearchParams(corpo);
         if (req.headers["content-type"] !== "application/x-www-form-urlencoded") return json(415, { error: "unsupported" });
         if (f.get("username") !== USUARIO || f.get("password") !== CHAVE || f.get("grant_type") !== "password") {
-          const eco = srv.formato === "ecoa-senha" ? ` (senha recebida: ${f.get("password")})` : "";
+          // Um eco que cruza o corte de 300 caracteres: o COMEÇO da senha cairia dentro.
+          const eco = srv.formato === "ecoa-senha" ? ` (senha recebida: ${f.get("password")})`
+            : srv.formato === "ecoa-senha-longa" ? ` ${"x".repeat(243)} senha: ${f.get("password")}` : "";
           return json(400, { error: "invalid_grant", error_description: `O usuário ou a senha estão incorretos.${eco}` });
         }
         const tok = `tok-${++srv.emitidos}`;
@@ -176,6 +179,9 @@ const pinbank = https.createServer(
         }
         srv.ultimoPedido = dados;
         const linhas = [linha(1), linha(2), linha(3)];
+        if (srv.formato === "erro-500") return json(500, { Message: "Falha interna." });
+        if (srv.formato === "sem-lista") return json(200, { Data: null, ResultCode: 2, Message: "Cliente sem permissão no canal." });
+        if (srv.formato === "gigante") return json(200, { Data: { Json: cifrar(JSON.stringify({ Data: linhas, ResultCode: 0, Message: "x".repeat(1_500_000) })) } });
         if (srv.formato === "aberto-erro") {
           return json(200, { Data: null, ResultCode: 1, Message: "Erro de validação.", ValidationData: { ResultCode: 1, Message: "Erro", Errors: [{ FieldName: "DataInicial", ErrorMessage: "Data inicial inválida." }] } });
         }
@@ -274,7 +280,10 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(a5) cabeçalhos do método: Authorization = token_type + access_token; UserName; RequestOrigin; JSON",
     cabMetodo.authorization === "bearer tok-1" && cabMetodo.username === USUARIO && cabMetodo.requestorigin === ORIGEM
     && cabMetodo["content-type"] === "application/json" && srv.ultimoCaminho.endsWith("/ExtratoPosEncrypted"), JSON.stringify(cabMetodo));
-  const texto = JSON.stringify(res);
+  // Só o que veio da Pinbank: `via` e `etapas` são nossos (a porta do proxy local é aleatória).
+  const { via: _via, etapas: _etapas, ...daPinbank } = res;
+  void _via; void _etapas;
+  const texto = JSON.stringify(daPinbank);
   const vazou = VALORES_PESSOAIS.filter((v) => texto.includes(v)).concat(texto.includes("444.555") ? ["campo novo"] : []);
   caso("(a6) NENHUM dado pessoal sai (CPF/CNPJ, comprador, cartão, sub-loja, agente, texto livre, serial — nem o campo NOVO)", vazou.length === 0, vazou.join(", "));
   caso("(a7) a chave só vai no corpo do TOKEN: nenhum cabeçalho e nenhum corpo de método a carrega (nem em base64)",
@@ -339,6 +348,72 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   e = await erro(() => m.api.chamarLeituraPinbank("PagamentoConta" as never, { Valor: 1 }, o));
   caso("(m) método fora da lista de LEITURA (ex.: PagamentoConta) é recusado antes da rede", !!e && e.etapa === "pedido" && srv.hitsToken === 0 && srv.hitsMetodo === 0, e?.message);
 
+  /* (p) o prazo do token, com relógio controlado (1800 s − 60 s de folga) */
+  m.api.esquecerTokensPinbank();
+  resetSrv();
+  let relogio = 1e9;
+  const oR = { ...o, agora: () => relogio };
+  await m.api.consultarExtratoPos(filtro, oR);
+  relogio += 1_739_000;
+  await m.api.consultarExtratoPos(filtro, oR);
+  const antesDoFim = srv.hitsToken;
+  relogio += 2_000;
+  await m.api.consultarExtratoPos(filtro, oR);
+  caso("(p) o token vale até 60 s antes do fim do prazo (1739 s: o mesmo; 1741 s: um novo)", antesDoFim === 1 && srv.hitsToken === 2, `antes=${antesDoFim} depois=${srv.hitsToken}`);
+
+  /* (q) o cache é POR CREDENCIAL (base + usuário) */
+  m.api.esquecerTokensPinbank();
+  resetSrv();
+  await m.api.consultarExtratoPos(filtro, o);
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, credencial: { ...cred, usuario: "outro-usuario" } }));
+  caso("(q) outra credencial na mesma base pede o SEU token; o token da primeira nunca chega ao método com ela",
+    !!e && e.etapa === "token" && srv.hitsToken === 2 && srv.hitsMetodo === 1, `${e?.message} token=${srv.hitsToken} metodo=${srv.hitsMetodo}`);
+
+  /* (r) erro do servidor com token do cache NÃO é motivo para outro token */
+  m.api.esquecerTokensPinbank();
+  resetSrv();
+  await m.api.consultarExtratoPos(filtro, o);
+  srv.formato = "erro-500";
+  e = await erro(() => m.api.consultarExtratoPos(filtro, o));
+  caso("(r) 500 no método (token do cache) sobe como erro 'metodo' 500, sem token novo e sem repetir",
+    !!e && e.etapa === "metodo" && e.status === 500 && srv.hitsToken === 1 && srv.hitsMetodo === 2, `${e?.message} token=${srv.hitsToken} metodo=${srv.hitsMetodo}`);
+
+  /* (s) recusa sem Errors e sem lista: "zero parcelas" não é "sem vendas" */
+  resetSrv("sem-lista");
+  res = await m.api.consultarExtratoPos(filtro, o);
+  saidas.push(JSON.stringify(res));
+  caso("(s) resposta sem a lista Data (recusa sem Errors) sai com listaRecebida = false, código e mensagem",
+    res.resposta.listaRecebida === false && res.resposta.linhas.length === 0 && res.resposta.codigo === 2 && /permissão/.test(res.resposta.mensagem ?? ""), JSON.stringify(res.resposta));
+
+  /* (t) extrato maior que o teto: a leitura diz o que fazer */
+  m.api.esquecerTokensPinbank();
+  resetSrv("gigante");
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, maxBytesResposta: 1024 * 1024 }));
+  caso("(t) resposta acima do teto → erro 'resposta' que diz que é consulta e manda pedir intervalo menor, sem repetir",
+    !!e && e.etapa === "resposta" && /intervalo menor/.test(e.message) && srv.hitsMetodo === 1, `${e?.message} metodo=${srv.hitsMetodo}`);
+
+  /* (u) chave de tamanho errado: o TAMANHO chega a quem lê a rota */
+  resetSrv();
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, credencial: { ...cred, chave: "y".repeat(20) } }));
+  const d = m.api.descreverErroApi(e);
+  caso("(u) chave de 20 bytes → 'configuracao' com o tamanho (pela rota, não 'falha inesperada'), antes da rede",
+    d.etapa === "configuracao" && /20 bytes/.test(d.motivo) && !d.motivo.includes("y".repeat(20)) && srv.hitsToken === 0, JSON.stringify(d));
+
+  /* (f3) eco da senha cruzando o corte de 300 caracteres */
+  m.api.esquecerTokensPinbank();
+  resetSrv("ecoa-senha-longa");
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, credencial: { ...cred, chave: "senhaErrada01234" } }));
+  caso("(f3) eco da senha que cruza o corte de 300 caracteres não deixa passar nem o COMEÇO dela",
+    !!e && e.etapa === "token" && !e.message.includes("senhaErr"), e?.message);
+
+  /* (w) o mapa congelado: nem código do próprio processo o redireciona */
+  m.api.esquecerTokensPinbank();
+  resetSrv();
+  try { (m.api.METODOS_LEITURA as Record<string, string>).ExtratoPos = "CashOut/AprovarTed"; } catch { /* congelado: o esperado */ }
+  e = await erro(() => m.api.consultarExtratoPos(filtro, o));
+  caso("(w) o mapa de métodos não muda em execução: apontar ExtratoPos para CashOut não pega",
+    !e && srv.ultimoCaminho.endsWith("/ContaDigital/ExtratoPosEncrypted") && srv.hitsMetodo === 1, `${e?.message} caminho=${srv.ultimoCaminho}`);
+
   /* (o) sem a saída fixa, não sai */
   resetSrv();
   e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, proxies: [] }));
@@ -347,6 +422,7 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   /* (l) a credencial pelas variáveis */
   const nomes = ["PINBANK_API_AMBIENTE", "PINBANK_API_USUARIO", "PINBANK_API_CHAVE", "PINBANK_API_ORIGEM", "PINBANK_CODIGO_CANAL"];
   const tentar = (env: Record<string, string>) => { try { return m.api.lerCredencialPinbank(env); } catch (x) { saidas.push((x as Error).message); return x as Error; } };
+  const curta = tentar({ PINBANK_API_AMBIENTE: "dev", PINBANK_API_USUARIO: USUARIO, PINBANK_API_CHAVE: "z".repeat(20), PINBANK_API_ORIGEM: ORIGEM, PINBANK_CODIGO_CANAL: "1919" });
   const vazio = tentar({});
   const envOk = { PINBANK_API_AMBIENTE: "dev", PINBANK_API_USUARIO: USUARIO, PINBANK_API_CHAVE: CHAVE, PINBANK_API_ORIGEM: ORIGEM, PINBANK_CODIGO_CANAL: "1919" };
   const lida = tentar(envOk);
@@ -355,6 +431,8 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(l1) sem variáveis: o erro nomeia as CINCO", vazio instanceof Error && nomes.every((n) => vazio.message.includes(n)), (vazio as Error)?.message);
   caso("(l2) com as variáveis: dev → a base de dev da porta, canal numérico",
     !(lida instanceof Error) && lida.base === "https://dev.pinbank.com.br/services" && lida.canal === 1919, JSON.stringify(lida instanceof Error ? lida.message : { ...lida, chave: "•" }));
+  caso("(l4) PINBANK_API_CHAVE com tamanho errado é recusada na LEITURA da credencial, dizendo o tamanho",
+    curta instanceof Error && /20 bytes/.test(curta.message) && !curta.message.includes("z".repeat(20)), (curta as Error)?.message);
   caso("(l3) ambiente que não é dev/producao (ex.: uma URL) é recusado; canal não numérico também",
     amb instanceof Error && can instanceof Error && !amb.message.includes("evil"), `${(amb as Error)?.message} | ${(can as Error)?.message}`);
 
@@ -373,15 +451,25 @@ const real = await casos(reais, "real");
 let falhas = [...real.values()].filter((v) => !v).length;
 
 /* O núcleo sozinho (a planta de `core` não passa por api.ts, que importa o original). */
-const leituraCore = (core: ModCore) => {
+const casosCore = (core: ModCore) => {
+  const r = new Map<string, boolean>();
   const t = JSON.stringify(core.lerRespostaExtratoPos({ Data: [linha(1)] }));
-  return VALORES_PESSOAIS.every((v) => !t.includes(v)) && !t.includes("444.555");
+  r.set("(núcleo) a leitura por lista de permitidos não deixa passar dado pessoal", VALORES_PESSOAIS.every((v) => !t.includes(v)) && !t.includes("444.555"));
+  const iso = "2026-11-04T00:00:00.1234567-03:00";
+  const lida = core.lerRespostaExtratoPos({ Data: [{ ...linha(1), DataFuturaPagamento: iso, DataTransacao: "2026-10-05T14:22:10Z" }] }).linhas[0];
+  r.set("(núcleo) data ISO com fração de segundo e fuso chega INTEIRA; texto que não é data vira ausente",
+    lida.dataFuturaPagamento === iso && lida.dataTransacao === "2026-10-05T14:22:10Z"
+    && core.lerRespostaExtratoPos({ Data: [{ ...linha(1), DataFuturaPagamento: "2026-11-04 e lixo" }] }).linhas[0].dataFuturaPagamento === null);
+  r.set("(núcleo) sem a lista Data, listaRecebida = false; com a lista vazia, true",
+    core.lerRespostaExtratoPos({ Data: null, ResultCode: 2 }).listaRecebida === false && core.lerRespostaExtratoPos({ Data: [] }).listaRecebida === true);
+  return r;
 };
-const coreOk = leituraCore(reais.core);
-console.log(`${coreOk ? "PASSOU" : "FALHOU"}  (núcleo) a leitura por lista de permitidos não deixa passar dado pessoal`);
-if (!coreOk) falhas++;
+for (const [nome, okc] of casosCore(reais.core)) {
+  console.log(`${okc ? "PASSOU" : "FALHOU"}  ${nome}`);
+  if (!okc) falhas++;
+}
 
-type Planta = { nome: string; arquivo: "api" | "cifra" | "core"; caso: string; de: string | RegExp; para: string };
+type Planta = { nome: string; arquivo: "api" | "cifra" | "core"; caso: string; de: string | RegExp; para: string; mais?: Array<[string, string]> };
 const PLANTAS: Planta[] = [
   { nome: "repete o pedido também com token recém-gerado", arquivo: "api",
     caso: "(g) com token recém-gerado, 401 no método é RECUSA: sobe como erro 'metodo' 401, sem repetir",
@@ -394,10 +482,14 @@ const PLANTAS: Planta[] = [
     de: "RequestOrigin: cred.origem,", para: "RequestOrigin: cred.origem,\n        KeyValue: cred.chave," },
   { nome: "a mensagem da Pinbank vai sem tirar o segredo", arquivo: "api",
     caso: "(f2) mesmo com a Pinbank ECOANDO a senha, a mensagem não a traz",
-    de: "return semSegredo(`HTTP ${r.status}${msg ? `: ${msg.slice(0, 300)}` : \"\"}`, cred);", para: "return `HTTP ${r.status}${msg ? `: ${msg.slice(0, 300)}` : \"\"}`;" },
+    de: "const limpo = semSegredo(msg, cred);", para: "const limpo = msg;" },
   { nome: "aceita um método que move dinheiro", arquivo: "api",
     caso: "(m) método fora da lista de LEITURA (ex.: PagamentoConta) é recusado antes da rede",
-    de: 'ExtratoPos: "ContaDigital/ExtratoPos",', para: 'ExtratoPos: "ContaDigital/ExtratoPos",\n  PagamentoConta: "CashOut/PagamentoConta",' },
+    de: 'ExtratoPos: "ContaDigital/ExtratoPos",', para: 'ExtratoPos: "ContaDigital/ExtratoPos",\n  PagamentoConta: "CashOut/PagamentoConta",',
+    mais: [['"ContaDigital/ConsultarComprovante",', '"ContaDigital/ConsultarComprovante",\n  "CashOut/PagamentoConta",']] },
+  { nome: "o mapa de métodos fica mutável em execução", arquivo: "api",
+    caso: "(w) o mapa de métodos não muda em execução: apontar ExtratoPos para CashOut não pega",
+    de: "export const METODOS_LEITURA = Object.freeze({", para: "export const METODOS_LEITURA = ({" },
   { nome: "o filtro não é conferido antes da rede", arquivo: "api",
     caso: "(k) intervalo invertido ou maior que 31 dias é recusado ('pedido') ANTES da rede",
     de: 'if (problemas.length) throw new ErroApiPinbank("pedido", problemas.join(" "));', para: "" },
@@ -414,8 +506,36 @@ const PLANTAS: Planta[] = [
     caso: "(c2) chave de tamanho errado é recusada dizendo o TAMANHO, nunca a chave",
     de: "throw new Error(`A chave da credencial Pinbank tem ${chave.length} bytes; a criptografia AES pede 16.`);",
     para: "throw new Error(`A chave da credencial Pinbank (${chave.toString()}) tem ${chave.length} bytes; a criptografia AES pede 16.`);" },
+  { nome: "o prazo do token em segundos lido como milissegundos", arquivo: "api",
+    caso: "(p) o token vale até 60 s antes do fim do prazo (1739 s: o mesmo; 1741 s: um novo)",
+    de: "(segundos - folga) * 1000", para: "(segundos - folga)" },
+  { nome: "o cache do token só pela base (sem o usuário)", arquivo: "api",
+    caso: "(q) outra credencial na mesma base pede o SEU token; o token da primeira nunca chega ao método com ela",
+    de: "const chave = `${cred.base}|${cred.usuario}`;", para: "const chave = `${cred.base}`;" },
+  { nome: "qualquer erro do método pede token novo e repete", arquivo: "api",
+    caso: "(r) 500 no método (token do cache) sobe como erro 'metodo' 500, sem token novo e sem repetir",
+    de: "if (r.status === 401 && !t.novo && tentativa === 0) {", para: "if (r.status >= 400 && !t.novo && tentativa === 0) {" },
+  { nome: "o estouro de tamanho sobe como falha de rede, sem dizer que é leitura", arquivo: "api",
+    caso: "(t) resposta acima do teto → erro 'resposta' que diz que é consulta e manda pedir intervalo menor, sem repetir",
+    de: 'if (e instanceof ErroSaida && e.fase === "apos_envio") {', para: "if (false) {" },
+  { nome: "o erro da cifra sobe cru (a rota diria 'falha inesperada')", arquivo: "api",
+    caso: "(u) chave de 20 bytes → 'configuracao' com o tamanho (pela rota, não 'falha inesperada'), antes da rede",
+    de: 'throw new ErroApiPinbank("configuracao", semSegredo((e as Error).message, cred));', para: "throw e;" },
+  { nome: "o segredo sai DEPOIS do corte em 300", arquivo: "api",
+    caso: "(f3) eco da senha que cruza o corte de 300 caracteres não deixa passar nem o COMEÇO dela",
+    de: "const limpo = semSegredo(msg, cred);\n  return `HTTP ${r.status}${limpo ? `: ${limpo.slice(0, 300)}` : \"\"}`;",
+    para: "return semSegredo(`HTTP ${r.status}${msg ? `: ${msg.slice(0, 300)}` : \"\"}`, cred);" },
+  { nome: "a chave de tamanho errado passa pela leitura da credencial", arquivo: "api",
+    caso: "(l4) PINBANK_API_CHAVE com tamanho errado é recusada na LEITURA da credencial, dizendo o tamanho",
+    de: "if (![16, 24, 32].includes(bytesDaChave)) {", para: "if (false) {" },
+  { nome: "a data é cortada por tamanho (o fuso se perde)", arquivo: "core",
+    caso: "(núcleo) data ISO com fração de segundo e fuso chega INTEIRA; texto que não é data vira ausente",
+    de: "return ISO.test(s) ? s : null;", para: "return /^\\d{4}-\\d{2}-\\d{2}/.test(s) ? s.slice(0, 25) : null;" },
+  { nome: "a lista ausente vira lista vazia", arquivo: "core",
+    caso: "(núcleo) sem a lista Data, listaRecebida = false; com a lista vazia, true",
+    de: "listaRecebida: Array.isArray(env.Data),", para: "listaRecebida: true," },
   { nome: "a leitura copia a linha inteira (lista de proibidos)", arquivo: "core",
-    caso: "(núcleo)",
+    caso: "(núcleo) a leitura por lista de permitidos não deixa passar dado pessoal",
     de: "export function linhaDoExtratoPos(l: Record<string, unknown>): LinhaExtratoPos {\n  return {",
     para: "export function linhaDoExtratoPos(l: Record<string, unknown>): LinhaExtratoPos {\n  return {\n    ...(l as object),"
   },
@@ -423,8 +543,14 @@ const PLANTAS: Planta[] = [
 
 const originais = { api: fs.readFileSync(ARQ_API, "utf8"), cifra: fs.readFileSync(ARQ_CIFRA, "utf8"), core: fs.readFileSync(ARQ_CORE, "utf8") };
 for (const [i, p] of PLANTAS.entries()) {
-  const alterado = originais[p.arquivo].replace(p.de, p.para);
-  if (alterado === originais[p.arquivo]) {
+  let alterado = originais[p.arquivo].replace(p.de, p.para);
+  let envelheceu = alterado === originais[p.arquivo];
+  for (const [de, para] of p.mais ?? []) {
+    const antes = alterado;
+    alterado = alterado.replace(de, para);
+    if (alterado === antes) envelheceu = true;
+  }
+  if (envelheceu) {
     console.log(`FALHOU  (defeito plantado) "${p.nome}": a substituição não aconteceu — a planta envelheceu`);
     falhas++;
     continue;
@@ -433,7 +559,7 @@ for (const [i, p] of PLANTAS.entries()) {
   fs.writeFileSync(arq, alterado);
   let pego: boolean;
   if (p.arquivo === "core") {
-    pego = !leituraCore(await imp<ModCore>(arq));
+    pego = casosCore(await imp<ModCore>(arq)).get(p.caso) === false;
   } else {
     const mods: Mods = { ...reais, [p.arquivo]: await imp(arq) } as Mods;
     const r = await casos(mods, "planta");

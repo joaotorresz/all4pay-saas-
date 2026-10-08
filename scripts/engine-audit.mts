@@ -11500,16 +11500,33 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const API = await import("@/lib/pinbank/api");
   const P_API = "src/lib/pinbank/api.ts";
   const ROTA_EXT = "src/app/api/admin/pinbank-extrato/route.ts";
-  // A credencial emitida MOVE DINHEIRO; o código não pode chamar isso sem decisão do dono.
-  const LEITURA_OK = ["ExtratoPos", "ExtratoContaDigital", "Saldo", "ConsultarComprovante", "ListarComprovantes"];
-  ok("extrato-pos: o cliente só conhece métodos de LEITURA",
-     Object.keys(API.METODOS_LEITURA).length >= 1 && Object.keys(API.METODOS_LEITURA).every((m) => LEITURA_OK.includes(m)),
-     Object.keys(API.METODOS_LEITURA).join(", "));
-  const DINHEIRO = /\b(PagamentoConta|PagamentoTributo|TransferenciaEntreContas|TransferenciaDocTed|DocTed|EfetuarPagamentoPixQrCode|GerarBoleto|SolicitarBaixaBoleto|GerarCobrancaCartao|SolicitarDynamicQrCode|AlterarStatusDynamicQrCode)\b/;
-  const comDinheiro = (ler: (p: string) => string) => arqsF.filter((p) => DINHEIRO.test(semComF(ler(p))));
-  ok("extrato-pos: TETO ZERO de método da Pinbank que move dinheiro ou cria cobrança no código", comDinheiro(lerF).length === 0, comDinheiro(lerF).join(", "));
-  ok("extrato-pos: (defeito plantado) um PagamentoConta no cliente é ACUSADO",
-     comDinheiro((p) => (p === P_API ? lerF(p).replace('ExtratoPos: "ContaDigital/ExtratoPos",', 'ExtratoPos: "ContaDigital/ExtratoPos",\n  PagamentoConta: "CashOut/PagamentoConta",') : lerF(p))).includes(P_API));
+  // A credencial emitida MOVE DINHEIRO; o código não pode chamar isso sem
+  // decisão do dono. O que sai na URL é o CAMINHO (o valor do mapa), não o
+  // nome — por isso a lista é de caminhos EXATOS de leitura da doc (o prefixo
+  // `ContaDigital/` não basta: ele também tem cadastro e cartão).
+  const CAMINHOS_LEITURA_OK = ["ContaDigital/ExtratoPos", "ContaDigital/Saldo", "ContaDigital/ExtratoContaDigital", "ContaDigital/ConsultarComprovante"];
+  ok("extrato-pos: o cliente só chama CAMINHOS de leitura (o valor do mapa, não o nome)",
+     Object.values(API.METODOS_LEITURA).length >= 1 && Object.values(API.METODOS_LEITURA).every((c) => CAMINHOS_LEITURA_OK.includes(c)),
+     Object.values(API.METODOS_LEITURA).join(", "));
+  // TETO ZERO: todo caminho da API da Pinbank escrito no código (fora de
+  // comentário) é um dos de leitura — pega o nome inocente apontando para
+  // CashOut/Pix/Transacoes, e o módulo novo que monte a URL por conta própria.
+  const CAMINHO_PB = /\b(?:CashOut|CashIn|PixAutomatico|Transacoes|Pix|ContaDigital)\/[A-Z][A-Za-z]*/g;
+  const caminhosFora = (ler: (p: string) => string) =>
+    arqsF.flatMap((p) => [...semComF(ler(p)).matchAll(CAMINHO_PB)].map((m) => m[0]).filter((c) => !CAMINHOS_LEITURA_OK.includes(c)).map((c) => `${p}: ${c}`));
+  ok("extrato-pos: TETO ZERO de caminho da Pinbank que não seja de leitura (pagamento, Pix, TED, cobrança)", caminhosFora(lerF).length === 0, caminhosFora(lerF).join(", "));
+  const plantaAprovarTed = (p: string) => (p === P_API ? lerF(p).replace('ExtratoPos: "ContaDigital/ExtratoPos",', 'ExtratoPos: "ContaDigital/ExtratoPos",\n  Saldo: "CashOut/AprovarTed",') : lerF(p));
+  ok("extrato-pos: (defeito plantado) um nome de leitura apontando para CashOut/AprovarTed é ACUSADO",
+     caminhosFora(plantaAprovarTed).some((x) => x.includes("CashOut/AprovarTed")));
+  ok("extrato-pos: a varredura de caminhos ainda ENXERGA o caminho do ExtratoPos no cliente",
+     [...semComF(lerF(P_API)).matchAll(CAMINHO_PB)].some((m) => m[0] === "ContaDigital/ExtratoPos"), "o padrão parou de casar — a guarda ficou cega");
+  // Só o cliente monta "…Encrypted" e só ele chama a porta com credencial.
+  const comEnc = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /Encrypted\b/.test(semComF(ler(p))));
+  ok("extrato-pos: TETO ZERO de método 'Encrypted' montado fora do cliente da API", comEnc(lerF).length === 0, comEnc(lerF).join(", "));
+  const comReq = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && p !== PORTA_F && /\brequisicaoPinbank\s*\(/.test(semComF(ler(p))));
+  ok("extrato-pos: só o cliente da API (e a própria porta) chama requisicaoPinbank", comReq(lerF).length === 0, comReq(lerF).join(", "));
+  ok("extrato-pos: (defeito plantado) outro módulo chamando requisicaoPinbank é ACUSADO",
+     comReq((p) => (p === P_PROC ? lerF(p) + "\nawait requisicaoPinbank({ url: x });" : lerF(p))).includes(P_PROC));
   // O KeyValue é senha do token E chave da cifra: uma casa só o lê.
   const comChave = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_API_CHAVE/.test(semComF(ler(p))));
   ok("extrato-pos: PINBANK_API_CHAVE só é lida pelo cliente (lib/pinbank/api.ts)", comChave(lerF).length === 0 && /PINBANK_API_CHAVE/.test(semComF(lerF(P_API))), comChave(lerF).join(", "));
@@ -11538,6 +11555,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: a rota nunca toca na credencial (nem a lê, nem a devolve)", !vazaCred(rotaExt));
   ok("extrato-pos: (defeito plantado) devolver a credencial na resposta é ACUSADO",
      vazaCred(rotaExt.replace("ambiente: r.ambiente,", "ambiente: r.ambiente, credencial: lerCredencialPinbank(),")));
+  const okPelaLista = (t: string) => /const ok = r\.resposta\.erros\.length === 0 && r\.resposta\.listaRecebida;/.test(semComF(t));
+  ok("extrato-pos: a rota só diz ok com a LISTA de parcelas recebida (zero sem lista não é 'sem vendas')", okPelaLista(rotaExt));
+  ok("extrato-pos: (defeito plantado) ok só pela ausência de Errors é REPROVADO",
+     !okPelaLista(rotaExt.replace("const ok = r.resposta.erros.length === 0 && r.resposta.listaRecebida;", "const ok = r.resposta.erros.length === 0;")));
   const semDocApi = API.VARIAVEIS_API_PINBANK.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }

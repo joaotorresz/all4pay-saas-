@@ -131,8 +131,13 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   - Teste: `GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=…&ate=…`
     (só o administrador da plataforma, mesmo portão da prova da saída fixa).
     Variáveis em `.env.example` (`PINBANK_API_*`, `PINBANK_CODIGO_CANAL`).
-  - Guardas: `npm run pinbank-api` (comportamento contra uma Pinbank local, 11
-    defeitos plantados) e o bloco `extrato-pos:` do `engine-audit`.
+  - Guardas: `npm run pinbank-api` (comportamento contra uma Pinbank local:
+    34 casos, 21 defeitos plantados — prazo e chave do cache do token, eco da
+    senha cruzando o corte, extrato maior que o teto, chave de tamanho errado
+    chegando à rota) e o bloco `extrato-pos:` do `engine-audit` (só CAMINHOS
+    exatos de leitura — o valor do mapa, não o nome —, nenhum `…Encrypted` nem
+    `requisicaoPinbank` fora do cliente, e a rota só diz `ok` com a lista de
+    parcelas recebida: zero parcelas sem a lista é recusa, não "sem vendas").
   - Em aberto com a Pinbank: o `RequestOrigin`, a URL do token em produção, o
     `CodigoCliente` de teste, se o dev filtra IP, e a credencial SÓ DE CONSULTA
     com senha nova (a atual circulou por e-mail). Depois do teste: ligar a

@@ -62,9 +62,14 @@ export async function GET(req: Request) {
   const inicio = Date.now();
   try {
     const r = await consultarExtratoPos(filtro);
-    const semErroDeValidacao = r.resposta.erros.length === 0;
+    // "ok" pede a LISTA: zero parcelas sem a lista é recusa ou envelope que não
+    // abrimos, não "sem vendas". O ResultCode vai à tela como veio — a doc não
+    // diz qual valor é sucesso, e julgar por ele seria adivinhar.
+    const ok = r.resposta.erros.length === 0 && r.resposta.listaRecebida;
+    const codigoIncomum = r.resposta.codigo != null && r.resposta.codigo !== 0;
     return resposta(200, {
-      ok: semErroDeValidacao,
+      ok,
+      ...(r.resposta.listaRecebida ? {} : { motivo: `A resposta não trouxe a lista de parcelas (formato ${r.formato}; campos: ${r.campos.join(", ") || "nenhum"}).` }),
       ambiente: r.ambiente,
       via: r.via,
       ms: Date.now() - inicio,
@@ -74,6 +79,7 @@ export async function GET(req: Request) {
       resumo: r.resumo,
       amostra: r.resposta.linhas.slice(0, AMOSTRA),
       ...(r.resposta.linhas.length > AMOSTRA ? { aviso: `Mostrando ${AMOSTRA} de ${r.resposta.linhas.length} parcelas; o resumo conta todas.` } : {}),
+      ...(codigoIncomum ? { avisoCodigo: `A Pinbank devolveu o código ${r.resposta.codigo}: confira a mensagem.` } : {}),
     });
   } catch (e) {
     const d = descreverErroApi(e);

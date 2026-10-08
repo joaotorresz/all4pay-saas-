@@ -45,10 +45,21 @@ export const VARIAVEIS_API_PINBANK = [
 ] as const;
 
 /** O que este cliente pode chamar: SÓ LEITURA. Nome do método → caminho, sem o "Encrypted". */
-export const METODOS_LEITURA = {
+export const METODOS_LEITURA = Object.freeze({
   ExtratoPos: "ContaDigital/ExtratoPos",
-} as const;
+} as const);
 export type MetodoLeitura = keyof typeof METODOS_LEITURA;
+/**
+ * Os CAMINHOS de leitura que a Pinbank documenta. É o caminho, não o nome, que
+ * sai na URL: um nome inocente apontando para `CashOut/…` pagaria uma conta.
+ * Conferido antes da rede; o `engine-audit` confere a mesma lista à parte.
+ */
+const CAMINHOS_LEITURA: readonly string[] = Object.freeze([
+  "ContaDigital/ExtratoPos",
+  "ContaDigital/Saldo",
+  "ContaDigital/ExtratoContaDigital",
+  "ContaDigital/ConsultarComprovante",
+]);
 
 export type AmbienteApi = keyof typeof BASES_API_PINBANK;
 
@@ -88,6 +99,11 @@ export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPin
   if (ambiente !== "dev" && ambiente !== "producao") {
     throw new ErroApiPinbank("configuracao", "PINBANK_API_AMBIENTE deve ser dev ou producao.");
   }
+  const bytesDaChave = Buffer.byteLength(env.PINBANK_API_CHAVE!.trim(), "utf8");
+  if (![16, 24, 32].includes(bytesDaChave)) {
+    // O TAMANHO conserta; o valor, nunca.
+    throw new ErroApiPinbank("configuracao", `PINBANK_API_CHAVE tem ${bytesDaChave} bytes; a cifra AES da Pinbank pede 16 (o KeyValue da credencial).`);
+  }
   const canal = Number(env.PINBANK_CODIGO_CANAL!.trim());
   if (!Number.isInteger(canal) || canal <= 0) {
     throw new ErroApiPinbank("configuracao", "PINBANK_CODIGO_CANAL deve ser um número inteiro (ex.: 1919).");
@@ -111,6 +127,8 @@ export interface OpcoesApi {
   caDestino?: string | Buffer;
   /** Relógio (ms), para o prazo do token. Padrão: Date.now. */
   agora?: () => number;
+  /** Teto da resposta do MÉTODO. Padrão 32 MB (um mês de extrato de muitas maquininhas). */
+  maxBytesResposta?: number;
 }
 
 /* ─────────────────────────────── o token ─────────────────────────────── */
@@ -122,9 +140,20 @@ export function esquecerTokensPinbank(): void {
   tokens.clear();
 }
 
-/** Tira o segredo de qualquer texto que vá para mensagem (defesa: a Pinbank poderia ecoá-lo). */
+/**
+ * Tira o segredo de qualquer texto que vá para mensagem (defesa: a Pinbank
+ * poderia ecoá-lo). As FORMAS em que ele pode voltar: literal, codificado como
+ * no corpo do token (form-urlencoded), em URL e em base64.
+ */
 function semSegredo(t: string, cred: CredencialPinbank): string {
-  return cred.chave ? t.split(cred.chave).join("•••") : t;
+  if (!cred.chave) return t;
+  const formas = [
+    cred.chave,
+    new URLSearchParams({ x: cred.chave }).toString().slice(2),
+    encodeURIComponent(cred.chave),
+    Buffer.from(cred.chave, "utf8").toString("base64"),
+  ];
+  return formas.reduce((r, f) => (f ? r.split(f).join("•••") : r), t);
 }
 
 const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -143,7 +172,9 @@ function motivoDaPinbank(r: RespostaPinbank, cred: CredencialPinbank): string {
   } catch {
     msg = bruto.trim().startsWith("<") ? "" : bruto.trim();
   }
-  return semSegredo(`HTTP ${r.status}${msg ? `: ${msg.slice(0, 300)}` : ""}`, cred);
+  // O segredo sai ANTES do corte: cortar primeiro deixaria passar o COMEÇO dele.
+  const limpo = semSegredo(msg, cred);
+  return `HTTP ${r.status}${limpo ? `: ${limpo.slice(0, 300)}` : ""}`;
 }
 
 async function obterToken(cred: CredencialPinbank, o: OpcoesApi, forcar: boolean): Promise<{ cabecalho: string; novo: boolean; ms: number }> {
@@ -226,30 +257,53 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
   if (!Object.prototype.hasOwnProperty.call(METODOS_LEITURA, metodo)) {
     throw new ErroApiPinbank("pedido", `Método fora da lista de leitura: ${String(metodo)}.`);
   }
+  const caminho: string = METODOS_LEITURA[metodo];
+  if (!CAMINHOS_LEITURA.includes(caminho)) {
+    throw new ErroApiPinbank("pedido", `Caminho fora da lista de leitura: ${caminho}.`);
+  }
   const cred = o.credencial ?? lerCredencialPinbank();
-  const url = `${cred.base}/api/${METODOS_LEITURA[metodo]}Encrypted`;
-  const corpo = JSON.stringify({ Data: { Json: cifrarPinbank(JSON.stringify(dados), cred.chave) } });
+  const url = `${cred.base}/api/${caminho}Encrypted`;
+  let cifrado: string;
+  try {
+    cifrado = cifrarPinbank(JSON.stringify(dados), cred.chave);
+  } catch (e) {
+    // A cifra diz o TAMANHO da chave errada — é o diagnóstico; não pode virar "falha inesperada".
+    throw new ErroApiPinbank("configuracao", semSegredo((e as Error).message, cred));
+  }
+  const corpo = JSON.stringify({ Data: { Json: cifrado } });
   const etapas: LeituraPinbank["etapas"] = [];
 
   for (let tentativa = 0; tentativa < 2; tentativa++) {
     const t = await obterToken(cred, o, tentativa > 0);
     etapas.push({ etapa: "token", ms: t.ms, novo: t.novo });
     const inicio = Date.now();
-    const r = await requisicaoPinbank({
-      url,
-      metodo: "POST",
-      corpo,
-      cabecalhos: {
-        "content-type": "application/json",
-        accept: "application/json",
-        Authorization: t.cabecalho,
-        UserName: cred.usuario,
-        RequestOrigin: cred.origem,
-      },
-      proxies: o.proxies,
-      caDestino: o.caDestino,
-      timeoutTotalMs: 25_000,
-    });
+    let r: RespostaPinbank;
+    try {
+      r = await requisicaoPinbank({
+        url,
+        metodo: "POST",
+        corpo,
+        cabecalhos: {
+          "content-type": "application/json",
+          accept: "application/json",
+          Authorization: t.cabecalho,
+          UserName: cred.usuario,
+          RequestOrigin: cred.origem,
+        },
+        proxies: o.proxies,
+        caDestino: o.caDestino,
+        timeoutTotalMs: 25_000,
+        maxBytesResposta: o.maxBytesResposta ?? 32 * 1024 * 1024,
+      });
+    } catch (e) {
+      // Depois de enviado, a porta não repete (o certo para dinheiro). Aqui é
+      // LEITURA: dizer isso, e o que fazer quando a resposta é grande demais.
+      if (e instanceof ErroSaida && e.fase === "apos_envio") {
+        throw new ErroApiPinbank("resposta",
+          `${metodo}: a leitura falhou depois de enviada (${e.message}). É uma consulta — repetir não move dinheiro; se o extrato for grande, peça um intervalo menor ou um terminal por vez.`);
+      }
+      throw e;
+    }
     etapas.push({ etapa: "metodo", ms: Date.now() - inicio, status: r.status });
     // Token do cache recusado: pode ter vencido antes do prazo. Um novo, UMA vez.
     if (r.status === 401 && !t.novo && tentativa === 0) {

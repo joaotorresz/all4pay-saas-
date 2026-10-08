@@ -139,12 +139,18 @@ const centavos = (v: unknown): number | null => {
   const n = typeof v === "string" && v.trim() ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) ? Math.round(n * 100) : null;
 };
+/**
+ * Data ISO INTEIRA, ou nada. Cortar por tamanho mutilaria o fuso quando há
+ * fração de segundo (o .NET manda até 7 casas): "…00.1234567-03:00" cortado
+ * em 25 vira "…00.1234567-0", que é outro instante ou nenhum.
+ */
+const ISO = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,7})?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 const dataHora = (v: unknown): string | null => {
   if (typeof v !== "string" || !v.trim()) return null;
   const s = v.trim();
   // O "0001-01-01" do .NET é a data VAZIA, não uma data.
   if (/^0001-01-01/.test(s)) return null;
-  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 25) : null;
+  return ISO.test(s) ? s : null;
 };
 
 export function linhaDoExtratoPos(l: Record<string, unknown>): LinhaExtratoPos {
@@ -176,6 +182,11 @@ export interface RespostaExtratoPos {
   mensagem: string | null;
   /** `ValidationData.Errors` — campo e motivo, para o pedido mal formado. */
   erros: { campo: string | null; mensagem: string | null }[];
+  /**
+   * A resposta TROUXE a lista `Data`? Sem ela, "zero parcelas" não quer dizer
+   * "sem vendas": pode ser recusa sem `Errors`, ou um envelope que não abrimos.
+   */
+  listaRecebida: boolean;
   linhas: LinhaExtratoPos[];
 }
 
@@ -196,6 +207,7 @@ export function lerRespostaExtratoPos(aberto: unknown): RespostaExtratoPos {
     codigo: inteiro(env.ResultCode) ?? inteiro(val.ResultCode),
     mensagem: texto(env.Message, 300) ?? texto(val.Message, 300),
     erros,
+    listaRecebida: Array.isArray(env.Data),
     linhas: lista.filter(obj).map(linhaDoExtratoPos),
   };
 }
