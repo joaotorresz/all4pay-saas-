@@ -11310,7 +11310,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora da porta", comRede(lerF).length === 0, comRede(lerF).join(", "));
   // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
   // ambiente escaparia da varredura do endereço.
-  const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/saida-fixa)\//.test(p) && p !== PORTA_F);
+  const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/(saida-fixa|pinbank-extrato))\//.test(p) && p !== PORTA_F);
   const fetchExterno = (t: string) => /\bfetch\s*\(\s*(?!["'`]\/)/.test(semComF(t));
   const comFetch = (ler: (p: string) => string) => pastaPB.filter((p) => fetchExterno(ler(p)));
   ok("saida-fixa: nenhum fetch externo nas pastas da Pinbank fora da porta", pastaPB.length >= 4 && comFetch(lerF).length === 0, comFetch(lerF).join(", "));
@@ -11346,7 +11346,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      usosAut(portaTxt.replace("sock.write(", "console.log(proxy.autorizacao);\n      sock.write(")) !== 3);
 
   /* ── 2. quem importa a porta roda em Node, e o middleware não a toca ───────── */
-  const importaPorta = arqsF.filter((p) => /lib\/pinbank\/(saida|assinatura)["']/.test(semComF(lerF(p))));
+  const importaPorta = arqsF.filter((p) => /lib\/pinbank\/(saida|assinatura|api|cifra)["']/.test(semComF(lerF(p))));
   const rotasSemNode = importaPorta.filter((p) => /\/route\.ts$/.test(p) && !/export const runtime = "nodejs"/.test(lerF(p)));
   ok("saida-fixa: toda rota que chega à porta é runtime nodejs; o middleware não a importa",
      importaPorta.length >= 3 && rotasSemNode.length === 0 && !importaPorta.includes("src/middleware.ts"),
@@ -11492,6 +11492,54 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const lidas = [...SF.VARIAVEIS_SAIDA, ...[...semComF(lerF(PORTA_F)).matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((m) => m[1])];
   const semDoc = lidas.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
   ok("saida-fixa: toda variável lida pela porta está no .env.example", lidas.length >= 3 && semDoc.length === 0, semDoc.join(", "));
+
+  /* ── 7. extrato-pos: o cliente da API da Pinbank (token + Encrypted) ───────── */
+  // O comportamento (cifra, token, leitura sem dado pessoal) é provado por
+  // `npm run pinbank-api`; aqui, o que se prova LENDO o código: só leitura,
+  // o segredo numa casa só, e a rota de teste atrás do portão.
+  const API = await import("@/lib/pinbank/api");
+  const P_API = "src/lib/pinbank/api.ts";
+  const ROTA_EXT = "src/app/api/admin/pinbank-extrato/route.ts";
+  // A credencial emitida MOVE DINHEIRO; o código não pode chamar isso sem decisão do dono.
+  const LEITURA_OK = ["ExtratoPos", "ExtratoContaDigital", "Saldo", "ConsultarComprovante", "ListarComprovantes"];
+  ok("extrato-pos: o cliente só conhece métodos de LEITURA",
+     Object.keys(API.METODOS_LEITURA).length >= 1 && Object.keys(API.METODOS_LEITURA).every((m) => LEITURA_OK.includes(m)),
+     Object.keys(API.METODOS_LEITURA).join(", "));
+  const DINHEIRO = /\b(PagamentoConta|PagamentoTributo|TransferenciaEntreContas|TransferenciaDocTed|DocTed|EfetuarPagamentoPixQrCode|GerarBoleto|SolicitarBaixaBoleto|GerarCobrancaCartao|SolicitarDynamicQrCode|AlterarStatusDynamicQrCode)\b/;
+  const comDinheiro = (ler: (p: string) => string) => arqsF.filter((p) => DINHEIRO.test(semComF(ler(p))));
+  ok("extrato-pos: TETO ZERO de método da Pinbank que move dinheiro ou cria cobrança no código", comDinheiro(lerF).length === 0, comDinheiro(lerF).join(", "));
+  ok("extrato-pos: (defeito plantado) um PagamentoConta no cliente é ACUSADO",
+     comDinheiro((p) => (p === P_API ? lerF(p).replace('ExtratoPos: "ContaDigital/ExtratoPos",', 'ExtratoPos: "ContaDigital/ExtratoPos",\n  PagamentoConta: "CashOut/PagamentoConta",') : lerF(p))).includes(P_API));
+  // O KeyValue é senha do token E chave da cifra: uma casa só o lê.
+  const comChave = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_API_CHAVE/.test(semComF(ler(p))));
+  ok("extrato-pos: PINBANK_API_CHAVE só é lida pelo cliente (lib/pinbank/api.ts)", comChave(lerF).length === 0 && /PINBANK_API_CHAVE/.test(semComF(lerF(P_API))), comChave(lerF).join(", "));
+  ok("extrato-pos: (defeito plantado) a rota lendo a chave direto é ACUSADA",
+     comChave((p) => (p === ROTA_EXT ? lerF(p) + "\nconst k = process.env.PINBANK_API_CHAVE;" : lerF(p))).includes(ROTA_EXT));
+  // Nada que fala com a Pinbank entra no navegador.
+  const doCliente = arqsF.filter((p) => /^\s*["']use client["']/m.test(lerF(p)) && /lib\/pinbank\/(saida|assinatura|api|cifra)["']/.test(semComF(lerF(p))));
+  ok("extrato-pos: nenhum componente de navegador importa a porta, a cifra ou o cliente da API", doCliente.length === 0, doCliente.join(", "));
+  // A rota de teste: o mesmo portão da prova da saída fixa, antes da Pinbank.
+  const ordemExt = (t: string) => {
+    const x = semComF(t);
+    const iDemo = x.indexOf("NEXT_PUBLIC_SUPABASE_URL");
+    const iUser = x.indexOf("auth.getUser()");
+    const iPortao = x.indexOf('rpc("admin_exigir_acesso"');
+    const iRede = x.indexOf("consultarExtratoPos(filtro");
+    return iDemo > 0 && iUser > iDemo && iPortao > iUser && iRede > iPortao && /export const runtime = "nodejs"/.test(x);
+  };
+  const rotaExt = lerF(ROTA_EXT);
+  ok("extrato-pos: a rota de teste recusa sem banco → sessão → admin_exigir_acesso → só então a Pinbank", ordemExt(rotaExt));
+  ok("extrato-pos: (defeito plantado) consultar antes do portão é REPROVADO",
+     !ordemExt(rotaExt.replace("export async function GET(req: Request) {", "export async function GET(req: Request) {\n  await consultarExtratoPos(filtro0);")));
+  ok("extrato-pos: a rota responde 404 sem banco, 401 sem sessão e 403 sem o portão", codigosProva(rotaExt));
+  ok("extrato-pos: (defeito plantado) portão negado respondendo 200 é REPROVADO",
+     !codigosProva(rotaExt.replace("if (negado) return resposta(403,", "if (negado) return resposta(200,")));
+  const vazaCred = (t: string) => /lerCredencialPinbank|process\.env\.PINBANK_API|\bcredencial\b\s*[:,}]|\.chave\b/.test(semComF(t));
+  ok("extrato-pos: a rota nunca toca na credencial (nem a lê, nem a devolve)", !vazaCred(rotaExt));
+  ok("extrato-pos: (defeito plantado) devolver a credencial na resposta é ACUSADO",
+     vazaCred(rotaExt.replace("ambiente: r.ambiente,", "ambiente: r.ambiente, credencial: lerCredencialPinbank(),")));
+  const semDocApi = API.VARIAVEIS_API_PINBANK.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
+  ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

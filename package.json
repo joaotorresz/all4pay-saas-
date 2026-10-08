@@ -26,7 +26,7 @@
     "card-tabela": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/contrato-card-tabela.mts",
     "cronometro": "node ./scripts/onboarding-cronometro.mjs",
     "promessas": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/promessas.mts",
-    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run ia-origem && npm run values && npm run edge && npm run kb && npm run tz && npm run audit && npm run regime-golden && npm run consistencia && npm run reconciliacao && npm run contrato && npm run coerencia && npm run ia-eval && npm run esquema && npm run paleta && npm run fila-500 && npm run travar && npm run cron-auth && npm run baixa && npm run exportacao && npm run datas && npm run promessas && npm run card-tabela && npm run impressao && npm run cadastro-nome && npm run recorrencias-simulacao && npm run plataforma-escritores && npm run saida-pinbank",
+    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run ia-origem && npm run values && npm run edge && npm run kb && npm run tz && npm run audit && npm run regime-golden && npm run consistencia && npm run reconciliacao && npm run contrato && npm run coerencia && npm run ia-eval && npm run esquema && npm run paleta && npm run fila-500 && npm run travar && npm run cron-auth && npm run baixa && npm run exportacao && npm run datas && npm run promessas && npm run card-tabela && npm run impressao && npm run cadastro-nome && npm run recorrencias-simulacao && npm run plataforma-escritores && npm run saida-pinbank && npm run pinbank-api",
     "coerencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/coerencia.mts",
     "consistencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/consistencia.mts",
     "contrato": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/contrato-resultado.mts",
@@ -58,7 +58,8 @@
     "recorrencias-simulacao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/recorrencias-simulacao.mts",
     "senha": "node scripts/redefinir-senha.mjs",
     "segundo-fator": "node scripts/segundo-fator.mjs",
-    "saida-pinbank": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/saida-pinbank.mts"
+    "saida-pinbank": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/saida-pinbank.mts",
+    "pinbank-api": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/pinbank-api.mts"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",

@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-09-30",
+  "gerado_em": "2026-10-08",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 69,
-    "funcoes": 99,
-    "politicas": 114,
-    "gatilhos": 72,
-    "indices": 208,
+    "tabelas": 78,
+    "funcoes": 128,
+    "politicas": 152,
+    "gatilhos": 96,
+    "indices": 244,
     "enums": 12,
-    "colunas": 702,
-    "restricoes": 198
+    "colunas": 838,
+    "restricoes": 270
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
