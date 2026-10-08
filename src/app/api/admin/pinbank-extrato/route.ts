@@ -80,6 +80,7 @@ export async function GET(req: Request) {
       amostra: r.resposta.linhas.slice(0, AMOSTRA),
       ...(r.resposta.linhas.length > AMOSTRA ? { aviso: `Mostrando ${AMOSTRA} de ${r.resposta.linhas.length} parcelas; o resumo conta todas.` } : {}),
       ...(codigoIncomum ? { avisoCodigo: `A Pinbank devolveu o código ${r.resposta.codigo}: confira a mensagem.` } : {}),
+      ...(r.semRequestOrigin ? { avisoOrigem: "O pedido saiu sem o RequestOrigin (PINBANK_API_ORIGEM vazia) e a Pinbank aceitou." } : {}),
     });
   } catch (e) {
     const d = descreverErroApi(e);

@@ -19,7 +19,9 @@ import {
  *   PINBANK_API_AMBIENTE = dev | producao   (escolhe a base; nunca uma URL livre)
  *   PINBANK_API_USUARIO  = o UserName da credencial ("API Key" no e-mail)
  *   PINBANK_API_CHAVE    = o KeyValue ("Senha") — SEGREDO: senha do token E chave da cifra
- *   PINBANK_API_ORIGEM   = o RequestOrigin da credencial
+ *   PINBANK_API_ORIGEM   = o RequestOrigin da credencial (OPCIONAL por ora: a
+ *                          Pinbank ainda não o informou; sem ele o cabeçalho
+ *                          não vai, e a recusa diz que é ele que falta)
  *   PINBANK_CODIGO_CANAL = o código do canal (ex.: 1919)
  *
  * ⚠️ **SÓ LEITURA.** A credencial emitida pela Pinbank também PAGA conta e
@@ -43,6 +45,13 @@ export const VARIAVEIS_API_PINBANK = [
   "PINBANK_API_ORIGEM",
   "PINBANK_CODIGO_CANAL",
 ] as const;
+/**
+ * As que não podem faltar. O `RequestOrigin` fica de fora: a doc o marca como
+ * obrigatório, mas não diz o valor, e a credencial chegou sem ele. O token não
+ * o usa — então o teste ainda prova a credencial, a senha e os IPs — e a
+ * resposta do método diz se a Pinbank o exige de fato.
+ */
+const VARIAVEIS_OBRIGATORIAS = VARIAVEIS_API_PINBANK.filter((n) => n !== "PINBANK_API_ORIGEM");
 
 /** O que este cliente pode chamar: SÓ LEITURA. Nome do método → caminho, sem o "Encrypted". */
 export const METODOS_LEITURA = Object.freeze({
@@ -70,7 +79,8 @@ export interface CredencialPinbank {
   usuario: string;
   /** KeyValue. SEGREDO: não logar, não devolver. */
   chave: string;
-  origem: string;
+  /** RequestOrigin; `null` = ainda não informado (o cabeçalho não vai). */
+  origem: string | null;
   canal: number;
 }
 
@@ -91,7 +101,7 @@ type Ambiente = Record<string, string | undefined>;
 
 /** Lê a credencial das variáveis. O erro nomeia as VARIÁVEIS, nunca os valores. */
 export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPinbank {
-  const faltam = VARIAVEIS_API_PINBANK.filter((n) => !env[n]?.trim());
+  const faltam = VARIAVEIS_OBRIGATORIAS.filter((n) => !env[n]?.trim());
   if (faltam.length) {
     throw new ErroApiPinbank("configuracao", `Faltam na Vercel (Production): ${faltam.join(", ")}.`);
   }
@@ -113,7 +123,7 @@ export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPin
     base: BASES_API_PINBANK[ambiente],
     usuario: env.PINBANK_API_USUARIO!.trim(),
     chave: env.PINBANK_API_CHAVE!.trim(),
-    origem: env.PINBANK_API_ORIGEM!.trim(),
+    origem: env.PINBANK_API_ORIGEM?.trim() || null,
     canal,
   };
 }
@@ -288,7 +298,8 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
           accept: "application/json",
           Authorization: t.cabecalho,
           UserName: cred.usuario,
-          RequestOrigin: cred.origem,
+          // Sem valor, o cabeçalho NÃO vai: um RequestOrigin vazio é um valor errado, não a ausência.
+          ...(cred.origem ? { RequestOrigin: cred.origem } : {}),
         },
         proxies: o.proxies,
         caDestino: o.caDestino,
@@ -311,7 +322,10 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
       continue;
     }
     if (r.status !== 200) {
-      throw new ErroApiPinbank("metodo", `${metodo}: a Pinbank respondeu ${motivoDaPinbank(r, cred)}.`, r.status);
+      const semOrigem = !cred.origem && (r.status === 400 || r.status === 401 || r.status === 403)
+        ? " O pedido saiu SEM o RequestOrigin (PINBANK_API_ORIGEM vazia): é o primeiro suspeito — peça o valor à Pinbank."
+        : "";
+      throw new ErroApiPinbank("metodo", `${metodo}: a Pinbank respondeu ${motivoDaPinbank(r, cred)}.${semOrigem}`, r.status);
     }
     try {
       const { aberto, formato, campos } = abrirCorpoPinbank(r.corpo.toString("utf8"), cred.chave);
@@ -328,6 +342,8 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
 
 export interface ExtratoPosConsultado {
   ambiente: AmbienteApi;
+  /** O pedido saiu sem o RequestOrigin (a credencial ainda não o tem). */
+  semRequestOrigin: boolean;
   resposta: RespostaExtratoPos;
   resumo: ResumoExtratoPos;
   formato: FormatoResposta;
@@ -348,6 +364,7 @@ export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: O
   const resposta = lerRespostaExtratoPos(leitura.aberto);
   return {
     ambiente: cred.ambiente,
+    semRequestOrigin: !cred.origem,
     resposta,
     resumo: resumirExtratoPos(resposta.linhas),
     formato: leitura.formato,

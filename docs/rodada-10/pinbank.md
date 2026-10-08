@@ -138,10 +138,20 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     exatos de leitura — o valor do mapa, não o nome —, nenhum `…Encrypted` nem
     `requisicaoPinbank` fora do cliente, e a rota só diz `ok` com a lista de
     parcelas recebida: zero parcelas sem a lista é recusa, não "sem vendas").
+  - **08/10/2026:** o ExtratoPos entrou na credencial de PRODUÇÃO ("All4Pay /
+    ERP Integration Produção", mesma senha da anterior — decisão do dono:
+    seguir com ela e pedir a troca depois do teste). O teste vai direto em
+    produção (`PINBANK_API_AMBIENTE=producao`), só consulta.
+  - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
+    obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
+    `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,
+    então o teste ainda prova credencial, senha e IPs; e uma recusa do método
+    diz que é ele o primeiro suspeito. Se a Pinbank o exigir, é só preencher a
+    variável — sem mudar código.
   - Em aberto com a Pinbank: o `RequestOrigin`, a URL do token em produção, o
-    `CodigoCliente` de teste, se o dev filtra IP, e a credencial SÓ DE CONSULTA
-    com senha nova (a atual circulou por e-mail). Depois do teste: ligar a
-    conferência das vendas (data e taxa reais no lugar das estimadas).
+    canal e um `CodigoCliente` com vendas, e a credencial SÓ DE CONSULTA com
+    senha nova. Depois do teste: ligar a conferência das vendas (data e taxa
+    reais no lugar das estimadas).
 - ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —
   **resolvido em 06/10/2026**: a taxa da maquininha (MDR) é Despesa Variável,
   acima do EBITDA, pela regra única `ehTaxaAdquirencia`

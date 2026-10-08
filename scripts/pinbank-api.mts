@@ -114,6 +114,8 @@ const linha = (parcela: number) => ({
 type FormatoSrv = "envelope-cifrado" | "data-cifrado" | "aberto-erro" | "chave-errada" | "ecoa-senha" | "ecoa-senha-longa" | "erro-500" | "sem-lista" | "gigante";
 const srv = {
   formato: "envelope-cifrado" as FormatoSrv,
+  /** A "Pinbank" exige o RequestOrigin? (a doc diz que sim; a credencial veio sem ele) */
+  exigeOrigem: true,
   tokensValidos: new Set<string>(),
   emitidos: 0,
   hitsToken: 0,
@@ -125,6 +127,7 @@ const srv = {
 };
 const resetSrv = (formato: FormatoSrv = "envelope-cifrado") => {
   srv.formato = formato;
+  srv.exigeOrigem = true;
   srv.tokensValidos.clear();
   srv.emitidos = 0;
   srv.hitsToken = 0;
@@ -168,7 +171,8 @@ const pinbank = https.createServer(
         const auth = String(req.headers.authorization ?? "");
         const tok = auth.replace(/^bearer /, "");
         if (!auth.startsWith("bearer ") || !srv.tokensValidos.has(tok) || req.headers.username !== USUARIO
-          || req.headers.requestorigin !== ORIGEM || req.headers["content-type"] !== "application/json") {
+          || (srv.exigeOrigem ? req.headers.requestorigin !== ORIGEM : "requestorigin" in req.headers)
+          || req.headers["content-type"] !== "application/json") {
           return json(401, { Message: "Authorization has been denied for this request." });
         }
         let dados: Record<string, unknown>;
@@ -414,6 +418,21 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(w) o mapa de métodos não muda em execução: apontar ExtratoPos para CashOut não pega",
     !e && srv.ultimoCaminho.endsWith("/ContaDigital/ExtratoPosEncrypted") && srv.hitsMetodo === 1, `${e?.message} caminho=${srv.ultimoCaminho}`);
 
+  /* (x) sem o RequestOrigin: o token sai (prova senha e IPs) e a recusa NOMEIA o que falta */
+  m.api.esquecerTokensPinbank();
+  resetSrv();
+  const semOrigem = { ...cred, origem: null };
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, credencial: semOrigem }));
+  caso("(x) sem RequestOrigin e a Pinbank exigindo: token gerado, método recusa, e a mensagem diz que falta o RequestOrigin",
+    !!e && e.etapa === "metodo" && e.status === 401 && /RequestOrigin/.test(e.message) && srv.hitsToken === 1 && srv.hitsMetodo === 1, `${e?.message} token=${srv.hitsToken} metodo=${srv.hitsMetodo}`);
+  m.api.esquecerTokensPinbank();
+  resetSrv();
+  srv.exigeOrigem = false;
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, credencial: semOrigem }));
+  const cabSem = srv.cabecalhos[srv.cabecalhos.length - 1] ?? {};
+  caso("(x2) sem RequestOrigin e a Pinbank não exigindo: a consulta passa, e o cabeçalho NÃO vai (nem vazio)",
+    !e && !("requestorigin" in cabSem) && srv.hitsMetodo === 1, `${e?.message} cab=${JSON.stringify(cabSem)}`);
+
   /* (o) sem a saída fixa, não sai */
   resetSrv();
   e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, proxies: [] }));
@@ -428,7 +447,14 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   const lida = tentar(envOk);
   const amb = tentar({ ...envOk, PINBANK_API_AMBIENTE: "https://evil.example" });
   const can = tentar({ ...envOk, PINBANK_CODIGO_CANAL: "abc" });
-  caso("(l1) sem variáveis: o erro nomeia as CINCO", vazio instanceof Error && nomes.every((n) => vazio.message.includes(n)), (vazio as Error)?.message);
+  const obrigatorias = nomes.filter((n) => n !== "PINBANK_API_ORIGEM");
+  caso("(l1) sem variáveis: o erro nomeia as QUATRO obrigatórias (o RequestOrigin é opcional por ora)",
+    vazio instanceof Error && obrigatorias.every((n) => vazio.message.includes(n)) && !vazio.message.includes("PINBANK_API_ORIGEM"), (vazio as Error)?.message);
+  const { PINBANK_API_ORIGEM: _semO, ...envSemOrigem } = envOk;
+  void _semO;
+  const lidaSem = tentar(envSemOrigem);
+  caso("(l5) sem PINBANK_API_ORIGEM a credencial é lida, com a origem AUSENTE (null, não texto vazio)",
+    !(lidaSem instanceof Error) && lidaSem.origem === null, lidaSem instanceof Error ? lidaSem.message : String(lidaSem.origem));
   caso("(l2) com as variáveis: dev → a base de dev da porta, canal numérico",
     !(lida instanceof Error) && lida.base === "https://dev.pinbank.com.br/services" && lida.canal === 1919, JSON.stringify(lida instanceof Error ? lida.message : { ...lida, chave: "•" }));
   caso("(l4) PINBANK_API_CHAVE com tamanho errado é recusada na LEITURA da credencial, dizendo o tamanho",
@@ -479,7 +505,7 @@ const PLANTAS: Planta[] = [
     de: "if (!forcar && guardado && guardado.expiraEm > agora())", para: "if (false)" },
   { nome: "manda a chave num cabeçalho", arquivo: "api",
     caso: "(a7) a chave só vai no corpo do TOKEN: nenhum cabeçalho e nenhum corpo de método a carrega (nem em base64)",
-    de: "RequestOrigin: cred.origem,", para: "RequestOrigin: cred.origem,\n        KeyValue: cred.chave," },
+    de: "UserName: cred.usuario,", para: "UserName: cred.usuario,\n          KeyValue: cred.chave," },
   { nome: "a mensagem da Pinbank vai sem tirar o segredo", arquivo: "api",
     caso: "(f2) mesmo com a Pinbank ECOANDO a senha, a mensagem não a traz",
     de: "const limpo = semSegredo(msg, cred);", para: "const limpo = msg;" },
@@ -487,6 +513,15 @@ const PLANTAS: Planta[] = [
     caso: "(m) método fora da lista de LEITURA (ex.: PagamentoConta) é recusado antes da rede",
     de: 'ExtratoPos: "ContaDigital/ExtratoPos",', para: 'ExtratoPos: "ContaDigital/ExtratoPos",\n  PagamentoConta: "CashOut/PagamentoConta",',
     mais: [['"ContaDigital/ConsultarComprovante",', '"ContaDigital/ConsultarComprovante",\n  "CashOut/PagamentoConta",']] },
+  { nome: "o RequestOrigin vai vazio quando não há valor", arquivo: "api",
+    caso: "(x2) sem RequestOrigin e a Pinbank não exigindo: a consulta passa, e o cabeçalho NÃO vai (nem vazio)",
+    de: "...(cred.origem ? { RequestOrigin: cred.origem } : {}),", para: 'RequestOrigin: cred.origem ?? "",' },
+  { nome: "a recusa sem RequestOrigin não diz o que falta", arquivo: "api",
+    caso: "(x) sem RequestOrigin e a Pinbank exigindo: token gerado, método recusa, e a mensagem diz que falta o RequestOrigin",
+    de: "const semOrigem = !cred.origem &&", para: "const semOrigem = false &&" },
+  { nome: "a origem ausente vira texto vazio", arquivo: "api",
+    caso: "(l5) sem PINBANK_API_ORIGEM a credencial é lida, com a origem AUSENTE (null, não texto vazio)",
+    de: "origem: env.PINBANK_API_ORIGEM?.trim() || null,", para: 'origem: env.PINBANK_API_ORIGEM?.trim() ?? "",' },
   { nome: "o mapa de métodos fica mutável em execução", arquivo: "api",
     caso: "(w) o mapa de métodos não muda em execução: apontar ExtratoPos para CashOut não pega",
     de: "export const METODOS_LEITURA = Object.freeze({", para: "export const METODOS_LEITURA = ({" },
