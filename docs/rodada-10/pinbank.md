@@ -93,9 +93,11 @@ Pinbank ──POST──▶ /api/pinbank/webhook
      (US$ 100/mês, só no Pro) — detalhe, passo a passo e provas em
      `docs/rodada-10/saida-fixa.md`. Toda chamada à Pinbank passa pela porta
      única `src/lib/pinbank/saida.ts`.
-   - **O ambiente de teste envia webhook, e com qual chave?** O host
-     `dev.pinbank.com.br` não publica `/webhook/signing-key` (404). Se o teste
-     assinar com outra chave, toda entrega de teste volta 401.
+   - ~~**O ambiente de teste envia webhook?**~~ — **respondido em 08/10/2026:
+     não envia.** A primeira prova do webhook é uma venda real, de valor baixo,
+     em produção, assim que a Pinbank confirmar os `Compra.*` ativos (pedidos
+     em 08/10: os 10 eventos v1, configuração global do canal, sem token
+     próprio).
 3. Salvar a resposta de `GET https://pinbank.com.br/webhook/signing-key` em
    `PINBANK_WEBHOOK_JWKS` (recomendado pela própria Pinbank; sem ela a rota
    busca a chave — pela saída fixa — e guarda por uma hora). ⚠️ Com a JWKS
@@ -111,13 +113,45 @@ Pinbank ──POST──▶ /api/pinbank/webhook
 
 ## Pendências declaradas
 
-- **Conferência pelo extrato (`ExtratoPos`)**: a API exige OAuth2 + criptografia
-  AES-128-CBC e credenciais (`UserName`, `KeyValue`, `RequestOrigin`,
-  `CodigoCanal`) que ainda não temos — e os 2 IPs fixos liberados pela
-  Pinbank (a saída fixa já existe; o cliente da API deve chamá-la por
-  `requisicaoPinbank`, que nunca repete um pedido que já saiu). Ela traz a data real do repasse e a taxa
-  cobrada; com ela, os títulos estimados passam a ser os conferidos. O campo
-  `codigo_cliente` do vínculo já existe para isso.
+- **Conferência pelo extrato (`ExtratoPos`)** — **o cliente da API existe
+  (08/10/2026), falta a credencial de dev para o teste.** A Pinbank emitiu a
+  credencial de produção ("ALL4 PAY - BaaS", canal 1919) SEM o `ExtratoPos` (o
+  `ExtratoEncrypted` liberado é o extrato da CONTA DIGITAL) e vai liberá-lo
+  primeiro em dev; com o nosso ok, em produção.
+  - `src/lib/pinbank/api.ts`: token OAuth2 (`/api/token`, form, com cache e
+    renovação UMA vez quando o token do cache é recusado), pedido cifrado
+    (`src/lib/pinbank/cifra.ts`: AES-128-CBC, chave = `KeyValue`, IV zero,
+    PKCS#7, base64 — conferida contra vetores do `openssl`), cabeçalhos
+    `Authorization`/`UserName`/`RequestOrigin`, tudo pela saída fixa.
+    ⚠️ **Só LEITURA** (`METODOS_LEITURA`): a credencial emitida também paga,
+    transfere e faz Pix — teto ZERO desses métodos no código (`extrato-pos:`).
+  - `src/core/pinbank/extrato-pos.ts`: o filtro (até 31 dias, dia inteiro em
+    `-03:00`), o pedido e a leitura da resposta por LISTA DE PERMITIDOS — CPF/
+    CNPJ, comprador, cartão, sub-loja e agente nunca passam, nem um campo novo.
+  - Teste: `GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=…&ate=…`
+    (só o administrador da plataforma, mesmo portão da prova da saída fixa).
+    Variáveis em `.env.example` (`PINBANK_API_*`, `PINBANK_CODIGO_CANAL`).
+  - Guardas: `npm run pinbank-api` (comportamento contra uma Pinbank local:
+    34 casos, 21 defeitos plantados — prazo e chave do cache do token, eco da
+    senha cruzando o corte, extrato maior que o teto, chave de tamanho errado
+    chegando à rota) e o bloco `extrato-pos:` do `engine-audit` (só CAMINHOS
+    exatos de leitura — o valor do mapa, não o nome —, nenhum `…Encrypted` nem
+    `requisicaoPinbank` fora do cliente, e a rota só diz `ok` com a lista de
+    parcelas recebida: zero parcelas sem a lista é recusa, não "sem vendas").
+  - **08/10/2026:** o ExtratoPos entrou na credencial de PRODUÇÃO ("All4Pay /
+    ERP Integration Produção", mesma senha da anterior — decisão do dono:
+    seguir com ela e pedir a troca depois do teste). O teste vai direto em
+    produção (`PINBANK_API_AMBIENTE=producao`), só consulta.
+  - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
+    obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
+    `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,
+    então o teste ainda prova credencial, senha e IPs; e uma recusa do método
+    diz que é ele o primeiro suspeito. Se a Pinbank o exigir, é só preencher a
+    variável — sem mudar código.
+  - Em aberto com a Pinbank: o `RequestOrigin`, a URL do token em produção, o
+    canal e um `CodigoCliente` com vendas, e a credencial SÓ DE CONSULTA com
+    senha nova. Depois do teste: ligar a conferência das vendas (data e taxa
+    reais no lugar das estimadas).
 - ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —
   **resolvido em 06/10/2026**: a taxa da maquininha (MDR) é Despesa Variável,
   acima do EBITDA, pela regra única `ehTaxaAdquirencia`

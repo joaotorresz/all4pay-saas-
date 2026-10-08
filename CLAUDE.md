@@ -207,7 +207,13 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
 - ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
   taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
-  (OAuth2 + AES) é a próxima fase — faltam as credenciais.
+  é a próxima fase: o CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
+  + `cifra.ts`: token OAuth2, AES-128-CBC com IV zero, pela saída fixa) e é
+  testado por `GET /api/admin/pinbank-extrato`; falta a credencial de dev.
+  ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a
+  credencial emitida também paga, transfere e faz Pix. ⚠️ A linha do extrato é
+  lida por LISTA DE PERMITIDOS — CPF/CNPJ, comprador e cartão nunca passam.
+  Comportamento em `npm run pinbank-api`.
 - ⚠️ **A taxa da maquininha (MDR) é DESPESA VARIÁVEL, acima do EBITDA**
   (06/10/2026). "Tarifas de adquirência" caía no Resultado Financeiro ("tarifa"
   casava o financeiro e o padrão antigo `adquiren` não casava com o "ê"). A
