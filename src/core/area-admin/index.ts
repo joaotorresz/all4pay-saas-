@@ -88,3 +88,37 @@ export function decidirPorHost(p: { host: string | null | undefined; pathname: s
   }
   return { tipo: "seguir" };
 }
+
+/* ========================================================================== */
+/* O segundo fator é OBRIGATÓRIO na área da plataforma                        */
+/* ========================================================================== */
+
+/**
+ * O que a área da plataforma pede a quem já provou ser o dono.
+ *
+ * - `entrar`: sessão `aal2` — senha E código do aplicativo.
+ * - `cadastrar_aplicativo`: a conta não tem aplicativo autenticador. No resto
+ *   do app isso é escolha da pessoa; aqui não — a área que muda plano,
+ *   cobrança e "loga como" o cliente não abre com a senha só.
+ * - `digitar_codigo`: tem aplicativo e a sessão é só da senha.
+ *
+ * ⚠️ **Falha FECHADA**: nível que não pôde ser lido (`null`) pede o código.
+ */
+export type PortaAdmin = "entrar" | "cadastrar_aplicativo" | "digitar_codigo";
+
+export function portaSegundoFatorAdmin(s: { temFatorVerificado: boolean; nivelAtual: string | null | undefined }): PortaAdmin {
+  if (!s.temFatorVerificado) return "cadastrar_aplicativo";
+  return s.nivelAtual === "aal2" ? "entrar" : "digitar_codigo";
+}
+
+/** Rótulo da recusa em JSON (`/api/admin/*`), um por porta fechada. */
+export const ERRO_PORTA_ADMIN: Record<Exclude<PortaAdmin, "entrar">, { erro: string; mensagem: string }> = {
+  cadastrar_aplicativo: {
+    erro: "segundo_fator_obrigatorio",
+    mensagem: "A área da plataforma exige o aplicativo autenticador. Cadastre-o em Segurança da conta.",
+  },
+  digitar_codigo: {
+    erro: "codigo_pendente",
+    mensagem: "Digite o código do aplicativo autenticador para continuar.",
+  },
+};

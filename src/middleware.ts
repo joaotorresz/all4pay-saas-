@@ -1,11 +1,11 @@
 import { type NextRequest, type NextFetchEvent, NextResponse } from "next/server";
-import { updateSession, planoDoUsuario, ehDonoDaPlataforma, exigeCodigo } from "@/lib/supabase/middleware";
-import { ROTA_CODIGO, ehRotaDoCodigo } from "@/core/segundo-fator";
+import { updateSession, planoDoUsuario, ehDonoDaPlataforma, exigeCodigo, portaDoAdmin } from "@/lib/supabase/middleware";
+import { ROTA_CODIGO, ROTA_SEGURANCA_CONTA, ehRotaDoCodigo } from "@/core/segundo-fator";
 import { exigePro } from "@/core/planos";
 import { destinoDe } from "@/core/rotas/aliases";
 import { lerMotivo } from "@/core/recuperacao";
 import { registrarAcessoAlias } from "@/lib/supabase/middleware";
-import { decidirPorHost } from "@/core/area-admin";
+import { decidirPorHost, ERRO_PORTA_ADMIN } from "@/core/area-admin";
 
 /**
  * Route guard. Only enforces auth when Supabase is configured (live);
@@ -201,6 +201,33 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     || pathname.startsWith("/admin/")
     || pathname.startsWith("/api/admin/");
   if (areaDaPlataforma && supabase) {
+    /*
+     * ⚠️ **O SEGUNDO FATOR É OBRIGATÓRIO AQUI**, não uma escolha. A porta do
+     * código acima só pede a quem JÁ cadastrou o aplicativo; o dono sem
+     * aplicativo passaria com a senha só e chegaria a um painel que muda
+     * plano, cobrança e "loga como" qualquer cliente. Página → cadastro do
+     * aplicativo (ou o código); API → 403 JSON. Falha fechada.
+     *
+     * ⚠️ **Vem ANTES da pergunta "é o dono?"**: `is_platform_admin()` já
+     * responde pelo veredito, que nega a sessão sem o segundo fator — o dono
+     * em aal1 levaria "área exclusiva do administrador" (a frase errada) e
+     * nunca a porta do aplicativo. Quem não é o dono cumpre o passo e leva
+     * o 403 depois: o endereço da plataforma pede o fator a quem entra.
+     */
+    const porta = user ? await portaDoAdmin(supabase, user) : "entrar";
+    if (porta !== "entrar") {
+      if (pathname.startsWith("/api/")) {
+        const recusa = NextResponse.json(ERRO_PORTA_ADMIN[porta], { status: 403 });
+        response.cookies.getAll().forEach((c) => recusa.cookies.set(c));
+        return recusa;
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = porta === "cadastrar_aplicativo" ? ROTA_SEGURANCA_CONTA : ROTA_CODIGO;
+      url.search = "";
+      const aoFator = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((c) => aoFator.cookies.set(c));
+      return aoFator;
+    }
     if (!user || !(await ehDonoDaPlataforma(supabase))) {
       return new NextResponse(
         JSON.stringify({
@@ -211,7 +238,6 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       );
     }
   }
-
   // O plano só é consultado quando a rota realmente exige Pro: uma RPC por
   // navegação em TODA rota custaria latência na aplicação inteira para
   // responder a uma pergunta que quase nenhuma tela faz.

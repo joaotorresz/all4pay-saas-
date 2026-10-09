@@ -27,6 +27,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isDemo } from "@/lib/demo";
+import { portaDoAdmin } from "@/lib/supabase/middleware";
+import { ROTA_CODIGO, ROTA_SEGURANCA_CONTA } from "@/core/segundo-fator";
 import { AdminView } from "@/components/admin/AdminView";
 
 export default async function AdminPage() {
@@ -34,6 +36,13 @@ export default async function AdminPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect("/login");
+    // O segundo fator primeiro, pela mesma regra e na mesma ordem do
+    // perímetro: sem aplicativo, cadastrá-lo; com aplicativo e só a senha, o
+    // código. (O veredito do banco nega o dono em aal1 — perguntar antes
+    // "é o dono?" o mandaria para o início, nunca para o aplicativo.)
+    const porta = await portaDoAdmin(supabase, user);
+    if (porta === "cadastrar_aplicativo") redirect(ROTA_SEGURANCA_CONTA);
+    if (porta === "digitar_codigo") redirect(ROTA_CODIGO);
     // ⚠️ Falha FECHADA: erro de rede ou RPC ausente nega. Um painel que abre
     // quando a checagem falha abre exatamente quando o sistema está pior.
     let dono = false;

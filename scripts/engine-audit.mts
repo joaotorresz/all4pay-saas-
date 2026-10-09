@@ -11604,6 +11604,29 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("area-admin: o middleware julga o caminho efetivo (reescrito)", julgaEfetivo(mw));
   ok("area-admin: (defeito plantado) o perímetro olhando o caminho digitado é REPROVADO",
      !julgaEfetivo(mw.replace('decisao.caminho : pedido;', 'pedido : pedido;')));
+  // ── o segundo fator OBRIGATÓRIO na área da plataforma ──
+  ok("area-admin: sem aplicativo, o dono não entra — cadastra",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: false, nivelAtual: "aal1" }) === "cadastrar_aplicativo"
+     && A.portaSegundoFatorAdmin({ temFatorVerificado: false, nivelAtual: "aal2" }) === "cadastrar_aplicativo");
+  ok("area-admin: com aplicativo e só a senha, o código; nível ilegível também pede (falha fechada)",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: "aal1" }) === "digitar_codigo"
+     && A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: null }) === "digitar_codigo");
+  ok("area-admin: aplicativo + código (aal2) entra",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: "aal2" }) === "entrar");
+  // A ordem no perímetro: o fator ANTES de "é o dono?" — o veredito do banco
+  // nega o dono em aal1, e a pergunta na ordem inversa daria a frase errada.
+  const iArea = mw.indexOf("if (areaDaPlataforma && supabase)");
+  const fatorAntes = (t: string) => {
+    const i = t.indexOf("if (areaDaPlataforma && supabase)");
+    const a = t.indexOf("portaDoAdmin(supabase, user)", i), b = t.indexOf("ehDonoDaPlataforma(supabase)", i);
+    return i >= 0 && a > i && b > a;
+  };
+  ok("area-admin: o perímetro pede o segundo fator antes de perguntar se é o dono", iArea >= 0 && fatorAntes(mw));
+  ok("area-admin: (defeito plantado) o perímetro sem a porta do fator é REPROVADO",
+     !fatorAntes(mw.replace("portaDoAdmin(supabase, user)", "Promise.resolve(\"entrar\")")));
+  const pagina = readFileSync("src/app/admin/page.tsx", "utf8");
+  ok("area-admin: a página do painel confere o segundo fator no servidor (o segundo cadeado)",
+     /portaDoAdmin\(supabase, user\)/.test(pagina) && /redirect\(ROTA_SEGURANCA_CONTA\)/.test(pagina) && /redirect\(ROTA_CODIGO\)/.test(pagina));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
