@@ -220,6 +220,13 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/assinatura-bloqueio.sql
+      # ⚠️ O Pro é decidido pelo BANCO (`meu_plano()`), e o middleware só lê o
+      # `pro`. Medido em 09/10/2026: o Enterprise — o plano mais caro — não
+      # abria nenhuma tela Pro. Prova as duas direções e planta a regra antiga.
+      - name: Guarda do plano Pro (Pro e Enterprise abrem, o resto não)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/plano-pro.sql
       # ⚠️ A máquina de estados da Central é de BANCO (gatilho): a baixa direta,
       # a auto-confirmação e a confirmação acima da alçada têm de reprovar no
       # Postgres, não só na tela. A guarda pura prova a decisão; esta prova a

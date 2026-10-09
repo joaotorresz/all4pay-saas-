@@ -4069,6 +4069,13 @@ ele já tem.
   bloqueadas — trancá-las deixaria sem caminho para comprar.
 - Guarda na matriz: as rotas `pro: true` do `nav-data` e `ROTAS_PRO` têm de
   coincidir nos dois sentidos. Divergir = a cortina de volta.
+- ⚠️ **O ENTERPRISE LIBERA O PRO** (09/10/2026, migration `20261009120000`).
+  `meu_plano()` decidia por `ilike '%pro%'` no nome e o Enterprise — o plano
+  mais caro, o da única empresa pagante — não abria nenhuma tela Pro. Medido
+  no mesmo dia: NENHUMA empresa em produção tinha `pro = true`. Teste grátis
+  SEM plano continua Simples (decisão de produto); para liberar o Pro a uma
+  empresa, o caminho é o `/admin` (plano Pro ou Enterprise, status ativo).
+  Guarda `scripts/plano-pro.sql` no CI, com a regra antiga plantada dentro.
 
 ### ⚠️ Duas telas de "a receber" — POSIÇÃO × FLUXO
 

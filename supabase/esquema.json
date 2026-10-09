@@ -157,7 +157,17 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261009120000_enterprise_libera_pro",
+        "objetos_ausentes": [
+          "meu_plano() — a regra nova (o objeto existe; muda o corpo)"
+        ],
+        "impacto": "Até ser aplicada, a empresa no plano Enterprise continua sem abrir as telas Pro (o middleware a manda para /planos). Pro, Starter e teste grátis não mudam. Aplicada, só o Enterprise ativo e dentro do prazo passa a abrir o Pro.",
+        "resolver_ate": "2026-10-16",
+        "origem": "sessão Claude de 09/10/2026 (telas Pro não abriam) — o job migrar do CI aplica no merge, depois do dono"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
