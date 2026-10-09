@@ -1,16 +1,22 @@
 "use client";
 
 /**
- * Modo Administrador da plataforma (super-admin) — visão do dono do SaaS: KPIs
- * cross-tenant, organizações (clientes) com cobrança de mensalidade editável,
- * usuários com conta/ativos e planos. Acesso gateado por `isPlatformAdmin`.
+ * Área da plataforma (dono do SaaS) — cinco seções, uma página cada
+ * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Cobrança · Acessos ·
+ * Suporte. Moldura própria (`AdminShell`), nunca a do cliente.
+ *
+ * ⚠️ O painel era UMA página de 682 linhas com tudo empilhado. A separação
+ * não reescreveu nenhum cartão nem acrescentou consulta: cada seção monta os
+ * MESMOS cartões, e as consultas repetidas entre seções saem do cache do
+ * React Query pela mesma chave. Acesso gateado por `isPlatformAdmin` aqui
+ * (apresentação) — quem tranca é o middleware, o layout e o banco.
  */
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus } from "@/components/ui";
-import { AppShell } from "@/components/app/AppShell";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
@@ -48,28 +54,6 @@ const statusMeta = (s: SubStatus) => STATUS.find((x) => x.value === s) ?? STATUS
 const STATUS_ESCOLHIVEIS = STATUS.filter((s) => s.value !== "none");
 const fmtDia = (iso: string | null) => { if (!iso) return "—"; const [y, m, d] = iso.slice(0, 10).split("-"); return `${d}/${m}/${y.slice(2)}`; };
 const ativoUsuario = (iso: string | null) => !!iso && Date.now() - Date.parse(iso) < 30 * 86400000;
-
-export function AdminView() {
-  const adm = useQuery({ queryKey: ["is-admin"], queryFn: isPlatformAdmin });
-
-  if (adm.isLoading) return <AppShell title="Dono da plataforma"><Skeleton className="h-40 w-full" /></AppShell>;
-  if (!adm.data) {
-    return (
-      <AppShell title="Dono da plataforma">
-        <Card className="flex flex-col items-start gap-2">
-          <span className="text-h3 font-medium text-ink">Acesso restrito</span>
-          <span className="text-caption text-muted">Esta área é exclusiva de quem administra a plataforma — um papel diferente de administrador da sua empresa. Ser administrador da sua empresa não dá acesso aqui.</span>
-        </Card>
-      </AppShell>
-    );
-  }
-  return (
-    <AppShell title="Dono da plataforma" actions={isDemo ? <DemoBadge /> : null}>
-      <FerramentasInternas />
-      <AdminBody />
-    </AppShell>
-  );
-}
 
 /**
  * As ferramentas que respondem pela PLATAFORMA, não pela empresa do cliente.
@@ -172,7 +156,7 @@ function ReconciliacaoBilling({ orgs, carregando }: { orgs: AdminOrg[]; carregan
 
 function FerramentasInternas() {
   return (
-    <Card className="mb-4">
+    <Card>
       <h2 className="text-h3 m-0">Ferramentas internas</h2>
       <p className="m-0 mt-1 text-caption text-muted">
         Respondem pela plataforma — não aparecem no menu do cliente.
@@ -190,16 +174,83 @@ function FerramentasInternas() {
   );
 }
 
-function AdminBody() {
+
+export type SecaoPainel = "visao-geral" | "clientes" | "cobranca" | "acessos" | "suporte";
+
+/**
+ * A porta do cliente: confirma o papel antes de montar qualquer seção.
+ * (Apresentação — o 403 do middleware e o layout no servidor já recusaram
+ * quem não é o dono; isto cobre a demonstração e a corrida do primeiro render.)
+ */
+export function AdminView({ secao = "visao-geral" }: { secao?: SecaoPainel }) {
+  const adm = useQuery({ queryKey: ["is-admin"], queryFn: isPlatformAdmin });
+  const acoes = isDemo ? <DemoBadge /> : null;
+
+  if (adm.isLoading) return <AdminShell><Skeleton className="h-40 w-full" /></AdminShell>;
+  if (!adm.data) {
+    return (
+      <AdminShell>
+        <Card className="flex flex-col items-start gap-2">
+          <span className="text-h3 font-medium text-ink">Acesso restrito</span>
+          <span className="text-caption text-muted">Esta área é exclusiva de quem administra a plataforma — um papel diferente de administrador da sua empresa. Ser administrador da sua empresa não dá acesso aqui.</span>
+        </Card>
+      </AdminShell>
+    );
+  }
+  return (
+    <AdminShell actions={acoes}>
+      <div className="flex flex-col gap-6 pb-4">
+        {secao === "visao-geral" && <SecaoVisaoGeral />}
+        {secao === "clientes" && <SecaoClientes />}
+        {secao === "cobranca" && <SecaoCobranca />}
+        {secao === "acessos" && <SecaoAcessos />}
+        {secao === "suporte" && <SecaoSuporte />}
+        <span className="text-caption text-faint inline-flex items-center gap-2">
+          <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
+          Visão entre empresas, exclusiva de quem administra a plataforma: cada consulta passa pela verificação de acesso e fica registrada. {isDemo ? "Dados de demonstração." : ""}
+        </span>
+      </div>
+    </AdminShell>
+  );
+}
+
+/* ── Visão geral ─────────────────────────────────────────────────────────── */
+
+function SecaoVisaoGeral() {
+  const overview = useQuery({ queryKey: ["admin-overview"], queryFn: getAdminOverview });
+  const o = overview.data;
+  return (
+    <>
+      {/* KPIs — número verde não existe mais (30/09/2026): a contagem de ativos
+          fica neutra; o rótulo diz o que ela conta. Só o alerta (inadimplentes)
+          segue com cor. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque info={{ titulo: "MRR", oQue: "Receita recorrente mensal da plataforma.", comoCalcula: "Soma do MRR das assinaturas ativas das empresas clientes." }} />
+        <Kpi label="ARR" v={o?.arr} money loading={overview.isLoading} info={{ titulo: "ARR", oQue: "Receita recorrente anual projetada.", comoCalcula: "MRR multiplicado por 12." }} />
+        <Kpi label="Empresas" v={o?.orgs} loading={overview.isLoading} info={{ titulo: "Empresas", oQue: "Total de empresas clientes na plataforma.", comoCalcula: "Contagem de todas as empresas cadastradas." }} />
+        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} info={{ titulo: "Assinaturas ativas", oQue: "Quantas empresas estão com a cobrança em dia.", comoCalcula: "Empresas cujo status de assinatura é ativo." }} />
+        <Kpi label="Usuários" v={o?.usuarios} loading={overview.isLoading} info={{ titulo: "Usuários", oQue: "Total de contas criadas na plataforma.", comoCalcula: "Contagem de todos os usuários do Auth." }} />
+        <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} info={{ titulo: "Ativos (30d)", oQue: "Usuários que acessaram a plataforma recentemente.", comoCalcula: "Contas com último acesso nos últimos 30 dias." }} />
+        <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} info={{ titulo: "Em trial", oQue: "Empresas em período de avaliação.", comoCalcula: "Empresas cujo status de assinatura é trial." }} />
+        <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Empresas com a mensalidade em atraso.", comoCalcula: "Empresas cujo status de assinatura é inadimplente." }} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GrowthCard />
+        <MrrCard />
+      </div>
+    </>
+  );
+}
+
+/* ── Clientes e planos ───────────────────────────────────────────────────── */
+
+function SecaoClientes() {
   const qc = useQueryClient();
   const { show, node } = useToast();
-  const overview = useQuery({ queryKey: ["admin-overview"], queryFn: getAdminOverview });
   const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
-  const users = useQuery({ queryKey: ["admin-users"], queryFn: getAdminUsers });
   const plans = useQuery({ queryKey: ["admin-plans"], queryFn: getAdminPlans });
   const [busy, setBusy] = React.useState<string | null>(null);
   const [verOrg, setVerOrg] = React.useState<{ id: string; nome: string } | null>(null);
-  const [verUser, setVerUser] = React.useState<{ id: string; email: string } | null>(null);
 
   const planByName = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.name, p])), [plans.data]);
 
@@ -214,34 +265,10 @@ function AdminBody() {
     finally { setBusy(null); }
   };
 
-  const o = overview.data;
   const planOpts = [{ value: "", label: "—" }, ...(plans.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · ${formatBRL(p.priceMonth)}` }))];
 
   return (
-    <div className="flex flex-col gap-6 pb-4">
-      {/* KPIs — número verde não existe mais (30/09/2026): a contagem de ativos
-          fica neutra; o rótulo diz o que ela conta. Só o alerta (inadimplentes)
-          segue com cor. */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque info={{ titulo: "MRR", oQue: "Receita recorrente mensal da plataforma.", comoCalcula: "Soma do MRR das assinaturas ativas das empresas clientes." }} />
-        <Kpi label="ARR" v={o?.arr} money loading={overview.isLoading} info={{ titulo: "ARR", oQue: "Receita recorrente anual projetada.", comoCalcula: "MRR multiplicado por 12." }} />
-        <Kpi label="Empresas" v={o?.orgs} loading={overview.isLoading} info={{ titulo: "Empresas", oQue: "Total de empresas clientes na plataforma.", comoCalcula: "Contagem de todas as empresas cadastradas." }} />
-        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} info={{ titulo: "Assinaturas ativas", oQue: "Quantas empresas estão com a cobrança em dia.", comoCalcula: "Empresas cujo status de assinatura é ativo." }} />
-        <Kpi label="Usuários" v={o?.usuarios} loading={overview.isLoading} info={{ titulo: "Usuários", oQue: "Total de contas criadas na plataforma.", comoCalcula: "Contagem de todos os usuários do Auth." }} />
-        <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} info={{ titulo: "Ativos (30d)", oQue: "Usuários que acessaram a plataforma recentemente.", comoCalcula: "Contas com último acesso nos últimos 30 dias." }} />
-        <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} info={{ titulo: "Em trial", oQue: "Empresas em período de avaliação.", comoCalcula: "Empresas cujo status de assinatura é trial." }} />
-        <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Empresas com a mensalidade em atraso.", comoCalcula: "Empresas cujo status de assinatura é inadimplente." }} />
-      </div>
-
-      <ReconciliacaoBilling orgs={orgs.data ?? []} carregando={orgs.isLoading} />
-
-      {/* Crescimento + MRR mês a mês */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <GrowthCard />
-        <MrrCard />
-      </div>
-
-      {/* Organizações (clientes) + cobrança */}
+    <>
       <Card padded={false} info={{ titulo: "Empresas · cobrança", oQue: "Lista os clientes da plataforma e deixa ajustar o plano e o status de cobrança de cada um.", comoCalcula: "Vem das empresas com a sua assinatura; o MRR é o preço do plano quando a assinatura está ativa." }}>
         <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Empresas · cobrança de mensalidade</div>
         {orgs.isLoading ? (
@@ -273,7 +300,6 @@ function AdminBody() {
         )}
       </Card>
 
-      {/* Planos */}
       <Card className="flex flex-col gap-3" info={{ titulo: "Planos", oQue: "Os planos de mensalidade oferecidos e quantos assinantes cada um tem.", comoCalcula: "Cada plano mostra o preço mensal e a contagem de assinaturas ativas vinculadas a ele." }}>
         <span className="text-label font-medium text-muted">Planos</span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -286,9 +312,32 @@ function AdminBody() {
           ))}
         </div>
       </Card>
+      {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
+      {node}
+    </>
+  );
+}
 
-      {/* Usuários */}
-      <Card padded={false} info={{ titulo: "Usuários com conta", oQue: "Todas as contas criadas na plataforma, com cadastro e último acesso.", comoCalcula: "Vem dos usuários do Auth; o ponto verde indica acesso nos últimos 30 dias." }}>
+/* ── Cobrança ────────────────────────────────────────────────────────────── */
+
+function SecaoCobranca() {
+  const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
+  return (
+    <>
+      <ReconciliacaoBilling orgs={orgs.data ?? []} carregando={orgs.isLoading} />
+      <MrrCard />
+    </>
+  );
+}
+
+/* ── Acessos ─────────────────────────────────────────────────────────────── */
+
+function SecaoAcessos() {
+  const users = useQuery({ queryKey: ["admin-users"], queryFn: getAdminUsers });
+  const [verUser, setVerUser] = React.useState<{ id: string; email: string } | null>(null);
+  return (
+    <>
+      <Card padded={false} info={{ titulo: "Usuários com conta", oQue: "Todas as contas criadas na plataforma, com cadastro e último acesso.", comoCalcula: "Vem dos usuários do Auth; o ponto indica acesso nos últimos 30 dias." }}>
         <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Usuários com conta</div>
         {users.isLoading ? (
           <div className="p-5"><Skeleton className="h-24 w-full" /></div>
@@ -312,24 +361,52 @@ function AdminBody() {
           </>
         )}
       </Card>
-
-      {/* Auditoria das ações do admin */}
-      <PinbankAdminCard orgs={orgs.data ?? []} toast={show} />
-
       <AuditCard />
-
-      <span className="text-caption text-faint inline-flex items-center gap-2">
-        <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
-        Visão entre empresas, exclusiva de quem administra a plataforma: cada consulta passa pela verificação de acesso e fica registrada. {isDemo ? "Dados de demonstração." : ""}
-      </span>
-      {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
       {verUser && <UserDetailModal userId={verUser.id} email={verUser.email} onClose={() => setVerUser(null)} />}
-      {node}
-    </div>
+    </>
   );
 }
 
-/* ---------- Crescimento ---------- */
+/* ── Suporte ─────────────────────────────────────────────────────────────── */
+
+function SecaoSuporte() {
+  const { show, node } = useToast();
+  const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
+  const [busca, setBusca] = React.useState("");
+  const [verOrg, setVerOrg] = React.useState<{ id: string; nome: string } | null>(null);
+  const termo = busca.trim().toLowerCase();
+  const lista = (orgs.data ?? []).filter((o) => !termo || o.nome.toLowerCase().includes(termo));
+  return (
+    <>
+      <Card padded={false} info={{ titulo: "Atender um cliente", oQue: "Abre a ficha da empresa (somente leitura) e, se preciso, entra no app como o titular dela.", comoCalcula: "Entrar como o cliente abre a sessão dele no app dos clientes; a sua sessão aqui continua aberta. Cada entrada fica registrada na trilha." }}>
+        <div className="px-5 py-3 border-b border-border-soft flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-label font-medium text-muted">Atender um cliente</span>
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa" aria-label="Buscar empresa" containerClassName="w-full sm:w-[260px]" />
+        </div>
+        {orgs.isLoading ? (
+          <div className="p-5"><Skeleton className="h-24 w-full" /></div>
+        ) : lista.length === 0 ? (
+          <div className="px-5 py-4 text-caption text-faint">Nenhuma empresa com esse nome.</div>
+        ) : (
+          lista.map((org, i) => (
+            <button key={org.orgId} type="button" onClick={() => setVerOrg({ id: org.orgId, nome: org.nome })} className={`w-full text-left flex items-center justify-between gap-3 px-5 py-3 hover:bg-surface-2 ${i ? "border-t border-border-soft" : ""}`}>
+              <span className="min-w-0">
+                <span className="block text-[15px] font-medium text-ink truncate">{org.nome}</span>
+                <span className="block text-caption text-faint">{org.membros} membro(s) · {statusMeta(org.status).label} · último lançamento {fmtDia(org.ultimoMov)}</span>
+              </span>
+              <Icon name="chevron-right" size={14} color="var(--color-text-tertiary)" />
+            </button>
+          ))
+        )}
+      </Card>
+      <PinbankAdminCard orgs={orgs.data ?? []} toast={show} />
+      <FerramentasInternas />
+      {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
+      {node}
+    </>
+  );
+}
+
 function GrowthCard() {
   const g = useQuery({ queryKey: ["admin-growth"], queryFn: getAdminGrowth });
   const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
@@ -517,7 +594,7 @@ function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string;
   const [impBusy, setImpBusy] = React.useState(false);
   const [impMsg, setImpMsg] = React.useState<string | null>(null);
   const logarComo = async () => {
-    if (!window.confirm(`Logar como o owner de "${nome}"? Você assumirá a sessão dele e sairá da sua conta de admin (para voltar, faça logout e entre de novo). A ação é registrada na auditoria.`)) return;
+    if (!window.confirm(`Entrar como o titular de "${nome}"? A sessão dele abre no app dos clientes, em outra aba ou janela. A sua sessão de administração continua aberta aqui. A ação é registrada na auditoria.`)) return;
     setImpBusy(true); setImpMsg(null);
     const r = await impersonar(orgId);
     if (r.ok && r.link) { window.location.href = r.link; return; }

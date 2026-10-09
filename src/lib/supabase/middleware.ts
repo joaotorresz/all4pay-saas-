@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PLANO_SIMPLES, type EstadoPlano } from "@/core/planos";
 import { precisaDoCodigo } from "@/core/segundo-fator";
+import { portaSegundoFatorAdmin, type PortaAdmin } from "@/core/area-admin";
 
 /**
  * Refresca a sessão Supabase no middleware (App Router + @supabase/ssr).
@@ -110,6 +111,27 @@ export async function exigeCodigo(
     return precisaDoCodigo({ nivelAtual: data.currentLevel, temFatorVerificado });
   } catch {
     return true;
+  }
+}
+
+/**
+ * A porta da área da plataforma para quem JÁ é o dono: entra só em `aal2`.
+ *
+ * ⚠️ Mesma leitura de `exigeCodigo` (fatores do `getUser` fresco, nível do
+ * token) e mesma falha FECHADA — mas sem a escolha: no resto do app, quem não
+ * cadastrou aplicativo entra com a senha; aqui, não entra.
+ */
+export async function portaDoAdmin(
+  supabase: ReturnType<typeof createServerClient>,
+  user: { factors?: { status?: string }[] | null } | null,
+): Promise<PortaAdmin> {
+  const temFatorVerificado = (user?.factors ?? []).some((f) => f.status === "verified");
+  if (!temFatorVerificado) return portaSegundoFatorAdmin({ temFatorVerificado, nivelAtual: null });
+  try {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    return portaSegundoFatorAdmin({ temFatorVerificado, nivelAtual: error || !data ? null : data.currentLevel });
+  } catch {
+    return portaSegundoFatorAdmin({ temFatorVerificado, nivelAtual: null });
   }
 }
 
