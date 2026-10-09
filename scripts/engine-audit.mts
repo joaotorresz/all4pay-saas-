@@ -11569,6 +11569,43 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }
 
+// ── area-admin: o painel da plataforma no seu próprio endereço ───────────────
+{
+  const A = await import("@/core/area-admin");
+  const H = "admin.quattro.finance";
+  const d = (host: string, pathname: string, hostAdmin: string | null = H) => A.decidirPorHost({ host, pathname, hostAdmin });
+  ok("area-admin: sem ADMIN_HOST nada muda (/admin segue no próprio endereço)",
+     d("app.quattro.finance", "/admin", null).tipo === "seguir" && d("localhost:3000", "/api/admin/impersonate", null).tipo === "seguir");
+  const raiz = d("admin.quattro.finance", "/");
+  ok("area-admin: no endereço da plataforma, / serve /admin", raiz.tipo === "reescrever" && raiz.caminho === "/admin");
+  const cli = d("ADMIN.quattro.finance:443", "/clientes");
+  ok("area-admin: endereço limpo (/clientes → /admin/clientes), com host em caixa alta e porta", cli.tipo === "reescrever" && cli.caminho === "/admin/clientes");
+  const tela = d(H, "/fluxo-caixa");
+  ok("area-admin: tela do cliente no endereço da plataforma cai em /admin/* (404), nunca é servida",
+     tela.tipo === "reescrever" && tela.caminho.startsWith("/admin/"));
+  ok("area-admin: a porta de entrada responde no endereço da plataforma",
+     ["/login", "/segundo-fator", "/configuracoes/seguranca", "/redefinir-senha"].every((c) => d(H, c).tipo === "seguir"));
+  ok("area-admin: API do cliente não existe no endereço da plataforma; a da área e a do login, sim",
+     d(H, "/api/cobranca/whatsapp").tipo === "inexistente" && d(H, "/api/admin/impersonate").tipo === "seguir" && d(H, "/api/auth/recuperar").tipo === "seguir");
+  const red = d("app.quattro.finance", "/admin/cobranca");
+  ok("area-admin: /admin no endereço do cliente vai para o da plataforma, com o caminho limpo",
+     red.tipo === "redirecionar" && red.host === H && red.caminho === "/cobranca");
+  const red0 = d("all4pay-saas.vercel.app", "/admin");
+  ok("area-admin: /admin sozinho vai para a raiz da plataforma", red0.tipo === "redirecionar" && red0.caminho === "/");
+  ok("area-admin: /api/admin fora do endereço da plataforma não existe (uma segunda porta é a que ninguém vigia)",
+     d("app.quattro.finance", "/api/admin/impersonate").tipo === "inexistente");
+  ok("area-admin: /administracao não é confundido com /admin",
+     d("app.quattro.finance", "/administracao").tipo === "seguir");
+  ok("area-admin: o app dos clientes segue intacto", d("app.quattro.finance", "/fluxo-caixa").tipo === "seguir");
+  // O middleware tem de julgar o caminho EFETIVO: com o digitado, `/clientes`
+  // passaria pelo perímetro da plataforma sem a pergunta "é o dono?".
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  const julgaEfetivo = (t: string) => /const pathname = decisao\.tipo === "reescrever" \? decisao\.caminho : pedido;/.test(t) && /const areaDaPlataforma = pathname === "\/admin"/.test(t);
+  ok("area-admin: o middleware julga o caminho efetivo (reescrito)", julgaEfetivo(mw));
+  ok("area-admin: (defeito plantado) o perímetro olhando o caminho digitado é REPROVADO",
+     !julgaEfetivo(mw.replace('decisao.caminho : pedido;', 'pedido : pedido;')));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 
