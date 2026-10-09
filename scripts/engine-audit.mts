@@ -64,7 +64,7 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
 import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { rotuloSituacao } from "@/core/movimentacoes";
@@ -11572,6 +11572,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // ── area-admin: o painel da plataforma no seu próprio endereço ───────────────
 {
   const A = await import("@/core/area-admin");
+  const { origemDoApp, SECOES_ADMIN, secaoAtiva } = A;
   const H = "admin.quattro.finance";
   const d = (host: string, pathname: string, hostAdmin: string | null = H) => A.decidirPorHost({ host, pathname, hostAdmin });
   ok("area-admin: sem ADMIN_HOST nada muda (/admin segue no próprio endereço)",
@@ -11624,9 +11625,33 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("area-admin: o perímetro pede o segundo fator antes de perguntar se é o dono", iArea >= 0 && fatorAntes(mw));
   ok("area-admin: (defeito plantado) o perímetro sem a porta do fator é REPROVADO",
      !fatorAntes(mw.replace("portaDoAdmin(supabase, user)", "Promise.resolve(\"entrar\")")));
-  const pagina = readFileSync("src/app/admin/page.tsx", "utf8");
-  ok("area-admin: a página do painel confere o segundo fator no servidor (o segundo cadeado)",
+  const pagina = readFileSync("src/app/admin/layout.tsx", "utf8");
+  ok("area-admin: o layout do painel confere o segundo fator no servidor (o segundo cadeado)",
      /portaDoAdmin\(supabase, user\)/.test(pagina) && /redirect\(ROTA_SEGURANCA_CONTA\)/.test(pagina) && /redirect\(ROTA_CODIGO\)/.test(pagina));
+
+  // ── "Logar como" abre a sessão do cliente no APP, nunca na plataforma.
+  ok("area-admin: na plataforma, o link mágico aponta para o app (admin. → app.)",
+     origemDoApp({ origem: "https://admin.quattro.finance/api/admin/impersonate", hostAdmin: "admin.quattro.finance" }) === "https://app.quattro.finance");
+  ok("area-admin: APP_HOST manda quando existe",
+     origemDoApp({ origem: "https://admin.quattro.finance/x", hostAdmin: "admin.quattro.finance", hostApp: "painel.quattro.finance" }) === "https://painel.quattro.finance");
+  ok("area-admin: fora da plataforma (ou sem ADMIN_HOST) a origem não muda",
+     origemDoApp({ origem: "https://all4pay-saas.vercel.app/api/admin/impersonate", hostAdmin: "admin.quattro.finance" }) === "https://all4pay-saas.vercel.app"
+     && origemDoApp({ origem: "http://localhost:3000/x", hostAdmin: undefined }) === "http://localhost:3000");
+  ok("area-admin: a rota de \"logar como\" usa a origem do app",
+     /origemDoApp\(/.test(readFileSync("src/app/api/admin/impersonate/route.ts", "utf8")));
+
+  // ── As seções: uma página por item do menu, e o menu acha a seção nos dois endereços.
+  const semPagina = SECOES_ADMIN.filter((s) => !existsSync(`src/app${s.href}/page.tsx`));
+  ok("area-admin: toda seção do menu tem página (menu que leva a 404 não é menu)", semPagina.length === 0, semPagina.map((s) => s.href).join(", "));
+  ok("area-admin: seção ativa pelo endereço limpo e pelo longo",
+     secaoAtiva("/cobranca").id === "cobranca" && secaoAtiva("/admin/cobranca").id === "cobranca"
+     && secaoAtiva("/admin").id === "visao-geral" && secaoAtiva("/").id === "visao-geral"
+     && secaoAtiva("/clientes/123").id === "clientes");
+  ok("area-admin: (defeito plantado) prefixo parecido não acende a seção errada",
+     secaoAtiva("/acessosx").id === "visao-geral");
+  ok("area-admin: o painel não usa a moldura do cliente",
+     !/AppShell/.test(readFileSync("src/components/admin/AdminView.tsx", "utf8"))
+     && !/AppShell/.test(readFileSync("src/components/admin/AdminShell.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

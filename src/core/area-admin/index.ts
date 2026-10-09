@@ -122,3 +122,52 @@ export const ERRO_PORTA_ADMIN: Record<Exclude<PortaAdmin, "entrar">, { erro: str
     mensagem: "Digite o código do aplicativo autenticador para continuar.",
   },
 };
+
+/* ========================================================================== */
+/* "Logar como" leva ao APP, nunca de volta à plataforma                       */
+/* ========================================================================== */
+
+/**
+ * O endereço do app dos clientes, visto de dentro da área da plataforma.
+ *
+ * ⚠️ O "logar como" gera um link mágico que abre a sessão do CLIENTE no
+ * endereço para onde ele aponta. Apontado para o endereço da plataforma, o
+ * cliente cairia num lugar onde não entra (o segundo fator e o 403). E há um
+ * ganho de graça: como o cookie é por endereço, a sessão do cliente nasce no
+ * app e a do dono continua de pé na plataforma — ninguém mais precisa "sair
+ * da conta de admin" para ver como o cliente.
+ *
+ * `APP_HOST` manda; sem ele, `admin.<domínio>` vira `app.<domínio>`.
+ */
+export function origemDoApp(p: { origem: string; hostAdmin: string | null | undefined; hostApp?: string | null }): string {
+  const alvo = normalizarHost(p.hostAdmin);
+  const url = new URL(p.origem);
+  if (!alvo || normalizarHost(url.host) !== alvo) return url.origin;
+  const app = normalizarHost(p.hostApp) ?? alvo.replace(/^admin\./, "app.");
+  url.hostname = app;
+  return url.origin;
+}
+
+/* ========================================================================== */
+/* As seções do painel — a fonte única do menu e das páginas                   */
+/* ========================================================================== */
+
+export interface SecaoAdmin { id: string; rotulo: string; href: string; icone: string; resumo: string }
+
+/**
+ * ⚠️ `href` sob `/admin`: funciona nos dois modos — no endereço da plataforma
+ * `/admin/*` segue como está, e sem `ADMIN_HOST` é o próprio caminho.
+ */
+export const SECOES_ADMIN: readonly SecaoAdmin[] = [
+  { id: "visao-geral", rotulo: "Visão geral", href: "/admin", icone: "house", resumo: "Receita recorrente, base de clientes e crescimento." },
+  { id: "clientes", rotulo: "Clientes e planos", href: "/admin/clientes", icone: "building", resumo: "Plano e status de cobrança de cada empresa, e os planos oferecidos." },
+  { id: "cobranca", rotulo: "Cobrança", href: "/admin/cobranca", icone: "credit-card", resumo: "Quem paga × quem usa, e a receita mês a mês." },
+  { id: "acessos", rotulo: "Acessos", href: "/admin/acessos", icone: "shield-check", resumo: "Contas da plataforma e a trilha das ações do administrador." },
+  { id: "suporte", rotulo: "Suporte", href: "/admin/suporte", icone: "help-circle", resumo: "Ver e entrar como o cliente, integrações e ferramentas internas." },
+];
+
+/** A seção ativa para um caminho, aceitando o endereço limpo (`/clientes`) e o longo (`/admin/clientes`). */
+export function secaoAtiva(pathname: string): SecaoAdmin {
+  const limpo = pathname.replace(/^\/admin(?=\/|$)/, "") || "/";
+  return SECOES_ADMIN.find((s) => s.href !== "/admin" && (limpo === s.href.slice(6) || limpo.startsWith(`${s.href.slice(6)}/`))) ?? SECOES_ADMIN[0];
+}
