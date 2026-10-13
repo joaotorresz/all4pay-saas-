@@ -123,6 +123,7 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     (`src/lib/pinbank/cifra.ts`: AES-128-CBC, chave = `KeyValue`, IV zero,
     PKCS#7, base64 — conferida contra vetores do `openssl`), cabeçalhos
     `Authorization`/`UserName`/`RequestOrigin`, tudo pela saída fixa.
+    ⚠️ **O que se cifra é o pedido INTEIRO, `{"Data":{…}}`** (ver 13/10 abaixo).
     ⚠️ **Só LEITURA** (`METODOS_LEITURA`): a credencial emitida também paga,
     transfere e faz Pix — teto ZERO desses métodos no código (`extrato-pos:`).
   - `src/core/pinbank/extrato-pos.ts`: o filtro (até 31 dias, dia inteiro em
@@ -138,7 +139,7 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     QUAL credencial respondeu.
     Variáveis em `.env.example` (`PINBANK_API_*`, `PINBANK_CODIGO_CANAL`).
   - Guardas: `npm run pinbank-api` (comportamento contra uma Pinbank local:
-    41 casos, 29 defeitos plantados — prazo e chave do cache do token, eco da
+    46 casos, 36 defeitos plantados — o envelope da cifra, prazo e chave do cache do token, eco da
     senha cruzando o corte, extrato maior que o teto, chave de tamanho errado
     chegando à rota) e o bloco `extrato-pos:` do `engine-audit` (só CAMINHOS
     exatos de leitura — o valor do mapa, não o nome —, nenhum `…Encrypted` nem
@@ -163,6 +164,31 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   - **13/10/2026, resposta da Pinbank:** o **`RequestOrigin` é sempre `5`**
     (`PINBANK_API_ORIGEM=5`, nos dois ambientes), e o dev tem vendas de teste
     a partir de **2016** (Canal 47, EC 3510/3505) — teste com um mês de 2016.
+  - **13/10/2026, "Erro de Sistema." — o suspeito principal é o NOSSO pedido,
+    não a Pinbank (a confirmar pelo A/B no link).** Liberada a permissão (o código 4 "Autorização negada" sumiu), o
+    ExtratoPos no dev passou a responder ABERTO `ResultCode 2 "Erro de
+    Sistema."`, igual para jan/2016 e para o período do exemplo da própria doc
+    (30–31/07/2025). Era a primeira vez que o servidor lia o CORPO: o
+    cabeçalho e a permissão são conferidos antes dele. A doc mostra
+    `{"Data":{…}}` ao lado de `{"Data":{"Json":"…"}}` e não diz o que se
+    cifra; nós cifrávamos só o CONTEÚDO do `Data`. Os clientes públicos da
+    Pinbank — `italoiz/pinbank-cli` e o plugin de Insomnia (Node),
+    `umobi/pinkbank-php-client` (que chama o próprio ExtratoPosEncrypted) e o
+    módulo Odoo da KMEE — cifram o pedido INTEIRO, e todos leem a resposta
+    aberta como envelope (`Data` dentro) — a nossa leitura já fazia isso. Sem o
+    `Data` no texto aberto, o provável é o servidor .NET desserializar um
+    pedido com `Data` nulo e quebrar sem nomear campo. Corrigido: o padrão
+    passou a ser `{"Data":{…}}`; a prova é o padrão trazer a lista (ou um erro
+    que nomeie campo) e `&envelope=interno` repetir o "Erro de Sistema.". ⚠️ **A guarda NÃO pegava porque copiava o nosso engano**: a
+    "Pinbank" de teste abria a cifra e lia o conteúdo solto. Agora ela exige o
+    envelope e responde "Erro de Sistema." sem ele, como a real.
+    Para não depender de um deploy por hipótese, o link de teste ganhou
+    `&envelope=interno` (o jeito antigo, para a comparação A/B), `&datas=utc`
+    (o mesmo instante, na notação do exemplo da doc), `&token=novo` (ignora o
+    token guardado: o token é a única chamada que prova a SENHA atual, e a
+    Pinbank avisou "credencial atualizada") e `&terminal=vazio`
+    (`IdTerminalPos: ""`, como o cliente PHP). A resposta diz como o pedido
+    saiu (`pedido`).
   - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
     obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
     `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,

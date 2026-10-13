@@ -19,6 +19,13 @@
 
 export type StatusExtratoPos = "Todos" | "Pago" | "Pendente";
 export type MeioCapturaExtratoPos = "Todos" | "Ecommerce" | "Terminal";
+/**
+ * Como as datas são ESCRITAS no pedido — o instante é o mesmo nos dois.
+ * `fuso` (padrão): `2025-07-30T00:00:00-03:00`. `utc`: `2025-07-30T03:00:00.000Z`,
+ * a notação do exemplo da doc. Existe para o teste pelo link isolar a notação
+ * quando a Pinbank recusa sem dizer o campo ("Erro de Sistema.").
+ */
+export type FormatoDatasExtratoPos = "fuso" | "utc";
 
 export interface FiltroExtratoPos {
   codigoCanal: number;
@@ -29,9 +36,12 @@ export interface FiltroExtratoPos {
   ate: string;
   status: StatusExtratoPos;
   meio: MeioCapturaExtratoPos;
+  /** Ausente = o campo não vai; `""` = vai VAZIO (como o cliente PHP público manda). */
   idTerminalPos?: string;
   /** 0 = todas (o padrão da Pinbank). */
   limite?: number;
+  /** Padrão `fuso`. */
+  datas?: FormatoDatasExtratoPos;
 }
 
 /**
@@ -64,26 +74,31 @@ export function problemasDoFiltroExtratoPos(f: FiltroExtratoPos): string[] {
   }
   if (!["Todos", "Pago", "Pendente"].includes(f.status)) p.push("Status deve ser Todos, Pago ou Pendente.");
   if (!["Todos", "Ecommerce", "Terminal"].includes(f.meio)) p.push("Meio de captura deve ser Todos, Ecommerce ou Terminal.");
-  if (f.idTerminalPos != null && !/^[A-Za-z0-9_-]{1,40}$/.test(f.idTerminalPos)) p.push("Terminal inválido.");
+  if (f.idTerminalPos != null && !/^[A-Za-z0-9_-]{0,40}$/.test(f.idTerminalPos)) p.push("Terminal inválido.");
   if (f.limite != null && !(Number.isInteger(f.limite) && f.limite >= 0 && f.limite <= 10_000)) p.push("Limite de linhas inválido (0 a 10000).");
+  if (f.datas != null && !["fuso", "utc"].includes(f.datas)) p.push("O formato das datas deve ser fuso ou utc.");
   return p;
 }
 
 /**
- * O `Data` do pedido, ABERTO (quem cifra é a API). As datas levam o fuso de
- * Brasília (`-03:00`, sem horário de verão desde 2019): "o dia 08/10" é o dia
- * de quem vende, e um instante sem fuso ficaria à mercê do relógio do servidor
- * da Pinbank.
+ * O CONTEÚDO do `Data` do pedido, ABERTO (quem embrulha em `{"Data":…}` e cifra
+ * é a API). As datas levam o fuso de Brasília (`-03:00`, sem horário de verão
+ * desde 2019): "o dia 08/10" é o dia de quem vende, e um instante sem fuso
+ * ficaria à mercê do relógio do servidor da Pinbank.
  */
 export function pedidoExtratoPos(f: FiltroExtratoPos): Record<string, unknown> {
+  const inicio = `${f.de}T00:00:00-03:00`;
+  const fim = `${f.ate}T23:59:59-03:00`;
+  // `utc` reescreve o MESMO instante (o dia inteiro em Brasília), só muda a notação.
+  const escrever = (s: string) => (f.datas === "utc" ? new Date(s).toISOString() : s);
   return {
     CodigoCanal: f.codigoCanal,
     CodigoCliente: f.codigoCliente,
-    DataInicial: `${f.de}T00:00:00-03:00`,
-    DataFinal: `${f.ate}T23:59:59-03:00`,
+    DataInicial: escrever(inicio),
+    DataFinal: escrever(fim),
     Status: f.status,
     MeioCaptura: f.meio,
-    ...(f.idTerminalPos ? { IdTerminalPos: f.idTerminalPos } : {}),
+    ...(f.idTerminalPos != null ? { IdTerminalPos: f.idTerminalPos } : {}),
     QuantidadeLinhasRetorno: f.limite ?? 0,
   };
 }

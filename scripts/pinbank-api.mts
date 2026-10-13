@@ -6,7 +6,10 @@
  * o mesmo caminho da produção (a porta `requisicaoPinbank`), sem rede e sem a
  * credencial de verdade. A "Pinbank" daqui abre o pedido com uma implementação
  * PRÓPRIA da cifra (node:crypto direto), confere os cabeçalhos e o `Data`, e
- * responde cifrado nos formatos que a doc permite ler.
+ * responde cifrado nos formatos que a doc permite ler. Como os clientes
+ * públicos da Pinbank mandam (e o "Erro de Sistema." de 13/10 indica), ela só
+ * aceita a cifra do pedido INTEIRO, `{"Data":{…}}`: cifrado só o conteúdo do
+ * `Data`, responde aberto "Erro de Sistema.".
  *
  * A cifra também é conferida contra vetores do `openssl enc` (literais, gerados
  * fora deste código): duas implementações independentes, para a guarda não
@@ -121,6 +124,8 @@ const srv = {
   hitsToken: 0,
   hitsMetodo: 0,
   ultimoPedido: null as null | Record<string, unknown>,
+  /** O texto que a "Pinbank" abriu da cifra, inteiro (para conferir o envelope). */
+  ultimoTexto: "",
   ultimoCaminho: "",
   cabecalhos: [] as Record<string, string | string[] | undefined>[],
   corposMetodo: [] as string[],
@@ -133,6 +138,7 @@ const resetSrv = (formato: FormatoSrv = "envelope-cifrado") => {
   srv.hitsToken = 0;
   srv.hitsMetodo = 0;
   srv.ultimoPedido = null;
+  srv.ultimoTexto = "";
   srv.ultimoCaminho = "";
   srv.cabecalhos = [];
   srv.corposMetodo = [];
@@ -175,13 +181,20 @@ const pinbank = https.createServer(
           || req.headers["content-type"] !== "application/json") {
           return json(401, { Message: "Authorization has been denied for this request." });
         }
-        let dados: Record<string, unknown>;
+        let aberto: unknown;
         try {
-          dados = JSON.parse(decifrar(JSON.parse(corpo).Data.Json)) as Record<string, unknown>;
+          srv.ultimoTexto = decifrar(JSON.parse(corpo).Data.Json);
+          aberto = JSON.parse(srv.ultimoTexto);
         } catch {
           return json(400, { Message: "Json inválido." });
         }
-        srv.ultimoPedido = dados;
+        // A Pinbank desserializa o texto aberto no pedido INTEIRO ({ Data }): sem
+        // o Data, o servidor quebra e responde aberto, sem nomear campo (13/10).
+        const dados = aberto && typeof aberto === "object" ? (aberto as { Data?: unknown }).Data : null;
+        if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+          return json(200, { Data: null, ResultCode: 2, Message: "Erro de Sistema.", ValidationData: { Errors: [] } });
+        }
+        srv.ultimoPedido = dados as Record<string, unknown>;
         const linhas = [linha(1), linha(2), linha(3)];
         if (srv.formato === "erro-500") return json(500, { Message: "Falha interna." });
         if (srv.formato === "sem-lista") return json(200, { Data: null, ResultCode: 2, Message: "Cliente sem permissão no canal." });
@@ -269,7 +282,7 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(a1) consulta: 3 parcelas, formato cifrado, pela saída fixa",
     res.resumo.linhas === 3 && res.formato === "cifrado" && res.via === `127.0.0.1:${PP}`, JSON.stringify({ l: res.resumo.linhas, f: res.formato, v: res.via }));
   caso("(a2) valores em CENTAVOS exatos (33,33 → 3333; 32,17 × 3 = 9651; taxa 1,16 × 3 = 348)",
-    res.resposta.linhas[0].brutoParcelaCentavos === 3333 && res.resumo.liquidoRepasseCentavos === 9651 && res.resumo.taxaAdmCentavos === 348,
+    res.resposta.linhas[0]?.brutoParcelaCentavos === 3333 && res.resumo.liquidoRepasseCentavos === 9651 && res.resumo.taxaAdmCentavos === 348,
     JSON.stringify(res.resumo));
   caso("(a3) a data do repasse e a taxa chegam em todas as parcelas; a data VAZIA do .NET (0001-01-01) vira ausente",
     res.resumo.comDataDoRepasse === 3 && res.resumo.comTaxa === 3 && res.resposta.linhas.every((l) => l.dataCancelamento === null)
@@ -280,6 +293,12 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
     ped.CodigoCanal === CANAL && ped.CodigoCliente === 3510 && ped.DataInicial === "2026-10-01T00:00:00-03:00"
     && ped.DataFinal === "2026-10-08T23:59:59-03:00" && ped.Status === "Todos" && ped.MeioCaptura === "Todos" && ped.QuantidadeLinhasRetorno === 0,
     JSON.stringify(ped));
+  let textoAberto: unknown = null;
+  try { textoAberto = JSON.parse(srv.ultimoTexto); } catch { /* fica null */ }
+  caso("(z1) o que vai DENTRO da cifra é o pedido INTEIRO, {\"Data\":{…}}, e só ele (o conteúdo solto deu \"Erro de Sistema.\" em 13/10)",
+    !!textoAberto && typeof textoAberto === "object" && Object.keys(textoAberto).join() === "Data"
+    && (textoAberto as { Data: Record<string, unknown> }).Data.CodigoCliente === 3510 && res.envelope === "completo" && res.datas === "fuso",
+    srv.ultimoTexto.slice(0, 120));
   const cabMetodo = srv.cabecalhos[srv.cabecalhos.length - 1] ?? {};
   caso("(a5) cabeçalhos do método: Authorization = token_type + access_token; UserName; RequestOrigin; JSON",
     cabMetodo.authorization === "bearer tok-1" && cabMetodo.username === USUARIO && cabMetodo.requestorigin === ORIGEM
@@ -467,6 +486,55 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(y4) o canal do link vai no pedido que a Pinbank abre E na identificação",
     !!resY && srv.ultimoPedido?.CodigoCanal === 47 && resY.identificacao.canal === 47, JSON.stringify({ ped: srv.ultimoPedido?.CodigoCanal, id: resY?.identificacao }));
 
+  /* (z) as chaves do teste pelo link: envelope, datas e token */
+  resetSrv();
+  m.api.esquecerTokensPinbank();
+  let resZ: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    resZ = await m.api.consultarExtratoPos(filtro, { ...o, envelope: "interno" });
+    saidas.push(JSON.stringify(resZ));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  let soConteudo: unknown = null;
+  try { soConteudo = JSON.parse(srv.ultimoTexto); } catch { /* fica null */ }
+  caso("(z2) envelope=interno cifra só o conteúdo do Data (a comparação A/B), e a Pinbank que exige o envelope responde \"Erro de Sistema.\" sem lista",
+    !!resZ && resZ.envelope === "interno" && !!soConteudo && typeof soConteudo === "object" && !("Data" in soConteudo)
+    && (soConteudo as Record<string, unknown>).CodigoCliente === 3510
+    && resZ.resposta.codigo === 2 && resZ.resposta.mensagem === "Erro de Sistema." && !resZ.resposta.listaRecebida,
+    JSON.stringify({ env: resZ?.envelope, texto: srv.ultimoTexto.slice(0, 80), cod: resZ?.resposta.codigo }));
+  resetSrv();
+  m.api.esquecerTokensPinbank();
+  let resT: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    await m.api.consultarExtratoPos(filtro, o);
+    resT = await m.api.consultarExtratoPos(filtro, { ...o, tokenNovo: true });
+    saidas.push(JSON.stringify(resT));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  caso("(z3) token=novo pede um token NOVO mesmo com um válido guardado (prova que a senha atual ainda gera token)",
+    !!resT && srv.hitsToken === 2 && srv.hitsMetodo === 2 && resT.etapas[0]?.novo === true && resT.resumo.linhas === 3,
+    `token=${srv.hitsToken} metodo=${srv.hitsMetodo} etapa=${JSON.stringify(resT?.etapas[0])}`);
+  resetSrv();
+  let resU: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    resU = await m.api.consultarExtratoPos({ ...filtro, datas: "utc" }, o);
+    saidas.push(JSON.stringify(resU));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  caso("(z4) datas=utc escreve o MESMO dia inteiro de Brasília em UTC, com milissegundos (a notação do exemplo da doc)",
+    !!resU && resU.datas === "utc" && srv.ultimoPedido?.DataInicial === "2026-10-01T03:00:00.000Z"
+    && srv.ultimoPedido?.DataFinal === "2026-10-09T02:59:59.000Z",
+    JSON.stringify({ de: srv.ultimoPedido?.DataInicial, ate: srv.ultimoPedido?.DataFinal }));
+  resetSrv();
+  const eEnv = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, envelope: "tudo" }));
+  const eDat = await erro(() => m.api.consultarExtratoPos({ ...filtro, datas: "local" as "utc" }, o));
+  caso("(z5) envelope ou formato de data fora da lista é recusado ('pedido') ANTES da rede",
+    eEnv?.etapa === "pedido" && eDat?.etapa === "pedido" && srv.hitsToken === 0 && srv.hitsMetodo === 0,
+    `${eEnv?.message} | ${eDat?.message} | token=${srv.hitsToken}`);
+
   /* (o) sem a saída fixa, não sai */
   resetSrv();
   e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, proxies: [] }));
@@ -520,6 +588,18 @@ const casosCore = (core: ModCore) => {
   r.set("(núcleo) data ISO com fração de segundo e fuso chega INTEIRA; texto que não é data vira ausente",
     lida.dataFuturaPagamento === iso && lida.dataTransacao === "2026-10-05T14:22:10Z"
     && core.lerRespostaExtratoPos({ Data: [{ ...linha(1), DataFuturaPagamento: "2026-11-04 e lixo" }] }).linhas[0].dataFuturaPagamento === null);
+  const base = { codigoCanal: 47, codigoCliente: 3510, de: "2025-07-30", ate: "2025-07-31", status: "Todos" as const, meio: "Todos" as const };
+  const fuso = core.pedidoExtratoPos(base);
+  const utc = core.pedidoExtratoPos({ ...base, datas: "utc" });
+  r.set("(núcleo) datas=utc é o MESMO instante em UTC; o padrão segue com -03:00",
+    fuso.DataInicial === "2025-07-30T00:00:00-03:00" && fuso.DataFinal === "2025-07-31T23:59:59-03:00"
+    && utc.DataInicial === "2025-07-30T03:00:00.000Z" && utc.DataFinal === "2025-08-01T02:59:59.000Z"
+    && Date.parse(String(utc.DataFinal)) === Date.parse(String(fuso.DataFinal))
+    && core.problemasDoFiltroExtratoPos({ ...base, datas: "local" as "utc" }).length === 1);
+  r.set("(núcleo) terminal ausente não vai no pedido; terminal VAZIO vai como \"\" (como o cliente PHP); terminal inválido é recusado",
+    !("IdTerminalPos" in fuso) && core.pedidoExtratoPos({ ...base, idTerminalPos: "" }).IdTerminalPos === ""
+    && core.problemasDoFiltroExtratoPos({ ...base, idTerminalPos: "" }).length === 0
+    && core.problemasDoFiltroExtratoPos({ ...base, idTerminalPos: "a b" }).length === 1);
   r.set("(núcleo) sem a lista Data, listaRecebida = false; com a lista vazia, true",
     core.lerRespostaExtratoPos({ Data: null, ResultCode: 2 }).listaRecebida === false && core.lerRespostaExtratoPos({ Data: [] }).listaRecebida === true);
   return r;
@@ -583,6 +663,27 @@ const PLANTAS: Planta[] = [
   { nome: "a identificação mostra o canal da credencial, não o do pedido", arquivo: "api",
     caso: "(y4) o canal do link vai no pedido que a Pinbank abre E na identificação",
     de: "const identificacao = identificar(cred, f.codigoCanal);", para: "const identificacao = identificar(cred, cred.canal);" },
+  { nome: "cifra só o conteúdo do Data (o pedido que deu \"Erro de Sistema.\" em 13/10)", arquivo: "api",
+    caso: "(z1) o que vai DENTRO da cifra é o pedido INTEIRO, {\"Data\":{…}}, e só ele (o conteúdo solto deu \"Erro de Sistema.\" em 13/10)",
+    de: 'JSON.stringify(envelope === "interno" ? dados : { Data: dados })', para: "JSON.stringify(dados)" },
+  { nome: "envelope=interno do link é ignorado (a comparação A/B não compara nada)", arquivo: "api",
+    caso: "(z2) envelope=interno cifra só o conteúdo do Data (a comparação A/B), e a Pinbank que exige o envelope responde \"Erro de Sistema.\" sem lista",
+    de: 'JSON.stringify(envelope === "interno" ? dados : { Data: dados })', para: "JSON.stringify({ Data: dados })" },
+  { nome: "token=novo é ignorado (o token do cache esconde a senha trocada)", arquivo: "api",
+    caso: "(z3) token=novo pede um token NOVO mesmo com um válido guardado (prova que a senha atual ainda gera token)",
+    de: "tentativa > 0 || o.tokenNovo === true", para: "tentativa > 0" },
+  { nome: "envelope fora da lista vira o padrão em silêncio", arquivo: "api",
+    caso: "(z5) envelope ou formato de data fora da lista é recusado ('pedido') ANTES da rede",
+    de: 'if (e !== "completo" && e !== "interno") {', para: "if (false) {" },
+  { nome: "datas=utc é ignorado (a notação não muda)", arquivo: "core",
+    caso: "(núcleo) datas=utc é o MESMO instante em UTC; o padrão segue com -03:00",
+    de: 'f.datas === "utc" ? new Date(s).toISOString() : s', para: "s" },
+  { nome: "datas=utc muda o INSTANTE (meia-noite UTC, não de Brasília)", arquivo: "core",
+    caso: "(núcleo) datas=utc é o MESMO instante em UTC; o padrão segue com -03:00",
+    de: 'f.datas === "utc" ? new Date(s).toISOString() : s', para: 'f.datas === "utc" ? s.replace("-03:00", ".000Z") : s' },
+  { nome: "terminal vazio some do pedido", arquivo: "core",
+    caso: "(núcleo) terminal ausente não vai no pedido; terminal VAZIO vai como \"\" (como o cliente PHP); terminal inválido é recusado",
+    de: "...(f.idTerminalPos != null ? { IdTerminalPos: f.idTerminalPos } : {}),", para: "...(f.idTerminalPos ? { IdTerminalPos: f.idTerminalPos } : {})," },
   { nome: "IV aleatório (a Pinbank não abriria)", arquivo: "cifra",
     caso: "(c1) a cifra bate com os vetores do openssl (AES-128-CBC, IV zero, PKCS#7, base64) e volta",
     de: "const IV_ZERO = Buffer.alloc(16, 0);", para: "const IV_ZERO = Buffer.from(Array.from({ length: 16 }, (_, i) => i));" },
