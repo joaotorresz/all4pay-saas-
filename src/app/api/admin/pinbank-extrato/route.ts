@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { consultarExtratoPos, descreverErroApi } from "@/lib/pinbank/api";
-import type { MeioCapturaExtratoPos, StatusExtratoPos } from "@/core/pinbank/extrato-pos";
+import type { FormatoDatasExtratoPos, MeioCapturaExtratoPos, StatusExtratoPos } from "@/core/pinbank/extrato-pos";
 
 /**
  * O TESTE DO EXTRATO CONSOLIDADO DA PINBANK (`ExtratoPos`) — só o administrador
@@ -10,12 +10,21 @@ import type { MeioCapturaExtratoPos, StatusExtratoPos } from "@/core/pinbank/ext
  *   GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=AAAA-MM-DD&ate=AAAA-MM-DD
  *       [&status=Todos|Pago|Pendente] [&meio=Todos|Ecommerce|Terminal] [&terminal=…]
  *       [&ambiente=dev|producao] [&canal=<CodigoCanal>]
+ *       [&envelope=completo|interno] [&datas=fuso|utc] [&token=novo] [&terminal=vazio]
  *
  * `ambiente` e `canal` valem SÓ para esta chamada (o padrão segue as variáveis
  * da Vercel): testar a mesma credencial em dev e em produção era trocar
  * variável e refazer o deploy a cada rodada, e um deploy esquecido fazia o
  * teste rodar no ambiente errado sem aviso. A resposta diz QUAL credencial
  * respondeu (`identificacao`: ambiente, canal e o fim da API Key).
+ *
+ * `envelope`, `datas`, `token` e `terminal=vazio` também são do TESTE, para a
+ * Pinbank que recusa sem nomear o campo ("Erro de Sistema."):
+ * `envelope=interno` cifra só o conteúdo do `Data` (o jeito anterior a 13/10,
+ * para a comparação A/B); `datas=utc` escreve o mesmo instante em UTC, como o
+ * exemplo da doc; `token=novo` ignora o token guardado — prova que a senha
+ * atual ainda gera token; `terminal=vazio` manda `IdTerminalPos: ""`, como o
+ * cliente PHP público. A resposta diz como o pedido saiu (`pedido`).
  *
  * Roda DENTRO da função da Vercel, com a credencial de `PINBANK_API_*` e pelos 2
  * IPs fixos. É a prova que a Pinbank pediu antes de liberar o método em
@@ -66,12 +75,17 @@ export async function GET(req: Request) {
     ate: (q.get("ate") ?? q.get("de") ?? "").trim(),
     status: ((q.get("status") ?? "Todos").trim() || "Todos") as StatusExtratoPos,
     meio: ((q.get("meio") ?? "Todos").trim() || "Todos") as MeioCapturaExtratoPos,
-    ...(q.get("terminal")?.trim() ? { idTerminalPos: q.get("terminal")!.trim() } : {}),
+    ...(q.get("terminal")?.trim() ? { idTerminalPos: q.get("terminal")!.trim() === "vazio" ? "" : q.get("terminal")!.trim() } : {}),
+    // Fora de fuso|utc, o filtro é recusado antes da rede.
+    ...(q.get("datas")?.trim() ? { datas: q.get("datas")!.trim() as FormatoDatasExtratoPos } : {}),
   };
+  const token = (q.get("token") ?? "").trim();
+  if (token && token !== "novo") return resposta(400, { ok: false, motivo: "O parâmetro token só aceita novo." });
+  const opcoes = { ambiente: q.get("ambiente"), envelope: q.get("envelope"), tokenNovo: token === "novo" };
 
   const inicio = Date.now();
   try {
-    const r = await consultarExtratoPos(filtro, { ambiente: q.get("ambiente") });
+    const r = await consultarExtratoPos(filtro, opcoes);
     // "ok" pede a LISTA: zero parcelas sem a lista é recusa ou envelope que não
     // abrimos, não "sem vendas". O ResultCode vai à tela como veio — a doc não
     // diz qual valor é sucesso, e julgar por ele seria adivinhar.
@@ -82,6 +96,7 @@ export async function GET(req: Request) {
       ...(r.resposta.listaRecebida ? {} : { motivo: `A resposta não trouxe a lista de parcelas (formato ${r.formato}; campos: ${r.campos.join(", ") || "nenhum"}).` }),
       ambiente: r.ambiente,
       identificacao: r.identificacao,
+      pedido: { envelope: r.envelope, datas: r.datas, tokenNovo: opcoes.tokenNovo, terminal: filtro.idTerminalPos ?? null },
       via: r.via,
       ms: Date.now() - inicio,
       etapas: r.etapas,

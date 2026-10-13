@@ -211,7 +211,12 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   + `cifra.ts`: token OAuth2, AES-128-CBC com IV zero, pela saída fixa) e é
   testado por `GET /api/admin/pinbank-extrato` (`&ambiente=dev|producao` e
   `&canal=` no LINK, sem trocar variável nem refazer deploy; a resposta diz
-  QUAL credencial respondeu — `identificacao`). ⚠️ São DUAS credenciais
+  QUAL credencial respondeu — `identificacao`). ⚠️ **O que se cifra é o
+  pedido INTEIRO, `{"Data":{…}}`** (13/10/2026, como os clientes públicos;
+  cifrado só o conteúdo, a Pinbank respondeu "Erro de Sistema." sem nomear
+  campo — a confirmar pelo A/B); `&envelope=interno`,
+  `&datas=utc`, `&token=novo` e `&terminal=vazio` no link isolam cada hipótese
+  sem deploy. ⚠️ São DUAS credenciais
   (BaaS, canal 1919, sem ExtratoPos × "ERP Integration Produção", canal 47,
   com ExtratoPos), com senhas diferentes — ver `docs/rodada-10/pinbank.md`.
   ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a

@@ -6,6 +6,7 @@ import {
   problemasDoFiltroExtratoPos,
   resumirExtratoPos,
   type FiltroExtratoPos,
+  type FormatoDatasExtratoPos,
   type RespostaExtratoPos,
   type ResumoExtratoPos,
 } from "@/core/pinbank/extrato-pos";
@@ -36,6 +37,16 @@ import {
  * extrato não move nada) e porque o primeiro pedido terminou com resposta, não
  * no meio do caminho (`requisicaoPinbank` continua sem repetir pedido que saiu).
  * Com o token recém-gerado, 401 é recusa da credencial, e sobe como erro.
+ *
+ * ⚠️ **O que vai DENTRO da cifra é o pedido INTEIRO, `{"Data":{…}}`** — e o
+ * corpo é `{"Data":{"Json":"<cifra>"}}`. A doc mostra os dois exemplos lado a
+ * lado e não diz o que se cifra; até 13/10 cifrávamos só o conteúdo do `Data`, e
+ * a Pinbank respondeu "Erro de Sistema." assim que a permissão passou — o
+ * suspeito principal é o servidor abrir a cifra, procurar o `Data` e não achar.
+ * Os clientes públicos da Pinbank — Node, PHP (que chama o próprio
+ * ExtratoPosEncrypted) e o módulo Odoo — cifram o envelope, e a resposta
+ * cifrada também volta como envelope. `envelope: "interno"` refaz o jeito
+ * antigo, só para a comparação A/B pelo link, que é a prova.
  */
 
 export const VARIAVEIS_API_PINBANK = [
@@ -147,6 +158,31 @@ export interface OpcoesApi {
    * (`credencialNoAmbiente`): nunca uma URL livre.
    */
   ambiente?: string | null;
+  /**
+   * Só a rota de teste: o que vai DENTRO da cifra. `completo` (padrão) cifra o
+   * pedido inteiro; `interno`, só o conteúdo do `Data` — o jeito anterior, para
+   * a comparação A/B. Fora da lista, recusado antes da rede.
+   */
+  envelope?: string | null;
+  /**
+   * Só a rota de teste: pede um token NOVO mesmo com um válido guardado. O
+   * token é a única chamada que prova a SENHA atual — com o do cache, uma senha
+   * trocada pela Pinbank só apareceria como cifra que ela não abre.
+   */
+  tokenNovo?: boolean;
+}
+
+/** O que vai dentro da cifra: o pedido inteiro (`completo`) ou só o conteúdo do `Data` (`interno`). */
+export type EnvelopeCifra = "completo" | "interno";
+
+/** O envelope pedido pelo link: vazio = `completo`; fora da lista, recusado. */
+export function envelopeDaCifra(v?: string | null): EnvelopeCifra {
+  const e = (v ?? "").trim();
+  if (!e) return "completo";
+  if (e !== "completo" && e !== "interno") {
+    throw new ErroApiPinbank("pedido", "O envelope do teste deve ser completo ou interno.");
+  }
+  return e;
 }
 
 /**
@@ -268,6 +304,8 @@ export interface LeituraPinbank {
   campos: string[];
   via: string;
   etapas: { etapa: "token" | "metodo"; ms: number; status?: number; novo?: boolean }[];
+  /** O que foi cifrado (o pedido inteiro ou só o conteúdo do `Data`). */
+  envelope: EnvelopeCifra;
 }
 
 /** Abre o corpo: `{ Data: { Json: "<cifrado>" } }` vira o envelope aberto; o resto passa como veio. */
@@ -305,11 +343,12 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
   if (!CAMINHOS_LEITURA.includes(caminho)) {
     throw new ErroApiPinbank("pedido", `Caminho fora da lista de leitura: ${caminho}.`);
   }
+  const envelope = envelopeDaCifra(o.envelope);
   const cred = o.credencial ?? lerCredencialPinbank();
   const url = `${cred.base}/api/${caminho}Encrypted`;
   let cifrado: string;
   try {
-    cifrado = cifrarPinbank(JSON.stringify(dados), cred.chave);
+    cifrado = cifrarPinbank(JSON.stringify(envelope === "interno" ? dados : { Data: dados }), cred.chave);
   } catch (e) {
     // A cifra diz o TAMANHO da chave errada — é o diagnóstico; não pode virar "falha inesperada".
     throw new ErroApiPinbank("configuracao", semSegredo((e as Error).message, cred));
@@ -318,7 +357,7 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
   const etapas: LeituraPinbank["etapas"] = [];
 
   for (let tentativa = 0; tentativa < 2; tentativa++) {
-    const t = await obterToken(cred, o, tentativa > 0);
+    const t = await obterToken(cred, o, tentativa > 0 || o.tokenNovo === true);
     etapas.push({ etapa: "token", ms: t.ms, novo: t.novo });
     const inicio = Date.now();
     let r: RespostaPinbank;
@@ -363,7 +402,7 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
     }
     try {
       const { aberto, formato, campos } = abrirCorpoPinbank(r.corpo.toString("utf8"), cred.chave);
-      return { aberto, formato, campos, via: r.via, etapas };
+      return { aberto, formato, campos, via: r.via, etapas, envelope };
     } catch (e) {
       throw new ErroApiPinbank("resposta", semSegredo((e as Error).message, cred), r.status);
     }
@@ -386,6 +425,9 @@ export interface ExtratoPosConsultado {
   campos: string[];
   via: string;
   etapas: LeituraPinbank["etapas"];
+  /** Como o pedido saiu: o que foi cifrado e como as datas foram escritas. */
+  envelope: EnvelopeCifra;
+  datas: FormatoDatasExtratoPos;
 }
 
 /** O filtro sem o canal: o canal vem da credencial (`PINBANK_CODIGO_CANAL`). */
@@ -417,6 +459,8 @@ export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: O
     campos: leitura.campos,
     via: leitura.via,
     etapas: leitura.etapas,
+    envelope: leitura.envelope,
+    datas: f.datas ?? "fuso",
   };
 }
 
