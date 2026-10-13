@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Valor em reais · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<span style="{{raiz}}"><sc-if value="{{temSinal}}" hint-placeholder-val="{{false}}"><span style="{{sSinal}}">{{sinal}}</span></sc-if><sc-if value="{{temMoeda}}" hint-placeholder-val="{{true}}"><span style="{{sMoeda}}">R$</span></sc-if><span style="{{sInt}}">{{inteiro}}</span><sc-if value="{{temDec}}" hint-placeholder-val="{{true}}"><span style="{{sDec}}">{{dec}}</span></sc-if><sc-if value="{{temResto}}" hint-placeholder-val="{{false}}"><span style="{{sResto}}">{{resto}}</span></sc-if></span>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"valor":{"editor":"text","default":"R$184.320,55"},"tamanho":{"editor":null,"default":"40px"},"tom":{"editor":"enum","default":"padrao","options":["padrao","claro"]},"alinhar":{"editor":null,"default":"esquerda"},"nivel":{"editor":"enum","default":"padrao","options":["padrao","principal"]},"fonte":{"editor":null,"default":""},"$preview":{"width":360,"height":80}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const bruto = String(this.props.valor ?? 'R$184.320,55').trim();
+    const tam = this.props.tamanho ?? '40px';
+    const claro = (this.props.tom ?? 'padrao') === 'claro';
+    const direita = (this.props.alinhar ?? 'esquerda') === 'direita';
+    const principal = (this.props.nivel ?? 'padrao') === 'principal';
+    const fonteFixa = this.props.fonte || '';
+    const fonte = fonteFixa || (principal ? 'var(--erp-numP-fonte, "Centra No2", Roobert, sans-serif)' : 'var(--erp-num-fonte, Roobert, system-ui, sans-serif)');
+    const peso = principal ? 'var(--erp-numP-peso, 900)' : 'var(--erp-num-peso, 500)';
+    const espaco = principal ? 'var(--erp-numP-espacamento, 0em)' : 'var(--erp-num-espacamento, 0em)';
+    const m = /^([+\-−]?)\s*(R\$)?\s*([\d.]+)(,\d+)?(.*)$/.exec(bruto);
+    const sinal = m ? (m[1] === '-' ? '−' : m[1]) : '';
+    const temMoeda = !!(m && m[2]);
+    const inteiro = m ? m[3] : bruto;
+    const dec = m && m[4] ? m[4] : '';
+    const resto = m ? m[5] : '';
+    const corNum = claro ? 'inherit' : 'var(--erp-num-cor, #3B4332)';
+    const corParte = (v, d) => claro ? 'inherit;opacity:0.75' : 'var(' + v + ', ' + d + ')';
+    return {
+      raiz: 'display:flex;align-items:baseline;justify-content:' + (direita ? 'flex-end' : 'flex-start') + ';' +
+        'font-family:' + fonte + ';font-weight:' + peso + ';' +
+        'letter-spacing:' + espaco + ';font-size:' + tam + ';line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;color:' + corNum + ';',
+      temSinal: !!sinal, sinal,
+      sSinal: 'margin-right:0.04em;',
+      temMoeda,
+      sMoeda: 'font-size:var(--erp-moeda-escala, 50%);color:' + (claro ? 'inherit' : 'var(--erp-moeda-cor, #6B7060)') + ';margin-right:var(--erp-moeda-espaco, 0);align-self:var(--erp-moeda-alinhar, baseline);display:var(--erp-moeda-mostrar, inline);line-height:1;',
+      inteiro,
+      sInt: 'line-height:1;',
+      temDec: !!dec, dec,
+      sDec: 'font-size:var(--erp-centavos-escala, 50%);color:' + corParte('--erp-centavos-cor', '#6B7060') + ';align-self:var(--erp-centavos-alinhar, baseline);display:var(--erp-centavos-mostrar, inline);line-height:1;',
+      temResto: !!resto.trim(), resto,
+      sResto: 'font-size:55%;color:' + corParte('--erp-texto-2', '#6B7060') + ';margin-left:0.12em;line-height:1;'
+    };
+  }
+}
+</script>
+</body>
+</html>

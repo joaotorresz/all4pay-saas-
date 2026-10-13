@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Entrar · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Main" modo="vars" hint-size="0px,0px"></dc-import>
+<div style="{{raiz}}">
+  <section aria-label="Quattro" style="{{marca}}">
+    <img src="/_blob/5b36001448cc33b517b195af432ecb60" alt="Quattro" style="display: var(--erp-logo-original); width: var(--erp-logo-largura); height: auto; filter: brightness(0) invert(1)">
+    <span role="img" aria-label="Quattro" class="erp-logo-mono" style="display: var(--erp-logo-mono); width: var(--erp-logo-largura); aspect-ratio: 2000 / 546; background: var(--erp-cartao)"></span>
+    <sc-if value="{{desk}}" hint-placeholder-val="{{true}}">
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 16px; max-width: 460px">
+        <h1 style="margin: 0; font-family: var(--erp-fonte-titulo); font-weight: var(--erp-peso-titulo); font-size: calc(var(--erp-titulo-pagina) * 1.4); text-transform: var(--erp-titulo-caixa); letter-spacing: var(--erp-titulo-espacamento, 0em); line-height: 1">A gestão da empresa num lugar só</h1>
+        <p style="margin: 0; line-height: 1.5; opacity: 0.85">Financeiro, estoque, vendas, compras e notas fiscais com os mesmos números em todas as telas.</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: var(--erp-raio-etiqueta); background: color-mix(in srgb, var(--erp-cartao) 14%, transparent)"><span style="width: 6px; height: 6px; border-radius: 999px; background: var(--erp-primaria)"></span>NF-e integrada à SEFAZ</span>
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: var(--erp-raio-etiqueta); background: color-mix(in srgb, var(--erp-cartao) 14%, transparent)"><span style="width: 6px; height: 6px; border-radius: 999px; background: var(--erp-primaria)"></span>Conciliação bancária</span>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <section style="{{lado}}">
+    <form style="{{cartao}}" action="#">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h2 style="margin: 0; font-family: var(--erp-fonte-titulo); font-weight: var(--erp-peso-titulo); font-size: var(--erp-titulo-pagina); text-transform: var(--erp-titulo-caixa); letter-spacing: var(--erp-titulo-espacamento, 0em); line-height: 1.05">Entrar</h2>
+        <p style="margin: 0; color: var(--erp-texto-2)">Use o e-mail cadastrado na sua empresa.</p>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500">
+        E-mail
+        <input type="email" value="marina.andrade@comercialandrade.com.br" style="{{campo}}">
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500">
+        Senha
+        <input type="password" value="senha-exemplo" style="{{campo}}">
+      </label>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px">
+          <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--erp-texto)">
+          Manter conectado
+        </label>
+        <a href="#" style="font-size: 14px; color: var(--erp-texto); min-height: 44px; display: inline-flex; align-items: center">Esqueci a senha</a>
+      </div>
+      <a href="{{destino}}" style="display: flex; align-items: center; justify-content: center; height: max(44px, var(--erp-botao-altura)); padding: 0 var(--erp-botao-padding); min-width: var(--erp-botao-min); border-radius: var(--erp-botao-raio); background: var(--erp-primaria); color: var(--erp-sobre-primaria); font-family: var(--erp-fonte-texto); font-size: var(--erp-tamanho-base); font-weight: 500; text-decoration: none">Entrar no sistema</a>
+      <a href="#" style="display: flex; align-items: center; justify-content: center; height: max(44px, var(--erp-botao-altura)); padding: 0 var(--erp-botao-padding); border-radius: var(--erp-botao-raio); border: var(--erp-borda-espessura) solid var(--erp-controle-borda); color: var(--erp-texto); font-size: var(--erp-tamanho-base); font-weight: 500; text-decoration: none">Entrar com certificado digital</a>
+      <p style="margin: 0; font-size: 13px; color: var(--erp-texto-2); text-align: center">Ainda não tem conta? <a href="#" style="color: var(--erp-texto)">Cadastrar empresa</a></p>
+    </form>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mob = (this.props.modo ?? 'desktop') === 'mobile';
+    return {
+      desk: !mob,
+      destino: mob ? 'DashboardMobile.dc.html' : 'Dashboard.dc.html',
+      raiz: mob
+        ? 'width:390px;min-height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--erp-fundo);color:var(--erp-texto);font-family:var(--erp-fonte-texto);font-size:var(--erp-tamanho-base);'
+        : 'min-height:820px;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:16px;padding:16px;background:var(--erp-fundo);color:var(--erp-texto);font-family:var(--erp-fonte-texto);font-size:var(--erp-tamanho-base);',
+      marca: mob
+        ? 'background:var(--erp-destaque);color:var(--erp-cartao);padding:28px 20px 56px;display:flex;flex-direction:column;'
+        : 'flex:1 1 480px;background:var(--erp-destaque);color:var(--erp-cartao);border-radius:var(--erp-raio-card);box-shadow:var(--erp-sombra);padding:48px;display:flex;flex-direction:column;min-height:788px;box-sizing:border-box;',
+      lado: mob
+        ? 'padding:0 16px 24px;margin-top:-32px;'
+        : 'flex:1 1 480px;display:grid;place-items:center;padding:32px;',
+      cartao: 'width:100%;max-width:440px;box-sizing:border-box;background:var(--erp-cartao);border:var(--erp-borda-espessura) solid var(--erp-borda);border-radius:var(--erp-raio-card);box-shadow:var(--erp-sombra);padding:' + (mob ? '24px' : '36px') + ';display:flex;flex-direction:column;gap:18px;',
+      campo: 'height:' + (mob ? '48px' : '44px') + ';padding:0 14px;border:1.5px solid var(--erp-borda);border-radius:14px;background:var(--erp-cartao);color:var(--erp-texto);font-family:var(--erp-fonte-texto);font-size:' + (mob ? '16px' : 'var(--erp-tamanho-base)') + ';font-weight:400;'
+    };
+  }
+}
+</script>
+</body>
+</html>

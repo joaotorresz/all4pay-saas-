@@ -127,6 +127,23 @@ junto. Provada em `begin … rollback`: recusa com dado, apaga tudo vazia,
 reaplica sem erro, tira só o job da OWN do cron. As menções históricas a
 `own_*` nas seções abaixo ficam como registro.
 
+## ⚠️ O CANVAS "QUATTRO ERP · PROTÓTIPO" É A REGRA DE TUDO (decisão do dono, 13/10/2026)
+
+O quadro **Tema** e as telas do protótipo do canvas
+https://claude.ai/artifact/LGeYrJZoQqXG8gQCdpn1rD são a regra visual de
+**todo item do sistema** — cada tela, card, componente, botão, tabela, número
+e ícone, presente e futuro. A cópia versionada mora em
+**`docs/design/canvas-quattro-erp/`** (`tokens.json` + as pranchetas
+`.dc.html` + `README.md` com o como aplicar).
+
+- Tela nova ou alterada: abrir a prancheta equivalente e seguir a estrutura
+  dela; sem prancheta, montar com as MESMAS peças (Tema, Moldura, Valor R$,
+  Ícones). Nenhum valor fora de `tokens.json`.
+- Mudança visual nasce no CANVAS: o dono ajusta lá, e o PR que leva ao código
+  atualiza também a pasta. Pasta e canvas discordando → vale o canvas.
+- Esta seção vence todas as de identidade abaixo, inclusive as que dizem
+  "vence todas": elas descrevem estados anteriores.
+
 ## ⚠️ TEMA ERP (13/10/2026) — vence TODA seção de identidade abaixo
 
 O dono fechou o design system no canvas **"Quattro ERP · Protótipo"** (quadro

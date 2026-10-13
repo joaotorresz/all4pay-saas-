@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Tema · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Centra No2";src:url(/_blob/7fa03586b7c095d79c7d16c8b843fecc) format("truetype");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Roobert";src:url(/_blob/8e98dd904c1f704ffdd31fb5fbdbeda7) format("opentype");font-weight:400;font-display:swap}
+@font-face{font-family:"Roobert";src:url(/_blob/c4929a1518c055313d6ce0d58668a3be) format("opentype");font-weight:500 900;font-display:swap}
+@font-face{font-family:"Gellix";src:url(/_blob/aa9f41818b2a60a5051391f45e179d7b) format("opentype");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Roobert Mono";src:url(/_blob/42460f8a752f8bb17850eedd63fd8847) format("opentype");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Obviously Narrow";src:url(/_blob/a2799d295dc6aec30d1f1003892510cf) format("opentype");font-weight:100 900;font-display:swap}
+body{margin:0}
+.erp-logo-mono{-webkit-mask:url(/_blob/5b36001448cc33b517b195af432ecb60) left center/contain no-repeat;mask:url(/_blob/5b36001448cc33b517b195af432ecb60) left center/contain no-repeat}
+</style>
+</helmet>
+<sc-if value="{{quadro}}" hint-placeholder-val="{{true}}">
+<div style="width: 1280px; height: 1900px; box-sizing: border-box; padding: 48px; background: var(--erp-fundo); color: var(--erp-texto); font-family: var(--erp-fonte-texto); font-size: var(--erp-tamanho-base); display: flex; flex-direction: column; gap: 32px; font-variant-numeric: tabular-nums">
+
+  <header style="display: flex; align-items: flex-end; gap: 24px">
+    <div style="display: flex; flex-direction: column; gap: 10px; flex: 1">
+      <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Design system · tema centralizado</span>
+      <h1 style="margin: 0; font-family: var(--erp-fonte-titulo); font-weight: var(--erp-peso-titulo); font-size: calc(var(--erp-titulo-pagina) * 1.4); letter-spacing: var(--erp-titulo-espacamento, 0em); text-transform: var(--erp-titulo-caixa); line-height: 1">Quattro ERP</h1>
+      <p style="margin: 0; color: var(--erp-texto-2); max-width: 640px; line-height: 1.5">Abra Tweaks neste quadro e mude qualquer token. Todas as telas, no desktop e no celular, leem as mesmas variáveis --erp- e mudam junto.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+      <img src="/_blob/5b36001448cc33b517b195af432ecb60" alt="Quattro" style="display: var(--erp-logo-original); width: var(--erp-logo-largura); height: auto">
+      <span role="img" aria-label="Quattro" class="erp-logo-mono" style="display: var(--erp-logo-mono); width: var(--erp-logo-largura); aspect-ratio: 2000 / 546; background: var(--erp-logo-cor)"></span>
+    </div>
+  </header>
+
+  <div style="display: flex; gap: 24px; align-items: stretch">
+
+    <aside aria-label="Prévia do menu lateral" style="width: var(--erp-menu-largura); flex: none; background: var(--erp-menu-fundo); color: var(--erp-menu-texto); border: var(--erp-borda-espessura) solid var(--erp-menu-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 18px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px">
+      <div style="padding: 4px 10px 16px">
+        <img src="/_blob/5b36001448cc33b517b195af432ecb60" alt="Quattro" style="display: var(--erp-logo-original); width: var(--erp-logo-largura); height: auto">
+        <span role="img" aria-label="Quattro" class="erp-logo-mono" style="display: var(--erp-logo-mono); width: var(--erp-logo-largura); aspect-ratio: 2000 / 546; background: var(--erp-logo-cor)"></span>
+      </div>
+      <sc-for list="{{menu}}" as="m" hint-placeholder-count="7">
+        <a href="#" style="{{m.estilo}}">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="{{m.icone}}"></path></svg>
+          <span>{{m.rotulo}}</span>
+        </a>
+      </sc-for>
+    </aside>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+      <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 14px">
+        <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Tipografia</span>
+        <div style="font-family: var(--erp-fonte-titulo); font-weight: var(--erp-peso-titulo); font-size: var(--erp-titulo-pagina); text-transform: var(--erp-titulo-caixa); letter-spacing: var(--erp-titulo-espacamento, 0em); line-height: 1.05">Título de página · Contas a pagar</div>
+        <div style="font-size: var(--erp-titulo-secao); font-weight: 500; letter-spacing: -0.01em">Título de seção · Fluxo de caixa do mês</div>
+        <p style="margin: 0; line-height: 1.5; max-width: 720px">Texto de interface em tamanho base. A nota fiscal 000.482 da Distribuidora Paulista Ltda vence em 20/10/2026 e já está aprovada.</p>
+        <p style="margin: 0; color: var(--erp-texto-2)">Texto secundário · legendas, datas e o prefixo R$ dos valores</p>
+        <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 14px; border-top: var(--erp-borda-espessura) solid var(--erp-borda)">
+          <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Números (R$) · prefixo · inteiro · centavos</span>
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 28px">
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <dc-import name="Valor" valor="R$184.320,55" tamanho="calc(var(--erp-numeros) * 1.4)" nivel="principal" hint-size="260px,44px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">principal da página</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <dc-import name="Valor" valor="R$58.210,00" tamanho="var(--erp-numeros)" hint-size="180px,30px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">KPI</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <dc-import name="Valor" valor="−R$7.540,00" tamanho="calc(var(--erp-numeros) * 0.7)" hint-size="140px,22px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">negativo</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <dc-import name="Valor" valor="R$1.412,37" tamanho="14px" hint-size="90px,14px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">tabela</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Variações de fonte para comparar · escolha em Tweaks › Números (R$)</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: 14px; min-width: 150px">
+              <dc-import name="Valor" valor="R$184.320,55" tamanho="26px" fonte="&quot;Centra No2&quot;, Roobert, sans-serif" hint-size="150px,26px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">Centra No2</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: 14px; min-width: 150px">
+              <dc-import name="Valor" valor="R$184.320,55" tamanho="26px" fonte="Roobert, Roobert, sans-serif" hint-size="150px,26px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">Roobert</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: 14px; min-width: 150px">
+              <dc-import name="Valor" valor="R$184.320,55" tamanho="26px" fonte="&quot;Roobert Mono&quot;, Roobert, sans-serif" hint-size="150px,26px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">Roobert Mono</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: 14px; min-width: 150px">
+              <dc-import name="Valor" valor="R$184.320,55" tamanho="26px" fonte="Gellix, Roobert, sans-serif" hint-size="150px,26px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">Gellix</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: 14px; min-width: 150px">
+              <dc-import name="Valor" valor="R$184.320,55" tamanho="26px" fonte="&quot;Obviously Narrow&quot;, Roobert, sans-serif" hint-size="150px,26px"></dc-import>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">Obviously Narrow</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 16px">
+        <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Paleta</span>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{cores}}" as="c" hint-placeholder-count="13">
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <span style="{{c.amostra}}"></span>
+              <span style="font-size: 13px; font-weight: 500">{{c.nome}}</span>
+              <span style="font-size: 11px; color: var(--erp-texto-2); word-break: break-all">{{c.var}}</span>
+              <span style="font-size: 11px; color: var(--erp-texto-2)">{{c.valor}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px">
+    <div style="background: var(--erp-destaque); color: var(--erp-cartao); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; opacity: 0.8">Card de destaque</span>
+      <span style="font-size: 14px">Saldo consolidado</span>
+      <dc-import name="Valor" valor="R$184.320,55" tamanho="var(--erp-numeros)" tom="claro" nivel="principal" hint-size="200px,30px"></dc-import>
+      <span style="font-size: 13px; opacity: 0.8">4 contas · atualizado às 09:40</span>
+    </div>
+    <div style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Card padrão</span>
+      <span style="font-size: 14px">A receber no mês</span>
+      <dc-import name="Valor" valor="R$58.210,00" tamanho="var(--erp-numeros)" hint-size="180px,30px"></dc-import>
+      <div style="display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: var(--erp-cartao-2)"><span style="width: 64%; background: var(--erp-grafico)"></span></div>
+    </div>
+    <div style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 14px">
+      <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Etiquetas de status</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: var(--erp-raio-etiqueta); background: var(--erp-sucesso-fundo); color: var(--erp-sucesso)"><span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor"></span>Pago</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: var(--erp-raio-etiqueta); background: var(--erp-alerta-fundo); color: var(--erp-alerta)"><span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor"></span>Pendente</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: var(--erp-raio-etiqueta); background: var(--erp-perigo-fundo); color: var(--erp-perigo)"><span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor"></span>Vencido</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: var(--erp-raio-etiqueta); background: var(--erp-cartao-2); color: var(--erp-texto-2); border: var(--erp-borda-espessura) solid var(--erp-borda)"><span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor"></span>Rascunho</span>
+      </div>
+    </div>
+    <div style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start">
+      <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Botões</span>
+      <button type="button" style="height: var(--erp-botao-altura); padding: 0 var(--erp-botao-padding); min-width: var(--erp-botao-min); border-radius: var(--erp-botao-raio); border: 0; background: var(--erp-primaria); color: var(--erp-sobre-primaria); font-family: var(--erp-fonte-texto); font-size: var(--erp-tamanho-base); font-weight: 500; cursor: pointer">Salvar lançamento</button>
+      <button type="button" style="height: var(--erp-botao-altura); padding: 0 var(--erp-botao-padding); min-width: var(--erp-botao-min); border-radius: var(--erp-botao-raio); border: var(--erp-borda-espessura) solid var(--erp-controle-borda); background: transparent; color: var(--erp-texto); font-family: var(--erp-fonte-texto); font-size: var(--erp-tamanho-base); font-weight: 500; cursor: pointer">Exportar</button>
+      <button type="button" style="height: var(--erp-botao-altura); padding: 0 var(--erp-botao-padding); min-width: var(--erp-botao-min); border-radius: var(--erp-botao-raio); border: 0; background: var(--erp-perigo); color: var(--erp-cartao); font-family: var(--erp-fonte-texto); font-size: var(--erp-tamanho-base); font-weight: 500; cursor: pointer">Cancelar NF-e</button>
+    </div>
+  </section>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 28px; display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0">
+    <span style="font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">Tokens aplicados no :root</span>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px">
+      <sc-for list="{{grupos}}" as="g" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column">
+          <span style="font-size: var(--erp-titulo-secao); font-weight: 500; padding-bottom: 8px">{{g.nome}}</span>
+          <sc-for list="{{g.itens}}" as="i" hint-placeholder-count="6">
+            <div style="display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); font-size: 12px">
+              <span style="color: var(--erp-texto-2)">{{i.var}}</span>
+              <span style="font-weight: 500; text-align: right">{{i.valor}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</sc-if>
+<sc-if value="{{soVars}}" hint-placeholder-val="{{false}}">
+<span style="display: none"></span>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;fundo&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ffffff&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;cartao&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#f6f6f6&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;cartao2&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ffffff&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;borda&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e2e2e2&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;texto&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;texto2&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6B7060&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;primaria&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ECFD52&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;sobrePrimaria&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;destaque&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;sucesso&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#35c759&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;alerta&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#f2a519&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;perigo&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e5484d&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;grafico&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ecfd52&quot;,&quot;section&quot;:&quot;Cores&quot;},&quot;menuFundo&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#f6f6f6&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;menuTexto&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3b4332&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;menuAtivo&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ECFD52&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;menuBorda&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#f4f4f4&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;menuLargura&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:248,&quot;min&quot;:200,&quot;max&quot;:320,&quot;step&quot;:4,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;menuIconeEspaco&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:15,&quot;min&quot;:0,&quot;max&quot;:32,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;abaIconeEspaco&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:2,&quot;min&quot;:0,&quot;max&quot;:16,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;logoEstilo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;uma cor&quot;,&quot;options&quot;:[&quot;original&quot;,&quot;uma cor&quot;],&quot;section&quot;:&quot;Menu e logo&quot;},&quot;logoCor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3b4332&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;logoLargura&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:92,&quot;min&quot;:72,&quot;max&quot;:200,&quot;step&quot;:4,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Menu e logo&quot;},&quot;botaoAltura&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:42,&quot;min&quot;:32,&quot;max&quot;:64,&quot;step&quot;:2,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Botões&quot;},&quot;botaoPadding&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:36,&quot;min&quot;:8,&quot;max&quot;:48,&quot;step&quot;:2,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Botões&quot;},&quot;botaoLarguraMin&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:104,&quot;min&quot;:0,&quot;max&quot;:240,&quot;step&quot;:8,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Botões&quot;},&quot;botaoRaio&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:32,&quot;min&quot;:0,&quot;max&quot;:32,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Botões&quot;},&quot;raioCard&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:20,&quot;min&quot;:0,&quot;max&quot;:40,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Formas&quot;},&quot;raioEtiqueta&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:16,&quot;min&quot;:0,&quot;max&quot;:16,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Formas&quot;},&quot;bordaEspessura&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:3,&quot;step&quot;:0.25,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Formas&quot;},&quot;sombra&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;nenhuma&quot;,&quot;options&quot;:[&quot;nenhuma&quot;,&quot;suave&quot;,&quot;forte&quot;],&quot;section&quot;:&quot;Formas&quot;},&quot;fonteTitulo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Centra No2&quot;,&quot;options&quot;:[&quot;Centra No2&quot;,&quot;Roobert&quot;,&quot;Sistema&quot;],&quot;section&quot;:&quot;Tipografia&quot;},&quot;fonteTexto&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Roobert&quot;,&quot;options&quot;:[&quot;Roobert&quot;,&quot;Centra No2&quot;,&quot;Sistema&quot;],&quot;section&quot;:&quot;Tipografia&quot;},&quot;pesoTitulo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;500&quot;,&quot;options&quot;:[&quot;400&quot;,&quot;500&quot;,&quot;700&quot;,&quot;900&quot;],&quot;section&quot;:&quot;Tipografia&quot;},&quot;caixaTitulo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;maiúsculas&quot;,&quot;options&quot;:[&quot;maiúsculas&quot;,&quot;normal&quot;],&quot;section&quot;:&quot;Tipografia&quot;},&quot;tamanhoBase&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:15,&quot;min&quot;:13,&quot;max&quot;:18,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Tipografia&quot;},&quot;tituloPagina&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:30,&quot;min&quot;:20,&quot;max&quot;:48,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Tipografia&quot;},&quot;tituloSecao&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:17,&quot;min&quot;:13,&quot;max&quot;:26,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Tipografia&quot;},&quot;numeros&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:30,&quot;min&quot;:18,&quot;max&quot;:48,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Tipografia&quot;},&quot;tituloEspacamento&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:-0.06,&quot;max&quot;:0.06,&quot;step&quot;:0.005,&quot;unit&quot;:&quot;em&quot;,&quot;section&quot;:&quot;Tipografia&quot;},&quot;numPrincipalFonte&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Centra No2&quot;,&quot;options&quot;:[&quot;Centra No2&quot;,&quot;Roobert&quot;,&quot;Roobert Mono&quot;,&quot;Gellix&quot;,&quot;Obviously Narrow&quot;,&quot;Sistema&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;numPrincipalPeso&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;500&quot;,&quot;options&quot;:[&quot;400&quot;,&quot;500&quot;,&quot;700&quot;,&quot;900&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;numPrincipalEspacamento&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:-0.08,&quot;max&quot;:0.04,&quot;step&quot;:0.005,&quot;unit&quot;:&quot;em&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;numFonte&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Roobert&quot;,&quot;options&quot;:[&quot;Centra No2&quot;,&quot;Roobert&quot;,&quot;Roobert Mono&quot;,&quot;Gellix&quot;,&quot;Obviously Narrow&quot;,&quot;Sistema&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;numPeso&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;500&quot;,&quot;options&quot;:[&quot;400&quot;,&quot;500&quot;,&quot;700&quot;,&quot;900&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;numCor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#000000&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;numEspacamento&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:-0.08,&quot;max&quot;:0.04,&quot;step&quot;:0.005,&quot;unit&quot;:&quot;em&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;moedaMostrar&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mostrar&quot;,&quot;options&quot;:[&quot;mostrar&quot;,&quot;ocultar&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;moedaEscala&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:100,&quot;min&quot;:30,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;moedaCor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#000000&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;moedaEspaco&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;colado&quot;,&quot;options&quot;:[&quot;colado&quot;,&quot;espaçado&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;moedaAlinhar&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;base&quot;,&quot;options&quot;:[&quot;base&quot;,&quot;topo&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;centavosMostrar&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mostrar&quot;,&quot;options&quot;:[&quot;mostrar&quot;,&quot;ocultar&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;centavosEscala&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:50,&quot;min&quot;:30,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;centavosCor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6B7060&quot;,&quot;section&quot;:&quot;Números (R$)&quot;},&quot;centavosAlinhar&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;base&quot;,&quot;options&quot;:[&quot;base&quot;,&quot;topo&quot;],&quot;section&quot;:&quot;Números (R$)&quot;},&quot;modo&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;quadro&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1900}}">
+class Component extends DCLogic {
+  padrao() {
+    return {
+      "fundo": "#ffffff",
+      "cartao": "#f6f6f6",
+      "cartao2": "#ffffff",
+      "borda": "#e2e2e2",
+      "texto": "#3B4332",
+      "texto2": "#6B7060",
+      "primaria": "#ECFD52",
+      "sobrePrimaria": "#3B4332",
+      "destaque": "#3B4332",
+      "sucesso": "#35c759",
+      "alerta": "#f2a519",
+      "perigo": "#e5484d",
+      "grafico": "#ecfd52",
+      "menuFundo": "#3b4332",
+      "menuTexto": "#ffffff",
+      "menuAtivo": "#ECFD52",
+      "menuBorda": "#f4f4f4",
+      "menuLargura": 240,
+      "menuIconeEspaco": 10,
+      "abaIconeEspaco": 2,
+      "logoEstilo": "uma cor",
+      "logoCor": "#ffffff",
+      "logoLargura": 100,
+      "botaoAltura": 42,
+      "botaoPadding": 36,
+      "botaoLarguraMin": 104,
+      "botaoRaio": 32,
+      "raioCard": 20,
+      "raioEtiqueta": 16,
+      "bordaEspessura": 0,
+      "sombra": "nenhuma",
+      "fonteTitulo": "Centra No2",
+      "fonteTexto": "Roobert",
+      "pesoTitulo": "900",
+      "caixaTitulo": "maiúsculas",
+      "tamanhoBase": 15,
+      "tituloPagina": 30,
+      "tituloSecao": 17,
+      "numeros": 30,
+      "tituloEspacamento": 0,
+      "numPrincipalFonte": "Centra No2",
+      "numPrincipalPeso": "900",
+      "numPrincipalEspacamento": 0,
+      "numFonte": "Roobert",
+      "numPeso": "500",
+      "numCor": "#3B4332",
+      "numEspacamento": 0,
+      "moedaMostrar": "mostrar",
+      "moedaEscala": 100,
+      "moedaCor": "#6B7060",
+      "moedaEspaco": "espaçado",
+      "moedaAlinhar": "base",
+      "centavosMostrar": "mostrar",
+      "centavosEscala": 50,
+      "centavosCor": "#6B7060",
+      "centavosAlinhar": "base"
+    };
+  }
+
+  variaveis(t) {
+    const px = (n) => Number(n) + 'px';
+    const pilha = (f) => f === 'Centra No2' ? '"Centra No2", Roobert, system-ui, sans-serif'
+      : f === 'Roobert' ? 'Roobert, system-ui, sans-serif'
+      : f === 'Roobert Mono' ? '"Roobert Mono", Roobert, ui-monospace, monospace'
+      : f === 'Gellix' ? 'Gellix, Roobert, system-ui, sans-serif'
+      : f === 'Obviously Narrow' ? '"Obviously Narrow", Roobert, system-ui, sans-serif'
+      : 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    const sombras = {
+      nenhuma: 'none',
+      suave: '0 10px 40px -24px rgba(43, 49, 37, 0.35)',
+      forte: '0 22px 48px -16px rgba(43, 49, 37, 0.45)'
+    };
+    const raio = (n, teto) => Number(n) >= teto ? '999px' : px(n);
+    return {
+      '--erp-fundo': t.fundo,
+      '--erp-cartao': t.cartao,
+      '--erp-cartao-2': t.cartao2,
+      '--erp-borda': t.borda,
+      '--erp-texto': t.texto,
+      '--erp-texto-2': t.texto2,
+      '--erp-primaria': t.primaria,
+      '--erp-sobre-primaria': t.sobrePrimaria,
+      '--erp-destaque': t.destaque,
+      '--erp-sucesso': t.sucesso,
+      '--erp-alerta': t.alerta,
+      '--erp-perigo': t.perigo,
+      '--erp-grafico': t.grafico,
+      '--erp-grafico-2': 'color-mix(in srgb, ' + t.grafico + ' 38%, ' + t.cartao + ')',
+      '--erp-sucesso-fundo': 'color-mix(in srgb, ' + t.sucesso + ' 12%, ' + t.cartao + ')',
+      '--erp-alerta-fundo': 'color-mix(in srgb, ' + t.alerta + ' 12%, ' + t.cartao + ')',
+      '--erp-perigo-fundo': 'color-mix(in srgb, ' + t.perigo + ' 10%, ' + t.cartao + ')',
+      '--erp-controle-borda': 'color-mix(in srgb, ' + t.texto + ' 30%, transparent)',
+      '--erp-menu-fundo': t.menuFundo,
+      '--erp-menu-texto': t.menuTexto,
+      '--erp-menu-ativo': t.menuAtivo,
+      '--erp-menu-borda': t.menuBorda,
+      '--erp-menu-largura': px(t.menuLargura),
+      '--erp-menu-icone-espaco': px(t.menuIconeEspaco),
+      '--erp-aba-icone-espaco': px(t.abaIconeEspaco),
+      '--erp-logo-original': t.logoEstilo === 'uma cor' ? 'none' : 'block',
+      '--erp-logo-mono': t.logoEstilo === 'uma cor' ? 'block' : 'none',
+      '--erp-logo-cor': t.logoCor,
+      '--erp-logo-largura': px(t.logoLargura),
+      '--erp-botao-altura': px(t.botaoAltura),
+      '--erp-botao-padding': px(t.botaoPadding),
+      '--erp-botao-min': px(t.botaoLarguraMin),
+      '--erp-botao-raio': raio(t.botaoRaio, 32),
+      '--erp-raio-card': px(t.raioCard),
+      '--erp-raio-etiqueta': raio(t.raioEtiqueta, 16),
+      '--erp-borda-espessura': px(t.bordaEspessura),
+      '--erp-sombra': sombras[t.sombra] || 'none',
+      '--erp-fonte-titulo': pilha(t.fonteTitulo),
+      '--erp-fonte-texto': pilha(t.fonteTexto),
+      '--erp-peso-titulo': String(t.pesoTitulo),
+      '--erp-titulo-caixa': t.caixaTitulo === 'normal' ? 'none' : 'uppercase',
+      '--erp-tamanho-base': px(t.tamanhoBase),
+      '--erp-titulo-pagina': px(t.tituloPagina),
+      '--erp-titulo-secao': px(t.tituloSecao),
+      '--erp-numeros': px(t.numeros),
+      '--erp-titulo-espacamento': Number(t.tituloEspacamento) + 'em',
+      '--erp-numP-fonte': pilha(t.numPrincipalFonte),
+      '--erp-numP-peso': String(t.numPrincipalPeso),
+      '--erp-numP-espacamento': Number(t.numPrincipalEspacamento) + 'em',
+      '--erp-num-fonte': pilha(t.numFonte),
+      '--erp-num-peso': String(t.numPeso),
+      '--erp-num-cor': t.numCor,
+      '--erp-num-espacamento': Number(t.numEspacamento) + 'em',
+      '--erp-moeda-mostrar': t.moedaMostrar === 'ocultar' ? 'none' : 'inline',
+      '--erp-moeda-escala': Number(t.moedaEscala) + '%',
+      '--erp-moeda-cor': t.moedaCor,
+      '--erp-moeda-espaco': t.moedaEspaco === 'espaçado' ? '0.18em' : '0',
+      '--erp-moeda-alinhar': t.moedaAlinhar === 'topo' ? 'flex-start' : 'baseline',
+      '--erp-centavos-mostrar': t.centavosMostrar === 'ocultar' ? 'none' : 'inline',
+      '--erp-centavos-escala': Number(t.centavosEscala) + '%',
+      '--erp-centavos-cor': t.centavosCor,
+      '--erp-centavos-alinhar': t.centavosAlinhar === 'topo' ? 'flex-start' : 'baseline'
+    };
+  }
+
+  aplicar(t) {
+    try {
+      const v = this.variaveis(t);
+      const raiz = document.documentElement.style;
+      for (const k in v) raiz.setProperty(k, v[k]);
+    } catch (e) {}
+  }
+
+  canal() {
+    try {
+      if (!this._canal && typeof BroadcastChannel !== 'undefined') this._canal = new BroadcastChannel('erp-tema');
+    } catch (e) {}
+    return this._canal || null;
+  }
+
+  lerArquivo() {
+    try {
+      const y = './Main.dc.html';
+      const mapa = window.__resources;
+      const x = mapa ? mapa[y] : undefined;
+      const url = typeof x === 'string' && x ? x : y;
+      const blobs = window.__resourceBlobs;
+      const b = blobs ? blobs[url.split('#')[0]] : undefined;
+      const texto = (typeof Blob !== 'undefined' && b instanceof Blob) ? b.text() : fetch(url).then((r) => (r.ok ? r.text() : ''));
+      texto.then((txt) => {
+        const m = /data-props=(?:'([^']*)'|"([^"]*)")/.exec(txt || '');
+        if (!m) return;
+        const bruto = (m[1] || m[2] || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+        const meta = JSON.parse(bruto);
+        const salvo = {};
+        for (const k in meta) if (meta[k] && meta[k].default !== undefined && k !== 'modo' && k !== '$preview') salvo[k] = meta[k].default;
+        this.setState({ arquivo: salvo });
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  componentDidMount() {
+    const c = this.canal();
+    if (!c) { if (this.props.modo === 'vars') this.lerArquivo(); return; }
+    this._ouvir = (ev) => {
+      const d = ev && ev.data;
+      if (!d) return;
+      if (d.pedido && (this.props.modo ?? 'quadro') === 'quadro') { c.postMessage({ tokens: this._atual }); return; }
+      if (d.tokens && this.props.modo === 'vars') this.setState({ vivo: d.tokens });
+    };
+    c.addEventListener('message', this._ouvir);
+    if (this.props.modo === 'vars') { this.lerArquivo(); c.postMessage({ pedido: true }); }
+  }
+
+  componentWillUnmount() {
+    try { if (this._canal && this._ouvir) this._canal.removeEventListener('message', this._ouvir); } catch (e) {}
+  }
+
+  renderVals() {
+    const modo = this.props.modo ?? 'quadro';
+    const quadro = modo === 'quadro';
+    const s = this.state || {};
+    const base = this.padrao();
+    const t = { ...base };
+    if (quadro) {
+      for (const k in base) if (this.props[k] !== undefined && this.props[k] !== null) t[k] = this.props[k];
+    } else {
+      Object.assign(t, s.arquivo || {}, s.vivo || {});
+    }
+    this.aplicar(t);
+    if (quadro) {
+      const json = JSON.stringify(t);
+      this._atual = t;
+      if (json !== this._enviado) {
+        this._enviado = json;
+        const c = this.canal();
+        try { if (c) c.postMessage({ tokens: t }); } catch (e) {}
+      }
+    }
+
+    const I = {
+      dash: 'M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z',
+      fin: 'M3 7h18v12H3zM3 7l3-3h12l3 3M16 13h2',
+      est: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+      ven: 'M6 6h15l-2 9H8zM6 6 5 3H2M9 20a1 1 0 1 0 0-.01M18 20a1 1 0 1 0 0-.01',
+      com: 'M4 7h16v13H4zM8 7V5a4 4 0 0 1 8 0v2',
+      fis: 'M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3',
+      cfg: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1'
+    };
+    const itens = [['Dashboard', I.dash, true], ['Financeiro', I.fin], ['Estoque', I.est], ['Pedidos e vendas', I.ven], ['Compras', I.com], ['Fiscal (NF-e)', I.fis], ['Configurações', I.cfg]];
+    const menu = itens.map(([rotulo, icone, ativo]) => ({
+      rotulo, icone,
+      estilo: 'display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:12px;text-decoration:none;color:var(--erp-menu-texto);font-size:14px;' +
+        (ativo ? 'background:var(--erp-menu-ativo);color:var(--erp-sobre-primaria);font-weight:500;' : '')
+    }));
+
+    const nomes = [
+      ['fundo', 'Fundo', '--erp-fundo'], ['cartao', 'Cartão', '--erp-cartao'], ['cartao2', 'Cartão 2', '--erp-cartao-2'], ['borda', 'Borda', '--erp-borda'],
+      ['texto', 'Texto', '--erp-texto'], ['texto2', 'Texto 2', '--erp-texto-2'], ['primaria', 'Primária', '--erp-primaria'], ['sobrePrimaria', 'Sobre primária', '--erp-sobre-primaria'],
+      ['destaque', 'Destaque', '--erp-destaque'], ['sucesso', 'Sucesso', '--erp-sucesso'], ['alerta', 'Alerta', '--erp-alerta'], ['perigo', 'Perigo', '--erp-perigo'], ['grafico', 'Gráfico', '--erp-grafico']
+    ];
+    const cores = nomes.map(([k, nome, v]) => ({
+      nome, var: v, valor: String(t[k]).toUpperCase(),
+      amostra: 'display:block;height:56px;border-radius:12px;background:var(' + v + ');border:var(--erp-borda-espessura) solid var(--erp-borda);'
+    }));
+
+    const v = this.variaveis(t);
+    const grupo = (nome, chaves) => ({ nome, itens: chaves.map((k) => ({ var: k.replace('--erp-', ''), valor: String(v[k]).length > 22 ? String(v[k]).slice(0, 20) + '…' : v[k] })) });
+    const grupos = [
+      grupo('Cores', ['--erp-fundo', '--erp-cartao', '--erp-cartao-2', '--erp-borda', '--erp-texto', '--erp-texto-2', '--erp-primaria', '--erp-sobre-primaria', '--erp-destaque', '--erp-sucesso', '--erp-alerta', '--erp-perigo', '--erp-grafico']),
+      grupo('Menu e logo', ['--erp-menu-fundo', '--erp-menu-texto', '--erp-menu-ativo', '--erp-menu-borda', '--erp-menu-largura', '--erp-menu-icone-espaco', '--erp-aba-icone-espaco', '--erp-logo-original', '--erp-logo-cor', '--erp-logo-largura']),
+      grupo('Botões', ['--erp-botao-altura', '--erp-botao-padding', '--erp-botao-min', '--erp-botao-raio']),
+      grupo('Formas', ['--erp-raio-card', '--erp-raio-etiqueta', '--erp-borda-espessura', '--erp-sombra']),
+      grupo('Tipografia', ['--erp-fonte-titulo', '--erp-fonte-texto', '--erp-peso-titulo', '--erp-titulo-caixa', '--erp-titulo-espacamento', '--erp-tamanho-base', '--erp-titulo-pagina', '--erp-titulo-secao', '--erp-numeros']),
+      grupo('Números (R$)', ['--erp-numP-fonte', '--erp-numP-peso', '--erp-numP-espacamento', '--erp-num-fonte', '--erp-num-peso', '--erp-num-cor', '--erp-num-espacamento', '--erp-moeda-escala', '--erp-moeda-cor', '--erp-moeda-espaco', '--erp-moeda-alinhar', '--erp-centavos-escala', '--erp-centavos-cor', '--erp-centavos-alinhar'])
+    ];
+
+    return { quadro, soVars: !quadro, menu, cores, grupos };
+  }
+}
+</script>
+</body>
+</html>
