@@ -189,13 +189,19 @@ export function Sidebar() {
         </div>
 
         <nav aria-label="Seções do sistema" className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
-          {sections.map((s) => {
+          {sections.map((s, indice) => {
             const marcado = ativo?.id === s.id;
             const abertoAqui = !col && aberto === s.id && s.items.length > 0;
             const href = destinoDoGrupo(s);
             const conteudo = (
               <>
-                <Icon name={s.icon ?? "layers"} size={18} color="currentColor" className="shrink-0" />
+                {s.id === "inicio" ? (
+                  // A ilustração da marca no lugar do ícone do Início (canvas).
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src="/quattro-icone-inicio.webp" alt="" aria-hidden className="w-[28px] h-[28px] -m-[5px] object-contain shrink-0" />
+                ) : (
+                  <Icon name={s.icon ?? "layers"} size={18} color="currentColor" className="shrink-0" />
+                )}
                 {!col && <span className="flex-1 min-w-0 text-left truncate">{s.label}</span>}
                 {!col && marcado && s.items.length === 0 && (
                   <span aria-hidden className="w-[6px] h-[6px] rounded-pill bg-ink shrink-0" />
@@ -207,12 +213,13 @@ export function Sidebar() {
               </>
             );
             const classe = cn(
-              "flex items-center gap-[10px] min-h-[44px] rounded-[12px] text-[14px] text-ink transition-colors",
+              "flex items-center gap-[15px] min-h-[44px] rounded-[12px] text-[14px] text-ink transition-colors",
               col ? "justify-center px-0" : "px-3",
-              marcado ? "bg-surface-1 font-medium" : "hover:bg-surface-2/60",
+              marcado ? "bg-lime text-on-lime font-medium" : "hover:bg-surface-2/60",
             );
             return (
               <div key={s.id} className="flex flex-col">
+                {indice > 0 && <span aria-hidden className="a4p-menu-linha mb-1" />}
                 {s.items.length === 0 && href ? (
                   <Link href={href} title={s.label} aria-current={marcado ? "page" : undefined} className={classe}>{conteudo}</Link>
                 ) : (

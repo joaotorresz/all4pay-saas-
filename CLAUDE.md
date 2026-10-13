@@ -127,6 +127,40 @@ junto. Provada em `begin … rollback`: recusa com dado, apaga tudo vazia,
 reaplica sem erro, tira só o job da OWN do cron. As menções históricas a
 `own_*` nas seções abaixo ficam como registro.
 
+## ⚠️ TEMA ERP (13/10/2026) — vence TODA seção de identidade abaixo
+
+O dono fechou o design system no canvas **"Quattro ERP · Protótipo"** (quadro
+Tema, tokens `--erp-*`) e mandou para o sistema no ar **com os valores como
+estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
+
+| Papel | Valor |
+| --- | --- |
+| Fundo de página / área / moldura | `#FFFFFF` (`--color-surface-1/2`, `--a4p-chrome`, `--a4p-app-bg`) |
+| Cartão e menu | `#F6F6F6` (`--color-white`, `--erp-menu-fundo`) |
+| Borda | `#E2E2E2` · espessura **0** no card · linha do menu `#F4F4F4` |
+| Texto · texto 2 | `#3B4332` · `#6B7060` (inalterados) |
+| Primária / item ativo do menu / gráfico | lime `#ECFD52` |
+| Sucesso · alerta · perigo | `#35C759` · `#F2A519` · `#E5484D` |
+| Sombra | nenhuma · raio do card **20px** |
+| Botão | 42px de altura, padding 36px, mínimo 104px, pílula |
+| Título de tela | Centra No2 **500**, CAIXA ALTA, 30px, espaçamento **0** |
+| Número | Roobert 500, espaçamento 0, cor `#000000` (`--erp-num-cor`) |
+| Número PRINCIPAL da tela (`.a4p-heroi`) | Centra No2 500 |
+| R$ | mesmo corpo e cor do número · centavos a **50%** em `#6B7060` |
+| Logo | uma cor (`--erp-logo-cor` #3B4332), 92px, por máscara (`.a4p-logo-mono`) |
+| Menu | linha fina entre os grupos, 15px entre ícone e texto, a ilustração da marca no Início |
+
+- ⚠️ **O preto puro voltou, e só para o número** (`--erp-num-cor`,
+  `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
+  aceita `#000000` apenas nessas duas linhas de declaração. Sobre fundo escuro
+  ou lime o número herda a cor da superfície.
+- **Ícones DUOTÔNICOS** (`src/components/ui/icones-quattro.ts`), desenhados a
+  partir da ilustração da marca: volume em `currentColor` a 16% + contorno 1,7
+  + UM acento lime com fio do contorno. Controles (setas, X, mais, chevron)
+  ficam só no traço. O `Icon` usa este conjunto primeiro e o Hugeicons só de
+  reserva; as chaves não mudaram.
+- O dark mode ficou como estava (o canvas não desenhou o tema escuro).
+
 ## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo
 
 Fonte: o guia "Design system Quattro" do dono (kit no Canva

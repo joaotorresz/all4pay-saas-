@@ -204,11 +204,11 @@
      é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
      frame #2C251E (o Black quente rebaixado) e área #F1F3F6. O card fica
      branco puro para separar da área por CONTRASTE, agora que não há borda. */
-  --color-white: #ffffff; /* superfície de card */
-  --color-surface-1: #f3f1ee; /* área de trabalho (dentro do cartão do app) */
-  --color-surface-2: #f3f1ee; /* chips / seções / hover */
+  --color-white: #f6f6f6; /* superfície de card */
+  --color-surface-1: #ffffff; /* área de trabalho (dentro do cartão do app) */
+  --color-surface-2: #ffffff; /* chips / seções / hover */
   --color-surface-3: #d6d8ca; /* Cinza médio — desabilitado / teclado / sheet */
-  --color-border: #d6d8ca; /* Cinza médio — borda de card e divisória */
+  --color-border: #e2e2e2; /* Cinza médio — borda de card e divisória */
   /* Areia — borda de campo e separador em fundo claro. */
   --color-areia: #b5b594;
   /* ⚠️ O DIVISOR É CINZA, NÃO BEGE. Era Beige (#EEEDDB), e as superfícies de
@@ -221,7 +221,7 @@
   /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
-  --a4p-hairline: #d6d8ca;
+  --a4p-hairline: #e2e2e2;
 
   /* ============================================================
      MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
@@ -234,14 +234,14 @@
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
      ============================================================ */
-  --a4p-chrome: #3b4332;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
+  --a4p-chrome: #ffffff;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
   --a4p-chrome-ink: #f3f1ee;    /* Cinza claro sobre a moldura */
   --a4p-chrome-mut: #b5b594;    /* Areia — secundário sobre a moldura */
   --a4p-chrome-field: #2b3125;  /* busca e botões de ícone sobre a moldura */
   --a4p-chrome-field-hover: #6b7060;
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #f3f1ee;
+  --a4p-app-bg: #ffffff;
   --a4p-app-radius: 28px;
 
   --color-text-secondary: #6b7060; /* Texto secundário */
@@ -264,7 +264,7 @@
   /* Hover do primário: escurece levemente, sem sair do matiz. */
   --color-lime-hover: color-mix(in srgb, #ecfd52 88%, #3b4332);
   --color-on-lime: #3b4332;
-  --color-chart-line: #3b4332;
+  --color-chart-line: #ecfd52;
   /* Borda do botão secundário (guia: rgba(59,67,50,0.28)). */
   --a4p-borda-controle: rgba(59, 67, 50, 0.28);
 
@@ -290,9 +290,9 @@
      estavam — decisão anterior, tomada com o contraste medido, registrada
      abaixo no bloco `.ds-visor` — e são as ÚNICAS exceções sancionadas.
      A guarda `npm run paleta` conhece as três e reprova qualquer outra. */
-  --color-warning: #f45900;
-  --color-positive: #2cd662;
-  --color-negative: #b3261e; /* Erro — o ÚNICO vermelho da marca */
+  --color-warning: #f2a519;
+  --color-positive: #35c759;
+  --color-negative: #e5484d; /* Erro — o ÚNICO vermelho da marca */
   /* O verde-lima de estado positivo citado no guia. É cor de MARCA, então
      entra como marca/preenchimento pontual (ponto, barra, realce) — nunca
      como texto: 1,69:1 sobre o branco quente. */
@@ -316,7 +316,7 @@
   --a4p-cat-8: var(--color-ink);
 
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 26px;
+  --radius-card: 20px;
   --radius-md: 14px; /* campo de formulário */
   --radius-modal: 24px;
   --radius-bloco: 32px;
@@ -334,7 +334,7 @@
   --glass-blur: 20px;
   /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
   /* A única sombra do guia Quattro: longa e quase invisível. */
-  --shadow-card: 0 10px 40px -24px rgba(43, 49, 37, 0.35);
+  --shadow-card: none;
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
     0 24px 64px -16px rgba(43, 49, 37, 0.24);
@@ -576,9 +576,9 @@ h1, h2, h3,
    ============================================================ */
 .ds-visor {
   /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #f3f1ee;          /* bg/base — área de trabalho */
-  --a4p-box-bg: #ffffff;      /* cards SÓLIDOS */
-  --a4p-box-radius: 26px;     /* card Quattro: 26px */
+  --a4p-bg: #ffffff;          /* bg/base — área de trabalho */
+  --a4p-box-bg: #f6f6f6;      /* cards SÓLIDOS */
+  --a4p-box-radius: 20px;     /* card Quattro: 26px */
   --a4p-box-padding: 28px;    /* card Quattro: 28px */
   --a4p-box-border: var(--color-border); /* card com borda 1px Cinza médio */
   /* ========================================================================= */
@@ -594,10 +594,10 @@ html:not(.dark) .ds-visor {
   /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
      escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
-  --color-surface-1: #f3f1ee;      /* área de trabalho */
-  --color-surface-2: #f3f1ee;      /* chips / seções */
+  --color-surface-1: #ffffff;      /* área de trabalho */
+  --color-surface-2: #ffffff;      /* chips / seções */
   --color-surface-3: #d6d8ca;      /* Cinza médio */
-  --color-white: #ffffff;          /* superfície de card */
+  --color-white: #f6f6f6;          /* superfície de card */
   --color-ink: #3b4332;            /* Verde-base — NUNCA preto */
   --color-ink-soft: #2b3125;
   --color-text-secondary: #6b7060;
@@ -607,7 +607,7 @@ html:not(.dark) .ds-visor {
      Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
      (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12. */
   --color-text-quaternary: #a9ad9e;/* Placeholder */
-  --color-border: #d6d8ca;         /* Cinza médio */
+  --color-border: #e2e2e2;         /* Cinza médio */
   /* Espelha o `:root`: divisor e grade de gráfico em CINZA, derivado da borda.
      Ver o porquê na declaração de cima — divergir aqui repintaria o app com
      um valor que ninguém escolheu, que é o defeito das semânticas neon. */
@@ -616,7 +616,7 @@ html:not(.dark) .ds-visor {
   --color-lime: #ecfd52;
   --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
   --color-on-lime: #3b4332;
-  --color-chart-line: #3b4332;
+  --color-chart-line: #ecfd52;
   /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
      Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
      neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
@@ -642,9 +642,9 @@ html:not(.dark) .ds-visor {
      lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
      claro. Se um dia isto voltar à família dessaturada, o valor anterior era
      positive #367b4e · negative #be463c. */
-  --color-positive: #2cd662;
-  --color-warning: #a45c15;
-  --color-negative: #b3261e;
+  --color-positive: #35c759;
+  --color-warning: #f2a519;
+  --color-negative: #e5484d;
 }
 /* ============================================================
    TRÊS FAMÍLIAS, TRÊS PAPÉIS — e nenhum deles se sobrepõe.
@@ -1531,4 +1531,89 @@ html.dark .a4p-canvas {
 .ds-visor .a4p-home .a4p-heroi .a4p-num > span:first-child {
   font-family: var(--font-sans);
   font-weight: 500;
+}
+
+/* ============================================================
+   TEMA ERP — o design system do canvas "Quattro ERP · Protótipo"
+   (quadro Tema, 13/10/2026), aplicado ao sistema no ar.
+
+   ⚠️ Vence TODA seção de identidade acima onde discordar. Os valores de
+   cor moram nos tokens do `:root` e do `.ds-visor` (trocados na origem,
+   para o espelho da guarda continuar batendo); aqui ficam os PAPÉIS que o
+   canvas decidiu: card sem borda e sem sombra, título em Centra 500, número
+   em Roobert 500 com o número PRINCIPAL da tela em Centra, R$ do mesmo corpo
+   e cor do número, centavos à metade em cinza, menu com linha entre itens.
+   ============================================================ */
+:root {
+  --erp-num-cor: #000000;      /* cor do número (decisão do dono no canvas) */
+  --erp-moeda-cor: #000000;    /* R$ na mesma cor do número */
+  --erp-centavos-cor: #6b7060; /* só os centavos diferem */
+  --erp-menu-fundo: #f6f6f6;
+  --erp-menu-borda: #f4f4f4;
+  --erp-menu-ativo: #ecfd52;
+  --erp-logo-cor: #3b4332;
+}
+/* Card: sem borda, sem sombra, raio 20. */
+.ds-visor [data-card="1"],
+.ds-visor [data-card="1"]:hover {
+  border-width: 0;
+  box-shadow: none;
+}
+.ds-visor [data-card="1"] { border-radius: var(--a4p-box-radius); }
+/* Títulos: Centra No2 500, caixa alta, espaçamento 0. */
+.ds-visor h1,
+.ds-visor .text-h1,
+.ds-visor .text-display {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* Números: Roobert 500, espaçamento 0, na cor do número. */
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .text-value-lg {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
+/* Sobre fundo escuro ou lime o número segue a cor do texto da superfície. */
+html:not(.dark) .ds-visor :is(.bg-ink, .bg-lime, .text-white, .text-on-lime, [style*="background: var(--color-ink)"], [style*="background:var(--color-ink)"]) .a4p-num {
+  color: inherit;
+}
+/* Centavos: metade do corpo, cinza. Nos cards escuros, esmaecidos. */
+.ds-visor .a4p-num [data-cents] {
+  font-size: 0.5em !important;
+  color: var(--erp-centavos-cor);
+}
+html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--color-ink)"], [style*="background:var(--color-ink)"]) .a4p-num [data-cents] {
+  color: inherit;
+  opacity: 0.75;
+}
+/* O NÚMERO PRINCIPAL da tela (o herói): Centra No2 500, sem caixa alta. */
+.ds-visor .a4p-heroi,
+.ds-visor .a4p-heroi .a4p-num,
+.ds-visor .a4p-heroi .a4p-num *,
+.ds-visor .a4p-home .a4p-heroi,
+.ds-visor .a4p-home .a4p-heroi .a4p-num,
+.ds-visor .a4p-home .a4p-heroi .a4p-num * {
+  font-family: var(--font-display) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none;
+}
+/* Menu lateral: fundo e linha do canvas. */
+.a4p-sidebar { background: var(--erp-menu-fundo); }
+.a4p-menu-linha {
+  display: block;
+  height: 1px;
+  margin: 0 12px;
+  background: var(--erp-menu-borda);
+}
+/* Logo em uma cor (o arquivo vira máscara, a cor sai do token). */
+.a4p-logo-mono {
+  display: inline-block;
+  background: var(--erp-logo-cor);
+  -webkit-mask: url(/quattro-logo.webp) left center / contain no-repeat;
+  mask: url(/quattro-logo.webp) left center / contain no-repeat;
 }

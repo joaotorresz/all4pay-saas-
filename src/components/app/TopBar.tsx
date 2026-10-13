@@ -21,7 +21,6 @@
  * O resto das ações globais (tema, perfil, sair) segue dentro do ⋮.
  */
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
@@ -94,7 +93,8 @@ export function TopBar() {
       <Link href="/" aria-label="Início" data-topbar="marca" className="flex items-center gap-3 shrink-0">
         {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
             versão escura sumiria no claro — o inverso do que fazia antes. */}
-        <Image src="/quattro-logo.webp" alt="Quattro" width={120} height={33} className="h-[24px] w-auto" priority />
+        {/* Logo em UMA cor (canvas): o arquivo vira máscara, a cor é o token. */}
+        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[92px] h-[25px]" />
         {isDemo && (
           <span className="hidden sm:block text-[11px] leading-none" style={{ color: "var(--color-text-secondary)" }}>
             Demonstração
