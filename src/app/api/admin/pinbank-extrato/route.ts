@@ -9,6 +9,13 @@ import type { MeioCapturaExtratoPos, StatusExtratoPos } from "@/core/pinbank/ext
  *
  *   GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=AAAA-MM-DD&ate=AAAA-MM-DD
  *       [&status=Todos|Pago|Pendente] [&meio=Todos|Ecommerce|Terminal] [&terminal=…]
+ *       [&ambiente=dev|producao] [&canal=<CodigoCanal>]
+ *
+ * `ambiente` e `canal` valem SÓ para esta chamada (o padrão segue as variáveis
+ * da Vercel): testar a mesma credencial em dev e em produção era trocar
+ * variável e refazer o deploy a cada rodada, e um deploy esquecido fazia o
+ * teste rodar no ambiente errado sem aviso. A resposta diz QUAL credencial
+ * respondeu (`identificacao`: ambiente, canal e o fim da API Key).
  *
  * Roda DENTRO da função da Vercel, com a credencial de `PINBANK_API_*` e pelos 2
  * IPs fixos. É a prova que a Pinbank pediu antes de liberar o método em
@@ -50,8 +57,11 @@ export async function GET(req: Request) {
   const { error: negado } = await doChamador.rpc("admin_exigir_acesso", { p_funcao: "admin_pinbank_extrato", p_alvo: cliente || null });
   if (negado) return resposta(403, { ok: false, motivo: negado.message });
 
+  const canal = (q.get("canal") ?? "").trim();
   const filtro = {
     codigoCliente: /^\d{1,10}$/.test(cliente) ? Number(cliente) : NaN,
+    // Canal no link: só dígitos; qualquer outra coisa vira inválido e o pedido é recusado antes da rede.
+    ...(canal ? { codigoCanal: /^\d{1,10}$/.test(canal) ? Number(canal) : NaN } : {}),
     de: (q.get("de") ?? "").trim(),
     ate: (q.get("ate") ?? q.get("de") ?? "").trim(),
     status: ((q.get("status") ?? "Todos").trim() || "Todos") as StatusExtratoPos,
@@ -61,7 +71,7 @@ export async function GET(req: Request) {
 
   const inicio = Date.now();
   try {
-    const r = await consultarExtratoPos(filtro);
+    const r = await consultarExtratoPos(filtro, { ambiente: q.get("ambiente") });
     // "ok" pede a LISTA: zero parcelas sem a lista é recusa ou envelope que não
     // abrimos, não "sem vendas". O ResultCode vai à tela como veio — a doc não
     // diz qual valor é sucesso, e julgar por ele seria adivinhar.
@@ -71,6 +81,7 @@ export async function GET(req: Request) {
       ok,
       ...(r.resposta.listaRecebida ? {} : { motivo: `A resposta não trouxe a lista de parcelas (formato ${r.formato}; campos: ${r.campos.join(", ") || "nenhum"}).` }),
       ambiente: r.ambiente,
+      identificacao: r.identificacao,
       via: r.via,
       ms: Date.now() - inicio,
       etapas: r.etapas,
@@ -91,6 +102,10 @@ export async function GET(req: Request) {
     const d = descreverErroApi(e);
     // O log leva a etapa e o motivo (sem segredo: os erros do cliente nunca o citam).
     console.error(`[falha·pinbank] extrato_pos ${d.etapa}: ${d.motivo}`);
-    return resposta(200, { ok: false, etapa: d.etapa, motivo: d.motivo, statusPinbank: d.status ?? null, ms: Date.now() - inicio });
+    return resposta(200, {
+      ok: false, etapa: d.etapa, motivo: d.motivo, statusPinbank: d.status ?? null,
+      ...(d.identificacao ? { identificacao: d.identificacao } : {}),
+      ms: Date.now() - inicio,
+    });
   }
 }

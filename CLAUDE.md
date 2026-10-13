@@ -209,7 +209,11 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
   é a próxima fase: o CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
   + `cifra.ts`: token OAuth2, AES-128-CBC com IV zero, pela saída fixa) e é
-  testado por `GET /api/admin/pinbank-extrato`; falta a credencial de dev.
+  testado por `GET /api/admin/pinbank-extrato` (`&ambiente=dev|producao` e
+  `&canal=` no LINK, sem trocar variável nem refazer deploy; a resposta diz
+  QUAL credencial respondeu — `identificacao`). ⚠️ São DUAS credenciais
+  (BaaS, canal 1919, sem ExtratoPos × "ERP Integration Produção", canal 47,
+  com ExtratoPos), com senhas diferentes — ver `docs/rodada-10/pinbank.md`.
   ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a
   credencial emitida também paga, transfere e faz Pix. ⚠️ A linha do extrato é
   lida por LISTA DE PERMITIDOS — CPF/CNPJ, comprador e cartão nunca passam.

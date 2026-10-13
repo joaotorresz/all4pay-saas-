@@ -129,19 +129,32 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     `-03:00`), o pedido e a leitura da resposta por LISTA DE PERMITIDOS — CPF/
     CNPJ, comprador, cartão, sub-loja e agente nunca passam, nem um campo novo.
   - Teste: `GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=…&ate=…`
-    (só o administrador da plataforma, mesmo portão da prova da saída fixa).
+    `[&ambiente=dev|producao] [&canal=…]` (só o administrador da plataforma,
+    mesmo portão da prova da saída fixa). `ambiente` e `canal` valem só para a
+    chamada — testar a mesma credencial nos dois ambientes era trocar variável
+    e refazer o deploy a cada rodada, e um deploy esquecido fez o teste de
+    13/10 rodar em produção achando que era dev. A resposta traz
+    `identificacao` (ambiente, canal e os 4 últimos da API Key), para se saber
+    QUAL credencial respondeu.
     Variáveis em `.env.example` (`PINBANK_API_*`, `PINBANK_CODIGO_CANAL`).
   - Guardas: `npm run pinbank-api` (comportamento contra uma Pinbank local:
-    34 casos, 21 defeitos plantados — prazo e chave do cache do token, eco da
+    41 casos, 29 defeitos plantados — prazo e chave do cache do token, eco da
     senha cruzando o corte, extrato maior que o teto, chave de tamanho errado
     chegando à rota) e o bloco `extrato-pos:` do `engine-audit` (só CAMINHOS
     exatos de leitura — o valor do mapa, não o nome —, nenhum `…Encrypted` nem
     `requisicaoPinbank` fora do cliente, e a rota só diz `ok` com a lista de
     parcelas recebida: zero parcelas sem a lista é recusa, não "sem vendas").
-  - **08/10/2026:** o ExtratoPos entrou na credencial de PRODUÇÃO ("All4Pay /
-    ERP Integration Produção", mesma senha da anterior — decisão do dono:
-    seguir com ela e pedir a troca depois do teste). O teste vai direto em
-    produção (`PINBANK_API_AMBIENTE=producao`), só consulta.
+  - **08/10/2026:** o ExtratoPos entrou na credencial "All4Pay / ERP
+    Integration Produção" às 14:23 — o mesmo minuto do "Teste liberado em dev"
+    da Pinbank. ⚠️ **"Mesma senha da anterior" estava ERRADO** (medido em
+    13/10, comparando os e-mails sem exibir valores): são DUAS credenciais, com
+    API Key e senha diferentes — "ALL4 PAY - BaaS" (Canal 1919, com os 2 IPs,
+    SEM ExtratoPos) e "ERP Integration Produção" (Canal 47, sem IPs listados,
+    COM ExtratoPos; a senha só apareceu em 13/10). Os testes de 08 a 13/10
+    rodaram com o par da BaaS: o token de produção deu 200 e o dev recusou —
+    nada disso disse coisa alguma sobre a credencial que tem o ExtratoPos.
+    Se ela é de dev, de produção ou das duas, decide o teste com os dois
+    links (`ambiente=dev` e `ambiente=producao`).
   - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
     obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
     `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,
