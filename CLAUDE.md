@@ -171,11 +171,11 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
   `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
   aceita `#000000` apenas nessas duas linhas de declaração. Sobre fundo escuro
   ou lime o número herda a cor da superfície.
-- **Ícones DUOTÔNICOS** (`src/components/ui/icones-quattro.ts`), desenhados a
-  partir da ilustração da marca: volume em `currentColor` a 16% + contorno 1,7
-  + UM acento lime com fio do contorno. Controles (setas, X, mais, chevron)
-  ficam só no traço. O `Icon` usa este conjunto primeiro e o Hugeicons só de
-  reserva; as chaves não mudaram.
+- **Ícones: o sistema VOLTOU ao Hugeicons** (decisão do dono, 13/10/2026). O
+  conjunto duotônico (`icones-quattro.ts`) saiu do código; o `Icon` usa de novo
+  `CUSTOM_ICONS` + o set gerado em `solar-icons.ts`, com as mesmas chaves. A
+  prancheta "Ícones (61)" do canvas fica como registro do desenho, não como
+  regra.
 - O dark mode ficou como estava (o canvas não desenhou o tema escuro).
 
 ## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo

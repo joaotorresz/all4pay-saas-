@@ -18,7 +18,7 @@ lê daqui.
 | `Main.dc.html` | o quadro **Tema**: cores, menu, logo, botões, formas, tipografia, números |
 | `Shell.dc.html` | a **moldura**: menu lateral com linhas entre os itens, barra de cima, título da tela e ações; a versão de celular com a barra de abas embaixo |
 | `Valor.dc.html` | o **valor em R$**: número principal × número comum, moeda colada, centavos a 50% |
-| `Icones.dc.html` | os **61 ícones duotônicos** (volume + contorno 1,7 + acento lime; controles só no traço) |
+| `Icones.dc.html` | os 61 ícones duotônicos — **registro apenas**: desde 13/10/2026 o sistema voltou ao Hugeicons (`Icon` + `solar-icons.ts`) |
 | `HomeReal.dc.html` | a **Página inicial** como está no ar, elemento por elemento, para edição à mão |
 | `Login`, `Dashboard`, `Financeiro`, `Estoque`, `Vendas`, `Compras`, `Fiscal`, `Cadastros`, `Relatorios`, `Configuracoes` (`.dc.html`) | as telas do protótipo em desktop |
 | `*Mobile.dc.html` | as mesmas telas a 390px |
@@ -50,7 +50,7 @@ lê daqui.
    aqui e copie a estrutura dela (moldura, ordem dos cards, cabeçalho de
    tabela, etiquetas de situação, valor em R$).
 2. **Tela sem prancheta equivalente** é montada com as MESMAS peças: os tokens
-   do Tema, a Moldura, o Valor R$ e os Ícones. Nada de cor, raio, sombra ou
+   do Tema, a Moldura, o Valor R$ e os ícones do sistema (Hugeicons, via `Icon`). Nada de cor, raio, sombra ou
    fonte fora de `tokens.json`.
 3. **Mudança visual nasce no canvas**, não no código: o dono ajusta lá, e a
    mudança é levada ao código E a esta pasta no mesmo PR. Uma pasta que
