@@ -139,6 +139,40 @@ export interface OpcoesApi {
   agora?: () => number;
   /** Teto da resposta do MÉTODO. Padrão 32 MB (um mês de extrato de muitas maquininhas). */
   maxBytesResposta?: number;
+  /**
+   * Só a rota de teste: troca a BASE (`dev` | `producao`) mantendo a credencial.
+   * Sem isso, testar a mesma credencial nos dois ambientes era trocar uma
+   * variável e refazer o deploy a cada rodada — e um deploy esquecido fazia o
+   * teste rodar no ambiente errado sem nada dizer. Fora da lista, é recusado
+   * (`credencialNoAmbiente`): nunca uma URL livre.
+   */
+  ambiente?: string | null;
+}
+
+/**
+ * O que a tela pode mostrar para dizer QUAL credencial respondeu: o ambiente, o
+ * canal e os 4 últimos caracteres da API Key (o `UserName` é identificador, não
+ * segredo — a senha nunca entra aqui). Medido: sem isso, duas credenciais da
+ * mesma empresa davam respostas iguais e ninguém sabia qual estava na Vercel.
+ */
+export interface IdentificacaoPinbank {
+  ambiente: AmbienteApi;
+  canal: number;
+  usuarioFinal: string;
+}
+
+/** A mesma credencial em outro ambiente — só `dev` ou `producao`, pela base FIXA da porta. */
+export function credencialNoAmbiente(cred: CredencialPinbank, ambiente?: string | null): CredencialPinbank {
+  const a = (ambiente ?? "").trim();
+  if (!a) return cred;
+  if (a !== "dev" && a !== "producao") {
+    throw new ErroApiPinbank("configuracao", "O ambiente do teste deve ser dev ou producao.");
+  }
+  return { ...cred, ambiente: a, base: BASES_API_PINBANK[a] };
+}
+
+function identificar(cred: CredencialPinbank, canal: number): IdentificacaoPinbank {
+  return { ambiente: cred.ambiente, canal, usuarioFinal: `…${cred.usuario.slice(-4)}` };
 }
 
 /* ─────────────────────────────── o token ─────────────────────────────── */
@@ -342,6 +376,8 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
 
 export interface ExtratoPosConsultado {
   ambiente: AmbienteApi;
+  /** Qual credencial respondeu (ambiente, canal, fim da API Key) — sem segredo. */
+  identificacao: IdentificacaoPinbank;
   /** O pedido saiu sem o RequestOrigin (a credencial ainda não o tem). */
   semRequestOrigin: boolean;
   resposta: RespostaExtratoPos;
@@ -356,14 +392,24 @@ export interface ExtratoPosConsultado {
 export type FiltroExtratoPosSemCanal = Omit<FiltroExtratoPos, "codigoCanal"> & { codigoCanal?: number };
 
 export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: OpcoesApi = {}): Promise<ExtratoPosConsultado> {
-  const cred = o.credencial ?? lerCredencialPinbank();
+  const cred = credencialNoAmbiente(o.credencial ?? lerCredencialPinbank(), o.ambiente);
   const f: FiltroExtratoPos = { ...filtro, codigoCanal: filtro.codigoCanal ?? cred.canal };
-  const problemas = problemasDoFiltroExtratoPos(f);
-  if (problemas.length) throw new ErroApiPinbank("pedido", problemas.join(" "));
-  const leitura = await chamarLeituraPinbank("ExtratoPos", pedidoExtratoPos(f), { ...o, credencial: cred });
+  const identificacao = identificar(cred, f.codigoCanal);
+  let leitura: LeituraPinbank;
+  try {
+    const problemas = problemasDoFiltroExtratoPos(f);
+    if (problemas.length) throw new ErroApiPinbank("pedido", problemas.join(" "));
+    leitura = await chamarLeituraPinbank("ExtratoPos", pedidoExtratoPos(f), { ...o, credencial: cred });
+  } catch (e) {
+    // A falha também diz QUAL credencial e QUAL ambiente: um erro de token no
+    // dev e um no ambiente errado eram indistinguíveis de fora.
+    if (e && typeof e === "object") Object.assign(e, { identificacao });
+    throw e;
+  }
   const resposta = lerRespostaExtratoPos(leitura.aberto);
   return {
     ambiente: cred.ambiente,
+    identificacao,
     semRequestOrigin: !cred.origem,
     resposta,
     resumo: resumirExtratoPos(resposta.linhas),
@@ -375,11 +421,13 @@ export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: O
 }
 
 /** Para a rota: o erro em palavras, com a fase de rede quando for da saída fixa. */
-export function descreverErroApi(e: unknown): { etapa: string; motivo: string; status?: number } {
-  if (e instanceof ErroApiPinbank) return { etapa: e.etapa, motivo: e.message, status: e.status };
+export function descreverErroApi(e: unknown): { etapa: string; motivo: string; status?: number; identificacao?: IdentificacaoPinbank } {
+  const identificacao = e && typeof e === "object" ? (e as { identificacao?: IdentificacaoPinbank }).identificacao : undefined;
+  const ident = identificacao ? { identificacao } : {};
+  if (e instanceof ErroApiPinbank) return { etapa: e.etapa, motivo: e.message, status: e.status, ...ident };
   if (e instanceof ErroSaida) {
     // A mensagem da porta traz só "IP:porta" e o motivo — nunca a credencial.
-    return { etapa: `saida_${e.fase}`, motivo: e.message };
+    return { etapa: `saida_${e.fase}`, motivo: e.message, ...ident };
   }
   return { etapa: "desconhecida", motivo: "Falha inesperada ao falar com a Pinbank." };
 }

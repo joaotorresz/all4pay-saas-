@@ -294,6 +294,11 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
     srv.cabecalhos.every((h) => !JSON.stringify(h).includes(CHAVE) && !JSON.stringify(h).includes(Buffer.from(CHAVE).toString("base64")))
     && srv.corposMetodo.every((c) => !c.includes(CHAVE)), "");
 
+  caso("(y1) a resposta diz QUAL credencial respondeu: ambiente, canal e só o FIM da API Key (nunca ela inteira)",
+    res.identificacao?.ambiente === "dev" && res.identificacao?.canal === CANAL && res.identificacao?.usuarioFinal === `…${USUARIO.slice(-4)}`
+    && !JSON.stringify(res.identificacao).includes(USUARIO) && !JSON.stringify(res.identificacao).includes(CHAVE),
+    JSON.stringify(res.identificacao));
+
   /* (d) o token é reaproveitado */
   res = await m.api.consultarExtratoPos(filtro, o);
   saidas.push(JSON.stringify(res));
@@ -433,6 +438,35 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(x2) sem RequestOrigin e a Pinbank não exigindo: a consulta passa, e o cabeçalho NÃO vai (nem vazio)",
     !e && !("requestorigin" in cabSem) && srv.hitsMetodo === 1, `${e?.message} cab=${JSON.stringify(cabSem)}`);
 
+  /* (y) o ambiente e o canal do LINK: a mesma credencial em outra base, nunca uma URL livre */
+  const emProd = m.api.credencialNoAmbiente(cred, "producao");
+  let eAmb: Error | null = null;
+  try { m.api.credencialNoAmbiente(cred, "https://evil.example"); } catch (x) { eAmb = x as Error; saidas.push(eAmb.message); }
+  caso("(y2) o ambiente do link troca SÓ a base, pela tabela fixa; vazio mantém a credencial; o que não é dev/producao é recusado",
+    emProd.base === "https://pinbank.com.br/services" && emProd.ambiente === "producao" && emProd.usuario === cred.usuario
+    && emProd.chave === cred.chave && emProd.canal === cred.canal && emProd.origem === cred.origem
+    && m.api.credencialNoAmbiente(cred, null) === cred && m.api.credencialNoAmbiente(cred, "  ") === cred
+    && !!eAmb && (eAmb as Error & { etapa?: string }).etapa === "configuracao" && !eAmb.message.includes("evil"),
+    eAmb?.message ?? JSON.stringify({ base: emProd.base, ambiente: emProd.ambiente }));
+  resetSrv();
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, ambiente: "producao" }));
+  const idErr = e ? m.api.descreverErroApi(e).identificacao : undefined;
+  caso("(y3) com ambiente=producao no link a chamada vai à base de PRODUÇÃO (não à da credencial), e a falha diz qual credencial e qual ambiente",
+    !!e && srv.hitsToken === 0 && srv.hitsMetodo === 0 && idErr?.ambiente === "producao" && idErr?.usuarioFinal === `…${USUARIO.slice(-4)}`,
+    `${e?.message} ${JSON.stringify(idErr)} token=${srv.hitsToken}`);
+  resetSrv();
+  m.api.esquecerTokensPinbank();
+  // Protegido: uma planta anterior (o mapa de métodos mutável) deixa esta chamada lançar.
+  let resY: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    resY = await m.api.consultarExtratoPos({ ...filtro, codigoCanal: 47 }, o);
+    saidas.push(JSON.stringify(resY));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  caso("(y4) o canal do link vai no pedido que a Pinbank abre E na identificação",
+    !!resY && srv.ultimoPedido?.CodigoCanal === 47 && resY.identificacao.canal === 47, JSON.stringify({ ped: srv.ultimoPedido?.CodigoCanal, id: resY?.identificacao }));
+
   /* (o) sem a saída fixa, não sai */
   resetSrv();
   e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, proxies: [] }));
@@ -534,6 +568,21 @@ const PLANTAS: Planta[] = [
   { nome: "o ambiente vira URL livre", arquivo: "api",
     caso: "(l3) ambiente que não é dev/producao (ex.: uma URL) é recusado; canal não numérico também",
     de: 'if (ambiente !== "dev" && ambiente !== "producao") {', para: "if (false) {" },
+  { nome: "o ambiente do link vira URL livre", arquivo: "api",
+    caso: "(y2) o ambiente do link troca SÓ a base, pela tabela fixa; vazio mantém a credencial; o que não é dev/producao é recusado",
+    de: 'if (a !== "dev" && a !== "producao") {', para: "if (false) {" },
+  { nome: "o ambiente do link é ignorado (o teste roda onde a Vercel manda)", arquivo: "api",
+    caso: "(y3) com ambiente=producao no link a chamada vai à base de PRODUÇÃO (não à da credencial), e a falha diz qual credencial e qual ambiente",
+    de: "const cred = credencialNoAmbiente(o.credencial ?? lerCredencialPinbank(), o.ambiente);", para: "const cred = o.credencial ?? lerCredencialPinbank();" },
+  { nome: "a falha não diz qual credencial respondeu", arquivo: "api",
+    caso: "(y3) com ambiente=producao no link a chamada vai à base de PRODUÇÃO (não à da credencial), e a falha diz qual credencial e qual ambiente",
+    de: "if (e && typeof e === \"object\") Object.assign(e, { identificacao });", para: "" },
+  { nome: "a identificação mostra a API Key inteira", arquivo: "api",
+    caso: "(y1) a resposta diz QUAL credencial respondeu: ambiente, canal e só o FIM da API Key (nunca ela inteira)",
+    de: "usuarioFinal: `…${cred.usuario.slice(-4)}`", para: "usuarioFinal: cred.usuario" },
+  { nome: "a identificação mostra o canal da credencial, não o do pedido", arquivo: "api",
+    caso: "(y4) o canal do link vai no pedido que a Pinbank abre E na identificação",
+    de: "const identificacao = identificar(cred, f.codigoCanal);", para: "const identificacao = identificar(cred, cred.canal);" },
   { nome: "IV aleatório (a Pinbank não abriria)", arquivo: "cifra",
     caso: "(c1) a cifra bate com os vetores do openssl (AES-128-CBC, IV zero, PKCS#7, base64) e volta",
     de: "const IV_ZERO = Buffer.alloc(16, 0);", para: "const IV_ZERO = Buffer.from(Array.from({ length: 16 }, (_, i) => i));" },
