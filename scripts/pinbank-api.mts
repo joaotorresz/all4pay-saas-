@@ -6,10 +6,10 @@
  * o mesmo caminho da produção (a porta `requisicaoPinbank`), sem rede e sem a
  * credencial de verdade. A "Pinbank" daqui abre o pedido com uma implementação
  * PRÓPRIA da cifra (node:crypto direto), confere os cabeçalhos e o `Data`, e
- * responde cifrado nos formatos que a doc permite ler. Como os clientes
- * públicos da Pinbank mandam (e o "Erro de Sistema." de 13/10 indica), ela só
- * aceita a cifra do pedido INTEIRO, `{"Data":{…}}`: cifrado só o conteúdo do
- * `Data`, responde aberto "Erro de Sistema.".
+ * responde cifrado nos formatos que a doc permite ler. Como a Pinbank real
+ * (provado pelo A/B no dev em 13/10), ela só aceita a cifra do pedido INTEIRO,
+ * `{"Data":{…}}`: cifrado só o conteúdo do `Data`, responde aberto "Erro de
+ * Sistema.".
  *
  * A cifra também é conferida contra vetores do `openssl enc` (literais, gerados
  * fora deste código): duas implementações independentes, para a guarda não
