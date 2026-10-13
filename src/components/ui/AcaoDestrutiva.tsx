@@ -84,6 +84,7 @@ export function AcaoDestrutiva({
   descricao,
   confirmarRotulo = "Confirmar",
   onConfirmar,
+  desfaz = true,
   className,
 }: {
   /** O texto do botão que dispara. */
@@ -98,6 +99,12 @@ export function AcaoDestrutiva({
    * isso na confirmação — o usuário merece saber antes, não depois.
    */
   onConfirmar: () => Promise<(() => void | Promise<void>) | void> | ((() => void) | void);
+  /**
+   * A ação tem desfazer? ⚠️ Sem ele (`false`), a confirmação diz que a ação
+   * NÃO volta — prometer "8 segundos para desfazer" numa ação irreversível é
+   * o controle que promete e não faz.
+   */
+  desfaz?: boolean;
   className?: string;
 }) {
   const [aberto, setAberto] = React.useState(false);
@@ -151,7 +158,9 @@ export function AcaoDestrutiva({
             </div>
             <p className="m-0 text-label text-muted leading-[1.5]">{descricao}</p>
             <p className="m-0 text-caption text-faint">
-              Você terá {SEGUNDOS_PARA_DESFAZER} segundos para desfazer depois de confirmar.
+              {desfaz
+                ? `Você terá ${SEGUNDOS_PARA_DESFAZER} segundos para desfazer depois de confirmar.`
+                : "Esta ação não pode ser desfeita."}
             </p>
             <div className="flex items-center justify-end gap-2 pt-1">
               <Button ref={primeiroFoco} variant="secondary" onClick={() => setAberto(false)}>Cancelar</Button>

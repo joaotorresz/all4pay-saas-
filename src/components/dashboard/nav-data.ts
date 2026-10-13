@@ -80,13 +80,14 @@ export type Section = {
  * ONDE cada uma mora. Uma tela sem porta nenhuma é uma tela que só existe para
  * quem já sabe o endereço; uma tela com porta global e mais uma linha de menu é
  * a duplicata que produziu seis entradas para a mesma IA. A guarda de
- * navegação aceita estas quatro e só estas, e cobra a porta declarada.
+ * navegação aceita estas e só estas, e cobra a porta declarada.
  */
 export const ACOES_GLOBAIS: { rota: string; onde: string }[] = [
   { rota: "/quattro-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
   { rota: "/dashboard/help", onde: "menu ⋮ da barra superior" },
   { rota: "/comece", onde: "aba Primeiros passos na Central de ajuda + menu ⋮ da barra superior" },
   { rota: "/configuracoes", onde: "menu ⋮ da barra superior (Meu perfil)" },
+  { rota: "/configuracoes/seguranca", onde: "menu ⋮ da barra superior (Segurança da conta) + aviso da tela de Segurança da plataforma" },
 ];
 
 /* ----------------------------- EMPRESA (PJ) -----------------------------

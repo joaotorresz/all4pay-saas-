@@ -9,7 +9,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo } from "@/components/ui";
+import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
@@ -671,9 +671,9 @@ function Campo({ label, v }: { label: string; v: string | null | undefined }) {
 function Kpi({ label, v, money, loading, tone = "var(--color-ink)", destaque, info }: { label: string; v?: number; money?: boolean; loading?: boolean; tone?: string; destaque?: boolean; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-1" info={info}>
-      <span className="text-caption text-faint">{label}</span>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">{label}<PontoStatus cor={tone} /></span>
       {loading ? <Skeleton className="h-6 w-16" /> : (
-        <span className={`${destaque ? "text-[24px]" : "text-[20px]"} font-semibold tabular-nums`} style={{ color: tone }}>
+        <span className={`${destaque ? "text-[24px]" : "text-[20px]"} font-semibold tabular-nums text-ink`}>
           {money ? <BRL value={v ?? 0} /> : (v ?? 0).toLocaleString("pt-BR")}
         </span>
       )}

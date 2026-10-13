@@ -7,7 +7,7 @@
  * revenue_contracts/_schedule (live) / localStorage (demo).
  */
 import * as React from "react";
-import { Card, BRL, Button, Icon, Input, Select, CurrencyInput, DatePicker, StatusBadge, InfoHint } from "@/components/ui";
+import { Card, BRL, Button, Icon, Input, Select, CurrencyInput, DatePicker, StatusBadge, InfoHint, PontoStatus } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   listRevRec, criarRevRec, reconhecerParcela, cronogramaLinear, mesesEntre, resumoRevRec,
@@ -195,8 +195,8 @@ export function RevRecSection() {
 function Mini({ label, v, tone = "var(--color-ink)" }: { label: string; v: number; tone?: string }) {
   return (
     <Card className="flex flex-col gap-1">
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}><BRL value={v} /></span>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">{label}<PontoStatus cor={tone} /></span>
+      <span className="text-[18px] font-semibold tabular-nums text-ink"><BRL value={v} /></span>
     </Card>
   );
 }

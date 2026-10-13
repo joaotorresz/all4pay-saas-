@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
+import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo, PontoStatus } from "@/components/ui";
 import { getAccountsList, getRiscoInput, getBankAccounts, setBankAccountSource, linkBankAccount } from "@/lib/data";
 import { treasuryCore } from "@/core/treasury";
 import { useToast } from "@/components/listas/ListChrome";
@@ -199,8 +199,8 @@ function SaldoEscolha({ label, v, oficial, onClick }: { label: string; v: number
 function Kpi({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-1" info={info}>
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}><BRL value={v} /></span>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">{label}<PontoStatus cor={tone} /></span>
+      <span className="text-h3 font-medium tabular-nums leading-none text-ink"><BRL value={v} /></span>
     </Card>
   );
 }

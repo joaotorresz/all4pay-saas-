@@ -62,6 +62,18 @@ export const PUBLICOS: readonly string[] = [URL_CHAVE_PUBLICA];
 /** O eco de IP da AWS: é por ele que se prova POR ONDE a chamada saiu. */
 export const URL_ECO_DE_IP = "https://checkip.amazonaws.com/";
 
+/**
+ * A BASE da API da Pinbank (token + métodos `…Encrypted`), por ambiente. Mora
+ * aqui porque o endereço da Pinbank só mora na porta; quem escolhe o ambiente é
+ * `PINBANK_API_AMBIENTE` (`lib/pinbank/api.ts`), nunca uma URL livre em variável.
+ * ⚠️ A de PRODUÇÃO segue a doc ("Base de produção") — a Pinbank ainda não
+ * confirmou a URL do token em produção; o teste começa em `dev`.
+ */
+export const BASES_API_PINBANK = {
+  dev: "https://dev.pinbank.com.br/services",
+  producao: "https://pinbank.com.br/services",
+} as const;
+
 export const VARIAVEIS_SAIDA = ["PINBANK_SAIDA_1", "PINBANK_SAIDA_2"] as const;
 
 export type ProxySaida = {

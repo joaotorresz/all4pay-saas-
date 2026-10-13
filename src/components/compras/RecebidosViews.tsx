@@ -17,7 +17,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { documentosDasFontes, camposDoFormulario, chaveBoleto } from "@/core/caixa-entrada";
 import { lerEstadoCaixa } from "@/lib/caixa-entrada";
-import { Card, Button, Icon, Input, Select, BRL } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, BRL, PontoStatus } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { baixarXLSX } from "@/lib/xlsx";
 import {
@@ -572,8 +572,10 @@ function Kpi({
         <span className="inline-flex items-center gap-[6px] text-[11px] font-medium tracking-[0.08em] text-faint">
           <Icon name={icone} size={13} color="currentColor" />
           {rotulo}
+          {/* O status vira um PONTO ao lado do rótulo; o número fica na tinta. */}
+          <PontoStatus cor={cor} />
         </span>
-        <span className="text-[22px] leading-none font-semibold tabular-nums" style={{ color: cor ?? "var(--color-ink)" }}>
+        <span className="text-[22px] leading-none font-semibold tabular-nums text-ink">
           {node ?? valor}
         </span>
       </div>

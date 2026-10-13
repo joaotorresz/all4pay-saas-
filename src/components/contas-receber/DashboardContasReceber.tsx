@@ -318,7 +318,7 @@ function Envelhecimento({ painel }: { painel: PainelContasReceber }) {
       ) : (
         <>
           <div className="flex flex-col gap-1">
-            <span className="a4p-num text-[28px] leading-none text-negative">
+            <span className="a4p-num text-[28px] leading-none text-ink">
               <BRL value={total} />
             </span>
             <span className="text-caption text-muted">vencido e não recebido</span>

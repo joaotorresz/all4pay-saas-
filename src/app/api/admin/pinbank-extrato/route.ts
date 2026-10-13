@@ -1,0 +1,126 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { consultarExtratoPos, descreverErroApi } from "@/lib/pinbank/api";
+import type { FormatoDatasExtratoPos, MeioCapturaExtratoPos, StatusExtratoPos } from "@/core/pinbank/extrato-pos";
+
+/**
+ * O TESTE DO EXTRATO CONSOLIDADO DA PINBANK (`ExtratoPos`) — só o administrador
+ * da plataforma.
+ *
+ *   GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=AAAA-MM-DD&ate=AAAA-MM-DD
+ *       [&status=Todos|Pago|Pendente] [&meio=Todos|Ecommerce|Terminal] [&terminal=…]
+ *       [&ambiente=dev|producao] [&canal=<CodigoCanal>]
+ *       [&envelope=completo|interno] [&datas=fuso|utc] [&token=novo] [&terminal=vazio]
+ *
+ * `ambiente` e `canal` valem SÓ para esta chamada (o padrão segue as variáveis
+ * da Vercel): testar a mesma credencial em dev e em produção era trocar
+ * variável e refazer o deploy a cada rodada, e um deploy esquecido fazia o
+ * teste rodar no ambiente errado sem aviso. A resposta diz QUAL credencial
+ * respondeu (`identificacao`: ambiente, canal e o fim da API Key).
+ *
+ * `envelope`, `datas`, `token` e `terminal=vazio` também são do TESTE, para a
+ * Pinbank que recusa sem nomear o campo ("Erro de Sistema."):
+ * `envelope=interno` cifra só o conteúdo do `Data` (o jeito anterior a 13/10,
+ * para a comparação A/B); `datas=utc` escreve o mesmo instante em UTC, como o
+ * exemplo da doc; `token=novo` ignora o token guardado — prova que a senha
+ * atual ainda gera token; `terminal=vazio` manda `IdTerminalPos: ""`, como o
+ * cliente PHP público. A resposta diz como o pedido saiu (`pedido`).
+ *
+ * Roda DENTRO da função da Vercel, com a credencial de `PINBANK_API_*` e pelos 2
+ * IPs fixos. É a prova que a Pinbank pediu antes de liberar o método em
+ * produção: o token sai, o pedido cifrado é aceito, a resposta abre, e as
+ * parcelas trazem a data do repasse e a taxa. NÃO grava nada.
+ *
+ * ⚠️ A resposta nunca traz dado pessoal (CPF/CNPJ, nome do comprador, cartão):
+ * as linhas passam pela leitura por lista de permitidos de `core/pinbank`. E
+ * nunca traz a credencial — os erros nomeiam a variável, não o valor.
+ *
+ * ⚠️ Muda QUEM PODE CHAMAR O QUÊ (uma chamada nova, com credencial, à
+ * Pinbank): o merge espera o OK do dono.
+ *
+ * Portões, na ordem — os mesmos da prova da saída fixa: sem banco
+ * (demonstração) a rota se recusa; o middleware já barra `/api/admin/*` para
+ * quem não é administrador; aqui, sessão → `admin_exigir_acesso` (prazo,
+ * segundo fator, registro) → só então a Pinbank.
+ */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+// Token (até 10 s) + extrato (até 25 s) pela saída fixa.
+export const maxDuration = 60;
+
+const resposta = (status: number, corpo: Record<string, unknown>) =>
+  NextResponse.json(corpo, { status, headers: { "cache-control": "no-store, max-age=0" } });
+
+/** Quantas parcelas aparecem na resposta. O resumo conta todas. */
+const AMOSTRA = 20;
+
+export async function GET(req: Request) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return resposta(404, { ok: false, motivo: "Indisponível sem o banco (demonstração)." });
+  }
+  const doChamador = createClient();
+  const { data: auth } = await doChamador.auth.getUser();
+  if (!auth?.user) return resposta(401, { ok: false, motivo: "não autenticado" });
+  const q = new URL(req.url).searchParams;
+  const cliente = (q.get("cliente") ?? "").trim();
+  const { error: negado } = await doChamador.rpc("admin_exigir_acesso", { p_funcao: "admin_pinbank_extrato", p_alvo: cliente || null });
+  if (negado) return resposta(403, { ok: false, motivo: negado.message });
+
+  const canal = (q.get("canal") ?? "").trim();
+  const filtro = {
+    codigoCliente: /^\d{1,10}$/.test(cliente) ? Number(cliente) : NaN,
+    // Canal no link: só dígitos; qualquer outra coisa vira inválido e o pedido é recusado antes da rede.
+    ...(canal ? { codigoCanal: /^\d{1,10}$/.test(canal) ? Number(canal) : NaN } : {}),
+    de: (q.get("de") ?? "").trim(),
+    ate: (q.get("ate") ?? q.get("de") ?? "").trim(),
+    status: ((q.get("status") ?? "Todos").trim() || "Todos") as StatusExtratoPos,
+    meio: ((q.get("meio") ?? "Todos").trim() || "Todos") as MeioCapturaExtratoPos,
+    ...(q.get("terminal")?.trim() ? { idTerminalPos: q.get("terminal")!.trim() === "vazio" ? "" : q.get("terminal")!.trim() } : {}),
+    // Fora de fuso|utc, o filtro é recusado antes da rede.
+    ...(q.get("datas")?.trim() ? { datas: q.get("datas")!.trim() as FormatoDatasExtratoPos } : {}),
+  };
+  const token = (q.get("token") ?? "").trim();
+  if (token && token !== "novo") return resposta(400, { ok: false, motivo: "O parâmetro token só aceita novo." });
+  const opcoes = { ambiente: q.get("ambiente"), envelope: q.get("envelope"), tokenNovo: token === "novo" };
+
+  const inicio = Date.now();
+  try {
+    const r = await consultarExtratoPos(filtro, opcoes);
+    // "ok" pede a LISTA: zero parcelas sem a lista é recusa ou envelope que não
+    // abrimos, não "sem vendas". O ResultCode vai à tela como veio — a doc não
+    // diz qual valor é sucesso, e julgar por ele seria adivinhar.
+    const ok = r.resposta.erros.length === 0 && r.resposta.listaRecebida;
+    const codigoIncomum = r.resposta.codigo != null && r.resposta.codigo !== 0;
+    return resposta(200, {
+      ok,
+      ...(r.resposta.listaRecebida ? {} : { motivo: `A resposta não trouxe a lista de parcelas (formato ${r.formato}; campos: ${r.campos.join(", ") || "nenhum"}).` }),
+      ambiente: r.ambiente,
+      identificacao: r.identificacao,
+      pedido: { envelope: r.envelope, datas: r.datas, tokenNovo: opcoes.tokenNovo, terminal: filtro.idTerminalPos ?? null },
+      via: r.via,
+      ms: Date.now() - inicio,
+      etapas: r.etapas,
+      formatoResposta: { formato: r.formato, campos: r.campos },
+      pinbank: { codigo: r.resposta.codigo, mensagem: r.resposta.mensagem, erros: r.resposta.erros },
+      resumo: r.resumo,
+      amostra: r.resposta.linhas.slice(0, AMOSTRA),
+      ...(r.resposta.linhas.length > AMOSTRA ? { aviso: `Mostrando ${AMOSTRA} de ${r.resposta.linhas.length} parcelas; o resumo conta todas.` } : {}),
+      ...(codigoIncomum ? { avisoCodigo: `A Pinbank devolveu o código ${r.resposta.codigo}: confira a mensagem.` } : {}),
+      // "Aceitou" só com a lista na mão: a Pinbank também recusa DENTRO de um 200.
+      ...(r.semRequestOrigin ? {
+        avisoOrigem: ok
+          ? "O pedido saiu sem o RequestOrigin (PINBANK_API_ORIGEM vazia) e a Pinbank aceitou."
+          : "O pedido saiu sem o RequestOrigin (PINBANK_API_ORIGEM vazia) e a Pinbank não devolveu a lista: se pinbank.erros e mensagem não nomearem outro motivo, ele é o primeiro suspeito — peça o valor à Pinbank.",
+      } : {}),
+    });
+  } catch (e) {
+    const d = descreverErroApi(e);
+    // O log leva a etapa e o motivo (sem segredo: os erros do cliente nunca o citam).
+    console.error(`[falha·pinbank] extrato_pos ${d.etapa}: ${d.motivo}`);
+    return resposta(200, {
+      ok: false, etapa: d.etapa, motivo: d.motivo, statusPinbank: d.status ?? null,
+      ...(d.identificacao ? { identificacao: d.identificacao } : {}),
+      ms: Date.now() - inicio,
+    });
+  }
+}

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PLANO_SIMPLES, type EstadoPlano } from "@/core/planos";
+import { precisaDoCodigo } from "@/core/segundo-fator";
 
 /**
  * Refresca a sessão Supabase no middleware (App Router + @supabase/ssr).
@@ -80,6 +81,35 @@ export async function ehDonoDaPlataforma(
     return data === true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * O SEGUNDO FATOR — esta sessão ainda precisa do código do aplicativo?
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **"Tem aplicativo" sai do `user` que o `getUser` acabou de trazer do
+ * servidor**, nunca do usuário guardado no cookie: a cópia do cookie não sabe
+ * de um aplicativo cadastrado noutro aparelho depois da entrada, e deixaria
+ * passar com a senha só. O NÍVEL da sessão sai do próprio token (sem rede —
+ * o `getUser` já o validou e renovou).
+ *
+ * ⚠️ **Falha FECHADA**, como `ehDonoDaPlataforma`: com aplicativo cadastrado,
+ * um nível que não pôde ser lido pede o código.
+ */
+export async function exigeCodigo(
+  supabase: ReturnType<typeof createServerClient>,
+  user: { factors?: { status?: string }[] | null } | null,
+): Promise<boolean> {
+  const temFatorVerificado = (user?.factors ?? []).some((f) => f.status === "verified");
+  if (!temFatorVerificado) return false;
+  try {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) return true;
+    return precisaDoCodigo({ nivelAtual: data.currentLevel, temFatorVerificado });
+  } catch {
+    return true;
   }
 }
 

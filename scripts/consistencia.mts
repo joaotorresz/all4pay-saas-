@@ -3656,6 +3656,55 @@ const AGOSTO = janelaMes(2026, 7);
      && !COR_POR_SINAL.test('<StatusBadge tone={vencido ? "negative" : "neutral"}>'));
 }
 
+/* ========================================================================== */
+/* O DINHEIRO TAMBÉM NÃO LEVA A COR DO STATUS (07/10/2026) — teto ZERO.       */
+/* ========================================================================== */
+/**
+ * A guarda de cima pega a cor decidida pelo SINAL. Esta pega a outra porta do
+ * mesmo defeito: o valor em dinheiro pintado pela cor do STATUS (pago verde, a
+ * vencer laranja, vencido vermelho) — achado nos cartões de Títulos, onde o
+ * anel ao lado já dizia o status. O status mora no anel, no fio, no ponto ou
+ * na palavra; o número fica na tinta do texto.
+ *
+ * ⚠️ Olha o elemento que PINTA (cor inline que não seja tinta, ou classe de
+ * cor semântica) e o conteúdo dele até o primeiro fechamento: se ali houver
+ * `<BRL` ou `<Money`, é dinheiro colorido. Limite declarado: valor escrito
+ * por `formatBRL` cru não é visto (a regra da casa já manda usar `BRL`).
+ */
+{
+  const PINTA = /style=\{\{\s*color:(?!\s*"var\(--color-ink\)")[^}]+\}\}|className=(?:"|\{`)[^"`]*\btext-(?:positive|negative|warning)\b[^"`]*(?:"|`\})/g;
+  const dinheiroPintado = (texto: string): number[] => {
+    const t = texto.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/\{\/\*[\s\S]*?\*\/\}/g, (m) => m.replace(/[^\n]/g, " "));
+    const linhas: number[] = [];
+    for (const m of t.matchAll(PINTA)) {
+      const depois = t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 240);
+      const ate = depois.split("</")[0];
+      if (/<(?:BRL|Money)\b/.test(ate)) linhas.push(t.slice(0, m.index).split("\n").length);
+    }
+    return linhas;
+  };
+  const achados: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.tsx$/.test(nome)) continue;
+      for (const l of dinheiroPintado(readFileSync(caminho, "utf8"))) achados.push(`${caminho}:${l}`);
+    }
+  };
+  varrer("src");
+  ok("cor: teto ZERO de dinheiro pintado pela cor do status (o status mora no anel, no fio ou no ponto)",
+     achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("cor: (defeito plantado) o valor do cartão pintado pela cor do status é ACUSADO",
+     dinheiroPintado('<div className="text-[22px]" style={{ color: cor }}>\n  <BRL value={c.valor} />\n</div>').length === 1
+     && dinheiroPintado('<span className="a4p-num text-[28px] text-negative">\n  <BRL value={total} />\n</span>').length === 1
+     && dinheiroPintado('<div className="text-caption text-positive">pago <BRL value={f.pago} /></div>').length === 1);
+  ok("cor: o ponto de status e a tinta NÃO são acusados (a guarda não reprova o certo)",
+     dinheiroPintado('<span style={{ background: cor }} aria-hidden />\n<span className="text-ink"><BRL value={v} /></span>').length === 0
+     && dinheiroPintado('<span style={{ color: "var(--color-ink)" }}><BRL value={v} /></span>').length === 0
+     && dinheiroPintado('<span className="text-negative">Vencido</span> <BRL value={v} />').length === 0);
+}
+
 
 /* ========================================================================== */
 /* LINHA 32 — ONDA 5: taxonomia, catálogo e higiene de dados.                */

@@ -17,3 +17,13 @@ verify_jwt = false
 # OPTIONS passar; auth validada no handler (getUser → 401) + posse do item.
 [functions.pluggy-sync-item]
 verify_jwt = false
+
+# Segundo fator por app autenticador (TOTP). Em produção o Supabase já o liga
+# por padrão; aqui ele vem DESLIGADO quando a seção não existe, e a prova local
+# do cadastro e do código no login (`npm run segundo-fator`) não teria o que medir.
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true

@@ -19,6 +19,11 @@
 import { createClient } from "@/lib/supabase/client";
 import { reportar } from "@/lib/erros";
 import { MIN_SENHA, ROTA_RETORNO } from "@/core/recuperacao";
+import { MARCA } from "@/core/marca";
+import {
+  codigoCompleto, destinoDepoisDoCodigo, fatoresParaTela, nomeDoNovoAparelho, normalizarCodigo,
+  type FatorDaConta,
+} from "@/core/segundo-fator";
 
 /** Prazo de qualquer chamada de autenticação. Acima disto, a pessoa desiste. */
 const PRAZO_MS = 15_000;
@@ -57,6 +62,27 @@ function traduzir(bruto: string): { motivo: string; comoResolver?: string } {
   }
   if (m.includes("invalid login") || m.includes("invalid_credentials")) {
     return { motivo: "E-mail ou senha não conferem.", comoResolver: "Confira os dois e tente de novo." };
+  }
+  // ⚠️ As recusas do SEGUNDO FATOR vêm antes do ramo de sessão logo abaixo:
+  // uma delas com sessão vencida mostraria "o link de redefinição expirou" a
+  // quem só digitou o código do aplicativo. Medidas no Auth local (v2.197).
+  if (m.includes("mfa_verification_failed") || m.includes("invalid totp")) {
+    return { motivo: "Código incorreto ou vencido.", comoResolver: "Digite o código que aparece agora no aplicativo autenticador." };
+  }
+  if (m.includes("mfa_challenge_expired")) {
+    return { motivo: "O código demorou demais para ser confirmado.", comoResolver: "Digite o código que aparece agora no aplicativo autenticador." };
+  }
+  if (m.includes("insufficient_aal")) {
+    return { motivo: "Esta ação pede o código do aplicativo autenticador.", comoResolver: "Saia, entre de novo com o código e repita." };
+  }
+  if (m.includes("mfa_factor_name_conflict")) {
+    return { motivo: "Já existe um aparelho com este nome.", comoResolver: "Recarregue a tela e tente de novo." };
+  }
+  if (m.includes("mfa_factor_not_found")) {
+    return { motivo: "Este aparelho não está mais cadastrado.", comoResolver: "Recarregue a tela." };
+  }
+  if (m.includes("enroll_not_enabled") || m.includes("verify_not_enabled") || (m.includes("mfa") && m.includes("disabled"))) {
+    return { motivo: "O segundo fator não está disponível agora.", comoResolver: `Fale com o suporte da ${MARCA}.` };
   }
   // ⚠️ A troca de senha tem três recusas próprias, e as três vêm ANTES da
   // regra de "curta demais": senão a senha repetida ou a sessão vencida
@@ -219,4 +245,225 @@ export async function redefinirSenha(nova: string): Promise<ResultadoEntrada> {
     reportar("acesso.encerrar_outras_sessoes", e, "As outras sessões da conta seguem abertas depois da troca de senha.", true);
   }
   return { ok: true };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SEGUNDO FATOR — o aplicativo autenticador. A MESMA porta da senha.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **Toda chamada `auth.mfa.*` mora aqui** (o middleware só LÊ o nível da
+ * sessão). Teto ZERO no `engine-audit`, bloco `segundo-fator:` — uma tela que
+ * cadastrasse ou conferisse o código por conta própria seria a segunda regra
+ * para a mesma coisa, e a primeira a esquecer de limpar o cadastro abandonado.
+ *
+ * ⚠️ **A chave do aplicativo se mostra UMA vez.** Ela volta só para a tela do
+ * cadastro e nunca vai para log, `reportar`, armazenamento do navegador ou URL.
+ */
+
+type Recusa = { ok: false; motivo: string; comoResolver?: string };
+/**
+ * A recusa de uma chamada do segundo fator, na língua de quem opera.
+ *
+ * ⚠️ **Sessão encerrada é dita como sessão encerrada**, antes de `traduzir`:
+ * lá, "session missing" é o ramo do LINK de redefinição, e quem só digitou o
+ * código leria "o link de redefinição expirou" sem ter pedido link nenhum
+ * (medido: com a sessão derrubada noutro aparelho, o Auth responde
+ * `session_not_found` e o cliente devolve "Auth session missing!").
+ *
+ * ⚠️ **Código e mensagem se juntam SEM separador vazio**: com `code`
+ * ausente, um espaço na frente de `__prazo__` escondia a frase do prazo.
+ */
+const recusa = (e: unknown): Recusa => {
+  const err = e as { code?: string; message?: string; name?: string } | null;
+  const bruto = err && typeof err === "object" && "message" in err
+    ? [err.code, err.message].filter(Boolean).join(" ")
+    : e instanceof Error ? e.message : String(e);
+  if (err?.name === "AuthSessionMissingError" || /session[_ ](missing|not_found)/i.test(bruto)) {
+    return { ok: false, motivo: "A sua sessão terminou.", comoResolver: "Saia e entre de novo." };
+  }
+  return { ok: false, ...traduzir(bruto) };
+};
+
+/** Os aplicativos autenticadores da conta — verificados e cadastros abandonados. */
+export async function fatoresDaConta(): Promise<{ ok: true; fatores: FatorDaConta[] } | Recusa> {
+  try {
+    const { data, error } = await comPrazo(createClient().auth.mfa.listFactors(), "fatores");
+    if (error) return recusa(error);
+    return { ok: true, fatores: fatoresParaTela(data?.all ?? []) };
+  } catch (e) {
+    return recusa(e);
+  }
+}
+
+/**
+ * Começa o cadastro: devolve o endereço do QR e a chave manual.
+ *
+ * ⚠️ **Apaga ANTES os cadastros abandonados.** Quem fechou o QR no meio deixa
+ * um aplicativo "não verificado"; sem limpá-lo, o próximo cadastro esbarra no
+ * nome repetido (medido: `mfa_factor_name_conflict`) e a tela trava quem só
+ * queria recomeçar.
+ *
+ * ⚠️ **`issuer: MARCA`**: sem ele o aplicativo da pessoa mostra o endereço do
+ * site no lugar do nome da empresa, e ela não acha a conta na lista.
+ */
+export async function iniciarCadastroDoFator(): Promise<
+  { ok: true; factorId: string; uri: string; chave: string } | Recusa
+> {
+  const s = createClient();
+  try {
+    const { data: lista, error: erroLista } = await comPrazo(s.auth.mfa.listFactors(), "fatores");
+    if (erroLista) return recusa(erroLista);
+    const todos = (lista?.all ?? []).filter((f) => f.factor_type === "totp");
+    for (const f of todos.filter((x) => x.status !== "verified")) {
+      const { error } = await comPrazo(s.auth.mfa.unenroll({ factorId: f.id }), "fatores");
+      if (error) return recusa(error);
+    }
+    const nome = nomeDoNovoAparelho(todos.filter((x) => x.status === "verified").map((x) => x.friendly_name ?? ""));
+    const { data, error } = await comPrazo(
+      s.auth.mfa.enroll({ factorType: "totp", issuer: MARCA, friendlyName: nome }),
+      "fatores",
+    );
+    if (error || !data) return recusa(error ?? new Error("sem resposta"));
+    return { ok: true, factorId: data.id, uri: data.totp.uri, chave: data.totp.secret };
+  } catch (e) {
+    return recusa(e);
+  }
+}
+
+/**
+ * Confirma o cadastro com o primeiro código do aplicativo.
+ *
+ * Confirmar sobe ESTA sessão para `aal2` e encerra as OUTRAS sessões da conta
+ * (comportamento do Auth) — a tela avisa antes.
+ */
+export async function confirmarCadastroDoFator(factorId: string, digitado: string): Promise<ResultadoEntrada> {
+  if (!codigoCompleto(digitado)) return { ok: false, motivo: "O código tem 6 dígitos.", comoResolver: "Digite os 6 números que aparecem no aplicativo." };
+  try {
+    const { error } = await comPrazo(
+      createClient().auth.mfa.challengeAndVerify({ factorId, code: normalizarCodigo(digitado) }),
+      "codigo",
+    );
+    return error ? recusa(error) : { ok: true };
+  } catch (e) {
+    return recusa(e);
+  }
+}
+
+/**
+ * Desiste do cadastro em andamento (o aplicativo ainda não verificado).
+ * Melhor esforço: o que sobrar é apagado no próximo cadastro.
+ */
+export async function cancelarCadastroDoFator(factorId: string): Promise<void> {
+  try {
+    const { error } = await comPrazo(createClient().auth.mfa.unenroll({ factorId }), "fatores");
+    if (error) reportar("acesso.cancelar_cadastro_fator", error, "Um cadastro de aplicativo autenticador não confirmado ficou na conta até o próximo cadastro.", true);
+  } catch (e) {
+    reportar("acesso.cancelar_cadastro_fator", e, "Um cadastro de aplicativo autenticador não confirmado ficou na conta até o próximo cadastro.", true);
+  }
+}
+
+/**
+ * Remove um aplicativo. O Auth só aceita com a sessão em `aal2` (medido:
+ * `insufficient_aal` em `aal1`) — é o que impede quem só tem a senha de
+ * desligar a proteção.
+ *
+ * ⚠️ **Remover o aparelho com que ESTA sessão entrou a rebaixa para `aal1`**
+ * (medido: o próximo refresh volta sem o código), e o token no cookie ainda
+ * diria `aal2` por até uma hora — "adicionar outro" seria recusado e a pessoa
+ * cairia no passo do código no meio do trabalho. Por isso a sessão é
+ * renovada aqui e `pedeCodigo` diz à tela, na hora, que falta o código de
+ * outro aparelho.
+ */
+export async function removerFator(factorId: string): Promise<{ ok: true; pedeCodigo: boolean } | Recusa> {
+  const s = createClient();
+  try {
+    const { error } = await comPrazo(s.auth.mfa.unenroll({ factorId }), "fatores");
+    if (error) return recusa(error);
+  } catch (e) {
+    return recusa(e);
+  }
+  try {
+    const { error } = await comPrazo(s.auth.refreshSession(), "sessao");
+    if (error) reportar("acesso.renovar_depois_de_remover", error, "Depois de remover um aplicativo, a sessão não foi renovada; o pedido do código pode chegar só na próxima renovação.", true);
+  } catch (e) {
+    reportar("acesso.renovar_depois_de_remover", e, "Depois de remover um aplicativo, a sessão não foi renovada; o pedido do código pode chegar só na próxima renovação.", true);
+  }
+  return { ok: true, pedeCodigo: await precisaDoCodigoAgora() };
+}
+
+/**
+ * Depois da senha: esta sessão ainda precisa do código?
+ *
+ * Lê o nível da sessão recém-aberta (sem rede: o token acabou de chegar).
+ * Na dúvida, devolve `false` e deixa o MIDDLEWARE decidir na próxima página —
+ * ele é quem falha fechado, com a lista de aplicativos fresca do servidor.
+ */
+export async function precisaDoCodigoAgora(): Promise<boolean> {
+  try {
+    const { data, error } = await createClient().auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) return false;
+    return data.currentLevel === "aal1" && data.nextLevel === "aal2";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Entra com o código do aplicativo e devolve o destino FIXO.
+ *
+ * ⚠️ **Tenta cada aplicativo verificado da conta**: quem cadastrou dois
+ * aparelhos digita o código de qualquer um deles, e conferir só o primeiro
+ * recusaria o código certo do segundo.
+ */
+export async function entrarComCodigo(digitado: string): Promise<{ ok: true; destino: string } | Recusa> {
+  if (!codigoCompleto(digitado)) return { ok: false, motivo: "O código tem 6 dígitos.", comoResolver: "Digite os 6 números que aparecem no aplicativo." };
+  const s = createClient();
+  try {
+    const { data: lista, error: erroLista } = await comPrazo(s.auth.mfa.listFactors(), "fatores");
+    if (erroLista) return recusa(erroLista);
+    const verificados = lista?.totp ?? [];
+    if (verificados.length === 0) {
+      return { ok: false, motivo: "Esta conta não tem aplicativo autenticador cadastrado.", comoResolver: "Saia e entre de novo." };
+    }
+    let ultima: unknown = null;
+    for (const f of verificados) {
+      const { error } = await comPrazo(
+        s.auth.mfa.challengeAndVerify({ factorId: f.id, code: normalizarCodigo(digitado) }),
+        "codigo",
+      );
+      if (!error) {
+        const { data } = await s.auth.mfa.getAuthenticatorAssuranceLevel();
+        return { ok: true, destino: destinoDepoisDoCodigo(data?.currentAuthenticationMethods, Math.floor(Date.now() / 1000)) };
+      }
+      ultima = error;
+      if (error.code !== "mfa_verification_failed") break;
+    }
+    return recusa(ultima);
+  } catch (e) {
+    return recusa(e);
+  }
+}
+
+/**
+ * Sai da conta NESTE navegador — a saída de quem está no passo do código sem
+ * o celular.
+ *
+ * ⚠️ **`scope: "local"`, nunca o padrão.** O padrão do cliente é `global`:
+ * medido, a sessão só com a senha derrubava a sessão JÁ VERIFICADA do outro
+ * aparelho, e quem está sem o celular perdia também o escritório.
+ *
+ * ⚠️ **A falha é DITA.** Em erro de rede o cliente devolve `{ error }` e
+ * MANTÉM a sessão local; navegar como se tivesse saído mandaria a pessoa de
+ * volta ao código, sem explicação.
+ */
+export async function sairDaConta(): Promise<{ ok: true } | Recusa> {
+  try {
+    const { error } = await comPrazo(createClient().auth.signOut({ scope: "local" }), "sair");
+    if (!error) return { ok: true };
+    reportar("acesso.sair", error, "A saída da conta não encerrou a sessão neste navegador.", false);
+    return recusa(error);
+  } catch (e) {
+    reportar("acesso.sair", e, "A saída da conta não encerrou a sessão neste navegador.", false);
+    return recusa(e);
+  }
 }

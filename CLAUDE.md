@@ -72,6 +72,23 @@ porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
 ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
 COM o servidor de e-mail (fora do CI, que sobe sem ele).
 
+⚠️ **SEGUNDO FATOR (07/10/2026, `docs/rodada-10/segundo-fator.md`):** o
+aplicativo autenticador da conta se cadastra em `/configuracoes/seguranca`
+("Segurança da conta", no ⋮). Quem o tem e entra só com a senha (aal1) vai a
+`/segundo-fator` e SÓ a ele — o middleware decide pelo `user.factors` FRESCO
+do `getUser`, antes do perímetro da plataforma, falhando fechado; em `/api` a
+mesma sessão leva **401 JSON** (`codigo_pendente`, menos `/api/auth/*` — medido:
+sem isso ela mandava WhatsApp da empresa com a senha só). O destino depois do
+código é FIXO (recuperação → `/redefinir-senha`, o resto → `/`). Todo
+`auth.mfa.*` mora em `lib/entrada` (teto ZERO, bloco `segundo-fator:`). Prova:
+`npm run segundo-fator -- --api` no CI e a jornada `npm run segundo-fator` com
+build real. ⚠️ Protege as TELAS, as rotas de API e o `/admin`, NÃO a API de
+dados do Supabase: nenhuma política de linha olha o `aal` — fechar isso é
+decisão do dono e migration à parte. ⚠️ **Sem teto de tentativas do código
+por conta**: o gancho do Auth que o daria é dos planos Teams/Enterprise, e o
+projeto é Free — só o limite por IP do Auth (15/min) separa a senha vazada do
+código; a tela diz que o aplicativo SOMA à senha, nunca que a substitui.
+
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 
 **Verde para positivo e vermelho para negativo saíram do sistema inteiro.**
@@ -190,7 +207,24 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
 - ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
   taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
-  (OAuth2 + AES) é a próxima fase — faltam as credenciais.
+  é a próxima fase: o CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
+  + `cifra.ts`: token OAuth2, AES-128-CBC com IV zero, pela saída fixa) e é
+  testado por `GET /api/admin/pinbank-extrato` (`&ambiente=dev|producao` e
+  `&canal=` no LINK, sem trocar variável nem refazer deploy; a resposta diz
+  QUAL credencial respondeu — `identificacao`). ⚠️ **O que se cifra é o
+  pedido INTEIRO, `{"Data":{…}}`** — PROVADO pelo A/B em 13/10/2026: com o
+  envelope, "Sucesso." e 18 parcelas no dev; só o conteúdo, "Erro de
+  Sistema." sem nomear campo. `&envelope=interno`, `&datas=utc`, `&token=novo`
+  e `&terminal=vazio` no link isolam cada hipótese sem deploy. ⚠️ **O
+  `ValorTaxaAdm` ainda não é confiável**: veio 2,65 em TODAS as vendas do dev
+  (R$ 9 a R$ 300, débito e crédito) — cara de percentual, nome de valor. Até a
+  Pinbank responder, a taxa do extrato NÃO substitui a do contrato. ⚠️ São DUAS credenciais
+  (BaaS, canal 1919, sem ExtratoPos × "ERP Integration Produção", canal 47,
+  com ExtratoPos), com senhas diferentes — ver `docs/rodada-10/pinbank.md`.
+  ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a
+  credencial emitida também paga, transfere e faz Pix. ⚠️ A linha do extrato é
+  lida por LISTA DE PERMITIDOS — CPF/CNPJ, comprador e cartão nunca passam.
+  Comportamento em `npm run pinbank-api`.
 - ⚠️ **A taxa da maquininha (MDR) é DESPESA VARIÁVEL, acima do EBITDA**
   (06/10/2026). "Tarifas de adquirência" caía no Resultado Financeiro ("tarifa"
   casava o financeiro e o padrão antigo `adquiren` não casava com o "ê"). A
@@ -4046,6 +4080,13 @@ ele já tem.
   bloqueadas — trancá-las deixaria sem caminho para comprar.
 - Guarda na matriz: as rotas `pro: true` do `nav-data` e `ROTAS_PRO` têm de
   coincidir nos dois sentidos. Divergir = a cortina de volta.
+- ⚠️ **O ENTERPRISE LIBERA O PRO** (09/10/2026, migration `20261009120000`).
+  `meu_plano()` decidia por `ilike '%pro%'` no nome e o Enterprise — o plano
+  mais caro, o da única empresa pagante — não abria nenhuma tela Pro. Medido
+  no mesmo dia: NENHUMA empresa em produção tinha `pro = true`. Teste grátis
+  SEM plano continua Simples (decisão de produto); para liberar o Pro a uma
+  empresa, o caminho é o `/admin` (plano Pro ou Enterprise, status ativo).
+  Guarda `scripts/plano-pro.sql` no CI, com a regra antiga plantada dentro.
 
 ### ⚠️ Duas telas de "a receber" — POSIÇÃO × FLUXO
 

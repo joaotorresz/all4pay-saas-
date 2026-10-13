@@ -93,9 +93,11 @@ Pinbank ──POST──▶ /api/pinbank/webhook
      (US$ 100/mês, só no Pro) — detalhe, passo a passo e provas em
      `docs/rodada-10/saida-fixa.md`. Toda chamada à Pinbank passa pela porta
      única `src/lib/pinbank/saida.ts`.
-   - **O ambiente de teste envia webhook, e com qual chave?** O host
-     `dev.pinbank.com.br` não publica `/webhook/signing-key` (404). Se o teste
-     assinar com outra chave, toda entrega de teste volta 401.
+   - ~~**O ambiente de teste envia webhook?**~~ — **respondido em 08/10/2026:
+     não envia.** A primeira prova do webhook é uma venda real, de valor baixo,
+     em produção, assim que a Pinbank confirmar os `Compra.*` ativos (pedidos
+     em 08/10: os 10 eventos v1, configuração global do canal, sem token
+     próprio).
 3. Salvar a resposta de `GET https://pinbank.com.br/webhook/signing-key` em
    `PINBANK_WEBHOOK_JWKS` (recomendado pela própria Pinbank; sem ela a rota
    busca a chave — pela saída fixa — e guarda por uma hora). ⚠️ Com a JWKS
@@ -111,13 +113,110 @@ Pinbank ──POST──▶ /api/pinbank/webhook
 
 ## Pendências declaradas
 
-- **Conferência pelo extrato (`ExtratoPos`)**: a API exige OAuth2 + criptografia
-  AES-128-CBC e credenciais (`UserName`, `KeyValue`, `RequestOrigin`,
-  `CodigoCanal`) que ainda não temos — e os 2 IPs fixos liberados pela
-  Pinbank (a saída fixa já existe; o cliente da API deve chamá-la por
-  `requisicaoPinbank`, que nunca repete um pedido que já saiu). Ela traz a data real do repasse e a taxa
-  cobrada; com ela, os títulos estimados passam a ser os conferidos. O campo
-  `codigo_cliente` do vínculo já existe para isso.
+- **Conferência pelo extrato (`ExtratoPos`)** — **o cliente da API existe
+  (08/10/2026), falta a credencial de dev para o teste.** A Pinbank emitiu a
+  credencial de produção ("ALL4 PAY - BaaS", canal 1919) SEM o `ExtratoPos` (o
+  `ExtratoEncrypted` liberado é o extrato da CONTA DIGITAL) e vai liberá-lo
+  primeiro em dev; com o nosso ok, em produção.
+  - `src/lib/pinbank/api.ts`: token OAuth2 (`/api/token`, form, com cache e
+    renovação UMA vez quando o token do cache é recusado), pedido cifrado
+    (`src/lib/pinbank/cifra.ts`: AES-128-CBC, chave = `KeyValue`, IV zero,
+    PKCS#7, base64 — conferida contra vetores do `openssl`), cabeçalhos
+    `Authorization`/`UserName`/`RequestOrigin`, tudo pela saída fixa.
+    ⚠️ **O que se cifra é o pedido INTEIRO, `{"Data":{…}}`** (ver 13/10 abaixo).
+    ⚠️ **Só LEITURA** (`METODOS_LEITURA`): a credencial emitida também paga,
+    transfere e faz Pix — teto ZERO desses métodos no código (`extrato-pos:`).
+  - `src/core/pinbank/extrato-pos.ts`: o filtro (até 31 dias, dia inteiro em
+    `-03:00`), o pedido e a leitura da resposta por LISTA DE PERMITIDOS — CPF/
+    CNPJ, comprador, cartão, sub-loja e agente nunca passam, nem um campo novo.
+  - Teste: `GET /api/admin/pinbank-extrato?cliente=<CodigoCliente>&de=…&ate=…`
+    `[&ambiente=dev|producao] [&canal=…]` (só o administrador da plataforma,
+    mesmo portão da prova da saída fixa). `ambiente` e `canal` valem só para a
+    chamada — testar a mesma credencial nos dois ambientes era trocar variável
+    e refazer o deploy a cada rodada, e um deploy esquecido fez o teste de
+    13/10 rodar em produção achando que era dev. A resposta traz
+    `identificacao` (ambiente, canal e os 4 últimos da API Key), para se saber
+    QUAL credencial respondeu.
+    Variáveis em `.env.example` (`PINBANK_API_*`, `PINBANK_CODIGO_CANAL`).
+  - Guardas: `npm run pinbank-api` (comportamento contra uma Pinbank local:
+    46 casos, 36 defeitos plantados — o envelope da cifra, prazo e chave do cache do token, eco da
+    senha cruzando o corte, extrato maior que o teto, chave de tamanho errado
+    chegando à rota) e o bloco `extrato-pos:` do `engine-audit` (só CAMINHOS
+    exatos de leitura — o valor do mapa, não o nome —, nenhum `…Encrypted` nem
+    `requisicaoPinbank` fora do cliente, e a rota só diz `ok` com a lista de
+    parcelas recebida: zero parcelas sem a lista é recusa, não "sem vendas").
+  - **08/10/2026:** o ExtratoPos entrou na credencial "All4Pay / ERP
+    Integration Produção" às 14:23 — o mesmo minuto do "Teste liberado em dev"
+    da Pinbank. ⚠️ **"Mesma senha da anterior" estava ERRADO** (medido em
+    13/10, comparando os e-mails sem exibir valores): são DUAS credenciais, com
+    API Key e senha diferentes — "ALL4 PAY - BaaS" (Canal 1919, com os 2 IPs,
+    SEM ExtratoPos) e "ERP Integration Produção" (Canal 47, sem IPs listados,
+    COM ExtratoPos; a senha só apareceu em 13/10). Os testes de 08 a 13/10
+    rodaram com o par da BaaS: o token de produção deu 200 e o dev recusou —
+    nada disso disse coisa alguma sobre a credencial que tem o ExtratoPos.
+    Se ela é de dev, de produção ou das duas, decide o teste com os dois
+    links (`ambiente=dev` e `ambiente=producao`).
+  - **13/10/2026, medido pelos dois links:** a "ERP Integration Produção" é a
+    credencial de **DEV**, apesar do nome — token aceito em
+    `dev.pinbank.com.br` e recusado ("Autorização negada") em produção. A BaaS
+    é a de produção e ainda não tem o ExtratoPos (a Pinbank libera depois do
+    nosso ok no dev).
+  - **13/10/2026, resposta da Pinbank:** o **`RequestOrigin` é sempre `5`**
+    (`PINBANK_API_ORIGEM=5`, nos dois ambientes), e o dev tem vendas de teste
+    a partir de **2016** (Canal 47, EC 3510/3505) — teste com um mês de 2016.
+  - **13/10/2026, "Erro de Sistema." — era o NOSSO pedido, não a Pinbank
+    (PROVADO pelo A/B, ver o item seguinte).** Liberada a permissão (o código 4 "Autorização negada" sumiu), o
+    ExtratoPos no dev passou a responder ABERTO `ResultCode 2 "Erro de
+    Sistema."`, igual para jan/2016 e para o período do exemplo da própria doc
+    (30–31/07/2025). Era a primeira vez que o servidor lia o CORPO: o
+    cabeçalho e a permissão são conferidos antes dele. A doc mostra
+    `{"Data":{…}}` ao lado de `{"Data":{"Json":"…"}}` e não diz o que se
+    cifra; nós cifrávamos só o CONTEÚDO do `Data`. Os clientes públicos da
+    Pinbank — `italoiz/pinbank-cli` e o plugin de Insomnia (Node),
+    `umobi/pinkbank-php-client` (que chama o próprio ExtratoPosEncrypted) e o
+    módulo Odoo da KMEE — cifram o pedido INTEIRO, e todos leem a resposta
+    aberta como envelope (`Data` dentro) — a nossa leitura já fazia isso. Sem o
+    `Data` no texto aberto, o provável é o servidor .NET desserializar um
+    pedido com `Data` nulo e quebrar sem nomear campo. Corrigido: o padrão
+    passou a ser `{"Data":{…}}`; a prova é o padrão trazer a lista (ou um erro
+    que nomeie campo) e `&envelope=interno` repetir o "Erro de Sistema.". ⚠️ **A guarda NÃO pegava porque copiava o nosso engano**: a
+    "Pinbank" de teste abria a cifra e lia o conteúdo solto. Agora ela exige o
+    envelope e responde "Erro de Sistema." sem ele, como a real.
+    Para não depender de um deploy por hipótese, o link de teste ganhou
+    `&envelope=interno` (o jeito antigo, para a comparação A/B), `&datas=utc`
+    (o mesmo instante, na notação do exemplo da doc), `&token=novo` (ignora o
+    token guardado: o token é a única chamada que prova a SENHA atual, e a
+    Pinbank avisou "credencial atualizada") e `&terminal=vazio`
+    (`IdTerminalPos: ""`, como o cliente PHP). A resposta diz como o pedido
+    saiu (`pedido`).
+  - **13/10/2026, o A/B em produção (dev da Pinbank, canal 47, EC 3510,
+    30–31/07/2025):** com o envelope e token NOVO (a senha atual vale) →
+    `ResultCode 0 "Sucesso."`, resposta CIFRADA aberta com a nossa chave, **18
+    parcelas**, todas com `DataFuturaPagamento` (débito D+1, crédito à vista
+    ~D+30) e taxa. Com `&envelope=interno` → "Erro de Sistema." de novo. A
+    única diferença entre os dois é o envelope: a causa está provada, e o
+    ExtratoPos funciona de ponta a ponta pela saída fixa.
+  - ⚠️ **O `ValorTaxaAdm` AINDA NÃO É CONFIÁVEL — pergunta aberta à
+    Pinbank.** Veio **2,65 em todas as 18 vendas**, de R$ 9 a R$ 300, no
+    débito e no crédito: cara de PERCENTUAL (MDR de 2,65%), com nome de valor.
+    O núcleo hoje o lê como reais (265 centavos por parcela), e o resumo soma
+    isso. Até a Pinbank responder, a taxa do extrato NÃO substitui a do
+    contrato. No mesmo extrato, `ValorBrutoParcela` e `ValorSplit` vieram com
+    75% do `ValorBruto` (split da loja de teste?) e o `ValorLiquidoRepasse`
+    com ~48,7% da parcela. Também perguntado. Conferir de novo com venda
+    real, em produção, antes de ligar a conferência.
+  - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
+    obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
+    `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,
+    então o teste ainda prova credencial, senha e IPs; e uma recusa do método
+    diz que é ele o primeiro suspeito. Se a Pinbank o exigir, é só preencher a
+    variável — sem mudar código.
+  - Em aberto com a Pinbank: a liberação do ExtratoPos na credencial de
+    produção (BaaS, canal 1919), agora que o teste no dev passou; o
+    significado do `ValorTaxaAdm` (valor ou %); a ativação dos
+    webhooks `Compra.*`, e a credencial SÓ DE CONSULTA com senha nova (as duas
+    senhas passaram por chat). Depois do teste: ligar a conferência das vendas (data e taxa
+    reais no lugar das estimadas).
 - ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —
   **resolvido em 06/10/2026**: a taxa da maquininha (MDR) é Despesa Variável,
   acima do EBITDA, pela regra única `ehTaxaAdquirencia`

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Select, CurrencyInput, Input, InfoHint } from "@/components/ui";
+import { Card, Icon, BRL, Button, Select, CurrencyInput, Input, InfoHint, PontoStatus } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { getRecebiveisBoleto, getAccountsList } from "@/lib/data";
@@ -192,8 +192,8 @@ function EmitirModal({ mov, contas, busy, onClose, onConfirm, nome }: {
 function Kpi({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
     <Card className="flex flex-col gap-1" info={info}>
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}><BRL value={v} /></span>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">{label}<PontoStatus cor={tone} /></span>
+      <span className="text-h3 font-medium tabular-nums leading-none text-ink"><BRL value={v} /></span>
     </Card>
   );
 }

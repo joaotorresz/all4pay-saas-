@@ -29,6 +29,7 @@ import { useTheme } from "@/components/app/ThemeToggle";
 import { isDemo } from "@/lib/demo";
 import { listarAnuncios } from "@/lib/ajuda-store";
 import { cn } from "@/lib/utils";
+import { ROTA_SEGURANCA_CONTA } from "@/core/segundo-fator";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -165,6 +166,7 @@ export function TopBar() {
               onClick={() => { setMenu(false); window.dispatchEvent(new Event("a4p:open-search")); }}
             />
             <ItemMenu icone="settings" rotulo="Meu perfil" onClick={() => { setMenu(false); router.push("/configuracoes"); }} />
+            <ItemMenu icone="shield-check" rotulo="Segurança da conta" onClick={() => { setMenu(false); router.push(ROTA_SEGURANCA_CONTA); }} />
             <ItemMenu icone="help-circle" rotulo="Central de ajuda" onClick={() => { setMenu(false); router.push("/dashboard/help"); }} />
             <ItemMenu icone={dark ? "sun" : "moon"} rotulo={dark ? "Tema claro" : "Tema escuro"} onClick={() => { setMenu(false); toggle(); }} />
             {SUPA_CONFIGURED && (
