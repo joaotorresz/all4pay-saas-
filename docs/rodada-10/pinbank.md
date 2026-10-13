@@ -155,15 +155,24 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     nada disso disse coisa alguma sobre a credencial que tem o ExtratoPos.
     Se ela é de dev, de produção ou das duas, decide o teste com os dois
     links (`ambiente=dev` e `ambiente=producao`).
+  - **13/10/2026, medido pelos dois links:** a "ERP Integration Produção" é a
+    credencial de **DEV**, apesar do nome — token aceito em
+    `dev.pinbank.com.br` e recusado ("Autorização negada") em produção. A BaaS
+    é a de produção e ainda não tem o ExtratoPos (a Pinbank libera depois do
+    nosso ok no dev).
+  - **13/10/2026, resposta da Pinbank:** o **`RequestOrigin` é sempre `5`**
+    (`PINBANK_API_ORIGEM=5`, nos dois ambientes), e o dev tem vendas de teste
+    a partir de **2016** (Canal 47, EC 3510/3505) — teste com um mês de 2016.
   - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
     obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
     `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,
     então o teste ainda prova credencial, senha e IPs; e uma recusa do método
     diz que é ele o primeiro suspeito. Se a Pinbank o exigir, é só preencher a
     variável — sem mudar código.
-  - Em aberto com a Pinbank: o `RequestOrigin`, a URL do token em produção, o
-    canal e um `CodigoCliente` com vendas, e a credencial SÓ DE CONSULTA com
-    senha nova. Depois do teste: ligar a conferência das vendas (data e taxa
+  - Em aberto com a Pinbank: a liberação do ExtratoPos na credencial de
+    produção (BaaS, canal 1919) depois do teste no dev, a ativação dos
+    webhooks `Compra.*`, e a credencial SÓ DE CONSULTA com senha nova (as duas
+    senhas passaram por chat). Depois do teste: ligar a conferência das vendas (data e taxa
     reais no lugar das estimadas).
 - ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —
   **resolvido em 06/10/2026**: a taxa da maquininha (MDR) é Despesa Variável,
