@@ -41,12 +41,12 @@ import {
  * ⚠️ **O que vai DENTRO da cifra é o pedido INTEIRO, `{"Data":{…}}`** — e o
  * corpo é `{"Data":{"Json":"<cifra>"}}`. A doc mostra os dois exemplos lado a
  * lado e não diz o que se cifra; até 13/10 cifrávamos só o conteúdo do `Data`, e
- * a Pinbank respondeu "Erro de Sistema." assim que a permissão passou — o
- * suspeito principal é o servidor abrir a cifra, procurar o `Data` e não achar.
- * Os clientes públicos da Pinbank — Node, PHP (que chama o próprio
- * ExtratoPosEncrypted) e o módulo Odoo — cifram o envelope, e a resposta
- * cifrada também volta como envelope. `envelope: "interno"` refaz o jeito
- * antigo, só para a comparação A/B pelo link, que é a prova.
+ * a Pinbank respondeu "Erro de Sistema." assim que a permissão passou: o
+ * servidor abre a cifra, procura o `Data` e não acha. PROVADO pelo A/B no dev
+ * em 13/10 — com o envelope, "Sucesso." e 18 parcelas; sem ele, "Erro de
+ * Sistema.". Os clientes públicos da Pinbank (Node, PHP, Odoo) já cifravam o
+ * envelope. `envelope: "interno"` refaz o jeito antigo, só para a comparação
+ * pelo link.
  */
 
 export const VARIAVEIS_API_PINBANK = [

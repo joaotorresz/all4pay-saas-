@@ -164,8 +164,8 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   - **13/10/2026, resposta da Pinbank:** o **`RequestOrigin` é sempre `5`**
     (`PINBANK_API_ORIGEM=5`, nos dois ambientes), e o dev tem vendas de teste
     a partir de **2016** (Canal 47, EC 3510/3505) — teste com um mês de 2016.
-  - **13/10/2026, "Erro de Sistema." — o suspeito principal é o NOSSO pedido,
-    não a Pinbank (a confirmar pelo A/B no link).** Liberada a permissão (o código 4 "Autorização negada" sumiu), o
+  - **13/10/2026, "Erro de Sistema." — era o NOSSO pedido, não a Pinbank
+    (PROVADO pelo A/B, ver o item seguinte).** Liberada a permissão (o código 4 "Autorização negada" sumiu), o
     ExtratoPos no dev passou a responder ABERTO `ResultCode 2 "Erro de
     Sistema."`, igual para jan/2016 e para o período do exemplo da própria doc
     (30–31/07/2025). Era a primeira vez que o servidor lia o CORPO: o
@@ -189,6 +189,22 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     Pinbank avisou "credencial atualizada") e `&terminal=vazio`
     (`IdTerminalPos: ""`, como o cliente PHP). A resposta diz como o pedido
     saiu (`pedido`).
+  - **13/10/2026, o A/B em produção (dev da Pinbank, canal 47, EC 3510,
+    30–31/07/2025):** com o envelope e token NOVO (a senha atual vale) →
+    `ResultCode 0 "Sucesso."`, resposta CIFRADA aberta com a nossa chave, **18
+    parcelas**, todas com `DataFuturaPagamento` (débito D+1, crédito à vista
+    ~D+30) e taxa. Com `&envelope=interno` → "Erro de Sistema." de novo. A
+    única diferença entre os dois é o envelope: a causa está provada, e o
+    ExtratoPos funciona de ponta a ponta pela saída fixa.
+  - ⚠️ **O `ValorTaxaAdm` AINDA NÃO É CONFIÁVEL — pergunta aberta à
+    Pinbank.** Veio **2,65 em todas as 18 vendas**, de R$ 9 a R$ 300, no
+    débito e no crédito: cara de PERCENTUAL (MDR de 2,65%), com nome de valor.
+    O núcleo hoje o lê como reais (265 centavos por parcela), e o resumo soma
+    isso. Até a Pinbank responder, a taxa do extrato NÃO substitui a do
+    contrato. No mesmo extrato, `ValorBrutoParcela` e `ValorSplit` vieram com
+    75% do `ValorBruto` (split da loja de teste?) e o `ValorLiquidoRepasse`
+    com ~48,7% da parcela. Também perguntado. Conferir de novo com venda
+    real, em produção, antes de ligar a conferência.
   - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
     obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
     `PINBANK_API_ORIGEM` o cabeçalho NÃO vai (nem vazio); o token não o usa,
@@ -196,7 +212,8 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     diz que é ele o primeiro suspeito. Se a Pinbank o exigir, é só preencher a
     variável — sem mudar código.
   - Em aberto com a Pinbank: a liberação do ExtratoPos na credencial de
-    produção (BaaS, canal 1919) depois do teste no dev, a ativação dos
+    produção (BaaS, canal 1919), agora que o teste no dev passou; o
+    significado do `ValorTaxaAdm` (valor ou %); a ativação dos
     webhooks `Compra.*`, e a credencial SÓ DE CONSULTA com senha nova (as duas
     senhas passaram por chat). Depois do teste: ligar a conferência das vendas (data e taxa
     reais no lugar das estimadas).
