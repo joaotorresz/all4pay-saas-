@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Compras · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="compras" titulo="Compras" sub="Pedidos de compra · outubro de 2026" acao="Nova compra" acao2="Cotação" hint-size="100%,1000px">
+  <div style="{{gk}}">
+    <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+      <div style="{{k.estilo}}">
+        <span style="font-size: 13px; opacity: 0.85">{{k.rotulo}}</span>
+        <dc-import name="Valor" valor="{{k.valor}}" tamanho="var(--erp-numeros)" tom="{{k.tom}}" nivel="{{k.nivel}}" hint-size="200px,30px"></dc-import>
+        <span style="font-size: 12px; opacity: 0.8">{{k.nota}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+      <h2 style="margin: 0 auto 0 0; font-size: var(--erp-titulo-secao); font-weight: 500">Pedidos de compra</h2>
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="4">
+        <button type="button" aria-pressed="{{f.sel}}" onClick="{{f.ir}}" style="{{f.estilo}}">{{f.rotulo}}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{desk}}" hint-placeholder-val="{{true}}">
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 880px; border-collapse: collapse; font-size: 14px">
+          <thead><tr><sc-for list="{{cols}}" as="c" hint-placeholder-count="7"><th style="{{c.estilo}}">{{c.r}}</th></sc-for></tr></thead>
+          <tbody>
+            <sc-for list="{{linhas}}" as="l" hint-placeholder-count="7">
+              <tr><sc-for list="{{l.celulas}}" as="c" hint-placeholder-count="7"><td style="{{c.estilo}}"><sc-if value="{{c.badge}}" hint-placeholder-val="{{false}}"><span style="{{c.etq}}">{{c.texto}}</span></sc-if><sc-if value="{{c.dinheiro}}" hint-placeholder-val="{{false}}"><dc-import name="Valor" valor="{{c.texto}}" tamanho="14px" alinhar="direita" hint-size="100%,14px"></dc-import></sc-if><sc-if value="{{c.simples}}" hint-placeholder-val="{{true}}">{{c.texto}}</sc-if></td></sc-for></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+    <sc-if value="{{mob}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{linhas}}" as="l" hint-placeholder-count="7">
+          <div style="border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: calc(var(--erp-raio-card) * 0.6); padding: 14px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 15px; font-weight: 500; flex: 1; min-width: 0">{{l.titulo}}</span>
+              <span style="{{l.etq}}">{{l.status}}</span>
+            </div>
+            <sc-for list="{{l.pares}}" as="p" hint-placeholder-count="5">
+              <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px"><span style="color: var(--erp-texto-2)">{{p.r}}</span><sc-if value="{{p.dinheiro}}" hint-placeholder-val="{{false}}"><dc-import name="Valor" valor="{{p.v}}" tamanho="15px" alinhar="direita" hint-size="110px,15px"></dc-import></sc-if><sc-if value="{{p.simples}}" hint-placeholder-val="{{true}}"><span style="font-weight: 500; text-align: right">{{p.v}}</span></sc-if></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const filtroAtual = (this.state && this.state.filtro) || 'Todos';
+    const etq = (tom) => {
+      const m = { sucesso: ['--erp-sucesso-fundo', '--erp-sucesso'], alerta: ['--erp-alerta-fundo', '--erp-alerta'], perigo: ['--erp-perigo-fundo', '--erp-perigo'], neutro: ['--erp-cartao-2', '--erp-texto-2'] }[tom];
+      return 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:var(--erp-raio-etiqueta);white-space:nowrap;background:var(' + m[0] + ');color:var(' + m[1] + ');';
+    };
+    const cardK = (destaque) => (destaque ? 'background:var(--erp-destaque);color:var(--erp-cartao);' : 'background:var(--erp-cartao);color:var(--erp-texto);border:var(--erp-borda-espessura) solid var(--erp-borda);') +
+      'border-radius:var(--erp-raio-card);box-shadow:var(--erp-sombra);padding:20px;display:flex;flex-direction:column;gap:10px;';
+    const kpis = [
+      ['Comprado em outubro', 'R$73.418,60', '11 pedidos recebidos', true],
+      ['Aguardando aprovação', '2', 'R$22.950,00 acima da alçada'],
+      ['Em trânsito', 'R$15.880,00', '2 entregas previstas'],
+      ['Prazo médio', '6 dias', 'do pedido à entrega']
+    ].map(([rotulo, valor, nota, d]) => ({ rotulo, valor, nota, tom: d ? 'claro' : 'padrao', nivel: d ? 'principal' : 'padrao', estilo: cardK(!!d) }));
+    const filtros = ['Todos', 'Aguardando aprovação', 'Em trânsito', 'Recebidos'].map((rotulo) => ({
+      rotulo, sel: rotulo === filtroAtual ? 'true' : 'false', ir: () => this.setState({ filtro: rotulo }),
+      estilo: 'height:' + (mob ? 44 : 36) + 'px;padding:0 14px;border-radius:999px;cursor:pointer;font-family:var(--erp-fonte-texto);font-size:13px;' +
+        (rotulo === filtroAtual ? 'border:0;background:var(--erp-destaque);color:var(--erp-cartao);font-weight:500;' : 'border:var(--erp-borda-espessura) solid var(--erp-borda);background:transparent;color:var(--erp-texto-2);')
+    }));
+    const defs = [['Fornecedor', 'l', 'titulo'], ['Pedido', 'l'], ['Emissão', 'l'], ['Previsão', 'l'], ['Solicitante', 'l'], ['Total', 'r'], ['Situação', 'l', 'badge']];
+    const dados = [
+      ['Votorantim Cimentos SA', 'PC-2291', '09/10/2026', '16/10/2026', 'Marina Andrade', 'R$12.300,00', 'Em trânsito', 'alerta'],
+      ['Tigre Tubos e Conexões SA', 'PC-2290', '09/10/2026', '20/10/2026', 'Paulo Reis', 'R$9.640,00', 'Aguarda aprovação', 'neutro'],
+      ['Distribuidora Paulista Ltda', 'PC-2287', '06/10/2026', '10/10/2026', 'Marina Andrade', 'R$7.540,00', 'Recebido', 'sucesso'],
+      ['Suvinil Tintas SA', 'PC-2285', '05/10/2026', '14/10/2026', 'Paulo Reis', 'R$13.310,00', 'Aguarda aprovação', 'neutro'],
+      ['Gerdau Aços Longos SA', 'PC-2281', '02/10/2026', '08/10/2026', 'Marina Andrade', 'R$9.938,40', 'Recebido com divergência', 'perigo'],
+      ['Eliane Revestimentos', 'PC-2279', '01/10/2026', '07/10/2026', 'Paulo Reis', 'R$18.240,00', 'Recebido', 'sucesso'],
+      ['Transportadora Rota Sul', 'PC-2276', '30/09/2026', '13/10/2026', 'Marina Andrade', 'R$3.580,00', 'Em trânsito', 'alerta']
+    ];
+    const cols = defs.map(([r, al]) => ({ r, estilo: 'text-align:' + (al === 'r' ? 'right' : 'left') + ';font-size:11px;font-weight:500;letter-spacing:0.44px;text-transform:uppercase;color:var(--erp-texto-2);padding:0 8px 10px 0;' }));
+    const linhas = dados.map((d) => {
+      const celulas = defs.map(([r, al, papel], i) => ({
+        texto: d[i], badge: papel === 'badge', dinheiro: al === 'r', simples: papel !== 'badge' && al !== 'r', etq: etq(d[7]),
+        estilo: 'padding:12px 8px 12px 0;border-top:var(--erp-borda-espessura) solid var(--erp-borda);text-align:' + (al === 'r' ? 'right' : 'left') + ';' + (papel === 'titulo' ? '' : 'color:var(--erp-texto-2);') + (al === 'r' ? 'color:var(--erp-texto);font-weight:500;' : '')
+      }));
+      const pares = defs.map(([r, al, papel], i) => ({ r, v: d[i], papel, al })).filter((p) => !p.papel).map(({ r, v, al }) => ({ r, v, dinheiro: al === 'r', simples: al !== 'r' }));
+      return { celulas, titulo: d[0], status: d[6], etq: etq(d[7]), pares };
+    });
+    return {
+      modo, desk: !mob, mob, kpis, filtros, cols, linhas,
+      gk: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;'
+    };
+  }
+}
+</script>
+</body>
+</html>

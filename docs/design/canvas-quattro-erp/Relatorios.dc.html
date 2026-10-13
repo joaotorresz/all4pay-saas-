@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatórios · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="relatorios" titulo="Relatórios" sub="Resultado de outubro de 2026" acao="Exportar PDF" acao2="Enviar ao contador" hint-size="100%,1100px">
+  <div style="{{g2}}">
+    <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+      <div style="display: flex; align-items: center; padding-bottom: 10px">
+        <h2 style="margin: 0; font-size: var(--erp-titulo-secao); font-weight: 500">DRE gerencial</h2>
+        <span style="margin-left: auto; font-size: 12px; color: var(--erp-texto-2)">regime de competência</span>
+      </div>
+      <div style="display: flex; gap: 12px; padding-bottom: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2)">
+        <span style="flex: 1">Linha</span><span style="width: 140px; text-align: right">Valor</span><span style="width: 56px; text-align: right">% RB</span>
+      </div>
+      <sc-for list="{{dre}}" as="d" hint-placeholder-count="9">
+        <div style="{{d.estilo}}">
+          <span style="flex: 1; min-width: 0">{{d.r}}</span>
+          <span style="width: 140px; display: block"><dc-import name="Valor" valor="{{d.v}}" tamanho="{{d.tam}}" nivel="{{d.nivel}}" alinhar="direita" hint-size="140px,15px"></dc-import></span>
+          <span style="width: 56px; text-align: right; color: var(--erp-texto-2)">{{d.p}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <h2 style="margin: 0; font-size: var(--erp-titulo-secao); font-weight: 500">Lucro líquido por mês</h2>
+      <div role="img" aria-label="Lucro líquido de maio a outubro de 2026" style="display: flex; flex-direction: column; gap: 8px">
+        <div style="height: 200px; display: flex; align-items: flex-end; gap: 12px; border-bottom: var(--erp-borda-espessura) solid var(--erp-borda)">
+          <sc-for list="{{lucro}}" as="m" hint-placeholder-count="6">
+            <div style="flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px">
+              <span style="font-size: 11px; color: var(--erp-texto-2); white-space: nowrap">{{m.v}}</span>
+              <span style="{{m.barra}}"></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 12px">
+          <sc-for list="{{lucro}}" as="m" hint-placeholder-count="6">
+            <span style="flex: 1; text-align: center; font-size: 11px; color: var(--erp-texto-2); text-transform: uppercase; letter-spacing: 0.44px">{{m.r}}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <div style="padding: 14px; border-radius: 14px; background: var(--erp-cartao-2); display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; color: var(--erp-texto-2)">Margem EBITDA</span>
+          <span style="font-size: calc(var(--erp-numeros) * 0.7); font-weight: 500">15,1%</span>
+        </div>
+        <div style="padding: 14px; border-radius: 14px; background: var(--erp-cartao-2); display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; color: var(--erp-texto-2)">Margem líquida</span>
+          <span style="font-size: calc(var(--erp-numeros) * 0.7); font-weight: 500">13,8%</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+    <h2 style="margin: 0 0 10px; font-size: var(--erp-titulo-secao); font-weight: 500">Todos os relatórios</h2>
+    <div style="{{gcat}}">
+      <sc-for list="{{catalogo}}" as="c" hint-placeholder-count="8">
+        <a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px; border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: calc(var(--erp-raio-card) * 0.6); text-decoration: none; color: var(--erp-texto)">
+          <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--erp-cartao-2); display: grid; place-items: center; flex: none">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+            <span style="font-size: 14px; font-weight: 500">{{c.nome}}</span>
+            <span style="font-size: 12px; color: var(--erp-texto-2)">{{c.desc}}</span>
+          </span>
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+        </a>
+      </sc-for>
+    </div>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const linha = (r, v, p, tipo) => ({
+      r, v, p, nivel: tipo === 'final' ? 'principal' : 'padrao', tam: tipo === 'final' ? '18px' : (tipo === 'total' ? '15px' : '14px'),
+      estilo: 'display:flex;gap:12px;align-items:center;padding:10px 0;border-top:var(--erp-borda-espessura) solid var(--erp-borda);font-size:14px;' +
+        (tipo === 'total' ? 'font-weight:500;' : '') +
+        (tipo === 'final' ? 'font-weight:500;background:var(--erp-cartao-2);padding:12px 10px;border-radius:12px;border-top:0;margin-top:6px;' : '') +
+        (tipo === 'sub' ? 'color:var(--erp-texto-2);padding-left:14px;' : '')
+    });
+    const dre = [
+      linha('Receita bruta', 'R$96.410,20', '100,0%', 'total'),
+      linha('(−) Deduções e impostos', '−R$9.842,54', '10,2%', 'sub'),
+      linha('Receita líquida', 'R$86.567,66', '89,8%', 'total'),
+      linha('(−) Custo das mercadorias', '−R$38.420,00', '39,9%', 'sub'),
+      linha('Lucro bruto', 'R$48.147,66', '49,9%', 'total'),
+      linha('(−) Despesas operacionais', '−R$33.568,64', '34,8%', 'sub'),
+      linha('EBITDA', 'R$14.579,02', '15,1%', 'total'),
+      linha('(±) Resultado financeiro', '−R$1.293,65', '1,3%', 'sub'),
+      linha('Lucro líquido', 'R$13.285,37', '13,8%', 'final')
+    ];
+    const lucro = [['mai', 9.8], ['jun', 7.4], ['jul', 11.2], ['ago', 8.9], ['set', 12.6], ['out', 13.3]].map(([r, v]) => ({
+      r, v: (mob ? '' : 'R$') + v.toLocaleString('pt-BR', { minimumFractionDigits: 1 }) + (mob ? '' : ' mil'),
+      barra: 'width:' + (mob ? 30 : 44) + 'px;height:' + Math.round(v * 11) + 'px;border-radius:6px 6px 2px 2px;background:' + (r === 'out' ? 'var(--erp-grafico)' : 'var(--erp-grafico-2)') + ';'
+    }));
+    const catalogo = [
+      ['DRE comparativa', 'Mês a mês, com análise vertical e horizontal'],
+      ['DFC · fluxo de caixa realizado', 'Entradas e saídas pela data de pagamento'],
+      ['Curva ABC de produtos', 'Faturamento e margem por item'],
+      ['Vendas por vendedor', 'Pedidos, ticket médio e comissão'],
+      ['Contas a receber por idade', 'Até 30, 31–60, 61–90 e acima de 90 dias'],
+      ['Livro de entradas e saídas', 'Notas fiscais para o contador'],
+      ['Inventário valorizado', 'Saldo por depósito pelo custo médio'],
+      ['Apuração do Simples Nacional', 'Faixa, alíquota efetiva e DAS do mês']
+    ].map(([nome, desc]) => ({ nome, desc }));
+    return {
+      modo, dre, lucro, catalogo,
+      g2: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;',
+      gcat: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:10px;' : 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;'
+    };
+  }
+}
+</script>
+</body>
+</html>

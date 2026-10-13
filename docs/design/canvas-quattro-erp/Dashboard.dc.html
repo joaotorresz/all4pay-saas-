@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Dashboard · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="dashboard" titulo="Dashboard" sub="Outubro de 2026" acao="Novo lançamento" acao2="Exportar" hint-size="100%,1100px">
+  <div style="{{g4}}">
+    <div style="background: var(--erp-destaque); color: var(--erp-cartao); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; opacity: 0.85">Saldo em conta</span>
+      <dc-import name="Valor" valor="R$184.320,55" tamanho="var(--erp-numeros)" tom="claro" nivel="principal" hint-size="200px,30px"></dc-import>
+      <span style="font-size: 12px; opacity: 0.85">4 contas · Itaú, Inter, Sicredi, Caixa</span>
+    </div>
+    <sc-for list="{{kpis}}" as="k" hint-placeholder-count="3">
+      <div style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 13px; color: var(--erp-texto-2)">{{k.rotulo}}</span>
+        <dc-import name="Valor" valor="{{k.valor}}" tamanho="var(--erp-numeros)" hint-size="200px,30px"></dc-import>
+        <span style="font-size: 12px; color: var(--erp-texto-2)">{{k.nota}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="{{g83}}">
+    <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+        <h2 style="margin: 0; font-size: var(--erp-titulo-secao); font-weight: 500">Fluxo de caixa</h2>
+        <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--erp-texto-2)"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--erp-grafico)"></span>Entradas</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--erp-texto-2)"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--erp-grafico-2)"></span>Saídas</span>
+      </div>
+      <div role="img" aria-label="Entradas e saídas por mês" style="display: flex; flex-direction: column; gap: 8px">
+        <div style="height: 200px; display: flex; align-items: flex-end; gap: 8px; border-bottom: var(--erp-borda-espessura) solid var(--erp-borda)">
+          <sc-for list="{{meses}}" as="m" hint-placeholder-count="12">
+            <div style="flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px">
+              <span style="{{m.e}}"></span>
+              <span style="{{m.s}}"></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <sc-for list="{{meses}}" as="m" hint-placeholder-count="12">
+            <span style="flex: 1; text-align: center; font-size: 11px; color: var(--erp-texto-2); text-transform: uppercase; letter-spacing: 0.44px">{{m.r}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+    <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+      <h2 style="margin: 0 0 8px; font-size: var(--erp-titulo-secao); font-weight: 500">Estoque crítico</h2>
+      <sc-for list="{{criticos}}" as="c" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)">
+          <span style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+            <span style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.nome}}</span>
+            <span style="font-size: 12px; color: var(--erp-texto-2)">SKU {{c.sku}} · mínimo {{c.min}}</span>
+          </span>
+          <span style="{{c.etq}}">{{c.saldo}} un.</span>
+        </div>
+      </sc-for>
+    </section>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 12px; min-width: 0">
+    <div style="display: flex; align-items: center">
+      <h2 style="margin: 0; font-size: var(--erp-titulo-secao); font-weight: 500">Contas a vencer</h2>
+      <a href="{{linkFin}}" style="margin-left: auto; font-size: 13px; color: var(--erp-texto); min-height: 44px; display: inline-flex; align-items: center">Ver financeiro</a>
+    </div>
+    <sc-if value="{{desk}}" hint-placeholder-val="{{true}}">
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 680px; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Vencimento</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Contraparte</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Tipo</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Situação</th>
+              <th style="text-align: right; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{contas}}" as="t" hint-placeholder-count="5">
+              <tr>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); color: var(--erp-texto-2)">{{t.data}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)">{{t.nome}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); color: var(--erp-texto-2)">{{t.tipo}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)"><span style="{{t.etq}}">{{t.status}}</span></td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); text-align: right"><dc-import name="Valor" valor="{{t.valor}}" tamanho="14px" alinhar="direita" hint-size="100%,14px"></dc-import></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+    <sc-if value="{{mob}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{contas}}" as="t" hint-placeholder-count="5">
+          <div style="border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: calc(var(--erp-raio-card) * 0.6); padding: 14px; display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 15px; font-weight: 500; flex: 1; min-width: 0">{{t.nome}}</span>
+              <span style="{{t.etq}}">{{t.status}}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 14px">
+              <span style="color: var(--erp-texto-2)">{{t.tipo}} · {{t.data}}</span>
+              <dc-import name="Valor" valor="{{t.valor}}" tamanho="15px" hint-size="100px,15px"></dc-import>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;modo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;desktop&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;]},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1100}}">
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const etq = (tom) => {
+      const m = { sucesso: ['--erp-sucesso-fundo', '--erp-sucesso'], alerta: ['--erp-alerta-fundo', '--erp-alerta'], perigo: ['--erp-perigo-fundo', '--erp-perigo'], neutro: ['--erp-cartao-2', '--erp-texto-2'] }[tom];
+      return 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:var(--erp-raio-etiqueta);white-space:nowrap;background:var(' + m[0] + ');color:var(' + m[1] + ');';
+    };
+    const dados = [['nov', 61, 54], ['dez', 78, 70], ['jan', 52, 58], ['fev', 60, 51], ['mar', 71, 63], ['abr', 67, 65], ['mai', 82, 69], ['jun', 74, 68], ['jul', 88, 71], ['ago', 79, 74], ['set', 92, 77], ['out', 96, 72]];
+    const usados = mob ? dados.slice(-6) : dados;
+    const meses = usados.map(([r, e, s]) => ({
+      r,
+      e: 'width:' + (mob ? 14 : 12) + 'px;height:' + Math.round(e * 1.9) + 'px;border-radius:4px 4px 1px 1px;background:var(--erp-grafico);',
+      s: 'width:' + (mob ? 14 : 12) + 'px;height:' + Math.round(s * 1.9) + 'px;border-radius:4px 4px 1px 1px;background:var(--erp-grafico-2);'
+    }));
+    const kpis = [
+      { rotulo: 'A receber no mês', valor: 'R$58.210,00', nota: '14 títulos · 3 vencidos' },
+      { rotulo: 'A pagar no mês', valor: 'R$41.736,18', nota: '19 títulos até 31/10/2026' },
+      { rotulo: 'Faturamento de outubro', valor: 'R$96.410,20', nota: '+8,4% sobre setembro' }
+    ];
+    const criticos = [
+      { nome: 'Cimento CP II 50 kg', sku: 'CIM-050', min: 80, saldo: 12, t: 'perigo' },
+      { nome: 'Argamassa AC-II 20 kg', sku: 'ARG-020', min: 60, saldo: 34, t: 'alerta' },
+      { nome: 'Tinta acrílica branca 18 L', sku: 'TIN-018', min: 25, saldo: 19, t: 'alerta' },
+      { nome: 'Tubo PVC 100 mm 6 m', sku: 'PVC-100', min: 40, saldo: 8, t: 'perigo' },
+      { nome: 'Rejunte cinza 1 kg', sku: 'REJ-001', min: 120, saldo: 96, t: 'alerta' }
+    ].map((c) => ({ ...c, etq: etq(c.t) }));
+    const contas = [
+      { data: '13/10/2026', nome: 'Distribuidora Paulista Ltda', tipo: 'A pagar', status: 'Vence hoje', t: 'alerta', valor: 'R$7.540,00' },
+      { data: '14/10/2026', nome: 'Construtora Horizonte SA', tipo: 'A receber', status: 'Em aberto', t: 'neutro', valor: 'R$18.900,00' },
+      { data: '10/10/2026', nome: 'Votorantim Cimentos SA', tipo: 'A pagar', status: 'Vencido', t: 'perigo', valor: 'R$12.300,00' },
+      { data: '15/10/2026', nome: 'DAS — Simples Nacional', tipo: 'Imposto', status: 'Agendado', t: 'neutro', valor: 'R$3.118,40' },
+      { data: '08/10/2026', nome: 'Reforma Já Serviços ME', tipo: 'A receber', status: 'Pago', t: 'sucesso', valor: 'R$4.250,00' }
+    ].map((c) => ({ ...c, etq: etq(c.t) }));
+    return {
+      modo, desk: !mob, mob,
+      linkFin: mob ? 'FinanceiroMobile.dc.html' : 'Financeiro.dc.html',
+      g4: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;',
+      g83: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;',
+      kpis, meses, criticos, contas
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ícones · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Main" modo="vars" hint-size="0px,0px"></dc-import>
+<div style="width: 1280px; height: 1320px; box-sizing: border-box; padding: 48px; background: var(--erp-fundo); color: var(--erp-texto); font-family: var(--erp-fonte-texto); display: flex; flex-direction: column; gap: 28px">
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <h1 style="margin: 0; font-family: var(--erp-fonte-titulo); font-weight: var(--erp-peso-titulo); font-size: var(--erp-titulo-pagina); text-transform: var(--erp-titulo-caixa); letter-spacing: var(--erp-titulo-espacamento, 0em); line-height: 1.05">Ícones do sistema</h1>
+    <p style="margin: 0; color: var(--erp-texto-2); max-width: 760px; line-height: 1.5">61 ícones duotônicos, desenhados a partir da ilustração da marca: volume na cor do texto, contorno 1,7 e um acento lime. Os controles (setas, X, mais, menos) ficam só no traço. O nome embaixo é a chave usada no código.</p>
+  </div>
+  <sc-for list="{{grupos}}" as="g" hint-placeholder-count="2">
+    <section style="display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: var(--erp-titulo-secao); font-weight: 500">{{g.nome}} · {{g.qtd}}</span>
+      <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{g.itens}}" as="i" hint-placeholder-count="10">
+          <div style="background: var(--erp-cartao); border-radius: 14px; padding: 16px 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <img src="{{i.url}}" alt="{{i.nome}}" style="width: 40px; height: 40px">
+            <span style="font-size: 11px; color: var(--erp-texto-2); text-align: center; word-break: break-all">{{i.nome}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const B = (id) => '/_blob/' + id;
+    const todos = {
+      activity: 'b13bfd46394e4cf2d282863b33c33824', 'arrow-down-to-line': 'be1f4b3f95832c71cfb0520baae006df', 'arrow-down': '6805c6b780f28a1859d20a182244d486',
+      'arrow-left-right': '6ff9fcee3b2602610fa8bb237f0d44c6', 'arrow-up-right': '260cb8d56960723d5cf8c81f1e77c92b', 'arrow-up': 'c4456be5ead4ce7b2e01993e0fda4c30',
+      bell: 'aaff1e3fdb45913d9d5702139cfb3734', building: '0fc5fc78b5abe07bc5df70cd62ae1ac0', calendar: '72801dac6d8e599a97ce50995876689f',
+      check: '03647f25674f2bb6c10427e79f5e3213', 'chevron-down': 'f522eb81e7c563b81ca8c560775ff592', 'chevron-left': 'cccc2250d834e1d8ee18db9b89360f4f',
+      'chevron-right': 'fbf97f58d84d04fb117085b1328b2b73', 'chevrons-up-down': 'eb086c452e35714c01a374712e7ef100', cpu: 'f2462e06f86e62b6f47b80ae7e0c264c',
+      'credit-card': 'df76ec02f08eb2d5d83f5a2275fd3650', database: '8ba3c5ab9b8421a2fcbf0a7c86c45154', edit: '50299e545a971b4baa508ef8890b7968',
+      'eye-off': 'f6c3d7e423a3b542a2a5b53e16f9a62a', eye: '04f85e4e6a03437a4e58b4064e568c84', 'file-text': '4db2250912567a05712eadc7d2d469ed',
+      gauge: 'b4499b9c47f9e20f7e531fa279a792e1', 'grip-vertical': '451445b6651b5563d72b3bbc7aee3b9c', 'help-circle': '39268aa6cf11627a32dcc0f25fed8663',
+      house: '7f5b0f53df0af2cc14048071d6b0da32', inbox: '2bf8000e68cd59bf4c8d89e8b7cdd490', info: '1f562fb7f3111511773d18e380854fa5',
+      inicio: 'ae7c7c57afa62a02f40a0dd68e2e0f81', layers: 'dc4cf5851c5f5fb50267de5e83c10b7f', 'layout-dashboard': 'd1c524ccd12201afbea9b6cab20d1ac7',
+      link: '2b1e16e0a49d6919f6b18978044c21a4', 'list-checks': 'c7bbe905979317bb57707fc5e5389485', mail: '71e7afc5ad37c192ad9ffbca3e52a4d0',
+      menu: 'be9e45cc4462c5b510fee6848685a25b', minus: '848f63c39fa95b5dc9fe1eb886993ca0', moon: 'e6e4c3a033ff96930f86b1eb456b411d',
+      'more-vertical': 'a0cf1eb17b61b3ad1d084674b40cef20', network: 'c7e4d7ec40c957f4cd631ecb060c5cf5', palette: 'dde3c10b848dc32add670d1baccec926',
+      paperclip: 'e70fdb0d6e459bb7002a33de67d54691', plus: '4a10477a944e90d98da49dc610b5f95b', receipt: '30f0d54216c6e932f07ed7bb4368cf7b',
+      repeat: '0bb4f125c93127d0d4e0958ff9d6a2c9', 'rotate-ccw': 'ed35bb21c081085cd4c3bb7678cb3cf2', 'scan-line': '48cd0ffde6826369a531d29667e62f75',
+      search: '0bd64765436b8ee480ebe0c253771b95', settings: '980f3dcbb60277fc6aacd31fd7517039', 'shield-check': 'd3882db203dd22afdaf82226296a1d0c',
+      'shopping-cart': '4c73a77557268259cbb227bd27ee9d79', smartphone: '0bdc81a964620840300b8eab63001eed', sparkles: '1cb6adfcc00fadcd25e6e625a92c6582',
+      sun: '7c1e3e9167880f599f6f3afca5a07759', target: 'e43cfc5a7c13a347d4677f8a753aa01e', 'trash-2': '101a0f22132c0448fcaaaeb210f4b6e8',
+      'trending-down': 'bdfd190e35c6aab226c2e02de29395af', 'trending-up': 'e78bb7ad85cbe7b08185522f5d3daecc', 'triangle-alert': 'a3bf1f40bf52b2d12bfed82adc13ac6d',
+      upload: '474e2841df0523b08a54912d23ef161c', users: 'b732b00806ff62372e7ef16676a9e1a9', workflow: 'f69a93fbf78bdd31e0aabff7cd272cad',
+      x: '45fe52d297567646efc06bd41480f98e'
+    };
+    const controles = ['plus', 'minus', 'x', 'check', 'chevron-down', 'chevron-left', 'chevron-right', 'chevrons-up-down', 'menu', 'arrow-up-right', 'arrow-up', 'arrow-down', 'arrow-down-to-line', 'arrow-left-right', 'repeat', 'rotate-ccw', 'grip-vertical', 'more-vertical', 'link', 'paperclip'];
+    const nomes = Object.keys(todos).sort();
+    const item = (nome) => ({ nome, url: B(todos[nome]) });
+    const objetos = nomes.filter((n) => !controles.includes(n)).map(item);
+    const ctrl = nomes.filter((n) => controles.includes(n)).map(item);
+    return {
+      grupos: [
+        { nome: 'Objetos (volume + contorno + acento lime)', qtd: objetos.length, itens: objetos },
+        { nome: 'Controles (só traço)', qtd: ctrl.length, itens: ctrl }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

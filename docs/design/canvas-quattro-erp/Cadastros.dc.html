@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cadastros · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="cadastros" titulo="Cadastros" sub="Clientes, fornecedores e produtos" acao="{{acao}}" acao2="Importar planilha" hint-size="100%,1000px">
+  <div style="{{gk}}">
+    <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+      <div style="{{k.estilo}}">
+        <span style="font-size: 13px; opacity: 0.85">{{k.rotulo}}</span>
+        <dc-import name="Valor" valor="{{k.valor}}" tamanho="var(--erp-numeros)" tom="{{k.tom}}" nivel="{{k.nivel}}" hint-size="200px,30px"></dc-import>
+        <span style="font-size: 12px; opacity: 0.8">{{k.nota}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+      <div role="tablist" aria-label="Tipo de cadastro" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--erp-cartao-2); border: var(--erp-borda-espessura) solid var(--erp-borda); margin-right: auto">
+        <sc-for list="{{abas}}" as="a" hint-placeholder-count="3">
+          <button type="button" role="tab" aria-selected="{{a.sel}}" onClick="{{a.ir}}" style="{{a.estilo}}">{{a.rotulo}}</button>
+        </sc-for>
+      </div>
+      <label style="flex: 0 1 280px; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1.5px solid var(--erp-borda); border-radius: 14px; color: var(--erp-texto-2)">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Buscar cadastro</span>
+        <input type="search" placeholder="Nome, CNPJ ou SKU" style="{{campo}}">
+      </label>
+    </div>
+    <sc-if value="{{desk}}" hint-placeholder-val="{{true}}">
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 880px; border-collapse: collapse; font-size: 14px">
+          <thead><tr><sc-for list="{{cols}}" as="c" hint-placeholder-count="6"><th style="{{c.estilo}}">{{c.r}}</th></sc-for></tr></thead>
+          <tbody>
+            <sc-for list="{{linhas}}" as="l" hint-placeholder-count="6">
+              <tr><sc-for list="{{l.celulas}}" as="c" hint-placeholder-count="6"><td style="{{c.estilo}}"><sc-if value="{{c.badge}}" hint-placeholder-val="{{false}}"><span style="{{c.etq}}">{{c.texto}}</span></sc-if><sc-if value="{{c.dinheiro}}" hint-placeholder-val="{{false}}"><dc-import name="Valor" valor="{{c.texto}}" tamanho="14px" alinhar="direita" hint-size="100%,14px"></dc-import></sc-if><sc-if value="{{c.simples}}" hint-placeholder-val="{{true}}">{{c.texto}}</sc-if></td></sc-for></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+    <sc-if value="{{mob}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{linhas}}" as="l" hint-placeholder-count="6">
+          <div style="border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: calc(var(--erp-raio-card) * 0.6); padding: 14px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 15px; font-weight: 500; flex: 1; min-width: 0">{{l.titulo}}</span>
+              <span style="{{l.etq}}">{{l.status}}</span>
+            </div>
+            <sc-for list="{{l.pares}}" as="p" hint-placeholder-count="4">
+              <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px"><span style="color: var(--erp-texto-2)">{{p.r}}</span><sc-if value="{{p.dinheiro}}" hint-placeholder-val="{{false}}"><dc-import name="Valor" valor="{{p.v}}" tamanho="15px" alinhar="direita" hint-size="110px,15px"></dc-import></sc-if><sc-if value="{{p.simples}}" hint-placeholder-val="{{true}}"><span style="font-weight: 500; text-align: right">{{p.v}}</span></sc-if></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const aba = (this.state && this.state.aba) || 'clientes';
+    const etq = (tom) => {
+      const m = { sucesso: ['--erp-sucesso-fundo', '--erp-sucesso'], alerta: ['--erp-alerta-fundo', '--erp-alerta'], perigo: ['--erp-perigo-fundo', '--erp-perigo'], neutro: ['--erp-cartao-2', '--erp-texto-2'] }[tom];
+      return 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:var(--erp-raio-etiqueta);white-space:nowrap;background:var(' + m[0] + ');color:var(' + m[1] + ');';
+    };
+    const cardK = (destaque) => (destaque ? 'background:var(--erp-destaque);color:var(--erp-cartao);' : 'background:var(--erp-cartao);color:var(--erp-texto);border:var(--erp-borda-espessura) solid var(--erp-borda);') +
+      'border-radius:var(--erp-raio-card);box-shadow:var(--erp-sombra);padding:20px;display:flex;flex-direction:column;gap:10px;';
+    const kpis = [
+      ['Clientes ativos', '386', '41 novos nos últimos 90 dias', true],
+      ['Fornecedores', '74', '12 com contrato vigente'],
+      ['Produtos', '1.284', 'em 18 categorias'],
+      ['Cadastros incompletos', '12', 'sem e-mail ou inscrição estadual']
+    ].map(([rotulo, valor, nota, d]) => ({ rotulo, valor, nota, tom: d ? 'claro' : 'padrao', nivel: d ? 'principal' : 'padrao', estilo: cardK(!!d) }));
+    const abas = [['clientes', 'Clientes'], ['fornecedores', 'Fornecedores'], ['produtos', 'Produtos']].map(([k, rotulo]) => ({
+      rotulo, sel: k === aba ? 'true' : 'false', ir: () => this.setState({ aba: k }),
+      estilo: 'height:' + (mob ? 44 : 36) + 'px;padding:0 ' + (mob ? 12 : 16) + 'px;border:0;border-radius:999px;cursor:pointer;font-family:var(--erp-fonte-texto);font-size:14px;' +
+        (k === aba ? 'background:var(--erp-destaque);color:var(--erp-cartao);font-weight:500;' : 'background:transparent;color:var(--erp-texto-2);')
+    }));
+    const tabelas = {
+      clientes: {
+        acao: 'Novo cliente',
+        defs: [['Cliente', 'l', 'titulo'], ['CNPJ/CPF', 'l'], ['Cidade/UF', 'l'], ['Contato', 'l'], ['Limite de crédito', 'r'], ['Situação', 'l', 'badge']],
+        dados: [
+          ['Construtora Horizonte SA', '45.723.174/0001-10', 'Curitiba/PR', '(41) 3322-1045', 'R$60.000,00', 'Ativo', 'sucesso'],
+          ['Mendes Engenharia Ltda', '19.304.887/0001-52', 'São José dos Pinhais/PR', '(41) 3088-7712', 'R$25.000,00', 'Bloqueado por atraso', 'perigo'],
+          ['Casa & Obra Comércio Ltda', '08.962.415/0001-77', 'Joinville/SC', '(47) 3455-2290', 'R$15.000,00', 'Ativo', 'sucesso'],
+          ['Prefeitura de Curitiba', '76.417.005/0001-86', 'Curitiba/PR', '(41) 3350-8000', 'R$100.000,00', 'Ativo', 'sucesso'],
+          ['Reforma Já Serviços ME', '31.580.244/0001-03', 'Colombo/PR', '(41) 99812-4471', 'R$8.000,00', 'Sem e-mail', 'alerta'],
+          ['Joana Ribeiro', '123.456.789-09', 'Curitiba/PR', '(41) 99654-3310', 'R$2.000,00', 'Ativo', 'sucesso']
+        ]
+      },
+      fornecedores: {
+        acao: 'Novo fornecedor',
+        defs: [['Fornecedor', 'l', 'titulo'], ['CNPJ', 'l'], ['Cidade/UF', 'l'], ['Prazo médio', 'l'], ['Comprado no ano', 'r'], ['Situação', 'l', 'badge']],
+        dados: [
+          ['Votorantim Cimentos SA', '01.637.895/0001-32', 'São Paulo/SP', '28 dias', 'R$186.420,00', 'Homologado', 'sucesso'],
+          ['Tigre Tubos e Conexões SA', '84.684.182/0001-57', 'Joinville/SC', '35 dias', 'R$94.310,00', 'Homologado', 'sucesso'],
+          ['Distribuidora Paulista Ltda', '23.118.640/0001-09', 'Campinas/SP', '21 dias', 'R$61.880,00', 'Homologado', 'sucesso'],
+          ['Gerdau Aços Longos SA', '07.358.761/0001-69', 'Ouro Branco/MG', '30 dias', 'R$58.960,00', 'Em avaliação', 'alerta'],
+          ['Suvinil Tintas SA', '61.064.929/0001-79', 'São Bernardo do Campo/SP', '42 dias', 'R$47.200,00', 'Homologado', 'sucesso'],
+          ['Transportadora Rota Sul', '14.902.336/0001-40', 'Araucária/PR', '15 dias', 'R$22.740,00', 'Sem inscrição estadual', 'alerta']
+        ]
+      },
+      produtos: {
+        acao: 'Novo produto',
+        defs: [['Produto', 'l', 'titulo'], ['SKU', 'l'], ['NCM', 'l'], ['Unidade', 'l'], ['Preço de venda', 'r'], ['Situação', 'l', 'badge']],
+        dados: [
+          ['Cimento CP II 50 kg', 'CIM-050', '2523.29.10', 'saco', 'R$42,90', 'Ativo', 'sucesso'],
+          ['Tubo PVC 100 mm 6 m', 'PVC-100', '3917.23.00', 'barra', 'R$89,90', 'Ativo', 'sucesso'],
+          ['Porcelanato 60x60 Bege', 'POR-606', '6907.21.00', 'm²', 'R$79,90', 'Ativo', 'sucesso'],
+          ['Tinta acrílica branca 18 L', 'TIN-018', '3209.10.20', 'lata', 'R$389,00', 'Ativo', 'sucesso'],
+          ['Vergalhão CA-50 10 mm', 'VER-010', '7214.20.00', 'kg', 'R$10,90', 'Sem foto', 'alerta'],
+          ['Massa corrida 25 kg', 'MAS-025', '3214.90.00', 'balde', 'R$64,90', 'Inativo', 'neutro']
+        ]
+      }
+    };
+    const tab = tabelas[aba];
+    const cols = tab.defs.map(([r, al]) => ({ r, estilo: 'text-align:' + (al === 'r' ? 'right' : 'left') + ';font-size:11px;font-weight:500;letter-spacing:0.44px;text-transform:uppercase;color:var(--erp-texto-2);padding:0 8px 10px 0;' }));
+    const linhas = tab.dados.map((d) => {
+      const tom = d[d.length - 1]; const status = d[d.length - 2];
+      const celulas = tab.defs.map(([r, al, papel], i) => ({
+        texto: d[i], badge: papel === 'badge', dinheiro: al === 'r', simples: papel !== 'badge' && al !== 'r', etq: etq(tom),
+        estilo: 'padding:12px 8px 12px 0;border-top:var(--erp-borda-espessura) solid var(--erp-borda);text-align:' + (al === 'r' ? 'right' : 'left') + ';' + (papel === 'titulo' ? '' : 'color:var(--erp-texto-2);') + (al === 'r' ? 'color:var(--erp-texto);font-weight:500;' : '')
+      }));
+      const pares = tab.defs.map(([r, al, papel], i) => ({ r, v: d[i], papel, al })).filter((p) => !p.papel).map(({ r, v, al }) => ({ r, v, dinheiro: al === 'r', simples: al !== 'r' }));
+      return { celulas, titulo: d[0], status, etq: etq(tom), pares };
+    });
+    return {
+      modo, desk: !mob, mob, kpis, abas, cols, linhas, acao: tab.acao,
+      campo: 'flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--erp-texto);font-family:var(--erp-fonte-texto);font-size:' + (mob ? '16px' : '14px') + ';',
+      gk: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;'
+    };
+  }
+}
+</script>
+</body>
+</html>

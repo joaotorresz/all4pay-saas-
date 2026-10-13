@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Financeiro · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="financeiro" titulo="Financeiro" sub="Contas a pagar e a receber" acao="Nova conta" acao2="Importar extrato" hint-size="100%,1100px">
+  <div role="tablist" aria-label="Lado" style="display: flex; gap: 4px; padding: 4px; align-self: flex-start; border-radius: 999px; background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda)">
+    <sc-for list="{{abas}}" as="a" hint-placeholder-count="2">
+      <button type="button" role="tab" aria-selected="{{a.sel}}" onClick="{{a.ir}}" style="{{a.estilo}}">{{a.rotulo}}</button>
+    </sc-for>
+  </div>
+
+  <div style="{{g4}}">
+    <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+      <div style="{{c.estilo}}">
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="{{c.ponto}}"></span>{{c.rotulo}}</span>
+        <dc-import name="Valor" valor="{{c.valor}}" tamanho="var(--erp-numeros)" tom="{{c.tom}}" nivel="{{c.nivel}}" hint-size="200px,30px"></dc-import>
+        <span style="font-size: 12px; opacity: 0.8">{{c.qtd}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+      <label style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+        Buscar
+        <input type="search" placeholder="Contraparte, documento ou categoria" style="{{campo}}">
+      </label>
+      <label style="flex: 0 1 180px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+        Período
+        <select style="{{campo}}"><option>Outubro de 2026</option><option>Setembro de 2026</option></select>
+      </label>
+      <label style="flex: 0 1 180px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+        Conta
+        <select style="{{campo}}"><option>Todas as contas</option><option>Itaú PJ · 1234-5</option><option>Inter PJ · 98765-4</option></select>
+      </label>
+    </div>
+
+    <sc-if value="{{desk}}" hint-placeholder-val="{{true}}">
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 860px; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr>
+              <th style="width: 32px; padding: 0 0 10px; text-align: left"><input type="checkbox" aria-label="Selecionar todos" style="width: 16px; height: 16px; accent-color: var(--erp-texto)"></th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Vencimento</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">{{colContra}}</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Documento</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Categoria</th>
+              <th style="text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Situação</th>
+              <th style="text-align: right; font-size: 11px; font-weight: 500; letter-spacing: 0.44px; text-transform: uppercase; color: var(--erp-texto-2); padding: 0 0 10px">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{linhas}}" as="l" hint-placeholder-count="8">
+              <tr>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)"><input type="checkbox" aria-label="Selecionar título" style="width: 16px; height: 16px; accent-color: var(--erp-texto)"></td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); color: var(--erp-texto-2)">{{l.data}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)">{{l.nome}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); color: var(--erp-texto-2)">{{l.doc}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); color: var(--erp-texto-2)">{{l.cat}}</td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)"><span style="{{l.etq}}">{{l.status}}</span></td>
+                <td style="padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); text-align: right"><dc-import name="Valor" valor="{{l.valor}}" tamanho="14px" alinhar="direita" hint-size="100%,14px"></dc-import></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+    <sc-if value="{{mob}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{linhas}}" as="l" hint-placeholder-count="8">
+          <div style="border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: calc(var(--erp-raio-card) * 0.6); padding: 14px; display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 15px; font-weight: 500; flex: 1; min-width: 0">{{l.nome}}</span>
+              <span style="{{l.etq}}">{{l.status}}</span>
+            </div>
+            <span style="font-size: 13px; color: var(--erp-texto-2)">{{l.doc}} · {{l.cat}}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px">
+              <span style="color: var(--erp-texto-2)">Vence {{l.data}}</span>
+              <dc-import name="Valor" valor="{{l.valor}}" tamanho="17px" hint-size="110px,17px"></dc-import>
+            </div>
+            <button type="button" style="height: 44px; border-radius: var(--erp-botao-raio); border: var(--erp-borda-espessura) solid var(--erp-controle-borda); background: transparent; color: var(--erp-texto); font-family: var(--erp-fonte-texto); font-size: 15px; font-weight: 500">{{baixar}}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const lado = (this.state && this.state.lado) || 'pagar';
+    const etq = (tom) => {
+      const m = { sucesso: ['--erp-sucesso-fundo', '--erp-sucesso'], alerta: ['--erp-alerta-fundo', '--erp-alerta'], perigo: ['--erp-perigo-fundo', '--erp-perigo'], neutro: ['--erp-cartao-2', '--erp-texto-2'] }[tom];
+      return 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:var(--erp-raio-etiqueta);white-space:nowrap;background:var(' + m[0] + ');color:var(' + m[1] + ');';
+    };
+    const abas = [['pagar', 'Contas a pagar'], ['receber', 'Contas a receber']].map(([k, rotulo]) => ({
+      rotulo, sel: k === lado ? 'true' : 'false',
+      ir: () => this.setState({ lado: k }),
+      estilo: 'height:' + (mob ? 44 : 38) + 'px;padding:0 18px;border:0;border-radius:999px;cursor:pointer;font-family:var(--erp-fonte-texto);font-size:14px;' +
+        (k === lado ? 'background:var(--erp-destaque);color:var(--erp-cartao);font-weight:500;' : 'background:transparent;color:var(--erp-texto-2);')
+    }));
+    const pagar = [
+      ['13/10/2026', 'Distribuidora Paulista Ltda', 'NF-e 000.482', 'Fornecedores', 'Vence hoje', 'alerta', 'R$7.540,00'],
+      ['10/10/2026', 'Votorantim Cimentos SA', 'NF-e 118.903', 'Mercadorias', 'Vencido', 'perigo', 'R$12.300,00'],
+      ['15/10/2026', 'Receita Federal', 'DAS 09/2026', 'Impostos', 'Agendado', 'neutro', 'R$3.118,40'],
+      ['20/10/2026', 'Imobiliária Central Ltda', 'Boleto 0045', 'Aluguel', 'Em aberto', 'neutro', 'R$6.200,00'],
+      ['05/10/2026', 'Folha de pagamento', 'Folha 09/2026', 'Pessoal', 'Pago', 'sucesso', 'R$28.420,10'],
+      ['25/10/2026', 'Transportadora Rota Sul', 'CT-e 7.211', 'Frete', 'Em aberto', 'neutro', 'R$1.980,00'],
+      ['30/10/2026', 'Copel Distribuição', 'Fatura 10/2026', 'Energia', 'Em aberto', 'neutro', 'R$1.412,37']
+    ];
+    const receber = [
+      ['14/10/2026', 'Construtora Horizonte SA', 'NF-e 000.611', 'Venda de mercadorias', 'Em aberto', 'neutro', 'R$18.900,00'],
+      ['02/10/2026', 'Mendes Engenharia Ltda', 'NF-e 000.597', 'Venda de mercadorias', 'Vencido', 'perigo', 'R$9.870,00'],
+      ['08/10/2026', 'Reforma Já Serviços ME', 'Boleto 0213', 'Venda de mercadorias', 'Pago', 'sucesso', 'R$4.250,00'],
+      ['13/10/2026', 'Casa & Obra Comércio Ltda', 'NF-e 000.604', 'Venda de mercadorias', 'Vence hoje', 'alerta', 'R$6.420,00'],
+      ['22/10/2026', 'Prefeitura de Curitiba', 'NF-e 000.615', 'Licitação', 'Em aberto', 'neutro', 'R$14.770,00'],
+      ['28/10/2026', 'Joana Ribeiro (CPF)', 'Pix parcelado 2/3', 'Venda balcão', 'Em aberto', 'neutro', 'R$4.000,00']
+    ];
+    const fonte = lado === 'pagar' ? pagar : receber;
+    const linhas = fonte.map(([data, nome, doc, cat, status, t, valor]) => ({ data, nome, doc, cat, status, valor, etq: etq(t) }));
+    const resumo = lado === 'pagar'
+      ? [['Pagas', 'R$28.420,10', '1 título', 'sucesso'], ['A vencer', 'R$20.250,77', '5 títulos', 'alerta'], ['Atrasadas', 'R$12.300,00', '1 título', 'perigo'], ['Total do mês', 'R$60.970,87', '7 títulos', 'total']]
+      : [['Recebidas', 'R$4.250,00', '1 título', 'sucesso'], ['A receber', 'R$44.090,00', '4 títulos', 'alerta'], ['Atrasadas', 'R$9.870,00', '1 título', 'perigo'], ['Total do mês', 'R$58.210,00', '6 títulos', 'total']];
+    const cards = resumo.map(([rotulo, valor, qtd, t]) => ({
+      rotulo, valor, qtd, tom: t === 'total' ? 'claro' : 'padrao', nivel: t === 'total' ? 'principal' : 'padrao',
+      estilo: (t === 'total'
+        ? 'background:var(--erp-destaque);color:var(--erp-cartao);'
+        : 'background:var(--erp-cartao);color:var(--erp-texto);border:var(--erp-borda-espessura) solid var(--erp-borda);') +
+        'border-radius:var(--erp-raio-card);box-shadow:var(--erp-sombra);padding:20px;display:flex;flex-direction:column;gap:10px;',
+      ponto: 'width:8px;height:8px;border-radius:999px;background:' + (t === 'total' ? 'var(--erp-primaria)' : 'var(--erp-' + t + ')') + ';'
+    }));
+    return {
+      modo, desk: !mob, mob, abas, cards, linhas,
+      colContra: lado === 'pagar' ? 'Fornecedor' : 'Cliente',
+      baixar: lado === 'pagar' ? 'Registrar pagamento' : 'Registrar recebimento',
+      g4: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;',
+      campo: 'height:' + (mob ? '48px' : '44px') + ';padding:0 12px;border:1.5px solid var(--erp-borda);border-radius:14px;background:var(--erp-cartao);color:var(--erp-texto);font-family:var(--erp-fonte-texto);font-size:' + (mob ? '16px' : '14px') + ';font-weight:400;min-width:0;'
+    };
+  }
+}
+</script>
+</body>
+</html>

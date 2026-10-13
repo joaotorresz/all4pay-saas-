@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Fiscal · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="fiscal" titulo="Fiscal (NF-e)" sub="Notas emitidas · outubro de 2026" acao="Emitir NF-e" acao2="Baixar XMLs" hint-size="100%,1000px">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--erp-raio-card); background: var(--erp-alerta-fundo); color: var(--erp-alerta); border: var(--erp-borda-espessura) solid color-mix(in srgb, var(--erp-alerta) 30%, transparent)">
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+    <span style="flex: 1 1 260px; font-size: 14px; font-weight: 500">O certificado digital A1 vence em 28/10/2026. Renove antes para não interromper a emissão.</span>
+    <a href="{{linkCfg}}" style="font-size: 14px; color: var(--erp-alerta); font-weight: 500; min-height: 44px; display: inline-flex; align-items: center">Renovar certificado</a>
+  </div>
+
+  <div style="{{gk}}">
+    <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+      <div style="{{k.estilo}}">
+        <span style="font-size: 13px; opacity: 0.85">{{k.rotulo}}</span>
+        <dc-import name="Valor" valor="{{k.valor}}" tamanho="var(--erp-numeros)" tom="{{k.tom}}" nivel="{{k.nivel}}" hint-size="200px,30px"></dc-import>
+        <span style="font-size: 12px; opacity: 0.8">{{k.nota}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+      <h2 style="margin: 0 auto 0 0; font-size: var(--erp-titulo-secao); font-weight: 500">Notas fiscais eletrônicas</h2>
+      <sc-for list="{{filtros}}" as="f" hint-placeholder-count="4">
+        <button type="button" aria-pressed="{{f.sel}}" onClick="{{f.ir}}" style="{{f.estilo}}">{{f.rotulo}}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{desk}}" hint-placeholder-val="{{true}}">
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 14px">
+          <thead><tr><sc-for list="{{cols}}" as="c" hint-placeholder-count="7"><th style="{{c.estilo}}">{{c.r}}</th></sc-for></tr></thead>
+          <tbody>
+            <sc-for list="{{linhas}}" as="l" hint-placeholder-count="7">
+              <tr><sc-for list="{{l.celulas}}" as="c" hint-placeholder-count="7"><td style="{{c.estilo}}"><sc-if value="{{c.badge}}" hint-placeholder-val="{{false}}"><span style="{{c.etq}}">{{c.texto}}</span></sc-if><sc-if value="{{c.dinheiro}}" hint-placeholder-val="{{false}}"><dc-import name="Valor" valor="{{c.texto}}" tamanho="14px" alinhar="direita" hint-size="100%,14px"></dc-import></sc-if><sc-if value="{{c.simples}}" hint-placeholder-val="{{true}}">{{c.texto}}</sc-if></td></sc-for></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+    <sc-if value="{{mob}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{linhas}}" as="l" hint-placeholder-count="7">
+          <div style="border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: calc(var(--erp-raio-card) * 0.6); padding: 14px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 15px; font-weight: 500; flex: 1; min-width: 0">{{l.titulo}}</span>
+              <span style="{{l.etq}}">{{l.status}}</span>
+            </div>
+            <sc-for list="{{l.pares}}" as="p" hint-placeholder-count="5">
+              <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px"><span style="color: var(--erp-texto-2)">{{p.r}}</span><sc-if value="{{p.dinheiro}}" hint-placeholder-val="{{false}}"><dc-import name="Valor" valor="{{p.v}}" tamanho="15px" alinhar="direita" hint-size="110px,15px"></dc-import></sc-if><sc-if value="{{p.simples}}" hint-placeholder-val="{{true}}"><span style="font-weight: 500; text-align: right">{{p.v}}</span></sc-if></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const filtroAtual = (this.state && this.state.filtro) || 'Todas';
+    const etq = (tom) => {
+      const m = { sucesso: ['--erp-sucesso-fundo', '--erp-sucesso'], alerta: ['--erp-alerta-fundo', '--erp-alerta'], perigo: ['--erp-perigo-fundo', '--erp-perigo'], neutro: ['--erp-cartao-2', '--erp-texto-2'] }[tom];
+      return 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:var(--erp-raio-etiqueta);white-space:nowrap;background:var(' + m[0] + ');color:var(' + m[1] + ');';
+    };
+    const cardK = (destaque) => (destaque ? 'background:var(--erp-destaque);color:var(--erp-cartao);' : 'background:var(--erp-cartao);color:var(--erp-texto);border:var(--erp-borda-espessura) solid var(--erp-borda);') +
+      'border-radius:var(--erp-raio-card);box-shadow:var(--erp-sombra);padding:20px;display:flex;flex-direction:column;gap:10px;';
+    const kpis = [
+      ['Valor emitido', 'R$96.410,20', '148 NF-e no mês', true],
+      ['Autorizadas', '144', 'pela SEFAZ-PR'],
+      ['Rejeitadas', '2', 'aguardando correção'],
+      ['Canceladas', '2', 'dentro do prazo de 24 h']
+    ].map(([rotulo, valor, nota, d]) => ({ rotulo, valor, nota, tom: d ? 'claro' : 'padrao', nivel: d ? 'principal' : 'padrao', estilo: cardK(!!d) }));
+    const filtros = ['Todas', 'Autorizadas', 'Rejeitadas', 'Canceladas'].map((rotulo) => ({
+      rotulo, sel: rotulo === filtroAtual ? 'true' : 'false', ir: () => this.setState({ filtro: rotulo }),
+      estilo: 'height:' + (mob ? 44 : 36) + 'px;padding:0 14px;border-radius:999px;cursor:pointer;font-family:var(--erp-fonte-texto);font-size:13px;' +
+        (rotulo === filtroAtual ? 'border:0;background:var(--erp-destaque);color:var(--erp-cartao);font-weight:500;' : 'border:var(--erp-borda-espessura) solid var(--erp-borda);background:transparent;color:var(--erp-texto-2);')
+    }));
+    const defs = [['Destinatário', 'l', 'titulo'], ['Número', 'l'], ['CNPJ/CPF', 'l'], ['Emissão', 'l'], ['Natureza', 'l'], ['Valor', 'r'], ['Situação', 'l', 'badge']];
+    const dados = [
+      ['Construtora Horizonte SA', '000.611 · série 1', '45.723.174/0001-10', '12/10/2026', 'Venda de mercadoria', 'R$18.900,00', 'Autorizada', 'sucesso'],
+      ['Casa & Obra Comércio Ltda', '000.610 · série 1', '08.962.415/0001-77', '12/10/2026', 'Venda de mercadoria', 'R$6.420,00', 'Rejeitada (cód. 539)', 'perigo'],
+      ['Mendes Engenharia Ltda', '000.609 · série 1', '19.304.887/0001-52', '11/10/2026', 'Venda de mercadoria', 'R$9.870,00', 'Autorizada', 'sucesso'],
+      ['Joana Ribeiro', '000.608 · série 1', '123.456.789-09', '11/10/2026', 'Venda a consumidor', 'R$1.240,00', 'Autorizada', 'sucesso'],
+      ['Reforma Já Serviços ME', '000.607 · série 1', '31.580.244/0001-03', '10/10/2026', 'Venda de mercadoria', 'R$4.250,00', 'Autorizada', 'sucesso'],
+      ['Pedro Henrique Alves', '000.606 · série 1', '987.654.321-00', '08/10/2026', 'Venda a consumidor', 'R$389,90', 'Cancelada', 'neutro'],
+      ['Comercial Andrade Ltda (filial)', '000.605 · série 1', '12.345.678/0002-71', '08/10/2026', 'Transferência', 'R$5.612,00', 'Em processamento', 'alerta']
+    ];
+    const cols = defs.map(([r, al]) => ({ r, estilo: 'text-align:' + (al === 'r' ? 'right' : 'left') + ';font-size:11px;font-weight:500;letter-spacing:0.44px;text-transform:uppercase;color:var(--erp-texto-2);padding:0 8px 10px 0;' }));
+    const linhas = dados.map((d) => {
+      const celulas = defs.map(([r, al, papel], i) => ({
+        texto: d[i], badge: papel === 'badge', dinheiro: al === 'r', simples: papel !== 'badge' && al !== 'r', etq: etq(d[7]),
+        estilo: 'padding:12px 8px 12px 0;border-top:var(--erp-borda-espessura) solid var(--erp-borda);text-align:' + (al === 'r' ? 'right' : 'left') + ';' + (papel === 'titulo' ? '' : 'color:var(--erp-texto-2);') + (al === 'r' ? 'color:var(--erp-texto);font-weight:500;' : '')
+      }));
+      const pares = defs.map(([r, al, papel], i) => ({ r, v: d[i], papel, al })).filter((p) => !p.papel).map(({ r, v, al }) => ({ r, v, dinheiro: al === 'r', simples: al !== 'r' }));
+      return { celulas, titulo: d[0], status: d[6], etq: etq(d[7]), pares };
+    });
+    return {
+      modo, desk: !mob, mob, kpis, filtros, cols, linhas,
+      linkCfg: mob ? 'ConfiguracoesMobile.dc.html' : 'Configuracoes.dc.html',
+      gk: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;'
+    };
+  }
+}
+</script>
+</body>
+</html>
