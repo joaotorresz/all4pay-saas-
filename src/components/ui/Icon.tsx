@@ -1,6 +1,5 @@
 import * as React from "react";
 import { SOLAR_ICONS, type SolarIcon } from "./solar-icons";
-import { ICONES_QUATTRO } from "./icones-quattro";
 
 /** Espessura de traço NATIVA do set Hugeicons Rounded (a que vem no glifo). */
 const STROKE_PADRAO = 1.5;
@@ -72,18 +71,12 @@ export interface IconProps {
 }
 
 export function Icon({ name, size = 18, color = "currentColor", strokeWidth = STROKE_MARCA, className }: IconProps) {
-  // ⚠️ O conjunto DUOTÔNICO da marca vem primeiro (`icones-quattro.ts`); o
-  // Hugeicons fica só de reserva para uma chave que ainda não foi desenhada.
-  const duo = ICONES_QUATTRO[name as string];
-  const ic = duo ?? CUSTOM_ICONS[name as string] ?? SOLAR_ICONS[name as string];
+  const ic = CUSTOM_ICONS[name as string] ?? SOLAR_ICONS[name as string];
   const rawId = React.useId();
   const html = React.useMemo(() => {
     let b = ic?.b ?? "";
     // Espessura customizada: o set traz stroke-width fixo em cada glifo.
-    if (duo) {
-      // No duotônico só o CONTORNO (1.7) muda; o fio fino do acento lime fica.
-      if (strokeWidth && strokeWidth !== STROKE_MARCA) b = b.replace(/stroke-width="1\.7"/g, `stroke-width="${strokeWidth}"`);
-    } else if (strokeWidth && strokeWidth !== STROKE_PADRAO) {
+    if (strokeWidth && strokeWidth !== STROKE_PADRAO) {
       b = b.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
     }
     if (!b.includes("id=")) return b; // fast path: glifo sem ids internos
@@ -92,7 +85,7 @@ export function Icon({ name, size = 18, color = "currentColor", strokeWidth = ST
       .replace(/id="([^"]+)"/g, (_m, id) => `id="${uid}-${id}"`)
       .replace(/href="#([^"]+)"/g, (_m, id) => `href="#${uid}-${id}"`)
       .replace(/url\(#([^)]+)\)/g, (_m, id) => `url(#${uid}-${id})`);
-  }, [ic, duo, rawId, strokeWidth]);
+  }, [ic, rawId, strokeWidth]);
   if (!ic) return null;
   return (
     <svg
