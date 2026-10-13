@@ -30,8 +30,8 @@ export interface ButtonProps
 // `sm` e `lg` mantêm a proporção descendo e subindo um passo da escala base-8.
 const sizeClasses: Record<ButtonSize, string> = {
   sm: "text-caption gap-2 px-4 py-2",
-  md: "text-body gap-2 px-botao-x py-botao-y",
-  lg: "text-body gap-2 px-botao-x py-4",
+  md: "text-body gap-2 px-botao-x py-botao-y min-w-botao",
+  lg: "text-body gap-2 px-botao-x py-4 min-w-botao",
 };
 
 /**

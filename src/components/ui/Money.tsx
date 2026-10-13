@@ -83,6 +83,7 @@ export function Money({
       </span>
       {showDecimals && (
         <span
+          data-cents=""
           className="text-faint ml-px font-regular"
           style={{ fontSize: Math.round(px * 0.4) }}
         >
