@@ -11657,14 +11657,21 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const naoVazaC = (t: string) => {
     const x = semComC(t);
     const semLog = x.replace(/console\.error\([^;]*\);/g, "");
-    const chaves = [...x.matchAll(/resposta\(\d{3},\s*\{([^}]*)\}\)/g)]
-      .flatMap((m) => m[1].split(",").map((p) => /^\s*([A-Za-z_]\w*)/.exec(p)?.[1] ?? ""))
-      .filter(Boolean);
+    const respostas = [...x.matchAll(/resposta\((\d{3}),\s*\{([^}]*)\}\)/g)]
+      .map((m) => ({ status: m[1], chaves: m[2].split(",").map((p) => /^\s*([A-Za-z_]\w*)/.exec(p)?.[1] ?? "").filter(Boolean) }));
+    const chaves = respostas.flatMap((r) => r.chaves);
     return !/extrato\.(identificacao|via|etapas|resumo|formato|campos|envelope|datas|ambiente)\b/.test(x)
       && !/\bd\.motivo\b/.test(semLog)
-      && chaves.length >= 10 && chaves.every((k) => ["ok", "relatorio", "consultadoEm", "codigo", "motivo"].includes(k));
+      && chaves.length >= 10
+      && respostas.every((r) => r.chaves.every((k) => ["ok", "relatorio", "consultadoEm", "codigo", "motivo"].includes(k)
+        // O número da espera, SÓ no 429: é do BANCO (quanto falta para a empresa conferir de novo), não da Pinbank.
+        || (k === "restanteMs" && r.status === "429")));
   };
-  ok("conferencia-pinbank: a resposta só leva ok/relatorio/consultadoEm ou codigo/motivo — nunca a identificação, o resumo cru ou o motivo da Pinbank", naoVazaC(rotaC));
+  ok("conferencia-pinbank: a resposta só leva ok/relatorio/consultadoEm ou codigo/motivo (e o número da espera, só no 429) — nunca a identificação, o resumo cru ou o motivo da Pinbank", naoVazaC(rotaC));
+  const numeroForaDo429C = rotaC.replace('codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL });',
+    'codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL, restanteMs: 1 });');
+  ok("conferencia-pinbank: (defeito plantado) um número fora do 429 (o restante numa resposta que não é a da espera) é REPROVADO",
+     numeroForaDo429C !== rotaC && !naoVazaC(numeroForaDo429C));
   ok("conferencia-pinbank: (defeito plantado) devolver o motivo cru da Pinbank é REPROVADO",
      !naoVazaC(rotaC.replace('codigo: "pinbank_falhou", motivo: FRASE_FALHA_PINBANK', 'codigo: "pinbank_falhou", motivo: d.motivo')));
   ok("conferencia-pinbank: (defeito plantado) devolver a identificação da credencial é REPROVADO",
@@ -11809,9 +11816,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ["sem venda em comum ATESTADA, a tela sai pelo bloco só de contagens ANTES de qualquer situação, soma do extrato ou taxa",
       (x) => /if \(soContagens\(r\)\) return <SoContagens r=\{r\} rodape=\{rodape\} \/>;\s*\n\s*const ps = r\.resumo\.porStatus;/.test(x),
       "if (soContagens(r)) return <SoContagens r={r} rodape={rodape} />;", ""],
-    ["a espera do botão é a MESMA do servidor (ESPERA_CONFERENCIA_MS), nunca um número próprio",
-      (x) => /setEsperaAte\(Date\.now\(\) \+ ESPERA_CONFERENCIA_MS\)/.test(x),
-      "setEsperaAte(Date.now() + ESPERA_CONFERENCIA_MS)", "setEsperaAte(Date.now() + 30_000)"],
+    // A espera do botão parte da MESMA regra do servidor, e é a ÚNICA forma de pôr o prazo (um segundo
+    // `setEsperaAte` noutro ramo voltaria a dar dois números para a mesma espera).
+    ["a espera do botão parte da MESMA regra do servidor (ESPERA_CONFERENCIA_MS), nunca um número próprio, e só um lugar a põe",
+      (x) => /let espera = ESPERA_CONFERENCIA_MS;/.test(x) && /setEsperaAte\(Date\.now\(\) \+ espera\)/.test(x)
+        && (x.match(/setEsperaAte\(/g) ?? []).length === 1,
+      "let espera = ESPERA_CONFERENCIA_MS;", "let espera = 30_000;"],
+    // No 429 o banco diz quanto falta (outra aba, outra pessoa ou outra instância da empresa conferiu há
+    // pouco): o botão espera ISSO — senão a tela diz "Espere 23 segundos" ao lado de "Conferir de novo em 60 s".
+    ["no 429 o botão espera o que o BANCO disse (esperaDoBotao), nunca os 60 s inteiros ao lado da frase da rota",
+      (x) => /espera = esperaDoBotao\(r\);/.test(x),
+      "      espera = esperaDoBotao(r);\n", ""],
     // A legenda do bloco só de contagens é POR CAUSA: "o EC pode ser o de outra loja" só na falta de venda
     // em comum — na maquininha trocada a frase logo acima diz que o EC provavelmente está certo.
     ["a legenda do bloco só de contagens é por causa: \"outra loja\" só sem venda em comum, nunca ao lado da maquininha trocada",
@@ -11854,7 +11869,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const clienteC = (t: string) => {
     const x = semComC(t);
     return /falhaDaConferenciaSemCorpo\(r\.status\)/.test(x) && /falhaDaConferenciaSemCorpo\(null\)/.test(x)
-      && !/motivo:[^\n]*\$\{r\.status\}/.test(x) && /signal: controle\.signal/.test(x);
+      && !/motivo:[^\n]*\$\{r\.status\}/.test(x) && /signal: controle\.signal/.test(x)
+      // O número do 429 chega à tela (o botão espera o que o banco disse).
+      && /typeof corpo\?\.restanteMs === "number" && Number\.isFinite\(corpo\.restanteMs\) \? \{ restanteMs: corpo\.restanteMs \}/.test(x);
   };
   ok("conferencia-pinbank: a tela nunca mostra o número do status HTTP (falhaDaConferenciaSemCorpo) e não espera para sempre (tempo de espera)",
      clienteC(clienteTxtC));
@@ -11863,6 +11880,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        "motivo: corpo?.motivo ?? `A conferência respondeu ${r.status}. Nada foi alterado.`,"), clienteC));
   ok("conferencia-pinbank: (defeito plantado) a chamada sem tempo de espera (o botão girando para sempre) é ACUSADA",
      negativo(planta(clienteTxtC, "      signal: controle.signal,\n", ""), clienteC));
+  ok("conferencia-pinbank: (defeito plantado) o número do 429 jogado fora pelo cliente (o botão volta aos 60 s ao lado da frase de 23 s) é ACUSADO",
+     negativo(planta(clienteTxtC, /\n\s*\.\.\.\(typeof corpo\?\.restanteMs[^\n]*/, ""), clienteC));
 
   /* ── 13. o vínculo da plataforma pergunta pelo EC ───────────────────────── */
   const adminC = (t: string) => {
@@ -11875,26 +11894,256 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("conferencia-pinbank: (defeito plantado) o EC fora do pedido da RPC é ACUSADO",
      !adminC(lerC(ADMIN_C).replace("p_codigo_cliente: p.codigoCliente,", "")));
 
-  /* ── 14. a espera por EMPRESA, antes da Pinbank ─────────────────────────── */
-  // O comportamento (recusa, outra empresa livre, a recusa não carimba) é
-  // provado em `npm run pinbank-conferencia`; aqui, que a rota o aplica no
-  // lugar certo, pela empresa do vínculo, com o mapa no MÓDULO (por instância).
+  /* ── 13b. o EC VISÍVEL, AUDITADO e de UMA empresa (D10) ─────────────────── */
+  // Um dígito trocado no EC é o extrato de OUTRA loja. A migration 20261014120100 faz o painel devolver o EC,
+  // o rastro da plataforma guardá-lo e o banco recusar o EC vivo em duas empresas (provado em
+  // `scripts/pinbank-limite-ec.sql`); aqui, que a ÚLTIMA definição de cada função é a que faz isso, e que a
+  // tela mostra o EC e a frase do banco.
+  const semComSql = (t: string) => t.replace(/--.*$/gm, "");
+  const migsC = fsC.readdirSync("supabase/migrations").filter((f: string) => f.endsWith(".sql")).sort();
+  const ultimaDefC = (nome: string, extra?: { arq: string; txt: string }) => {
+    let def = "";
+    for (const f of migsC) {
+      const t = semComSql(extra && extra.arq === f ? extra.txt : lerC(`supabase/migrations/${f}`));
+      const k = t.lastIndexOf(`create or replace function public.${nome}(`);
+      if (k >= 0) def = t.slice(k, t.indexOf("\n$$;", k) + 4);
+    }
+    return def;
+  };
+  const MIG_EC_C = "20261014120100_pinbank_ec_auditado.sql";
+  const migEcTxtC = lerC(`supabase/migrations/${MIG_EC_C}`);
+  const ecAuditadoC = (txt: string) => {
+    const extra = { arq: MIG_EC_C, txt };
+    const painel = ultimaDefC("admin_pinbank_painel", extra);
+    const vinc = ultimaDefC("admin_pinbank_vincular", extra);
+    const desv = ultimaDefC("admin_pinbank_desvincular", extra);
+    const gat = ultimaDefC("pinbank_vinculo_ec_uma_empresa", extra);
+    const ciclo = ultimaDefC("pinbank_vinculo_ciclo_da_plataforma", extra);
+    const lixeira = ultimaDefC("lixeira_listar", extra);
+    const x = semComSql(txt);
+    const acervo = /do \$acervo\$[\s\S]*?\$acervo\$;/.exec(x)?.[0] ?? "";
+    return /perform public\.admin_exigir_acesso\('admin_pinbank_painel', null\);/.test(painel)
+      && /'codigo_cliente', v\.codigo_cliente/.test(painel)
+      && /'pinbank\.vincular'[\s\S]*'codigo_cliente', p_codigo_cliente/.test(vinc)
+      && /returning org_id, codigo_cliente into v_org, v_ec;/.test(desv) && /'pinbank\.desvincular'[\s\S]*'codigo_cliente', v_ec/.test(desv)
+      // O gatilho dá a FRASE: outra empresa, vivo, nomeado, EC > 0 — e a trava pela CHAVE do EC, ANTES de
+      // conferir, numa instrução só (ordem e chave juntas: a trava depois do `if exists`, pela linha ou pela
+      // empresa deixaria a segunda gravação conferir sem esperar a primeira).
+      && /security definer/.test(gat)
+      && /perform pg_advisory_xact_lock\(hashtext\('a4p\.pinbank_vinculos\.codigo_cliente'\), hashint8\(new\.codigo_cliente\)\);\s*if exists \(/.test(gat)
+      && /and v\.org_id <> new\.org_id/.test(gat) && /v\.excluido_em is null/.test(gat)
+      && /errcode = 'unique_violation'/.test(gat) && /new\.codigo_cliente <= 0/.test(gat)
+      && /before insert or update of codigo_cliente, org_id, excluido_em on public\.pinbank_vinculos\s+for each row execute function public\.pinbank_vinculo_ec_uma_empresa\(\);/.test(x)
+      // A TRAVA é a restrição de exclusão (qualquer escritor, qualquer nível de isolamento), com a btree_gist
+      // fora de `public` (senão as funções dela entrariam no inventário de objetos como se fossem nossas).
+      && /create extension if not exists btree_gist with schema extensions;/.test(x)
+      && /add constraint pinbank_vinculos_ec_uma_empresa_excl\s+exclude using gist \(codigo_cliente with =, org_id with <>\)\s+where \(excluido_em is null and codigo_cliente is not null\);/.test(x)
+      // O CICLO é da plataforma: reativar nunca, excluir só com a marca do desvincular, apagar só sem a empresa.
+      && /security definer/.test(ciclo)
+      && /if old\.excluido_em is not null and new\.excluido_em is null then\s+raise exception 'A4P-PINBANK: vínculo desvinculado não volta/.test(ciclo)
+      && /if old\.excluido_em is null and new\.excluido_em is not null\s+and current_setting\('a4p\.pinbank_desvincular', true\) is distinct from old\.id::text then\s+raise exception/.test(ciclo)
+      && /if tg_op = 'DELETE' then\s+if exists \(select 1 from public\.organizations o where o\.id = old\.org_id\) then\s+raise exception/.test(ciclo)
+      && /before update of excluido_em or delete on public\.pinbank_vinculos\s+for each row execute function public\.pinbank_vinculo_ciclo_da_plataforma\(\);/.test(x)
+      && /perform set_config\('a4p\.pinbank_desvincular', p_vinculo::text, true\);\s+update public\.pinbank_vinculos/.test(desv)
+      && /perform set_config\('a4p\.pinbank_desvincular', '', true\);/.test(desv)
+      // A lixeira da EMPRESA não lista o vínculo da plataforma (e-mail e motivo da plataforma, "Restaurar" morto).
+      && /v_da_plataforma constant text\[\] := array\['pinbank_vinculos'\];/.test(lixeira) && /and c\.relname <> all \(v_da_plataforma\)/.test(lixeira)
+      // O acervo é conferido ANTES — recusa pela CLASSE e pela contagem (o log do CI é público: nem o EC nem
+      // a empresa), nunca limpeza calada.
+      && /having count\(distinct v\.org_id\) > 1/.test(acervo) && /select count\(\*\) into v_repetidos/.test(acervo)
+      && /select count\(\*\) into v_invalidos/.test(acervo) && !/string_agg|format\(|org_id::text|v\.id\b/.test(acervo)
+      && !/\bdelete\s+from\s+public\.pinbank_vinculos/i.test(x);
+  };
+  ok("conferencia-pinbank: a última definição do painel devolve o EC (com o portão), o rastro do vincular e do desvincular guarda o EC, a RESTRIÇÃO de exclusão trava o EC vivo em OUTRA empresa (o gatilho dá a frase, com a trava pela chave do EC antes de conferir), o ciclo do vínculo é da plataforma, a lixeira da empresa não o lista, e o acervo recusa sem escrever EC nem empresa",
+     ecAuditadoC(migEcTxtC));
+  ok("conferencia-pinbank: (defeito plantado) o painel sem o EC é ACUSADO",
+     negativo(planta(migEcTxtC, "               'codigo_cliente', v.codigo_cliente,\n", ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o rastro do vincular sem o EC é ACUSADO",
+     negativo(planta(migEcTxtC, ",\n                             'codigo_cliente', p_codigo_cliente));", "));"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o gatilho que não olha OUTRA empresa é ACUSADO",
+     negativo(planta(migEcTxtC, "and v.org_id <> new.org_id", "and v.org_id = new.org_id"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o gatilho sem a trava pelo EC (duas gravações ao mesmo tempo passam) é ACUSADO",
+     negativo(planta(migEcTxtC, /  perform pg_advisory_xact_lock\([^\n]*\n/, ""), ecAuditadoC));
+  const TRAVA_EC_C = "  perform pg_advisory_xact_lock(hashtext('a4p.pinbank_vinculos.codigo_cliente'), hashint8(new.codigo_cliente));\n";
+  ok("conferencia-pinbank: (defeito plantado) a trava do EC DEPOIS de conferir (o `if exists` antes dela) é ACUSADA",
+     negativo(((t) => t && planta(t, "  return new;\nend;\n$$;\n\nrevoke all on function public.pinbank_vinculo_ec_uma_empresa()",
+       TRAVA_EC_C + "  return new;\nend;\n$$;\n\nrevoke all on function public.pinbank_vinculo_ec_uma_empresa()"))(planta(migEcTxtC, TRAVA_EC_C, "")), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a trava pela LINHA (hashtext(new.id::text)) em vez do EC é ACUSADA",
+     negativo(planta(migEcTxtC, "hashint8(new.codigo_cliente));\n  if exists (", "hashtext(new.id::text));\n  if exists ("), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a trava pela EMPRESA e pelo EC (duas empresas não esperam uma pela outra) é ACUSADA",
+     negativo(planta(migEcTxtC, "pg_advisory_xact_lock(hashtext('a4p.pinbank_vinculos.codigo_cliente'), hashint8(new.codigo_cliente))",
+       "pg_advisory_xact_lock(hashtext(new.org_id::text), hashint8(new.codigo_cliente))"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) sem a RESTRIÇÃO de exclusão (a trava só no gatilho, que REPEATABLE READ atravessa) é ACUSADO",
+     negativo(planta(migEcTxtC, /alter table public\.pinbank_vinculos\n  add constraint pinbank_vinculos_ec_uma_empresa_excl[\s\S]*?codigo_cliente is not null\);\n/, ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a btree_gist em `public` (as funções dela no inventário de objetos) é ACUSADA",
+     negativo(planta(migEcTxtC, "create extension if not exists btree_gist with schema extensions;", "create extension if not exists btree_gist;"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o gatilho só na RPC (sem disparar no UPDATE da empresa ou da exclusão) é ACUSADO",
+     negativo(planta(migEcTxtC, "before insert or update of codigo_cliente, org_id, excluido_em on", "before insert on"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a reativação do vínculo desvinculado aceita (a lixeira da empresa desfaz o desvínculo da plataforma) é ACUSADA",
+     negativo(planta(migEcTxtC, "  if old.excluido_em is not null and new.excluido_em is null then", "  if false then"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o desvincular sem a marca (a plataforma não desligaria mais a loja) é ACUSADO",
+     negativo(planta(migEcTxtC, "  perform set_config('a4p.pinbank_desvincular', p_vinculo::text, true);\n", ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o ciclo sem o DELETE (o titular apaga de vez o registro da plataforma) é ACUSADO",
+     negativo(planta(migEcTxtC, "before update of excluido_em or delete on public.pinbank_vinculos", "before update of excluido_em on public.pinbank_vinculos"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a lixeira da empresa listando o vínculo da plataforma é ACUSADA",
+     negativo(planta(migEcTxtC, "       and c.relname <> all (v_da_plataforma)\n", ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o acervo que escreve os ECs e as empresas no log PÚBLICO do CI é ACUSADO",
+     negativo(planta(migEcTxtC, "  select count(*) into v_repetidos\n    from (select v.codigo_cliente\n",
+       "  select string_agg(format('EC %s', x.codigo_cliente), '; ') into v_repetidos\n    from (select v.codigo_cliente\n"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a migration que APAGA o vínculo repetido em vez de recusar é ACUSADA",
+     negativo(planta(migEcTxtC, "do $acervo$", "delete from public.pinbank_vinculos where false;\ndo $acervo$"), ecAuditadoC));
+
+  // A tela da plataforma: o EC ao lado de cada vínculo, e a frase do banco na recusa.
+  const ADMIN_VIEW_C = "src/components/admin/AdminView.tsx";
+  const adminViewTxtC = lerC(ADMIN_VIEW_C);
+  const adminTxtC = lerC(ADMIN_C);
+  const ecNaTelaC = (lib: string, view: string) => {
+    const l = semComC(lib);
+    const v = semComC(view);
+    const lista = /\(q\.data\?\.vinculos \?\? \[\]\)\.map\(\(v, i\) => \([\s\S]*?\)\)\}/.exec(v)?.[0] ?? "";
+    // TRÊS estados: o EC, "—" (o painel disse que não há) e "não informado pelo servidor" (o painel antigo,
+    // sem o campo): a chave ausente lida como "não cadastrado" poria "EC —" em vínculos que TÊM EC.
+    return /codigoCliente:\s*number\s*\|\s*null\s*\|\s*undefined;/.test(/export interface PinbankVinculoAdmin \{([\s\S]*?)\n\}/.exec(l)?.[1] ?? "")
+      && /codigoCliente: !\("codigo_cliente" in r\) \? undefined : r\.codigo_cliente == null \? null : Number\(r\.codigo_cliente\)/.test(l)
+      && /\{v\.codigoCliente === undefined \? "EC não informado pelo servidor" : <>EC \{v\.codigoCliente \?\? "—"\}<\/>\}/.test(lista)
+      && /if \(error\) throw new Error\(motivoDaRecusa\(error\)\);/.test(/export async function vincularPinbank\([\s\S]*?\n\}\n/.exec(l)?.[0] ?? "")
+      && /await vincularPinbank\([\s\S]*?catch \(e\) \{ toast\(\(e as Error\)\.message\); \}/.test(v);
+  };
+  ok("conferencia-pinbank: o /admin mostra o EC ao lado de cada vínculo (\"—\" quando não há, \"não informado pelo servidor\" quando o painel não o devolve) e a recusa do banco chega à tela com a frase dele",
+     ecNaTelaC(adminTxtC, adminViewTxtC));
+  ok("conferencia-pinbank: (defeito plantado) a lista de vínculos sem o EC é ACUSADA",
+     negativo(planta(adminViewTxtC, /\s*<span className="text-muted tabular-nums" title="Código do estabelecimento no extrato da Pinbank">[\s\S]*?<\/span>/, ""),
+       (x) => ecNaTelaC(adminTxtC, x)));
+  ok("conferencia-pinbank: (defeito plantado) o EC lido do painel e jogado fora (sem o mapeamento) é ACUSADO",
+     negativo(planta(adminTxtC, /\n\s*codigoCliente: !\("codigo_cliente" in r\)[^\n]*/, ""), (x) => ecNaTelaC(x, adminViewTxtC)));
+  ok("conferencia-pinbank: (defeito plantado) a chave AUSENTE lida como \"não cadastrado\" (o painel antigo vira \"EC —\" em todo vínculo) é ACUSADA",
+     negativo(planta(adminTxtC, '!("codigo_cliente" in r) ? undefined : ', ""), (x) => ecNaTelaC(x, adminViewTxtC)));
+  ok("conferencia-pinbank: (defeito plantado) a tela que não distingue o EC não informado do não cadastrado é ACUSADA",
+     negativo(planta(adminViewTxtC, '{v.codigoCliente === undefined ? "EC não informado pelo servidor" : <>EC {v.codigoCliente ?? "—"}</>}', 'EC {v.codigoCliente ?? "—"}'),
+       (x) => ecNaTelaC(adminTxtC, x)));
+  ok("conferencia-pinbank: (defeito plantado) a recusa do banco trocada por uma frase genérica é ACUSADA",
+     negativo(planta(adminTxtC, /(rpc\("admin_pinbank_vincular"[\s\S]*?)if \(error\) throw new Error\(motivoDaRecusa\(error\)\);/,
+       '$1if (error) throw new Error("Não foi possível vincular.");'), (x) => ecNaTelaC(x, adminViewTxtC)));
+
+  /* ── 14. a espera por EMPRESA, DURÁVEL no BANCO (D4), antes da Pinbank ─── */
+  // O comportamento da FUNÇÃO (a recusa que não carimba, por empresa, o papel, o vínculo excluído, a
+  // concorrência) é provado em `scripts/pinbank-limite-ec.sql`; a leitura da resposta, em
+  // `npm run pinbank-conferencia`. Aqui, LENDO a rota: que ela pede a reserva ao banco no ponto certo
+  // (depois da permissão, da liberação, do vínculo com EC e da janela; logo antes da Pinbank), pelo
+  // VÍNCULO, e FALHA FECHADA — e que o mapa por instância saiu (uma autoridade só).
+  const CHAMADA_RESERVA_C = "await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id })";
   const esperaC = (t: string) => {
     const x = semComC(t);
-    const lib = x.indexOf("conferenciaPinbankLiberada(");
-    const res = x.indexOf("reservarConferencia(CONFERENCIAS_RECENTES, v.org_id, Date.now())");
-    const pin = x.indexOf("consultarExtratoPos(filtro");
-    return lib > 0 && res > lib && pin > res
-      && /^const CONFERENCIAS_RECENTES = new Map<string, number>\(\);$/m.test(x)
-      && /if \(!reserva\.ok\) return resposta\(429, \{ ok: false, codigo: "aguarde", motivo: fraseDeEspera\(reserva\.restanteMs\) \}\);/.test(x);
+    const marcos = ['rpc("tem_permissao"', "conferenciaPinbankLiberada(", '"sem_codigo_extrato"', "await lerTitulosDaJanela(s, v.org_id,",
+      CHAMADA_RESERVA_C, "lerReservaConferencia(reservaDoBanco, eR)", "consultarExtratoPos(filtro"].map((m) => x.indexOf(m));
+    return marcos.every((v, k) => v > 0 && (k === 0 || v > marcos[k - 1]))
+      && (x.match(/s\.rpc\(RPC_RESERVA_CONFERENCIA/g) ?? []).length === 1
+      && x.includes('if (reserva.codigo === "aguarde") return resposta(429, { ok: false, codigo: "aguarde", motivo: fraseDeEspera(reserva.restanteMs), restanteMs: reserva.restanteMs });')
+      && /if \(!reserva\.ok\) \{[\s\S]*?return resposta\(503, \{ ok: false, codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL \}\);\s*\}/.test(x)
+      && !/new Map\b|CONFERENCIAS_RECENTES|reservarConferencia|Date\.now\(\)/.test(x);
   };
-  ok("conferencia-pinbank: a espera por empresa (429) vem depois da liberação e ANTES da chamada à Pinbank", esperaC(rotaC));
-  ok("conferencia-pinbank: (defeito plantado) a espera conferida DEPOIS da chamada é REPROVADA",
-     !esperaC(rotaC
-       .replace("const reserva = reservarConferencia(CONFERENCIAS_RECENTES, v.org_id, Date.now());", "")
-       .replace("const ok = extratoServeParaConferir(extrato.resposta);", "const ok = extratoServeParaConferir(extrato.resposta);\n  const reserva = reservarConferencia(CONFERENCIAS_RECENTES, v.org_id, Date.now());")));
-  ok("conferencia-pinbank: (defeito plantado) a espera por PESSOA (outra pessoa da empresa passa) é REPROVADA",
-     !esperaC(rotaC.replace("reservarConferencia(CONFERENCIAS_RECENTES, v.org_id, Date.now())", "reservarConferencia(CONFERENCIAS_RECENTES, auth.user.id, Date.now())")));
+  ok("conferencia-pinbank: a espera por empresa é a do BANCO (s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id })), depois da janela e ANTES da Pinbank; recusa → 429 com a frase E o número do banco, sem a resposta → 503 limite_indisponivel; nenhum mapa por instância",
+     esperaC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) o 429 só com a frase (sem o número do banco, o botão espera 60 s ao lado de \"Espere 23 segundos\") é ACUSADO",
+     negativo(planta(rotaC, ", restanteMs: reserva.restanteMs });", " });"), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pedida DEPOIS da chamada à Pinbank é ACUSADA",
+     negativo(((t) => t && planta(t,
+       "  const ok = extratoServeParaConferir(extrato.resposta);\n",
+       "  const ok = extratoServeParaConferir(extrato.resposta);\n  const { data: reservaDoBanco, error: eR } = await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id });\n"))(
+       planta(rotaC, "  const { data: reservaDoBanco, error: eR } = await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id });\n", "")), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pela empresa (p_org) em vez do VÍNCULO é ACUSADA",
+     negativo(planta(rotaC, "{ p_vinculo: v.id }", "{ p_org: v.org_id }"), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva que FALHA ABERTA (sem a resposta do banco, segue para a Pinbank) é ACUSADA",
+     negativo(planta(rotaC, '    return resposta(503, { ok: false, codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL });\n', ""), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) o mapa por instância de volta ao lado do banco (duas autoridades para o mesmo prazo) é ACUSADO",
+     negativo(planta(rotaC, "export async function POST(", "const CONFERENCIAS_RECENTES = new Map<string, number>();\n\nexport async function POST("), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a recusa do banco respondida como 200 (o 429 some) é ACUSADA",
+     negativo(planta(rotaC, 'return resposta(429, { ok: false, codigo: "aguarde"', 'return resposta(200, { ok: false, codigo: "aguarde"'), esperaC));
+  // Uma autoridade só: a espera em memória não existe em lugar nenhum do código.
+  const semMapaC = (portoes: string) => !/export function reservarConferencia|new Map<string, number>/.test(semComC(portoes));
+  ok("conferencia-pinbank: a espera em memória (reservarConferencia, o Map por instância) saiu dos portões", semMapaC(lerC("src/core/pinbank/conferencia-portoes.ts")));
+  ok("conferencia-pinbank: (defeito plantado) a reservarConferencia de volta aos portões é ACUSADA",
+     !semMapaC(lerC("src/core/pinbank/conferencia-portoes.ts") + "\nexport function reservarConferencia(mapa: Map<string, number>, org: string) { return mapa.get(org); }\n"));
+
+  /* ── 14b. a migration do limite e o código dizem a MESMA coisa ─────────── */
+  // O banco recusa por 60 s, e o botão espera ESPERA_CONFERENCIA_MS; o banco exige 'administrar', e a rota
+  // pergunta ACAO_CONFERENCIA. Duas pontas com o mesmo número: se uma mudar sozinha, o botão oferece o que
+  // o banco recusa (ou o banco libera quem a rota não deixaria passar).
+  const PORT_C = await import("@/core/pinbank/conferencia-portoes");
+  const MIG_LIMITE_C = "supabase/migrations/20261014120000_pinbank_conferencia_limite.sql";
+  const migLimiteTxtC = lerC(MIG_LIMITE_C);
+  const migLimiteC = (t: string) => {
+    const x = semComSql(t);
+    const corpo = /create or replace function public\.pinbank_conferencia_reservar\(p_vinculo uuid\)[\s\S]*?\n\$\$;/.exec(x)?.[0] ?? "";
+    const intervalos = [...corpo.matchAll(/interval '(\d+) seconds'/g)].map((m) => Number(m[1]));
+    const acoes = [...corpo.matchAll(/tem_permissao\('([a-z_]+)', v_org\)/g)].map((m) => m[1]);
+    return corpo.length > 0
+      && intervalos.length === 1 && intervalos[0] * 1000 === PORT_C.ESPERA_CONFERENCIA_MS
+      && acoes.length === 1 && acoes[0] === CONF.ACAO_CONFERENCIA
+      && /security definer/.test(corpo) && /set search_path to 'public'/.test(corpo)
+      // As MESMAS pré-condições da rota, de novo no banco: vivo, ativo e com o EC (sem elas, uma chamada direta
+      // à função carimbaria a espera da empresa com uma maquininha que nunca chegaria à Pinbank).
+      && /from public\.pinbank_vinculos v\s+where v\.id = p_vinculo and v\.excluido_em is null and v\.ativo and v\.codigo_cliente > 0;/.test(corpo)
+      // Por EMPRESA, e só por ela: a condição do carimbo é SÓ o prazo (um `or` a mais — "quem não foi o
+      // último passa" — viraria espera por pessoa), e a única saída que libera é a do `insert … on conflict`
+      // (um atalho antes dele, ou um segundo `update` da tabela, liberaria outra pessoa da empresa na hora).
+      && /on conflict \(org_id\) do update\s+set ultima_em = excluded\.ultima_em, por = excluded\.por, vinculo_id = excluded\.vinculo_id\s+where l\.ultima_em <= excluded\.ultima_em - v_espera\s+returning l\.ultima_em into v_ultima;/.test(corpo)
+      && (corpo.match(/jsonb_build_object\('ok', true\)/g) ?? []).length === 1
+      && corpo.indexOf("jsonb_build_object('ok', true)") > corpo.indexOf("on conflict (org_id)")
+      && !/update public\.pinbank_conferencia_limite/.test(corpo)
+      && /revoke all on public\.pinbank_conferencia_limite from public, anon, authenticated, service_role;/.test(x)
+      && !/grant [a-z, ]+ on (table )?public\.pinbank_conferencia_limite/.test(x)
+      && !/create policy[^;]* on public\.pinbank_conferencia_limite/.test(x)
+      && /revoke all on function public\.pinbank_conferencia_reservar\(uuid\) from public, anon, service_role;/.test(x)
+      && /grant execute on function public\.pinbank_conferencia_reservar\(uuid\) to authenticated;/.test(x)
+      && PORT_C.RPC_RESERVA_CONFERENCIA === "pinbank_conferencia_reservar";
+  };
+  ok("conferencia-pinbank: a migration do limite recusa por 60 s (== ESPERA_CONFERENCIA_MS / 1000), exige ACAO_CONFERENCIA na empresa do vínculo VIVO, ATIVO e COM o EC, confere e carimba numa instrução, e a tabela não tem concessão nem política",
+     migLimiteC(migLimiteTxtC));
+  ok("conferencia-pinbank: (defeito plantado) o banco recusando por 30 s enquanto o botão espera 60 é ACUSADO",
+     negativo(planta(migLimiteTxtC, "interval '60 seconds'", "interval '30 seconds'"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) o banco exigindo 'ler' em vez da ação da rota é ACUSADO",
+     negativo(planta(migLimiteTxtC, "tem_permissao('administrar', v_org)", "tem_permissao('ler', v_org)"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pelo vínculo EXCLUÍDO é ACUSADA",
+     negativo(planta(migLimiteTxtC, " where v.id = p_vinculo and v.excluido_em is null and v.ativo", " where v.id = p_vinculo and v.ativo"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pelo vínculo INATIVO é ACUSADA",
+     negativo(planta(migLimiteTxtC, " and v.excluido_em is null and v.ativo and v.codigo_cliente > 0;", " and v.excluido_em is null and v.codigo_cliente > 0;"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pelo vínculo SEM o EC é ACUSADA",
+     negativo(planta(migLimiteTxtC, " and v.excluido_em is null and v.ativo and v.codigo_cliente > 0;", " and v.excluido_em is null and v.ativo;"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a tabela do limite com SELECT para authenticated (bastaria ler e cronometrar a outra empresa) é ACUSADA",
+     negativo(planta(migLimiteTxtC, "revoke all on public.pinbank_conferencia_limite from public, anon, authenticated, service_role;",
+       "revoke all on public.pinbank_conferencia_limite from public, anon, authenticated, service_role;\ngrant select on public.pinbank_conferencia_limite to authenticated;"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) conferir e carimbar em dois passos (sem o where do on conflict) é ACUSADO",
+     negativo(planta(migLimiteTxtC, "   where l.ultima_em <= excluded.ultima_em - v_espera\n", ""), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a espera por PESSOA no carimbo (\"or l.por is distinct from excluded.por\") é ACUSADA",
+     negativo(planta(migLimiteTxtC, "   where l.ultima_em <= excluded.ultima_em - v_espera\n",
+       "   where l.ultima_em <= excluded.ultima_em - v_espera or l.por is distinct from excluded.por\n"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) o atalho que libera outra pessoa da empresa antes do carimbo (retorno antecipado) é ACUSADO",
+     negativo(planta(migLimiteTxtC, "  insert into public.pinbank_conferencia_limite as l (org_id, ultima_em, por, vinculo_id)",
+       "  if exists (select 1 from public.pinbank_conferencia_limite x where x.org_id = v_org and x.por is distinct from v_uid) then\n"
+       + "    update public.pinbank_conferencia_limite set ultima_em = now(), por = v_uid where org_id = v_org;\n"
+       + "    return jsonb_build_object('ok', true);\n  end if;\n"
+       + "  insert into public.pinbank_conferencia_limite as l (org_id, ultima_em, por, vinculo_id)"), migLimiteC));
+  // A reserva tem trilha (o gatilho `zz_auditar_*`, cobrado por `trilha-completa.sql`); a tela de Logs a
+  // rotula como Segurança (acesso a dado de fora, não dinheiro), nunca como "Lançamento". ⚠️ Ela prova a
+  // RESERVA, não a chamada à Pinbank: uma chamada direta à função também reserva, e membros da empresa
+  // inserem na trilha — o rastro da CHAMADA é o log do servidor. O texto não pode prometer o contrário.
+  const instTxtC = lerC("src/lib/institutional.ts");
+  const rastroSegurancaC = (t: string) =>
+    /if \(k\.startsWith\("pinbank_conferencia_limite\."\)\) \{[^}]*?return \{ entityType: "security"/.test(semComC(t));
+  ok("conferencia-pinbank: a reserva da conferência aparece na trilha como Segurança (a reserva da espera, acesso a dado de fora), nunca como Lançamento",
+     rastroSegurancaC(instTxtC));
+  // O texto da migration e o do rótulo dizem o que o evento PROVA (a reserva), nunca "quem chamou a Pinbank".
+  const provaReservaC = (mig: string, inst: string) =>
+    /O EVENTO PROVA A RESERVA, NÃO A CHAMADA À PINBANK/.test(mig) && /prova a RESERVA, não a\s+\/\/\s*chamada/.test(inst)
+      && !/rastro durável de "quem chamou a Pinbank/.test(mig) && !/rastro de QUEM usou a credencial/.test(inst);
+  ok("conferencia-pinbank: a migration e a trilha dizem que o evento prova a RESERVA, não a chamada à Pinbank (membros da empresa inserem na trilha; o rastro da chamada é o log do servidor)",
+     provaReservaC(migLimiteTxtC, instTxtC));
+  ok("conferencia-pinbank: (defeito plantado) a migration voltando a chamar o evento de \"rastro durável de quem chamou a Pinbank\" é ACUSADA",
+     negativo(planta(migLimiteTxtC, "-- ⚠️ **O EVENTO PROVA A RESERVA, NÃO A CHAMADA À PINBANK.**",
+       "-- É o rastro durável de \"quem chamou a Pinbank com a credencial da plataforma\"."), (x) => provaReservaC(x, instTxtC)));
+  ok("conferencia-pinbank: (defeito plantado) a reserva rotulada como Lançamento (o ramo de segurança some) é ACUSADA",
+     negativo(planta(instTxtC, 'if (k.startsWith("pinbank_conferencia_limite.")) {', 'if (false) {'), rastroSegurancaC));
 
   /* ── 15. sem venda em comum, só as contagens ────────────────────────────── */
   const contagensC = (t: string) => {

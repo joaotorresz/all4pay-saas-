@@ -309,8 +309,9 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   100% = ausente) e o resumo do extrato LISTA os MDR distintos, nunca os soma.
   A taxa do extrato NÃO substitui a do contrato no título (só é comparada).
   O `ValorTaxaMes` também é percentual, com sentido ainda não dito. ⚠️ São DUAS credenciais
-  (BaaS, canal 1919, sem ExtratoPos × "ERP Integration Produção", canal 47,
-  com ExtratoPos), com senhas diferentes — ver `docs/rodada-10/pinbank.md`.
+  (BaaS, canal 1919, de PRODUÇÃO, com ExtratoPos desde 14/10/2026 × "ERP
+  Integration Produção", canal 47, que é a de DEV), com senhas diferentes —
+  ver `docs/rodada-10/pinbank.md`.
   ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a
   credencial emitida também paga, transfere e faz Pix. ⚠️ A linha do extrato é
   lida por LISTA DE PERMITIDOS — CPF/CNPJ, comprador e cartão nunca passam.
@@ -375,7 +376,7 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   número de parcelas, a parcela que falta NOS DOIS lados (título perdido e
   linha ausente) também dá o sinal às que conferem — e só ela: a parcela de
   valor diferente não espalha o total. Nenhum valor em
-  reais sai do percentual. Nada é gravado. O EC sai
+  reais sai do percentual. Nada do dinheiro é gravado (só o carimbo do limite). O EC sai
   do VÍNCULO lido como a pessoa, nunca do pedido; sem NSU em comum, ou com o
   extrato sem nenhuma parcela legível deste EC (`extrato_vazio`), nada é afirmado (só
   o par provável); linha cancelada sem título nunca é "só no extrato"; a venda
@@ -400,10 +401,30 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   tem código e frase próprios, `maquininha_excluida`); as leituras ANTES do
   portão também não são oráculo: um teto de NSUs POR LADO (nunca o da união),
   primeiro os avisos e as transações, depois os títulos só da janela e das NSUs
-  do extrato com aviso desta empresa no dia da venda; espera
-  de 60 s por empresa (429) — POR INSTÂNCIA, então o interruptor fica desligado
-  até o limite durável (D4) e o EC visível no `/admin` (D10), que pedem
-  migration; toda leitura fixa o `org_id` do vínculo; o teto pede uma linha a
+  do extrato com aviso desta empresa no dia da venda; a espera
+  de 60 s por empresa (429) é do BANCO (D4, `pinbank_conferencia_reservar`,
+  migration `20261014120000`: confere e carimba numa instrução, pela empresa do
+  vínculo vivo, ATIVO e com EC, com `administrar`; a recusa não carimba; o 429
+  leva o número e o botão espera ESSE tempo) e a rota FALHA FECHADA sem ele
+  (503 `limite_indisponivel`) — o `Map` por instância saiu. ⚠️ O evento da
+  trilha prova a RESERVA, não a chamada à Pinbank (membros da empresa inserem
+  em `audit_log`): o rastro da chamada é o log do servidor. O EC é visível
+  (três estados: o número, "—" e "não informado pelo servidor") e auditado no
+  `/admin`, e o banco recusa o EC vivo em DUAS empresas por RESTRIÇÃO DE
+  EXCLUSÃO (D10, `btree_gist` em `extensions`; vale em qualquer nível de
+  isolamento — o gatilho, sozinho, REPEATABLE READ atravessava; ele fica para
+  a frase), migration `20261014120100`; a mesma empresa com várias maquininhas
+  no EC pode; editar o EC é desvincular e vincular. ⚠️ **O ciclo do vínculo é
+  da PLATAFORMA** (gatilho `pinbank_vinculos_ciclo_da_plataforma`): o
+  desvinculado não volta, só `admin_pinbank_desvincular` exclui (marca local
+  à transação) e ele só se apaga junto com a empresa — a lixeira genérica
+  deixava o LANÇADOR desfazer o desvínculo da plataforma —, e `lixeira_listar`
+  não o lista. ⚠️ **O merge aplica as duas** (job `migrar` com segredo —
+  medido); a de D10 se recusa pela classe e pela contagem (o log do CI é
+  público) se produção já tiver o EC repetido, e aí TRAVA toda migration
+  seguinte até alguém resolver: rodar as consultas do doc (D2) no SQL Editor
+  ANTES do merge. Guarda `scripts/pinbank-limite-ec.sql` (CI, 27 defeitos
+  plantados). O interruptor segue desligado até D2 (a)/(d); toda leitura fixa o `org_id` do vínculo; o teto pede uma linha a
   mais (o lote cheio de 100 vendas não é estouro) e as leituras que podem
   passar do `max_rows` do PostgREST pedem `count: "exact"` (o corte do servidor
   é volume alto, nunca conferência sobre o pedaço — conferir o `max_rows` de
@@ -412,8 +433,8 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `lib/supabase/filtros` — de `consulta.ts` (`"use client"`) eles são PROXIES
   que lançam no route handler (medido no build; as rotas de cron que ainda
   importam de lá são tarefa separada, com prova de carga). Guardas:
-  `npm run pinbank-conferencia` (105 casos, 128 defeitos plantados: 97 no
-  motor, 31 nos portões e na leitura — servidor de mentira com o `max_rows`
+  `npm run pinbank-conferencia` (106 casos, 133 defeitos plantados: 97 no
+  motor, 36 nos portões e na leitura — servidor de mentira com o `max_rows`
   padrão de 1.000, e a COMPOSIÇÃO da rota num espelho que o `engine-audit` fixa
   no texto dela) e o bloco `conferencia-pinbank:` do `engine-audit`. Uma
   varredura aleatória (~220 mil cenários contra a verdade do gerador, fora do

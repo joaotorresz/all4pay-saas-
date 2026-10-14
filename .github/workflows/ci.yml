@@ -312,6 +312,18 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank.sql
+      # ⚠️ Conferência Pinbank (D4/D10): a espera de 60 s por empresa mora no BANCO
+      # (confere e carimba numa instrução; a recusa não carimba; só quem administra
+      # a empresa do vínculo vivo, ativo e com EC), e o EC vivo não fica em duas
+      # empresas (RESTRIÇÃO de exclusão: qualquer escritor, qualquer nível de
+      # isolamento; o gatilho dá a frase); o ciclo do vínculo é da plataforma (a
+      # lixeira da empresa não o desfaz, não o lista nem o apaga) — o painel e o
+      # rastro da plataforma mostram o EC. Com 27 defeitos plantados dentro do
+      # arquivo, lendo a mensagem.
+      - name: Guarda do limite da conferência e do EC da Pinbank (espera no banco, EC único entre empresas)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-limite-ec.sql
       # ⚠️ O PRIMEIRO passo deste job a falar com o Auth (GoTrue/Kong), não só
       # com o Postgres: arreio novo, declarado no PR. Prova que o config.toml
       # commitado LIGA o aplicativo autenticador (o padrão local é desligado),

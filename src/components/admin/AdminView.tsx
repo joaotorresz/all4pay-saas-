@@ -455,8 +455,10 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
           <Button variant="primary" disabled={busy} onClick={vincular}>Vincular</Button>
         </div>
         <span className="text-caption text-muted max-w-[90ch]">
-          É o número que a Pinbank usa no extrato de vendas (ex.: 3510). Não é o código da loja que aparece na quarentena.
-          Sem ele, a empresa não consegue conferir as vendas com o extrato.
+          É o número que a Pinbank usa no extrato de vendas (ex.: 3510). Confira-o no extrato antes de vincular: ele pode
+          não ser o código da loja que aparece na quarentena. Sem ele, a empresa não consegue conferir as vendas com o
+          extrato. O mesmo EC não pode estar vinculado a duas empresas ao mesmo tempo; para corrigir um EC, desvincule e
+          vincule de novo.
         </span>
 
         {q.isLoading ? <Skeleton className="h-16 w-full" /> : q.error ? (
@@ -470,6 +472,11 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
                   <div key={v.id} className={`flex flex-wrap items-center gap-3 py-2 text-caption ${i ? "border-t border-border-soft" : ""}`}>
                     <span className="text-ink font-medium min-w-[180px]">{v.nome ?? "—"}</span>
                     <span className="text-muted tabular-nums">{v.estabelecimentoId ?? v.chaveGateway}</span>
+                    {/* O EC que a conferência manda à Pinbank: à vista, para um dígito trocado não passar calado (D10).
+                        "—" é "não cadastrado"; o painel que não informa o EC não vira "—" (seria afirmar a ausência). */}
+                    <span className="text-muted tabular-nums" title="Código do estabelecimento no extrato da Pinbank">
+                      {v.codigoCliente === undefined ? "EC não informado pelo servidor" : <>EC {v.codigoCliente ?? "—"}</>}
+                    </span>
                     <span className="text-muted flex-1">{v.empresa}</span>
                     <StatusBadge tone={v.ativo ? "positive" : "warning"}>{v.ativo ? "Ativa" : "Aguardando a empresa"}</StatusBadge>
                     <button className="text-muted hover:text-ink underline" onClick={() => desvincular(v)}>Desvincular</button>
