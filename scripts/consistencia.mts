@@ -4515,9 +4515,16 @@ const AGOSTO = janelaMes(2026, 7);
     ok("amostra: o banner diz o que fica, não só o que sai",
        /purgaveis/.test(bannerTxt) && /preservadas/.test(bannerTxt)
        && /ficam/.test(bannerTxt));
-    ok("amostra: o banner não tem como ser dispensado",
+    /*
+     * ⚠️ INVERTIDA, não apagada (decisão do dono, 14/10/2026): o banner agora
+     * FECHA — mas só pela sessão. A guarda passa a provar que o fechamento não
+     * é para sempre: a marca mora no sessionStorage e nunca no localStorage.
+     */
+    const fecharTxt = semComentario(ler("src/components/app/FecharAviso.tsx"));
+    ok("amostra: o banner fecha só pela sessão (volta na próxima)",
        /Esta organização contém dados de demonstração/.test(bannerTxt)
-       && !/dispensar|setFechado|onClose|onDismiss/i.test(semComentario(bannerTxt)));
+       && /useFechadoNaSessao/.test(bannerTxt)
+       && /sessionStorage/.test(fecharTxt) && !/localStorage/.test(fecharTxt));
 
     ok("escritor: nenhuma gravação cai só no dataset de demonstração",
        cegos.length === 0, cegos.join(" | "));

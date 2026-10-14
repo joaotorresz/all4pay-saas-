@@ -11,9 +11,9 @@
  * explicasse. Medido em 18/08: 14 das 16 organizações não tinham nem linha de
  * assinatura, e as 2 que tinham estavam sem data de fim.
  *
- * ⚠️ **Ele NÃO fecha**, pela mesma razão do `BannerAmostra`: aviso com "x" é
- * fechado por reflexo e some justamente quando alguém volta em dúvida. Ele some
- * quando a CAUSA some — assinatura em dia não renderiza nada.
+ * ⚠️ **Ele fecha SÓ NESTA SESSÃO**, como o `BannerAmostra` (decisão do dono,
+ * 14/10/2026): o "x" limpa a tela agora e o aviso volta na próxima sessão
+ * enquanto a causa existir. Assinatura em dia não renderiza nada.
  *
  * ⚠️ **A voz é a do produto, não a do jurídico.** Sem "inadimplente", sem
  * "suspensão", sem "licença". A frase diz o que aconteceu, o que continua
@@ -25,8 +25,10 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/ui";
 import { getAssinatura } from "@/lib/assinatura";
+import { useFechadoNaSessao, BotaoFecharAviso } from "./FecharAviso";
 
 export function BannerAssinatura() {
+  const { fechado, fechar } = useFechadoNaSessao("a4p_aviso_assinatura_fechado");
   const { data } = useQuery({
     queryKey: ["assinatura", "estado"],
     queryFn: getAssinatura,
@@ -35,7 +37,7 @@ export function BannerAssinatura() {
     staleTime: 30 * 60_000,
   });
 
-  if (!data || !data.aviso) return null;
+  if (!data || !data.aviso || fechado) return null;
 
   /*
    * ⚠️ **O TOM ESCALA EM TRÊS, não em dois.** Antes eram só duas cores —
@@ -93,6 +95,7 @@ export function BannerAssinatura() {
       >
         {parado ? "Falar com a gente para reativar" : "Falar sobre planos"}
       </Link>
+      <BotaoFecharAviso onFechar={fechar} rotulo="Fechar o aviso da assinatura" />
     </div>
   );
 }

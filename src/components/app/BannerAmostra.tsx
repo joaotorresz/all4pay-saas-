@@ -5,11 +5,10 @@
  * O BANNER DE DEMONSTRAÇÃO — enquanto houver amostra, a tela diz
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * ⚠️ **Ele NÃO fecha, e isso é a decisão inteira.** Um aviso com "x" é lido uma
- * vez, fechado por reflexo e nunca mais visto — e quem abre o DRE três semanas
- * depois não tem como saber que aqueles números têm dado de mentira dentro. É a
- * mesma regra do `EscopoDaTela` (as duas telas de "a receber"): aviso que se
- * fecha é aviso que some justamente quando alguém volta em dúvida.
+ * ⚠️ **Ele fecha SÓ NESTA SESSÃO** (decisão do dono, 14/10/2026 — antes não
+ * fechava). Um aviso fechado para sempre some justamente quando alguém volta
+ * em dúvida; por isso o "x" vale até a próxima sessão, e se a amostra ainda
+ * estiver lá o aviso reaparece (`FecharAviso.tsx`).
  *
  * ⚠️ **Ele some sozinho quando a causa some.** Não há botão de dispensar porque
  * há um botão que RESOLVE: purgada a amostra, a contagem vai a zero e o banner
@@ -23,6 +22,7 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon, AcaoDestrutiva } from "@/components/ui";
+import { useFechadoNaSessao, BotaoFecharAviso } from "./FecharAviso";
 import { contarAmostra, contatosDaAmostra, purgarAmostra } from "@/lib/amostra";
 
 /**
@@ -51,6 +51,7 @@ const contado = (tabela: string, n: number): string => {
 
 export function BannerAmostra() {
   const qc = useQueryClient();
+  const { fechado, fechar } = useFechadoNaSessao("a4p_aviso_amostra_fechado");
   const { data } = useQuery({
     queryKey: ["amostra", "contagem"],
     queryFn: contarAmostra,
@@ -70,7 +71,7 @@ export function BannerAmostra() {
   const nContatos = contatos?.length ?? 0;
 
   const total = data?.total ?? 0;
-  if (total === 0) return null;
+  if (total === 0 || fechado) return null;
 
   const entradas = Object.entries(data?.porTabela ?? {});
   const detalhe = entradas.map(([t, n]) => contado(t, Number(n))).join(" · ");
@@ -140,6 +141,7 @@ export function BannerAmostra() {
           await qc.invalidateQueries();
         }}
       />
+      <BotaoFecharAviso onFechar={fechar} rotulo="Fechar o aviso de dados de demonstração" />
     </div>
   );
 }
