@@ -218,6 +218,8 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
   "a4p_anuncios_lidos", "a4p_sidebar_collapsed",
+  // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
+  "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
   // por definição — subir esta marca ao servidor não diria nada.
   "a4p_org_do_cache",
