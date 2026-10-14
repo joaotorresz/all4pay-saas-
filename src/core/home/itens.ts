@@ -165,14 +165,14 @@ export const cardsNaHome = (layout: LayoutHome): IdCard[] => layout.ordem.filter
 /**
  * Em que ordem as SEÇÕES aparecem: a do primeiro item visível vem antes.
  * "O que eu quero ver primeiro é o que precisa de ação" sobe os blocos para
- * cima do painel, e "quero ver primeiro o EBITDA" sobe os cards da biblioteca
- * — senão o pedido seria atendido lá embaixo da tela. Seção sem nada visível
- * fica no fim, na ordem padrão.
+ * cima do painel. ⚠️ Card da biblioteca MORA no painel ("Seu painel", acima dos
+ * números fixos — decisão do dono, 14/10/2026): não há seção "Seus cards", e
+ * card no topo da ordem sobe o painel. Seção sem nada visível fica no fim.
  */
-export function ordemDasSecoes(layout: LayoutHome): GrupoHome[] {
-  const out: GrupoHome[] = [];
-  for (const id of visiveis(layout)) { const g = itemHome(id).grupo; if (!out.includes(g)) out.push(g); }
-  for (const g of ["painel", "bloco", "card"] as GrupoHome[]) if (!out.includes(g)) out.push(g);
+export function ordemDasSecoes(layout: LayoutHome): ("painel" | "bloco")[] {
+  const out: ("painel" | "bloco")[] = [];
+  for (const id of visiveis(layout)) { const g = itemHome(id).grupo === "bloco" ? "bloco" : "painel"; if (!out.includes(g)) out.push(g); }
+  for (const g of ["painel", "bloco"] as const) if (!out.includes(g)) out.push(g);
   return out;
 }
 
@@ -238,7 +238,7 @@ export function normalizarAcoes(bruto: unknown): AcaoHome[] {
  * o que está escondido é pedir para ver), e vários "primeiro" seguidos ficam
  * na ordem em que foram ditos: "pagar e depois receber" → pagar, receber.
  *
- * Card da biblioteca: "mostrar" o põe no fim, "primeiro"/"último" o põem no
+ * Card da biblioteca: entrar ("mostrar" ou "primeiro") o põe no TOPO, "último" o põe no
  * lugar pedido, "esconder" o tira da ordem. ⚠️ Acima de `TETO_CARDS` o pedido
  * de pôr mais um NÃO entra (`cardsRecusados` diz quais, para o chat avisar).
  */
@@ -257,7 +257,7 @@ export function aplicarAcoes(layout: LayoutHome, acoes: AcaoHome[]): LayoutHome 
       if (a.tipo === "esconder") { ordem = ordem.filter((x) => x !== id); tirar(topo, id); tirar(fim, id); continue; }
       if (!naHome(id)) {
         if (totalCards() >= TETO_CARDS) continue;
-        if (a.tipo === "mostrar") { ordem.push(id); continue; }
+        if (a.tipo === "mostrar") { topo.push(id); continue; }
       }
     } else {
       if (a.tipo === "esconder") { if (!ocultos.includes(id)) ocultos.push(id); continue; }
@@ -292,14 +292,15 @@ export function descreverMudancas(antes: LayoutHome, depois: LayoutHome, acoes: 
     out.push("A Home voltou ao arranjo padrão.");
   }
   const entraram = cardsNaHome(depois).filter((id) => !antes.ordem.includes(id));
-  const entraramNoTopo = entraram.filter((id) => pedidos("primeiro").includes(id));
   const sairamCards = cardsNaHome(antes).filter((id) => !depois.ordem.includes(id));
   const subiram = pedidos("primeiro").filter((id) => !entraram.includes(id as IdCard) && vd.includes(id) && vd.indexOf(id) < (va.includes(id) ? va.indexOf(id) : Infinity));
   const desceram = pedidos("ultimo").filter((id) => vd.includes(id) && va.includes(id) && vd.indexOf(id) > va.indexOf(id));
   const voltaram = antes.ocultos.filter((id) => !depois.ocultos.includes(id));
   const sairam = depois.ocultos.filter((id) => !antes.ocultos.includes(id));
-  if (entraramNoTopo.length) out.push(`Na Home agora, no topo: ${nomes(entraramNoTopo)}.`);
-  if (entraram.length > entraramNoTopo.length) out.push(`Na Home agora: ${nomes(entraram.filter((id) => !entraramNoTopo.includes(id)))}.`);
+  const noFim = entraram.filter((id) => pedidos("ultimo").includes(id));
+  const noTopo = entraram.filter((id) => !noFim.includes(id));
+  if (noTopo.length) out.push(`Na Home agora, no topo de "Seu painel": ${nomes(noTopo)}.`);
+  if (noFim.length) out.push(`Na Home agora, no fim: ${nomes(noFim)}.`);
   if (subiram.length) out.push(`Para o topo: ${nomes(subiram)}.`);
   if (desceram.length) out.push(`Para o fim: ${nomes(desceram)}.`);
   if (voltaram.length) out.push(`De volta à tela: ${nomes(voltaram)}.`);
@@ -347,6 +348,45 @@ const RE_RESTAURAR = /\b(padrao|como (era|estava) antes|original|volt\w* ao norm
 const RE_SOMENTE = /\b(so|somente|apenas|unicamente)\b/;
 
 /**
+ * Palavras que não dizem QUAL item: artigos, preposições, possessivos, os
+ * verbos do pedido e as palavras da própria tela. Fora delas, o que sobra no
+ * trecho é o assunto.
+ */
+const VAZIAS = new Set(("a o as os um uma uns umas de do da dos das no na nos nas em ao aos pra para pro por com " +
+  "meu minha meus minhas seu sua seus suas nosso nossa nossos nossas me mim eu voce e ou que qual quais isso esse essa " +
+  "aqui ali la tambem favor ai so somente apenas tudo todo toda todos todas mais menos bem " +
+  "home tela inicial card cards item itens indicador indicadores numero numeros painel quadro " +
+  "quero queria gostaria ver veja coloque coloca colocar poe por ponha bota bote botar adicione adiciona adicionar " +
+  "inclua inclui incluir mostre mostra mostrar deixa deixe tira tire tirar remova remove esconda esconde sobe suba").split(" "));
+/** Raiz grosseira: as cinco primeiras letras ("movimentações" e "movimentos" viram "movim"). */
+const raiz = (p: string) => (p.length > 5 ? p.slice(0, 5) : p);
+const ehVerbo = (p: string) => [RE_ESCONDER, RE_ULTIMO, RE_TOPO, RE_MOSTRAR, RE_PRIMEIRO, RE_SOMENTE, RE_RESTAURAR].some((re) => re.test(p));
+const raizesDoTexto = (t: string) =>
+  Array.from(new Set(semAcento(t).split(/[^a-z0-9]+/).filter((p) => p.length > 1 && !VAZIAS.has(p) && !ehVerbo(p)).map(raiz)));
+const RAIZES_DO_ITEM = [...ITENS_HOME, ...CARDS_HOME].map((i) => ({
+  id: i.id,
+  raizes: new Set([i.nome, ...i.sinonimos].flatMap((x) => raizesDoTexto(x))),
+}));
+
+/**
+ * A segunda leitura, quando nenhum sinônimo casou ("coloque as movimentações do
+ * MEU mês"): o item cujas palavras contêm TODAS as do trecho, pela raiz. Só
+ * devolve quando a resposta é UMA — duas candidatas é dúvida, e dúvida não
+ * mexe na Home (o chat lista o tema em vez de chutar).
+ */
+export function itemAproximado(trecho: string): IdHome | null {
+  const q = raizesDoTexto(trecho);
+  if (q.length === 0) return null;
+  const cand = RAIZES_DO_ITEM.filter((i) => q.every((r) => i.raizes.has(r)));
+  if (cand.length === 1) return cand[0].id;
+  // Empate: vence o item cujas palavras o trecho cobre MELHOR, se for só um.
+  const melhor = Math.max(...cand.map((i) => q.length / i.raizes.size));
+  const top = cand.filter((i) => q.length / i.raizes.size === melhor);
+  return cand.length > 1 && top.length === 1 && q.length >= 2 ? top[0].id : null;
+}
+
+
+/**
  * A REGRA que lê o pedido digitado e devolve ações — sem chave de IA, o chat
  * ainda ajusta a Home. O texto é partido em trechos (vírgula, ponto, "e",
  * "mas"); cada trecho tem um verbo (tirar, deixar por último, pôr, mostrar de
@@ -374,6 +414,7 @@ export function interpretarPedido(texto: unknown, layout: LayoutHome = LAYOUT_PA
       : RE_PRIMEIRO.test(trecho) ? "primeiro"
       : null;
     const citados = itensCitados(trecho);
+    if (citados.length === 0) { const perto = itemAproximado(trecho); if (perto) citados.push(perto); }
     if (citados.length === 0) { if (tipo) anterior = tipo; continue; }
     const efetivo: TipoAcaoHome = tipo ?? anterior;
     for (const id of citados) {
@@ -417,7 +458,12 @@ const TEMA_POR_PALAVRA: [RegExp, TemaCard][] = [
 export function pedeCatalogo(texto: unknown): TemaCard | null | undefined {
   if (typeof texto !== "string") return undefined;
   const t = semAcento(texto);
-  if (!RE_CATALOGO.test(t)) return undefined;
+  if (!RE_CATALOGO.test(t)) {
+    // só o NOME de um tema ("Resumo executivo", "coloca despesas") lista os cards dele
+    if (itensCitados(t).length || itemAproximado(t)) return undefined;
+    const tema = TEMAS_CARD.find((tm) => new RegExp(`\\b${escapar(semAcento(tm))}\\b`).test(t));
+    return tema ?? undefined;
+  }
   const sem = t.replace(RE_CATALOGO, " ");
   if (itensCitados(sem).some(ehCard)) return undefined;
   return TEMA_POR_PALAVRA.find(([re]) => re.test(sem))?.[1] ?? null;

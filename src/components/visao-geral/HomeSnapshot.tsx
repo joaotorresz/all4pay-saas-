@@ -757,7 +757,7 @@ function CardsDaBiblioteca({ ids, arraste, aoTirar }: {
 }) {
   const ctx = useCockpitCtx();
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-home="cards">
       {ids.map((id) => {
         const w = CATALOG_BY_ID.get(idDoCockpit(id));
         if (!w) return null;
@@ -779,23 +779,6 @@ function CardsDaBiblioteca({ ids, arraste, aoTirar }: {
         );
       })}
     </div>
-  );
-}
-
-/**
- * O que a pessoa escondeu não some sem rastro: uma linha discreta diz quantos
- * itens estão fora da tela e os traz de volta num clique.
- */
-function Escondidos({ layout, aoMostrar }: { layout: LayoutHome; aoMostrar: () => void }) {
-  if (layout.ocultos.length === 0) return null;
-  const nomes = layout.ocultos.map((id) => itemHome(id).nome).join(", ");
-  const n = layout.ocultos.length;
-  return (
-    <p className="m-0 text-center text-[13px] text-muted" data-home="escondidos">
-      <span title={nomes}>{n === 1 ? "1 item escondido" : `${n} itens escondidos`}</span>
-      {" · "}
-      <button type="button" onClick={aoMostrar} className="text-ink underline underline-offset-2">Mostrar de novo</button>
-    </p>
   );
 }
 
@@ -839,9 +822,15 @@ export function HomeSnapshot() {
       : id === "fechamento" ? <Fechamento mes={mes} tarefas={tarefas} />
         : <RelatoriosFixados />;
 
-  const painel = visiveis(layout, "painel").length === 0 ? null : (
+  // Card da biblioteca entra no TOPO de "Seu painel", acima dos números fixos
+  // (decisão do dono, 14/10/2026): não existe seção de cards à parte.
+  const cardsVisiveis = visiveis(layout, "card") as IdCard[];
+  const painel = visiveis(layout, "painel").length === 0 && cardsVisiveis.length === 0 ? null : (
     <section key="painel" className="flex flex-col gap-4">
       <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
+      {cardsVisiveis.length > 0 && (
+        <CardsDaBiblioteca ids={cardsVisiveis} arraste={arraste} aoTirar={(id) => prefs.salvarLayout(aplicarAcoes(layout, [{ tipo: "esconder", id }]))} />
+      )}
       {isLoading || !snap ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[0, 1].map((i) => <div key={i} className="min-h-[380px] animate-pulse" style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }} />)}
@@ -875,20 +864,12 @@ export function HomeSnapshot() {
       {blocosVisiveis.map((id) => <ItemArrastavel key={id} id={id} arraste={arraste}>{bloco(id as IdItemHome)}</ItemArrastavel>)}
     </section>
   );
-  const cardsVisiveis = visiveis(layout, "card") as IdCard[];
-  const cards = cardsVisiveis.length === 0 ? null : (
-    <section key="card" className="flex flex-col gap-4" data-home="cards">
-      <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seus cards</h2>
-      <CardsDaBiblioteca ids={cardsVisiveis} arraste={arraste} aoTirar={(id) => prefs.salvarLayout(aplicarAcoes(layout, [{ tipo: "esconder", id }]))} />
-    </section>
-  );
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
       <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} aoAjustar={ajustar} />
       <div className="flex flex-col gap-8 mt-7">
-        {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : g === "bloco" ? blocos : cards))}
-        <Escondidos layout={layout} aoMostrar={() => prefs.salvarLayout({ ...layout, ocultos: [] })} />
+        {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : blocos))}
       </div>
     </div>
   );
