@@ -87,6 +87,28 @@ export function dividir(valor: number, n: number): number[] {
 }
 
 /**
+ * Divide um CUSTO em `n` partes sem nenhuma parte NEGATIVA — a soma é sempre o
+ * total.
+ *
+ * ⚠️ `dividir` arredonda cada parte e põe a diferença na última, que pode sair
+ * NEGATIVA: R$ 1,00 em 18x dá 17 × R$ 0,06 = R$ 1,02 e uma 18ª de −R$ 0,02. Quem
+ * lança custo só grava a parte positiva, e o custo lançado passaria do
+ * contratado (achado da revisão adversarial). Então: a repartição de `dividir`
+ * sempre que a última fica de pé — é ela que bateu, parcela a parcela, com o 2x
+ * medido na Pinbank (R$ 4,28 + R$ 4,28) —, e o PISO em centavos inteiros, com o
+ * resto na última, só quando ela sairia negativa.
+ */
+export function dividirCusto(valor: number, n: number): number[] {
+  const partes = Math.max(1, Math.floor(n || 1));
+  const total = Math.max(0, valor);
+  const d = dividir(total, partes);
+  if (d[partes - 1] >= 0) return d;
+  const centavos = Math.round(total * 100);
+  const piso = Math.floor(centavos / partes);
+  return Array.from({ length: partes }, (_, i) => (i === partes - 1 ? centavos - piso * (partes - 1) : piso) / 100);
+}
+
+/**
  * Os títulos de UMA venda de maquininha: para cada parcela, a entrada bruta e
  * (se houver taxa) a saída da taxa, com o mesmo vencimento — o do repasse.
  */

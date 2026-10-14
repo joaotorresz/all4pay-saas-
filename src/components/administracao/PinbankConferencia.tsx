@@ -139,12 +139,26 @@ const TOM_DA_TAXA: Record<ResultadoTaxa, "positive" | "warning" | "neutral"> = {
   estorno_parcial: "neutral",
 };
 
+/**
+ * O que a tela escreve na "antecipação esperada": o número quando há, e
+ * senão o MOTIVO de não haver — o tipo da venda desconhecido, o repasse não
+ * antecipado ou a antecipação não cadastrada. Escrever "não cadastrada" para
+ * os três dizia que faltava cadastro a quem tinha a taxa cadastrada.
+ */
+const ESPERADA_DA_ANTECIPACAO = (an: NonNullable<ItemConferencia["extrato"]>["antecipacao"]): string =>
+  an.contratoBp != null
+    ? `${taxaPct(an.contratoBp)} ao mês${an.esperada === "zero_no_debito" ? " (o débito não antecipa)" : ""}`
+    : an.esperada === "tipo_desconhecido" ? "tipo de venda não identificado"
+    : an.esperada === "repasse_nao_antecipado" ? "repasse não antecipado na maquininha"
+    : "não cadastrada";
+
 /** O selo da antecipação: o mesmo critério do da taxa. */
 const TOM_DA_ANTECIPACAO: Record<ResultadoAntecipacao, "positive" | "warning" | "neutral"> = {
   diferente: "warning",
   igual: "positive",
   sem_contrato: "neutral",
   nao_antecipado: "neutral",
+  venda_nao_antecipada: "neutral",
   sem_extrato: "neutral",
   tipo_desconhecido: "neutral",
   sem_conclusao: "neutral",
@@ -763,7 +777,9 @@ function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean;
               {tx && (
                 <>
                   <Par t="Taxa cobrada no extrato" v={tx.extratoBp == null ? "não informada pela Pinbank" : taxaPct(tx.extratoBp)} />
-                  <Par t="Taxa cadastrada para o tipo de venda" v={tx.contratoBp == null ? "não cadastrada" : taxaPct(tx.contratoBp)} />
+                  <Par t="Taxa cadastrada para o tipo de venda"
+                    v={tx.contratoBp != null ? taxaPct(tx.contratoBp)
+                      : tx.tipo == null ? "tipo de venda não identificado" : "não cadastrada"} />
                   {tx.diferencaBp != null && <Par t="Diferença da taxa" v={pontosPercentuais(tx.diferencaBp)} />}
                   <Par t="Comparação da taxa" v={ROTULO_RESULTADO_TAXA[tx.resultado]} />
                 </>
@@ -771,9 +787,7 @@ function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean;
               {an && (
                 <>
                   <Par t="Antecipação informada no extrato" v={an.extratoBp == null ? "não informada pela Pinbank" : `${taxaPct(an.extratoBp)} ao mês`} />
-                  <Par t="Antecipação esperada pelo contrato"
-                    v={an.contratoBp != null ? `${taxaPct(an.contratoBp)} ao mês`
-                      : an.resultado === "nao_antecipado" ? "repasse não antecipado na maquininha" : "não cadastrada"} />
+                  <Par t="Antecipação esperada pelo contrato" v={ESPERADA_DA_ANTECIPACAO(an)} />
                   {an.diferencaBp != null && <Par t="Diferença da antecipação" v={pontosPercentuais(an.diferencaBp)} />}
                   <Par t="Comparação da antecipação" v={ROTULO_RESULTADO_ANTECIPACAO[an.resultado]} />
                 </>

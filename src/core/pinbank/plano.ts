@@ -21,7 +21,7 @@
  * uma taxa seria afirmar um custo que ninguém informou.
  */
 import {
-  somaMeses, dividir, fracaoDeAntecipacao,
+  somaMeses, dividir, dividirCusto, fracaoDeAntecipacao,
   CATEGORIA_RECEITA_POS, CATEGORIA_TAXA_POS, CATEGORIA_ANTECIPACAO_POS,
 } from "@/core/vendas/pos";
 import {
@@ -201,10 +201,28 @@ export function tarifaFixaDoContrato(taxas: TaxasPinbank): number {
   return typeof t === "number" && Number.isFinite(t) && t > 0 && t <= TARIFA_FIXA_MAXIMA ? r2(t) : 0;
 }
 
-/** A antecipação ao mês do contrato, em fração; `null` quando não informada ou fora de 0 a 1. */
+/**
+ * O teto da antecipação ao mês, em fração — o mesmo que o banco aceita no
+ * vínculo. A medida em produção foi 1,55% a.m.; 10% já é um contrato fora do
+ * comum. Sem teto, "15,5" no lugar de "1,55" passava: em 18x a regra do
+ * simulador cobra 137% da base e o líquido da venda sai NEGATIVO.
+ */
+export const ANTECIPACAO_MENSAL_MAXIMA = 0.1;
+
+/** A antecipação ao mês do contrato, em fração; `null` quando não informada ou fora de 0 a 10%. */
 export function antecipacaoDoContrato(taxas: TaxasPinbank): number | null {
   const a = taxas.antecipacao_mes;
-  return typeof a === "number" && Number.isFinite(a) && a >= 0 && a < 1 ? a : null;
+  return typeof a === "number" && Number.isFinite(a) && a >= 0 && a <= ANTECIPACAO_MENSAL_MAXIMA ? a : null;
+}
+
+/**
+ * As formas em que a tarifa fixa COBRA: as de cartão — débito, crédito à vista
+ * e parcelado, as medidas no extrato de 14/10/2026. Pix, voucher e forma não
+ * identificada ficam de fora até haver venda real deles no extrato: cobrar
+ * seria afirmar um custo medido em outra forma (a mesma regra da antecipação).
+ */
+export function formaComTarifa(forma: FormaPinbank): boolean {
+  return forma === "debito" || forma === "credito_vista" || forma === "parcelado";
 }
 
 /**
@@ -219,9 +237,10 @@ export function formaAntecipavel(forma: FormaPinbank): boolean {
 }
 
 /** O que sobra da venda depois da tarifa fixa: a base da taxa da forma e da antecipação. */
-export function baseDosCustos(total: number, taxas: TaxasPinbank | null | undefined): number {
+export function baseDosCustos(total: number, forma: FormaPinbank, taxas: TaxasPinbank | null | undefined): number {
   const t = r2(Math.max(0, total));
-  return r2(t - Math.min(tarifaFixaDoContrato(taxas ?? {}), t));
+  const tarifa = formaComTarifa(forma) ? tarifaFixaDoContrato(taxas ?? {}) : 0;
+  return r2(t - Math.min(tarifa, t));
 }
 
 /** Quantas parcelas o sistema lança para a venda: só o parcelado divide. */
@@ -245,7 +264,13 @@ export interface CustosDaVenda {
   antecipacaoTotal: number;
   /** A venda antecipa (repasse antecipado + forma de crédito), com ou sem taxa cadastrada. */
   antecipa: boolean;
-  /** Por parcela, com o resto dos centavos na ÚLTIMA (`dividir`). */
+  /** A antecipação do contrato passaria do que sobra da venda depois da taxa e foi limitada a ele. */
+  antecipacaoLimitada: boolean;
+  /**
+   * Por parcela, com o resto dos centavos na ÚLTIMA: o bruto por `dividir` (o
+   * dos títulos de receita), os custos por `dividirCusto` (nunca uma parte
+   * negativa, então o lançado nunca passa do contratado).
+   */
   brutos: number[];
   taxas: number[];
   tarifas: number[];
@@ -258,10 +283,11 @@ export interface CustosDaVenda {
  * lançaria (`core/pinbank/conferencia`). Duas contas divergiriam no centavo da
  * última parcela e acusariam uma diferença que é só de arredondamento.
  *
- *   tarifa      = a tarifa fixa do contrato (até o total da venda)
+ *   tarifa      = a tarifa fixa do contrato, só no cartão (até o total da venda)
  *   base        = total − tarifa
  *   taxa        = base × a taxa da forma                     (ao centavo)
- *   antecipação = base × fracaoDeAntecipacao(n, ao mês)      (ao centavo)
+ *   antecipação = base × fracaoDeAntecipacao(n, ao mês)      (ao centavo,
+ *                 nunca mais que base − taxa: o líquido não fica negativo)
  *
  * Medido no extrato de produção em 14/10/2026, R$ 9,99 com tarifa de R$ 1,00,
  * taxas de 0,88% / 1,81% / 2,46% e antecipação de 1,55% a.m.: o débito repassou
@@ -274,20 +300,23 @@ export function custosDaVenda(
 ): CustosDaVenda {
   const n = parcelasDaVenda(venda.forma, venda.parcelas);
   const total = r2(Math.max(0, venda.total));
-  const base = baseDosCustos(total, v.taxas);
+  const base = baseDosCustos(total, venda.forma, v.taxas);
   const tarifa = r2(total - base);
   const taxa = taxaDaForma(venda.forma, v.taxas ?? {});
   const taxaTotal = taxa == null ? 0 : r2(base * taxa);
   const antecipa = !!v.antecipado && formaAntecipavel(venda.forma);
   const mensal = antecipa ? antecipacaoDoContrato(v.taxas ?? {}) : null;
   const antecipacao = mensal == null ? null : fracaoDeAntecipacao(n, mensal);
-  const antecipacaoTotal = antecipacao == null ? 0 : r2(base * antecipacao);
+  const pelaRegra = antecipacao == null ? 0 : r2(base * antecipacao);
+  const teto = r2(Math.max(0, base - taxaTotal));
+  const antecipacaoTotal = Math.min(pelaRegra, teto);
   return {
     parcelas: n, total, tarifa, base, taxa, taxaTotal, antecipacao, antecipacaoTotal, antecipa,
+    antecipacaoLimitada: pelaRegra > teto,
     brutos: dividir(total, n),
-    taxas: dividir(taxaTotal, n),
-    tarifas: dividir(tarifa, n),
-    antecipacoes: dividir(antecipacaoTotal, n),
+    taxas: dividirCusto(taxaTotal, n),
+    tarifas: dividirCusto(tarifa, n),
+    antecipacoes: dividirCusto(antecipacaoTotal, n),
   };
 }
 
@@ -314,6 +343,7 @@ export function custosDaVenda(
 export function agendaDaTransacao(t: TransacaoPinbank, v: VinculoPinbank): {
   titulos: TituloPlano[]; taxaTotal: number; taxa: number | null;
   tarifaTotal: number; antecipacaoTotal: number; antecipa: boolean; antecipacao: number | null;
+  antecipacaoLimitada: boolean;
 } {
   const prazos = { ...PRAZOS_PADRAO, ...v.prazos };
   const c = custosDaVenda({ total: t.valorOriginal, forma: t.forma, parcelas: t.parcelas }, v);
@@ -360,6 +390,7 @@ export function agendaDaTransacao(t: TransacaoPinbank, v: VinculoPinbank): {
   return {
     titulos: out, taxaTotal, taxa,
     tarifaTotal: c.tarifa, antecipacaoTotal: c.antecipacaoTotal, antecipa: c.antecipa, antecipacao: c.antecipacao,
+    antecipacaoLimitada: c.antecipacaoLimitada,
   };
 }
 
@@ -408,13 +439,23 @@ export function planejarEvento(e: EntradaPlano): Plano {
       return { acao: "erro", motivo: "A empresa não tem conta bancária ativa para receber o repasse. Cadastre a conta e reprocesse." };
     }
     if (t.valorOriginal <= 0) return { acao: "registrar", novoEstado, motivo: "Venda aprovada com valor zero — nada a lançar." };
-    const { titulos, taxaTotal, taxa, tarifaTotal, antecipacaoTotal, antecipa, antecipacao } = agendaDaTransacao(t, e.vinculo);
+    const {
+      titulos, taxaTotal, taxa, tarifaTotal, antecipacaoTotal, antecipa, antecipacao, antecipacaoLimitada,
+    } = agendaDaTransacao(t, e.vinculo);
     const avisos: string[] = [];
     if (taxa == null) {
-      avisos.push(`A taxa de ${NOME_FORMA[t.forma]} não está cadastrada no vínculo: a venda entrou sem o custo de adquirência.`);
+      avisos.push(tarifaTotal > 0
+        ? `A taxa de ${NOME_FORMA[t.forma]} não está cadastrada no vínculo: a venda entrou só com a tarifa fixa, sem a taxa da forma.`
+        : `A taxa de ${NOME_FORMA[t.forma]} não está cadastrada no vínculo: a venda entrou sem o custo de adquirência.`);
+    }
+    if (!formaComTarifa(t.forma) && tarifaFixaDoContrato(e.vinculo.taxas ?? {}) > 0) {
+      avisos.push(`A tarifa fixa do contrato não foi lançada: ela foi medida no cartão (débito e crédito), não em ${NOME_FORMA[t.forma]}.`);
     }
     if (antecipa && antecipacao == null) {
-      avisos.push("O repasse é antecipado, mas a taxa de antecipação não está cadastrada no vínculo: a venda entrou sem o custo de antecipação.");
+      avisos.push("O repasse é antecipado, mas a taxa de antecipação não está cadastrada no vínculo (ou passa de 10% ao mês): a venda entrou sem o custo de antecipação.");
+    }
+    if (antecipacaoLimitada) {
+      avisos.push("A antecipação pela taxa cadastrada passaria do que sobra da venda depois da taxa: foi lançada só até o líquido zero. Confira as taxas do contrato.");
     }
     if (t.forma === "desconhecida") {
       avisos.push(`Forma de pagamento "${t.formaBruta ?? "?"}" não reconhecida: o repasse foi estimado como crédito à vista.`);

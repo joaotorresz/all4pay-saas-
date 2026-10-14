@@ -584,10 +584,12 @@ const FTOL = (): Entrada => base({
 const FT4 = (): Entrada => ({ ...F10(), vinculo: { id: "v1", codigoCliente: EC, taxas: { credito_vista: 0.0199 } } });
 
 /**
- * FBZ — a regra do sistema NÃO lança taxa: débito de R$ 0,30 a 1,63% (a taxa
- * arredonda para zero) e R$ 10 em 12x a 3,10% (a divisão de R$ 0,31 em 12 deixa
- * a 12ª parte negativa: o planejador grava 11 títulos de taxa e nenhum na 12ª).
- * Nenhuma parcela é acusada de "taxa sem título" — não há título a lançar.
+ * FBZ — a regra do sistema: débito de R$ 0,30 a 1,63% (a taxa arredonda para
+ * zero, NÃO há título a lançar) e R$ 10 em 12x a 3,10% — R$ 0,31 repartidos SEM
+ * parte negativa (`dividirCusto`: 11 × R$ 0,02 + R$ 0,09; a divisão de antes
+ * dava 11 × R$ 0,03 e uma 12ª de −R$ 0,02, que o planejador descartava, e a
+ * taxa lançada passava da contratada). Nenhuma parcela é acusada de "taxa sem
+ * título".
  */
 const FBZ = (): Entrada => base({
   vinculo: { id: "v1", codigoCliente: EC, taxas: { debito: 0.0163, parcelado: 0.031 } },
@@ -599,7 +601,32 @@ const FBZ = (): Entrada => base({
   titulos: [
     R(25001, 1, 0.3, "2025-07-09", "2025-07-08"),
     ...Array.from({ length: 12 }, (_, i) => R(25002, i + 1, i === 11 ? 0.87 : 0.83, somaMesStr("2025-08-11", i), "2025-07-10")),
-    ...Array.from({ length: 11 }, (_, i) => T(25002, i + 1, 0.03, somaMesStr("2025-08-11", i), "2025-07-10")),
+    ...Array.from({ length: 12 }, (_, i) => T(25002, i + 1, i === 11 ? 0.09 : 0.02, somaMesStr("2025-08-11", i), "2025-07-10")),
+  ],
+});
+
+/**
+ * FBZ2 — a MESMA venda com o título de taxa da 12ª parcela PERDIDO: a regra do
+ * sistema lançaria R$ 0,09 nela, e o MDR falta no resultado. É a 12ª que se
+ * acusa — e só ela. Com o estimador na divisão de antes (a 12ª parte negativa),
+ * o título perdido passaria calado.
+ */
+const FBZ2 = (): Entrada => ({ ...FBZ(), titulos: FBZ().titulos.filter((t) => t.chave !== "pinbank:25002:12:t") });
+
+/**
+ * LIQ12 — o líquido de um 12x com a folga de 1 centavo POR PARCELA: R$ 10 a
+ * 3,10% (o sistema lança 1000 − 31 = 969 centavos). Se a Pinbank arredondar
+ * parcela a parcela, cada uma pode desviar meio centavo: 12 centavos ainda é a
+ * folga do 12x; 13 já é diferente.
+ */
+const LIQ12 = (desvio: number): Entrada => base({
+  vinculo: { id: "v1", codigoCliente: EC, taxas: { parcelado: 0.031 } },
+  extrato: Array.from({ length: 12 }, (_, i) =>
+    L({ nsu: 42001, venda: "2025-07-10", repasse: somaMesStr("2025-08-11", i), bruto: 1000, parcela: i + 1, totalParcelas: 12,
+        tipoCompra: "PARCELADO", mdrBp: 310, liquidoRepasseCentavos: i < 11 ? 80 : 969 - 880 - desvio })),
+  titulos: [
+    ...Array.from({ length: 12 }, (_, i) => R(42001, i + 1, i === 11 ? 0.87 : 0.83, somaMesStr("2025-08-11", i), "2025-07-10")),
+    ...Array.from({ length: 12 }, (_, i) => T(42001, i + 1, i === 11 ? 0.09 : 0.02, somaMesStr("2025-08-11", i), "2025-07-10")),
   ],
 });
 
@@ -894,7 +921,8 @@ const C = {
   FT_TIPOS: "(FT) a taxa por tipo: débito igual (163 = 163, sem a dízima de 0,0163 × 10000), débito 1 ponto-base acima do contrato de duas casas (164 × 163) já é DIFERENTE, voucher sem tipo, sem MDR no extrato, parcelado sem contrato",
   FT_TOLERANCIA: "(FTOL) a tolerância é ESTRITA e contra a taxa contratada EXATA: 1,62% × 1,63% (a dízima de 0,0163) e 2,00% × 1,99% são DIFERENTES; 1,99% e 2,00% × 1,995% (contrato com mais casas) são IGUAIS — e a igual não exibe diferença (\"−0,01 ponto percentual\" ao lado de \"taxa igual\" se contradiria)",
   FT4: "(FT4) o estorno PARCIAL com a linha cancelada e a taxa cadastrada: a taxa é \"estorno parcial: não comparada\" — nunca \"venda cancelada\" ao lado de \"estorno parcial\" — fora da vista de divergências e sem a frase da taxa",
-  FBZ: "(FBZ) a regra do sistema nem lançaria a taxa (R$ 0,30 a 1,63% arredonda para zero; a 12ª parte de R$ 0,31 em 12x é negativa): nenhuma parcela é acusada de taxa sem título",
+  FBZ: "(FBZ) a regra do sistema nem lançaria a taxa do débito (R$ 0,30 a 1,63% arredonda para zero) e reparte R$ 0,31 em 12x SEM parte negativa (11 × 0,02 + 0,09): nenhuma parcela é acusada de taxa sem título",
+  FBZ2: "(FBZ2) o título de taxa da 12ª parcela PERDIDO (a regra lançaria R$ 0,09 nela): a 12ª — e só ela — é acusada de taxa sem título, sem mudar o status",
   FT_DIF: "(FT·7003) crédito à vista 2,65% × 2,99% cadastrado: diferente (−34), na frase, e o status SEGUE conferido",
   FT_DUAS: "(FT·7007) data diferente E taxa diferente: uma leitura não esconde a outra",
   FT_RESUMO: "(FT) o resumo da taxa: 1 igual, 4 diferentes, 2 sem contrato, 1 sem MDR, 1 tipo desconhecido; 4 itens na vista de divergências (2 pelo status + 2 só pela taxa)",
@@ -913,7 +941,11 @@ const C = {
   LIQ_PARCELA: "(FREAL) o 2x com o título da 2ª parcela CANCELADO no sistema e as duas vivas no extrato: a 2ª cancelada só no sistema, a 1ª conferida — e a venda sem o líquido comparado (a parcela que falta não vira divergência do líquido)",
   ANT_SEM_CONCLUSAO: "(F2) sem NSU em comum, a antecipação também fica SEM CONCLUSÃO (o extrato pode nem ser desta maquininha), fora da vista de divergências",
   ANT_IRMA: "(FREAL) com OUTRA maquininha viva no mesmo estabelecimento e o aviso da venda vindo dela, a antecipação dessa venda não é comparada com a desta (\"outra maquininha\")",
-  LIQ_TOLERANCIA: "(FREAL) a folga do líquido é de 1 centavo POR VENDA: 890 × 891 é igual (os arredondamentos separados), 889 × 891 já é diferente",
+  LIQ_TOLERANCIA: "(FREAL) a folga do líquido é de 1 centavo POR PARCELA — na venda de uma parcela, 890 × 891 é igual (os arredondamentos separados), 889 × 891 já é diferente",
+  LIQ_12X: "(LIQ12) no 12x a folga é de 12 centavos: 957 × 969 é igual (a Pinbank pode arredondar cada parcela), 956 × 969 já é diferente",
+  ANT_ANTES: "(FREAL) a venda de ANTES de a empresa ligar o repasse antecipado (crédito, sem título de antecipação no sistema, zero no extrato): \"venda não antecipada\" nos dois lados — nunca \"diferente\" da antecipação cadastrada hoje — e o líquido igual (883 × 883)",
+  ANT_SO_NO_SISTEMA: "(FREAL) o sistema lançou a antecipação e a Pinbank NÃO a cobrou (zero no extrato): a antecipação é DIFERENTE (−155 pontos-base), na vista de divergências",
+  ANT_ESPERADA: "(motor) a base da antecipação esperada diz o motivo de não haver número: tipo de venda não identificado (com a antecipação cadastrada), repasse não antecipado, não cadastrada; o débito espera zero e o crédito, o contrato",
   LIQ_METADE: "(FREAL) a meia venda não tem o líquido comparado: o 2x com só a 1ª parcela no extrato e o débito sem o líquido na linha ficam sem o sinal — e o resumo só conta a venda inteira (1)",
   LIQ_ESTORNO: "(FREAL) a venda com estorno PARCIAL no sistema e a desfeita no sistema (a transação cancelada) não têm o líquido comparado — só a do 2x, inteira e viva",
   POSTERGAR: "(puro) postergarParaDiaUtil: sábado → segunda, Sexta-feira Santa → segunda, 20/11 → 21/11, 31/12 útil fica",
@@ -965,7 +997,7 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
   caso(C.F0_LIQUIDO, () => {
     const i = f0!.itens[0];
     return i.status === "casada_dia_util" && i.sinais.includes("liquido_da_venda_diferente") && !i.sinais.includes("liquido_da_venda_igual")
-      && resumo(i.liquidoDaVenda) === resumo({ extratoCentavos: 329, sistemaCentavos: 873 })
+      && resumo(i.liquidoDaVenda) === resumo({ extratoCentavos: 329, sistemaCentavos: 873, parcelas: 1 })
       && i.extrato!.liquidoCentavos === 329
       && resumo(f0!.resumo.liquido) === resumo({ vendasComparadas: 1, vendasIguais: 0, vendasDiferentes: 1, centavosExtrato: 329, centavosSistema: 873 })
       && f0!.resumo.itensComDivergencia === 1 && f0!.resumo.grupos.divergencias === 0
@@ -1477,13 +1509,33 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
     && ft4!.resumo.taxa.porResultado.estorno_parcial === 1 && ft4!.resumo.taxa.porResultado.venda_cancelada === 0,
   () => resumo({ i: item(ft4, "1100"), t: ft4?.resumo.taxa.porResultado }));
 
-  /* FBZ — a taxa que a regra do sistema nem lançaria */
+  /* FBZ — a taxa que a regra do sistema nem lançaria, e a de 12x sem parte negativa */
   const fbz = seguro(FBZ());
   caso(C.FBZ, () => (fbz?.itens ?? []).length === 13
     && fbz!.itens.every((i) => i.status === "casada" && !i.sinais.includes("taxa_sem_titulo_no_sistema") && i.extrato!.taxa.resultado === "igual")
-    && item(fbz, "25002", 12)!.sistema!.taxaCentavos === null && item(fbz, "25001")!.sistema!.taxaCentavos === null
+    && item(fbz, "25002", 12)!.sistema!.taxaCentavos === 9 && item(fbz, "25002", 1)!.sistema!.taxaCentavos === 2
+    && item(fbz, "25001")!.sistema!.taxaCentavos === null
     && fbz!.resumo.itensComDivergencia === 0,
-  () => resumo(fbz?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais, i.extrato?.taxa.resultado])));
+  () => resumo(fbz?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais, i.extrato?.taxa.resultado, i.sistema?.taxaCentavos])));
+  const fbz2 = seguro(FBZ2());
+  caso(C.FBZ2, () => (fbz2?.itens ?? []).length === 13
+    && item(fbz2, "25002", 12)!.sinais.includes("taxa_sem_titulo_no_sistema") && item(fbz2, "25002", 12)!.status === "casada"
+    && fbz2!.itens.filter((i) => i.sinais.includes("taxa_sem_titulo_no_sistema")).length === 1
+    && fbz2!.resumo.itensComDivergencia === 1,
+  () => resumo(fbz2?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais])));
+
+  /* LIQ12 — a folga do líquido cresce com as parcelas */
+  const liq12a = seguro(LIQ12(12));
+  const liq12b = seguro(LIQ12(13));
+  caso(C.LIQ_12X, () => {
+    const a = item(liq12a, "42001", 1)!;
+    const b = item(liq12b, "42001", 1)!;
+    return resumo(a.liquidoDaVenda) === resumo({ extratoCentavos: 957, sistemaCentavos: 969, parcelas: 12 })
+      && itensDe(liq12a, "42001").every((i) => i.sinais.includes("liquido_da_venda_igual")) && liq12a!.resumo.itensComDivergencia === 0
+      && resumo(b.liquidoDaVenda) === resumo({ extratoCentavos: 956, sistemaCentavos: 969, parcelas: 12 })
+      && itensDe(liq12b, "42001").every((i) => i.sinais.includes("liquido_da_venda_diferente")) && liq12b!.resumo.itensComDivergencia === 12
+      && liq12b!.resumo.liquido.vendasDiferentes === 1;
+  }, () => resumo({ a: item(liq12a, "42001", 1)?.liquidoDaVenda, sa: item(liq12a, "42001", 1)?.sinais, b: item(liq12b, "42001", 1)?.liquidoDaVenda, sb: item(liq12b, "42001", 1)?.sinais }));
 
   /* o invariante do cartão × tabela, em todas */
   const invariante = (rel: Relatorio | null): string[] => {
@@ -1547,16 +1599,16 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
     const d = itemReal(r, 41001)!, v = itemReal(r, 41002)!, p1 = itemReal(r, 41003, 1)!, p2 = itemReal(r, 41003, 2)!;
     return r.itens.length === 4 && r.itens.every((i) => i.status === "casada" && i.extrato!.taxa.resultado === "igual" && i.extrato!.antecipacao.resultado === "igual"
         && i.sinais.includes("liquido_da_venda_igual") && !i.sinais.includes("liquido_da_venda_diferente"))
-      && resumo(d.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "debito", extratoBp: 0, contratoBp: 0, diferencaBp: null })
-      && resumo(v.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "credito_vista", extratoBp: 155, contratoBp: 155, diferencaBp: null })
-      && resumo(p1.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "parcelado", extratoBp: 155, contratoBp: 155, diferencaBp: null })
+      && resumo(d.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "debito", esperada: "zero_no_debito", extratoBp: 0, contratoBp: 0, diferencaBp: null })
+      && resumo(v.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "credito_vista", esperada: "contrato", extratoBp: 155, contratoBp: 155, diferencaBp: null })
+      && resumo(p1.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "parcelado", esperada: "contrato", extratoBp: 155, contratoBp: 155, diferencaBp: null })
       && resumo([d.sistema!.taxaCentavos, d.sistema!.tarifaCentavos, d.sistema!.antecipacaoCentavos]) === resumo([8, 100, null])
       && resumo([v.sistema!.taxaCentavos, v.sistema!.tarifaCentavos, v.sistema!.antecipacaoCentavos]) === resumo([16, 100, 14])
       && resumo([p1.sistema!.taxaCentavos, p1.sistema!.tarifaCentavos, p1.sistema!.antecipacaoCentavos]) === resumo([11, 50, 11])
       && resumo([p2.sistema!.taxaCentavos, p2.sistema!.tarifaCentavos, p2.sistema!.antecipacaoCentavos]) === resumo([11, 50, 10])
-      && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 891 })
-      && resumo(v.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 869 })
-      && resumo(p1.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 856 }) && resumo(p2.liquidoDaVenda) === resumo(p1.liquidoDaVenda)
+      && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 891, parcelas: 1 })
+      && resumo(v.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 869, parcelas: 1 })
+      && resumo(p1.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 856, parcelas: 2 }) && resumo(p2.liquidoDaVenda) === resumo(p1.liquidoDaVenda)
       && d.extrato!.liquidoCentavos === 891 && p2.extrato!.liquidoCentavos === 428
       && resumo(r.resumo.liquido) === resumo({ vendasComparadas: 3, vendasIguais: 3, vendasDiferentes: 0, centavosExtrato: 2616, centavosSistema: 2616 })
       && r.resumo.antecipacao.porResultado.igual === 4 && r.resumo.antecipacao.parcelasComAntecipacaoInformada === 4
@@ -1570,9 +1622,9 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
     const r = fantigo!;
     const d = itemReal(r, 41001)!;
     return r.itens.length === 4 && r.itens.every((i) => i.status === "casada" && i.extrato!.taxa.resultado === "igual" && i.sinais.includes("liquido_da_venda_diferente"))
-      && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 990 })
-      && resumo(itemReal(r, 41002)!.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 981 })
-      && resumo(itemReal(r, 41003, 2)!.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 974 })
+      && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 990, parcelas: 1 })
+      && resumo(itemReal(r, 41002)!.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 981, parcelas: 1 })
+      && resumo(itemReal(r, 41003, 2)!.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 974, parcelas: 2 })
       && /R\$8,91/.test(d.frase) && /R\$9,90/.test(d.frase) && /tarifa fixa/.test(d.frase)
       && resumo(r.resumo.liquido) === resumo({ vendasComparadas: 3, vendasIguais: 0, vendasDiferentes: 3, centavosExtrato: 2616, centavosSistema: 2945 })
       && r.resumo.itensComDivergencia === 4 && r.resumo.grupos.divergencias === 0
@@ -1583,7 +1635,7 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
   caso(C.ANT_DIF, () => {
     const r = fantDif!;
     const v = itemReal(r, 41002)!;
-    return resumo(v.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "credito_vista", extratoBp: 155, contratoBp: 199, diferencaBp: -44 })
+    return resumo(v.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "credito_vista", esperada: "contrato", extratoBp: 155, contratoBp: 199, diferencaBp: -44 })
       && itemReal(r, 41003, 1)!.extrato!.antecipacao.resultado === "diferente" && itemReal(r, 41003, 2)!.extrato!.antecipacao.resultado === "diferente"
       && itemReal(r, 41001)!.extrato!.antecipacao.resultado === "igual"
       && r.itens.every((i) => i.status === "casada" && i.sinais.includes("liquido_da_venda_igual"))
@@ -1603,14 +1655,50 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
   const fantSem = seguro(FREAL({ vinculo: { id: "v1", codigoCliente: EC, taxas: semAntecipacao, antecipado: true } }));
   caso(C.ANT_SEM, () => itemReal(fantSem, 41001)!.extrato!.antecipacao.resultado === "igual"
     && [itemReal(fantSem, 41002)!, itemReal(fantSem, 41003, 1)!, itemReal(fantSem, 41003, 2)!].every((i) =>
-      resumo(i.extrato!.antecipacao) === resumo({ resultado: "sem_contrato", tipo: i.extrato!.antecipacao.tipo, extratoBp: 155, contratoBp: null, diferencaBp: null }))
+      resumo(i.extrato!.antecipacao) === resumo({ resultado: "sem_contrato", tipo: i.extrato!.antecipacao.tipo, esperada: "nao_cadastrada", extratoBp: 155, contratoBp: null, diferencaBp: null }))
     && fantSem!.resumo.antecipacao.porResultado.sem_contrato === 3 && fantSem!.resumo.itensComDivergencia === 0,
   () => resumo({ a: fantSem?.itens.map((i) => i.extrato?.antecipacao), d: fantSem?.resumo.itensComDivergencia }));
+
+  // A venda de ANTES de ligar o repasse antecipado: crédito sem `:a` no sistema e zero no extrato.
+  const fantAntes = seguro(FREAL({
+    extrato: comLinha(41002, 1, { taxaMesBp: 0, liquidoRepasseCentavos: 883 }),
+    titulos: TITULOS_REAIS().filter((t) => t.chave !== "pinbank:41002:1:a"),
+  }));
+  caso(C.ANT_ANTES, () => {
+    const v = itemReal(fantAntes, 41002)!;
+    return v.status === "casada"
+      && resumo(v.extrato!.antecipacao) === resumo({ resultado: "venda_nao_antecipada", tipo: "credito_vista", esperada: "contrato", extratoBp: 0, contratoBp: 155, diferencaBp: null })
+      && resumo(v.liquidoDaVenda) === resumo({ extratoCentavos: 883, sistemaCentavos: 883, parcelas: 1 }) && v.sinais.includes("liquido_da_venda_igual")
+      && !/Antecipação:/.test(v.frase)
+      && fantAntes!.resumo.antecipacao.porResultado.venda_nao_antecipada === 1 && fantAntes!.resumo.itensComDivergencia === 0;
+  }, () => resumo({ a: itemReal(fantAntes, 41002)?.extrato?.antecipacao, l: itemReal(fantAntes, 41002)?.liquidoDaVenda, d: fantAntes?.resumo.itensComDivergencia }));
+  // O contrário: o sistema lançou a antecipação e a Pinbank não a cobrou — isso É divergência.
+  const fantSoSis = seguro(FREAL({ extrato: comLinha(41002, 1, { taxaMesBp: 0 }) }));
+  caso(C.ANT_SO_NO_SISTEMA, () => {
+    const v = itemReal(fantSoSis, 41002)!;
+    return resumo(v.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "credito_vista", esperada: "contrato", extratoBp: 0, contratoBp: 155, diferencaBp: -155 })
+      && /Antecipação: o extrato informa 0,00% ao mês e a cadastrada na maquininha é 1,55%\./.test(v.frase)
+      && fantSoSis!.resumo.itensComDivergencia === 1 && fantSoSis!.resumo.antecipacao.porResultado.diferente === 1;
+  }, () => resumo({ a: itemReal(fantSoSis, 41002)?.extrato?.antecipacao, f: itemReal(fantSoSis, 41002)?.frase, d: fantSoSis?.resumo.itensComDivergencia }));
+  caso(C.ANT_ESPERADA, () => {
+    const linha = (tipoCompra: string, taxaMesBp: number | null = 0) => ({ tipoCompra, taxaMesBp, totalParcelas: 1 });
+    const { antecipacao_mes: _a, ...semAnt } = CONTRATO_REAL;
+    void _a;
+    const voucher = m.eng.compararAntecipacao(linha("VOUCHER"), CONTRATO_REAL, true);
+    return voucher.esperada === "tipo_desconhecido" && voucher.resultado === "tipo_desconhecido"
+      && m.eng.compararAntecipacao(linha("A VISTA"), CONTRATO_REAL, false).esperada === "repasse_nao_antecipado"
+      && m.eng.compararAntecipacao(linha("A VISTA", 155), semAnt, true).esperada === "nao_cadastrada"
+      && m.eng.compararAntecipacao(linha("DEBITO"), CONTRATO_REAL, true).esperada === "zero_no_debito"
+      && m.eng.compararAntecipacao(linha("A VISTA", 155), CONTRATO_REAL, true).esperada === "contrato";
+  }, () => resumo([
+    m.eng.compararAntecipacao({ tipoCompra: "VOUCHER", taxaMesBp: 0, totalParcelas: 1 }, CONTRATO_REAL, true),
+    m.eng.compararAntecipacao({ tipoCompra: "A VISTA", taxaMesBp: 0, totalParcelas: 1 }, CONTRATO_REAL, false),
+  ]));
 
   const fantDeb = seguro(FREAL({ extrato: comLinha(41001, 1, { taxaMesBp: 155 }) }));
   caso(C.ANT_DEB, () => {
     const d = itemReal(fantDeb, 41001)!;
-    return resumo(d.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "debito", extratoBp: 155, contratoBp: 0, diferencaBp: 155 })
+    return resumo(d.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "debito", esperada: "zero_no_debito", extratoBp: 155, contratoBp: 0, diferencaBp: 155 })
       && /Antecipação: o extrato informa 1,55% ao mês numa venda no débito, que não tem antecipação\./.test(d.frase)
       && fantDeb!.resumo.itensComDivergencia === 1;
   }, () => resumo({ a: itemReal(fantDeb, 41001)?.extrato?.antecipacao, f: itemReal(fantDeb, 41001)?.frase }));
@@ -1658,9 +1746,9 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
   const fliq889 = seguro(FREAL({ extrato: comLinha(41001, 1, { liquidoRepasseCentavos: 889 }) }));
   caso(C.LIQ_TOLERANCIA, () => {
     const a = itemReal(fliq890, 41001)!, b = itemReal(fliq889, 41001)!;
-    return a.sinais.includes("liquido_da_venda_igual") && resumo(a.liquidoDaVenda) === resumo({ extratoCentavos: 890, sistemaCentavos: 891 })
+    return a.sinais.includes("liquido_da_venda_igual") && resumo(a.liquidoDaVenda) === resumo({ extratoCentavos: 890, sistemaCentavos: 891, parcelas: 1 })
       && fliq890!.resumo.itensComDivergencia === 0 && fliq890!.resumo.liquido.vendasIguais === 3
-      && b.sinais.includes("liquido_da_venda_diferente") && resumo(b.liquidoDaVenda) === resumo({ extratoCentavos: 889, sistemaCentavos: 891 })
+      && b.sinais.includes("liquido_da_venda_diferente") && resumo(b.liquidoDaVenda) === resumo({ extratoCentavos: 889, sistemaCentavos: 891, parcelas: 1 })
       && fliq889!.resumo.itensComDivergencia === 1 && fliq889!.resumo.liquido.vendasDiferentes === 1;
   }, () => resumo({ a: itemReal(fliq890, 41001)?.sinais, b: itemReal(fliq889, 41001)?.sinais }));
 
@@ -1999,8 +2087,8 @@ const PLANTAS: Planta[] = [
   { nome: "PA2 o débito espera a antecipação do crédito", caso: C.REAL,
     de: ": tipo === \"debito\" ? 0", para: ": tipo === \"debito\" ? pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {}))" },
   { nome: "PA3 sem o portão do repasse antecipado (o vínculo que não antecipa é comparado)", caso: C.ANT_NAO,
-    de: "  antecipado: boolean | null | undefined,\n): AntecipacaoDoItem {\n",
-    para: "  _antecipado: boolean | null | undefined,\n): AntecipacaoDoItem {\n  const antecipado = true as boolean | null | undefined;\n" },
+    de: "): AntecipacaoDoItem {\n  const tipo = tipoDaCompraNoExtrato(l.tipoCompra, l.totalParcelas);\n  const extratoBp = l.taxaMesBp;",
+    para: "): AntecipacaoDoItem {\n  antecipado = true;\n  const tipo = tipoDaCompraNoExtrato(l.tipoCompra, l.totalParcelas);\n  const extratoBp = l.taxaMesBp;" },
   { nome: "PA4 a antecipação diferente fora da vista de divergências", caso: C.ANT_DIF,
     de: "\n    || i.extrato?.antecipacao.resultado === \"diferente\"", para: "" },
   { nome: "PA5 a antecipação da venda cancelada comparada (a linha zerada vira \"diferente\")", caso: C.ANT_CANC,
@@ -2014,9 +2102,19 @@ const PLANTAS: Planta[] = [
   { nome: "PA9 a antecipação sem contrato vira \"igual a zero\"", caso: C.ANT_SEM,
     de: "    : pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {}));", para: "    : (pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {})) ?? 0);" },
   { nome: "PL1 o líquido sem a folga de 1 centavo (o arredondamento vira divergência)", caso: C.LIQ_TOLERANCIA,
-    de: "<= TOLERANCIA_LIQUIDO_CENTAVOS ? \"liquido_da_venda_igual\"", para: "< TOLERANCIA_LIQUIDO_CENTAVOS ? \"liquido_da_venda_igual\"" },
-  { nome: "PL2 o líquido com folga de 2 centavos (dinheiro passa por arredondamento)", caso: C.LIQ_TOLERANCIA,
-    de: "<= TOLERANCIA_LIQUIDO_CENTAVOS ? \"liquido_da_venda_igual\"", para: "<= 2 ? \"liquido_da_venda_igual\"" },
+    de: "return TOLERANCIA_LIQUIDO_CENTAVOS_POR_PARCELA * Math.max(1, Math.floor(parcelas || 1));", para: "return 0;" },
+  { nome: "PL2 o líquido com folga de 2 centavos por parcela (dinheiro passa por arredondamento)", caso: C.LIQ_TOLERANCIA,
+    de: "return TOLERANCIA_LIQUIDO_CENTAVOS_POR_PARCELA * Math.max(1, Math.floor(parcelas || 1));", para: "return 2 * Math.max(1, Math.floor(parcelas || 1));" },
+  { nome: "PL17 a folga fixa por VENDA (não cresce com as parcelas: o 12x acusa arredondamento)", caso: C.LIQ_12X,
+    de: "return TOLERANCIA_LIQUIDO_CENTAVOS_POR_PARCELA * Math.max(1, Math.floor(parcelas || 1));", para: "return TOLERANCIA_LIQUIDO_CENTAVOS_POR_PARCELA;" },
+  { nome: "PA10 a venda não antecipada nos dois lados vira \"diferente\" da antecipação cadastrada hoje", caso: C.ANT_ANTES,
+    de: "    : esperadaExata > 0 && extratoBp === 0 && sistemaAntecipou === false ? \"venda_nao_antecipada\"\n", para: "" },
+  { nome: "PA11 o sistema dado como não antecipado sempre (a antecipação que só o sistema lançou some)", caso: C.ANT_SO_NO_SISTEMA,
+    de: "v ? v.a.size > 0 : null", para: "v ? false : null" },
+  { nome: "PA12 o tipo de venda desconhecido com a antecipação cadastrada dito \"não cadastrada\"", caso: C.ANT_ESPERADA,
+    de: "    tipo == null ? \"tipo_desconhecido\"\n    : antecipado !== true ? \"repasse_nao_antecipado\"", para: "    tipo == null ? \"nao_cadastrada\"\n    : antecipado !== true ? \"repasse_nao_antecipado\"" },
+  { nome: "PT21 o estimador da taxa volta à divisão de antes (a 12ª parte negativa esconde o título perdido)", caso: C.FBZ2,
+    de: "return dividirCusto(r2(baseDosCustos(", para: "return dividir(r2(baseDosCustos(" },
   { nome: "PL3 a meia venda comparada (só as parcelas que o extrato traz)", caso: C.LIQ_METADE,
     de: "if (ls.length !== 1 || ls[0].l.liquidoRepasseCentavos == null || ls[0].l.dataCancelamento != null) return null;",
     para: "if (ls.length !== 1) continue;\n        if (ls[0].l.liquidoRepasseCentavos == null || ls[0].l.dataCancelamento != null) return null;" },

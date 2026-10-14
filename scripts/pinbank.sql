@@ -13,9 +13,10 @@
 --   4. vínculo não ativado não vira dinheiro;
 --   5. o LEITOR não ativa; taxa digitada como percentual é recusada;
 --  5c. a tarifa fixa (em reais, até R$ 100, em centavos) e a antecipação ao
---      mês (fração) do contrato real são aceitas e gravadas como vieram; fora
---      da faixa, chave que o contrato não tem, taxa em texto e taxas em lista
---      são recusadas pela frase que as nomeia — e a recusa não mexe no gravado;
+--      mês (fração, até 10% ao mês) do contrato real são aceitas e gravadas
+--      como vieram; fora da faixa, chave que o contrato não tem, taxa em texto
+--      e taxas em lista são recusadas pela frase que as nomeia — e a recusa não
+--      mexe no gravado;
 --   6. a venda aprovada vira documento + títulos (origem, espécie, autor, NSU,
 --      chave) numa transação só, e deixa trilha;
 --   7. a reentrega do mesmo EventId não duplica, e a versão velha é recusada;
@@ -349,6 +350,7 @@ begin
   -- tarifa no teto, e taxa em branco (null é "não cadastrada").
   perform pg_temp.aceita_taxas(v, '{"tarifa_fixa":0,"antecipacao_mes":0}', 'o contrato sem tarifa e sem custo de antecipação');
   perform pg_temp.aceita_taxas(v, '{"tarifa_fixa":100,"debito":null}', 'a tarifa no teto de R$ 100 com uma taxa em branco');
+  perform pg_temp.aceita_taxas(v, '{"antecipacao_mes":0.1}', 'a antecipação no teto de 10% ao mês');
 
   -- O contrato real é aceito e gravado EXATAMENTE como veio.
   perform pg_temp.aceita_taxas(v, contrato, 'o contrato real (tarifa de R$ 1,00 e antecipação de 1,55% ao mês)');
@@ -361,7 +363,8 @@ begin
   perform pg_temp.recusa_taxas(v, '{"tarifa_fixa":101}', '%tarifa fixa%', 'a tarifa fixa de R$ 101 (acima do teto)');
   perform pg_temp.recusa_taxas(v, '{"tarifa_fixa":-1}', '%tarifa fixa%', 'a tarifa fixa negativa');
   perform pg_temp.recusa_taxas(v, '{"tarifa_fixa":1.005}', '%tarifa fixa%', 'a tarifa fixa de R$ 1,005 (fração de centavo)');
-  perform pg_temp.recusa_taxas(v, '{"antecipacao_mes":1.55}', '%antecipacao_mes%fora de 0 a 1%', 'a antecipação digitada como percentual (1.55 = 155% ao mês)');
+  perform pg_temp.recusa_taxas(v, '{"antecipacao_mes":1.55}', '%antecipação%fora de 0 a 10%', 'a antecipação digitada como percentual (1.55 = 155% ao mês)');
+  perform pg_temp.recusa_taxas(v, '{"antecipacao_mes":0.155}', '%antecipação%fora de 0 a 10%', 'a antecipação de 15,5% ao mês (o "15,5" no lugar de "1,55")');
   perform pg_temp.recusa_taxas(v, '{"mdr":0.02}', '%não é uma taxa do contrato%', 'a chave fora do contrato ("mdr")');
   perform pg_temp.recusa_taxas(v, '{"debito":"0.0088"}', '%não é um número%', 'a taxa em TEXTO');
   perform pg_temp.recusa_taxas(v, '[0.0088]', '%vir como objeto%', 'as taxas em lista');
@@ -635,7 +638,7 @@ rollback to savepoint caso;
 
 savepoint caso;
 do $p3$ begin
-  perform pg_temp.plantar_contrato('    elsif v < 0 or v >= 1 then', '    elsif v < 0 or (v >= 1 and k <> ''antecipacao_mes'') then');
+  perform pg_temp.plantar_contrato('if v < 0 or v > 0.1 then', 'if v < 0 or v > 1000 then');
   perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%antecipação digitada como percentual%foi aceita%', 'a antecipação de 155% ao mês aceita');
 end $p3$;
 rollback to savepoint caso;
@@ -678,6 +681,15 @@ do $p8$ begin
 end $p8$;
 rollback to savepoint caso;
 
-do $fim$ begin raise notice 'pinbank: 13 casos · 8 defeitos plantados pegos · a fechadura confere'; end $fim$;
+-- p9 · a antecipação volta à faixa das taxas (abaixo de 100%): o "15,5" no lugar
+-- de "1,55" passaria, e o líquido do 18x sairia negativo.
+savepoint caso;
+do $p9$ begin
+  perform pg_temp.plantar_contrato('if v < 0 or v > 0.1 then', 'if v < 0 or v >= 1 then');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%15,5%foi aceita%', 'a antecipação sem o teto de 10% ao mês');
+end $p9$;
+rollback to savepoint caso;
+
+do $fim$ begin raise notice 'pinbank: 13 casos · 9 defeitos plantados pegos · a fechadura confere'; end $fim$;
 
 rollback;

@@ -140,10 +140,12 @@ const ehCustoVariavel = (m: RiskMovement) => /cmv|mercadoria|insumo|fornecedor|f
 // ⚠️ A ANTECIPAÇÃO DE RECEBÍVEL saiu daqui e foi para o financeiro, mesmo com
 // "taxa" no nome ("Taxa de antecipação"): é custo de dinheiro, não de vender —
 // a regra única em `ehAntecipacaoDeRecebiveis` (`core/indicadores/classificacao`).
+// O "antecipa" SEGUE aqui para o resto ("Antecipação" sozinha, de salário…):
+// tirá-lo mudava a linha de categorias que nada têm de recebível.
 const ehDespesaVariavel = (m: RiskMovement) =>
   !ehAntecipacaoDeRecebiveis(m.category)
   && (ehTaxaAdquirencia(m.category)
-    || /comiss|taxa|gateway|adquir[eê]n|plataforma|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m)));
+    || /comiss|taxa|gateway|adquir[eê]n|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m)));
 const ehFinanceiro = (m: RiskMovement) =>
   ehAntecipacaoDeRecebiveis(m.category)
   || (!ehTaxaAdquirencia(m.category) && /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m)));

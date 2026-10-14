@@ -10784,6 +10784,53 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      [-1, 101, Number.NaN, "1" as unknown as number, null].every((t) => PB.tarifaFixaDoContrato({ tarifa_fixa: t }) === 0)
      && PB.tarifaFixaDoContrato({ tarifa_fixa: 100 }) === 100 && PB.tarifaFixaDoContrato({}) === 0);
 
+  // ⚠️ Os achados da revisão adversarial (14/10/2026), cada um com o valor que o fixa.
+  // 1. O custo repartido sem parte NEGATIVA: R$ 1,00 em 18x saía 17 × 0,06 = R$ 1,02 (a 18ª, −0,02, descartada).
+  const { dividirCusto: dividirCustoPOS } = await import("@/core/vendas/pos");
+  const somaCent = (xs: number[]) => Math.round(xs.reduce((s, x) => s + x, 0) * 100);
+  const varredura = [0.2, 0.25, 0.3, 0.31, 0.5, 1, 2, 0.05].flatMap((v) => Array.from({ length: 18 }, (_, i) => [v, i + 1] as const));
+  const furaCusto = ([v, n]: readonly [number, number]) => {
+    const d = dividirCustoPOS(v, n);
+    return d.length !== n || somaCent(d) !== Math.round(v * 100) || d.some((x) => x < 0);
+  };
+  ok("pinbank: o custo repartido em 1 a 18 parcelas soma EXATAMENTE o total e nenhuma parte é negativa (R$ 1,00 em 18x não vira R$ 1,02)",
+     !varredura.some(furaCusto), varredura.filter(furaCusto).map(([v, n]) => `${v}/${n}`).join(" "));
+  ok("pinbank: onde a última parte fica de pé, a repartição é a de antes — a que bateu, parcela a parcela, com o 2x da Pinbank (0,21 → 0,11 + 0,10)",
+     dividirCustoPOS(0.21, 2).join() === "0.11,0.1" && dividirCustoPOS(1, 18).join() === [...Array(17).fill(0.05), 0.15].join(),
+     `${dividirCustoPOS(0.21, 2).join()} · ${dividirCustoPOS(1, 18).join()}`);
+  const p18 = real("PARCELADO_LOJISTA", 18, VIN_REAL, 100_000);
+  const tar18 = titulosDe(p18).filter((x) => x.chave.endsWith(":f"));
+  ok("pinbank: 18x com a tarifa de R$ 1,00 lança EXATAMENTE R$ 1,00 de tarifa (17 × 0,05 + 0,15), e o líquido fecha com a conta do contrato",
+     p18.acao === "criar_venda" && somaCent(tar18.map((x) => x.amount)) === 100 && tar18.length === 18
+     && liqCent(titulosDe(p18)) === Math.round((1000 - p18.venda.taxaTotal - p18.venda.tarifaTotal - p18.venda.antecipacaoTotal) * 100),
+     JSON.stringify(tar18.map((x) => x.amount)));
+
+  // 2. A tarifa só no cartão (débito e crédito, as formas medidas) — e o aviso que diz o que ficou de fora.
+  const pVoucher = real("VOUCHER", 1, { ...VIN_REAL, antecipado: false });
+  ok("pinbank: voucher com a tarifa cadastrada NÃO lança a tarifa (medida só no cartão) — e o aviso diz que ela ficou de fora",
+     pVoucher.acao === "criar_venda" && !titulosDe(pVoucher).some((x) => x.chave.endsWith(":f")) && pVoucher.venda.tarifaTotal === 0
+     && pVoucher.avisos.some((a) => /tarifa fixa do contrato não foi lançada/.test(a)),
+     JSON.stringify(pVoucher.acao === "criar_venda" ? { t: comoLinha(pVoucher), a: pVoucher.avisos } : pVoucher.acao));
+  const pOutra = real("OUTRA", 1);
+  ok("pinbank: a forma não identificada também fica sem a tarifa e sem a antecipação",
+     pOutra.acao === "criar_venda" && !titulosDe(pOutra).some((x) => /:(f|a)$/.test(x.chave)), comoLinha(pOutra));
+  const pDebSemTaxa = real("DEBITO", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, debito: null } });
+  ok("pinbank: débito sem a taxa cadastrada e com a tarifa → o aviso diz que entrou SÓ com a tarifa, nunca \"sem o custo de adquirência\"",
+     pDebSemTaxa.acao === "criar_venda" && titulosDe(pDebSemTaxa).some((x) => x.chave.endsWith(":f"))
+     && pDebSemTaxa.avisos.some((a) => /só com a tarifa fixa/.test(a)) && pDebSemTaxa.avisos.every((a) => !/sem o custo de adquirência/.test(a)),
+     JSON.stringify(pDebSemTaxa.acao === "criar_venda" ? pDebSemTaxa.avisos : pDebSemTaxa.acao));
+
+  // 3. A antecipação com teto (10% ao mês) e nunca maior que o que sobra da venda.
+  ok("pinbank: antecipação acima de 10% ao mês (o \"15,5\" no lugar de \"1,55\") fica NÃO cadastrada — nunca 137% da venda",
+     PB.antecipacaoDoContrato({ antecipacao_mes: 0.155 }) === null && PB.antecipacaoDoContrato({ antecipacao_mes: 0.1 }) === 0.1
+     && PB.ANTECIPACAO_MENSAL_MAXIMA === 0.1);
+  const pTeto = real("PARCELADO_LOJISTA", 18, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, parcelado: 0.5, antecipacao_mes: 0.1 } }, 100_000);
+  ok("pinbank: com taxas absurdas a antecipação para no que sobra da venda — o líquido nunca fica negativo, e o aviso diz isso",
+     pTeto.acao === "criar_venda" && liqCent(titulosDe(pTeto)) === 0
+     && pTeto.venda.antecipacaoTotal === Math.round((999 - pTeto.venda.taxaTotal) * 100) / 100
+     && pTeto.avisos.some((a) => /líquido zero/.test(a)),
+     JSON.stringify(pTeto.acao === "criar_venda" ? { v: pTeto.venda, a: pTeto.avisos, l: liqCent(titulosDe(pTeto)) } : pTeto.acao));
+
   // O documento da venda: a tarifa soma à taxa (custo de vender); a antecipação no campo dela.
   if (p2x.acao === "criar_venda") {
     const v2 = vendaDaPinbankPB(p2x.venda, "00000000-0000-4000-8000-000000000001", "", "00000000-0000-4000-8000-000000000002");
@@ -10922,9 +10969,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       ...nomes.map((c, k) => ({ id: `n${k}`, type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: c, party_id: null })),
     ]), { intervalo: OUT, tipo: "vertical" });
     const linhaN = (k: number) => relN.classificacao[`n${k}`]?.linha;
+    // "Despesa antecipada" fica na linha que já tinha antes deste PR (o "antecipa"
+    // antigo do DRE): o que este PR afirma é só que ela NÃO vira juro.
     ok("antecipação: a de RECEBÍVEL (mesmo com 'taxa' ou 'custo' no nome) vai ao Resultado Financeiro; a tributária é dedução; 'despesa antecipada' não é recebível",
        linhaN(0) === "resultado_financeiro" && linhaN(1) === "resultado_financeiro" && linhaN(2) === "resultado_financeiro"
-       && linhaN(3) === "deducoes" && linhaN(4) === "despesas_operacionais" && linhaN(5) === "despesas_variaveis",
+       && linhaN(3) === "deducoes" && linhaN(4) !== "resultado_financeiro" && linhaN(5) === "despesas_variaveis",
        nomes.map((c, k) => `${c} → ${linhaN(k)}`).join(" · "));
     const { classificarDespesa: cdA, ehAntecipacaoDeRecebiveis: ehAntA } = await import("@/core/indicadores/classificacao");
     ok("antecipação: o SEGUNDO classificador (comparativo, orçamento, IA) concorda nos mesmos seis nomes",
@@ -10939,6 +10988,43 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ]), { intervalo: OUT, tipo: "vertical" });
     ok("antecipação: o dinheiro ADIANTADO que entra não é faturamento de novo (a venda já foi receita)",
        lc(relE, "receita_bruta") === 0, `${lc(relE, "receita_bruta")} · ${relE.classificacao.e?.linha}`);
+
+    /*
+     * ⚠️ Achado da revisão adversarial: a primeira versão da regra levava ao
+     * Resultado Financeiro QUALQUER "antecipação de X". "Antecipação" sozinha
+     * também é adiantamento de salário, a fornecedor, de cliente, de lucros e a
+     * antecipação mensal do IRPJ — nenhuma é juro de recebível. A regra exige o
+     * contexto do recebível (ou da cobrança: taxa, custo, juros) e recusa o
+     * tributo mesmo com ele.
+     */
+    const naoRecebivel = [
+      "Antecipação de IRPJ", "IRPJ - antecipação mensal", "Antecipação CSLL", "DIFAL antecipação",
+      "Antecipação de salário", "Antecipação do 13º", "Antecipação a fornecedores", "Antecipação de clientes",
+      "Antecipação de lucros", "Antecipação", "Custo de antecipação do ICMS", "Taxa de antecipação de INSS",
+    ];
+    ok("antecipação: sem o contexto do recebível (ou com tributo) NÃO é antecipação de recebível — salário, 13º, fornecedor, cliente, lucros, IRPJ, CSLL, DIFAL, ICMS e INSS",
+       naoRecebivel.every((c) => !ehAntA(c)),
+       naoRecebivel.filter((c) => ehAntA(c)).join(" · "));
+    ok("antecipação: com o contexto do recebível ou da cobrança, é — cartão, juros, repasse e crédito",
+       ["Antecipação de cartão", "Juros de antecipação", "Antecipação do repasse", "Antecipação de crédito", "Deságio da antecipação"].every((c) => ehAntA(c)));
+    const relR = montarDRE(inp([
+      { id: "v", type: "entrada", amount: 1_000, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Vendas", party_id: null },
+      { id: "i1", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de IRPJ", party_id: null },
+      { id: "i2", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "IRPJ - antecipação mensal", party_id: null },
+      { id: "i3", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação CSLL", party_id: null },
+      { id: "s", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de salário", party_id: null },
+      { id: "f", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação a fornecedores", party_id: null },
+      { id: "c", type: "entrada", amount: 200, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de clientes", party_id: null },
+    ]), { intervalo: OUT, tipo: "vertical" });
+    const lr = (id: string) => relR.classificacao[id]?.linha;
+    ok("antecipação: no DRE o IRPJ/CSLL antecipado segue imposto sobre o lucro, o adiantamento a fornecedor segue custo, o de cliente segue receita e o de salário não vira juro",
+       lr("i1") === "impostos_lucro" && lr("i2") === "impostos_lucro" && lr("i3") === "impostos_lucro"
+       && lr("f") === "custos_variaveis" && lr("c") === "receita_bruta" && lr("s") !== "resultado_financeiro",
+       ["i1", "i2", "i3", "s", "f", "c"].map((id) => `${id} → ${lr(id)}`).join(" · "));
+    ok("antecipação: no SEGUNDO classificador o salário segue folha, o fornecedor segue custo e o IRPJ segue imposto",
+       cdA("Antecipação de salário") === "folha" && cdA("Antecipação a fornecedores") === "cmv"
+       && cdA("Antecipação de IRPJ") === "impostos" && cdA("IRPJ - antecipação mensal") === "impostos",
+       ["Antecipação de salário", "Antecipação a fornecedores", "Antecipação de IRPJ"].map((c) => `${c} → ${cdA(c)}`).join(" · "));
   }
 
   /* ── 12. a assinatura Ed25519 ──────────────────────────────────────────── */
@@ -12026,6 +12112,16 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ["a legenda do bloco só de contagens sai da causa da resposta (r.detalhes.codigo), nunca uma fixa",
       (x) => /\{POR_QUE_SO_CONTAGENS\[r\.detalhes\.codigo\]\}/.test(x),
       "{POR_QUE_SO_CONTAGENS[r.detalhes.codigo]}", "{POR_QUE_SO_CONTAGENS.sem_venda_em_comum}"],
+    // Achado da revisão adversarial (14/10/2026): "não cadastrada" aparecia também para a venda de
+    // tipo desconhecido e para o vínculo que não antecipa — com a taxa cadastrada.
+    ["a antecipação esperada diz o MOTIVO de não haver número (tipo de venda não identificado · repasse não antecipado · não cadastrada), nunca \"não cadastrada\" para tudo",
+      (x) => /an\.esperada === "tipo_desconhecido" \? "tipo de venda não identificado"/.test(x)
+        && /an\.esperada === "repasse_nao_antecipado" \? "repasse não antecipado na maquininha"/.test(x)
+        && /<Par t="Antecipação esperada pelo contrato" v=\{ESPERADA_DA_ANTECIPACAO\(an\)\} \/>/.test(x),
+      'an.esperada === "tipo_desconhecido" ? "tipo de venda não identificado"', 'an.esperada === "tipo_desconhecido" ? "não cadastrada"'],
+    ["a taxa cadastrada da venda de tipo desconhecido diz o tipo, nunca \"não cadastrada\"",
+      (x) => /tx\.tipo == null \? "tipo de venda não identificado" : "não cadastrada"/.test(x),
+      'tx.tipo == null ? "tipo de venda não identificado" : "não cadastrada"', '"não cadastrada"'],
   ];
   for (const [nome, regra, de, para] of REGRAS_TELA_C) {
     ok(`conferencia-pinbank: ${nome}`, regra(semComC(compC)));

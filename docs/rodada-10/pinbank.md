@@ -61,9 +61,10 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   9,90, R$ 9,81 e R$ 9,74. Agora:
   - o vínculo guarda `tarifa_fixa` (em REAIS, até R$ 100, em centavos — a
     única chave do `taxas` que não é fração) e `antecipacao_mes` (fração ao
-    mês), e o banco recusa a faixa errada, a chave que o contrato não tem e a
-    taxa em texto (migration `20261015120000`, guarda `scripts/pinbank.sql`,
-    caso 5c, com 8 defeitos plantados);
+    mês, de 0 a 10%: o "15,5" digitado no lugar de "1,55" levaria 137% da
+    venda), e o banco recusa a faixa errada, a chave que o contrato não tem e
+    a taxa em texto (migration `20261015120000`, guarda `scripts/pinbank.sql`,
+    caso 5c, com 9 defeitos plantados);
   - o planejador (`custosDaVenda`, UMA conta para o lançamento e para a
     conferência) lança, por parcela, além da receita e da taxa, o título da
     tarifa (`:f`, dividida pelas parcelas, na categoria da taxa) e o da
@@ -71,22 +72,47 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     "Antecipação de recebíveis"), todos na data do repasse — o caixa fecha no
     que a Pinbank deposita. Antecipado sem a antecipação cadastrada: a venda
     entra sem esse custo e o evento AVISA;
+  - **o que a revisão adversarial achou** (antes do merge, tudo consertado e
+    com guarda): a tarifa só nas formas de CARTÃO, as medidas (débito,
+    crédito à vista e parcelado) — Pix, voucher e a forma não identificada
+    entram sem ela, e o evento avisa; a antecipação nunca passa do que sobra
+    da venda depois da taxa (o líquido para em zero, e o evento avisa); com a
+    taxa da forma em branco e a tarifa cadastrada, o aviso diz que a venda
+    entrou SÓ com a tarifa; e o CUSTO se reparte por `dividirCusto`
+    (`core/vendas/pos`) — a divisão de `dividir` quando a última parte fica
+    de pé (a que bateu, parcela a parcela, com o 2x da Pinbank: R$ 0,21 de
+    antecipação → 0,11 + 0,10) e centavos inteiros com o resto na ÚLTIMA
+    quando ela sairia negativa (R$ 1,00 de tarifa em 18x lançava 17 × R$ 0,06
+    = R$ 1,02, e a 18ª parcela ficava sem título). A venda da maquininha
+    PRÓPRIA (`titulosDaVendaPos`) segue repartindo a taxa por `dividir`: a
+    mesma classe, anterior a esta etapa, tarefa separada (muda títulos já
+    lançados e pede a prova de carga);
   - **no DRE, a tarifa fica com o MDR (Despesas Variáveis, acima do EBITDA) e
-    a antecipação vai ao Resultado Financeiro** (decisão do dono): é custo de
-    dinheiro, não de vender. A regra é UMA (`ehAntecipacaoDeRecebiveis`, em
-    `core/indicadores/classificacao`) para os dois classificadores; a
-    antecipação TRIBUTÁRIA ("ICMS antecipação") segue imposto e "despesa
-    antecipada" não é recebível. Medido antes: nenhum lançamento de produção
-    dizia "antecipação";
+    a antecipação DE RECEBÍVEL vai ao Resultado Financeiro** (decisão do
+    dono): é custo de dinheiro, não de vender. A regra é UMA
+    (`ehAntecipacaoDeRecebiveis`, em `core/indicadores/classificacao`) para os
+    dois classificadores e exige o CONTEXTO do recebível (recebível, cartão,
+    adquirente, maquininha, crédito, repasse, taxa, custo, juros, deságio):
+    "antecipação" sozinha também é o adiantamento de salário, a fornecedor,
+    de cliente, de lucros e o IRPJ mensal, e a primeira versão os levava
+    todos ao Resultado Financeiro (achado da revisão). O tributo nunca casa,
+    nem com o contexto ("ICMS antecipação" e "custo de antecipação do ICMS"
+    seguem imposto), "despesa antecipada" não é recebível, e o que a regra
+    não pega segue a linha que já tinha. Medido antes: nenhum lançamento de
+    produção dizia "antecipação";
   - a tela de Integrações tem "Tarifa fixa por venda" (campo de moeda) e
-    "Antecipação (% ao mês)", com o aviso quando o repasse é antecipado e a
-    antecipação está em branco.
+    "Antecipação (% ao mês)", de 0 a 10%, com o aviso quando o repasse é
+    antecipado e a antecipação está em branco.
   Provado ponta a ponta no Supabase local: as três vendas, assinadas como a
   Pinbank as assina, viraram títulos com o líquido de R$ 8,91, R$ 8,69 e R$
   8,56, e o DRE da empresa fechou com EBITDA de R$ 26,51 e resultado de R$
   26,16 (a soma do depositado). Guardas: o bloco `pinbank (real)` do
   `engine-audit` (os três casos com os valores literais, e 13 defeitos
-  plantados acusados pelo nome).
+  plantados acusados pelo nome; mais 8 dos achados da revisão — a divisão
+  de volta a `dividir` e sempre no piso, a tarifa em toda forma, a
+  antecipação sem o teto e sem o limite do que sobra, o aviso antigo e a
+  regra do recebível sem o contexto e sem a recusa do tributo —, todos
+  acusados).
 - **A competência não se parcela**: toda parcela leva a data da venda.
 - **Nenhum evento se perde.** Sem vínculo → quarentena da plataforma; vínculo
   não ativado → espera; assinatura vencida → `bloqueado` (o bloqueio suave para

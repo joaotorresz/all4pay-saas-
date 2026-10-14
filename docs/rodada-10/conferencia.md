@@ -75,6 +75,33 @@ credencial da plataforma for usada demais.
   `npm run pinbank-conferencia` (o extrato de produção renumerado contra os
   títulos do contrato medido, e contra os títulos de antes da tarifa) e 22
   defeitos plantados novos.
+- **A revisão adversarial levou o motor à 1.7.0** (14/10/2026, antes do
+  merge):
+  - **a venda que NÃO foi antecipada nos dois lados** (`venda_nao_antecipada`):
+    no crédito, a Pinbank não cobrou antecipação (zero no extrato) e o
+    sistema também não lançou nenhuma para a venda (nenhum título `:a`). É o
+    retrato coerente da venda de ANTES de a empresa ligar o repasse
+    antecipado, e comparar com a antecipação cadastrada HOJE a acusaria de
+    "diferente". Sai em tom neutro, fora da vista de divergências. O sistema
+    que lançou a antecipação contra a Pinbank que não a cobrou continua
+    "diferente";
+  - **a antecipação esperada diz o MOTIVO de não haver número** (`esperada`:
+    `contrato` · `zero_no_debito` · `tipo_desconhecido` ·
+    `repasse_nao_antecipado` · `nao_cadastrada`): a tela dizia "não
+    cadastrada" também para o tipo de venda não identificado e para o
+    vínculo que não antecipa, COM a antecipação cadastrada. A taxa
+    cadastrada do tipo desconhecido diz o tipo, pelo mesmo motivo;
+  - **a folga do líquido é de 1 centavo POR PARCELA** (`toleranciaDoLiquido`,
+    `liquidoConfere`): cada parcela arredonda os seus títulos, e a folga fixa
+    de 1 centavo por venda acusava o 12x que confere. O 2x real (R$ 8,56 nos
+    dois lados) segue igual, e 13 centavos num 12x já é diferente;
+  - **o estimador da taxa por parcela é o do planejador** (`dividirCusto`):
+    com a divisão de antes, a 12ª parte de R$ 0,31 em 12x saía negativa e o
+    título de taxa PERDIDO na 12ª passava calado; agora a regra lança R$ 0,09
+    nela, e a parcela sem o título é acusada (`taxa_sem_titulo_no_sistema`).
+  Guardas: `npm run pinbank-conferencia` — 125 casos e 160 defeitos plantados
+  (124 no motor, 36 nos portões e na leitura): 5 casos e 5 defeitos novos, e
+  3 defeitos antigos reescritos contra o código novo.
 
 - **A taxa é o MDR em percentual, e é comparada à parte** (desde a versão
   1.1.0 do motor; 1.2.0 com a segunda revisão; 1.3.0 com a terceira; 1.4.0 com a quarta; 1.5.0 com a quinta). A Pinbank respondeu em 13/10/2026: "Taxa ADM seria o MDR, são todas
@@ -129,10 +156,12 @@ credencial da plataforma for usada demais.
   a linha viva cobrou MDR, a taxa daquele tipo está cadastrada (a comparação é
   conclusiva — igual ou diferente), a REGRA DO SISTEMA lançaria uma taxa
   positiva nesta parcela e o sistema não tem título de taxa vivo nela. A regra
-  é a do planejador (`agendaDaTransacao`): o total da venda × a taxa da forma,
-  ao centavo, dividido pelas parcelas por `dividir` — R$ 0,30 a 1,63%
-  arredonda para zero e não tem título a lançar; R$ 10 em 12x a 3,10% deixa a
-  12ª parte negativa (o planejador grava 11 títulos de taxa e nenhum na 12ª).
+  é a do planejador (`agendaDaTransacao`): a base da venda (o total menos a
+  tarifa fixa, no cartão) × a taxa da forma, ao centavo, dividida pelas
+  parcelas por `dividirCusto` — R$ 0,30 a 1,63% arredonda para zero e não tem
+  título a lançar; R$ 10 em 12x a 3,10% deixava a 12ª parte negativa com
+  `dividir` (11 títulos de taxa e nenhum na 12ª) e, desde a 1.7.0, sai 11 ×
+  R$ 0,02 + R$ 0,09 — o título perdido na 12ª é acusado.
   Nenhum real sai do percentual do extrato: a conta é a do contrato. É dinheiro que falta no resultado (o EBITDA sai maior do que é — a
   venda entrou quando a taxa estava em branco, por exemplo). Não muda o
   status; vai à vista de divergências e à frase ("O sistema não lançou a taxa
@@ -634,7 +663,8 @@ de carga da sétima regra antes. Tarefa separada.
   dia da venda e a COMPOSIÇÃO da rota sem oráculo antes do portão (um
   espelho; o `engine-audit` fixa no texto da rota as mesmas chamadas) —
   **mais 36 defeitos plantados**. Ao todo: 106 casos, 133 defeitos plantados
-  (120 casos e 155 defeitos plantados com a antecipação e o líquido, 1.6.0).
+  (120 casos e 155 defeitos plantados com a antecipação e o líquido, 1.6.0;
+  125 casos e 160 defeitos plantados com a revisão adversarial, 1.7.0).
 - `scripts/pinbank-limite-ec.sql` (job `isolamento` do CI; arreio copiado de
   `pinbank.sql`, savepoint por caso com o MESMO EC e os mesmos
   estabelecimentos, tudo em ROLLBACK) — a FECHADURA no banco. **O limite
@@ -866,11 +896,16 @@ não for cumprido.
   negativa de `dividir`** (`core/vendas/pos`, anterior a esta etapa): com o
   total pequeno diante das parcelas (taxa total < 0,005 × n × (n − 1) — em
   12x, menos de R$ 0,66 de taxa, vendas de até ~R$ 21 a 3,1%), a última parte
-  sai negativa, e o planejador grava títulos de taxa que somam MAIS que o
+  sai negativa, e o planejador gravava títulos de taxa que somam MAIS que o
   contratado (R$ 10 em 12x a 3,10%: 11 × R$ 0,03 = R$ 0,33 para R$ 0,31) e
-  nenhum na última parcela. A conferência já não acusa a parcela sem título
-  (a regra do sistema não lançaria taxa nela); consertar a divisão é tarefa
-  separada — muda o valor de títulos lançados e pede a prova de carga.
+  nenhum na última parcela. **Na Pinbank, CONSERTADO para a venda nova**
+  (14/10/2026, com a tarifa): o custo se reparte por `dividirCusto` — a
+  divisão de `dividir` quando a última parte fica de pé; quando não,
+  centavos inteiros com o resto na última (11 × R$ 0,02 + R$ 0,09) —, e a
+  conferência estima pela MESMA regra, então volta a acusar o título de taxa
+  perdido na última parcela. O que já foi lançado não é reescrito. A venda
+  da maquininha PRÓPRIA (`titulosDaVendaPos`) segue com `dividir`: tarefa
+  separada, que muda títulos já lançados e pede a prova de carga.
 - **D7 — bruto da parcela, split e líquido. RESPONDIDO EM PRODUÇÃO (líquido e
   `ValorTaxaMes`).** A Pinbank disse que os do dev (bruto da parcela e split a
   75% do bruto, líquido a ~48,7% da parcela) são valores de TESTE. O extrato

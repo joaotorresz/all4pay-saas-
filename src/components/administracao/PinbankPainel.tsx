@@ -32,7 +32,7 @@ import {
   lerPinbank, configurarVinculo, reprocessarPinbank, SITUACOES_PENDENTES,
   type EstadoPinbank, type VinculoTela,
 } from "@/lib/pinbank/cliente";
-import { PRAZOS_PADRAO, TARIFA_FIXA_MAXIMA, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
+import { PRAZOS_PADRAO, TARIFA_FIXA_MAXIMA, ANTECIPACAO_MENSAL_MAXIMA, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
 import { PinbankConferencia } from "./PinbankConferencia";
 
 const FORMAS_TAXA: { id: keyof TaxasPinbank; label: string }[] = [
@@ -248,10 +248,12 @@ function VinculoForm({
     // A tarifa em REAIS; em branco (zero) é "sem tarifa" — não há aviso a dar.
     if (tarifa < 0 || tarifa > TARIFA_FIXA_MAXIMA) { toast("Tarifa fixa: use um valor de até R$ 100,00 por venda."); return; }
     if (tarifa > 0) t.tarifa_fixa = Math.round(tarifa * 100) / 100;
-    // A antecipação em PERCENTUAL ao mês, gravada em fração (1,55 → 0,0155).
+    // A antecipação em PERCENTUAL ao mês, gravada em fração (1,55 → 0,0155), até
+    // 10% ao mês — o mesmo teto do banco: "15,5" no lugar de "1,55" deixaria o
+    // líquido das vendas parceladas negativo.
     const a = deCampoPct(antecipacao);
-    if (Number.isNaN(a) || (a != null && (a < 0 || a >= 1))) {
-      toast("Antecipação: use o percentual ao mês (1,55 para 1,55% ao mês), abaixo de 100%.");
+    if (Number.isNaN(a) || (a != null && (a < 0 || a > ANTECIPACAO_MENSAL_MAXIMA))) {
+      toast("Antecipação: use o percentual ao mês (1,55 para 1,55% ao mês), de 0 a 10%.");
       return;
     }
     if (a != null) t.antecipacao_mes = a;

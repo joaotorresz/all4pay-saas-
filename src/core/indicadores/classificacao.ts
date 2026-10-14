@@ -80,12 +80,24 @@ export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
  * se move.
  *
  * Exige a palavra inteira ("antecipação"): "despesa antecipada" é despesa paga
- * adiantado (amortização), não recebível adiantado. E a antecipação TRIBUTÁRIA
- * ("ICMS antecipação") é imposto, não juro.
+ * adiantado (amortização), não recebível adiantado.
+ *
+ * ⚠️ **E exige o CONTEXTO do recebível** (recebível, cartão, adquirência,
+ * maquininha, crédito, repasse, ou a cobrança: taxa, custo, juros, deságio).
+ * "Antecipação" sozinha é palavra de muita coisa — de salário, de 13º, a
+ * fornecedor, de cliente, de lucros, de IRPJ —, e a primeira versão desta regra
+ * levava todas ao Resultado Financeiro (achado da revisão adversarial: o
+ * adiantamento de salário saía da folha e o EBITDA subia por ele; a
+ * antecipação mensal do IRPJ saía do imposto sobre o lucro). Sem o contexto, a
+ * categoria segue o caminho que já tinha. E a antecipação TRIBUTÁRIA ("ICMS
+ * antecipação", "IRPJ - antecipação mensal", DIFAL) é imposto mesmo com "custo"
+ * ou "taxa" no nome.
  */
 export function ehAntecipacaoDeRecebiveis(cat: string | null | undefined): boolean {
   const c = chaveCategoria(cat);
-  return /\bantecipac(ao|oes)\b/.test(c) && !/\b(icms|imposto|tribut\w*|iss|pis|cofins|ipi|st)\b/.test(c);
+  return /\bantecipac(ao|oes)\b/.test(c)
+    && /\b(receb\w*|cart(ao|oes)|adquir\w*|maquin\w*|credito|repasses?|taxas?|custos?|juros?|desagio)\b/.test(c)
+    && !/\b(icms|impostos?|tribut\w*|iss|pis|cofins|ipi|st|irpj|csll|das|inss|difal|simples|fgts|salarios?|ferias|13o?|decimo|lucros?|clientes?|fornecedor(es)?)\b/.test(c);
 }
 
 /** A palavra que diz que o dinheiro VOLTOU: estorno, devolução, reembolso, reversão, restituição, ressarcimento. */

@@ -11,9 +11,10 @@
 --
 --   · `tarifa_fixa`     em REAIS (R$ 1,00 = 1), de 0 a 100, com centavos no
 --                       máximo. É a única chave do `taxas` que não é fração.
---   · `antecipacao_mes` em FRAÇÃO AO MÊS (1,55% = 0.0155), de 0 a menos de 1 —
---                       a mesma faixa das taxas: "1.55" quase sempre é alguém
---                       que digitou o percentual, e cobraria 155% ao mês.
+--   · `antecipacao_mes` em FRAÇÃO AO MÊS (1,55% = 0.0155), de 0 a 10% ao mês:
+--                       "1.55" é alguém que digitou o percentual (155% ao mês),
+--                       e "0.155" é o "15,5" no lugar de "1,55" — que em 18x
+--                       cobraria 137% da venda e deixaria o líquido NEGATIVO.
 --
 -- Esta migration só reescreve a VALIDAÇÃO de `pinbank_configurar_vinculo`. A
 -- assinatura, quem pode chamar (só quem ADMINISTRA a empresa) e o que a função
@@ -64,7 +65,8 @@ begin
   end if;
   -- Taxa é fração entre 0 e 1 (0,0199 = 1,99%). "2" quase sempre é alguém que
   -- digitou o percentual — e lançaria um custo de 200% em toda venda. A
-  -- antecipação ao mês também é fração; a tarifa fixa é a única em REAIS.
+  -- antecipação ao mês também é fração, até 10% ao mês; a tarifa fixa é a única
+  -- em REAIS.
   for k, j in select key, value from jsonb_each(coalesce(p_taxas, '{}'::jsonb)) loop
     if k not in ('debito','credito_vista','parcelado','pix','voucher','tarifa_fixa','antecipacao_mes') then
       raise exception 'A4P-PINBANK: "%" não é uma taxa do contrato da maquininha.', k using errcode = 'check_violation';
@@ -77,6 +79,11 @@ begin
     if k = 'tarifa_fixa' then
       if v < 0 or v > 100 or v <> round(v, 2) then
         raise exception 'A4P-PINBANK: tarifa fixa = % fora de R$ 0 a R$ 100 em centavos (em reais: R$ 1,00 = 1).', v
+          using errcode = 'check_violation';
+      end if;
+    elsif k = 'antecipacao_mes' then
+      if v < 0 or v > 0.1 then
+        raise exception 'A4P-PINBANK: antecipação = % fora de 0 a 10%% ao mês (fração: 1,55%% = 0.0155).', v
           using errcode = 'check_violation';
       end if;
     elsif v < 0 or v >= 1 then
