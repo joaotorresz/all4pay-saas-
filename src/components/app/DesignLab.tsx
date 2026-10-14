@@ -93,14 +93,14 @@ const PADROES: Padrao[] = [
   { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-sidebar nav a", seletorTipo: ".a4p-sidebar nav a" },
   { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-sidebar nav > div > span", seletorTipo: ".a4p-sidebar nav > div > span" },
   { id: "menuBg", label: "Menu · fundo", grupo: "Menu", teste: ".a4p-sidebar", seletorTipo: ".a4p-sidebar" },
-  // Quattro AI — o FAB e o painel vivem FORA do <main>.ds-visor (são irmãos
-  // dele no AppShell), então nada em `.ds-visor …` os alcança. Ganham âncora
-  // própria (`.a4p-ia`) para serem editáveis como o resto.
-  { id: "iaFab", label: "Quattro AI · botão", grupo: "Componentes", teste: ".a4p-ia-fab", seletorTipo: ".a4p-ia-fab" },
-  { id: "iaPergunta", label: "IA · pergunta", grupo: "Textos", teste: ".a4p-ia [data-ia='pergunta']", seletorTipo: ".a4p-ia [data-ia='pergunta']" },
-  { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-ia [data-ia='resposta']", seletorTipo: ".a4p-ia [data-ia='resposta']" },
-  { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-ia [data-ia='chip']", seletorTipo: ".a4p-ia [data-ia='chip']" },
-  { id: "iaChat", label: "Quattro AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
+  // Quattro AI — o chat em tela cheia vai para o <body> por portal, FORA do
+  // <main>.ds-visor, então nada em `.ds-visor …` o alcança. A âncora própria
+  // (`.a4p-chat-tela`) o deixa editável como o resto. (O botão flutuante e o
+  // painel lateral saíram em 14/10/2026.)
+  { id: "iaPergunta", label: "IA · pergunta", grupo: "Textos", teste: ".a4p-chat-tela [data-ia='pergunta']", seletorTipo: ".a4p-chat-tela [data-ia='pergunta']" },
+  { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-chat-tela [data-ia='resposta']", seletorTipo: ".a4p-chat-tela [data-ia='resposta']" },
+  { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-chat-tela [data-ia='chip']", seletorTipo: ".a4p-chat-tela [data-ia='chip']" },
+  { id: "iaChat", label: "Quattro AI · chat", grupo: "Componentes", teste: ".a4p-chat-tela", seletorTipo: ".a4p-chat-tela" },
   // Barra superior — irmã do `<main>.ds-visor`, então nada em `.ds-visor …` a
   // alcança. Editável em partes, porque "a barra" não é uma coisa só: o fundo
   // é a superfície do chrome, a marca é identidade e os ícones são controles.
@@ -150,7 +150,7 @@ const PADROES: Padrao[] = [
   { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
   { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
-  { id: "iaTudo", label: "Quattro AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
+  { id: "iaTudo", label: "Quattro AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-chat-tela" },
   { id: "topbarTudo", label: "Barra superior (toda)", grupo: "Barra superior", teste: ".__nunca__", seletorTipo: ".a4p-topbar" },
 ];
 
@@ -182,7 +182,7 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "caption", label: "Legendas", dica: "textos pequenos" },
   { id: "button", label: "Botões", dica: "ações" },
   { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
-  { id: "iaTudo", label: "Quattro AI", dica: "o botão e o chat" },
+  { id: "iaTudo", label: "Quattro AI", dica: "o chat em tela cheia" },
   { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
 ];
 
@@ -300,13 +300,11 @@ function raizDe(el: Element): { no: Element; prefixo: string } | null {
   // dentro do `.a4p-canvas`), exatamente como a IA. Sem âncora própria o
   // `closest` não achava raiz nenhuma, `caminhoUnico` devolvia `null` e clicar
   // em qualquer coisa da barra com o picker simplesmente não selecionava — o
-  // mesmo defeito que o chat teve antes de ganhar `.a4p-ia`.
+  // mesmo defeito que o chat teve antes de ganhar âncora própria.
   const topo = el.closest(".a4p-topbar");
   if (topo) return { no: topo, prefixo: ".a4p-topbar" };
-  const fab = el.closest(".a4p-ia-fab");
-  if (fab) return { no: fab, prefixo: ".a4p-ia-fab" };
-  const ia = el.closest(".a4p-ia");
-  if (ia) return { no: ia, prefixo: ".a4p-ia" };
+  const ia = el.closest(".a4p-chat-tela");
+  if (ia) return { no: ia, prefixo: ".a4p-chat-tela" };
   const main = el.closest("main.ds-visor") ?? el.closest(".ds-visor");
   if (main) return { no: main, prefixo: ".ds-visor" };
   return null;
@@ -336,7 +334,7 @@ function caminhoPai(sel: string): string | null {
   const i = sel.lastIndexOf(" > ");
   if (i < 0) return null;
   const p = sel.slice(0, i);
-  const RAIZES = [".a4p-sidebar", ".ds-visor", ".a4p-ia", ".a4p-ia-fab"];
+  const RAIZES = [".a4p-sidebar", ".ds-visor", ".a4p-chat-tela"];
   return p.includes(">") || RAIZES.includes(p) ? p : null;
 }
 

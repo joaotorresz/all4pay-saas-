@@ -30,7 +30,7 @@ const ENTRADA = "var(--color-ink)";
 const SAIDA = "var(--color-areia)";
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
-const PREV = "var(--color-text-quaternary)"; // cinza da linha tracejada de comparação (neutro, dos dois lados)
+const PREV = "var(--erp-graf-comparacao)"; // areia tracejada: o período anterior (canvas "Gráficos e tabelas")
 
 /** Tons do MESMO matiz para as categorias (o DS não tem paleta categórica). */
 const TONS = [100, 76, 56, 40, 28, 19, 13, 9];
@@ -164,7 +164,7 @@ export function ResultadoLiquidoCard({ c }: { c: ComparativoFluxo }) {
           </Bar>
           <Line
             type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
-            strokeDasharray="6 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
+            strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -227,7 +227,7 @@ export function GastosCard({ c }: { c: ComparativoFluxo }) {
           ))}
           <Line
             type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
-            strokeDasharray="6 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(200)}
+            strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(200)}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -278,7 +278,7 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
           <Bar dataKey="valor" fill={ENTRADA} radius={[6, 6, 0, 0]} maxBarSize={54} {...chartAnim()} />
           <Line
             type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
-            strokeDasharray="6 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
+            strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
           />
         </ComposedChart>
       </ResponsiveContainer>

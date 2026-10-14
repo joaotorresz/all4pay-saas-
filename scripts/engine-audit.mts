@@ -596,7 +596,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 }
 
 // ── chain: possessiva de métrica NÃO pode ser sombreada pela KB (vai ao motor) ──
-// A KB roda ANTES do motor no AssistantWidget; se buscarKB responder uma
+// A KB roda ANTES do motor no chat (useChatIA); se buscarKB responder uma
 // possessiva ("qual meu EBITDA"), o usuário recebe o CONCEITO em vez do NÚMERO.
 {
   const possessivas = ["qual meu EBITDA?", "qual meu runway?", "quanto é meu burn?", "qual meu score?", "qual minha receita líquida?", "qual meu fluxo de caixa livre?"];
@@ -8216,19 +8216,37 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   for (const f of ["src/components/ajuda/AjudaView.tsx", "src/components/app/guides.ts"]) {
     ok(`ajuda: ${f.split("/").pop()} não promete entrega ao suporte que não existe`, !promessaSuporte.test(semComentIA(srcIA(f))));
   }
-  for (const f of ["src/components/ia/IAView.tsx", "src/components/app/AssistantWidget.tsx"]) {
-    const s = srcIA(f);
-    const cls = s.match(/aria-label="Enviar"\s*className="([^"]+)"/)?.[1] ?? "";
-    ok(`ia: o botão Enviar de ${f.split("/").pop()} é lime + verde-base (a seta em on-lime sobre ink era invisível)`,
-       /\bbg-lime\b/.test(cls) && /\btext-on-lime\b/.test(cls) && !/\bbg-ink\b/.test(cls), cls);
-    ok(`ia: ${f.split("/").pop()} não escreve "Quattro IA" na tela (a marca é ${"Quattro AI"})`, !/Quattro IA\b/.test(semComentIA(s)));
-  }
-  const iaView = semComentIA(srcIA("src/components/ia/IAView.tsx"));
+  // ⚠️ UMA superfície de conversa (14/10/2026): o chat em tela cheia, aberto
+  // pelo `ChatGlobal` de qualquer tela. O botão "4", o painel lateral e a aba
+  // Conversa saíram — e nenhum pode voltar por acidente.
+  ok("ia: o botão flutuante e o painel lateral não existem mais",
+     !fsIA.existsSync("src/components/app/AssistantWidget.tsx") && !fsIA.existsSync("src/components/ia/IAView.tsx"));
+  const shellApp = srcIA("src/components/app/AppShell.tsx");
+  ok("ia: o AppShell monta o anfitrião do chat global (e não o botão flutuante)",
+     /<ChatGlobal \/>/.test(shellApp) && !/AssistantWidget/.test(shellApp));
+  const telaIA = srcIA("src/components/ia/ChatTelaCheia.tsx");
+  const telaIASem = semComentIA(telaIA);
+  ok("ia: o chat não escreve \"Quattro IA\" na tela (a marca é Quattro AI)", !/Quattro IA\b/.test(telaIASem));
   ok("ia: o rodapé do histórico diz a verdade do ambiente (não afirma \"neste navegador\" em produção)",
-     /isDemo\s*\?/.test(iaView) && !/não acompanham você em outra máquina/.test(iaView));
-  ok("ia: o histórico ouve a hidratação (a lista nascia vazia numa máquina nova)", /inscreverConversas\(/.test(iaView));
-  const widget = srcIA("src/components/app/AssistantWidget.tsx");
-  ok("ia: a conversa do painel flutuante entra no MESMO histórico da página", /salvarConversa\(/.test(widget) && /onMudou:\s*aoMudar/.test(widget));
+     /isDemo\s*\?/.test(telaIASem) && !/não acompanham você em outra máquina/.test(telaIASem));
+  ok("ia: o histórico do chat ouve a hidratação (a lista nascia vazia numa máquina nova)", /inscreverConversas\(/.test(telaIASem));
+  ok("ia: a conversa do chat entra no histórico, e retomar carrega os turnos",
+     /salvarConversa\(/.test(telaIASem) && /onMudou:\s*aoMudar/.test(telaIASem) && /carregar\(getConversa\(c\.id\)\?\.turnos/.test(telaIASem));
+  ok("ia: o chat não manda para outra tela de conversa (o histórico mora DENTRO dele)",
+     !/href="\/quattro-ai"/.test(telaIASem));
+  const globalIA = semComentIA(srcIA("src/components/ia/ChatGlobal.tsx"));
+  ok("ia: abrir o chat antes de o anfitrião montar fica na fila (efeitos rodam do filho para o pai)",
+     /if \(!ouvindo\) \{ pendente = opcoes; return; \}/.test(globalIA) && /if \(pendente\) \{ abrir\(pendente\); pendente = null; \}/.test(globalIA));
+  const navIA = srcIA("src/components/dashboard/nav-data.ts");
+  ok("ia: o item Quattro AI do menu abre o chat por cima da tela (evento), sem perder o endereço",
+     /label: "Quattro AI",[^}]*href: "\/quattro-ai",[^}]*event: "a4p:open-ia"/.test(navIA)
+     && /e\.preventDefault\(\);\s*window\.dispatchEvent\(new Event\(it\.event!\)\)/.test(srcIA("src/components/dashboard/Sidebar.tsx")));
+  const shellIA = semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"));
+  ok("ia: /quattro-ai sem aba abre o chat, e não há mais aba Conversa",
+     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && /useState<Aba \| null>\(null\)/.test(shellIA));
+  const homeIA = semComentIA(srcIA("src/components/visao-geral/HomeSnapshot.tsx"));
+  ok("ia: a caixa da Home abre o MESMO chat global (nenhum chat próprio montado nela)",
+     /abrirChat\(\{/.test(homeIA) && !/<ChatTelaCheia/.test(homeIA) && !/href="\/quattro-ai"/.test(homeIA));
   const kit = srcIA("src/components/ia/chat-kit.tsx"), chat = srcIA("src/components/ia/useChatIA.ts");
   ok("ia: \"Copiado\" só aparece se copiou (a cópia é AGUARDADA e devolve o resultado)",
      /await navigator\.clipboard\.writeText/.test(kit) && /const ok = await copiarTexto\(/.test(chat) && /copia === "falhou"/.test(kit));
@@ -8251,27 +8269,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia: o voto desfeito também sai do aprendizado da empresa, e a recusa do banco não é engolida",
      /\.update\(\{ \[anterior\]/.test(remFb) && /reportar\(/.test(remFb) && !/catch \{ \/\* ignore/.test(remFb));
 
-  // ⚠️ O painel flutuante renasce a cada tela; ele RETOMA a conversa salva.
-  const { conversaParaRetomar } = await import("@/lib/ia-conversas");
-  const cv = (id: string, em: string) => ({ id, titulo: id, criadaEm: em, atualizadaEm: em, turnos: [] });
-  const hist = [cv("velha", "2026-09-01T10:00:00Z"), cv("nova", "2026-09-30T10:00:00Z"), cv("meio", "2026-09-15T10:00:00Z")];
-  ok("ia: o painel, sem escolha na sessão, retoma a conversa MAIS RECENTE",
-     conversaParaRetomar(undefined, hist)?.id === "nova");
-  ok("ia: o painel retoma a conversa que ele tinha aberta, mesmo não sendo a mais recente",
-     conversaParaRetomar("meio", hist)?.id === "meio");
-  ok("ia: depois de \"Nova conversa\" o painel NÃO ressuscita a anterior",
-     conversaParaRetomar(null, hist) === undefined && conversaParaRetomar(undefined, []) === undefined);
-  const widgetIA = srcIA("src/components/app/AssistantWidget.tsx");
-  ok("ia: o painel chama a retomada ao montar e carrega os turnos",
-     /conversaParaRetomar\(escolhaDoPainel\(\), listarConversas\(\)\)/.test(widgetIA) && /carregar\(c\.turnos\)/.test(widgetIA));
-  // ⚠️ Numa máquina nova o histórico chega DEPOIS da montagem: ler só ao montar
-  // deixava o painel vazio. A retomada também roda quando a hidratação avisa —
-  // e só com o painel OCIOSO (sem conversa aberta e sem pergunta em curso).
-  const corpoRetomar = widgetIA.slice(widgetIA.indexOf("const retomar = () =>"), widgetIA.indexOf("const fimRef"));
-  ok("ia: o painel OUVE a hidratação do histórico e só retoma ocioso",
-     /return inscreverConversas\(retomar\)/.test(corpoRetomar)
-     && /if \(ativaRef\.current \|\| !ociosoRef\.current\) return;/.test(corpoRetomar)
-     && /ociosoRef\.current = turnos\.length === 0 && !pensando/.test(widgetIA), corpoRetomar.slice(0, 120));
   const copilotoLib = srcIA("src/lib/ai-copilot.ts");
   const logIA = copilotoLib.slice(copilotoLib.indexOf("export async function logAcaoIA"), copilotoLib.indexOf("export async function listAcoesIA"));
   ok("ia: a recusa do banco ao gravar a trilha da IA não é engolida (o cliente devolve `error`, não lança)",

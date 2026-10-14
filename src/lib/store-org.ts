@@ -113,6 +113,10 @@ export const CHAVES_ORG = {
   fdipMemory: "a4p_fdip_memory",
   iaMemory: "a4p_ia_memory",
   iaConversas: "a4p_ia_conversas",
+  // As prioridades e os cliques de cada pessoa nas sugestões da Quattro AI na
+  // Home, num mapa `usuário → preferências` (como `iaConversas`): seguem a
+  // pessoa entre computadores, e cada empresa tem as suas.
+  homePreferencias: "a4p_home_preferencias",
   ajudaConversa: "a4p_ajuda_conversa",
   acoesIA: "a4p_ai_actions",
   orcamentoSimulador: "a4p_orcamento",
@@ -218,6 +222,18 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
   "a4p_anuncios_lidos", "a4p_sidebar_collapsed",
+  // As prioridades que a pessoa marcou na caixa da IA e quantas vezes clicou
+  // em cada sugestão. São de QUEM usa, não da empresa: o sócio que cuida de
+  // vendas e o que cuida do caixa veem sugestões diferentes na mesma Home.
+  // ⚠️ Desde a etapa 4 (14/10/2026) a casa é `a4p_home_preferencias` no
+  // servidor; estas ficam como a cópia do DISPOSITIVO — a reserva de quem não
+  // pode gravar no estado da empresa (leitor, contador) e o rastro que a
+  // primeira sincronização sobe.
+  // Etapa 5: os dias em que cada sugestão apareceu sem clique, mesma regra.
+  "a4p_home_interesses", "a4p_home_cliques", "a4p_home_exibidas",
+  // O arranjo da Home (ordem e itens escondidos), mesma regra: a casa é
+  // `a4p_home_preferencias`; esta é a cópia do dispositivo.
+  "a4p_home_layout",
   // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
   "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
@@ -313,6 +329,7 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_fdip_memory: "Aprendizado da importação",
   a4p_ia_memory: "Memória do assistente",
   a4p_ia_conversas: "Conversas com a IA",
+  a4p_home_preferencias: "Prioridades e cliques nas sugestões da IA",
   a4p_ajuda_conversa: "Conversa da Central de Ajuda",
   a4p_ai_actions: "Ações registradas da IA",
   a4p_orcamento: "Simulador de orçamento",
@@ -473,7 +490,17 @@ async function enviar(chave: string, valor: unknown): Promise<void> {
  * pessoa acabou de fazer e ainda não subiu, e sobrescrevê-la seria apagá-lo.
  */
 export async function hidratar(chaves: string[]): Promise<number> {
-  if (!remoto() || chaves.length === 0) return 0;
+  return (await hidratarComStatus(chaves)).hidratadas;
+}
+
+/**
+ * A mesma hidratação, dizendo se o SERVIDOR RESPONDEU. ⚠️ `hidratar` devolve 0
+ * tanto para "a chave não existe lá" quanto para "a consulta falhou", e quem
+ * grava um MAPA compartilhado (`usuário → …`) precisa separar os dois: gravar
+ * sobre um mapa que nunca veio do servidor apagaria o que os colegas têm nele.
+ */
+export async function hidratarComStatus(chaves: string[]): Promise<{ ok: boolean; hidratadas: number }> {
+  if (!remoto() || chaves.length === 0) return { ok: !remoto(), hidratadas: 0 };
   try {
     const { createClient } = await import("@/lib/supabase/client");
     const { data, error } = await createClient()
@@ -491,10 +518,10 @@ export async function hidratar(chaves: string[]): Promise<number> {
       avisar(linha.chave);
       n++;
     }
-    return n;
+    return { ok: true, hidratadas: n };
   } catch (e) {
     console.error("[store-org] falha ao hidratar do servidor", e);
-    return 0;
+    return { ok: false, hidratadas: 0 };
   }
 }
 

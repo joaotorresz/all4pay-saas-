@@ -226,6 +226,25 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ GRÁFICOS E TABELAS (14/10/2026, canvas "Quattro ERP · Gráficos e tabelas")
+
+Canvas https://claude.ai/artifact/4rYK8bAPxeZsitQFAqozJU (cópia em
+`docs/design/canvas-quattro-erp/graficos/`). Levado ao sistema por PAPEL, não
+gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
+(só tema claro):
+
+- **Linha** em verde-base (`--color-chart-line` vira `--erp-graf-serie-1` no
+  `.ds-visor` claro), 1,6px; **área** lime; **comparação** (período anterior)
+  em areia tracejada 5/5 (`COMPARACAO`/`--erp-graf-comparacao`).
+- **Grade** `#E2E2E2` tracejada 3/4, por CSS sobre `.recharts-cartesian-grid`.
+- **Barra** com raio 6: `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` de
+  `lib/grafico.ts` (o Recharts só aceita raio por prop).
+- **Séries 1–5**: verde-base, areia, lime, cinza 2, cinza médio (`SERIES`).
+- **Tabela**: cabeçalho em micro-rótulo (11px, 500, caixa alta, 0,08em),
+  divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.
+- **Situação** (`StatusBadge`): PÍLULA com ponto — fundo da cor a 14%, texto
+  sempre verde-base. Isto inverte a regra antiga "nunca pílula preenchida".
+
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 
 Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
@@ -246,15 +265,114 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   de vocabulário da ONDA 11); "Contratos a aprovar" virou "Compras a aprovar"
   (não há fila de aprovação de contrato).
 - `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
+- **Sugestões da caixa da IA são ADAPTATIVAS** (`core/home/sugestoes`, etapa 1):
+  até SEIS perguntas, escolhidas de um catálogo (41 de empresa + 6 de pessoa
+  física) por regras sobre o perfil do onboarding e os sinais da Home (runway,
+  burn, vencidos, pendências, dia do mês). No máximo duas por tema; o motivo vai
+  no `title` do chip. ⚠️ Sinal `null` não dispara regra. A IA, quando entrar,
+  só REORDENA ids deste catálogo. Guarda: `npm run home-sugestoes`.
+  As DUAS primeiras são fixas (`BASICAS`: saúde financeira e fechar o mês;
+  na PF, gastos e orçamento). No primeiro acesso só elas aparecem, com a
+  pergunta "O que é mais importante no seu dia a dia?" (`INTERESSES`); a
+  resposta e os cliques (preferência LOCAL de quem usa, `a4p_home_interesses`
+  e `a4p_home_cliques`) completam as outras quatro.
+- **Etapa 2 (14/10/2026): a Quattro AI ESCOLHE as outras quatro.** A Home manda
+  a `POST /api/ai/sugestoes` os sinais (`contextoParaIA`: ausente vai como
+  `null`, sem lançamento nem nome) e até 14 candidatas que as REGRAS deixaram de
+  pé (`candidatasParaIA`, sem as básicas); a IA devolve ids na ordem. ⚠️ A
+  ordem é DADO DE FORA, validada duas vezes (na rota, contra as candidatas; no
+  cliente, por `recomendarSugestoes(s, 6, preferidas)`): id inventado, de outro
+  público, básico, repetido ou desligado por sinal ausente não entra, e o teto
+  de dois por tema vale para ela. Sem chave, sem sessão (o `/api` é público e a
+  rota exige usuário fora da demonstração) ou com erro, vale a ordem das regras,
+  sem aviso na tela. Só pergunta depois do primeiro acesso; cache de 1 h no
+  React Query, por dia e por conjunto de candidatas.
+- **Etapa 3 (14/10/2026): a DESCRIÇÃO LIVRE do onboarding.** "Conte com suas
+  palavras" no passo Perfil (empresa) e em Gastos (PF), editável depois em
+  Configurações (`components/onboarding/DescricaoLivre.tsx`, `perfil.descricao`,
+  até 500 letras). Ela pesa de dois jeitos: pelas REGRAS (palavras ancoradas,
+  sem acento, por público → as mesmas `INTERESSES`, peso 1 contra 1,5 da
+  prioridade marcada, e não soma duas vezes com ela) e pela IA. ⚠️ Sai para a
+  IA só por `descricaoParaIA` (segredos cobertos pelo detector da Central de
+  Ajuda, espaços colapsados, teto, vazio = `null`) — no cliente E de novo na
+  rota, que a declara INFORMAÇÃO, nunca instrução. Guarda: `npm run home-sugestoes`.
+- **Etapa 4 (14/10/2026): prioridades e cliques no SERVIDOR.** Moram em
+  `org_state` (`a4p_home_preferencias`, mapa `usuário → preferências`, mesma
+  forma do histórico da IA) e seguem a pessoa entre computadores. Regras puras
+  em `core/home/preferencias`, servidor em `lib/home-preferencias`. ⚠️ O mapa é
+  regravado INTEIRO: só se envia depois de o servidor RESPONDER
+  (`hidratarComStatus`) e com o usuário conhecido — sem isso, gravar apagaria
+  os colegas. ⚠️ Os cliques sobem ADIADOS (30 s e na saída da página): cada
+  gravação vira evento na trilha. A cópia do dispositivo (`a4p_home_interesses`/
+  `a4p_home_cliques`) continua: é a reserva de quem não pode escrever
+  (`org_state` exige o papel de lançar) e o que a primeira conferência sobe.
+  Mescla: o servidor vence nas prioridades; cliques pelo MAIOR de cada lado.
+- **Etapa 5 (14/10/2026): o que a pessoa IGNORA desce.** Cada sugestão (menos
+  as básicas) guarda por quantos DIAS apareceu sem clique (`exibidas` em
+  `a4p_home_preferencias`, cópia em `a4p_home_exibidas`) — uma vez por dia,
+  só com a lista PARADA 8 s na tela. Três dias são de graça; depois −0,4 por
+  dia até o teto de 2 (com 1,2 nada mudava na tela: medido no navegador,
+  a ignorada seguia na frente). O clique zera. ⚠️ O
+  dia de HOJE só conta amanhã (senão os chips trocariam de lugar diante de
+  quem olha); 14 dias sem aparecer devolvem a chance; o desconto REORDENA,
+  nunca ressuscita o que um sinal desligou; regra de URGÊNCIA (peso ≥ 2,5:
+  caixa negativo, primeiro uso) não desce — medido: sem isso "Cobrir o
+  caixa" ignorada perdia a vaga do tema para "Fluxo 13 semanas". A IA recebe
+  as `ignoradas` e não traz de volta a que chegou ao teto (`cansada`).
+- **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
+  chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
+  com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a
+  pergunta: logo no alto, "Fechar chat" (e Esc), a pergunta num balão à
+  direita, a resposta solta com os números em CARTÕES (`BolhaResposta
+  variante="aberta"`) e "Veja tudo o que eu faço" com até 12 sugestões. É a
+  MESMA IA (`useChatIA`) e a conversa entra no histórico de `/quattro-ai`.
+  ⚠️ O chip mostra o RÓTULO CURTO com ícone (`ROTULOS`: "Fechar o mês"); a
+  pergunta inteira vai para a conversa, para o nome acessível e para o
+  `title`. A guarda exige rótulo e ícone EXISTENTE para cada pergunta. ⚠️ A
+  conversa sobe a ÚLTIMA PERGUNTA para o alto, nunca rola até o fim: o fim é
+  o "Veja tudo", e rolar até ele escondia a resposta que acabou de chegar.
+- ⚠️ **A IA MORA NUM LUGAR SÓ (decisão do dono, 14/10/2026):** o botão
+  flutuante "4" (`AssistantWidget`) e o painel lateral SAÍRAM, e a aba
+  "Conversa" de `/quattro-ai` também (`IAView` apagado). O chat em tela cheia
+  abre por cima de QUALQUER tela por `abrirChat()` (`ia/ChatGlobal.tsx`,
+  evento `a4p:open-ia`, montado no `AppShell`): o item "Quattro AI" do menu
+  (clique comum abre o chat; com Ctrl/⌘ segue o endereço), o ⌘K, a caixa da
+  Home e `/quattro-ai` (que abre o chat sozinho e guarda `?q=`). O histórico
+  veio para DENTRO do chat ("Conversas"). Os motores (Quant, Decisão, Risco,
+  Sugestões) seguem como abas de `/quattro-ai`. ⚠️ Pedido de abertura feito
+  antes de o anfitrião montar fica na fila (`pendente`): os efeitos do React
+  rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
-  ou setas do teclado; só a alça inicia, porque o card é link), por grupo,
-  guardado em `a4p_home_painel_ordem` (preferência local); a busca saiu da
+  ou setas do teclado; só a alça inicia, porque o card é link), dentro do
+  grupo, guardados no ARRANJO da pessoa (bullet abaixo; a ordem antiga de
+  `a4p_home_painel_ordem` é lida uma vez e migrada); a busca saiu da
   barra de cima E do ⋮ (o ⌘K continua abrindo a paleta); a barra de cima e o
   menu lateral não têm borda. Os avisos do topo (amostra e assinatura)
   ganharam "x" que fecha SÓ NESTA SESSÃO (`FecharAviso.tsx`, sessionStorage):
   voltam na próxima enquanto a causa existir — a guarda `amostra:` foi
   invertida para provar isso.
+
+- **AJUSTAR PRIORIDADES PELA CONVERSA (14/10/2026, pedido do dono).** A Home
+  é montada por um CATÁLOGO de itens (`core/home/itens`: os seis números do
+  painel e os três blocos) e pelo ARRANJO de cada pessoa (ordem + escondidos),
+  que mora em `a4p_home_preferencias` (`layout`, servidor vence; cópia em
+  `a4p_home_layout`) e sobe na hora. "Ajustar prioridades" abre o chat de tela
+  cheia no modo AJUSTE (`ChatTelaCheia ajuste`, sem histórico) com "O que você
+  gostaria de ver primeiro quando abre o Quattro?"; o que a pessoa DIGITA vira
+  ações (primeiro · último · mostrar · esconder · restaurar) por
+  `POST /api/ai/home-layout` (pedido saneado por `descricaoParaIA`, tratado
+  como informação; ações validadas na rota E no cliente por `normalizarAcoes`)
+  ou, sem chave/sessão/erro, pelas regras de `interpretarPedido`. O chat só
+  anuncia o que DE FATO mudou (`descreverMudancas`/`respostaDoAjuste`) e
+  oferece Desfazer (arranjo E prioridades de antes). O texto também alimenta as
+  prioridades das sugestões (`interessesDaDescricao`). ⚠️ "Fluxo de caixa" é o
+  RELATÓRIO, não o caixa: o sinônimo mais longo casa primeiro. ⚠️ Item
+  escondido tem caminho de volta na própria Home ("Mostrar de novo"); item que
+  falta num arranjo guardado volta no lugar padrão DO SEU GRUPO, nunca some.
+  A seção do primeiro item visível vem primeiro ("o que precisa de ação
+  primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
+  `npm run e2e -- home-ajuste`.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
@@ -4444,7 +4562,12 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 
 ### Quattro AI — assistente flutuante (global) + ficha de contato
 
-A IA tem **duas portas para o MESMO cérebro**:
+> ⚠️ **HISTÓRICO.** Desde 14/10/2026 o FAB, o painel lateral e o `IAView` não
+> existem: a conversa é só o chat em tela cheia (ver "A IA MORA NUM LUGAR SÓ",
+> na seção da Home). O que segue sobre o cérebro (`useChatIA`, `chat-kit`,
+> `ia-conversas`) continua valendo; o que fala do FAB e do painel é registro.
+
+A IA tinha **duas portas para o MESMO cérebro**:
 
 1. **FAB flutuante** (`src/components/app/AssistantWidget.tsx`, montado no
    `AppShell`) — painel à direita, disponível em toda tela. Some em

@@ -25,6 +25,7 @@ import { janela as fazJanela, rotuloRunwayLido } from "@/core/indicadores";
 import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
 import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
+import { RAIO_TOPO } from "@/lib/grafico";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -668,7 +669,7 @@ function WaterfallView({ passos }: { passos: WaterfallPasso[] }) {
             <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={fmtAxis} width={42} />
             <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => fmtBRL(v)} />
             <Bar dataKey="base" stackId="w" fill="transparent" />
-            <Bar dataKey="valor" stackId="w" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="valor" stackId="w" radius={RAIO_TOPO}>
               {data.map((d, i) => (
                 <Cell key={i} fill={d.tipo === "deducao" ? "var(--color-areia)" : d.tipo === "total" ? "var(--color-chart-line)" : "var(--color-ink)"} />
               ))}

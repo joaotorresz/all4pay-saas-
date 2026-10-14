@@ -14,19 +14,25 @@
  *
  * ⚠️ Só a aba ativa monta — os motores são caros e montar os cinco de uma vez
  * faria a tela abrir lenta justamente na porta mais usada.
+ *
+ * ⚠️ A CONVERSA SAIU DAS ABAS (14/10/2026): ela é o chat em tela cheia, o
+ * mesmo de qualquer tela (`ChatGlobal`). Sem `?aba=`, esta página ABRE o chat
+ * (com a pergunta de `?q=`, uma vez, limpando o endereço) e, atrás dele, mostra
+ * a porta para os relatórios dos motores — nunca um motor Pro sem aba pedida,
+ * senão quem é Simples cairia num relatório que o plano não abre.
  */
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import { IAView } from "./IAView";
+import { ChatTelaCheia } from "./ChatTelaCheia";
+import { Icon } from "@/components/ui";
 import { QuantView } from "@/components/quant/QuantView";
 import { DecisaoView } from "@/components/decisao/DecisaoView";
 import { RiscoView } from "@/components/risco/RiscoView";
 import { AutonomoView } from "@/components/autonomo/AutonomoView";
 
-type Aba = "conversa" | "quant" | "decisao" | "risco" | "autonomo";
+type Aba = "quant" | "decisao" | "risco" | "autonomo";
 
 const ABAS: { id: Aba; label: string; descricao: string }[] = [
-  { id: "conversa", label: "Conversa", descricao: "pergunte sobre os seus números" },
   { id: "quant", label: "Quant", descricao: "score de saúde, radar e cenários" },
   { id: "decisao", label: "Decisão", descricao: "Monte Carlo e recomendações com impacto" },
   { id: "risco", label: "Risco", descricao: "runway, ruptura e stress de caixa" },
@@ -41,13 +47,19 @@ const ehAba = (s: string | null): s is Aba => ABAS.some((a) => a.id === s);
 
 export function AssistenteShell() {
   const sp = useSearchParams();
-  const [aba, setAba] = React.useState<Aba>("conversa");
+  const [aba, setAba] = React.useState<Aba | null>(null);
+  const [chat, setChat] = React.useState<{ q?: string; n: number } | null>(null);
 
   // Deep-link reativo — os aliases de `/copiloto?aba=…` e de `/risco`,
-  // `/decisao`, `/autonomo`, `/inteligencia` chegam por aqui.
+  // `/decisao`, `/autonomo`, `/inteligencia` chegam por aqui. Sem aba (ou com
+  // a antiga `aba=conversa`), abre o chat.
   React.useEffect(() => {
     const p = sp.get("aba");
-    if (ehAba(p)) setAba(p);
+    if (ehAba(p)) { setAba(p); return; }
+    setAba(null);
+    const q = sp.get("q")?.trim() || undefined;
+    if (q) window.history.replaceState(null, "", window.location.pathname);
+    setChat((c) => ({ q, n: (c?.n ?? 0) + 1 }));
   }, [sp]);
 
   return (
@@ -70,11 +82,27 @@ export function AssistenteShell() {
         })}
       </div>
 
-      {aba === "conversa" && <IAView />}
+      {aba === null && (
+        <div className="flex flex-col items-start gap-3 py-6">
+          <p className="m-0 text-[15px] text-ink max-w-[560px]">
+            A conversa com a Quattro AI abre por cima de qualquer tela: pelo menu, pelo ⌘K e pela caixa da Home.
+            As abas acima são os relatórios dos motores.
+          </p>
+          <button
+            type="button"
+            onClick={() => setChat((c) => ({ n: (c?.n ?? 0) + 1 }))}
+            className="inline-flex items-center gap-2 h-[42px] px-9 min-w-[104px] rounded-pill text-[15px] bg-lime text-on-lime"
+          >
+            <Icon name="sparkles" size={16} strokeWidth={1.5} />
+            Abrir conversa
+          </button>
+        </div>
+      )}
       {aba === "quant" && <QuantView />}
       {aba === "decisao" && <DecisaoView />}
       {aba === "risco" && <RiscoView />}
       {aba === "autonomo" && <AutonomoView />}
+      {chat && <ChatTelaCheia key={chat.n} pergunta={chat.q} aoFechar={() => setChat(null)} />}
     </div>
   );
 }

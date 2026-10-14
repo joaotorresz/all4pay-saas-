@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { BRL, Icon, SemDados } from "@/components/ui";
 import { useRiscoInput, useUnreconciled } from "./hooks";
 import { montarHomeSnapshot, type CurvaHome, type NumeroHome } from "@/core/home/snapshot";
@@ -14,6 +13,26 @@ import { hydrateAprovacoes, listSolicitacoes } from "@/lib/aprovacoes";
 import { tarefasDoMes } from "@/lib/fechamento-tarefas";
 import type { TarefaFechamento } from "@/core/close/checklist";
 import { decimalBR, pct } from "@/lib/format";
+import { useQuery } from "@tanstack/react-query";
+import {
+  BASICAS, INTERESSES, LIMITE_SUGESTOES, candidatasParaIA, contextoParaIA, descricaoParaIA, interessesDaDescricao,
+  recomendarSugestoes, sinaisDaHome,
+  type CandidataIA, type SinaisHome, type SugestaoEscolhida,
+} from "@/core/home/sugestoes";
+import { reportar } from "@/lib/erros";
+import {
+  gravarPreferenciasHome, inscreverPreferenciasHome, lerPreferenciasHome, sincronizarPreferenciasHome,
+} from "@/lib/home-preferencias";
+import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
+import {
+  EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itemHome,
+  layoutDasOrdensAntigas, mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes, respostaDoAjuste, visiveis,
+  type AcaoHome, type IdItemHome, type LayoutHome,
+} from "@/core/home/itens";
+import { loadCompany } from "@/lib/company";
+import { useTipoConta } from "@/components/app/useTipoConta";
+import type { RespostaChatAjuste, SugestaoChat } from "@/components/ia/ChatTelaCheia";
+import { abrirChat } from "@/components/ia/ChatGlobal";
 
 /**
  * A HOME "SNAPSHOT" — a prancheta "Home · proposta snapshot" do canvas
@@ -34,8 +53,6 @@ import { decimalBR, pct } from "@/lib/format";
 
 const MESES_LONGOS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-
-const CHIPS = ["O que falta para fechar o mês?", "Monte um fluxo de caixa de 13 semanas", "O que explica a mudança no burn?"];
 
 const RELATORIOS = [
   { nome: "DRE", href: "/dashboard/reports/dre" },
@@ -58,12 +75,212 @@ function useCarimbo(): string {
 
 /* ------------------------------ Quattro AI ------------------------------ */
 
-function CaixaIA() {
-  const router = useRouter();
+/**
+ * As prioridades do dia a dia e os cliques nas sugestões. `interesses === null`
+ * é o PRIMEIRO ACESSO (a pergunta nunca foi respondida); `[]` é "pulei".
+ * Seguem a pessoa entre computadores (`lib/home-preferencias`, etapa 4): o que
+ * está no dispositivo aparece na hora e o que veio do servidor entra quando ele
+ * responder.
+ */
+function usePreferenciasIA(tipo: "empresa" | "pessoal", hoje: string) {
+  const [prefs, setPrefs] = React.useState<PreferenciasHome | undefined>(undefined);
+  // O "hoje" da Home (o mesmo dos sinais), para o clique e a exibição contarem no mesmo calendário.
+  const hojeRef = React.useRef(hoje);
+  hojeRef.current = hoje;
+  React.useEffect(() => {
+    const reler = () => setPrefs(lerPreferenciasHome());
+    reler();
+    const sair = inscreverPreferenciasHome(reler);
+    sincronizarPreferenciasHome().then(reler, (e) =>
+      reportar("home.preferencias", e, "as prioridades e os cliques ficam só neste computador até a próxima sessão", true));
+    return sair;
+  }, []);
+  const salvarInteresses = (ids: string[]) => {
+    const novo = { ...lerPreferenciasHome(), interesses: ids };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo);
+  };
+  const clicou = (id: string) => {
+    const atual = lerPreferenciasHome();
+    const novo = {
+      ...atual,
+      cliques: { ...atual.cliques, [id]: (atual.cliques[id] ?? 0) + 1 },
+      exibidas: registrarClique(atual.exibidas, id, hojeRef.current),
+    };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo, { adiar: true });
+  };
+  /** A Home mostrou estas sugestões hoje (uma vez por dia conta como um dia sem clique). */
+  const exibiu = (ids: string[]) => {
+    const atual = lerPreferenciasHome();
+    const exibidas = registrarExibicao(atual.exibidas, ids, hojeRef.current);
+    if (exibidas === atual.exibidas) return;
+    const novo = { ...atual, exibidas };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo, { adiar: true });
+  };
+  /** O arranjo da Home (ordem e escondidos) sobe na hora: é um ato da pessoa. */
+  const salvarLayout = (layout: LayoutHome) => {
+    const novo = { ...lerPreferenciasHome(), layout };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo);
+  };
+  /** O pedido do chat muda o arranjo E as prioridades num gesto só (e o desfazer volta os dois). */
+  const salvarAjuste = (layout: LayoutHome, interesses: string[] | null) => {
+    const novo = { ...lerPreferenciasHome(), layout, interesses };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo);
+  };
+  // Quem arrastou os cards antes do arranjo ir para o servidor não perde o que fez.
+  const [antigo, setAntigo] = React.useState<LayoutHome | null>(null);
+  const antigoRef = React.useRef<LayoutHome | null>(null);
+  React.useEffect(() => {
+    try {
+      antigoRef.current = layoutDasOrdensAntigas(JSON.parse(localStorage.getItem(CHAVE_ORDEM_ANTIGA) ?? "null"));
+      setAntigo(antigoRef.current);
+    } catch { /* preferência ilegível: arranjo padrão */ }
+  }, []);
+  /** O arranjo de AGORA, lido na hora (o chat guarda a função desde que abriu). */
+  const lerLayout = (): LayoutHome => lerPreferenciasHome().layout ?? antigoRef.current ?? LAYOUT_PADRAO;
+  const opcoes = INTERESSES.filter((i) => i.publico === tipo);
+  return {
+    interesses: prefs === undefined ? undefined : prefs.interesses, cliques: prefs?.cliques ?? {}, exibidas: prefs?.exibidas ?? {},
+    layout: prefs?.layout ?? antigo ?? LAYOUT_PADRAO,
+    salvarInteresses, clicou, exibiu, salvarLayout, salvarAjuste, lerLayout, opcoes,
+  };
+}
+
+type PreferenciasIA = ReturnType<typeof usePreferenciasIA>;
+
+/** Quanto a lista precisa ficar parada na tela para contar como vista. */
+const EXIBIDA_APOS_MS = 8_000;
+
+/**
+ * Etapa 5: registra que as sugestões (sem as básicas, que são fixas) ficaram
+ * na tela hoje. Só depois de a lista PARAR por alguns segundos — a ordem das
+ * regras é trocada pela da IA logo depois de carregar, e a lista que piscou
+ * antes disso ninguém viu. No primeiro acesso não há o que contar.
+ */
+function useExibicoes(sugestoes: SugestaoEscolhida[] | null, sinais: SinaisHome | null, prefs: PreferenciasIA) {
+  const ids = (sugestoes ?? []).filter((x) => !sinais || !BASICAS[sinais.tipoConta].includes(x.id)).map((x) => x.id);
+  const chave = ids.join(",");
+  const hoje = sinais?.hoje;
+  const ligado = Array.isArray(prefs.interesses) && ids.length > 0 && !!hoje;
+  const exibiu = React.useRef(prefs.exibiu);
+  exibiu.current = prefs.exibiu;
+  React.useEffect(() => {
+    if (!ligado) return;
+    const t = setTimeout(() => exibiu.current(chave.split(",")), EXIBIDA_APOS_MS);
+    return () => clearTimeout(t);
+  }, [ligado, chave, hoje]);
+}
+
+/**
+ * A ordem que a Quattro AI propõe para as quatro sugestões depois das básicas
+ * (etapa 2). Só pergunta depois do primeiro acesso (antes dele só aparecem as
+ * básicas) e uma vez por dia e por conjunto de candidatas — o cache é o do
+ * React Query, em memória. Qualquer falha devolve `null` e a Home fica com a
+ * ordem das regras; quem valida o que veio é `recomendarSugestoes`.
+ */
+function useOrdemDaIA(sinais: SinaisHome | null, candidatas: CandidataIA[], ligado: boolean) {
+  const { data } = useQuery({
+    queryKey: ["home-sugestoes-ia", sinais?.hoje, sinais?.tipoConta, candidatas.map((c) => c.id).join(","), (sinais?.interesses ?? []).join(","), sinais?.perfil?.descricao ?? ""],
+    enabled: ligado && !!sinais && candidatas.length > 0,
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<string[] | null> => {
+      try {
+        const res = await fetch("/api/ai/sugestoes", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ contexto: contextoParaIA(sinais!), candidatas }),
+        });
+        const j = (await res.json().catch(() => null)) as { ok?: boolean; ids?: unknown } | null;
+        return j?.ok && Array.isArray(j.ids) ? (j.ids as string[]) : null;
+      } catch (e) {
+        reportar("home.sugestoes-ia", e, "as sugestões da Home ficam na ordem das regras, sem a escolha da IA", true);
+        return null;
+      }
+    },
+  });
+  return data ?? null;
+}
+
+/** "O que é mais importante no seu dia a dia?" — a pergunta do primeiro acesso. */
+function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFechar: () => void }) {
+  const [marcadas, setMarcadas] = React.useState<string[]>(prefs.interesses ?? []);
+  const alternar = (id: string) =>
+    setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
+  const concluir = (ids: string[]) => { prefs.salvarInteresses(ids); aoFechar(); };
+  return (
+    <div className="w-full max-w-[720px] flex flex-col items-center gap-3 px-5 py-4 rounded-[24px]" style={{ background: "var(--color-surface-1)" }}>
+      <span className="text-[14px] text-ink">O que é mais importante no seu dia a dia?</span>
+      <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Prioridades do dia a dia">
+        {prefs.opcoes.map((o) => {
+          const on = marcadas.includes(o.id);
+          return (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => alternar(o.id)}
+              className="px-3 py-[6px] rounded-pill text-[13px] border"
+              style={on
+                ? { background: "var(--color-ink)", color: "var(--color-surface-1)", borderColor: "var(--color-ink)" }
+                : { background: "var(--color-white)", color: "var(--color-ink)", borderColor: "var(--color-border)" }}
+            >
+              {o.rotulo}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-4 items-center">
+        <button type="button" onClick={() => concluir([])} className="text-[13px] text-muted">Agora não</button>
+        <button
+          type="button"
+          disabled={marcadas.length === 0}
+          onClick={() => concluir(marcadas)}
+          className="px-4 py-[6px] rounded-pill text-[13px] disabled:opacity-40"
+          style={{ background: "var(--erp-num-cor)", color: "var(--color-surface-1)" }}
+        >
+          Gerar sugestões
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Quantas perguntas o "Veja tudo o que eu faço" do chat mostra. */
+const TODAS_NO_CHAT = 12;
+
+function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
+  sugestoes: SugestaoEscolhida[] | null;
+  /** As candidatas seguintes, para completar o "Veja tudo o que eu faço". */
+  extras: CandidataIA[];
+  prefs: PreferenciasIA;
+  /** "Ajustar prioridades": abre a conversa que arruma a Home. */
+  aoAjustar: () => void;
+}) {
   const [texto, setTexto] = React.useState("");
-  const perguntar = (q: string) => {
-    const t = q.trim();
-    router.push(t ? `/quattro-ai?q=${encodeURIComponent(t)}` : "/quattro-ai");
+  const todas = React.useMemo(() => {
+    const out: SugestaoChat[] = [];
+    for (const c of [...(sugestoes ?? []), ...extras]) {
+      if (out.length >= TODAS_NO_CHAT) break;
+      if (!out.some((o) => o.id === c.id)) out.push({ id: c.id, texto: c.texto, curto: c.curto, icone: c.icone, motivo: c.motivo });
+    }
+    return out;
+  }, [sugestoes, extras]);
+  const perguntando = prefs.interesses === null;
+  // No primeiro acesso só as duas básicas aparecem; o resto vem da resposta.
+  const visiveis = (sugestoes ?? []).slice(0, perguntando ? 2 : undefined);
+  // O chat em tela cheia (modelo do dono, 14/10/2026) é o MESMO de todo o
+  // sistema (`ChatGlobal`): o chip ou o envio abre a conversa já com a
+  // pergunta, por cima da Home; o "+" e o envio vazio abrem na saudação.
+  const perguntar = (q?: string) => {
+    const t = q?.trim();
+    setTexto("");
+    abrirChat({ pergunta: t || undefined, sugestoes: todas, aoClicarSugestao: prefs.clicou });
   };
   return (
     <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-11">
@@ -72,14 +289,15 @@ function CaixaIA() {
         className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
         style={{ background: "var(--color-surface-1)" }}
       >
-        <Link
-          href="/quattro-ai"
+        <button
+          type="button"
+          onClick={() => perguntar()}
           aria-label="Abrir a Quattro AI"
           className="w-9 h-9 flex-none rounded-pill flex items-center justify-center"
           style={{ background: "var(--color-white)", color: "var(--color-ink)" }}
         >
           <Icon name="plus" size={18} strokeWidth={1.5} />
-        </Link>
+        </button>
         <input
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
@@ -99,19 +317,34 @@ function CaixaIA() {
           <Icon name="arrow-up" size={18} strokeWidth={1.5} />
         </button>
       </form>
-      <div className="flex flex-wrap justify-center gap-[10px]">
-        {CHIPS.map((c) => (
+      {/* As sugestões saem de `core/home/sugestoes`: até seis, escolhidas pelo
+          contexto da empresa. O chip mostra o rótulo CURTO com ícone; a
+          pergunta inteira é o nome acessível e o que vai para a conversa. O
+          motivo vai no `title`. */}
+      <div className="flex flex-wrap justify-center gap-[10px] max-w-[900px] min-h-[36px]">
+        {visiveis.map((c) => (
           <button
-            key={c}
+            key={c.id}
             type="button"
-            onClick={() => perguntar(c)}
-            className="px-4 py-2 rounded-pill text-[13px] text-ink"
+            onClick={() => { prefs.clicou(c.id); perguntar(c.texto); }}
+            title={`${c.texto} · sugerida porque ${c.motivo}`}
+            aria-label={c.texto}
+            data-sugestao={c.id}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] text-ink"
             style={{ background: "var(--color-surface-1)" }}
           >
-            {c}
+            <Icon name={c.icone} size={16} strokeWidth={1.5} />
+            {c.curto}
           </button>
         ))}
       </div>
+      {perguntando ? (
+        <PerguntaPrioridades prefs={prefs} aoFechar={() => {}} />
+      ) : prefs.interesses !== undefined && (
+        <button type="button" onClick={aoAjustar} className="text-[12px] text-ink opacity-70 hover:opacity-100">
+          Ajustar prioridades
+        </button>
+      )}
     </section>
   );
 }
@@ -130,76 +363,60 @@ function MicIcon() {
 /* ------------------------------ peças dos cards ------------------------------ */
 
 /**
- * A ordem dos cards é PREFERÊNCIA de tela (do dispositivo, como a dos widgets
- * antigos): cada grupo guarda a sua, e um id que sumiu ou nasceu depois cai no
- * lugar padrão em vez de quebrar a grade.
+ * Onde a ordem dos cards morava antes de ir para o servidor (preferência do
+ * dispositivo, por grupo "grandes"/"pequenos"). Só é LIDA, uma vez, para quem
+ * já tinha arrumado não perder o arranjo: o que vale agora é `layout` em
+ * `a4p_home_preferencias` (`core/home/itens`).
  */
-const CHAVE_ORDEM = "a4p_home_painel_ordem";
-
-function lerOrdens(): Record<string, string[]> {
-  try { return JSON.parse(localStorage.getItem(CHAVE_ORDEM) ?? "{}") ?? {}; } catch { return {}; }
-}
-
-function useOrdem(grupo: string, padrao: string[]) {
-  const [ordem, setOrdem] = React.useState<string[]>(padrao);
-  const chavePadrao = padrao.join("|");
-  React.useEffect(() => {
-    const salva = lerOrdens()[grupo] ?? [];
-    const validos = salva.filter((id) => padrao.includes(id));
-    setOrdem([...validos, ...padrao.filter((id) => !validos.includes(id))]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grupo, chavePadrao]);
-  const mover = React.useCallback((de: string, para: string) => {
-    setOrdem((atual) => {
-      const i = atual.indexOf(de), j = atual.indexOf(para);
-      if (i < 0 || j < 0 || i === j) return atual;
-      const nova = [...atual];
-      nova.splice(i, 1);
-      nova.splice(j, 0, de);
-      try { localStorage.setItem(CHAVE_ORDEM, JSON.stringify({ ...lerOrdens(), [grupo]: nova })); } catch { /* preferência: sem cota, fica só na sessão */ }
-      return nova;
-    });
-  }, [grupo]);
-  return { ordem, mover };
-}
+const CHAVE_ORDEM_ANTIGA = "a4p_home_painel_ordem";
 
 /**
- * Grade arrastável. Só a ALÇA inicia o arraste (o card inteiro é link, e
- * arrastar pelo corpo brigaria com o clique). Pelo teclado, as setas na alça
- * trocam o card de lugar com o vizinho.
+ * O arraste dos itens da Home. Só a ALÇA inicia (o card inteiro é link, e
+ * arrastar pelo corpo brigaria com o clique). Durante o gesto a troca é só de
+ * tela (`rascunho`); o arranjo é GRAVADO ao soltar — gravar a cada passo do
+ * arraste mandaria uma dúzia de eventos à trilha por um movimento só. Pelo
+ * teclado, as setas na alça trocam o item com o vizinho e gravam na hora.
+ * Cada item só troca de lugar com outro da MESMA seção.
  */
-function GradeArrastavel<T extends { id: string }>({
-  grupo, itens, render, className,
-}: { grupo: string; itens: T[]; render: (item: T) => React.ReactNode; className: string }) {
-  const { ordem, mover } = useOrdem(grupo, itens.map((i) => i.id));
-  const [arrastando, setArrastando] = React.useState<string | null>(null);
-  const [armado, setArmado] = React.useState<string | null>(null);
-  const porId = new Map(itens.map((i) => [i.id, i]));
+function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
+  const [rascunho, setRascunho] = React.useState<LayoutHome | null>(null);
+  const [arrastando, setArrastando] = React.useState<IdItemHome | null>(null);
+  const [armado, setArmado] = React.useState<IdItemHome | null>(null);
+  const atual = rascunho ?? layout;
+  const mesmoGrupo = (a: IdItemHome, b: IdItemHome) => itemHome(a).grupo === itemHome(b).grupo;
+  const soltar = () => {
+    if (rascunho) salvar(rascunho);
+    setRascunho(null); setArrastando(null); setArmado(null);
+  };
+  const props = (id: IdItemHome) => ({
+    draggable: armado === id,
+    style: { opacity: arrastando === id ? 0.45 : 1 },
+    onDragStart: (e: React.DragEvent) => { setArrastando(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); },
+    onDragOver: (e: React.DragEvent) => {
+      if (!arrastando || !mesmoGrupo(arrastando, id)) return;
+      e.preventDefault();
+      if (arrastando !== id) setRascunho((r) => moverItem(r ?? layout, arrastando, id));
+    },
+    onDrop: (e: React.DragEvent) => e.preventDefault(),
+    onDragEnd: soltar,
+  });
+  const alca = (id: IdItemHome) => ({
+    onArmar: () => setArmado(id),
+    onDesarmar: () => { if (!arrastando) setArmado(null); },
+    onMover: (passo: -1 | 1) => {
+      const vizinhos = visiveis(atual, itemHome(id).grupo);
+      const alvo = vizinhos[vizinhos.indexOf(id) + passo];
+      if (alvo) salvar(moverItem(atual, id, alvo));
+    },
+  });
+  return { layout: atual, props, alca };
+}
+
+function ItemArrastavel({ id, arraste, children, className = "" }: { id: IdItemHome; arraste: ReturnType<typeof useArraste>; children: React.ReactNode; className?: string }) {
   return (
-    <div className={className}>
-      {ordem.map((id, idx) => {
-        const item = porId.get(id);
-        if (!item) return null;
-        return (
-          <div
-            key={id}
-            className="relative transition-opacity"
-            style={{ opacity: arrastando === id ? 0.45 : 1 }}
-            draggable={armado === id}
-            onDragStart={(e) => { setArrastando(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); }}
-            onDragOver={(e) => { if (arrastando) { e.preventDefault(); if (arrastando !== id) mover(arrastando, id); } }}
-            onDrop={(e) => e.preventDefault()}
-            onDragEnd={() => { setArrastando(null); setArmado(null); }}
-          >
-            {render(item)}
-            <Alca
-              onArmar={() => setArmado(id)}
-              onDesarmar={() => { if (!arrastando) setArmado(null); }}
-              onMover={(passo) => { const alvo = ordem[idx + passo]; if (alvo) mover(id, alvo); }}
-            />
-          </div>
-        );
-      })}
+    <div className={`relative transition-opacity ${className}`} data-item-home={id} {...arraste.props(id)}>
+      {children}
+      <Alca {...arraste.alca(id)} />
     </div>
   );
 }
@@ -337,10 +554,19 @@ function CardPequeno({ n, carimbo }: { n: NumeroHome; carimbo: string }) {
 
 /* ------------------------------ três colunas ------------------------------ */
 
-const COLUNA = "flex flex-col p-6";
+const COLUNA = "h-full flex flex-col p-6";
 const colunaStyle = { background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" } as const;
 
-function PrecisaDeAcao() {
+interface Pendencias {
+  conciliar: number | null;
+  notas: number | null;
+  compras: number | null;
+  aprovacoes: number | null;
+  boletos: number | null;
+}
+
+/** As contagens de "Precisa de ação" — também alimentam as sugestões da IA. */
+function usePendencias(): Pendencias {
   const { data: naoConciliadas } = useUnreconciled();
   const { data: vendas } = useVendas();
   const [locais, setLocais] = React.useState<{ compras: number; boletos: number; aprovacoes: number } | null>(null);
@@ -356,12 +582,22 @@ function PrecisaDeAcao() {
     return () => { vivo = false; };
   }, []);
   const notas = vendas ? painelStatusNF(vendas).find((c) => c.id === "a_emitir")?.quantidade ?? 0 : null;
+  const conciliar = naoConciliadas?.length ?? null;
+  return React.useMemo(() => ({
+    conciliar, notas,
+    compras: locais?.compras ?? null,
+    aprovacoes: locais?.aprovacoes ?? null,
+    boletos: locais?.boletos ?? null,
+  }), [conciliar, notas, locais]);
+}
+
+function PrecisaDeAcao({ p }: { p: Pendencias }) {
   const itens = [
-    { nome: "Transações a conciliar", qtd: naoConciliadas?.length ?? null, href: "/dashboard/financial/reconciliation" },
-    { nome: "Notas a emitir", qtd: notas, href: "/dashboard/sales-invoices" },
-    { nome: "Compras a aprovar", qtd: locais?.compras ?? null, href: "/dashboard/purchases" },
-    { nome: "Lançamentos aguardando aprovação", qtd: locais?.aprovacoes ?? null, href: "/aprovacoes" },
-    { nome: "Boletos a pagar", qtd: locais?.boletos ?? null, href: "/dashboard/purchases/received-boletos" },
+    { nome: "Transações a conciliar", qtd: p.conciliar, href: "/dashboard/financial/reconciliation" },
+    { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices" },
+    { nome: "Compras a aprovar", qtd: p.compras, href: "/dashboard/purchases" },
+    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/aprovacoes" },
+    { nome: "Boletos a pagar", qtd: p.boletos, href: "/dashboard/purchases/received-boletos" },
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
@@ -380,14 +616,17 @@ const ROTULO_STATUS: Record<TarefaFechamento["status"], string> = {
   pending: "Não iniciada", review: "Em revisão", done: "Concluída",
 };
 
-function Fechamento({ hoje }: { hoje: string }) {
-  const mes = hoje.slice(0, 7);
+function useTarefasDoMes(mes: string): TarefaFechamento[] | null {
   const [tarefas, setTarefas] = React.useState<TarefaFechamento[] | null>(null);
   React.useEffect(() => {
     let vivo = true;
     tarefasDoMes(mes).then((t) => { if (vivo) setTarefas(t); }).catch(() => { if (vivo) setTarefas([]); });
     return () => { vivo = false; };
   }, [mes]);
+  return tarefas;
+}
+
+function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[] | null }) {
   const total = tarefas?.length ?? 0;
   const feitas = tarefas?.filter((t) => t.status === "done").length ?? 0;
   const fracao = total > 0 ? feitas / total : 0;
@@ -433,46 +672,167 @@ function RelatoriosFixados() {
   );
 }
 
+/* ------------------------------ ajustar prioridades ------------------------------ */
+
+/** A pergunta com que o chat abre no "Ajustar prioridades" (pedido do dono). */
+const PERGUNTA_DO_AJUSTE = "O que você gostaria de ver primeiro quando abre o Quattro?";
+
+/**
+ * O pedido digitado vira ações sobre a Home: primeiro a Quattro AI
+ * (`/api/ai/home-layout`), e — sem chave, sem sessão, com erro ou sem ação
+ * nenhuma — a leitura por regras (`interpretarPedido`). ⚠️ O que a IA devolve é
+ * DADO DE FORA e passa de novo por `normalizarAcoes` aqui.
+ */
+async function acoesDoPedido(texto: string, layout: LayoutHome): Promise<AcaoHome[]> {
+  try {
+    const res = await fetch("/api/ai/home-layout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pedido: descricaoParaIA(texto), layout }),
+    });
+    const j = (await res.json().catch(() => null)) as { ok?: boolean; acoes?: unknown } | null;
+    const daIA = j?.ok ? normalizarAcoes(j.acoes) : [];
+    if (daIA.length > 0) return daIA;
+  } catch (e) {
+    reportar("home.ajuste-ia", e, "o pedido foi lido pelas regras de texto, sem a Quattro AI", true);
+  }
+  return interpretarPedido(texto);
+}
+
+/**
+ * O "Ajustar prioridades" pela conversa (etapas 2 e 3, 14/10/2026): abre o
+ * chat da Quattro AI no modo ajuste. A resposta da pessoa arruma a Home (ordem
+ * e o que aparece), soma às prioridades o que ela disse (as mesmas palavras da
+ * descrição livre) e o chat conta o que mudou, com desfazer.
+ */
+function useAjusteDaHome(prefs: PreferenciasIA, tipo: "empresa" | "pessoal") {
+  return () => abrirChat({
+    ajuste: {
+      pergunta: PERGUNTA_DO_AJUSTE,
+      exemplos: EXEMPLOS_DE_PEDIDO,
+      responder: async (texto: string): Promise<RespostaChatAjuste> => {
+        const antes = prefs.lerLayout();
+        const interessesAntes = lerPreferenciasHome().interesses;
+        const acoes = await acoesDoPedido(texto, antes);
+        const depois = aplicarAcoes(antes, acoes);
+        const mudancas = descreverMudancas(antes, depois, acoes);
+        const ditos = interessesDaDescricao(texto, tipo);
+        const interesses = ditos.length
+          ? [...(interessesAntes ?? []), ...ditos.filter((d) => !(interessesAntes ?? []).includes(d))]
+          : interessesAntes;
+        if (!mesmoLayout(antes, depois) || interesses !== interessesAntes) prefs.salvarAjuste(depois, interesses);
+        const r = respostaDoAjuste(acoes, mudancas);
+        return { ...r, desfazer: r.mudou ? () => prefs.salvarAjuste(antes, interessesAntes) : undefined };
+      },
+    },
+  });
+}
+
 /* ------------------------------ a tela ------------------------------ */
+
+const COLUNAS_BLOCOS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3" };
+
+/**
+ * O que a pessoa escondeu não some sem rastro: uma linha discreta diz quantos
+ * itens estão fora da tela e os traz de volta num clique.
+ */
+function Escondidos({ layout, aoMostrar }: { layout: LayoutHome; aoMostrar: () => void }) {
+  if (layout.ocultos.length === 0) return null;
+  const nomes = layout.ocultos.map((id) => itemHome(id).nome).join(", ");
+  const n = layout.ocultos.length;
+  return (
+    <p className="m-0 text-center text-[13px] text-muted" data-home="escondidos">
+      <span title={nomes}>{n === 1 ? "1 item escondido" : `${n} itens escondidos`}</span>
+      {" · "}
+      <button type="button" onClick={aoMostrar} className="text-ink underline underline-offset-2">Mostrar de novo</button>
+    </p>
+  );
+}
 
 export function HomeSnapshot() {
   const { data: input, isLoading } = useRiscoInput();
   const carimbo = useCarimbo();
   const snap = React.useMemo(() => (input ? montarHomeSnapshot(input) : null), [input]);
+  const hoje = snap?.hoje ?? input?.hoje ?? isoLocal(new Date());
+  const mes = hoje.slice(0, 7);
+  const pendencias = usePendencias();
+  const tarefas = useTarefasDoMes(mes);
+  const { tipo } = useTipoConta();
+  const prefs = usePreferenciasIA(tipo, hoje);
+  const [perfil, setPerfil] = React.useState<ReturnType<typeof loadCompany> | undefined>(undefined);
+  React.useEffect(() => { setPerfil(loadCompany()); }, []);
+
+  const sinais = React.useMemo(() => {
+    if (!snap || !input || perfil === undefined) return null;
+    const fechamento = tarefas && tarefas.length > 0 ? tarefas.filter((t) => t.status === "done").length / tarefas.length : null;
+    return sinaisDaHome({
+      snap, input, tipoConta: tipo, perfil: perfil?.perfil ?? null, pendencias, fechamento,
+      interesses: prefs.interesses ?? [], cliques: prefs.cliques, exibidas: prefs.exibidas,
+    });
+  }, [snap, input, perfil, tipo, pendencias, tarefas, prefs.interesses, prefs.cliques, prefs.exibidas]);
+  const candidatas = React.useMemo(() => (sinais ? candidatasParaIA(sinais) : []), [sinais]);
+  // No primeiro acesso (`interesses === null`) só as básicas aparecem: não há o que a IA ordenar.
+  const ordemIA = useOrdemDaIA(sinais, candidatas, Array.isArray(prefs.interesses));
+  const sugestoes = React.useMemo(
+    () => (sinais ? recomendarSugestoes(sinais, LIMITE_SUGESTOES, ordemIA) : null),
+    [sinais, ordemIA],
+  );
+  useExibicoes(sugestoes, sinais, prefs);
+
+  const arraste = useArraste(prefs.layout, prefs.salvarLayout);
+  const ajustar = useAjusteDaHome(prefs, tipo);
+  const layout = arraste.layout;
+  const numero = (id: IdItemHome): (NumeroHome & { curva?: CurvaHome }) | undefined =>
+    !snap ? undefined : id === "caixa" ? snap.caixa : id === "arr" ? snap.arr : snap.pequenos.find((n) => n.id === id);
+  const bloco = (id: IdItemHome) =>
+    id === "acao" ? <PrecisaDeAcao p={pendencias} />
+      : id === "fechamento" ? <Fechamento mes={mes} tarefas={tarefas} />
+        : <RelatoriosFixados />;
+
+  const painel = visiveis(layout, "painel").length === 0 ? null : (
+    <section key="painel" className="flex flex-col gap-4">
+      <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
+      {isLoading || !snap ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1].map((i) => <div key={i} className="min-h-[380px] animate-pulse" style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }} />)}
+        </div>
+      ) : (
+        // Os grandes (com curva) e os pequenos em FAIXAS do mesmo tamanho, na
+        // ordem da pessoa: um grande e um pequeno na mesma linha esticariam um ao outro.
+        faixasDoPainel(layout).map((f) => (
+          <div key={f.ids.join("|")} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {f.ids.map((id, i) => {
+              const n = numero(id);
+              if (!n) return null;
+              // O último de uma faixa ímpar ocupa a linha inteira: sozinho em
+              // meia linha, ele deixava um buraco ao lado (um pequeno subindo
+              // sozinho para o topo ficava com meia tela vazia).
+              const sozinho = f.ids.length % 2 === 1 && i === f.ids.length - 1;
+              return (
+                <ItemArrastavel key={id} id={id} arraste={arraste} className={sozinho ? "md:col-span-2" : ""}>
+                  {f.tamanho === "grande" && n.curva ? <CardGrande n={n} curva={n.curva} carimbo={carimbo} /> : <CardPequeno n={n} carimbo={carimbo} />}
+                </ItemArrastavel>
+              );
+            })}
+          </div>
+        ))
+      )}
+    </section>
+  );
+  const blocosVisiveis = visiveis(layout, "bloco");
+  const blocos = blocosVisiveis.length === 0 ? null : (
+    <section key="bloco" className={`grid grid-cols-1 ${COLUNAS_BLOCOS[blocosVisiveis.length] ?? "lg:grid-cols-3"} gap-4`}>
+      {blocosVisiveis.map((id) => <ItemArrastavel key={id} id={id} arraste={arraste}>{bloco(id)}</ItemArrastavel>)}
+    </section>
+  );
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
-      <CaixaIA />
-
-      <section className="flex flex-col gap-4 mt-7">
-        <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
-        {isLoading || !snap ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[0, 1].map((i) => <div key={i} className="min-h-[380px] animate-pulse" style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }} />)}
-          </div>
-        ) : (
-          <>
-            <GradeArrastavel
-              grupo="grandes"
-              itens={[snap.caixa, snap.arr]}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              render={(n) => <CardGrande n={n} curva={n.curva} carimbo={carimbo} />}
-            />
-            <GradeArrastavel
-              grupo="pequenos"
-              itens={snap.pequenos}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              render={(n) => <CardPequeno n={n} carimbo={carimbo} />}
-            />
-          </>
-        )}
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <PrecisaDeAcao />
-        <Fechamento hoje={snap?.hoje ?? input?.hoje ?? isoLocal(new Date())} />
-        <RelatoriosFixados />
-      </section>
+      <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} aoAjustar={ajustar} />
+      <div className="flex flex-col gap-8 mt-7">
+        {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : blocos))}
+        <Escondidos layout={layout} aoMostrar={() => prefs.salvarLayout({ ...layout, ocultos: [] })} />
+      </div>
     </div>
   );
 }

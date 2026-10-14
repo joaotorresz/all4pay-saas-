@@ -278,7 +278,16 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
         if (it.soon || !it.href) {
           return <span key={it.label} aria-disabled="true" className={cn(classe, "opacity-45 cursor-not-allowed")}>{rotulo}</span>;
         }
-        return <Link key={it.href} href={it.href} title={it.desc ?? it.label} aria-current={on ? "page" : undefined} className={classe}>{rotulo}</Link>;
+        // Com evento E endereço (a Quattro AI): o clique simples abre por cima da
+        // tela atual; Ctrl/⌘/Shift/meio seguem o endereço numa aba nova.
+        const porEvento = it.event
+          ? (e: React.MouseEvent) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              window.dispatchEvent(new Event(it.event!));
+            }
+          : undefined;
+        return <Link key={it.href} href={it.href} onClick={porEvento} title={it.desc ?? it.label} aria-current={on ? "page" : undefined} className={classe}>{rotulo}</Link>;
       })}
     </div>
   );

@@ -17,6 +17,7 @@ import { persistCompany, saveCompany, type StoredCompany } from "@/lib/company";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { setTipoConta } from "@/components/app/useTipoConta";
 import type { Estrutura, PerfilEmpresa } from "@/core/onboarding";
+import { DescricaoLivre } from "./DescricaoLivre";
 
 const PASSOS = ["Você", "Contas & renda", "Gastos do dia a dia", "Tudo pronto"];
 
@@ -36,6 +37,7 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
   const [carteiras, setCarteiras] = React.useState<string[]>(["Conta corrente"]);
   const [categorias, setCategorias] = React.useState<string[]>(["Moradia", "Mercado", "Transporte", "Lazer"]);
   const [orcamento, setOrcamento] = React.useState(0);
+  const [descricao, setDescricao] = React.useState("");
   const [aplicando, setAplicando] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
   // Ver a nota no wizard PJ: cadastro sem sessão não pode empurrar para "/".
@@ -50,6 +52,7 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
     const perfil: PerfilEmpresa = {
       setor: "Pessoal", modelo: "B2C", receitaPrincipal: "Salário", frequencia: "Mensal",
       funcionarios: "1-10", faturamento: "", bancos: carteiras, meiosRecebimento: ["PIX"], despesas: categorias,
+      ...(descricao.trim() ? { descricao: descricao.trim() } : {}),
     };
     const estrutura: Estrutura = {
       // ⚠️ O "Saldo atual" vai para a PRIMEIRA carteira escolhida — era
@@ -212,6 +215,7 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
                 <Chips options={CATEGORIAS} value={categorias} onChange={setCategorias} />
               </Campo>
               <CurrencyInput label="Quanto quer gastar por mês? (orçamento opcional)" value={orcamento} onValueChange={setOrcamento} />
+              <DescricaoLivre publico="pessoal" value={descricao} onChange={setDescricao} />
             </>
           )}
 
