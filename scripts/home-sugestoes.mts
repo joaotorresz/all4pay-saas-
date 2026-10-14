@@ -49,7 +49,7 @@ import {
 import { montarHomeSnapshot } from "@/core/home/snapshot";
 import {
   ITENS_HOME, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itensCitados,
-  layoutDasOrdensAntigas, moverItem, normalizarAcoes, normalizarLayout, ordemDasSecoes, respostaDoAjuste, visiveis,
+  layoutDasOrdensAntigas, moverItem, normalizarAcoes, normalizarLayout, ordemDasSecoes, itemAproximado, respostaDoAjuste, visiveis,
   CARDS_HOME, TETO_CARDS, cardsNaHome, cardsRecusados, catalogoPorTema, ehCard, pedeCatalogo, respostaDoCatalogo,
   type AcaoHome, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
@@ -408,7 +408,10 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("rota: exige sessão fora da demonstração", /if \(!isDemo\)[\s\S]*?sem_sessao/.test(ROTA_LAYOUT));
   ok("tela: a resposta da IA é validada de novo e cai nas regras", /normalizarAcoes\(j\.acoes\)/.test(TELA) && /return interpretarPedido\(texto, layout\)/.test(TELA));
   ok("tela: o arraste grava ao SOLTAR, não a cada passo", /const soltar = \(\) => \{\s*if \(rascunho\) salvar\(rascunho\)/.test(TELA) && /onDragEnd: soltar/.test(TELA));
-  ok("tela: o escondido tem caminho de volta", /Mostrar de novo/.test(TELA) && /ocultos: \[\]/.test(TELA));
+  // a linha "N itens escondidos · Mostrar de novo" SAIU da Home (decisão do dono, 14/10/2026): a volta é pela conversa
+  ok("tela: sem a linha de escondidos na Home", !/Mostrar de novo/.test(TELA) && !/data-home="escondidos"/.test(TELA));
+  const semBurn = aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn"));
+  ok("chat: o escondido volta pela conversa", semBurn.ocultos.includes("burn") && aplicarAcoes(semBurn, interpretarPedido("traz o burn de volta", semBurn)).ocultos.length === 0);
   ok("tela: \"Ajustar prioridades\" abre o chat no modo ajuste", /aoAjustar/.test(TELA) && /abrirChat\(\{\s*ajuste:/.test(TELA) && /O que você gostaria de ver primeiro quando abre o Quattro\?/.test(TELA));
   ok("tela: o desfazer volta o arranjo E as prioridades de antes", /desfazer: r\.mudou \? \(\) => prefs\.salvarAjuste\(antes, interessesAntes\)/.test(TELA));
 }
@@ -441,11 +444,13 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   // pôr e tirar
   const A = (t: string, l: LayoutHome = LAYOUT_PADRAO) => aplicarAcoes(l, interpretarPedido(t, l));
   const com = A("coloca a inadimplência e o EBITDA");
-  ok("pedido: \"coloca\" põe os cards na Home, no fim, na ordem pedida", cardsNaHome(com).join() === "card:inadimplencia_pct,card:ebitda-mes", cardsNaHome(com).join());
+  ok("pedido: \"coloca\" põe os cards na Home, na ordem pedida", cardsNaHome(com).join() === "card:inadimplencia_pct,card:ebitda-mes", cardsNaHome(com).join());
   ok("pedido: pôr card não esconde nem mexe nos fixos", com.ocultos.length === 0 && com.ordem.filter((x) => !ehCard(x)).join() === LAYOUT_PADRAO.ordem.join());
+  ok("pedido: card novo entra no TOPO (primeiro da página, dentro de \"Seu painel\")", com.ordem.slice(0, 2).join() === "card:inadimplencia_pct,card:ebitda-mes" && ordemDasSecoes(com)[0] === "painel", com.ordem.slice(0, 3).join());
+  ok("pedido: não existe seção de cards à parte", ordemDasSecoes(com).join() === "painel,bloco");
   ok("pedido: \"por favor\" não vira pedido de pôr", interpretarPedido("por favor").length === 0);
   const topo = A("bota os custos fixos em cima");
-  ok("pedido: card pedido \"em cima\" sobe para o topo e a seção dele vem primeiro", topo.ordem[0] === "card:custos-fixos-mensais" && ordemDasSecoes(topo)[0] === "card", topo.ordem.slice(0, 2).join());
+  ok("pedido: card pedido \"em cima\" sobe para o topo e a seção dele vem primeiro", topo.ordem[0] === "card:custos-fixos-mensais" && ordemDasSecoes(topo)[0] === "painel", topo.ordem.slice(0, 2).join());
   const sem = A("tira a inadimplência", com);
   ok("pedido: \"tira\" tira o card da Home (sai da ordem, não vai para escondidos)", cardsNaHome(sem).join() === "card:ebitda-mes" && sem.ocultos.length === 0);
   ok("pedido: \"só\" tira os cards não citados", cardsNaHome(A("só quero ver o caixa", com)).length === 0);
@@ -469,7 +474,7 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
 
   // o chat diz o que mudou
   const frasesCom = descreverMudancas(LAYOUT_PADRAO, com, interpretarPedido("coloca a inadimplência e o EBITDA")).join(" ");
-  ok("chat: diz os cards que entraram", /Na Home agora: Inadimplência/.test(frasesCom), frasesCom);
+  ok("chat: diz os cards que entraram", /Na Home agora, no topo de "Seu painel": Inadimplência/.test(frasesCom), frasesCom);
   ok("chat: diz os cards que saíram", /Fora da Home: Inadimplência/.test(descreverMudancas(com, sem, interpretarPedido("tira a inadimplência", com)).join(" ")));
 
   // descoberta
@@ -488,7 +493,15 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   const ROTA_C = readFileSync(new URL("../src/app/api/ai/home-layout/route.ts", import.meta.url), "utf8");
   ok("tela: o card é desenhado pelo MESMO catálogo do cockpit", /CATALOG_BY_ID\.get\(idDoCockpit/.test(TELA_C) && /useCockpitCtx\(\)/.test(TELA_C));
   ok("tela: cada card tem como sair da Home", /Tirar \$\{[^}]+\} da Home/.test(TELA_C));
-  ok("tela: o motor pesado só monta com card na Home", /cardsVisiveis\.length === 0 \? null/.test(TELA_C));
+  ok("tela: o motor pesado só monta com card na Home", /cardsVisiveis\.length > 0 && \(\s*<CardsDaBiblioteca/.test(TELA_C));
+  ok("tela: os cards moram dentro de \"Seu painel\", sem seção \"Seus cards\"", !/Seus cards/.test(TELA_C) && /Seu painel<\/h2>\s*\{cardsVisiveis\.length > 0/.test(TELA_C));
+
+  // pedidos com outras palavras (14/10/2026: "coloque as movimentacoes do meu mes" não era entendido)
+  ok("texto livre: \"coloque as movimentações do meu mês\" acha o card", interpretarPedido("coloque as movimentacoes do meu mes").some((a) => a.id === "card:movimentos-mes"), JSON.stringify(interpretarPedido("coloque as movimentacoes do meu mes")));
+  ok("texto livre: saudação não vira item", itemAproximado("bom dia") === null && interpretarPedido("bom dia, tudo bem?").length === 0);
+  ok("texto livre: palavra que serve a muitos itens não escolhe um ao acaso", itemAproximado("mês") === null && itemAproximado("coloca o do mês") === null);
+  ok("texto livre: o nome de um tema lista os cards dele", pedeCatalogo("Resumo executivo:") === "Resumo executivo" && pedeCatalogo("quero ver o resumo executivo") === "Resumo executivo");
+  ok("texto livre: tema com item citado é pedido, não catálogo", pedeCatalogo("coloca o EBITDA do resultado do mês") === undefined);
   ok("rota: o prompt explica os cards da biblioteca e o teto", /card:/.test(ROTA_C) && /TETO_CARDS/.test(ROTA_C));
 }
 

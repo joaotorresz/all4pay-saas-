@@ -368,7 +368,9 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   oferece Desfazer (arranjo E prioridades de antes). O texto também alimenta as
   prioridades das sugestões (`interessesDaDescricao`). ⚠️ "Fluxo de caixa" é o
   RELATÓRIO, não o caixa: o sinônimo mais longo casa primeiro. ⚠️ Item
-  escondido tem caminho de volta na própria Home ("Mostrar de novo"); item que
+  escondido volta PELA CONVERSA ("traz o ARR de volta", "volta ao padrão"): a
+  linha "N itens escondidos · Mostrar de novo" SAIU da Home a pedido do dono
+  (14/10/2026), e a guarda prova que ela não voltou; item que
   falta num arranjo guardado volta no lugar padrão DO SEU GRUPO, nunca some.
   A seção do primeiro item visível vem primeiro ("o que precisa de ação
   primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
@@ -376,8 +378,9 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
 - **BIBLIOTECA DE CARDS (14/10/2026, pedido do dono).** Os cards prontos do
   cockpit (`core/home/biblioteca`, 92 — os 4 que repetem o painel ficam de fora
   por `EQUIVALENTES_AO_PAINEL`) ficam OCULTOS e entram na Home pela conversa
-  ("coloca a inadimplência e o EBITDA", "bota os custos fixos em cima"), na
-  seção "Seus cards", com id `card:<id do cockpit>` no MESMO arranjo. Saem pelo
+  ("coloca a inadimplência e o EBITDA", "bota os custos fixos em cima")
+  PRIMEIRO na página, DENTRO de "Seu painel", acima dos números fixos — não há
+  seção "Seus cards" (decisão do dono, 14/10/2026) —, com id `card:<id do cockpit>` no MESMO arranjo. Saem pelo
   pedido ("tira…", "só…", "volta ao padrão") ou pelo X do card — card que sai
   deixa a ordem, nunca vai para `ocultos`. "O que mais dá para colocar?" (ou
   "quais de cobrança?") lista por tema o que ainda não está na Home, sem mudar
@@ -387,6 +390,15 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   (o mais longo vence e o empate fica com o fixo: "contas bancárias" saiu do
   caixa para o card alcançar) — a guarda também prova que TODO card do cockpit
   tem casa e que todo card é alcançável pelo próprio sinônimo.
+  ⚠️ **Texto livre** (14/10/2026: "coloque as movimentações do meu mês" não
+  era entendido): sem sinônimo exato, `itemAproximado` casa por RAIZ (5
+  letras, sem palavras vazias nem verbos de pedido) e só devolve item quando
+  TODAS as raízes do pedido são dele e o candidato é único — saudação e
+  palavra solta ("mês") não escolhem item ao acaso. O NOME de um tema
+  ("Resumo executivo") lista os cards dele. ⚠️ Em produção o chat (Home e
+  ajuste) vem respondendo pelas REGRAS, não pelo Claude (14/10/2026: o
+  `ai_actions` só tem a resposta determinística) — conferir
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` na Vercel por `GET /api/inbox/ocr`.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
