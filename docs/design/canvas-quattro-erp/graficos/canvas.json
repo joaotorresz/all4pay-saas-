@@ -2,89 +2,47 @@
   "v": 3,
   "attachments": {},
   "boards": {
-    "Barras.dc.html": {
-      "h": 760,
-      "title": "Barras",
-      "w": 1280,
-      "x": 0,
-      "y": 840
-    },
     "Biblioteca.dc.html": {
       "h": 1932,
       "title": "Biblioteca de gráficos",
       "w": 1280,
       "x": 0,
-      "y": 4900
-    },
-    "Dica.dc.html": {
-      "h": 1260,
-      "title": "Dica ao passar o mouse",
-      "w": 1280,
-      "x": 2720,
       "y": 0
-    },
-    "Linha.dc.html": {
-      "h": 680,
-      "title": "Linha e área",
-      "w": 1280,
-      "x": 1360,
-      "y": 0
-    },
-    "Main.dc.html": {
-      "h": 720,
-      "title": "Tema dos gráficos",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Pizza.dc.html": {
-      "h": 640,
-      "title": "Pizza e rosca",
-      "w": 1280,
-      "x": 1360,
-      "y": 840
     },
     "Tabela.dc.html": {
       "h": 760,
       "title": "Tabela",
       "w": 1280,
-      "x": 1360,
-      "y": 1680
+      "x": 0,
+      "y": 2192
     },
     "TabelaCadastro.dc.html": {
       "h": 760,
       "title": "Cadastro (clientes)",
       "w": 1280,
-      "x": 0,
-      "y": 3800
+      "x": 1360,
+      "y": 3132
     },
     "TabelaCelular.dc.html": {
       "h": 844,
       "title": "Tabela no celular",
       "w": 390,
-      "x": 1360,
-      "y": 3800
+      "x": 2720,
+      "y": 2192
     },
     "TabelaDRE.dc.html": {
       "h": 820,
       "title": "DRE em cascata",
       "w": 1280,
-      "x": 0,
-      "y": 2860
+      "x": 1360,
+      "y": 2192
     },
     "TabelaExtrato.dc.html": {
       "h": 820,
       "title": "Extrato por dia",
       "w": 1280,
-      "x": 1360,
-      "y": 2860
-    },
-    "Velas.dc.html": {
-      "h": 680,
-      "title": "Velas (entradas × saídas)",
-      "w": 1280,
       "x": 0,
-      "y": 1680
+      "y": 3132
     }
   },
   "createdOnFiles": {
@@ -96,21 +54,13 @@
     "view": "canvas"
   },
   "notes": {
-    "biblioteca": {
-      "kind": "title1",
-      "maxW": 2640,
-      "text": "Biblioteca de gráficos",
-      "w": 240,
-      "x": 0,
-      "y": 4764
-    },
     "tabelas": {
       "kind": "title1",
       "maxW": 2640,
       "text": "Tabelas do sistema",
       "w": 240,
       "x": 0,
-      "y": 2560
+      "y": 2056
     },
     "titulo": {
       "kind": "title1",
@@ -122,18 +72,12 @@
     }
   },
   "order": [
-    "Main.dc.html",
-    "Linha.dc.html",
-    "Barras.dc.html",
-    "Pizza.dc.html",
-    "Velas.dc.html",
+    "Biblioteca.dc.html",
     "Tabela.dc.html",
     "TabelaDRE.dc.html",
     "TabelaExtrato.dc.html",
     "TabelaCadastro.dc.html",
-    "TabelaCelular.dc.html",
-    "Dica.dc.html",
-    "Biblioteca.dc.html"
+    "TabelaCelular.dc.html"
   ],
   "pages": [],
   "title": "Quattro ERP · Gráficos e tabelas"
