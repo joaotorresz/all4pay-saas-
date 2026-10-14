@@ -344,13 +344,35 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
-  ou setas do teclado; só a alça inicia, porque o card é link), por grupo,
-  guardado em `a4p_home_painel_ordem` (preferência local); a busca saiu da
+  ou setas do teclado; só a alça inicia, porque o card é link), dentro do
+  grupo, guardados no ARRANJO da pessoa (bullet abaixo; a ordem antiga de
+  `a4p_home_painel_ordem` é lida uma vez e migrada); a busca saiu da
   barra de cima E do ⋮ (o ⌘K continua abrindo a paleta); a barra de cima e o
   menu lateral não têm borda. Os avisos do topo (amostra e assinatura)
   ganharam "x" que fecha SÓ NESTA SESSÃO (`FecharAviso.tsx`, sessionStorage):
   voltam na próxima enquanto a causa existir — a guarda `amostra:` foi
   invertida para provar isso.
+
+- **AJUSTAR PRIORIDADES PELA CONVERSA (14/10/2026, pedido do dono).** A Home
+  é montada por um CATÁLOGO de itens (`core/home/itens`: os seis números do
+  painel e os três blocos) e pelo ARRANJO de cada pessoa (ordem + escondidos),
+  que mora em `a4p_home_preferencias` (`layout`, servidor vence; cópia em
+  `a4p_home_layout`) e sobe na hora. "Ajustar prioridades" abre o chat de tela
+  cheia no modo AJUSTE (`ChatTelaCheia ajuste`, sem histórico) com "O que você
+  gostaria de ver primeiro quando abre o Quattro?"; o que a pessoa DIGITA vira
+  ações (primeiro · último · mostrar · esconder · restaurar) por
+  `POST /api/ai/home-layout` (pedido saneado por `descricaoParaIA`, tratado
+  como informação; ações validadas na rota E no cliente por `normalizarAcoes`)
+  ou, sem chave/sessão/erro, pelas regras de `interpretarPedido`. O chat só
+  anuncia o que DE FATO mudou (`descreverMudancas`/`respostaDoAjuste`) e
+  oferece Desfazer (arranjo E prioridades de antes). O texto também alimenta as
+  prioridades das sugestões (`interessesDaDescricao`). ⚠️ "Fluxo de caixa" é o
+  RELATÓRIO, não o caixa: o sinônimo mais longo casa primeiro. ⚠️ Item
+  escondido tem caminho de volta na própria Home ("Mostrar de novo"); item que
+  falta num arranjo guardado volta no lugar padrão DO SEU GRUPO, nunca some.
+  A seção do primeiro item visível vem primeiro ("o que precisa de ação
+  primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
+  `npm run e2e -- home-ajuste`.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 

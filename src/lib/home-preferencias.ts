@@ -15,6 +15,10 @@
  * (leitor, contador — `org_state` exige o papel de lançar) e o rastro que a
  * primeira sincronização sobe.
  *
+ * O ARRANJO da Home (ordem e itens escondidos, `core/home/itens`) também mora
+ * aqui (`layout`, cópia em `a4p_home_layout`) e sobe na hora: é um ato da
+ * pessoa, não um clique contado.
+ *
  * Etapa 5: os DIAS em que cada sugestão apareceu sem clique também moram
  * aqui (`exibidas`, cópia no dispositivo em `a4p_home_exibidas`). Sobem
  * adiados como os cliques — no máximo uma vez por dia mudam.
@@ -36,6 +40,7 @@ const KEY = CHAVES_ORG.homePreferencias;
 const LOCAL_INTERESSES = "a4p_home_interesses";
 const LOCAL_CLIQUES = "a4p_home_cliques";
 const LOCAL_EXIBIDAS = "a4p_home_exibidas";
+const LOCAL_LAYOUT = "a4p_home_layout";
 const ADIAR_MS = 30_000;
 
 /** O servidor respondeu nesta sessão? Em demonstração não há servidor: o "mapa" é só o cache local. */
@@ -49,15 +54,16 @@ function doDispositivo(): PreferenciasHome | null {
   const interesses = lerPreferencia<unknown>(LOCAL_INTERESSES, null);
   const cliques = lerPreferencia<unknown>(LOCAL_CLIQUES, null);
   const exibidas = lerPreferencia<unknown>(LOCAL_EXIBIDAS, null);
-  if (interesses === null && cliques === null && exibidas === null) return null;
-  return normalizarPreferencias({ interesses, cliques, exibidas });
+  const layout = lerPreferencia<unknown>(LOCAL_LAYOUT, null);
+  if (interesses === null && cliques === null && exibidas === null && layout === null) return null;
+  return normalizarPreferencias({ interesses, cliques, exibidas, layout });
 }
 
 /** As preferências de quem está usando: a da sessão, senão servidor + dispositivo. */
 export function lerPreferenciasHome(): PreferenciasHome {
   if (daSessao) return daSessao;
   const servidor = preferenciasDoUsuario(lerOrg<unknown>(KEY, {}), usuario);
-  return mesclarComDispositivo(servidor, doDispositivo()) ?? { interesses: null, cliques: {}, exibidas: {} };
+  return mesclarComDispositivo(servidor, doDispositivo()) ?? { interesses: null, cliques: {}, exibidas: {}, layout: null };
 }
 
 function enviar(): void {
@@ -75,6 +81,7 @@ export function gravarPreferenciasHome(p: PreferenciasHome, opcoes: { adiar?: bo
   gravarPreferencia(LOCAL_INTERESSES, p.interesses);
   gravarPreferencia(LOCAL_CLIQUES, p.cliques);
   gravarPreferencia(LOCAL_EXIBIDAS, p.exibidas ?? {});
+  gravarPreferencia(LOCAL_LAYOUT, p.layout ?? null);
   if (opcoes.adiar) {
     if (!adiado) adiado = setTimeout(enviar, ADIAR_MS);
     return;

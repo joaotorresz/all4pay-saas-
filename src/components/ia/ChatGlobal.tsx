@@ -16,7 +16,7 @@
  * evento sem ninguém ouvindo — e o pedido sumiria calado.
  */
 import * as React from "react";
-import { ChatTelaCheia, type SugestaoChat } from "./ChatTelaCheia";
+import { ChatTelaCheia, type AjusteChat, type SugestaoChat } from "./ChatTelaCheia";
 
 export const EVENTO_CHAT = "a4p:open-ia";
 
@@ -27,6 +27,8 @@ export interface AbrirChat {
   sugestoes?: SugestaoChat[];
   /** Conta o clique numa sugestão (a Home soma o peso do chip). */
   aoClicarSugestao?: (id: string) => void;
+  /** "Ajustar prioridades" da Home: a conversa arruma a Home em vez de responder números. */
+  ajuste?: AjusteChat;
 }
 
 let ouvindo = false;
@@ -57,6 +59,7 @@ export function ChatGlobal() {
       pergunta={aberto.pergunta}
       sugestoes={aberto.sugestoes}
       aoClicarSugestao={aberto.aoClicarSugestao}
+      ajuste={aberto.ajuste}
       aoFechar={() => setAberto(null)}
     />
   );
