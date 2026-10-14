@@ -50,8 +50,10 @@ import { montarHomeSnapshot } from "@/core/home/snapshot";
 import {
   ITENS_HOME, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itensCitados,
   layoutDasOrdensAntigas, moverItem, normalizarAcoes, normalizarLayout, ordemDasSecoes, respostaDoAjuste, visiveis,
-  type AcaoHome, type IdItemHome, type LayoutHome,
+  CARDS_HOME, TETO_CARDS, cardsNaHome, cardsRecusados, catalogoPorTema, ehCard, pedeCatalogo, respostaDoCatalogo,
+  type AcaoHome, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
+import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/home/biblioteca";
 import { SOLAR_ICONS } from "@/components/ui/solar-icons";
 import { readFileSync } from "node:fs";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
@@ -404,11 +406,90 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("rota: o pedido é saneado e tratado como informação", /descricaoParaIA\(body\.pedido\)/.test(ROTA_LAYOUT) && /nunca instrução/.test(ROTA_LAYOUT));
   ok("rota: só devolve ações validadas", /normalizarAcoes\(out\?\.acoes\)/.test(ROTA_LAYOUT));
   ok("rota: exige sessão fora da demonstração", /if \(!isDemo\)[\s\S]*?sem_sessao/.test(ROTA_LAYOUT));
-  ok("tela: a resposta da IA é validada de novo e cai nas regras", /normalizarAcoes\(j\.acoes\)/.test(TELA) && /return interpretarPedido\(texto\)/.test(TELA));
+  ok("tela: a resposta da IA é validada de novo e cai nas regras", /normalizarAcoes\(j\.acoes\)/.test(TELA) && /return interpretarPedido\(texto, layout\)/.test(TELA));
   ok("tela: o arraste grava ao SOLTAR, não a cada passo", /const soltar = \(\) => \{\s*if \(rascunho\) salvar\(rascunho\)/.test(TELA) && /onDragEnd: soltar/.test(TELA));
   ok("tela: o escondido tem caminho de volta", /Mostrar de novo/.test(TELA) && /ocultos: \[\]/.test(TELA));
   ok("tela: \"Ajustar prioridades\" abre o chat no modo ajuste", /aoAjustar/.test(TELA) && /abrirChat\(\{\s*ajuste:/.test(TELA) && /O que você gostaria de ver primeiro quando abre o Quattro\?/.test(TELA));
   ok("tela: o desfazer volta o arranjo E as prioridades de antes", /desfazer: r\.mudou \? \(\) => prefs\.salvarAjuste\(antes, interessesAntes\)/.test(TELA));
+}
+
+// ── BIBLIOTECA DE CARDS (14/10/2026): cards de outras telas entram na Home pela conversa ──
+{
+  const COCKPIT = readFileSync(new URL("../src/components/visao-geral/cockpit.tsx", import.meta.url), "utf8");
+  const doCockpit = [...COCKPIT.matchAll(/^\s+id: "([^"]+)", label:/gm)].map((m) => m[1]);
+  const daBiblioteca = CARDS_BIBLIOTECA.map((c) => c.id);
+  const equivalentes = Object.keys(EQUIVALENTES_AO_PAINEL);
+  ok("biblioteca: a leitura do cockpit achou os cards", doCockpit.length >= 90, String(doCockpit.length));
+  const semCasa = doCockpit.filter((id) => !daBiblioteca.includes(id) && !equivalentes.includes(id));
+  ok("biblioteca: todo card do cockpit está na biblioteca ou é equivalente ao painel", semCasa.length === 0, semCasa.join(","));
+  const orfaos = daBiblioteca.filter((id) => !doCockpit.includes(id));
+  ok("biblioteca: nenhum card da biblioteca sem desenho no cockpit", orfaos.length === 0, orfaos.join(","));
+  ok("biblioteca: o equivalente ao painel não entra duas vezes", equivalentes.every((id) => !daBiblioteca.includes(id)));
+  ok("biblioteca: ids sem repetição", new Set(daBiblioteca).size === daBiblioteca.length);
+  ok("biblioteca: todo card tem nome, tema conhecido, descrição e sinônimo",
+    CARDS_BIBLIOTECA.every((c) => c.nome && (TEMAS_CARD as readonly string[]).includes(c.tema) && c.descricao && c.sinonimos.length > 0),
+    CARDS_BIBLIOTECA.filter((c) => !c.sinonimos.length).map((c) => c.id).join(","));
+  // Sinônimo em dois itens: o primeiro vence sempre e o segundo fica inalcançável pela conversa.
+  const donos = new Map<string, string[]>();
+  for (const i of [...ITENS_HOME, ...CARDS_HOME]) for (const s of i.sinonimos) donos.set(s, [...(donos.get(s) ?? []), i.id]);
+  const repetidos = [...donos].filter(([, ids]) => ids.length > 1).map(([s, ids]) => `${s}→${ids.join("+")}`);
+  ok("biblioteca: nenhum sinônimo aponta para dois itens", repetidos.length === 0, repetidos.join(" | "));
+  // Todo card precisa ser alcançável: citar o primeiro sinônimo dele devolve ele.
+  const inalcancaveis = CARDS_HOME.filter((c) => !itensCitados(`coloca ${c.sinonimos[0]}`).includes(c.id)).map((c) => c.id);
+  ok("biblioteca: todo card é alcançável pelo próprio sinônimo", inalcancaveis.length === 0, inalcancaveis.join(","));
+
+  // pôr e tirar
+  const A = (t: string, l: LayoutHome = LAYOUT_PADRAO) => aplicarAcoes(l, interpretarPedido(t, l));
+  const com = A("coloca a inadimplência e o EBITDA");
+  ok("pedido: \"coloca\" põe os cards na Home, no fim, na ordem pedida", cardsNaHome(com).join() === "card:inadimplencia_pct,card:ebitda-mes", cardsNaHome(com).join());
+  ok("pedido: pôr card não esconde nem mexe nos fixos", com.ocultos.length === 0 && com.ordem.filter((x) => !ehCard(x)).join() === LAYOUT_PADRAO.ordem.join());
+  ok("pedido: \"por favor\" não vira pedido de pôr", interpretarPedido("por favor").length === 0);
+  const topo = A("bota os custos fixos em cima");
+  ok("pedido: card pedido \"em cima\" sobe para o topo e a seção dele vem primeiro", topo.ordem[0] === "card:custos-fixos-mensais" && ordemDasSecoes(topo)[0] === "card", topo.ordem.slice(0, 2).join());
+  const sem = A("tira a inadimplência", com);
+  ok("pedido: \"tira\" tira o card da Home (sai da ordem, não vai para escondidos)", cardsNaHome(sem).join() === "card:ebitda-mes" && sem.ocultos.length === 0);
+  ok("pedido: \"só\" tira os cards não citados", cardsNaHome(A("só quero ver o caixa", com)).length === 0);
+  ok("pedido: \"volta ao padrão\" tira todos os cards", cardsNaHome(A("volta ao padrão", com)).length === 0 && A("volta ao padrão", com).ordem.join() === LAYOUT_PADRAO.ordem.join());
+  ok("pedido: o fixo vence o card de mesmo assunto (\"tira o burn\" é o do painel)", interpretarPedido("tira o burn").some((a) => a.id === "burn"));
+  ok("pedido: \"contas bancárias\" é o card, não o caixa", itensCitados("contas bancárias").join() === "card:contas-bancarias", itensCitados("contas bancárias").join());
+
+  // teto
+  const muitos = CARDS_HOME.slice(0, TETO_CARDS + 3).map((c) => ({ tipo: "mostrar" as const, id: c.id }));
+  const cheio = aplicarAcoes(LAYOUT_PADRAO, muitos);
+  ok("teto: a Home não passa de " + TETO_CARDS + " cards", cardsNaHome(cheio).length === TETO_CARDS, String(cardsNaHome(cheio).length));
+  ok("teto: os que não couberam são ditos", cardsRecusados(cheio, muitos).length === 3);
+  ok("teto: o arranjo guardado também respeita o teto", cardsNaHome(normalizarLayout({ ordem: [...LAYOUT_PADRAO.ordem, ...CARDS_HOME.map((c) => c.id)], ocultos: [] })!).length === TETO_CARDS);
+  ok("teto: a resposta diz o que não coube e por quê", new RegExp(`já tem ${TETO_CARDS} cards`).test(respostaDoAjuste(muitos, descreverMudancas(LAYOUT_PADRAO, cheio, muitos), cardsRecusados(cheio, muitos)).fecho));
+
+  // arranjo guardado
+  ok("arranjo: card desconhecido é descartado, o conhecido fica", normalizarLayout({ ordem: ["card:nao-existe", "card:ebitda-mes", ...LAYOUT_PADRAO.ordem], ocultos: [] })!.ordem.join() === ["card:ebitda-mes", ...LAYOUT_PADRAO.ordem].join());
+  ok("arranjo: card não vai para escondidos", normalizarLayout({ ordem: LAYOUT_PADRAO.ordem, ocultos: ["card:ebitda-mes"] })!.ocultos.length === 0);
+  ok("arranjo: card repetido entra uma vez", cardsNaHome(normalizarLayout({ ordem: [...LAYOUT_PADRAO.ordem, "card:ebitda-mes", "card:ebitda-mes"], ocultos: [] })!).length === 1);
+  ok("ações: id de card inventado não passa", normalizarAcoes([{ tipo: "mostrar", id: "card:inventado" }, { tipo: "mostrar", id: "card:ebitda-mes" }]).map((a) => a.id).join() === "card:ebitda-mes");
+
+  // o chat diz o que mudou
+  const frasesCom = descreverMudancas(LAYOUT_PADRAO, com, interpretarPedido("coloca a inadimplência e o EBITDA")).join(" ");
+  ok("chat: diz os cards que entraram", /Na Home agora: Inadimplência/.test(frasesCom), frasesCom);
+  ok("chat: diz os cards que saíram", /Fora da Home: Inadimplência/.test(descreverMudancas(com, sem, interpretarPedido("tira a inadimplência", com)).join(" ")));
+
+  // descoberta
+  ok("catálogo: \"o que mais dá para colocar?\" é pergunta de catálogo (todos os temas)", pedeCatalogo("o que mais dá para colocar?") === null);
+  ok("catálogo: pergunta com tema filtra o tema", pedeCatalogo("que cards de cobrança existem?") === "Cobrança", String(pedeCatalogo("que cards de cobrança existem?")));
+  ok("catálogo: pedido de pôr não é pergunta de catálogo", pedeCatalogo("coloca o EBITDA") === undefined && pedeCatalogo("bom dia") === undefined);
+  const lista = catalogoPorTema(LAYOUT_PADRAO, null);
+  ok("catálogo: lista um tema por linha, todos os temas", lista.length === TEMAS_CARD.length, String(lista.length));
+  const nomesDe = (l: string[]) => l.flatMap((x) => x.replace(/^[^:]+: /, "").replace(/\.$/, "").split(", "));
+  ok("catálogo: quem já está na Home não é oferecido", !nomesDe(catalogoPorTema(com, "Cobrança")).includes("Inadimplência") && nomesDe(catalogoPorTema(LAYOUT_PADRAO, "Cobrança")).includes("Inadimplência"), catalogoPorTema(com, "Cobrança").join(" | "));
+  const rc = respostaDoCatalogo(LAYOUT_PADRAO, null);
+  ok("catálogo: a resposta não muda a Home nem oferece desfazer", rc.mudou === false && rc.mudancas.length > 0);
+
+  // a tela e a rota
+  const TELA_C = readFileSync(new URL("../src/components/visao-geral/HomeSnapshot.tsx", import.meta.url), "utf8");
+  const ROTA_C = readFileSync(new URL("../src/app/api/ai/home-layout/route.ts", import.meta.url), "utf8");
+  ok("tela: o card é desenhado pelo MESMO catálogo do cockpit", /CATALOG_BY_ID\.get\(idDoCockpit/.test(TELA_C) && /useCockpitCtx\(\)/.test(TELA_C));
+  ok("tela: cada card tem como sair da Home", /Tirar \$\{[^}]+\} da Home/.test(TELA_C));
+  ok("tela: o motor pesado só monta com card na Home", /cardsVisiveis\.length === 0 \? null/.test(TELA_C));
+  ok("rota: o prompt explica os cards da biblioteca e o teto", /card:/.test(ROTA_C) && /TETO_CARDS/.test(ROTA_C));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);

@@ -25,10 +25,12 @@ import {
 } from "@/lib/home-preferencias";
 import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
 import {
-  EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itemHome,
-  layoutDasOrdensAntigas, mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes, respostaDoAjuste, visiveis,
-  type AcaoHome, type IdItemHome, type LayoutHome,
+  EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, cardsRecusados, descreverMudancas, faixasDoPainel, idDoCockpit,
+  interpretarPedido, itemHome, layoutDasOrdensAntigas, mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes,
+  pedeCatalogo, respostaDoAjuste, respostaDoCatalogo, visiveis,
+  type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
+import { CATALOG_BY_ID, useCockpitCtx } from "./cockpit";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import type { RespostaChatAjuste, SugestaoChat } from "@/components/ia/ChatTelaCheia";
@@ -380,15 +382,15 @@ const CHAVE_ORDEM_ANTIGA = "a4p_home_painel_ordem";
  */
 function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
   const [rascunho, setRascunho] = React.useState<LayoutHome | null>(null);
-  const [arrastando, setArrastando] = React.useState<IdItemHome | null>(null);
-  const [armado, setArmado] = React.useState<IdItemHome | null>(null);
+  const [arrastando, setArrastando] = React.useState<IdHome | null>(null);
+  const [armado, setArmado] = React.useState<IdHome | null>(null);
   const atual = rascunho ?? layout;
-  const mesmoGrupo = (a: IdItemHome, b: IdItemHome) => itemHome(a).grupo === itemHome(b).grupo;
+  const mesmoGrupo = (a: IdHome, b: IdHome) => itemHome(a).grupo === itemHome(b).grupo;
   const soltar = () => {
     if (rascunho) salvar(rascunho);
     setRascunho(null); setArrastando(null); setArmado(null);
   };
-  const props = (id: IdItemHome) => ({
+  const props = (id: IdHome) => ({
     draggable: armado === id,
     style: { opacity: arrastando === id ? 0.45 : 1 },
     onDragStart: (e: React.DragEvent) => { setArrastando(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); },
@@ -400,7 +402,7 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
     onDrop: (e: React.DragEvent) => e.preventDefault(),
     onDragEnd: soltar,
   });
-  const alca = (id: IdItemHome) => ({
+  const alca = (id: IdHome) => ({
     onArmar: () => setArmado(id),
     onDesarmar: () => { if (!arrastando) setArmado(null); },
     onMover: (passo: -1 | 1) => {
@@ -412,16 +414,23 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
   return { layout: atual, props, alca };
 }
 
-function ItemArrastavel({ id, arraste, children, className = "" }: { id: IdItemHome; arraste: ReturnType<typeof useArraste>; children: React.ReactNode; className?: string }) {
+function ItemArrastavel({ id, arraste, children, className = "", lugarDaAlca = "right-4 top-4" }: {
+  id: IdHome;
+  arraste: ReturnType<typeof useArraste>;
+  children: React.ReactNode;
+  className?: string;
+  /** Onde a alça fica: o card da biblioteca já tem o "i" no canto. */
+  lugarDaAlca?: string;
+}) {
   return (
     <div className={`relative transition-opacity ${className}`} data-item-home={id} {...arraste.props(id)}>
       {children}
-      <Alca {...arraste.alca(id)} />
+      <Alca {...arraste.alca(id)} lugar={lugarDaAlca} />
     </div>
   );
 }
 
-function Alca({ onArmar, onDesarmar, onMover }: { onArmar: () => void; onDesarmar: () => void; onMover: (passo: -1 | 1) => void }) {
+function Alca({ onArmar, onDesarmar, onMover, lugar }: { onArmar: () => void; onDesarmar: () => void; onMover: (passo: -1 | 1) => void; lugar: string }) {
   return (
     <button
       type="button"
@@ -433,7 +442,7 @@ function Alca({ onArmar, onDesarmar, onMover }: { onArmar: () => void; onDesarma
         if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); onMover(-1); }
         if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); onMover(1); }
       }}
-      className="absolute right-4 top-4 w-6 h-8 flex items-center justify-center text-muted cursor-grab active:cursor-grabbing"
+      className={`absolute ${lugar} w-6 h-8 flex items-center justify-center text-muted cursor-grab active:cursor-grabbing`}
     >
       <Icon name="grip-vertical" size={18} strokeWidth={1.5} />
     </button>
@@ -696,7 +705,7 @@ async function acoesDoPedido(texto: string, layout: LayoutHome): Promise<AcaoHom
   } catch (e) {
     reportar("home.ajuste-ia", e, "o pedido foi lido pelas regras de texto, sem a Quattro AI", true);
   }
-  return interpretarPedido(texto);
+  return interpretarPedido(texto, layout);
 }
 
 /**
@@ -712,6 +721,9 @@ function useAjusteDaHome(prefs: PreferenciasIA, tipo: "empresa" | "pessoal") {
       exemplos: EXEMPLOS_DE_PEDIDO,
       responder: async (texto: string): Promise<RespostaChatAjuste> => {
         const antes = prefs.lerLayout();
+        // "O que mais dá para colocar?" é pergunta, não pedido: lista e não mexe na tela.
+        const tema = pedeCatalogo(texto);
+        if (tema !== undefined) return respostaDoCatalogo(antes, tema);
         const interessesAntes = lerPreferenciasHome().interesses;
         const acoes = await acoesDoPedido(texto, antes);
         const depois = aplicarAcoes(antes, acoes);
@@ -721,7 +733,7 @@ function useAjusteDaHome(prefs: PreferenciasIA, tipo: "empresa" | "pessoal") {
           ? [...(interessesAntes ?? []), ...ditos.filter((d) => !(interessesAntes ?? []).includes(d))]
           : interessesAntes;
         if (!mesmoLayout(antes, depois) || interesses !== interessesAntes) prefs.salvarAjuste(depois, interesses);
-        const r = respostaDoAjuste(acoes, mudancas);
+        const r = respostaDoAjuste(acoes, mudancas, cardsRecusados(depois, acoes));
         return { ...r, desfazer: r.mudou ? () => prefs.salvarAjuste(antes, interessesAntes) : undefined };
       },
     },
@@ -731,6 +743,44 @@ function useAjusteDaHome(prefs: PreferenciasIA, tipo: "empresa" | "pessoal") {
 /* ------------------------------ a tela ------------------------------ */
 
 const COLUNAS_BLOCOS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3" };
+
+/**
+ * Os cards da BIBLIOTECA que a pessoa pôs na Home pela conversa. O desenho é o
+ * do catálogo do cockpit (`CATALOG_BY_ID`), pelo mesmo id: um card da Home e o
+ * da tela de origem nunca divergem. ⚠️ Montado SÓ quando há card — os motores
+ * que eles leem (`useCockpitCtx`) não rodam para quem não pôs nenhum.
+ */
+function CardsDaBiblioteca({ ids, arraste, aoTirar }: {
+  ids: IdCard[];
+  arraste: ReturnType<typeof useArraste>;
+  aoTirar: (id: IdCard) => void;
+}) {
+  const ctx = useCockpitCtx();
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {ids.map((id) => {
+        const w = CATALOG_BY_ID.get(idDoCockpit(id));
+        if (!w) return null;
+        const nome = itemHome(id).nome;
+        return (
+          // O "i" do card mora no canto (top-3 right-3): alça e X ficam à esquerda dele.
+          <ItemArrastavel key={id} id={id} arraste={arraste} lugarDaAlca="right-9 top-2">
+            {w.render(ctx)}
+            <button
+              type="button"
+              onClick={() => aoTirar(id)}
+              title={`Tirar ${nome} da Home`}
+              aria-label={`Tirar ${nome} da Home`}
+              className="absolute right-16 top-2 w-6 h-8 flex items-center justify-center text-muted hover:text-ink"
+            >
+              <Icon name="x" size={16} strokeWidth={1.5} />
+            </button>
+          </ItemArrastavel>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * O que a pessoa escondeu não some sem rastro: uma linha discreta diz quantos
@@ -822,7 +872,14 @@ export function HomeSnapshot() {
   const blocosVisiveis = visiveis(layout, "bloco");
   const blocos = blocosVisiveis.length === 0 ? null : (
     <section key="bloco" className={`grid grid-cols-1 ${COLUNAS_BLOCOS[blocosVisiveis.length] ?? "lg:grid-cols-3"} gap-4`}>
-      {blocosVisiveis.map((id) => <ItemArrastavel key={id} id={id} arraste={arraste}>{bloco(id)}</ItemArrastavel>)}
+      {blocosVisiveis.map((id) => <ItemArrastavel key={id} id={id} arraste={arraste}>{bloco(id as IdItemHome)}</ItemArrastavel>)}
+    </section>
+  );
+  const cardsVisiveis = visiveis(layout, "card") as IdCard[];
+  const cards = cardsVisiveis.length === 0 ? null : (
+    <section key="card" className="flex flex-col gap-4" data-home="cards">
+      <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seus cards</h2>
+      <CardsDaBiblioteca ids={cardsVisiveis} arraste={arraste} aoTirar={(id) => prefs.salvarLayout(aplicarAcoes(layout, [{ tipo: "esconder", id }]))} />
     </section>
   );
 
@@ -830,7 +887,7 @@ export function HomeSnapshot() {
     <div className="a4p-home flex flex-col gap-8 pt-7">
       <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} aoAjustar={ajustar} />
       <div className="flex flex-col gap-8 mt-7">
-        {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : blocos))}
+        {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : g === "bloco" ? blocos : cards))}
         <Escondidos layout={layout} aoMostrar={() => prefs.salvarLayout({ ...layout, ocultos: [] })} />
       </div>
     </div>

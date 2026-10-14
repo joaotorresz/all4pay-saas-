@@ -4,7 +4,9 @@
  * "Ajustar prioridades" abre o chat com a pergunta "O que você gostaria de ver
  * primeiro quando abre o Quattro?". O que a pessoa DIGITA arruma os itens da
  * Home (sobe, esconde, volta ao padrão), o chat diz o que mudou e oferece
- * desfazer. O arranjo fica guardado: recarregar a página não o perde.
+ * desfazer. O arranjo fica guardado: recarregar a página não o perde. Cards de
+ * outras telas (a biblioteca) entram pela conversa, saem pelo X, e "o que mais
+ * dá para colocar?" lista o que falta.
  *
  * A ordem é conferida no DOM (`data-item-home`), não no texto do chat: o chat
  * dizer "pronto" e a Home não mudar é exatamente o defeito que importa.
@@ -94,7 +96,28 @@ export default async function homeAjuste(navegador) {
   await u.page.waitForTimeout(300);
   v.ok((await ordem()).length === 9 && (await aviso.count()) === 0, "\"Mostrar de novo\" traz todos de volta");
 
-  // 8) "volta ao padrão"
+  // 8) cards de outras telas entram pela conversa, saem pelo X, e o chat diz o que dá para pôr
+  await abrir();
+  const r4 = await pedir("coloca a inadimplência e o EBITDA");
+  v.ok(/Na Home agora: Inadimplência, EBITDA/.test(r4), "o chat diz os cards que entraram", r4.slice(0, 160));
+  await verHome();
+  const secao = u.page.locator('[data-home="cards"]');
+  await secao.waitFor({ timeout: 15000 });
+  const cards = await secao.locator("[data-item-home]").evaluateAll((els) => els.map((e) => e.getAttribute("data-item-home")));
+  v.ok(cards.join(",") === "card:inadimplencia_pct,card:ebitda-mes", "a seção \"Seus cards\" mostra os dois, na ordem pedida", cards.join(","));
+  const texto = (await secao.innerText()).replace(/\s+/g, " ");
+  v.ok(/Seus cards/.test(texto) && /R\$|%|—/.test(texto), "os cards chegam desenhados, com número", texto.slice(0, 160));
+  await secao.getByRole("button", { name: "Tirar Inadimplência da Home" }).click();
+  await u.page.waitForTimeout(300);
+  v.ok((await ordem()).filter((x) => x.startsWith("card:")).join(",") === "card:ebitda-mes", "o X tira o card da Home", (await ordem()).join(","));
+  await abrir();
+  const r5 = await pedir("o que mais dá para colocar?");
+  v.ok(/dá para colocar/.test(r5) && /Cobrança: .*Inadimplência/.test(r5) && !/Resultado do mês: [^.]*\bEBITDA\b/.test(r5), "o chat lista por tema o que ainda não está na Home", r5.slice(0, 200));
+  v.ok((await ordem()).filter((x) => x.startsWith("card:")).join(",") === "card:ebitda-mes", "perguntar não mexe na Home");
+  await chat().getByRole("button", { name: "Fechar chat" }).click();
+  await chat().waitFor({ state: "detached", timeout: 8000 });
+
+  // 9) "volta ao padrão" (e tira os cards)
   await abrir();
   await pedir("volta ao padrão");
   await verHome();

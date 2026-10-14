@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isDemo } from "@/lib/demo";
 import { descricaoParaIA } from "@/core/home/sugestoes";
-import { catalogoParaIA, normalizarAcoes, normalizarLayout, LAYOUT_PADRAO } from "@/core/home/itens";
+import { catalogoParaIA, normalizarAcoes, normalizarLayout, LAYOUT_PADRAO, TETO_CARDS } from "@/core/home/itens";
 
 /**
  * "Ajustar prioridades" pela conversa (etapa 3, 14/10/2026) — SERVER-ONLY.
  * Recebe o que a pessoa DIGITOU no chat ("quero ver primeiro o que tenho a
  * pagar, e tira o burn") e o arranjo atual da Home, e devolve AÇÕES sobre os
  * itens do catálogo (`core/home/itens`): primeiro, último, mostrar, esconder,
- * restaurar.
+ * restaurar — sobre os itens fixos e os cards da biblioteca (`card:*`).
  *
  * ⚠️ A IA só escolhe ações e ids do catálogo: o que não passa por
  * `normalizarAcoes` sai aqui, e o cliente valida tudo de novo. Ela não cria
@@ -44,17 +44,22 @@ export async function POST(req: Request) {
 
   const system = `Você arruma a tela inicial (Home) de um ERP financeiro conforme o pedido de quem usa.
 
-A Home tem os itens do CATÁLOGO. O ARRANJO diz a ordem atual e o que está escondido.
+O CATÁLOGO tem dois tipos de item:
+- os FIXOS (grupo "painel" ou "bloco"), que estão sempre no ARRANJO e podem ser escondidos;
+- os CARDS DA BIBLIOTECA (grupo "card", id começando com "card:"), cards de outras telas que só aparecem na Home quando a pessoa pede. Estão na Home os que aparecem em ARRANJO.ordem.
+O ARRANJO diz a ordem atual e quais fixos estão escondidos.
 
 Transforme o PEDIDO em ações, na ordem em que foram pedidas:
-- {"tipo": "primeiro", "id": "..."}: levar o item para o topo (e mostrá-lo, se estiver escondido). Vários "primeiro" ficam na ordem pedida.
+- {"tipo": "primeiro", "id": "..."}: levar o item para o topo (e pôr na tela, se não estiver). Vários "primeiro" ficam na ordem pedida.
 - {"tipo": "ultimo", "id": "..."}: levar o item para o fim.
-- {"tipo": "mostrar", "id": "..."}: trazer de volta um item escondido, sem mudar a ordem.
+- {"tipo": "mostrar", "id": "..."}: pôr o item na tela sem mudar a ordem (fixo escondido volta; card da biblioteca entra no fim). É o "coloca", "adiciona", "inclui".
 - {"tipo": "esconder", "id": "..."}: tirar o item da tela.
-- {"tipo": "restaurar"}: voltar ao arranjo padrão (sem id).
+- {"tipo": "restaurar"}: voltar ao arranjo padrão (sem id; tira todos os cards da biblioteca).
 
 Regras:
 - Use SOMENTE ids do CATÁLOGO. Nunca invente id nem tipo.
+- Quando o pedido cita algo que existe como FIXO e também como card, use o FIXO.
+- A Home aceita no máximo ${TETO_CARDS} cards da biblioteca ao mesmo tempo.
 - "Só quero ver X e Y" = X e Y primeiro e esconder todos os outros.
 - Citar um item sem verbo, em resposta a "o que você quer ver primeiro?", é pedir para vê-lo primeiro.
 - Se o pedido não fala de nenhum item da Home (uma pergunta sobre números, um cumprimento), devolva lista vazia.
@@ -76,7 +81,7 @@ ${JSON.stringify(pedido)}`;
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 400,
+        max_tokens: 800,
         system,
         messages: [{ role: "user", content: "Quais ações, em ordem?" }],
       }),
