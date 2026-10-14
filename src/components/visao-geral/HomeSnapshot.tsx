@@ -14,6 +14,9 @@ import { hydrateAprovacoes, listSolicitacoes } from "@/lib/aprovacoes";
 import { tarefasDoMes } from "@/lib/fechamento-tarefas";
 import type { TarefaFechamento } from "@/core/close/checklist";
 import { decimalBR, pct } from "@/lib/format";
+import { recomendarSugestoes, sinaisDaHome, type SugestaoEscolhida } from "@/core/home/sugestoes";
+import { loadCompany } from "@/lib/company";
+import { useTipoConta } from "@/components/app/useTipoConta";
 
 /**
  * A HOME "SNAPSHOT" — a prancheta "Home · proposta snapshot" do canvas
@@ -34,8 +37,6 @@ import { decimalBR, pct } from "@/lib/format";
 
 const MESES_LONGOS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-
-const CHIPS = ["O que falta para fechar o mês?", "Monte um fluxo de caixa de 13 semanas", "O que explica a mudança no burn?"];
 
 const RELATORIOS = [
   { nome: "DRE", href: "/dashboard/reports/dre" },
@@ -58,7 +59,7 @@ function useCarimbo(): string {
 
 /* ------------------------------ Quattro AI ------------------------------ */
 
-function CaixaIA() {
+function CaixaIA({ sugestoes }: { sugestoes: SugestaoEscolhida[] | null }) {
   const router = useRouter();
   const [texto, setTexto] = React.useState("");
   const perguntar = (q: string) => {
@@ -99,16 +100,21 @@ function CaixaIA() {
           <Icon name="arrow-up" size={18} strokeWidth={1.5} />
         </button>
       </form>
-      <div className="flex flex-wrap justify-center gap-[10px]">
-        {CHIPS.map((c) => (
+      {/* As sugestões saem de `core/home/sugestoes`: até seis, escolhidas pelo
+          contexto da empresa. O motivo vai no `title` — a Home não explica
+          cada chip, mas quem quiser saber por que ele está ali consegue. */}
+      <div className="flex flex-wrap justify-center gap-[10px] max-w-[900px] min-h-[36px]">
+        {(sugestoes ?? []).map((c) => (
           <button
-            key={c}
+            key={c.id}
             type="button"
-            onClick={() => perguntar(c)}
+            onClick={() => perguntar(c.texto)}
+            title={`Sugerida porque ${c.motivo}`}
+            data-sugestao={c.id}
             className="px-4 py-2 rounded-pill text-[13px] text-ink"
             style={{ background: "var(--color-surface-1)" }}
           >
-            {c}
+            {c.texto}
           </button>
         ))}
       </div>
@@ -258,7 +264,16 @@ function CardPequeno({ n, carimbo }: { n: NumeroHome; carimbo: string }) {
 const COLUNA = "flex flex-col p-6";
 const colunaStyle = { background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" } as const;
 
-function PrecisaDeAcao() {
+interface Pendencias {
+  conciliar: number | null;
+  notas: number | null;
+  compras: number | null;
+  aprovacoes: number | null;
+  boletos: number | null;
+}
+
+/** As contagens de "Precisa de ação" — também alimentam as sugestões da IA. */
+function usePendencias(): Pendencias {
   const { data: naoConciliadas } = useUnreconciled();
   const { data: vendas } = useVendas();
   const [locais, setLocais] = React.useState<{ compras: number; boletos: number; aprovacoes: number } | null>(null);
@@ -274,12 +289,22 @@ function PrecisaDeAcao() {
     return () => { vivo = false; };
   }, []);
   const notas = vendas ? painelStatusNF(vendas).find((c) => c.id === "a_emitir")?.quantidade ?? 0 : null;
+  const conciliar = naoConciliadas?.length ?? null;
+  return React.useMemo(() => ({
+    conciliar, notas,
+    compras: locais?.compras ?? null,
+    aprovacoes: locais?.aprovacoes ?? null,
+    boletos: locais?.boletos ?? null,
+  }), [conciliar, notas, locais]);
+}
+
+function PrecisaDeAcao({ p }: { p: Pendencias }) {
   const itens = [
-    { nome: "Transações a conciliar", qtd: naoConciliadas?.length ?? null, href: "/dashboard/financial/reconciliation" },
-    { nome: "Notas a emitir", qtd: notas, href: "/dashboard/sales-invoices" },
-    { nome: "Compras a aprovar", qtd: locais?.compras ?? null, href: "/dashboard/purchases" },
-    { nome: "Lançamentos aguardando aprovação", qtd: locais?.aprovacoes ?? null, href: "/aprovacoes" },
-    { nome: "Boletos a pagar", qtd: locais?.boletos ?? null, href: "/dashboard/purchases/received-boletos" },
+    { nome: "Transações a conciliar", qtd: p.conciliar, href: "/dashboard/financial/reconciliation" },
+    { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices" },
+    { nome: "Compras a aprovar", qtd: p.compras, href: "/dashboard/purchases" },
+    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/aprovacoes" },
+    { nome: "Boletos a pagar", qtd: p.boletos, href: "/dashboard/purchases/received-boletos" },
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
@@ -298,14 +323,17 @@ const ROTULO_STATUS: Record<TarefaFechamento["status"], string> = {
   pending: "Não iniciada", review: "Em revisão", done: "Concluída",
 };
 
-function Fechamento({ hoje }: { hoje: string }) {
-  const mes = hoje.slice(0, 7);
+function useTarefasDoMes(mes: string): TarefaFechamento[] | null {
   const [tarefas, setTarefas] = React.useState<TarefaFechamento[] | null>(null);
   React.useEffect(() => {
     let vivo = true;
     tarefasDoMes(mes).then((t) => { if (vivo) setTarefas(t); }).catch(() => { if (vivo) setTarefas([]); });
     return () => { vivo = false; };
   }, [mes]);
+  return tarefas;
+}
+
+function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[] | null }) {
   const total = tarefas?.length ?? 0;
   const feitas = tarefas?.filter((t) => t.status === "done").length ?? 0;
   const fracao = total > 0 ? feitas / total : 0;
@@ -357,10 +385,25 @@ export function HomeSnapshot() {
   const { data: input, isLoading } = useRiscoInput();
   const carimbo = useCarimbo();
   const snap = React.useMemo(() => (input ? montarHomeSnapshot(input) : null), [input]);
+  const hoje = snap?.hoje ?? input?.hoje ?? isoLocal(new Date());
+  const mes = hoje.slice(0, 7);
+  const pendencias = usePendencias();
+  const tarefas = useTarefasDoMes(mes);
+  const { tipo } = useTipoConta();
+  const [perfil, setPerfil] = React.useState<ReturnType<typeof loadCompany> | undefined>(undefined);
+  React.useEffect(() => { setPerfil(loadCompany()); }, []);
+
+  const sugestoes = React.useMemo(() => {
+    if (!snap || !input || perfil === undefined) return null;
+    const fechamento = tarefas && tarefas.length > 0 ? tarefas.filter((t) => t.status === "done").length / tarefas.length : null;
+    return recomendarSugestoes(sinaisDaHome({
+      snap, input, tipoConta: tipo, perfil: perfil?.perfil ?? null, pendencias, fechamento,
+    }));
+  }, [snap, input, perfil, tipo, pendencias, tarefas]);
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
-      <CaixaIA />
+      <CaixaIA sugestoes={sugestoes} />
 
       <section className="flex flex-col gap-4 mt-7">
         <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
@@ -382,8 +425,8 @@ export function HomeSnapshot() {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <PrecisaDeAcao />
-        <Fechamento hoje={snap?.hoje ?? input?.hoje ?? isoLocal(new Date())} />
+        <PrecisaDeAcao p={pendencias} />
+        <Fechamento mes={mes} tarefas={tarefas} />
         <RelatoriosFixados />
       </section>
     </div>

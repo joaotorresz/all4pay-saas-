@@ -246,6 +246,12 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   de vocabulário da ONDA 11); "Contratos a aprovar" virou "Compras a aprovar"
   (não há fila de aprovação de contrato).
 - `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
+- **Sugestões da caixa da IA são ADAPTATIVAS** (`core/home/sugestoes`, etapa 1):
+  até SEIS perguntas, escolhidas de um catálogo (41 de empresa + 6 de pessoa
+  física) por regras sobre o perfil do onboarding e os sinais da Home (runway,
+  burn, vencidos, pendências, dia do mês). No máximo duas por tema; o motivo vai
+  no `title` do chip. ⚠️ Sinal `null` não dispara regra. A IA, quando entrar,
+  só REORDENA ids deste catálogo. Guarda: `npm run home-sugestoes`.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
