@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * O cérebro do chat da Quattro AI, num hook — para o painel flutuante e a
- * página inteira rodarem exatamente a MESMA IA (nada de duas implementações
+ * O cérebro do chat da Quattro AI, num hook — o chat em tela cheia o usa, e
+ * qualquer superfície futura usa o MESMO (nada de duas implementações
  * divergindo).
  *
  * Encadeia as três camadas de sempre: base de conhecimento → motor nativo →

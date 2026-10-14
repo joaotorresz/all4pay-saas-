@@ -15,6 +15,8 @@
  * e só com o usuário conhecido (sem ele, a preferência cairia num balde comum).
  */
 
+import { mesmoLayout, normalizarLayout, type LayoutHome } from "./itens";
+
 export interface PreferenciasHome {
   /** `null` = a pergunta do primeiro acesso nunca foi respondida; `[]` = "pulei". */
   interesses: string[] | null;
@@ -26,6 +28,11 @@ export interface PreferenciasHome {
    * etapa 5 não tem, e ler sem ela é ler "nada ignorado".
    */
   exibidas?: Record<string, Exibicao>;
+  /**
+   * A ordem e o que está escondido entre os itens da Home (`./itens`), que a
+   * pessoa arruma arrastando ou pedindo no chat. Ausente = o arranjo padrão.
+   */
+  layout?: LayoutHome | null;
 }
 
 export interface Exibicao { dias: number; ultimo: string }
@@ -73,7 +80,11 @@ export function normalizarPreferencias(bruto: unknown): PreferenciasHome | null 
       cliques[id] = Math.min(TETO_CLIQUES, Math.floor(n));
     }
   }
-  return { interesses, cliques, exibidas: normalizarExibidas((bruto as { exibidas?: unknown }).exibidas) };
+  return {
+    interesses, cliques,
+    exibidas: normalizarExibidas((bruto as { exibidas?: unknown }).exibidas),
+    layout: normalizarLayout((bruto as { layout?: unknown }).layout),
+  };
 }
 
 /** A entrada de UM usuário no mapa, ou `null` se ele ainda não tem nenhuma. */
@@ -85,7 +96,7 @@ export function preferenciasDoUsuario(mapa: unknown, usuario: string | null): Pr
 /** O mapa com a entrada deste usuário trocada — e SÓ ela: os colegas ficam como estavam. */
 export function comPreferencias(mapa: unknown, usuario: string, p: PreferenciasHome, agora: string): MapaPreferencias {
   const base = mapa && typeof mapa === "object" && !Array.isArray(mapa) ? (mapa as MapaPreferencias) : {};
-  return { ...base, [usuario]: { ...(normalizarPreferencias(p) ?? { interesses: null, cliques: {}, exibidas: {} }), atualizadoEm: agora } };
+  return { ...base, [usuario]: { ...(normalizarPreferencias(p) ?? { interesses: null, cliques: {}, exibidas: {}, layout: null }), atualizadoEm: agora } };
 }
 
 /**
@@ -105,6 +116,7 @@ export function mesmasPreferencias(a: PreferenciasHome | null, b: PreferenciasHo
   if (ia !== ib) return false;
   const ka = Object.keys(a.cliques).sort(), kb = Object.keys(b.cliques).sort();
   if (ka.join(",") !== kb.join(",") || !ka.every((k) => a.cliques[k] === b.cliques[k])) return false;
+  if (!mesmoLayout(a.layout, b.layout)) return false;
   const ea = a.exibidas ?? {}, eb = b.exibidas ?? {};
   const xa = Object.keys(ea).sort(), xb = Object.keys(eb).sort();
   return xa.join(",") === xb.join(",") && xa.every((k) => ea[k].dias === eb[k].dias && ea[k].ultimo === eb[k].ultimo);
@@ -129,7 +141,9 @@ export function mesclarComDispositivo(servidor: PreferenciasHome | null, disposi
     const s = exibidas[id];
     if (!s || e.ultimo > s.ultimo || (e.ultimo === s.ultimo && e.dias > s.dias)) exibidas[id] = e;
   }
-  return { interesses: servidor.interesses ?? dispositivo.interesses, cliques, exibidas };
+  // O arranjo segue a regra das prioridades: o do servidor vence; o do
+  // dispositivo só entra quando o servidor ainda não tem nenhum.
+  return { interesses: servidor.interesses ?? dispositivo.interesses, cliques, exibidas, layout: servidor.layout ?? dispositivo.layout ?? null };
 }
 
 /**

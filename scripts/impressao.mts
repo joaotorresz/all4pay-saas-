@@ -81,7 +81,7 @@ ok("impressao: o cabeçalho da tabela REPETE em cada página",
    /thead\s*\{[^}]*table-header-group/.test(bloco),
    "`position: sticky` resolve a tela e não repete no papel — a página 3 sairia sem dizer de que mês é cada coluna");
 
-for (const alvo of [".a4p-topbar", ".a4p-sidebar", ".a4p-ia-fab", "[data-nao-imprime]"])
+for (const alvo of [".a4p-topbar", ".a4p-sidebar", ".a4p-chat-tela", "[data-nao-imprime]"])
   ok(`impressao: ${alvo} fica fora do papel`, bloco.includes(alvo));
 
 ok("impressao: linha de valor não é partida entre duas folhas",

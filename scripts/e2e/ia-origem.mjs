@@ -52,7 +52,8 @@ export default async function iaOrigem(navegador) {
     const pe = u.page.locator("[data-gaveta-tela]");
     v.ok((await pe.count()) === 1 && (await pe.getAttribute("data-gaveta-tela")) === "/dashboard/financial/statement",
       "o pé da gaveta leva ao Extrato");
-    await u.page.getByRole("button", { name: "Fechar" }).first().click();
+    // "Fechar" EXATO: o "Fechar chat" do chat também casaria, e vem antes.
+    await u.page.getByRole("button", { name: "Fechar", exact: true }).first().click();
   }
 
   // ── calculadora: simulação, sem link ──

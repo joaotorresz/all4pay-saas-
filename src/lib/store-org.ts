@@ -231,6 +231,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // primeira sincronização sobe.
   // Etapa 5: os dias em que cada sugestão apareceu sem clique, mesma regra.
   "a4p_home_interesses", "a4p_home_cliques", "a4p_home_exibidas",
+  // O arranjo da Home (ordem e itens escondidos), mesma regra: a casa é
+  // `a4p_home_preferencias`; esta é a cópia do dispositivo.
+  "a4p_home_layout",
   // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
   "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO

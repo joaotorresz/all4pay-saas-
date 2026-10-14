@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { BRL, Icon, SemDados } from "@/components/ui";
 import { useRiscoInput, useUnreconciled } from "./hooks";
 import { montarHomeSnapshot, type CurvaHome, type NumeroHome } from "@/core/home/snapshot";
@@ -16,7 +15,8 @@ import type { TarefaFechamento } from "@/core/close/checklist";
 import { decimalBR, pct } from "@/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BASICAS, INTERESSES, LIMITE_SUGESTOES, candidatasParaIA, contextoParaIA, recomendarSugestoes, sinaisDaHome,
+  BASICAS, INTERESSES, LIMITE_SUGESTOES, candidatasParaIA, contextoParaIA, descricaoParaIA, interessesDaDescricao,
+  recomendarSugestoes, sinaisDaHome,
   type CandidataIA, type SinaisHome, type SugestaoEscolhida,
 } from "@/core/home/sugestoes";
 import { reportar } from "@/lib/erros";
@@ -24,9 +24,15 @@ import {
   gravarPreferenciasHome, inscreverPreferenciasHome, lerPreferenciasHome, sincronizarPreferenciasHome,
 } from "@/lib/home-preferencias";
 import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
+import {
+  EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itemHome,
+  layoutDasOrdensAntigas, mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes, respostaDoAjuste, visiveis,
+  type AcaoHome, type IdItemHome, type LayoutHome,
+} from "@/core/home/itens";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
-import { ChatTelaCheia, type SugestaoChat } from "@/components/ia/ChatTelaCheia";
+import type { RespostaChatAjuste, SugestaoChat } from "@/components/ia/ChatTelaCheia";
+import { abrirChat } from "@/components/ia/ChatGlobal";
 
 /**
  * A HOME "SNAPSHOT" — a prancheta "Home · proposta snapshot" do canvas
@@ -113,10 +119,34 @@ function usePreferenciasIA(tipo: "empresa" | "pessoal", hoje: string) {
     setPrefs(novo);
     gravarPreferenciasHome(novo, { adiar: true });
   };
+  /** O arranjo da Home (ordem e escondidos) sobe na hora: é um ato da pessoa. */
+  const salvarLayout = (layout: LayoutHome) => {
+    const novo = { ...lerPreferenciasHome(), layout };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo);
+  };
+  /** O pedido do chat muda o arranjo E as prioridades num gesto só (e o desfazer volta os dois). */
+  const salvarAjuste = (layout: LayoutHome, interesses: string[] | null) => {
+    const novo = { ...lerPreferenciasHome(), layout, interesses };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo);
+  };
+  // Quem arrastou os cards antes do arranjo ir para o servidor não perde o que fez.
+  const [antigo, setAntigo] = React.useState<LayoutHome | null>(null);
+  const antigoRef = React.useRef<LayoutHome | null>(null);
+  React.useEffect(() => {
+    try {
+      antigoRef.current = layoutDasOrdensAntigas(JSON.parse(localStorage.getItem(CHAVE_ORDEM_ANTIGA) ?? "null"));
+      setAntigo(antigoRef.current);
+    } catch { /* preferência ilegível: arranjo padrão */ }
+  }, []);
+  /** O arranjo de AGORA, lido na hora (o chat guarda a função desde que abriu). */
+  const lerLayout = (): LayoutHome => lerPreferenciasHome().layout ?? antigoRef.current ?? LAYOUT_PADRAO;
   const opcoes = INTERESSES.filter((i) => i.publico === tipo);
   return {
     interesses: prefs === undefined ? undefined : prefs.interesses, cliques: prefs?.cliques ?? {}, exibidas: prefs?.exibidas ?? {},
-    salvarInteresses, clicou, exibiu, opcoes,
+    layout: prefs?.layout ?? antigo ?? LAYOUT_PADRAO,
+    salvarInteresses, clicou, exibiu, salvarLayout, salvarAjuste, lerLayout, opcoes,
   };
 }
 
@@ -224,17 +254,15 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
 /** Quantas perguntas o "Veja tudo o que eu faço" do chat mostra. */
 const TODAS_NO_CHAT = 12;
 
-function CaixaIA({ sugestoes, extras, prefs }: {
+function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
   sugestoes: SugestaoEscolhida[] | null;
   /** As candidatas seguintes, para completar o "Veja tudo o que eu faço". */
   extras: CandidataIA[];
   prefs: PreferenciasIA;
+  /** "Ajustar prioridades": abre a conversa que arruma a Home. */
+  aoAjustar: () => void;
 }) {
-  const router = useRouter();
   const [texto, setTexto] = React.useState("");
-  // O chat em tela cheia (modelo do dono, 14/10/2026): o chip ou o envio abre
-  // a conversa já com a pergunta, por cima da Home, em vez de trocar de tela.
-  const [chat, setChat] = React.useState<{ q: string; n: number } | null>(null);
   const todas = React.useMemo(() => {
     const out: SugestaoChat[] = [];
     for (const c of [...(sugestoes ?? []), ...extras]) {
@@ -243,16 +271,16 @@ function CaixaIA({ sugestoes, extras, prefs }: {
     }
     return out;
   }, [sugestoes, extras]);
-  const [ajustando, setAjustando] = React.useState(false);
-  const primeiroAcesso = prefs.interesses === null;
-  const perguntando = primeiroAcesso || ajustando;
+  const perguntando = prefs.interesses === null;
   // No primeiro acesso só as duas básicas aparecem; o resto vem da resposta.
   const visiveis = (sugestoes ?? []).slice(0, perguntando ? 2 : undefined);
-  const perguntar = (q: string) => {
-    const t = q.trim();
-    if (!t) { router.push("/quattro-ai"); return; }
+  // O chat em tela cheia (modelo do dono, 14/10/2026) é o MESMO de todo o
+  // sistema (`ChatGlobal`): o chip ou o envio abre a conversa já com a
+  // pergunta, por cima da Home; o "+" e o envio vazio abrem na saudação.
+  const perguntar = (q?: string) => {
+    const t = q?.trim();
     setTexto("");
-    setChat((c) => ({ q: t, n: (c?.n ?? 0) + 1 }));
+    abrirChat({ pergunta: t || undefined, sugestoes: todas, aoClicarSugestao: prefs.clicou });
   };
   return (
     <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-11">
@@ -261,14 +289,15 @@ function CaixaIA({ sugestoes, extras, prefs }: {
         className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
         style={{ background: "var(--color-surface-1)" }}
       >
-        <Link
-          href="/quattro-ai"
+        <button
+          type="button"
+          onClick={() => perguntar()}
           aria-label="Abrir a Quattro AI"
           className="w-9 h-9 flex-none rounded-pill flex items-center justify-center"
           style={{ background: "var(--color-white)", color: "var(--color-ink)" }}
         >
           <Icon name="plus" size={18} strokeWidth={1.5} />
-        </Link>
+        </button>
         <input
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
@@ -310,20 +339,11 @@ function CaixaIA({ sugestoes, extras, prefs }: {
         ))}
       </div>
       {perguntando ? (
-        <PerguntaPrioridades prefs={prefs} aoFechar={() => setAjustando(false)} />
+        <PerguntaPrioridades prefs={prefs} aoFechar={() => {}} />
       ) : prefs.interesses !== undefined && (
-        <button type="button" onClick={() => setAjustando(true)} className="text-[12px] text-ink opacity-70 hover:opacity-100">
+        <button type="button" onClick={aoAjustar} className="text-[12px] text-ink opacity-70 hover:opacity-100">
           Ajustar prioridades
         </button>
-      )}
-      {chat && (
-        <ChatTelaCheia
-          key={chat.n}
-          pergunta={chat.q}
-          sugestoes={todas}
-          aoFechar={() => setChat(null)}
-          aoClicarSugestao={prefs.clicou}
-        />
       )}
     </section>
   );
@@ -343,76 +363,60 @@ function MicIcon() {
 /* ------------------------------ peças dos cards ------------------------------ */
 
 /**
- * A ordem dos cards é PREFERÊNCIA de tela (do dispositivo, como a dos widgets
- * antigos): cada grupo guarda a sua, e um id que sumiu ou nasceu depois cai no
- * lugar padrão em vez de quebrar a grade.
+ * Onde a ordem dos cards morava antes de ir para o servidor (preferência do
+ * dispositivo, por grupo "grandes"/"pequenos"). Só é LIDA, uma vez, para quem
+ * já tinha arrumado não perder o arranjo: o que vale agora é `layout` em
+ * `a4p_home_preferencias` (`core/home/itens`).
  */
-const CHAVE_ORDEM = "a4p_home_painel_ordem";
-
-function lerOrdens(): Record<string, string[]> {
-  try { return JSON.parse(localStorage.getItem(CHAVE_ORDEM) ?? "{}") ?? {}; } catch { return {}; }
-}
-
-function useOrdem(grupo: string, padrao: string[]) {
-  const [ordem, setOrdem] = React.useState<string[]>(padrao);
-  const chavePadrao = padrao.join("|");
-  React.useEffect(() => {
-    const salva = lerOrdens()[grupo] ?? [];
-    const validos = salva.filter((id) => padrao.includes(id));
-    setOrdem([...validos, ...padrao.filter((id) => !validos.includes(id))]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grupo, chavePadrao]);
-  const mover = React.useCallback((de: string, para: string) => {
-    setOrdem((atual) => {
-      const i = atual.indexOf(de), j = atual.indexOf(para);
-      if (i < 0 || j < 0 || i === j) return atual;
-      const nova = [...atual];
-      nova.splice(i, 1);
-      nova.splice(j, 0, de);
-      try { localStorage.setItem(CHAVE_ORDEM, JSON.stringify({ ...lerOrdens(), [grupo]: nova })); } catch { /* preferência: sem cota, fica só na sessão */ }
-      return nova;
-    });
-  }, [grupo]);
-  return { ordem, mover };
-}
+const CHAVE_ORDEM_ANTIGA = "a4p_home_painel_ordem";
 
 /**
- * Grade arrastável. Só a ALÇA inicia o arraste (o card inteiro é link, e
- * arrastar pelo corpo brigaria com o clique). Pelo teclado, as setas na alça
- * trocam o card de lugar com o vizinho.
+ * O arraste dos itens da Home. Só a ALÇA inicia (o card inteiro é link, e
+ * arrastar pelo corpo brigaria com o clique). Durante o gesto a troca é só de
+ * tela (`rascunho`); o arranjo é GRAVADO ao soltar — gravar a cada passo do
+ * arraste mandaria uma dúzia de eventos à trilha por um movimento só. Pelo
+ * teclado, as setas na alça trocam o item com o vizinho e gravam na hora.
+ * Cada item só troca de lugar com outro da MESMA seção.
  */
-function GradeArrastavel<T extends { id: string }>({
-  grupo, itens, render, className,
-}: { grupo: string; itens: T[]; render: (item: T) => React.ReactNode; className: string }) {
-  const { ordem, mover } = useOrdem(grupo, itens.map((i) => i.id));
-  const [arrastando, setArrastando] = React.useState<string | null>(null);
-  const [armado, setArmado] = React.useState<string | null>(null);
-  const porId = new Map(itens.map((i) => [i.id, i]));
+function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
+  const [rascunho, setRascunho] = React.useState<LayoutHome | null>(null);
+  const [arrastando, setArrastando] = React.useState<IdItemHome | null>(null);
+  const [armado, setArmado] = React.useState<IdItemHome | null>(null);
+  const atual = rascunho ?? layout;
+  const mesmoGrupo = (a: IdItemHome, b: IdItemHome) => itemHome(a).grupo === itemHome(b).grupo;
+  const soltar = () => {
+    if (rascunho) salvar(rascunho);
+    setRascunho(null); setArrastando(null); setArmado(null);
+  };
+  const props = (id: IdItemHome) => ({
+    draggable: armado === id,
+    style: { opacity: arrastando === id ? 0.45 : 1 },
+    onDragStart: (e: React.DragEvent) => { setArrastando(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); },
+    onDragOver: (e: React.DragEvent) => {
+      if (!arrastando || !mesmoGrupo(arrastando, id)) return;
+      e.preventDefault();
+      if (arrastando !== id) setRascunho((r) => moverItem(r ?? layout, arrastando, id));
+    },
+    onDrop: (e: React.DragEvent) => e.preventDefault(),
+    onDragEnd: soltar,
+  });
+  const alca = (id: IdItemHome) => ({
+    onArmar: () => setArmado(id),
+    onDesarmar: () => { if (!arrastando) setArmado(null); },
+    onMover: (passo: -1 | 1) => {
+      const vizinhos = visiveis(atual, itemHome(id).grupo);
+      const alvo = vizinhos[vizinhos.indexOf(id) + passo];
+      if (alvo) salvar(moverItem(atual, id, alvo));
+    },
+  });
+  return { layout: atual, props, alca };
+}
+
+function ItemArrastavel({ id, arraste, children, className = "" }: { id: IdItemHome; arraste: ReturnType<typeof useArraste>; children: React.ReactNode; className?: string }) {
   return (
-    <div className={className}>
-      {ordem.map((id, idx) => {
-        const item = porId.get(id);
-        if (!item) return null;
-        return (
-          <div
-            key={id}
-            className="relative transition-opacity"
-            style={{ opacity: arrastando === id ? 0.45 : 1 }}
-            draggable={armado === id}
-            onDragStart={(e) => { setArrastando(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); }}
-            onDragOver={(e) => { if (arrastando) { e.preventDefault(); if (arrastando !== id) mover(arrastando, id); } }}
-            onDrop={(e) => e.preventDefault()}
-            onDragEnd={() => { setArrastando(null); setArmado(null); }}
-          >
-            {render(item)}
-            <Alca
-              onArmar={() => setArmado(id)}
-              onDesarmar={() => { if (!arrastando) setArmado(null); }}
-              onMover={(passo) => { const alvo = ordem[idx + passo]; if (alvo) mover(id, alvo); }}
-            />
-          </div>
-        );
-      })}
+    <div className={`relative transition-opacity ${className}`} data-item-home={id} {...arraste.props(id)}>
+      {children}
+      <Alca {...arraste.alca(id)} />
     </div>
   );
 }
@@ -550,7 +554,7 @@ function CardPequeno({ n, carimbo }: { n: NumeroHome; carimbo: string }) {
 
 /* ------------------------------ três colunas ------------------------------ */
 
-const COLUNA = "flex flex-col p-6";
+const COLUNA = "h-full flex flex-col p-6";
 const colunaStyle = { background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" } as const;
 
 interface Pendencias {
@@ -668,7 +672,82 @@ function RelatoriosFixados() {
   );
 }
 
+/* ------------------------------ ajustar prioridades ------------------------------ */
+
+/** A pergunta com que o chat abre no "Ajustar prioridades" (pedido do dono). */
+const PERGUNTA_DO_AJUSTE = "O que você gostaria de ver primeiro quando abre o Quattro?";
+
+/**
+ * O pedido digitado vira ações sobre a Home: primeiro a Quattro AI
+ * (`/api/ai/home-layout`), e — sem chave, sem sessão, com erro ou sem ação
+ * nenhuma — a leitura por regras (`interpretarPedido`). ⚠️ O que a IA devolve é
+ * DADO DE FORA e passa de novo por `normalizarAcoes` aqui.
+ */
+async function acoesDoPedido(texto: string, layout: LayoutHome): Promise<AcaoHome[]> {
+  try {
+    const res = await fetch("/api/ai/home-layout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pedido: descricaoParaIA(texto), layout }),
+    });
+    const j = (await res.json().catch(() => null)) as { ok?: boolean; acoes?: unknown } | null;
+    const daIA = j?.ok ? normalizarAcoes(j.acoes) : [];
+    if (daIA.length > 0) return daIA;
+  } catch (e) {
+    reportar("home.ajuste-ia", e, "o pedido foi lido pelas regras de texto, sem a Quattro AI", true);
+  }
+  return interpretarPedido(texto);
+}
+
+/**
+ * O "Ajustar prioridades" pela conversa (etapas 2 e 3, 14/10/2026): abre o
+ * chat da Quattro AI no modo ajuste. A resposta da pessoa arruma a Home (ordem
+ * e o que aparece), soma às prioridades o que ela disse (as mesmas palavras da
+ * descrição livre) e o chat conta o que mudou, com desfazer.
+ */
+function useAjusteDaHome(prefs: PreferenciasIA, tipo: "empresa" | "pessoal") {
+  return () => abrirChat({
+    ajuste: {
+      pergunta: PERGUNTA_DO_AJUSTE,
+      exemplos: EXEMPLOS_DE_PEDIDO,
+      responder: async (texto: string): Promise<RespostaChatAjuste> => {
+        const antes = prefs.lerLayout();
+        const interessesAntes = lerPreferenciasHome().interesses;
+        const acoes = await acoesDoPedido(texto, antes);
+        const depois = aplicarAcoes(antes, acoes);
+        const mudancas = descreverMudancas(antes, depois, acoes);
+        const ditos = interessesDaDescricao(texto, tipo);
+        const interesses = ditos.length
+          ? [...(interessesAntes ?? []), ...ditos.filter((d) => !(interessesAntes ?? []).includes(d))]
+          : interessesAntes;
+        if (!mesmoLayout(antes, depois) || interesses !== interessesAntes) prefs.salvarAjuste(depois, interesses);
+        const r = respostaDoAjuste(acoes, mudancas);
+        return { ...r, desfazer: r.mudou ? () => prefs.salvarAjuste(antes, interessesAntes) : undefined };
+      },
+    },
+  });
+}
+
 /* ------------------------------ a tela ------------------------------ */
+
+const COLUNAS_BLOCOS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3" };
+
+/**
+ * O que a pessoa escondeu não some sem rastro: uma linha discreta diz quantos
+ * itens estão fora da tela e os traz de volta num clique.
+ */
+function Escondidos({ layout, aoMostrar }: { layout: LayoutHome; aoMostrar: () => void }) {
+  if (layout.ocultos.length === 0) return null;
+  const nomes = layout.ocultos.map((id) => itemHome(id).nome).join(", ");
+  const n = layout.ocultos.length;
+  return (
+    <p className="m-0 text-center text-[13px] text-muted" data-home="escondidos">
+      <span title={nomes}>{n === 1 ? "1 item escondido" : `${n} itens escondidos`}</span>
+      {" · "}
+      <button type="button" onClick={aoMostrar} className="text-ink underline underline-offset-2">Mostrar de novo</button>
+    </p>
+  );
+}
 
 export function HomeSnapshot() {
   const { data: input, isLoading } = useRiscoInput();
@@ -700,39 +779,60 @@ export function HomeSnapshot() {
   );
   useExibicoes(sugestoes, sinais, prefs);
 
+  const arraste = useArraste(prefs.layout, prefs.salvarLayout);
+  const ajustar = useAjusteDaHome(prefs, tipo);
+  const layout = arraste.layout;
+  const numero = (id: IdItemHome): (NumeroHome & { curva?: CurvaHome }) | undefined =>
+    !snap ? undefined : id === "caixa" ? snap.caixa : id === "arr" ? snap.arr : snap.pequenos.find((n) => n.id === id);
+  const bloco = (id: IdItemHome) =>
+    id === "acao" ? <PrecisaDeAcao p={pendencias} />
+      : id === "fechamento" ? <Fechamento mes={mes} tarefas={tarefas} />
+        : <RelatoriosFixados />;
+
+  const painel = visiveis(layout, "painel").length === 0 ? null : (
+    <section key="painel" className="flex flex-col gap-4">
+      <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
+      {isLoading || !snap ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1].map((i) => <div key={i} className="min-h-[380px] animate-pulse" style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }} />)}
+        </div>
+      ) : (
+        // Os grandes (com curva) e os pequenos em FAIXAS do mesmo tamanho, na
+        // ordem da pessoa: um grande e um pequeno na mesma linha esticariam um ao outro.
+        faixasDoPainel(layout).map((f) => (
+          <div key={f.ids.join("|")} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {f.ids.map((id, i) => {
+              const n = numero(id);
+              if (!n) return null;
+              // O último de uma faixa ímpar ocupa a linha inteira: sozinho em
+              // meia linha, ele deixava um buraco ao lado (um pequeno subindo
+              // sozinho para o topo ficava com meia tela vazia).
+              const sozinho = f.ids.length % 2 === 1 && i === f.ids.length - 1;
+              return (
+                <ItemArrastavel key={id} id={id} arraste={arraste} className={sozinho ? "md:col-span-2" : ""}>
+                  {f.tamanho === "grande" && n.curva ? <CardGrande n={n} curva={n.curva} carimbo={carimbo} /> : <CardPequeno n={n} carimbo={carimbo} />}
+                </ItemArrastavel>
+              );
+            })}
+          </div>
+        ))
+      )}
+    </section>
+  );
+  const blocosVisiveis = visiveis(layout, "bloco");
+  const blocos = blocosVisiveis.length === 0 ? null : (
+    <section key="bloco" className={`grid grid-cols-1 ${COLUNAS_BLOCOS[blocosVisiveis.length] ?? "lg:grid-cols-3"} gap-4`}>
+      {blocosVisiveis.map((id) => <ItemArrastavel key={id} id={id} arraste={arraste}>{bloco(id)}</ItemArrastavel>)}
+    </section>
+  );
+
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
-      <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} />
-
-      <section className="flex flex-col gap-4 mt-7">
-        <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
-        {isLoading || !snap ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[0, 1].map((i) => <div key={i} className="min-h-[380px] animate-pulse" style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }} />)}
-          </div>
-        ) : (
-          <>
-            <GradeArrastavel
-              grupo="grandes"
-              itens={[snap.caixa, snap.arr]}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              render={(n) => <CardGrande n={n} curva={n.curva} carimbo={carimbo} />}
-            />
-            <GradeArrastavel
-              grupo="pequenos"
-              itens={snap.pequenos}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              render={(n) => <CardPequeno n={n} carimbo={carimbo} />}
-            />
-          </>
-        )}
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <PrecisaDeAcao p={pendencias} />
-        <Fechamento mes={mes} tarefas={tarefas} />
-        <RelatoriosFixados />
-      </section>
+      <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} aoAjustar={ajustar} />
+      <div className="flex flex-col gap-8 mt-7">
+        {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : blocos))}
+        <Escondidos layout={layout} aoMostrar={() => prefs.salvarLayout({ ...layout, ocultos: [] })} />
+      </div>
     </div>
   );
 }

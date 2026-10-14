@@ -170,7 +170,7 @@ for (const [nomeConj, base] of [["corpus", input], ["vencidos+transferência", i
 /* ── 7. a IA sugere, não executa ── */
 {
   const semComentario = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\/.*$/gm, "");
-  const chat = ["src/components/ia/chat-kit.tsx", "src/components/ia/useChatIA.ts", "src/components/ia/IAView.tsx", "src/components/app/AssistantWidget.tsx"];
+  const chat = ["src/components/ia/chat-kit.tsx", "src/components/ia/useChatIA.ts", "src/components/ia/ChatTelaCheia.tsx", "src/components/ia/ChatGlobal.tsx"];
   const escritas = chat.flatMap((f) => {
     const t = semComentario(f);
     const fetches = Array.from(t.matchAll(/fetch\(\s*["'`]([^"'`]+)/g)).map((m) => m[1]);

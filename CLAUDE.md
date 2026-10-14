@@ -331,15 +331,48 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   `title`. A guarda exige rótulo e ícone EXISTENTE para cada pergunta. ⚠️ A
   conversa sobe a ÚLTIMA PERGUNTA para o alto, nunca rola até o fim: o fim é
   o "Veja tudo", e rolar até ele escondia a resposta que acabou de chegar.
+- ⚠️ **A IA MORA NUM LUGAR SÓ (decisão do dono, 14/10/2026):** o botão
+  flutuante "4" (`AssistantWidget`) e o painel lateral SAÍRAM, e a aba
+  "Conversa" de `/quattro-ai` também (`IAView` apagado). O chat em tela cheia
+  abre por cima de QUALQUER tela por `abrirChat()` (`ia/ChatGlobal.tsx`,
+  evento `a4p:open-ia`, montado no `AppShell`): o item "Quattro AI" do menu
+  (clique comum abre o chat; com Ctrl/⌘ segue o endereço), o ⌘K, a caixa da
+  Home e `/quattro-ai` (que abre o chat sozinho e guarda `?q=`). O histórico
+  veio para DENTRO do chat ("Conversas"). Os motores (Quant, Decisão, Risco,
+  Sugestões) seguem como abas de `/quattro-ai`. ⚠️ Pedido de abertura feito
+  antes de o anfitrião montar fica na fila (`pendente`): os efeitos do React
+  rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
-  ou setas do teclado; só a alça inicia, porque o card é link), por grupo,
-  guardado em `a4p_home_painel_ordem` (preferência local); a busca saiu da
+  ou setas do teclado; só a alça inicia, porque o card é link), dentro do
+  grupo, guardados no ARRANJO da pessoa (bullet abaixo; a ordem antiga de
+  `a4p_home_painel_ordem` é lida uma vez e migrada); a busca saiu da
   barra de cima E do ⋮ (o ⌘K continua abrindo a paleta); a barra de cima e o
   menu lateral não têm borda. Os avisos do topo (amostra e assinatura)
   ganharam "x" que fecha SÓ NESTA SESSÃO (`FecharAviso.tsx`, sessionStorage):
   voltam na próxima enquanto a causa existir — a guarda `amostra:` foi
   invertida para provar isso.
+
+- **AJUSTAR PRIORIDADES PELA CONVERSA (14/10/2026, pedido do dono).** A Home
+  é montada por um CATÁLOGO de itens (`core/home/itens`: os seis números do
+  painel e os três blocos) e pelo ARRANJO de cada pessoa (ordem + escondidos),
+  que mora em `a4p_home_preferencias` (`layout`, servidor vence; cópia em
+  `a4p_home_layout`) e sobe na hora. "Ajustar prioridades" abre o chat de tela
+  cheia no modo AJUSTE (`ChatTelaCheia ajuste`, sem histórico) com "O que você
+  gostaria de ver primeiro quando abre o Quattro?"; o que a pessoa DIGITA vira
+  ações (primeiro · último · mostrar · esconder · restaurar) por
+  `POST /api/ai/home-layout` (pedido saneado por `descricaoParaIA`, tratado
+  como informação; ações validadas na rota E no cliente por `normalizarAcoes`)
+  ou, sem chave/sessão/erro, pelas regras de `interpretarPedido`. O chat só
+  anuncia o que DE FATO mudou (`descreverMudancas`/`respostaDoAjuste`) e
+  oferece Desfazer (arranjo E prioridades de antes). O texto também alimenta as
+  prioridades das sugestões (`interessesDaDescricao`). ⚠️ "Fluxo de caixa" é o
+  RELATÓRIO, não o caixa: o sinônimo mais longo casa primeiro. ⚠️ Item
+  escondido tem caminho de volta na própria Home ("Mostrar de novo"); item que
+  falta num arranjo guardado volta no lugar padrão DO SEU GRUPO, nunca some.
+  A seção do primeiro item visível vem primeiro ("o que precisa de ação
+  primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
+  `npm run e2e -- home-ajuste`.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
@@ -4508,7 +4541,12 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 
 ### Quattro AI — assistente flutuante (global) + ficha de contato
 
-A IA tem **duas portas para o MESMO cérebro**:
+> ⚠️ **HISTÓRICO.** Desde 14/10/2026 o FAB, o painel lateral e o `IAView` não
+> existem: a conversa é só o chat em tela cheia (ver "A IA MORA NUM LUGAR SÓ",
+> na seção da Home). O que segue sobre o cérebro (`useChatIA`, `chat-kit`,
+> `ia-conversas`) continua valendo; o que fala do FAB e do painel é registro.
+
+A IA tinha **duas portas para o MESMO cérebro**:
 
 1. **FAB flutuante** (`src/components/app/AssistantWidget.tsx`, montado no
    `AppShell`) — painel à direita, disponível em toda tela. Some em

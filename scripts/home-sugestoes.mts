@@ -27,6 +27,13 @@
  * devolvem a chance; o clique zera; o desconto reordena, nunca ressuscita o
  * que um sinal ausente desligou; e nem a IA traz de volta a pergunta cansada.
  *
+ * Ajustar prioridades pela conversa: o pedido digitado vira AÇÕES sobre os
+ * itens do catálogo da Home (primeiro, último, mostrar, esconder, restaurar).
+ * "Fluxo de caixa" é o relatório, não o caixa; "tira" esconde; id ou tipo
+ * inventado pela IA não passa; nenhum item some da ordem; o chat só anuncia
+ * o que DE FATO mudou; o arranjo segue a pessoa (servidor vence o
+ * dispositivo) e quem arrastou antes não perde a ordem.
+ *
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
@@ -40,6 +47,11 @@ import {
   preferenciasDoUsuario, registrarClique, registrarExibicao,
 } from "@/core/home/preferencias";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
+import {
+  ITENS_HOME, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itensCitados,
+  layoutDasOrdensAntigas, moverItem, normalizarAcoes, normalizarLayout, ordemDasSecoes, respostaDoAjuste, visiveis,
+  type AcaoHome, type IdItemHome, type LayoutHome,
+} from "@/core/home/itens";
 import { SOLAR_ICONS } from "@/components/ui/solar-icons";
 import { readFileSync } from "node:fs";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
@@ -299,8 +311,104 @@ ok("prefs: a igualdade enxerga um dia a mais de exibição",
   && mesmasPreferencias({ interesses: [], cliques: {} }, { interesses: [], cliques: {}, exibidas: {} }));
 const HOME = readFileSync(new URL("../src/components/visao-geral/HomeSnapshot.tsx", import.meta.url), "utf8");
 ok("tela: a exibição só conta com a lista PARADA e sem as básicas", /EXIBIDA_APOS_MS/.test(HOME) && /BASICAS\[sinais\.tipoConta\]\.includes/.test(HOME) && /clearTimeout\(t\)/.test(HOME));
-ok("tela: a exibição sobe adiada, como o clique", /gravarPreferenciasHome\(novo, \{ adiar: true \}\);\s*\};\s*const opcoes/.test(HOME));
+ok("tela: a exibição sobe adiada, como o clique", /const exibiu = [\s\S]*?gravarPreferenciasHome\(novo, \{ adiar: true \}\);\s*\};/.test(HOME));
 ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPreferencia\(LOCAL_EXIBIDAS/.test(LIB));
+}
+
+/* ---------------- AJUSTAR PRIORIDADES PELA CONVERSA (etapas 2 e 3, 14/10/2026) ---------------- */
+{
+  const acoes = (t: string) => interpretarPedido(t).map((a) => `${a.tipo}${a.id ? ":" + a.id : ""}`);
+  const L = (ordem: IdItemHome[], ocultos: IdItemHome[] = []): LayoutHome => normalizarLayout({ ordem, ocultos })!;
+
+  // catálogo
+  ok("itens: nove, ids únicos", ITENS_HOME.length === 9 && new Set(ITENS_HOME.map((i) => i.id)).size === 9);
+  ok("itens: sinônimos sem acento e em minúsculas", ITENS_HOME.every((i) => i.sinonimos.every((x) => x === x.toLowerCase() && x === x.normalize("NFD").replace(/[̀-ͯ]/g, ""))));
+  ok("itens: todo número do painel tem tamanho", ITENS_HOME.filter((i) => i.grupo === "painel").every((i) => i.tamanho));
+
+  // o texto que a pessoa digita
+  ok("pedido: citar sem verbo é ver primeiro", JSON.stringify(acoes("Quero ver primeiro o que tenho a pagar e a receber")) === JSON.stringify(["primeiro:pagar", "primeiro:receber"]), JSON.stringify(acoes("Quero ver primeiro o que tenho a pagar e a receber")));
+  ok("pedido: esconder vence o verbo de ver no mesmo pedido", JSON.stringify(acoes("tira o burn e o runway, quero ver o caixa")) === JSON.stringify(["esconder:burn", "esconder:runway", "primeiro:caixa"]), JSON.stringify(acoes("tira o burn e o runway, quero ver o caixa")));
+  ok("pedido: \"não preciso\" esconde", JSON.stringify(acoes("não preciso do ARR")) === JSON.stringify(["esconder:arr"]));
+  ok("pedido: \"volte\" mostra de novo", JSON.stringify(acoes("quero que o burn volte")) === JSON.stringify(["mostrar:burn"]));
+  ok("pedido: \"volta ao padrão\" restaura", JSON.stringify(acoes("volta ao padrão")) === JSON.stringify(["restaurar"]));
+  ok("pedido: \"no final\" leva ao fim", acoes("o que precisa de ação primeiro, relatórios no final").join() === "primeiro:acao,ultimo:relatorios");
+  const so = interpretarPedido("só quero ver o caixa e o que vou pagar");
+  ok("pedido: \"só\" esconde o que não foi citado", so.filter((a) => a.tipo === "esconder").length === 7 && so.some((a) => a.tipo === "primeiro" && a.id === "caixa"), JSON.stringify(so));
+  ok("pedido: cumprimento não mexe em nada", interpretarPedido("bom dia").length === 0 && interpretarPedido("").length === 0 && interpretarPedido(42).length === 0);
+  // defeito plantado: casar o sinônimo mais CURTO primeiro faria "fluxo de caixa" (o relatório) mexer no caixa
+  const ingenuo = (t: string) => ITENS_HOME.filter((i) => i.sinonimos.some((x) => t.toLowerCase().includes(x))).map((i) => i.id);
+  ok("pedido: (defeito plantado) a leitura ingênua confunde o relatório com o caixa", ingenuo("quero o fluxo de caixa primeiro").includes("caixa"));
+  ok("pedido: \"fluxo de caixa\" é o relatório, não o caixa", JSON.stringify(itensCitados("quero o fluxo de caixa primeiro")) === JSON.stringify(["relatorios"]), JSON.stringify(itensCitados("quero o fluxo de caixa primeiro")));
+  ok("pedido: palavra dentro de outra não casa (\"arraste\" não é ARR)", !itensCitados("arraste os cards").includes("arr"));
+  // defeito plantado: tratar todo item citado como "ver primeiro" levaria o burn ao topo num pedido para tirá-lo
+  const tudoPrimeiro = (t: string): AcaoHome[] => itensCitados(t).map((id) => ({ tipo: "primeiro", id }));
+  ok("pedido: (defeito plantado) sem o verbo, \"tira o burn\" subiria o burn", visiveis(aplicarAcoes(LAYOUT_PADRAO, tudoPrimeiro("tira o burn")))[0] === "burn");
+  ok("pedido: \"tira o burn\" o esconde", !visiveis(aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn"))).includes("burn"));
+
+  // a trava contra a IA e o texto
+  const torto = normalizarAcoes([{ tipo: "primeiro", id: "lucro" }, { tipo: "apagar", id: "caixa" }, { tipo: "esconder", id: "burn" }, { tipo: "esconder", id: "burn" }, { tipo: "restaurar", id: "x" }, null, "primeiro"]);
+  ok("ações: id inventado, tipo inventado, repetido e lixo saem", JSON.stringify(torto) === JSON.stringify([{ tipo: "esconder", id: "burn" }, { tipo: "restaurar" }]), JSON.stringify(torto));
+  ok("ações: teto de vinte", normalizarAcoes(Array.from({ length: 50 }, (_, i) => ({ tipo: i % 2 ? "esconder" : "mostrar", id: ITENS_HOME[i % 9].id }))).length <= 20);
+  ok("ações: objeto que não é lista vira nada", normalizarAcoes({ tipo: "restaurar" }).length === 0);
+
+  // aplicar
+  const escondido = L(LAYOUT_PADRAO.ordem, ["pagar"]);
+  ok("aplicar: \"primeiro\" também mostra o que estava escondido", visiveis(aplicarAcoes(escondido, [{ tipo: "primeiro", id: "pagar" }]))[0] === "pagar");
+  ok("aplicar: vários \"primeiro\" na ordem dita", visiveis(aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "primeiro", id: "receber" }, { tipo: "primeiro", id: "pagar" }])).slice(0, 2).join() === "receber,pagar");
+  ok("aplicar: esconder não reordena", aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "esconder", id: "arr" }]).ordem.join() === LAYOUT_PADRAO.ordem.join());
+  ok("aplicar: restaurar volta ao padrão", JSON.stringify(aplicarAcoes(L(["relatorios", "caixa"], ["burn"]), [{ tipo: "restaurar" }])) === JSON.stringify(LAYOUT_PADRAO));
+  ok("aplicar: nenhum item some da ordem", aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("só quero ver o caixa")).ordem.length === 9);
+
+  // o que o chat diz
+  const depois = aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn, quero ver a pagar"));
+  const frases = descreverMudancas(LAYOUT_PADRAO, depois, interpretarPedido("tira o burn, quero ver a pagar"));
+  ok("chat: diz o que subiu e o que saiu", frases.some((f) => /Para o topo: Contas a pagar/.test(f)) && frases.some((f) => /Escondidos: Burn mensal/.test(f)), JSON.stringify(frases));
+  const ja = interpretarPedido("quero ver o caixa primeiro");
+  ok("chat: pedir o que já está assim não anuncia mudança", descreverMudancas(LAYOUT_PADRAO, aplicarAcoes(LAYOUT_PADRAO, ja), ja).length === 0);
+  ok("chat: \"já está desse jeito\" quando nada mudou", respostaDoAjuste(ja, []).mudou === false && /já está/.test(respostaDoAjuste(ja, []).abertura));
+  ok("chat: sem item no pedido, diz quais existem", /Caixa consolidado/.test(respostaDoAjuste([], []).fecho) && !respostaDoAjuste([], []).mudou);
+  ok("chat: mudou → oferece seguir", respostaDoAjuste(ja, ["x"]).mudou && /mais alguma coisa/.test(respostaDoAjuste(ja, ["x"]).fecho));
+
+  // o arranjo guardado
+  ok("arranjo: item que faltava volta no lugar padrão, nunca some", normalizarLayout({ ordem: ["pagar", "caixa"], ocultos: [] })!.ordem.length === 9);
+  ok("arranjo: id estranho e repetido saem", JSON.stringify(normalizarLayout({ ordem: ["caixa", "caixa", "lucro"], ocultos: ["x", "burn"] })!.ocultos) === JSON.stringify(["burn"]));
+  ok("arranjo: lixo é ausente, não vazio", normalizarLayout("x") === null && normalizarLayout([]) === null && normalizarLayout(null) === null);
+  const migrado = layoutDasOrdensAntigas({ grandes: ["arr", "caixa"], pequenos: ["receber", "pagar", "burn", "runway"] });
+  ok("arranjo: quem arrastou antes não perde a ordem", migrado?.ordem.slice(0, 6).join() === "arr,caixa,receber,pagar,burn,runway", JSON.stringify(migrado));
+  ok("arranjo: o bloco que faltava não parte a ordem dos números", normalizarLayout({ ordem: ["receber", "caixa"], ocultos: [] })!.ordem.slice(-3).join() === "acao,fechamento,relatorios");
+  ok("arranjo: sem ordem antiga, nada a migrar", layoutDasOrdensAntigas({}) === null && layoutDasOrdensAntigas(null) === null);
+  ok("arranjo: mover troca de lugar", moverItem(LAYOUT_PADRAO, "runway", "caixa").ordem[0] === "runway");
+
+  // a tela
+  ok("tela: grandes e pequenos em faixas do MESMO tamanho, na ordem", JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"])).map((f) => f.ids).slice(0, 3)) === JSON.stringify([["pagar", "receber"], ["caixa", "arr"], ["burn", "runway"]]), JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"]))));
+  ok("tela: o pedido de ver primeiro o que precisa de ação SOBE os blocos", ordemDasSecoes(aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("o que precisa de ação primeiro")))[0] === "bloco");
+  ok("tela: arranjo padrão, painel em cima", ordemDasSecoes(LAYOUT_PADRAO)[0] === "painel");
+  ok("tela: o escondido sai da faixa", !faixasDoPainel(L(LAYOUT_PADRAO.ordem, ["caixa"])).some((f) => f.ids.includes("caixa")));
+
+  // preferências e servidor
+  const comLayout = normalizarPreferencias({ interesses: [], cliques: {}, layout: { ordem: ["pagar", ...LAYOUT_PADRAO.ordem], ocultos: ["burn"] } });
+  ok("prefs: o arranjo é guardado normalizado", comLayout?.layout?.ordem[0] === "pagar" && comLayout.layout.ordem.length === 9 && comLayout.layout.ocultos.join() === "burn");
+  ok("prefs: entrada antiga (sem arranjo) lê como padrão", normalizarPreferencias({ interesses: [], cliques: {} })?.layout === null);
+  ok("prefs: a igualdade enxerga o arranjo", !mesmasPreferencias({ interesses: [], cliques: {}, layout: LAYOUT_PADRAO }, { interesses: [], cliques: {}, layout: L(LAYOUT_PADRAO.ordem, ["burn"]) }));
+  ok("prefs: o arranjo do servidor vence o do dispositivo",
+    mesclarComDispositivo({ interesses: [], cliques: {}, layout: L(["pagar", ...LAYOUT_PADRAO.ordem]) }, { interesses: [], cliques: {}, layout: L(["burn", ...LAYOUT_PADRAO.ordem]) })?.layout?.ordem[0] === "pagar");
+  ok("prefs: só o dispositivo tem arranjo → ele entra",
+    mesclarComDispositivo({ interesses: [], cliques: {} }, { interesses: [], cliques: {}, layout: L(["burn", ...LAYOUT_PADRAO.ordem]) })?.layout?.ordem[0] === "burn");
+  ok("prefs: gravar o arranjo de uma pessoa não toca nos colegas",
+    JSON.stringify(comPreferencias({ outro: { interesses: ["x"], cliques: {} } }, "eu", { interesses: [], cliques: {}, layout: LAYOUT_PADRAO }, "t").outro) === JSON.stringify({ interesses: ["x"], cliques: {} }));
+  ok("prefs: a cópia do dispositivo guarda o arranjo", /gravarPreferencia\(LOCAL_LAYOUT/.test(LIB) && /"a4p_home_layout"/.test(readFileSync(new URL("../src/lib/store-org.ts", import.meta.url), "utf8")));
+
+  // a rota e o cliente
+  const TELA = readFileSync(new URL("../src/components/visao-geral/HomeSnapshot.tsx", import.meta.url), "utf8");
+  const ROTA_LAYOUT = readFileSync(new URL("../src/app/api/ai/home-layout/route.ts", import.meta.url), "utf8");
+  ok("rota: o pedido é saneado e tratado como informação", /descricaoParaIA\(body\.pedido\)/.test(ROTA_LAYOUT) && /nunca instrução/.test(ROTA_LAYOUT));
+  ok("rota: só devolve ações validadas", /normalizarAcoes\(out\?\.acoes\)/.test(ROTA_LAYOUT));
+  ok("rota: exige sessão fora da demonstração", /if \(!isDemo\)[\s\S]*?sem_sessao/.test(ROTA_LAYOUT));
+  ok("tela: a resposta da IA é validada de novo e cai nas regras", /normalizarAcoes\(j\.acoes\)/.test(TELA) && /return interpretarPedido\(texto\)/.test(TELA));
+  ok("tela: o arraste grava ao SOLTAR, não a cada passo", /const soltar = \(\) => \{\s*if \(rascunho\) salvar\(rascunho\)/.test(TELA) && /onDragEnd: soltar/.test(TELA));
+  ok("tela: o escondido tem caminho de volta", /Mostrar de novo/.test(TELA) && /ocultos: \[\]/.test(TELA));
+  ok("tela: \"Ajustar prioridades\" abre o chat no modo ajuste", /aoAjustar/.test(TELA) && /abrirChat\(\{\s*ajuste:/.test(TELA) && /O que você gostaria de ver primeiro quando abre o Quattro\?/.test(TELA));
+  ok("tela: o desfazer volta o arranjo E as prioridades de antes", /desfazer: r\.mudou \? \(\) => prefs\.salvarAjuste\(antes, interessesAntes\)/.test(TELA));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
