@@ -4351,8 +4351,48 @@ const AGOSTO = janelaMes(2026, 7);
      * filtro sem a revisão perceber.
      */
     const consultaTxt = ler("src/lib/supabase/consulta.ts");
+    const filtrosTxt = ler("src/lib/supabase/filtros.ts");
     ok("amostra: a saída do filtro é explícita e pesquisável",
-       /"incluir-amostra"/.test(consultaTxt) && /export function semAmostra/.test(consultaTxt));
+       /"incluir-amostra"/.test(filtrosTxt) && /export function semAmostra/.test(filtrosTxt));
+
+    /**
+     * ⚠️ **O FILTRO MORA NUM MÓDULO SEM `"use client"`.** Em `consulta.ts` (que é
+     * `"use client"`) todo export vira, para um route handler, uma referência
+     * de cliente — um proxy: `semAmostra()` LANÇA e `TETO_LINHAS` é uma função.
+     * Medido em `.next/server/app/api/recorrencias/run/route.js`. Typecheck,
+     * lint e as varreduras de texto passam assim mesmo; esta é a asserção que
+     * pega a diretiva voltando.
+     */
+    const temUseClient = (t: string) => /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(t);
+    ok("amostra: o módulo do filtro (lib/supabase/filtros.ts) NÃO é \"use client\" — o servidor o alcança",
+       filtrosTxt.length > 0 && !temUseClient(filtrosTxt));
+    ok("amostra: (defeito plantado) \"use client\" no topo de filtros.ts é ACUSADO",
+       temUseClient(`"use client";\n\n${filtrosTxt}`));
+    const segundaImplementacao = (t: string) =>
+      /function semAmostra\b/.test(t) || /function comTeto\b/.test(t) || /TETO_LINHAS\s*=/.test(t);
+    ok("amostra: consulta.ts não tem uma SEGUNDA implementação (semAmostra, comTeto, TETO_LINHAS =)",
+       consultaTxt.length > 0 && !segundaImplementacao(consultaTxt));
+    // Os três braços, um a um: cada cópia de volta em consulta.ts tem de ser acusada.
+    ok("amostra: (defeito plantado) uma segunda semAmostra em consulta.ts é ACUSADA",
+       segundaImplementacao(`${consultaTxt}\nexport function semAmostra(q) { return q; }`));
+    ok("amostra: (defeito plantado) um segundo comTeto em consulta.ts é ACUSADO",
+       segundaImplementacao(`${consultaTxt}\nexport function comTeto(q) { return q; }`));
+    ok("amostra: (defeito plantado) um segundo TETO_LINHAS = em consulta.ts é ACUSADO",
+       segundaImplementacao(`${consultaTxt}\nexport const TETO_LINHAS = 5000;`));
+    const reexportaSemAmostra = (t: string) =>
+      /export\s*\{[^}]*\bsemAmostra\b[^}]*\}\s*from\s*["']\.\/filtros["']/.test(t);
+    ok("amostra: consulta.ts reexporta semAmostra de ./filtros (com nome — export * não atravessa a fronteira de cliente)",
+       reexportaSemAmostra(consultaTxt));
+    {
+      // O negativo exige que a linha do reexport EXISTA e saia — senão ele passaria sobre o vazio.
+      const linhaDoReexport = /^export\s*\{[^}]*\}\s*from\s*["']\.\/filtros["'];?[ \t]*\n/m;
+      const semReexport = consultaTxt.replace(linhaDoReexport, "");
+      const comAsterisco = consultaTxt.replace(linhaDoReexport, 'export * from "./filtros";\n');
+      ok("amostra: (defeito plantado) consulta.ts sem o reexport de ./filtros é ACUSADO",
+         semReexport !== consultaTxt && !reexportaSemAmostra(semReexport));
+      ok("amostra: (defeito plantado) o reexport trocado por export * (que não atravessa a fronteira de cliente) é ACUSADO",
+         comAsterisco !== consultaTxt && !reexportaSemAmostra(comAsterisco));
+    }
 
     /**
      * ⚠️ **A assinatura da amostra tem de bater com a amostra.** A migration

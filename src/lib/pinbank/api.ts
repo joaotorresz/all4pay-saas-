@@ -10,6 +10,7 @@ import {
   type RespostaExtratoPos,
   type ResumoExtratoPos,
 } from "@/core/pinbank/extrato-pos";
+import type { MotivoConferenciaIndisponivel } from "@/core/pinbank/conferencia";
 
 /**
  * O CLIENTE DA API DA PINBANK (token OAuth2 + métodos `…Encrypted`). SERVER-ONLY.
@@ -110,9 +111,14 @@ export class ErroApiPinbank extends Error {
 
 type Ambiente = Record<string, string | undefined>;
 
+/** As variáveis obrigatórias que FALTAM — os nomes, nunca os valores. */
+export function variaveisFaltando(env: Ambiente = process.env): string[] {
+  return VARIAVEIS_OBRIGATORIAS.filter((n) => !env[n]?.trim());
+}
+
 /** Lê a credencial das variáveis. O erro nomeia as VARIÁVEIS, nunca os valores. */
 export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPinbank {
-  const faltam = VARIAVEIS_OBRIGATORIAS.filter((n) => !env[n]?.trim());
+  const faltam = variaveisFaltando(env);
   if (faltam.length) {
     throw new ErroApiPinbank("configuracao", `Faltam na Vercel (Production): ${faltam.join(", ")}.`);
   }
@@ -137,6 +143,27 @@ export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPin
     origem: env.PINBANK_API_ORIGEM?.trim() || null,
     canal,
   };
+}
+
+/**
+ * A CONFERÊNCIA extrato × sistema pode rodar? Três perguntas, nesta ordem:
+ *
+ *   1. `PINBANK_CONFERENCIA=ligado` — a Quattro liberou (nasce DESLIGADA);
+ *   2. a credencial está configurada (`variaveisFaltando`, a MESMA conta da
+ *      leitura da credencial);
+ *   3. `PINBANK_API_AMBIENTE=producao` — com a credencial de TESTE a conferência
+ *      compararia as vendas reais da empresa com as vendas de uma loja de teste,
+ *      e acusaria todas como ausentes.
+ *
+ * ⚠️ É o ÚNICO lugar que lê `PINBANK_CONFERENCIA` (guarda no `engine-audit`). A
+ * resposta é um CÓDIGO: nunca devolve nem registra o valor de variável nenhuma.
+ */
+export function conferenciaPinbankLiberada(env: Ambiente = process.env):
+  { liberada: true } | { liberada: false; codigo: MotivoConferenciaIndisponivel } {
+  if (env.PINBANK_CONFERENCIA !== "ligado") return { liberada: false, codigo: "desligada" };
+  if (variaveisFaltando(env).length) return { liberada: false, codigo: "sem_configuracao" };
+  if ((env.PINBANK_API_AMBIENTE ?? "").trim() !== "producao") return { liberada: false, codigo: "ambiente_teste" };
+  return { liberada: true };
 }
 
 export interface OpcoesApi {
@@ -462,6 +489,21 @@ export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: O
     envelope: leitura.envelope,
     datas: f.datas ?? "fuso",
   };
+}
+
+/**
+ * A resposta do extrato SERVE para CONFERIR? As três coisas juntas: nenhum erro
+ * de validação, a LISTA veio, e o `ResultCode` é o de sucesso (0) — ou não veio
+ * código nenhum (a lista solta, que a leitura também aceita).
+ *
+ * ⚠️ A recusa da Pinbank pode trazer a lista VAZIA: o `ResultCode` de fora
+ * (4, "Autorização negada"; 2, "Erro de Sistema.") se junta ao `Data` cifrado
+ * com `[]` (`abrirCorpoPinbank`). Sem olhar o código, isso passaria como "o
+ * período não teve vendas" — e a conferência deixaria toda venda do sistema sem
+ * par. É a credencial sem o método liberado, o caso mais provável hoje.
+ */
+export function extratoServeParaConferir(r: RespostaExtratoPos): boolean {
+  return r.erros.length === 0 && r.listaRecebida && (r.codigo == null || r.codigo === 0);
 }
 
 /** Para a rota: o erro em palavras, com a fase de rede quando for da saída fixa. */

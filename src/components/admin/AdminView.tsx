@@ -411,6 +411,7 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
   const [estab, setEstab] = React.useState("");
   const [chave, setChave] = React.useState("");
   const [nome, setNome] = React.useState("");
+  const [ecExtrato, setEcExtrato] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const recarregar = () => qc.invalidateQueries({ queryKey: ["admin-pinbank"] });
@@ -419,10 +420,12 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
     if (!org) { toast("Escolha a empresa."); return; }
     if (id == null && !chave.trim()) { toast("Informe o código do estabelecimento ou a chave do gateway."); return; }
     if (id != null && (!Number.isInteger(id) || id <= 0)) { toast("O código do estabelecimento é um número inteiro."); return; }
+    const ec = ecExtrato.trim() ? Number(ecExtrato.trim()) : null;
+    if (ec != null && (!Number.isSafeInteger(ec) || ec <= 0)) { toast("O código do estabelecimento no extrato (EC) é um número inteiro maior que zero."); return; }
     setBusy(true);
     try {
-      await vincularPinbank({ orgId: org, estabelecimentoId: id, chaveGateway: chave.trim() || null, nome: nome.trim() || null });
-      setEstab(""); setChave(""); setNome("");
+      await vincularPinbank({ orgId: org, estabelecimentoId: id, chaveGateway: chave.trim() || null, nome: nome.trim() || null, codigoCliente: ec });
+      setEstab(""); setChave(""); setNome(""); setEcExtrato("");
       toast("Vinculado. A empresa ativa em Integrações.");
       await recarregar();
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
@@ -442,13 +445,19 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
     <Card padded={false} info={{ titulo: "Maquininha Pinbank", oQue: "Liga o estabelecimento da Pinbank à empresa cliente. Sem o vínculo, as vendas da maquininha ficam na quarentena.", comoCalcula: "A quarentena agrupa os eventos recebidos de estabelecimentos sem vínculo. Vincular os entrega à empresa, que ativa em Integrações." }}>
       <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Maquininha Pinbank · vínculos e quarentena</div>
       <div className="p-5 flex flex-col gap-5">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
           <Select label="Empresa" value={org} onChange={setOrg} placeholder="Escolha" options={orgOpts} />
           <Input label="Código do estabelecimento" inputMode="numeric" className="tabular-nums" value={estab} onChange={(e) => setEstab(e.target.value)} />
           <Input label="Chave do gateway" value={chave} onChange={(e) => setChave(e.target.value)} />
           <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+          <Input label="Código do estabelecimento no extrato (EC)" inputMode="numeric" className="tabular-nums"
+            placeholder="ex.: 3510" value={ecExtrato} onChange={(e) => setEcExtrato(e.target.value)} />
           <Button variant="primary" disabled={busy} onClick={vincular}>Vincular</Button>
         </div>
+        <span className="text-caption text-muted max-w-[90ch]">
+          É o número que a Pinbank usa no extrato de vendas (ex.: 3510). Não é o código da loja que aparece na quarentena.
+          Sem ele, a empresa não consegue conferir as vendas com o extrato.
+        </span>
 
         {q.isLoading ? <Skeleton className="h-16 w-full" /> : q.error ? (
           <span className="text-caption text-negative">Não foi possível ler: {(q.error as Error).message}</span>

@@ -42,9 +42,12 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   da tela — duas portas para a mesma venda com regras diferentes divergiriam.
 - **A data e a taxa são do contrato, não da Pinbank.** O webhook não traz a
   data futura de pagamento nem a taxa cobrada (só o extrato consolidado,
-  `ExtratoPos`, traz). Até a conferência pelo extrato, o repasse é estimado
-  pelos prazos e taxas do vínculo. Taxa em branco = venda sem o custo, com
-  aviso — nunca uma taxa inventada.
+  `ExtratoPos`, traz). O repasse é estimado pelos prazos e taxas do vínculo,
+  e continua estimado: a conferência com o extrato (13/10/2026,
+  `docs/rodada-10/conferencia.md`) só LÊ e compara — nenhum título muda por
+  ela. Levar a data e a taxa do extrato aos títulos é a próxima fase (D5 de
+  `conferencia.md`). Taxa em branco = venda sem o custo, com aviso — nunca uma
+  taxa inventada.
 - **A competência não se parcela**: toda parcela leva a data da venda.
 - **Nenhum evento se perde.** Sem vínculo → quarentena da plataforma; vínculo
   não ativado → espera; assinatura vencida → `bloqueado` (o bloqueio suave para
@@ -113,11 +116,34 @@ Pinbank ──POST──▶ /api/pinbank/webhook
 
 ## Pendências declaradas
 
-- **Conferência pelo extrato (`ExtratoPos`)** — **o cliente da API existe
-  (08/10/2026), falta a credencial de dev para o teste.** A Pinbank emitiu a
-  credencial de produção ("ALL4 PAY - BaaS", canal 1919) SEM o `ExtratoPos` (o
-  `ExtratoEncrypted` liberado é o extrato da CONTA DIGITAL) e vai liberá-lo
-  primeiro em dev; com o nosso ok, em produção.
+- **Conferência pelo extrato (`ExtratoPos`)** — **situação em 13/10/2026: a
+  conferência SÓ DE LEITURA existe e está DESLIGADA.** Detalhe, portões,
+  status e decisões em aberto (D1–D12) em `docs/rodada-10/conferencia.md`.
+  - **O que existe:** o botão "Conferir com o extrato" no cartão da
+    maquininha (só quem administra a empresa) chama
+    `POST /api/pinbank/conferencia`, que casa cada parcela do ExtratoPos com o
+    título `pinbank:<nsu>:<k>:r` e compara a data do repasse, o bruto da
+    parcela, o cancelamento e — num eixo à parte, sem mudar o status — o MDR
+    do extrato (percentual) com a taxa cadastrada no vínculo. Nada é gravado.
+  - **Desligada por dois interruptores**: `PINBANK_CONFERENCIA=ligado` E
+    `PINBANK_API_AMBIENTE=producao`. Hoje a credencial de produção (BaaS,
+    canal 1919) não tem o ExtratoPos, e a que tem é a de dev (canal 47): o
+    botão responde "modo de teste" — o esperado.
+  - **Condições para ligar** (D2 de `conferencia.md`): conferir uma venda REAL
+    de produção contra o ExtratoPos da credencial de produção; o limite
+    DURÁVEL de chamadas por empresa no servidor (D4 — hoje a espera de 60 s é
+    por instância); e o EC visível e auditado no `/admin` (D10). As duas
+    últimas pedem migration.
+  - **Em aberto com a Pinbank:** se o `nsu` do webhook é o `NsuOperacao` do
+    extrato (D8; sem NSU em comum a conferência não afirma nada, e o par
+    provável é a evidência) e o sentido do bruto da parcela, do split e do
+    líquido em produção (D7: os do dev são valores de teste).
+  - **Próxima fase:** levar a data e a taxa do extrato aos títulos (D5) — em
+    PR próprio, com migration, só título em aberto, com motivo e trilha.
+  - Histórico: a Pinbank emitiu a credencial de produção ("ALL4 PAY - BaaS",
+    canal 1919) SEM o `ExtratoPos` (o `ExtratoEncrypted` liberado é o extrato
+    da CONTA DIGITAL) e o liberou primeiro em dev; com o nosso ok, em
+    produção.
   - `src/lib/pinbank/api.ts`: token OAuth2 (`/api/token`, form, com cache e
     renovação UMA vez quando o token do cache é recusado), pedido cifrado
     (`src/lib/pinbank/cifra.ts`: AES-128-CBC, chave = `KeyValue`, IV zero,
@@ -196,14 +222,20 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     ~D+30) e taxa. Com `&envelope=interno` → "Erro de Sistema." de novo. A
     única diferença entre os dois é o envelope: a causa está provada, e o
     ExtratoPos funciona de ponta a ponta pela saída fixa.
-  - ⚠️ **O `ValorTaxaAdm` AINDA NÃO É CONFIÁVEL — pergunta aberta à
-    Pinbank.** Veio **2,65 em todas as 18 vendas**, de R$ 9 a R$ 300, no
-    débito e no crédito: cara de PERCENTUAL (MDR de 2,65%), com nome de valor.
-    O núcleo hoje o lê como reais (265 centavos por parcela), e o resumo soma
-    isso. Até a Pinbank responder, a taxa do extrato NÃO substitui a do
-    contrato. No mesmo extrato, `ValorBrutoParcela` e `ValorSplit` vieram com
-    75% do `ValorBruto` (split da loja de teste?) e o `ValorLiquidoRepasse`
-    com ~48,7% da parcela. Também perguntado. Conferir de novo com venda
+  - ⚠️ **O `ValorTaxaAdm` É O MDR, EM PERCENTUAL — respondido pela Pinbank
+    em 13/10/2026**: "Taxa ADM seria o MDR, são todas em percentual. Aqueles
+    são valores para fins de testes." Os **2,65 em todas as 18 vendas** do dev
+    (R$ 9 a R$ 300, débito e crédito) são, portanto, 2,65% de teste. O núcleo
+    o lê em PONTOS-BASE inteiros (`mdrBp`: 2,65% = 265; negativo ou acima de
+    100% vira ausente) — antes o lia como reais (265 centavos por parcela) e o
+    resumo SOMAVA percentuais; agora o resumo lista os MDR distintos
+    (`mdrDistintosBp`). O `ValorTaxaMes` também é percentual (`taxaMesBp`), com
+    sentido ainda não dito. A conferência compara o MDR com a taxa cadastrada
+    no vínculo (`docs/rodada-10/conferencia.md`); a taxa do extrato NÃO
+    substitui a do contrato no título. No mesmo extrato, `ValorBrutoParcela` e
+    `ValorSplit` vieram com 75% do `ValorBruto` e o `ValorLiquidoRepasse` com
+    ~48,7% da parcela — valores de teste, também pela resposta da Pinbank; o
+    sentido deles em produção segue em aberto. Conferir de novo com venda
     real, em produção, antes de ligar a conferência.
   - ⚠️ **O `RequestOrigin` é OPCIONAL no código por ora**: a doc o marca como
     obrigatório e não diz o valor, e a credencial chegou sem ele. Sem
@@ -212,11 +244,13 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     diz que é ele o primeiro suspeito. Se a Pinbank o exigir, é só preencher a
     variável — sem mudar código.
   - Em aberto com a Pinbank: a liberação do ExtratoPos na credencial de
-    produção (BaaS, canal 1919), agora que o teste no dev passou; o
-    significado do `ValorTaxaAdm` (valor ou %); a ativação dos
+    produção (BaaS, canal 1919), agora que o teste no dev passou (o
+    `ValorTaxaAdm` foi respondido em 13/10: MDR em percentual); se o `nsu`
+    do webhook é o `NsuOperacao` do extrato; a ativação dos
     webhooks `Compra.*`, e a credencial SÓ DE CONSULTA com senha nova (as duas
-    senhas passaram por chat). Depois do teste: ligar a conferência das vendas (data e taxa
-    reais no lugar das estimadas).
+    senhas passaram por chat). A conferência das vendas (data e taxa reais
+    contra as estimadas) já existe, só de leitura e desligada — ligá-la segue
+    as condições do D2 em `docs/rodada-10/conferencia.md`.
 - ~~"Tarifas de adquirência" cai no Resultado Financeiro do DRE~~ —
   **resolvido em 06/10/2026**: a taxa da maquininha (MDR) é Despesa Variável,
   acima do EBITDA, pela regra única `ehTaxaAdquirencia`
