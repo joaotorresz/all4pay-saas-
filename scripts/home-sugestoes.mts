@@ -6,10 +6,15 @@
  * de seis; no máximo duas por tema; o contexto MUDA a lista (caixa negativo,
  * SaaS, primeiro uso, pessoa física); e sinal ausente não dispara regra.
  *
+ * Etapa 2: a ordem da Quattro AI é DADO DE FORA. Id inventado, de outro
+ * público, básico, repetido ou desligado por sinal ausente não entra; o teto
+ * por tema vale para ela também; e a falha cai na ordem das regras.
+ *
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
-  BASICAS, CATALOGO_SUGESTOES, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, recomendarSugestoes, sinaisDaHome,
+  BASICAS, CANDIDATAS_IA, CATALOGO_SUGESTOES, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, candidatasParaIA, contextoParaIA,
+  recomendarSugestoes, sinaisDaHome,
   type SinaisHome,
 } from "@/core/home/sugestoes";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
@@ -89,6 +94,38 @@ ok("ausência: vencido desconhecido não sugere cobrar", !r0.some((x) => x.id ==
 // defeito plantado: tratar null como "há pendência" teria de pôr "notas" na lista
 const plantado = recomendarSugestoes({ ...semDado, pendencias: { ...semDado.pendencias, notas: 1 } });
 ok("ausência: (defeito plantado) com uma nota de verdade, a sugestão aparece", plantado.some((x) => x.id === "notas"));
+
+// etapa 2 — a ordem da Quattro AI só reordena o que as regras deixaram de pé
+const cheio = varios[1];
+const regras = ids(cheio);
+const cands = candidatasParaIA(cheio);
+ok("ia: candidatas não incluem as básicas", cands.every((c) => !BASICAS.empresa.includes(c.id)));
+ok("ia: candidatas respeitam o teto", cands.length > 4 && cands.length <= CANDIDATAS_IA, `(${cands.length})`);
+const ultima = cands[cands.length - 1].id;
+const comIA = recomendarSugestoes(cheio, LIMITE_SUGESTOES, [ultima]).map((x) => x.id);
+ok("ia: a escolha da IA sobe para logo depois das básicas", comIA[2] === ultima, JSON.stringify(comIA));
+ok("ia: as básicas continuam primeiro", JSON.stringify(comIA.slice(0, 2)) === JSON.stringify(BASICAS.empresa));
+ok("ia: o resto é completado pelas regras", comIA.length === LIMITE_SUGESTOES);
+const lixo = recomendarSugestoes(cheio, LIMITE_SUGESTOES, ["inventada", 42, null, {}, "saude", "fechar-mes", "pf-gastos-mes"]).map((x) => x.id);
+ok("ia: id inventado, de outro público, básico ou que não é texto não entra", JSON.stringify(lixo) === JSON.stringify(regras), JSON.stringify(lixo));
+ok("ia: resposta que não é lista cai nas regras",
+   [null, undefined, "quem-deve", { ids: ["quem-deve"] }].every((v) => JSON.stringify(recomendarSugestoes(cheio, LIMITE_SUGESTOES, v).map((x) => x.id)) === JSON.stringify(regras)));
+// "Desligada" = pontuação zero: nenhuma regra casou e a base é zero (as de base
+// positiva continuam candidatas legítimas, e a IA pode subi-las).
+const vivas = new Set(recomendarSugestoes(semDado, 100).map((x) => x.id));
+const mortas = empresa.map((c) => c.id).filter((id) => !vivas.has(id));
+const desligada = recomendarSugestoes(semDado, LIMITE_SUGESTOES, mortas).map((x) => x.id);
+ok("ia: há sugestão desligada para o teste valer", mortas.includes("quem-deve") && mortas.length >= 5, JSON.stringify(mortas));
+ok("ia: não ressuscita sugestão que sinal ausente desligou", desligada.every((id) => vivas.has(id)), JSON.stringify(desligada));
+ok("ia: candidatas são só as vivas", candidatasParaIA(semDado).every((c) => vivas.has(c.id)));
+const mesmoTema = cands.filter((c) => c.tema === cands[0].tema).map((c) => c.id);
+const porTemaIA = recomendarSugestoes(cheio, LIMITE_SUGESTOES, [...mesmoTema, ...mesmoTema]);
+const contaTema = porTemaIA.filter((x) => x.tema === cands[0].tema).length;
+ok("ia: o teto por tema vale para a escolha da IA", contaTema <= MAX_POR_TEMA, `(${cands[0].tema}: ${contaTema})`);
+ok("ia: id repetido não ocupa duas vagas", new Set(porTemaIA.map((x) => x.id)).size === porTemaIA.length);
+const ctx = contextoParaIA(semDado);
+ok("ia: ausente vai à IA como null, nunca zero", ctx.receberVencido === null && ctx.pendencias.notas === null && ctx.variacaoBurn30d === null);
+ok("ia: o contexto não leva lançamento nem nome", !("movements" in ctx) && !JSON.stringify(ctx).includes("party"));
 
 // ponta a ponta: snapshot real → sinais → sugestões
 const movs: RiskMovement[] = [

@@ -14,7 +14,12 @@ import { hydrateAprovacoes, listSolicitacoes } from "@/lib/aprovacoes";
 import { tarefasDoMes } from "@/lib/fechamento-tarefas";
 import type { TarefaFechamento } from "@/core/close/checklist";
 import { decimalBR, pct } from "@/lib/format";
-import { INTERESSES, recomendarSugestoes, sinaisDaHome, type SugestaoEscolhida } from "@/core/home/sugestoes";
+import { useQuery } from "@tanstack/react-query";
+import {
+  INTERESSES, LIMITE_SUGESTOES, candidatasParaIA, contextoParaIA, recomendarSugestoes, sinaisDaHome,
+  type CandidataIA, type SinaisHome, type SugestaoEscolhida,
+} from "@/core/home/sugestoes";
+import { reportar } from "@/lib/erros";
 import { lerPreferencia, gravarPreferencia } from "@/lib/store-org";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -85,6 +90,38 @@ function usePreferenciasIA(tipo: "empresa" | "pessoal") {
 }
 
 type PreferenciasIA = ReturnType<typeof usePreferenciasIA>;
+
+/**
+ * A ordem que a Quattro AI propõe para as quatro sugestões depois das básicas
+ * (etapa 2). Só pergunta depois do primeiro acesso (antes dele só aparecem as
+ * básicas) e uma vez por dia e por conjunto de candidatas — o cache é o do
+ * React Query, em memória. Qualquer falha devolve `null` e a Home fica com a
+ * ordem das regras; quem valida o que veio é `recomendarSugestoes`.
+ */
+function useOrdemDaIA(sinais: SinaisHome | null, candidatas: CandidataIA[], ligado: boolean) {
+  const { data } = useQuery({
+    queryKey: ["home-sugestoes-ia", sinais?.hoje, sinais?.tipoConta, candidatas.map((c) => c.id).join(","), (sinais?.interesses ?? []).join(",")],
+    enabled: ligado && !!sinais && candidatas.length > 0,
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<string[] | null> => {
+      try {
+        const res = await fetch("/api/ai/sugestoes", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ contexto: contextoParaIA(sinais!), candidatas }),
+        });
+        const j = (await res.json().catch(() => null)) as { ok?: boolean; ids?: unknown } | null;
+        return j?.ok && Array.isArray(j.ids) ? (j.ids as string[]) : null;
+      } catch (e) {
+        reportar("home.sugestoes-ia", e, "as sugestões da Home ficam na ordem das regras, sem a escolha da IA", true);
+        return null;
+      }
+    },
+  });
+  return data ?? null;
+}
 
 /** "O que é mais importante no seu dia a dia?" — a pergunta do primeiro acesso. */
 function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFechar: () => void }) {
@@ -477,14 +514,21 @@ export function HomeSnapshot() {
   const [perfil, setPerfil] = React.useState<ReturnType<typeof loadCompany> | undefined>(undefined);
   React.useEffect(() => { setPerfil(loadCompany()); }, []);
 
-  const sugestoes = React.useMemo(() => {
+  const sinais = React.useMemo(() => {
     if (!snap || !input || perfil === undefined) return null;
     const fechamento = tarefas && tarefas.length > 0 ? tarefas.filter((t) => t.status === "done").length / tarefas.length : null;
-    return recomendarSugestoes(sinaisDaHome({
+    return sinaisDaHome({
       snap, input, tipoConta: tipo, perfil: perfil?.perfil ?? null, pendencias, fechamento,
       interesses: prefs.interesses ?? [], cliques: prefs.cliques,
-    }));
+    });
   }, [snap, input, perfil, tipo, pendencias, tarefas, prefs.interesses, prefs.cliques]);
+  const candidatas = React.useMemo(() => (sinais ? candidatasParaIA(sinais) : []), [sinais]);
+  // No primeiro acesso (`interesses === null`) só as básicas aparecem: não há o que a IA ordenar.
+  const ordemIA = useOrdemDaIA(sinais, candidatas, Array.isArray(prefs.interesses));
+  const sugestoes = React.useMemo(
+    () => (sinais ? recomendarSugestoes(sinais, LIMITE_SUGESTOES, ordemIA) : null),
+    [sinais, ordemIA],
+  );
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">

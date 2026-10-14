@@ -24,7 +24,7 @@ import type { RiskInput } from "@/core/risk-engine/types";
 import { inadimplencia, temValor, type Indicador } from "@/core/indicadores";
 import type { HomeSnapshot, NumeroHome } from "./snapshot";
 
-export const SUGESTOES_HOME_VERSION = "home-sugestoes/1.0.0";
+export const SUGESTOES_HOME_VERSION = "home-sugestoes/1.1.0";
 
 /** Quantas sugestões a Home mostra — decisão do dono. */
 export const LIMITE_SUGESTOES = 6;
@@ -334,16 +334,9 @@ const TETO_CLIQUES = 4;
 
 /* ------------------------------ a escolha ------------------------------ */
 
-/**
- * As até `limite` sugestões para este contexto, da mais à menos relevante.
- *
- * Pontos = base + soma dos pesos das regras que casam. Empate fica com a ordem
- * do catálogo (estável: a mesma empresa no mesmo dia vê a mesma lista). No
- * máximo `MAX_POR_TEMA` por tema; se o corte deixar a lista curta, os temas
- * cheios voltam a entrar — melhor repetir tema do que mostrar menos de seis.
- */
-export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES): SugestaoEscolhida[] {
-  const avaliadas = CATALOGO_SUGESTOES
+/** Pontua o catálogo do público: base + regras + prioridades + cliques; zero sai. */
+function avaliar(s: SinaisHome): SugestaoEscolhida[] {
+  return CATALOGO_SUGESTOES
     .filter((c) => c.publico === s.tipoConta)
     .map((c, ordem) => {
       const casadas = c.regras.filter((g) => g.casa(s));
@@ -361,17 +354,38 @@ export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES): S
     .filter((x) => x.e.pontos > 0)
     .sort((a, b) => b.e.pontos - a.e.pontos || a.ordem - b.ordem)
     .map((x) => x.e);
+}
+
+/**
+ * Escolhe até `limite` sugestões. As duas BÁSICAS vêm primeiro, sempre; depois,
+ * no máximo `MAX_POR_TEMA` por tema, pela pontuação.
+ *
+ * ⚠️ `preferidas` é a ORDEM que a Quattro AI propôs (etapa 2). Ela é tratada
+ * como dado de fora, não como ordem: só passa id que é texto, que existe no
+ * catálogo, que é do público, que não é básica e que as REGRAS já deixaram de
+ * pé (pontuação acima de zero). A IA só REORDENA — não ressuscita a sugestão
+ * que um sinal ausente desligou, não inventa pergunta e não fura o teto por
+ * tema. O que ela não preencher, as regras preenchem.
+ */
+export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES, preferidas?: unknown): SugestaoEscolhida[] {
+  const avaliadas = avaliar(s);
+  const basicas = BASICAS[s.tipoConta];
+  const daIA = idsValidosDaIA(preferidas, avaliadas, basicas);
+  const ordenadas = [
+    ...daIA.map((id) => avaliadas.find((e) => e.id === id)!),
+    ...avaliadas,
+  ];
 
   const out: SugestaoEscolhida[] = [];
   const porTema = new Map<TemaSugestao, number>();
   // As duas básicas primeiro, sempre — e entram na conta do tema.
-  for (const id of BASICAS[s.tipoConta]) {
+  for (const id of basicas) {
     const c = CATALOGO_SUGESTOES.find((x) => x.id === id);
     if (!c || out.length >= limite) continue;
     out.push({ id: c.id, texto: c.texto, tema: c.tema, pontos: 99, motivo: "sugestão básica" });
     porTema.set(c.tema, (porTema.get(c.tema) ?? 0) + 1);
   }
-  for (const e of avaliadas) {
+  for (const e of ordenadas) {
     if (out.some((o) => o.id === e.id)) continue;
     if (out.length >= limite) break;
     const k = porTema.get(e.tema) ?? 0;
@@ -384,6 +398,63 @@ export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES): S
     if (!out.some((o) => o.id === e.id)) out.push(e);
   }
   return out;
+}
+
+function idsValidosDaIA(preferidas: unknown, avaliadas: SugestaoEscolhida[], basicas: string[]): string[] {
+  if (!Array.isArray(preferidas)) return [];
+  const vivas = new Set(avaliadas.map((e) => e.id));
+  const out: string[] = [];
+  for (const id of preferidas) {
+    if (typeof id !== "string" || !vivas.has(id) || basicas.includes(id) || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+/* ------------------------------ a pergunta à Quattro AI (etapa 2) ------------------------------ */
+
+/** Quantas candidatas vão à IA: as mais bem pontuadas pelas regras, sem as básicas. */
+export const CANDIDATAS_IA = 14;
+
+export interface CandidataIA { id: string; texto: string; tema: TemaSugestao; motivo: string }
+
+/** As candidatas que a IA pode ordenar — só as que as regras deixaram de pé. */
+export function candidatasParaIA(s: SinaisHome, teto = CANDIDATAS_IA): CandidataIA[] {
+  const basicas = BASICAS[s.tipoConta];
+  return avaliar(s)
+    .filter((e) => !basicas.includes(e.id))
+    .slice(0, teto)
+    .map(({ id, texto, tema, motivo }) => ({ id, texto, tema, motivo }));
+}
+
+/**
+ * O contexto que vai à IA: os SINAIS, já com o ausente como `null` (nunca
+ * zero), o perfil do onboarding e o que a pessoa marcou e clicou. Nada de
+ * lançamento, nome de cliente ou documento — a ordem de quatro perguntas não
+ * precisa disso, e o que não sai não vaza.
+ */
+export function contextoParaIA(s: SinaisHome) {
+  return {
+    diaDoMes: dia(s),
+    tipoConta: s.tipoConta,
+    perfil: s.perfil,
+    temLancamentos: s.temLancamentos,
+    caixa: s.caixa,
+    variacaoCaixa30d: s.caixaVar,
+    burnMensal: s.burnMensal,
+    variacaoBurn30d: s.burnVar,
+    runwayMeses: s.runwayMeses,
+    runwayMotivo: s.runwayMotivo,
+    arr: s.arr,
+    aReceber30d: s.receber30,
+    aPagar30d: s.pagar30,
+    receberVencido: s.receberVencido,
+    titulosVencidos: s.qtdReceberVencidos,
+    pendencias: s.pendencias,
+    fechamentoConcluido: s.fechamento,
+    prioridades: s.interesses ?? [],
+    cliques: s.cliques ?? {},
+  };
 }
 
 /* ------------------------------ os sinais, a partir do que a Home já tem ------------------------------ */

@@ -257,6 +257,17 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   pergunta "O que é mais importante no seu dia a dia?" (`INTERESSES`); a
   resposta e os cliques (preferência LOCAL de quem usa, `a4p_home_interesses`
   e `a4p_home_cliques`) completam as outras quatro.
+- **Etapa 2 (14/10/2026): a Quattro AI ESCOLHE as outras quatro.** A Home manda
+  a `POST /api/ai/sugestoes` os sinais (`contextoParaIA`: ausente vai como
+  `null`, sem lançamento nem nome) e até 14 candidatas que as REGRAS deixaram de
+  pé (`candidatasParaIA`, sem as básicas); a IA devolve ids na ordem. ⚠️ A
+  ordem é DADO DE FORA, validada duas vezes (na rota, contra as candidatas; no
+  cliente, por `recomendarSugestoes(s, 6, preferidas)`): id inventado, de outro
+  público, básico, repetido ou desligado por sinal ausente não entra, e o teto
+  de dois por tema vale para ela. Sem chave, sem sessão (o `/api` é público e a
+  rota exige usuário fora da demonstração) ou com erro, vale a ordem das regras,
+  sem aviso na tela. Só pergunta depois do primeiro acesso; cache de 1 h no
+  React Query, por dia e por conjunto de candidatas.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
