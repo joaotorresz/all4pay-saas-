@@ -11007,6 +11007,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        naoRecebivel.filter((c) => ehAntA(c)).join(" · "));
     ok("antecipação: com o contexto do recebível ou da cobrança, é — cartão, juros, repasse e crédito",
        ["Antecipação de cartão", "Juros de antecipação", "Antecipação do repasse", "Antecipação de crédito", "Deságio da antecipação"].every((c) => ehAntA(c)));
+    // A preposição "das" não é o DAS do Simples: recusá-la tirava do financeiro a antecipação mais comum.
+    const comDas = ["Taxa de antecipação das vendas no cartão", "Custo de antecipação das parcelas", "Antecipação das vendas de crédito"];
+    ok("antecipação: a preposição \"das\" não recusa a antecipação de recebível (\"Taxa de antecipação das vendas no cartão\")",
+       comDas.every((c) => ehAntA(c)), comDas.filter((c) => !ehAntA(c)).join(" · "));
     const relR = montarDRE(inp([
       { id: "v", type: "entrada", amount: 1_000, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Vendas", party_id: null },
       { id: "i1", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de IRPJ", party_id: null },

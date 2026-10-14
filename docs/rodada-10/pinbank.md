@@ -108,11 +108,12 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   8,56, e o DRE da empresa fechou com EBITDA de R$ 26,51 e resultado de R$
   26,16 (a soma do depositado). Guardas: o bloco `pinbank (real)` do
   `engine-audit` (os três casos com os valores literais, e 13 defeitos
-  plantados acusados pelo nome; mais 8 dos achados da revisão — a divisão
+  plantados acusados pelo nome; mais 9 dos achados da revisão — a divisão
   de volta a `dividir` e sempre no piso, a tarifa em toda forma, a
-  antecipação sem o teto e sem o limite do que sobra, o aviso antigo e a
-  regra do recebível sem o contexto e sem a recusa do tributo —, todos
-  acusados).
+  antecipação sem o teto e sem o limite do que sobra, o aviso antigo, a
+  regra do recebível sem o contexto e sem a recusa do tributo, e o DAS de
+  volta à recusa (a preposição "das" tirava do financeiro "Taxa de
+  antecipação das vendas no cartão") —, todos acusados).
 - **A competência não se parcela**: toda parcela leva a data da venda.
 - **Nenhum evento se perde.** Sem vínculo → quarentena da plataforma; vínculo
   não ativado → espera; assinatura vencida → `bloqueado` (o bloqueio suave para

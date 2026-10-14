@@ -91,13 +91,15 @@ export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
  * antecipação mensal do IRPJ saía do imposto sobre o lucro). Sem o contexto, a
  * categoria segue o caminho que já tinha. E a antecipação TRIBUTÁRIA ("ICMS
  * antecipação", "IRPJ - antecipação mensal", DIFAL) é imposto mesmo com "custo"
- * ou "taxa" no nome.
+ * ou "taxa" no nome. ⚠️ O DAS do Simples NÃO entra na recusa: "das" é também a
+ * preposição ("Taxa de antecipação das vendas no cartão") e a recusaria — e o
+ * DAS antecipado não tem o contexto do recebível para casar de qualquer jeito.
  */
 export function ehAntecipacaoDeRecebiveis(cat: string | null | undefined): boolean {
   const c = chaveCategoria(cat);
   return /\bantecipac(ao|oes)\b/.test(c)
     && /\b(receb\w*|cart(ao|oes)|adquir\w*|maquin\w*|credito|repasses?|taxas?|custos?|juros?|desagio)\b/.test(c)
-    && !/\b(icms|impostos?|tribut\w*|iss|pis|cofins|ipi|st|irpj|csll|das|inss|difal|simples|fgts|salarios?|ferias|13o?|decimo|lucros?|clientes?|fornecedor(es)?)\b/.test(c);
+    && !/\b(icms|impostos?|tribut\w*|iss|pis|cofins|ipi|st|irpj|csll|inss|difal|simples|fgts|salarios?|ferias|13o?|decimo|lucros?|clientes?|fornecedor(es)?)\b/.test(c);
 }
 
 /** A palavra que diz que o dinheiro VOLTOU: estorno, devolução, reembolso, reversão, restituição, ressarcimento. */
