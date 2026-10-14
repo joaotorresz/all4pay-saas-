@@ -195,13 +195,9 @@ export function Sidebar() {
             const href = destinoDoGrupo(s);
             const conteudo = (
               <>
-                {s.id === "inicio" ? (
-                  // A ilustração da marca no lugar do ícone do Início (canvas).
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src="/quattro-icone-inicio.webp" alt="" aria-hidden className="w-[28px] h-[28px] -m-[5px] object-contain shrink-0" />
-                ) : (
-                  <Icon name={s.icon ?? "layers"} size={18} color="currentColor" className="shrink-0" />
-                )}
+                {/* Visão geral usa o ícone de casa como os outros grupos (pedido do
+                    dono, 14/10/2026): a ilustração da marca saiu do menu. */}
+                <Icon name={s.icon ?? "layers"} size={18} color="currentColor" className="shrink-0" />
                 {!col && <span className="flex-1 min-w-0 text-left truncate">{s.label}</span>}
                 {!col && marcado && s.items.length === 0 && (
                   <span aria-hidden className="w-[6px] h-[6px] rounded-pill bg-ink shrink-0" />
