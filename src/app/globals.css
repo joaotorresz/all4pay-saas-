@@ -973,6 +973,25 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
+   CHAT EM TELA CHEIA da Home (`ia/ChatTelaCheia`): a conversa sobe da caixa
+   — aparece, sobe 24px e desfoca de volta ao nítido; sai no sentido inverso
+   (260ms, o `SAIDA_MS` do componente). Para em `prefers-reduced-motion`.
+   ============================================================ */
+.a4p-chat-tela { animation: a4p-chat-entra 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.a4p-chat-tela[data-saindo] { animation: a4p-chat-sai 260ms ease-in both; }
+@keyframes a4p-chat-entra {
+  from { opacity: 0; transform: translateY(24px) scale(0.985); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes a4p-chat-sai {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(16px) scale(0.99); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a4p-chat-tela, .a4p-chat-tela[data-saindo] { animation: none; }
+}
+
+/* ============================================================
    QUATTRO AI — tipografia e movimento do assistente.
 
    O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do

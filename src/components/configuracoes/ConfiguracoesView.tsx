@@ -12,6 +12,7 @@ import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
 import { isDemo } from "@/lib/demo";
 import { ErroWidget } from "@/components/visao-geral/shared";
 import type { Participante } from "@/core/onboarding";
+import { DescricaoLivre } from "@/components/onboarding/DescricaoLivre";
 
 /** Campos de identidade editáveis (rótulo + chave em db). */
 const IDENTIDADE: { key: string; label: string }[] = [
@@ -206,6 +207,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
               <Chips label="Bancos" items={perfil.bancos} />
               <Chips label="Meios de recebimento" items={perfil.meiosRecebimento} />
               <Chips label="Principais despesas" items={perfil.despesas} />
+              <SobreAEmpresa company={company!} setCompany={setCompany} onToast={onToast} />
             </Card>
           )}
 
@@ -326,6 +328,60 @@ function Chips({ label, items }: { label: string; items: string[] }) {
           <span key={i} className="text-caption text-ink bg-surface-2 rounded-pill px-[10px] py-[3px]">{it}</span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A descrição livre do onboarding, editável depois (etapa 3 da Home
+ * adaptativa): o que a empresa faz e o que quer acompanhar. Muda as
+ * sugestões da Quattro AI na Home — por isso a tela diz isso ao salvar.
+ */
+function SobreAEmpresa({
+  company, setCompany, onToast,
+}: {
+  company: StoredCompany;
+  setCompany: (c: StoredCompany) => void;
+  onToast: (m: string) => void;
+}) {
+  const atual = company.perfil?.descricao ?? "";
+  const [editando, setEditando] = React.useState(false);
+  const [texto, setTexto] = React.useState(atual);
+  const publico = company.db?.tipoConta === "pessoal" ? "pessoal" : "empresa";
+
+  const salvar = () => {
+    if (!company.perfil) return;
+    const descricao = texto.trim();
+    const { descricao: _antiga, ...resto } = company.perfil;
+    void _antiga;
+    const novo: StoredCompany = { ...company, perfil: { ...resto, ...(descricao ? { descricao } : {}) } };
+    setCompany(novo);
+    setEditando(false);
+    persistCompany(novo)
+      .then(() => onToast("Descrição salva. As sugestões da Home passam a considerá-la."))
+      .catch((e: unknown) => onToast(`Salvo só neste navegador — o servidor recusou: ${e instanceof Error ? e.message : String(e)}`));
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pt-1">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-caption text-muted">Sobre a empresa, com suas palavras</span>
+        {!editando ? (
+          <Button variant="ghost" size="sm" leftIcon={<Icon name="edit" size={14} />} onClick={() => { setTexto(atual); setEditando(true); }}>
+            {atual ? "Editar" : "Escrever"}
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setEditando(false)}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={salvar}>Salvar</Button>
+          </div>
+        )}
+      </div>
+      {editando ? (
+        <DescricaoLivre value={texto} onChange={setTexto} publico={publico} label="Descrição" />
+      ) : (
+        <p className="m-0 text-body text-ink whitespace-pre-line">{atual || "—"}</p>
+      )}
     </div>
   );
 }

@@ -246,6 +246,72 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   de vocabulário da ONDA 11); "Contratos a aprovar" virou "Compras a aprovar"
   (não há fila de aprovação de contrato).
 - `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
+- **Sugestões da caixa da IA são ADAPTATIVAS** (`core/home/sugestoes`, etapa 1):
+  até SEIS perguntas, escolhidas de um catálogo (41 de empresa + 6 de pessoa
+  física) por regras sobre o perfil do onboarding e os sinais da Home (runway,
+  burn, vencidos, pendências, dia do mês). No máximo duas por tema; o motivo vai
+  no `title` do chip. ⚠️ Sinal `null` não dispara regra. A IA, quando entrar,
+  só REORDENA ids deste catálogo. Guarda: `npm run home-sugestoes`.
+  As DUAS primeiras são fixas (`BASICAS`: saúde financeira e fechar o mês;
+  na PF, gastos e orçamento). No primeiro acesso só elas aparecem, com a
+  pergunta "O que é mais importante no seu dia a dia?" (`INTERESSES`); a
+  resposta e os cliques (preferência LOCAL de quem usa, `a4p_home_interesses`
+  e `a4p_home_cliques`) completam as outras quatro.
+- **Etapa 2 (14/10/2026): a Quattro AI ESCOLHE as outras quatro.** A Home manda
+  a `POST /api/ai/sugestoes` os sinais (`contextoParaIA`: ausente vai como
+  `null`, sem lançamento nem nome) e até 14 candidatas que as REGRAS deixaram de
+  pé (`candidatasParaIA`, sem as básicas); a IA devolve ids na ordem. ⚠️ A
+  ordem é DADO DE FORA, validada duas vezes (na rota, contra as candidatas; no
+  cliente, por `recomendarSugestoes(s, 6, preferidas)`): id inventado, de outro
+  público, básico, repetido ou desligado por sinal ausente não entra, e o teto
+  de dois por tema vale para ela. Sem chave, sem sessão (o `/api` é público e a
+  rota exige usuário fora da demonstração) ou com erro, vale a ordem das regras,
+  sem aviso na tela. Só pergunta depois do primeiro acesso; cache de 1 h no
+  React Query, por dia e por conjunto de candidatas.
+- **Etapa 3 (14/10/2026): a DESCRIÇÃO LIVRE do onboarding.** "Conte com suas
+  palavras" no passo Perfil (empresa) e em Gastos (PF), editável depois em
+  Configurações (`components/onboarding/DescricaoLivre.tsx`, `perfil.descricao`,
+  até 500 letras). Ela pesa de dois jeitos: pelas REGRAS (palavras ancoradas,
+  sem acento, por público → as mesmas `INTERESSES`, peso 1 contra 1,5 da
+  prioridade marcada, e não soma duas vezes com ela) e pela IA. ⚠️ Sai para a
+  IA só por `descricaoParaIA` (segredos cobertos pelo detector da Central de
+  Ajuda, espaços colapsados, teto, vazio = `null`) — no cliente E de novo na
+  rota, que a declara INFORMAÇÃO, nunca instrução. Guarda: `npm run home-sugestoes`.
+- **Etapa 4 (14/10/2026): prioridades e cliques no SERVIDOR.** Moram em
+  `org_state` (`a4p_home_preferencias`, mapa `usuário → preferências`, mesma
+  forma do histórico da IA) e seguem a pessoa entre computadores. Regras puras
+  em `core/home/preferencias`, servidor em `lib/home-preferencias`. ⚠️ O mapa é
+  regravado INTEIRO: só se envia depois de o servidor RESPONDER
+  (`hidratarComStatus`) e com o usuário conhecido — sem isso, gravar apagaria
+  os colegas. ⚠️ Os cliques sobem ADIADOS (30 s e na saída da página): cada
+  gravação vira evento na trilha. A cópia do dispositivo (`a4p_home_interesses`/
+  `a4p_home_cliques`) continua: é a reserva de quem não pode escrever
+  (`org_state` exige o papel de lançar) e o que a primeira conferência sobe.
+  Mescla: o servidor vence nas prioridades; cliques pelo MAIOR de cada lado.
+- **Etapa 5 (14/10/2026): o que a pessoa IGNORA desce.** Cada sugestão (menos
+  as básicas) guarda por quantos DIAS apareceu sem clique (`exibidas` em
+  `a4p_home_preferencias`, cópia em `a4p_home_exibidas`) — uma vez por dia,
+  só com a lista PARADA 8 s na tela. Três dias são de graça; depois −0,4 por
+  dia até o teto de 2 (com 1,2 nada mudava na tela: medido no navegador,
+  a ignorada seguia na frente). O clique zera. ⚠️ O
+  dia de HOJE só conta amanhã (senão os chips trocariam de lugar diante de
+  quem olha); 14 dias sem aparecer devolvem a chance; o desconto REORDENA,
+  nunca ressuscita o que um sinal desligou; regra de URGÊNCIA (peso ≥ 2,5:
+  caixa negativo, primeiro uso) não desce — medido: sem isso "Cobrir o
+  caixa" ignorada perdia a vaga do tema para "Fluxo 13 semanas". A IA recebe
+  as `ignoradas` e não traz de volta a que chegou ao teto (`cansada`).
+- **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
+  chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
+  com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a
+  pergunta: logo no alto, "Fechar chat" (e Esc), a pergunta num balão à
+  direita, a resposta solta com os números em CARTÕES (`BolhaResposta
+  variante="aberta"`) e "Veja tudo o que eu faço" com até 12 sugestões. É a
+  MESMA IA (`useChatIA`) e a conversa entra no histórico de `/quattro-ai`.
+  ⚠️ O chip mostra o RÓTULO CURTO com ícone (`ROTULOS`: "Fechar o mês"); a
+  pergunta inteira vai para a conversa, para o nome acessível e para o
+  `title`. A guarda exige rótulo e ícone EXISTENTE para cada pergunta. ⚠️ A
+  conversa sobe a ÚLTIMA PERGUNTA para o alto, nunca rola até o fim: o fim é
+  o "Veja tudo", e rolar até ele escondia a resposta que acabou de chegar.
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
   ou setas do teclado; só a alça inicia, porque o card é link), por grupo,

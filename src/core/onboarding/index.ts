@@ -18,6 +18,12 @@ export interface PerfilEmpresa {
   bancos: string[];
   meiosRecebimento: string[];
   despesas: string[];
+  /**
+   * Com as palavras de quem cadastra: o que a empresa faz e o que mais quer
+   * acompanhar. Opcional. Alimenta as sugestões da Quattro AI na Home — sai
+   * para a IA só saneado (`descricaoParaIA`, segredos cobertos).
+   */
+  descricao?: string;
 }
 export type PapelUsuario = "administrador" | "gestor" | "operador" | "visualizador";
 export interface PermissoesUsuario { visualizar: boolean; editar: boolean; autonomia: boolean }
