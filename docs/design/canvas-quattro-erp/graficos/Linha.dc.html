@@ -14,9 +14,14 @@
 @font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
 body{margin:0}
 *{box-sizing:border-box}
+.l-alvo{cursor:pointer}
+.l-alvo .l-ponto{transition:opacity .15s ease, fill .15s ease}
+.l-alvo .l-guia{opacity:0;transition:opacity .15s ease}
+.l-alvo:hover .l-ponto{opacity:1 !important;fill:var(--hover)}
+.l-alvo:hover .l-guia{opacity:1}
 </style>
 </helmet>
-<div style="width: 1280px; height: 640px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px">
+<div style="width: 1280px; height: 680px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
   <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Linha e área</h1>
 
   <div style="background: #f6f6f6; border-radius: 20px; padding: 28px 32px; display: flex; flex-direction: column; gap: 16px; flex: 1">
@@ -26,43 +31,66 @@ body{margin:0}
         <span style="font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 36px; line-height: 1; color: #000000; font-variant-numeric: tabular-nums">R$248.850<span style="font-size: 18px; color: #6B7060">,50</span></span>
       </div>
       <div style="display: flex; gap: 18px; font-size: 13px; color: #6B7060">
-        <span style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; height: 2px; background: {{cor}}"></span>Este período</span>
+        
         <sc-if value="{{comparar}}" hint-placeholder-val="{{ true }}">
-          <span style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; border-top: 2px dashed {{corComparacao}}"></span>Período anterior</span>
+          
         </sc-if>
       </div>
     </div>
 
-    <svg width="100%" height="360" viewBox="0 0 1100 360" preserveAspectRatio="none" role="img" aria-label="Saldo mês a mês, de janeiro a dezembro, subindo de R$120 mil para R$248 mil">
-      <sc-for list="{{grade}}" as="g" hint-placeholder-count="4">
-        <line x1="0" y1="{{g.y}}" x2="1100" y2="{{g.y}}" stroke="#e2e2e2" stroke-dasharray="3 4"></line>
-      </sc-for>
-      <sc-if value="{{area}}" hint-placeholder-val="{{ true }}">
-        <path d="{{caminhoArea}}" fill="{{corArea}}" fill-opacity="{{opacidadeArea}}"></path>
-      </sc-if>
-      <sc-if value="{{comparar}}" hint-placeholder-val="{{ true }}">
-        <path d="{{caminhoComp}}" fill="none" stroke="{{corComparacao}}" stroke-width="1.4" stroke-dasharray="5 5"></path>
-      </sc-if>
-      <path d="{{caminho}}" fill="none" stroke="{{cor}}" stroke-width="{{espessura}}" stroke-linejoin="round" stroke-linecap="round"></path>
-      <sc-if value="{{pontos}}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative">
+      <svg width="100%" height="{{altura}}" viewBox="0 0 1100 {{altura}}" preserveAspectRatio="none" role="img" aria-label="Saldo mês a mês, de janeiro a dezembro, subindo de R$120 mil para R$248 mil">
+        <sc-if value="{{mostrarGrade}}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{grade}}" as="g" hint-placeholder-count="4">
+            <line x1="0" y1="{{g.y}}" x2="1100" y2="{{g.y}}" stroke="{{corGrade}}" stroke-dasharray="{{tracoGrade}}"></line>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{area}}" hint-placeholder-val="{{ true }}">
+          <defs><linearGradient id="a4p-area-degrade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="{{corArea}}" stop-opacity="{{opacidadeArea}}"></stop><stop offset="100%" stop-color="{{corArea}}" stop-opacity="{{opacidadeFim}}"></stop></linearGradient></defs>
+          <path d="{{caminhoArea}}" fill="{{preenchimentoArea}}" fill-opacity="{{opacidadePath}}"></path>
+        </sc-if>
+        <sc-if value="{{comparar}}" hint-placeholder-val="{{ true }}">
+          <path d="{{caminhoComp}}" fill="none" stroke="{{corComparacao}}" stroke-width="{{espessuraComparacao}}" stroke-dasharray="{{tracoComparacao}}"></path>
+        </sc-if>
+        <sc-if value="{{temSel}}" hint-placeholder-val="{{ true }}">
+          <line x1="{{sel.x}}" y1="0" x2="{{sel.x}}" y2="{{base}}" stroke="{{corSelecao}}" stroke-width="{{espessuraGuia}}"></line>
+        </sc-if>
+        <path d="{{caminho}}" fill="none" stroke="{{cor}}" stroke-width="{{espessura}}" stroke-linejoin="round" stroke-linecap="round"></path>
         <sc-for list="{{pts}}" as="p" hint-placeholder-count="12">
-          <circle cx="{{p.x}}" cy="{{p.y}}" r="4" fill="#ffffff" stroke="{{cor}}" stroke-width="2"></circle>
+          <g class="l-alvo">
+            <rect x="{{p.hx}}" y="0" width="{{p.hw}}" height="{{altura}}" fill="transparent"></rect>
+            <line class="l-guia" x1="{{p.x}}" y1="0" x2="{{p.x}}" y2="{{base}}" stroke="{{corHover}}" stroke-width="1" stroke-dasharray="3 3"></line>
+            <circle class="l-ponto" cx="{{p.x}}" cy="{{p.y}}" r="{{raioPonto}}" fill="#ffffff" stroke="{{cor}}" stroke-width="{{espessuraPonto}}" opacity="{{opacidadePontos}}"></circle>
+          </g>
         </sc-for>
+        <sc-if value="{{temSel}}" hint-placeholder-val="{{ true }}">
+          <circle cx="{{sel.x}}" cy="{{sel.y}}" r="{{raioSelecionado}}" fill="{{corPontoSelecionado}}" stroke="#ffffff" stroke-width="{{bordaSelecionado}}"></circle>
+        </sc-if>
+      </svg>
+      <sc-if value="{{temSel}}" hint-placeholder-val="{{ true }}">
+        <div style="position: absolute; top: 125px; left: 847px; transform: {{card.transform}}; background: {{card.fundo}}; border-radius: {{card.raio}}px; padding: {{card.pv}}px {{card.ph}}px; display: flex; flex-direction: {{card.direcao}}; align-items: {{card.alinhar}}; text-align: {{card.texto}}; gap: {{card.gap}}px; font-size: 12px; white-space: nowrap; pointer-events: none">
+          <span style="order: {{card.oMes}}; color: #6B7060; font-size: {{card.tamRotulo}}px; width: 54px; height: 16px">{{sel.mes}} 2026</span>
+          <span style="order: {{card.oValor}}; font-size: {{card.tamValor}}px; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{sel.valor}}</span>
+          <span style="order: {{card.oVar}}; margin-top: {{card.espacoValorPill}}px; display: inline-flex; flex-wrap: nowrap; align-items: center; gap: {{card.gapFrase}}px; white-space: nowrap; color: #6B7060">
+            <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; gap: {{card.gapDentro}}px; padding: {{card.pillPad}}; border-radius: 999px; background: {{card.pillFundo}}; color: {{card.pillTexto}}; font-size: {{card.pillFonte}}px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap"><span>{{card.variacao}}</span><span style="font-weight: 400">{{card.textoDentro}}</span></span><span style="font-size: {{card.pillFonte}}px; line-height: 1.2">{{card.textoFora}}</span>
+          </span>
+        </div>
       </sc-if>
-    </svg>
-    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6B7060">
-      <sc-for list="{{meses}}" as="m" hint-placeholder-count="12"><span>{{m}}</span></sc-for>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: {{tamanhoMeses}}px; color: #6B7060">
+      <sc-for list="{{meses}}" as="m" hint-placeholder-count="12"><span style="font-weight: {{m.peso}}; color: {{m.cor}}">{{m.nome}}</span></sc-for>
     </div>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"cor":{"editor":"color","default":"#3B4332","section":"Linha","options":["#3B4332","#000000","#6B7060"]},"espessura":{"editor":"range","default":1.6,"min":0.5,"max":5,"step":0.1,"unit":"px","section":"Linha"},"suave":{"editor":"boolean","default":true,"section":"Linha"},"pontos":{"editor":"boolean","default":false,"section":"Linha"},"area":{"editor":"boolean","default":true,"section":"Área"},"corArea":{"editor":"color","default":"#ECFD52","section":"Área"},"opacidadeArea":{"editor":"range","default":0.55,"min":0,"max":1,"step":0.05,"section":"Área"},"comparar":{"editor":"boolean","default":true,"section":"Comparação"},"corComparacao":{"editor":"color","default":"#B5B594","section":"Comparação"},"$preview":{"width":1280,"height":640}}'>
+<script type="text/x-dc" data-dc-script data-props="{&quot;cor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Linha&quot;,&quot;options&quot;:[&quot;#3B4332&quot;,&quot;#000000&quot;,&quot;#6B7060&quot;]},&quot;espessura&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1.3,&quot;min&quot;:0.5,&quot;max&quot;:6,&quot;step&quot;:0.1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Linha&quot;},&quot;suave&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Linha&quot;},&quot;altura&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:360,&quot;min&quot;:200,&quot;max&quot;:420,&quot;step&quot;:10,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Tamanho&quot;},&quot;pontos&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Pontos&quot;},&quot;raioPonto&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:3,&quot;min&quot;:2,&quot;max&quot;:10,&quot;step&quot;:0.5,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Pontos&quot;},&quot;area&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Área&quot;},&quot;corArea&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ECFD52&quot;,&quot;section&quot;:&quot;Área&quot;},&quot;opacidadeArea&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.6,&quot;min&quot;:0,&quot;max&quot;:1,&quot;step&quot;:0.05,&quot;section&quot;:&quot;Área&quot;},&quot;gradienteArea&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Área&quot;},&quot;opacidadeBase&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.05,&quot;min&quot;:0,&quot;max&quot;:1,&quot;step&quot;:0.05,&quot;section&quot;:&quot;Área&quot;},&quot;comparar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Comparação&quot;},&quot;corComparacao&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#B5B594&quot;,&quot;section&quot;:&quot;Comparação&quot;},&quot;espessuraComparacao&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.7,&quot;min&quot;:0.5,&quot;max&quot;:4,&quot;step&quot;:0.1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Comparação&quot;},&quot;tracoComparacao&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:11,&quot;min&quot;:0,&quot;max&quot;:12,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Comparação&quot;},&quot;corHover&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6B7060&quot;,&quot;section&quot;:&quot;Interação&quot;},&quot;mesSelecionado&quot;:{&quot;editor&quot;:&quot;select&quot;,&quot;default&quot;:&quot;Set&quot;,&quot;options&quot;:[&quot;Nenhum&quot;,&quot;Jan&quot;,&quot;Fev&quot;,&quot;Mar&quot;,&quot;Abr&quot;,&quot;Mai&quot;,&quot;Jun&quot;,&quot;Jul&quot;,&quot;Ago&quot;,&quot;Set&quot;,&quot;Out&quot;,&quot;Nov&quot;,&quot;Dez&quot;],&quot;section&quot;:&quot;Interação&quot;},&quot;corSelecao&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#B5B594&quot;,&quot;section&quot;:&quot;Interação&quot;},&quot;espessuraGuia&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:4,&quot;step&quot;:0.5,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Interação&quot;},&quot;corPontoSelecionado&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Interação&quot;},&quot;raioSelecionado&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:3,&quot;max&quot;:12,&quot;step&quot;:0.5,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Interação&quot;},&quot;mostrarGrade&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Grade&quot;},&quot;corGrade&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e2e2e2&quot;,&quot;section&quot;:&quot;Grade&quot;},&quot;gradeTracejada&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;section&quot;:&quot;Grade&quot;},&quot;espessuraPonto&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 2, &quot;min&quot;: 0.5, &quot;max&quot;: 5, &quot;step&quot;: 0.5, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Pontos&quot;},&quot;bordaSelecionado&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 2, &quot;min&quot;: 0, &quot;max&quot;: 5, &quot;step&quot;: 0.5, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Interação&quot;},&quot;cardPosicao&quot;: {&quot;editor&quot;: &quot;select&quot;, &quot;default&quot;: &quot;Acima&quot;, &quot;options&quot;: [&quot;Acima&quot;, &quot;Abaixo&quot;, &quot;Direita&quot;, &quot;Esquerda&quot;], &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardDistancia&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 14, &quot;min&quot;: 4, &quot;max&quot;: 48, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardOrdem&quot;: {&quot;editor&quot;: &quot;select&quot;, &quot;default&quot;: &quot;Mês · Valor · Variação&quot;, &quot;options&quot;: [&quot;Mês · Valor · Variação&quot;, &quot;Valor · Mês · Variação&quot;, &quot;Valor · Variação · Mês&quot;, &quot;Variação · Valor · Mês&quot;], &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardLayout&quot;: {&quot;editor&quot;: &quot;select&quot;, &quot;default&quot;: &quot;Empilhado&quot;, &quot;options&quot;: [&quot;Empilhado&quot;, &quot;Em linha&quot;], &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardAlinhamento&quot;: {&quot;editor&quot;: &quot;select&quot;, &quot;default&quot;: &quot;Esquerda&quot;, &quot;options&quot;: [&quot;Esquerda&quot;, &quot;Centro&quot;, &quot;Direita&quot;], &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardEspaco&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 4, &quot;min&quot;: 0, &quot;max&quot;: 16, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardPaddingV&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 10, &quot;min&quot;: 4, &quot;max&quot;: 24, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardPaddingH&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 12, &quot;min&quot;: 4, &quot;max&quot;: 28, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardRaio&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 12, &quot;min&quot;: 0, &quot;max&quot;: 24, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardFundo&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#ffffff&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardTamanhoValor&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 16, &quot;min&quot;: 12, &quot;max&quot;: 28, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;cardTamanhoMes&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 12, &quot;min&quot;: 10, &quot;max&quot;: 16, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Card da seleção&quot;},&quot;pillVariacao&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Variação&quot;},&quot;corPorSinal&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Variação&quot;},&quot;testarVariacao&quot;: {&quot;editor&quot;: &quot;select&quot;, &quot;default&quot;: &quot;Real&quot;, &quot;options&quot;: [&quot;Real&quot;, &quot;Positiva&quot;, &quot;Negativa&quot;], &quot;section&quot;: &quot;Variação&quot;},&quot;corPositiva&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#35C759&quot;, &quot;section&quot;: &quot;Variação&quot;},&quot;corNegativa&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E5484D&quot;, &quot;section&quot;: &quot;Variação&quot;},&quot;opacidadePill&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 0.14, &quot;min&quot;: 0, &quot;max&quot;: 1, &quot;step&quot;: 0.02, &quot;section&quot;: &quot;Variação&quot;},&quot;mostrarLegendaVariacao&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Variação&quot;},&quot;tamanhoMeses&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 13, &quot;min&quot;: 10, &quot;max&quot;: 18, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Eixo&quot;},&quot;pillProporcional&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Variação&quot;},&quot;proporcaoPill&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 0.75, &quot;min&quot;: 0.5, &quot;max&quot;: 1, &quot;step&quot;: 0.05, &quot;section&quot;: &quot;Variação&quot;},&quot;fraseNaPill&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;section&quot;: &quot;Variação&quot;},&quot;distanciaFrase&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 10, &quot;min&quot;: 0, &quot;max&quot;: 30, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Variação&quot;},&quot;espacoValorPill&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 4, &quot;min&quot;: -4, &quot;max&quot;: 24, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;section&quot;: &quot;Variação&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:680}}">
 class Component extends DCLogic {
   renderVals() {
     const p = this.props;
-    const W = 1100, H = 360, topo = 20, base = 340;
+    const W = 1100, altura = p.altura ?? 360, topo = 20, base = altura - 20;
     const valores = [120, 132, 128, 150, 162, 158, 176, 190, 204, 214, 232, 248];
     const anteriores = [110, 118, 125, 122, 140, 146, 150, 160, 168, 174, 182, 196];
+    const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const max = 260, min = 100;
     const y = (v) => base - ((v - min) / (max - min)) * (base - topo);
     const x = (i) => (i / (valores.length - 1)) * W;
@@ -79,21 +107,84 @@ class Component extends DCLogic {
       return d;
     };
     const caminho = traca(valores);
+    const passo = W / (valores.length - 1);
+    const mesSel = p.mesSelecionado ?? 'Set';
+    const iSel = nomes.indexOf(mesSel);
+    let sel = { x: 0, y: 0, left: 0, topo: 0, mes: '', valor: '', variacao: '' };
+    if (iSel >= 0) {
+      const v = valores[iSel], ant = iSel > 0 ? valores[iSel - 1] : v;
+      const varPct = ((v - ant) / ant) * 100;
+      sel = {
+        x: x(iSel).toFixed(1), y: y(v).toFixed(1), left: (x(iSel) / W) * 100, topo: y(v) - 14,
+        mes: mesSel, valor: 'R$' + v + ' mil',
+        variacao: (varPct >= 0 ? '+' : '−') + Math.abs(varPct).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%',
+      };
+    }
+    const traco = p.tracoComparacao ?? 5;
+    const v0 = iSel >= 0 ? valores[iSel] : 0, a0 = iSel > 0 ? valores[iSel - 1] : v0;
+    let pct = a0 ? ((v0 - a0) / a0) * 100 : 0;
+    const teste = p.testarVariacao ?? 'Real';
+    if (teste === 'Positiva') pct = Math.abs(pct) || 4.9;
+    if (teste === 'Negativa') pct = -(Math.abs(pct) || 4.9);
+    const txtVar = (pct >= 0 ? '+' : '−') + Math.abs(pct).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    const corSinal = pct >= 0 ? (p.corPositiva ?? '#35C759') : (p.corNegativa ?? '#E5484D');
+    const usaPill = p.pillVariacao ?? true, porSinal = p.corPorSinal ?? true;
+    const opPill = Math.round((p.opacidadePill ?? 0.14) * 100);
+    const pos = p.cardPosicao ?? 'Acima', dist = p.cardDistancia ?? 14;
+    const ordens = { 'Mês · Valor · Variação': [1, 2, 3], 'Valor · Mês · Variação': [2, 1, 3], 'Valor · Variação · Mês': [3, 1, 2], 'Variação · Valor · Mês': [3, 2, 1] };
+    const [oMes, oValor, oVar] = ordens[p.cardOrdem ?? 'Mês · Valor · Variação'] || [1, 2, 3];
+    const al = { 'Esquerda': ['flex-start', 'left'], 'Centro': ['center', 'center'], 'Direita': ['flex-end', 'right'] }[p.cardAlinhamento ?? 'Esquerda'] || ['flex-start', 'left'];
+    const emLinha = (p.cardLayout ?? 'Empilhado') === 'Em linha';
+    const transf = { 'Acima': 'translate(-50%, calc(-100% - ' + dist + 'px))', 'Abaixo': 'translate(-50%, ' + dist + 'px)', 'Direita': 'translate(' + dist + 'px, -50%)', 'Esquerda': 'translate(calc(-100% - ' + dist + 'px), -50%)' }[pos];
+    if (iSel >= 0) sel.topo = y(v0);
+    const card = {
+      transform: transf, fundo: p.cardFundo ?? '#ffffff', raio: p.cardRaio ?? 12,
+      pv: p.cardPaddingV ?? 10, ph: p.cardPaddingH ?? 12, gap: p.cardEspaco ?? 4,
+      direcao: emLinha ? 'row' : 'column', alinhar: emLinha ? 'center' : al[0], texto: al[1],
+      oMes, oValor, oVar, tamValor: p.cardTamanhoValor ?? 16, tamRotulo: p.cardTamanhoMes ?? 12,
+      variacao: txtVar, legenda: p.mostrarLegendaVariacao ?? true,
+      pillPv: usaPill ? 2 : 0, pillPh: usaPill ? 8 : 0,
+      pillPad: usaPill ? '0.35em 0.7em' : '0',
+      pillFonte: (p.pillProporcional ?? true) ? Math.round((p.cardTamanhoValor ?? 16) * (p.proporcaoPill ?? 0.75)) : 12,
+      espacoValorPill: p.espacoValorPill ?? 4,
+      textoDentro: ((p.mostrarLegendaVariacao ?? true) && (p.fraseNaPill ?? false)) ? 'sobre o mês anterior' : '',
+      gapDentro: ((p.mostrarLegendaVariacao ?? true) && (p.fraseNaPill ?? false)) ? (p.distanciaFrase ?? 10) : 0,
+      textoFora: ((p.mostrarLegendaVariacao ?? true) && !(p.fraseNaPill ?? false)) ? 'sobre o mês anterior' : '',
+      gapFrase: ((p.mostrarLegendaVariacao ?? true) && !(p.fraseNaPill ?? false)) ? (p.distanciaFrase ?? 10) : 0,
+      pillFundo: usaPill ? (porSinal ? 'color-mix(in srgb, ' + corSinal + ' ' + opPill + '%, transparent)' : '#f6f6f6') : 'transparent',
+      pillTexto: porSinal ? corSinal : '#3B4332',
+    };
     return {
       caminho,
       caminhoArea: caminho + ' L' + W + ' ' + base + ' L0 ' + base + ' Z',
       caminhoComp: traca(anteriores),
-      pts: valores.map((v, i) => ({ x: x(i), y: y(v) })),
-      grade: [0.25, 0.5, 0.75, 1].map((f) => ({ y: topo + (base - topo) * f })),
-      meses: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+      pts: valores.map((v, i) => ({ x: x(i).toFixed(1), y: y(v).toFixed(1), hx: (x(i) - passo / 2).toFixed(1), hw: passo.toFixed(1) })),
+      grade: [0.25, 0.5, 0.75, 1].map((f) => ({ y: (topo + (base - topo) * f).toFixed(1) })),
+      meses: nomes.map((m) => ({ nome: m, peso: m === mesSel ? 500 : 400, cor: m === mesSel ? '#3B4332' : '#6B7060' })),
+      altura, base, card,
+      espessuraPonto: p.espessuraPonto ?? 2, bordaSelecionado: p.bordaSelecionado ?? 2, tamanhoMeses: p.tamanhoMeses ?? 13,
       cor: p.cor ?? '#3B4332',
       espessura: p.espessura ?? 1.6,
-      pontos: p.pontos ?? false,
+      raioPonto: p.raioPonto ?? 4,
+      opacidadePontos: (p.pontos ?? false) ? 1 : 0,
       area: p.area ?? true,
       corArea: p.corArea ?? '#ECFD52',
-      opacidadeArea: p.opacidadeArea ?? 0.55,
+      opacidadeArea: p.opacidadeArea ?? 0.5,
+      opacidadeFim: p.opacidadeBase ?? 0,
+      preenchimentoArea: (p.gradienteArea ?? true) ? 'url(#a4p-area-degrade)' : (p.corArea ?? '#ECFD52'),
+      opacidadePath: (p.gradienteArea ?? true) ? 1 : (p.opacidadeArea ?? 0.5),
       comparar: p.comparar ?? true,
       corComparacao: p.corComparacao ?? '#B5B594',
+      espessuraComparacao: p.espessuraComparacao ?? 1.4,
+      tracoComparacao: traco > 0 ? traco + ' ' + traco : '0',
+      corHover: p.corHover ?? '#6B7060',
+      temSel: iSel >= 0, sel,
+      corSelecao: p.corSelecao ?? '#B5B594',
+      espessuraGuia: p.espessuraGuia ?? 1,
+      corPontoSelecionado: p.corPontoSelecionado ?? '#3B4332',
+      raioSelecionado: p.raioSelecionado ?? 6,
+      mostrarGrade: p.mostrarGrade ?? true, corGrade: p.corGrade ?? '#e2e2e2',
+      tracoGrade: (p.gradeTracejada ?? true) ? '3 4' : '0',
     };
   }
 }

@@ -1635,10 +1635,33 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
    ============================================================ */
 :root {
   --erp-graf-grade: var(--color-border);
-  --erp-graf-linha: 1.6px;
+  --erp-graf-linha: 1px;
   --erp-graf-area: var(--color-lime);
-  --erp-graf-area-opacidade: 0.55;
+  --erp-graf-area-opacidade: 0.5;
+  /* Biblioteca (14/10/2026): a área é DEGRADÊ — forte no alto, quase nada embaixo. */
+  --erp-graf-area-topo: 0.5;
+  --erp-graf-area-base: 0.05;
   --erp-graf-comparacao: var(--color-areia);
+  --erp-graf-comparacao-espessura: 0.6px;
+  --erp-graf-comparacao-traco: 2 2;
+  --erp-graf-ponto-raio: 2px;
+  --erp-graf-ponto-espessura: 1px;
+  --erp-graf-ponto-selecionado: 5px;
+  /* A dica ao passar o mouse e a pílula de variação (prancheta Biblioteca). */
+  --erp-dica-fundo: var(--color-surface-1);
+  --erp-dica-raio: 16px;
+  --erp-dica-padding-y: 14px;
+  --erp-dica-padding-x: 15px;
+  --erp-dica-sombra: var(--shadow-popover);
+  --erp-dica-valor: 15px;
+  --erp-dica-rotulo: 10px;
+  --erp-dica-espaco-rotulo: 7px;
+  --erp-dica-cor-rotulo: var(--color-text-secondary);
+  --erp-dica-cor-valor: var(--color-text-secondary);
+  --erp-pilula-proporcao: 0.5;
+  --erp-pilula-intensidade: 14%;
+  --erp-pilula-espaco-frase: 5px;
+  --erp-pilula-espaco-valor: 2px;
   --erp-graf-serie-1: var(--color-ink);
   --erp-graf-serie-2: var(--color-areia);
   --erp-graf-serie-3: var(--color-lime);
@@ -1652,11 +1675,94 @@ html:not(.dark) .ds-visor {
 }
 html:not(.dark) .ds-visor .recharts-cartesian-grid line {
   stroke: var(--erp-graf-grade);
-  stroke-dasharray: 3 4;
+  stroke-dasharray: none;
+}
+html:not(.dark) .ds-visor .recharts-line-dots .recharts-dot {
+  r: var(--erp-graf-ponto-raio);
+  stroke-width: var(--erp-graf-ponto-espessura);
+}
+html:not(.dark) .ds-visor .recharts-active-dot circle {
+  r: var(--erp-graf-ponto-selecionado);
 }
 html:not(.dark) .ds-visor :is(.recharts-line-curve, .recharts-area-curve) {
   stroke-width: var(--erp-graf-linha);
 }
+/* A DICA ao passar o mouse — uma peça só (`ui/Grafico.tsx`). A dica padrão
+   do Recharts (`formatter`/`contentStyle`) ganha o mesmo desenho por aqui,
+   com !important porque `contentStyle` chega como estilo inline. */
+.a4p-dica,
+html:not(.dark) .ds-visor .recharts-default-tooltip {
+  background: var(--erp-dica-fundo) !important;
+  border: 0 !important;
+  border-radius: var(--erp-dica-raio) !important;
+  padding: var(--erp-dica-padding-y) var(--erp-dica-padding-x) !important;
+  box-shadow: var(--erp-dica-sombra) !important;
+}
+.a4p-dica {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 140px;
+  white-space: nowrap;
+  font-style: normal;
+  color: var(--color-ink);
+}
+html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-label {
+  font-size: var(--erp-dica-rotulo);
+  color: var(--erp-dica-cor-rotulo);
+  margin-bottom: var(--erp-dica-espaco-rotulo) !important;
+}
+html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-item {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 0 !important;
+}
+.a4p-dica-rotulo {
+  font-size: var(--erp-dica-rotulo);
+  line-height: 1.1;
+  color: var(--erp-dica-cor-rotulo);
+  margin-bottom: var(--erp-dica-espaco-rotulo);
+}
+.a4p-dica-valor {
+  font-size: var(--erp-dica-valor);
+  line-height: 1.1;
+  font-weight: 500;
+  color: var(--erp-dica-cor-valor);
+}
+.a4p-dica-variacao {
+  margin-top: var(--erp-pilula-espaco-valor);
+  font-size: calc(var(--erp-pilula-proporcao) * var(--erp-dica-valor));
+}
+.a4p-dica-linhas { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.a4p-dica-valor + .a4p-dica-linhas,
+.a4p-dica-variacao + .a4p-dica-linhas { margin-top: 8px; }
+.a4p-dica-linha { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.a4p-dica-marca { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+.a4p-dica-nome { flex: 1; color: var(--erp-dica-cor-rotulo); }
+.a4p-dica-num { font-weight: 500; color: var(--color-ink); }
+.a4p-dica-rodape {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--erp-tabela-linha);
+  font-size: 12px;
+  color: var(--erp-dica-cor-rotulo);
+}
+/* A pílula de variação: proporcional ao número ao lado, texto centrado. */
+.a4p-pilula-var {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--erp-pilula-espaco-frase);
+  padding: 0.35em 0.7em;
+  border-radius: 999px;
+  line-height: 1;
+  font-size: max(10px, 1em);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.a4p-pilula-var[data-sem-base] { color: var(--color-text-secondary); background: var(--color-surface-2); }
+.a4p-pilula-frase { font-weight: 400; }
 /* Tabela: cabeçalho em micro-rótulo, divisória fina, rodapé com fio. */
 html:not(.dark) .ds-visor thead th {
   font-size: 11px;

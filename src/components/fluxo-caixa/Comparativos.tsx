@@ -20,7 +20,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Cell, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine, Sankey, Layer, Rectangle,
 } from "recharts";
-import { Card, Icon, BRL, Skeleton } from "@/components/ui";
+import { Card, Icon, BRL, Skeleton, DicaGrafico } from "@/components/ui";
 import { formatBRL, pct } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados, type SankeyLigacao } from "@/core/cashflow/comparativo";
@@ -110,20 +110,21 @@ function CardComparativo({
 
 /* ============================ tooltip comum ============================ */
 interface TipItem { nome: string; valor: number; cor: string }
-function TooltipBox({ titulo, itens }: { titulo: string; itens: TipItem[] }) {
+/**
+ * A dica comum dos comparativos. Com o período anterior na mão, a pílula de
+ * variação sai daqui: (atual − anterior) ÷ |anterior|. Anterior zero não tem
+ * base — a pílula diz isso em vez de inventar um percentual infinito.
+ */
+function TooltipBox({ titulo, itens, comparar }: { titulo: string; itens: TipItem[]; comparar?: { atual: number; anterior: number } }) {
+  const variacao = comparar
+    ? { v: comparar.anterior === 0 ? null : (comparar.atual - comparar.anterior) / Math.abs(comparar.anterior), frase: "sobre o período anterior" }
+    : undefined;
   return (
-    <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[180px]">
-      <div className="font-medium text-ink mb-[6px]">{titulo}</div>
-      {itens.map((i) => (
-        <div key={i.nome} className="flex items-center justify-between gap-4 tabular-nums">
-          <span className="inline-flex items-center gap-[6px] text-muted truncate">
-            <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: i.cor }} />
-            {i.nome}
-          </span>
-          <span className="text-ink shrink-0"><BRL value={i.valor} /></span>
-        </div>
-      ))}
-    </div>
+    <DicaGrafico
+      rotulo={titulo}
+      variacao={variacao}
+      linhas={itens.map((i) => ({ cor: i.cor, nome: i.nome, valor: i.valor }))}
+    />
   );
 }
 
@@ -156,7 +157,7 @@ export function ResultadoLiquidoCard({ c }: { c: ComparativoFluxo }) {
               return <TooltipBox titulo={String(label)} itens={[
                 { nome: "Resultado", valor: p.valor, cor: p.valor < 0 ? SAIDA : ENTRADA },
                 { nome: "Período anterior", valor: p.anterior, cor: PREV },
-              ]} />;
+              ]} comparar={{ atual: p.valor, anterior: p.anterior }} />;
             }}
           />
           <Bar dataKey="valor" radius={[6, 6, 6, 6]} maxBarSize={54} {...chartAnim()}>
@@ -272,7 +273,7 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
               return <TooltipBox titulo={String(label)} itens={[
                 { nome: "Receitas", valor: p.valor, cor: ENTRADA },
                 { nome: "Período anterior", valor: p.anterior, cor: PREV },
-              ]} />;
+              ]} comparar={{ atual: p.valor, anterior: p.anterior }} />;
             }}
           />
           <Bar dataKey="valor" fill={ENTRADA} radius={[6, 6, 0, 0]} maxBarSize={54} {...chartAnim()} />

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Tabela no celular · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+.c-cartao{transition:background-color .15s ease, box-shadow .15s ease}
+.c-cartao:hover{background-color:var(--hover) !important}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #ffffff; padding: 24px 16px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 16px; overflow: hidden; --hover: {{corHover}}">
+  <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 24px; text-transform: uppercase; letter-spacing: 0">Títulos a pagar</h1>
+  <label style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #f6f6f6; border-radius: 999px; font-size: 14px; color: #6B7060">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+    <input type="search" placeholder="Buscar título" aria-label="Buscar título" style="border: 0; outline: 0; background: transparent; font: inherit; color: #3B4332; width: 100%">
+  </label>
+
+  <div style="display: flex; flex-direction: column; gap: {{espaco}}px">
+    <sc-for list="{{linhas}}" as="l" hint-placeholder-count="5">
+      <button type="button" class="c-cartao" style="text-align: left; border: 0; background-color: {{l.fundo}}; box-shadow: {{l.marca}}; border-radius: {{raio}}px; padding: 14px 16px; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 10px; cursor: pointer">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%">
+          <span style="font-size: 15px; font-weight: 500">{{l.nome}}</span>
+          <span style="font-size: 16px; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{l.inteiro}}<span style="font-size: 11px; color: #6B7060">{{l.cent}}</span></span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Vencimento</span>
+            <span style="font-size: 13px; font-variant-numeric: tabular-nums">{{l.venc}}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Categoria</span>
+            <span style="font-size: 13px">{{l.cat}}</span>
+          </div>
+        </div>
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 16px; background: {{l.tagFundo}}; font-size: 12px; font-weight: 500; color: #3B4332">
+          <span style="width: 6px; height: 6px; border-radius: 999px; background: {{l.tagCor}}"></span>{{l.situacao}}
+        </span>
+      </button>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"fundoCartao":{"editor":"color","default":"#f6f6f6","section":"Cartão"},"espaco":{"editor":"range","default":10,"min":4,"max":24,"step":1,"unit":"px","section":"Cartão"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Cartão"},"corHover": {"editor": "color", "default": "#eeeeee", "section": "Interação"}, "cartaoSelecionado": {"editor": "select", "default": "2", "options": ["Nenhum", "1", "2", "3", "4", "5"], "section": "Interação"}, "corSelecao": {"editor": "color", "default": "#ffffff", "section": "Interação"}, "bordaSelecao": {"editor": "color", "default": "#3B4332", "section": "Interação"}, "espessuraBorda": {"editor": "range", "default": 1.5, "min": 0, "max": 4, "step": 0.5, "unit": "px", "section": "Interação"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const sit = {
+      'Pago': ['#35c759', '#e6f7ea'],
+      'A vencer': ['#6B7060', '#ffffff'],
+      'Vence hoje': ['#f2a519', '#fdf2dc'],
+      'Vencido': ['#e5484d', '#fbe4e5'],
+    };
+    const dados = [
+      ['02/10', 'Transportes Rio', 'Fornecedores', 'Vencido', 15400],
+      ['14/10', 'Distribuidora Alfa', 'Fornecedores', 'Vence hoje', 12640],
+      ['15/10', 'Energia Sul', 'Utilidades', 'A vencer', 1890.3],
+      ['20/10', 'Receita Federal', 'Impostos', 'A vencer', 7320.6],
+      ['05/10', 'Imobiliária Central', 'Aluguel', 'Pago', 9800],
+    ];
+    return {
+      linhas: dados.map(([venc, nome, cat, situacao, v], k) => {
+        const ativo = String(k + 1) === String(p.cartaoSelecionado ?? '2');
+        const [i, c] = v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
+        return { venc, nome, cat, situacao, inteiro: 'R$' + i, cent: ',' + c, tagCor: sit[situacao][0], tagFundo: sit[situacao][1],
+          fundo: ativo ? (p.corSelecao ?? '#ffffff') : (p.fundoCartao ?? '#f6f6f6'),
+          marca: ativo ? 'inset 0 0 0 ' + (p.espessuraBorda ?? 1.5) + 'px ' + (p.bordaSelecao ?? '#3B4332') : 'none' };
+      }),
+      fundoCartao: p.fundoCartao ?? '#f6f6f6',
+      espaco: p.espaco ?? 10,
+      raio: p.raio ?? 16,
+      corHover: p.corHover ?? '#eeeeee',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -108,6 +108,10 @@ tela mostra variação). Gráficos de entrada × saída: entradas em
   ("+2,4% em 30 dias"), verde ao subir e vermelha ao cair, desenhada pelo
   dono no canvas. Só a função `Pilula` de `visao-geral/HomeSnapshot.tsx`;
   o número ao lado segue em tinta e a guarda `cor:` reprova qualquer outra.
+- ⚠️ **SEGUNDA exceção declarada (14/10/2026): a PÍLULA DE VARIAÇÃO das dicas
+  dos gráficos** (`VariacaoPill` em `ui/Grafico.tsx`), desenhada pelo dono na
+  prancheta "Biblioteca de gráficos". Mesma regra: só a pílula pinta; o número
+  da dica fica em tinta. A guarda `cor:` conhece as duas e só as duas.
 - ⚠️ **A guarda antiga do DRE ("todo cartão recebe a cor de prejuízo") foi
   INVERTIDA, não apagada:** agora ela prova que a cor não voltou. E há
   **teto ZERO** no sistema inteiro (`cor:` em `npm run consistencia`) para cor
@@ -244,6 +248,27 @@ gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
   divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.
 - **Situação** (`StatusBadge`): PÍLULA com ponto — fundo da cor a 14%, texto
   sempre verde-base. Isto inverte a regra antiga "nunca pílula preenchida".
+- **Biblioteca de gráficos (14/10/2026)** — prancheta que reúne os 24 modelos
+  (os 20 do print de referência + Linha, Barras, Velas e Rosca) num painel só.
+  Levada ao sistema por PAPEL:
+  - **Linha 1px, ponto 2px com borda 1px, selecionado 5px; grade CHEIA**
+    (deixou de ser tracejada); **comparação** areia 0,6px tracejada 2/2
+    (`COMPARACAO`).
+  - **Área em DEGRADÊ** lime de 50% a 5% — `DegradeArea` (`ui/Grafico.tsx`)
+    no `<defs>`; os seis degradês próprios das telas saíram.
+  - **UMA dica ao passar o mouse**: `DicaGrafico` / `DicaRecharts`
+    (`ui/Grafico.tsx`, tokens `--erp-dica-*`): branco, raio 16, padding 14/15,
+    sombra, rótulo 10px, valor 15px, 7px entre os dois. A dica padrão do
+    Recharts (`formatter`/`contentStyle`) ganha o mesmo desenho por CSS. ⚠️
+    Dica nova de gráfico nasce destas peças, nunca de um `div` próprio — eram
+    trinta desenhos diferentes.
+  - **Pílula de variação** (`VariacaoPill`): proporcional ao número (0,5),
+    texto centrado, frase dentro ("+4,1% sobre setembro"); sem base diz "sem
+    base de comparação", nunca "0,0%". Nos comparativos do fluxo de caixa ela
+    sai de (atual − anterior) ÷ |anterior|.
+  - Os 20 modelos novos (mapa de calor, radar, rosca de anéis, blocos, poupado
+    em líquido…) ficam como REFERÊNCIA na pasta do canvas: viram componente
+    quando uma tela os usar, com as mesmas peças.
 
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 

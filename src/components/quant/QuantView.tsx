@@ -16,7 +16,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon, InfoHint} from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint, DicaGrafico, DegradeArea } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useQuantitativo } from "@/components/visao-geral/hooks";
@@ -197,11 +197,7 @@ export function QuantView() {
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={scoreTemporal} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
               <defs>
-                <linearGradient id="quantGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.28} />
-                  <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.05} />
-                  <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
-                </linearGradient>
+                <DegradeArea id="quantGlow" />
               </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
@@ -210,10 +206,7 @@ export function QuantView() {
                 cursor={{ stroke: "var(--color-border)" }}
                 content={({ active, payload, label }: any) =>
                   active && payload?.length ? (
-                    <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-                      <div className="font-medium text-ink mb-1">{label}</div>
-                      <div className="text-muted tabular-nums">Score {payload[0].value}</div>
-                    </div>
+                    <DicaGrafico rotulo={label} valor={`Score ${payload[0].value}`} />
                   ) : null
                 }
               />

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Dica ao passar o mouse · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div style="width: 1280px; height: 1260px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px">
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Dica ao passar o mouse</h1>
+    <p style="margin: 0; font-size: 15px; color: #6B7060">Uma peça só, que muda o conteúdo conforme o gráfico. Os ajustes do painel valem para as doze variações.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; flex: 1">
+    <sc-for list="{{variantes}}" as="v" hint-placeholder-count="12">
+      <div style="background: #f6f6f6; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+          <span style="font-size: 14px; font-weight: 500">{{v.n}} · {{v.nome}}</span>
+          <span style="font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">{{v.grafico}}</span>
+        </div>
+
+        <div style="position: relative; height: 250px">
+          <sc-if value="{{v.ehLinha}}" hint-placeholder-val="{{ true }}">
+            <svg style="position: absolute; left: 0; bottom: 0" width="100%" height="140" viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" y1="35" x2="240" y2="35" stroke="#e2e2e2" stroke-dasharray="3 4"></line>
+              <line x1="0" y1="70" x2="240" y2="70" stroke="#e2e2e2" stroke-dasharray="3 4"></line>
+              <line x1="0" y1="105" x2="240" y2="105" stroke="#e2e2e2" stroke-dasharray="3 4"></line>
+              <path d="M0 120 C40 112 60 92 100 90 S170 62 240 52 L240 140 L0 140 Z" fill="#ECFD52" fill-opacity="0.55"></path>
+              <path d="M0 126 C50 122 80 106 120 104 S190 86 240 80" fill="none" stroke="#B5B594" stroke-width="1.4" stroke-dasharray="5 5"></path>
+              <path d="{{v.caminho}}" fill="none" stroke="#3B4332" stroke-width="1.6" stroke-dasharray="{{v.tracoLinha}}"></path>
+            </svg>
+          </sc-if>
+          <sc-if value="{{v.ehBarras}}" hint-placeholder-val="{{ false }}">
+            <svg style="position: absolute; left: 0; bottom: 0" width="100%" height="140" viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+              <rect x="122" y="0" width="34" height="140" rx="8" fill="#ECFD52" fill-opacity="0.35"></rect>
+              <sc-for list="{{barras}}" as="b" hint-placeholder-count="6">
+                <rect x="{{b.x1}}" y="{{b.y1}}" width="12" height="{{b.h1}}" rx="3" fill="#3B4332"></rect>
+                <rect x="{{b.x2}}" y="{{b.y2}}" width="12" height="{{b.h2}}" rx="3" fill="#B5B594"></rect>
+              </sc-for>
+            </svg>
+          </sc-if>
+          <sc-if value="{{v.ehVelas}}" hint-placeholder-val="{{ false }}">
+            <svg style="position: absolute; left: 0; bottom: 0" width="100%" height="140" viewBox="0 0 240 140" preserveAspectRatio="none" aria-hidden="true">
+              <rect x="152" y="0" width="26" height="140" rx="8" fill="#ECFD52" fill-opacity="0.35"></rect>
+              <sc-for list="{{velas}}" as="c" hint-placeholder-count="8">
+                <line x1="{{c.cx}}" y1="{{c.yMax}}" x2="{{c.cx}}" y2="{{c.yMin}}" stroke="{{c.cor}}" stroke-width="1.5"></line>
+                <rect x="{{c.x}}" y="{{c.y}}" width="14" height="{{c.h}}" rx="3" fill="{{c.cor}}"></rect>
+              </sc-for>
+            </svg>
+          </sc-if>
+          <sc-if value="{{v.ehRosca}}" hint-placeholder-val="{{ false }}">
+            <svg style="position: absolute; left: 0; bottom: 0" width="100%" height="140" viewBox="0 0 240 140" aria-hidden="true">
+              <sc-for list="{{rosca}}" as="r" hint-placeholder-count="4">
+                <circle cx="120" cy="72" r="50" fill="none" stroke="{{r.cor}}" stroke-width="{{r.esp}}" stroke-dasharray="{{r.dash}}" stroke-dashoffset="{{r.offset}}" transform="rotate(-90 120 72)"></circle>
+              </sc-for>
+            </svg>
+          </sc-if>
+
+          <sc-if value="{{linhaGuia}}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; left: {{v.ax}}%; top: {{v.ay}}px; bottom: 0; border-left: 1px dashed #B5B594"></div>
+          </sc-if>
+          <sc-if value="{{mostrarMarcador}}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; left: {{v.ax}}%; top: {{v.ay}}px; width: {{diametroMarcador}}px; height: {{diametroMarcador}}px; transform: translate(-50%, -50%); border-radius: 999px; background: {{corMarcador}}; border: 2px solid #ffffff"></div>
+          </sc-if>
+
+          <div style="position: absolute; left: {{v.ax}}%; top: {{v.ay}}px; transform: {{transformCard}}; z-index: 2">
+            <div style="{{v.caixa}}">
+              <div style="display: flex; flex-direction: {{direcaoCabeca}}; align-items: {{alinharCabeca}}; text-align: {{alinharTexto}}; gap: {{espacoCabeca}}px">
+                <sc-if value="{{v.temTitulo}}" hint-placeholder-val="{{ true }}">
+                  <div style="order: {{oMes}}; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: {{espacoMesValor}}px">
+                    <span style="font-size: {{tamanhoRotulo}}px; color: {{v.corRot}}">{{v.titulo}}</span>
+                    <sc-if value="{{v.temTag}}" hint-placeholder-val="{{ false }}">
+                      <span style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 16px; background: {{v.tagFundo}}; font-size: 11px; font-weight: 500; color: #3B4332"><span style="width: 5px; height: 5px; border-radius: 999px; background: {{v.tagCor}}"></span>{{v.tag}}</span>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{v.temValor}}" hint-placeholder-val="{{ true }}">
+                  <span style="order: {{oValor}}; font-size: {{v.tamValor}}px; line-height: 1.1; font-weight: 500; color: {{v.corVal}}; font-variant-numeric: tabular-nums">{{v.vi}}<span style="font-size: 0.5em; color: {{v.corCent}}">{{v.vc}}</span></span>
+                </sc-if>
+                <sc-if value="{{v.temVar}}" hint-placeholder-val="{{ false }}">
+                  <span style="order: {{oVar}}; margin-top: {{espacoValorPill}}px; display: inline-flex; flex-wrap: nowrap; align-items: center; gap: {{gapFrase}}px; white-space: nowrap; font-size: {{v.pillFonte}}px; line-height: 1.2; color: {{v.corRot}}; width: 107px">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; gap: {{gapDentro}}px; padding: {{pillPad}}; border-radius: 999px; background: {{v.pillFundo}}; color: {{v.pillTexto}}; font-size: {{v.pillFonte}}px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap"><span>{{v.textoPct}}</span><span style="font-weight: 400">{{v.textoDentro}}</span></span><span>{{v.textoFora}}</span>
+                  </span>
+                </sc-if>
+              </div>
+              <sc-for list="{{v.linhas}}" as="l" hint-placeholder-count="0">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px">
+                  <span style="width: 8px; height: 8px; border-radius: 999px; background: {{l.cor}}; flex: none"></span>
+                  <span style="flex: 1; color: {{v.corRot}}">{{l.rotulo}}</span>
+                  <span style="font-weight: 500; color: {{v.corVal}}; font-variant-numeric: tabular-nums">{{l.i}}<span style="font-size: 11px; color: {{v.corCent}}">{{l.c}}</span></span>
+                </div>
+              </sc-for>
+              <sc-if value="{{v.temRodape}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 12px; color: {{v.corRot}}; border-top: 1px solid {{v.corFio}}; padding-top: 6px; height: 27px">{{v.rodape}}</span>
+              </sc-if>
+              <sc-if value="{{v.temAcao}}" hint-placeholder-val="{{ false }}">
+                <a href="#" style="font-size: 12px; font-weight: 500; color: {{v.corVal}}; text-decoration: none">{{v.acao}} ↗</a>
+              </sc-if>
+              <span style="{{v.seta}}"></span>
+            </div>
+          </div>
+        </div>
+
+        <span style="font-size: 12px; color: #6B7060">{{v.uso}}</span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;fundo&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ffffff&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;fundoEscuro&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;raio&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:16,&quot;min&quot;:0,&quot;max&quot;:24,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;paddingVertical&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:17,&quot;min&quot;:4,&quot;max&quot;:20,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;paddingHorizontal&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:14,&quot;min&quot;:4,&quot;max&quot;:24,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;espacoInterno&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:6,&quot;min&quot;:0,&quot;max&quot;:12,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;larguraMinima&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:150,&quot;min&quot;:80,&quot;max&quot;:240,&quot;step&quot;:10,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Caixa&quot;},&quot;borda&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;section&quot;:&quot;Contorno&quot;},&quot;corBorda&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e2e2e2&quot;,&quot;section&quot;:&quot;Contorno&quot;},&quot;sombra&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Contorno&quot;},&quot;seta&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;section&quot;:&quot;Seta&quot;},&quot;tamanhoSeta&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:3,&quot;max&quot;:12,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Seta&quot;},&quot;distancia&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:12,&quot;min&quot;:4,&quot;max&quot;:32,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Seta&quot;},&quot;tamanhoValor&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:17,&quot;min&quot;:12,&quot;max&quot;:28,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Texto&quot;},&quot;tamanhoRotulo&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:10,&quot;min&quot;:10,&quot;max&quot;:15,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Texto&quot;},&quot;espacoMesValor&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:7,&quot;min&quot;:0,&quot;max&quot;:20,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Texto&quot;},&quot;corRotulo&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6B7060&quot;,&quot;section&quot;:&quot;Texto&quot;},&quot;corValor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6b7060&quot;,&quot;section&quot;:&quot;Texto&quot;},&quot;mostrarMarcador&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Marcador&quot;},&quot;diametroMarcador&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:9,&quot;min&quot;:4,&quot;max&quot;:20,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Marcador&quot;},&quot;corMarcador&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3B4332&quot;,&quot;section&quot;:&quot;Marcador&quot;},&quot;linhaGuia&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Marcador&quot;},&quot;posicao&quot;:{&quot;editor&quot;:&quot;select&quot;,&quot;default&quot;:&quot;Acima&quot;,&quot;options&quot;:[&quot;Acima&quot;,&quot;Abaixo&quot;,&quot;Direita&quot;,&quot;Esquerda&quot;],&quot;section&quot;:&quot;Posição&quot;},&quot;ordem&quot;:{&quot;editor&quot;:&quot;select&quot;,&quot;default&quot;:&quot;Mês · Valor · Variação&quot;,&quot;options&quot;:[&quot;Mês · Valor · Variação&quot;,&quot;Valor · Mês · Variação&quot;,&quot;Valor · Variação · Mês&quot;,&quot;Variação · Valor · Mês&quot;],&quot;section&quot;:&quot;Posição&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;select&quot;,&quot;default&quot;:&quot;Empilhado&quot;,&quot;options&quot;:[&quot;Empilhado&quot;,&quot;Em linha&quot;],&quot;section&quot;:&quot;Posição&quot;},&quot;alinhamento&quot;:{&quot;editor&quot;:&quot;select&quot;,&quot;default&quot;:&quot;Esquerda&quot;,&quot;options&quot;:[&quot;Esquerda&quot;,&quot;Centro&quot;,&quot;Direita&quot;],&quot;section&quot;:&quot;Posição&quot;},&quot;pillVariacao&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Variação&quot;},&quot;corPorSinal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Variação&quot;},&quot;testarVariacao&quot;:{&quot;editor&quot;:&quot;select&quot;,&quot;default&quot;:&quot;Real&quot;,&quot;options&quot;:[&quot;Real&quot;,&quot;Positiva&quot;,&quot;Negativa&quot;],&quot;section&quot;:&quot;Variação&quot;},&quot;corPositiva&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#35C759&quot;,&quot;section&quot;:&quot;Variação&quot;},&quot;corNegativa&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#E5484D&quot;,&quot;section&quot;:&quot;Variação&quot;},&quot;opacidadePill&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.14,&quot;min&quot;:0,&quot;max&quot;:1,&quot;step&quot;:0.02,&quot;section&quot;:&quot;Variação&quot;},&quot;mostrarLegendaVariacao&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Variação&quot;},&quot;pillProporcional&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Variação&quot;},&quot;proporcaoPill&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.5,&quot;min&quot;:0.5,&quot;max&quot;:1,&quot;step&quot;:0.05,&quot;section&quot;:&quot;Variação&quot;},&quot;fraseNaPill&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Variação&quot;},&quot;distanciaFrase&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:0,&quot;max&quot;:30,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Variação&quot;},&quot;espacoValorPill&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:7,&quot;min&quot;:-4,&quot;max&quot;:24,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;section&quot;:&quot;Variação&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1260}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const fmt = (v, sinal) => {
+      const [i, c] = Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
+      const s = sinal ? (v < 0 ? '−' : '+') : (v < 0 ? '−' : '');
+      return { i: s + 'R$' + i, c: ',' + c };
+    };
+    const fundo = p.fundo ?? '#ffffff', escuro = p.fundoEscuro ?? '#3B4332';
+    const raio = p.raio ?? 12, pv = p.paddingVertical ?? 10, ph = p.paddingHorizontal ?? 12;
+    const gap = p.espacoInterno ?? 4, minW = p.larguraMinima ?? 150;
+    const borda = p.borda ?? false, corBorda = p.corBorda ?? '#e2e2e2';
+    const sombra = (p.sombra ?? false) ? '0 10px 40px -24px rgba(43,49,37,0.35)' : 'none';
+    const temSeta = p.seta ?? true, ts = p.tamanhoSeta ?? 6, dist = p.distancia ?? 12;
+    const tamValor = p.tamanhoValor ?? 16;
+    const corRot = p.corRotulo ?? '#6B7060', corVal = p.corValor ?? '#000000';
+    const caixa = (bg, compacta) => 'position: relative; background: ' + bg + '; border-radius: ' + raio + 'px; padding: ' + (compacta ? Math.max(4, pv - 4) : pv) + 'px ' + (compacta ? Math.max(6, ph - 2) : ph) + 'px; display: flex; flex-direction: column; gap: ' + gap + 'px; min-width: ' + (compacta ? 0 : minW) + 'px; white-space: nowrap; border: ' + (borda ? '1px solid ' + corBorda : '0') + '; box-shadow: ' + sombra;
+    const pos = p.posicao ?? 'Acima';
+    const fio = borda ? '1px solid ' + corBorda : '0';
+    const lado = {
+      'Acima': 'left: 50%; bottom: -' + ts + 'px; transform: translateX(-50%) rotate(45deg); border-right: ' + fio + '; border-bottom: ' + fio,
+      'Abaixo': 'left: 50%; top: -' + ts + 'px; transform: translateX(-50%) rotate(45deg); border-left: ' + fio + '; border-top: ' + fio,
+      'Direita': 'top: 50%; left: -' + ts + 'px; transform: translateY(-50%) rotate(45deg); border-left: ' + fio + '; border-bottom: ' + fio,
+      'Esquerda': 'top: 50%; right: -' + ts + 'px; transform: translateY(-50%) rotate(45deg); border-right: ' + fio + '; border-top: ' + fio,
+    }[pos];
+    const seta = (bg) => 'position: absolute; width: ' + (ts * 2) + 'px; height: ' + (ts * 2) + 'px; background: ' + bg + '; border-radius: 2px; display: ' + (temSeta ? 'block' : 'none') + '; ' + lado;
+    const transformCard = { 'Acima': 'translate(-50%, calc(-100% - ' + dist + 'px))', 'Abaixo': 'translate(-50%, ' + dist + 'px)', 'Direita': 'translate(' + dist + 'px, -50%)', 'Esquerda': 'translate(calc(-100% - ' + dist + 'px), -50%)' }[pos];
+    const ordens = { 'Mês · Valor · Variação': [1, 2, 3], 'Valor · Mês · Variação': [2, 1, 3], 'Valor · Variação · Mês': [3, 1, 2], 'Variação · Valor · Mês': [3, 2, 1] };
+    const [oMes, oValor, oVar] = ordens[p.ordem ?? 'Mês · Valor · Variação'] || [1, 2, 3];
+    const emLinha = (p.layout ?? 'Empilhado') === 'Em linha';
+    const al = { 'Esquerda': ['flex-start', 'left'], 'Centro': ['center', 'center'], 'Direita': ['flex-end', 'right'] }[p.alinhamento ?? 'Esquerda'] || ['flex-start', 'left'];
+    const usaPill = p.pillVariacao ?? true, porSinal = p.corPorSinal ?? true;
+    const opPill = Math.round((p.opacidadePill ?? 0.14) * 100);
+    const teste = p.testarVariacao ?? 'Real';
+    const variar = (pct, escura) => {
+      if (teste === 'Positiva') pct = Math.abs(pct);
+      if (teste === 'Negativa') pct = -Math.abs(pct);
+      const cor = pct >= 0 ? (p.corPositiva ?? '#35C759') : (p.corNegativa ?? '#E5484D');
+      const neutro = escura ? '#ffffff' : '#3B4332';
+      return {
+        varTxt: (pct >= 0 ? '+' : '−') + Math.abs(pct).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%',
+        pillTexto: porSinal ? cor : neutro,
+        pillFundo: usaPill ? (porSinal ? 'color-mix(in srgb, ' + cor + ' ' + opPill + '%, transparent)' : (escura ? 'rgba(255,255,255,0.14)' : '#f6f6f6')) : 'transparent',
+      };
+    };
+    const LINHA = 'M0 120 C40 112 60 92 100 90 S170 62 240 52';
+    const ctx = { linha: [62.5, 194], barras: [58, 152], velas: [68.75, 132], rosca: [65, 128] };
+    const L = (cor, rotulo, v, s) => ({ cor, rotulo, ...fmt(v, s) });
+    const base = [
+      { nome: 'Valor único', grafico: 'Linha', ctx: 'linha', titulo: 'Seg, 14 out', valor: 248850.5, uso: 'O padrão: data e o valor do ponto.' },
+      { nome: 'Valor e variação', grafico: 'Linha', ctx: 'linha', titulo: 'Out 2026', valor: 248850.5, variacao: [4.1, 'sobre setembro'], uso: 'Saldo e indicadores que mudam mês a mês.' },
+      { nome: 'Projeção', grafico: 'Linha', ctx: 'linha', tracejada: true, titulo: 'Dez 2026', tag: 'Projeção', tagCor: '#f2a519', tagFundo: '#fdf2dc', valor: 291400, variacao: [17.1, 'sobre outubro'], rodape: 'No ritmo atual dos últimos 90 dias', uso: 'Número que ainda não aconteceu: sempre marcado.' },
+      { nome: 'Sem lançamentos', grafico: 'Linha', ctx: 'linha', titulo: 'Sáb, 12 out', rodape: 'Nenhum lançamento neste dia', semValor: true, uso: 'Dia vazio: diz que não há dado, nunca R$0,00.' },
+      { nome: 'Comparação', grafico: 'Linha', ctx: 'linha', titulo: 'Out 2026', variacao: [26.9, 'sobre o período anterior'], linhas: [L('#3B4332', 'Este período', 248850.5), L('#B5B594', 'Período anterior', 196120)], rodape: 'Diferença +R$52.730,50', uso: 'Quando a linha tracejada do período anterior aparece.' },
+      { nome: 'Duas séries', grafico: 'Barras', ctx: 'barras', titulo: 'Ago 2026', linhas: [L('#3B4332', 'Entradas', 98000), L('#B5B594', 'Saídas', -72000)], rodape: 'Resultado +R$26.000,00', uso: 'Entradas × saídas: o resultado vem escrito com sinal.' },
+      { nome: 'Várias séries', grafico: 'Barras empilhadas', ctx: 'barras', titulo: 'Ago 2026', valor: 72000, variacao: [-3.2, 'sobre julho'], linhas: [L('#3B4332', 'Folha', 31200), L('#6B7060', 'Fornecedores', 22400), L('#B5B594', 'Impostos', 12100), L('#D6D8CA', 'Outros', 6300)], uso: 'Composição: total no topo, partes embaixo.' },
+      { nome: 'Com ação', grafico: 'Barras', ctx: 'barras', titulo: 'Ago 2026 · Entradas', valor: 98000, acao: 'Ver 34 lançamentos', uso: 'Leva ao drill-down com os lançamentos do número.' },
+      { nome: 'Vela', grafico: 'Velas', ctx: 'velas', titulo: 'Semana 6', linhas: [L('#3B4332', 'Abertura', 122000), L('#3B4332', 'Fechamento', 138000), L('#B5B594', 'Mínimo', 120000), L('#B5B594', 'Máximo', 142000)], uso: 'Abertura, fechamento, mínimo e máximo da semana.' },
+      { nome: 'Fatia', grafico: 'Rosca e pizza', ctx: 'rosca', titulo: 'Serviços', tag: '46%', tagCor: '#3B4332', tagFundo: '#f6f6f6', valor: 143520, rodape: 'de R$312 mil no período', uso: 'Nome, peso no total e valor da fatia.' },
+      { nome: 'Compacta', grafico: 'Barras e velas', ctx: 'velas', compacta: true, semTitulo: true, valor: 138000, uso: 'Gráficos pequenos (cartões da Home): só o valor.' },
+      { nome: 'Escura', grafico: 'Qualquer', ctx: 'rosca', escura: true, titulo: 'Out 2026', valor: 248850.5, variacao: [4.1, 'sobre setembro'], uso: 'Sobre gráfico claro demais ou em destaque.' },
+    ];
+    const fraseDentro = (p.mostrarLegendaVariacao ?? true) && (p.fraseNaPill ?? false);
+    const fraseFora = (p.mostrarLegendaVariacao ?? true) && !(p.fraseNaPill ?? false);
+    const variantes = base.map((b, k) => {
+      const bg = b.escura ? escuro : fundo;
+      const [ax, ay] = ctx[b.ctx];
+      const v = b.valor != null ? fmt(b.valor, false) : { i: '', c: '' };
+      return {
+        varTxt: '', pillTexto: '#3B4332', pillFundo: 'transparent',
+        pillFonte: (p.pillProporcional ?? true) ? Math.round((b.compacta ? Math.max(12, tamValor - 2) : tamValor) * (p.proporcaoPill ?? 0.75)) : 12,
+        ...(b.variacao ? variar(b.variacao[0], b.escura) : {}), temVar: !!b.variacao, varLegenda: b.variacao ? b.variacao[1] : '',
+        textoPct: b.variacao ? variar(b.variacao[0], b.escura).varTxt : '', textoDentro: b.variacao && fraseDentro ? b.variacao[1] : '',
+        textoFora: b.variacao && fraseFora ? b.variacao[1] : '',
+        n: k + 1, nome: b.nome, grafico: b.grafico, uso: b.uso, ax, ay, topo: ay - dist,
+        ehLinha: b.ctx === 'linha', ehBarras: b.ctx === 'barras', ehVelas: b.ctx === 'velas', ehRosca: b.ctx === 'rosca',
+        caminho: LINHA, tracoLinha: b.tracejada ? '4 4' : '0',
+        caixa: caixa(bg, b.compacta), seta: seta(bg),
+        temTitulo: !b.semTitulo, titulo: b.titulo || '',
+        temTag: !!b.tag, tag: b.tag || '', tagCor: b.tagCor || '#6B7060', tagFundo: b.tagFundo || '#f6f6f6',
+        temValor: b.valor != null, vi: v.i, vc: v.c, tamValor: b.compacta ? Math.max(12, tamValor - 2) : tamValor,
+        linhas: b.linhas || [],
+        temRodape: !!b.rodape, rodape: b.rodape || '',
+        temAcao: !!b.acao, acao: b.acao || '',
+        corRot: b.escura ? 'rgba(255,255,255,0.72)' : corRot,
+        corVal: b.escura ? '#ffffff' : corVal,
+        corCent: b.escura ? 'rgba(255,255,255,0.72)' : '#6B7060',
+        corFio: b.escura ? 'rgba(255,255,255,0.18)' : '#f4f4f4',
+      };
+    });
+    const pares = [[60, 46], [72, 52], [56, 64], [96, 70], [84, 66], [90, 58]];
+    const barras = pares.map(([e, s], i) => ({ x1: 6 + i * 40, x2: 20 + i * 40, y1: 140 - e, h1: e, y2: 140 - s, h2: s }));
+    const vd = [[60, 52, 70, 46], [52, 66, 72, 48], [66, 58, 74, 54], [58, 76, 80, 56], [76, 70, 84, 66], [72, 94, 100, 68], [94, 88, 104, 82], [88, 108, 114, 84]];
+    const velas = vd.map(([ab, fe, ma, mi], i) => {
+      const cx = 15 + i * 30;
+      const topo = 140 - Math.max(ab, fe), fundoV = 140 - Math.min(ab, fe);
+      return { cx, x: cx - 7, y: topo, h: Math.max(2, fundoV - topo), yMax: 140 - ma, yMin: 140 - mi, cor: fe >= ab ? '#3B4332' : '#B5B594' };
+    });
+    const circ = 2 * Math.PI * 50;
+    let acc = 0;
+    const rosca = [['#3B4332', 46], ['#6B7060', 28], ['#B5B594', 18], ['#D6D8CA', 8]].map(([cor, pct], i) => {
+      const len = (pct / 100) * circ;
+      const r = { cor, esp: i === 0 ? 26 : 20, dash: len.toFixed(2) + ' ' + (circ - len).toFixed(2), offset: (-acc).toFixed(2) };
+      acc += len;
+      return r;
+    });
+    return {
+      variantes, barras, velas, rosca,
+      tamanhoRotulo: p.tamanhoRotulo ?? 12,
+      espacoMesValor: p.espacoMesValor ?? 2,
+      transformCard, oMes, oValor, oVar,
+      direcaoCabeca: emLinha ? 'row' : 'column', alinharCabeca: emLinha ? 'center' : al[0], alinharTexto: al[1],
+      espacoCabeca: emLinha ? 10 : 0,
+      pillPv: usaPill ? 2 : 0, pillPh: usaPill ? 8 : 0,
+      mostrarLegendaVariacao: p.mostrarLegendaVariacao ?? true,
+      pillPad: usaPill ? '0.35em 0.7em' : '0',
+      espacoValorPill: p.espacoValorPill ?? 4,
+      gapFrase: fraseFora ? (p.distanciaFrase ?? 10) : 0,
+      gapDentro: fraseDentro ? (p.distanciaFrase ?? 10) : 0,
+      mostrarMarcador: p.mostrarMarcador ?? true, diametroMarcador: p.diametroMarcador ?? 10, corMarcador: p.corMarcador ?? '#3B4332',
+      linhaGuia: p.linhaGuia ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>

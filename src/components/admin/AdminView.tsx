@@ -9,7 +9,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus } from "@/components/ui";
+import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus, DicaGrafico } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
@@ -345,11 +345,13 @@ function GrowthCard() {
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
             <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
             <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
-              <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-                <div className="font-medium text-ink mb-1">{label}</div>
-                <div className="text-muted tabular-nums">novos: {payload.find((x: any) => x.dataKey === "novas")?.value ?? 0}</div>
-                <div className="text-muted tabular-nums">base: {payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0}</div>
-              </div>
+              <DicaGrafico
+                rotulo={label}
+                linhas={[
+                  { cor: "var(--color-lime)", nome: "Novos", valor: String(payload.find((x: any) => x.dataKey === "novas")?.value ?? 0) },
+                  { cor: "var(--color-ink)", nome: "Base", valor: String(payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0) },
+                ]}
+              />
             ) : null} />
             <Bar dataKey="novas" radius={RAIO_TOPO} fill="var(--color-lime)" />
             <Line dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={1.6} dot={false} />
@@ -383,10 +385,7 @@ function MrrCard() {
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
             <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => formatBRLCompact(Number(v))} />
             <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
-              <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-                <div className="font-medium text-ink mb-1">{label}</div>
-                <div className="text-muted tabular-nums">MRR {formatBRL(Number(payload[0].value))}</div>
-              </div>
+              <DicaGrafico rotulo={`${label} · MRR`} valor={Number(payload[0].value)} />
             ) : null} />
             <Line dataKey="mrr" stroke="var(--color-lime)" strokeWidth={1.8} dot={false} />
           </ComposedChart>

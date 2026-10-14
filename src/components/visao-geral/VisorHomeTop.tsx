@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import {
   ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, LabelList,
 } from "recharts";
-import { Card, Skeleton, Icon, InfoHint, BRL } from "@/components/ui";
+import { Card, Skeleton, Icon, InfoHint, BRL, DicaGrafico } from "@/components/ui";
 import { formatBRL, pct } from "@/lib/format";
 import {
   painelIndicadores, janela, janelaAnterior, dentro, contemHoje, dataDe, magnitude,
@@ -451,24 +451,14 @@ function GastoTooltip({ active, payload }: any) {
   const p = payload[0]?.payload as Ponto | undefined;
   if (!p) return null;
   return (
-    <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[190px]">
-      <div className="font-medium text-ink mb-[6px]">{p.label}</div>
-      <TipRow color={ENTRADA} k="Entradas" v={<BRL value={p.ent} />} />
-      <TipRow color={SAIDA} k="Saídas" v={<BRL value={p.sai} />} />
-      <TipRow color="var(--color-ink)" k="Resultado" v={<BRL value={p.ent - p.sai} />} />
-    </div>
-  );
-}
-
-function TipRow({ color, k, v }: { color: string; k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-6 tabular-nums py-[2px]">
-      <span className="inline-flex items-center gap-[6px] text-muted">
-        <span className="w-2 h-2 rounded-pill" style={{ background: color }} />
-        {k}
-      </span>
-      <span className="text-ink font-medium">{v}</span>
-    </div>
+    <DicaGrafico
+      rotulo={p.label}
+      linhas={[
+        { cor: ENTRADA, nome: "Entradas", valor: p.ent },
+        { cor: SAIDA, nome: "Saídas", valor: p.sai },
+      ]}
+      rodape={<>Resultado <BRL value={p.ent - p.sai} /></>}
+    />
   );
 }
 
