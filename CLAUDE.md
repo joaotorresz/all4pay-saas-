@@ -169,7 +169,7 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
 | Número PRINCIPAL da tela (`.a4p-heroi`) | Centra No2 500 |
 | R$ | mesmo corpo e cor do número · centavos a **50%** em `#6B7060` |
 | Logo | uma cor (`--erp-logo-cor` #3B4332), 92px, por máscara (`.a4p-logo-mono`) |
-| Menu | linha fina entre os grupos, 15px entre ícone e texto, a ilustração da marca no Início |
+| Menu | linha fina entre os grupos, 15px entre ícone e texto; Visão geral com o ícone de casa (a ilustração saiu em 14/10/2026) |
 
 - ⚠️ **O preto puro voltou, e só para o número** (`--erp-num-cor`,
   `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
