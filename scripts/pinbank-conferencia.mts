@@ -30,8 +30,8 @@
  *
  * E os PORTÕES DA ROTA (`core/pinbank/conferencia-portoes`) e a LEITURA do banco
  * (`lib/pinbank/conferencia-leitura`, sobre um Supabase de mentira): o teto que
- * não acusa o lote cheio, o servidor que corta abaixo do teto, a espera por
- * empresa, só as contagens de cada lado sem venda em comum ATESTADA (o EC pode
+ * não acusa o lote cheio, o servidor que corta abaixo do teto, a leitura da
+ * espera por empresa que o BANCO decide (falha fechada), só as contagens de cada lado sem venda em comum ATESTADA (o EC pode
  * ser de outra loja, e um título forjado não a atesta) — contagens que não
  * mudam com o que a empresa grava — e a empresa do vínculo em toda leitura. E a
  * COMPOSIÇÃO da rota (janela → NSUs → leitura → motor → portão — as mesmas
@@ -1734,8 +1734,9 @@ const PLANTAS: Planta[] = [
 
 const CR = {
   TETO: "(portão) o teto das leituras: pede UMA linha a mais e só acusa volume quando ela veio — 100 de 100 não é estouro; 101, ou o servidor contando mais do que entregou, é",
-  ESPERA: "(portão) a espera por empresa: a mesma empresa espera 60 s, outra empresa não, a recusa não empurra o prazo, e a frase diz quantos segundos faltam",
-  MAPA: "(portão) o mapa da espera não cresce sem fim: as reservas vencidas saem na próxima",
+  RESERVA: "(portão) a espera por empresa é a do BANCO (D4): só ok === true libera a Pinbank; a recusa é \"aguarde\" com o tempo que o banco disse, entre 1 ms e 60 s (ilegível, os 60 s inteiros); e a frase diz quantos segundos faltam",
+  FALHA_FECHADA: "(portão) sem a resposta do banco a rota FALHA FECHADA: erro (a função ausente antes da migration, a recusa por papel, a rede), nada, lista, ok que não é o booleano ou resposta desconhecida — tudo é limite_indisponivel, nunca a Pinbank",
+  BOTAO: "(portão) o botão espera o que o BANCO disse no 429 (entre 1 ms e 60 s) e os 60 s inteiros em todo o resto — nunca \"Espere 23 segundos\" ao lado de \"Conferir de novo em 60 s\"",
   CONTAGENS_EC: "(portão) sem venda em comum e sem venda no sistema (o EC errado), a resposta leva só as contagens de cada lado: nenhuma linha, situação, soma do extrato, data, valor, bandeira, tipo ou NSU dele",
   CONTAGENS_CHAVE: "(portão) com venda no sistema e nenhum NSU em comum, também só as contagens — e o que é do próprio sistema (quantas vendas e a soma dos títulos) fica",
   CONTAGENS_COMUM: "(portão) com ao menos uma venda em comum ATESTADA pelo aviso o relatório sai inteiro, igual ao do motor; o vazio dos dois lados também",
@@ -1768,27 +1769,52 @@ function casosPortoes(p: ModPortoes, eng: ModEngine, rotulo: string): Map<string
     && !p.passouDoTeto(5000, 5000, 5000) && p.passouDoTeto(1000, 5000, 3000)
     && !p.passouDoTeto(0, 50, null) && !p.passouDoTeto(50, 50));
 
-  caso(CR.ESPERA, () => {
-    const m = new Map<string, number>();
-    const t0 = 1_000_000;
-    const a1 = p.reservarConferencia(m, "org-a", t0);
-    const a2 = p.reservarConferencia(m, "org-a", t0 + 30_000);
-    const b1 = p.reservarConferencia(m, "org-b", t0 + 30_000);
-    const a3 = p.reservarConferencia(m, "org-a", t0 + 59_999);
-    const a4 = p.reservarConferencia(m, "org-a", t0 + 60_000);
-    const a5 = p.reservarConferencia(m, "org-a", t0 + 60_001);
-    return p.ESPERA_CONFERENCIA_MS === 60_000
-      && a1.ok && !a2.ok && a2.restanteMs === 30_000 && b1.ok
-      && !a3.ok && a3.restanteMs === 1 && a4.ok && !a5.ok && a5.restanteMs === 59_999
+  // A espera por empresa mora no BANCO (`pinbank_conferencia_reservar`, provada em `scripts/pinbank-limite-ec.sql`):
+  // aqui, a LEITURA do que ele respondeu — o que a rota faz com cada resposta.
+  caso(CR.RESERVA, () => {
+    const ler = p.lerReservaConferencia;
+    const ok = ler({ ok: true }, null);
+    const r30 = ler({ ok: false, restante_ms: 30_000 }, null);
+    const r1 = ler({ ok: false, restante_ms: 0.2 }, null);
+    const rZero = ler({ ok: false, restante_ms: 0 }, null);
+    const rNeg = ler({ ok: false, restante_ms: -500 }, null);
+    const rTorto = ler({ ok: false, restante_ms: 999_999 }, null);
+    const rIlegivel = ler({ ok: false, restante_ms: "trinta" }, null);
+    const rSem = ler({ ok: false }, null);
+    const espera = (x: ReturnType<typeof ler>) => (!x.ok && x.codigo === "aguarde" ? x.restanteMs : -1);
+    return p.ESPERA_CONFERENCIA_MS === 60_000 && p.RPC_RESERVA_CONFERENCIA === "pinbank_conferencia_reservar"
+      && js(ok) === js({ ok: true })
+      && espera(r30) === 30_000 && espera(r1) === 1 && espera(rZero) === 1 && espera(rNeg) === 1
+      && espera(rTorto) === 60_000 && espera(rIlegivel) === 60_000 && espera(rSem) === 60_000
       && p.fraseDeEspera(30_000) === "Esta empresa acabou de conferir com o extrato da Pinbank. Nada foi alterado. Espere 30 segundos para conferir de novo."
       && p.fraseDeEspera(400).includes("Espere 1 segundo para");
   });
 
-  caso(CR.MAPA, () => {
-    const m = new Map<string, number>();
-    for (const o of ["org-a", "org-b", "org-c"]) p.reservarConferencia(m, o, 1_000_000);
-    const d = p.reservarConferencia(m, "org-d", 1_060_000);
-    return d.ok && m.size === 1 && m.get("org-d") === 1_060_000;
+  // A espera do BOTÃO: no 429 (aguarde), o número que o banco mandou; em todo o resto, a regra inteira.
+  caso(CR.BOTAO, () => {
+    const b = p.esperaDoBotao;
+    const aguarde = (ms: unknown) => b({ ok: false, codigo: "aguarde", restanteMs: ms });
+    return b({ ok: true }) === 60_000
+      && aguarde(23_000) === 23_000 && aguarde(0.4) === 1 && aguarde(0) === 1 && aguarde(-50) === 1
+      && aguarde(999_999) === 60_000 && aguarde("23") === 60_000 && aguarde(undefined) === 60_000 && aguarde(Number.NaN) === 60_000
+      // Só o "aguarde" usa o número: outra recusa que trouxesse um número espera a regra inteira.
+      && b({ ok: false, codigo: "pinbank_falhou", restanteMs: 5 }) === 60_000
+      && b({ ok: false, codigo: "limite_indisponivel", restanteMs: 5 }) === 60_000;
+  });
+
+  caso(CR.FALHA_FECHADA, () => {
+    const ler = p.lerReservaConferencia;
+    const indisponivel = (x: ReturnType<typeof ler>) => !x.ok && x.codigo === "limite_indisponivel";
+    // O erro do PostgREST quando a função não existe (o código no ar antes da migration).
+    const ausente = { code: "PGRST202", message: "Could not find the function public.pinbank_conferencia_reservar(p_vinculo) in the schema cache" };
+    const papel = { code: "42501", message: "A4P-PINBANK-LIMITE: só quem administra a empresa desta maquininha confere com o extrato da Pinbank." };
+    return [
+      ler(null, ausente), ler({ ok: true }, ausente), ler({ ok: true }, papel), ler(null, null), ler(undefined, null),
+      ler([{ ok: true }], null), ler("ok", null), ler(true, null), ler({}, null),
+      ler({ ok: "true" }, null), ler({ ok: 1 }, null), ler({ ok: "false" }, null), ler({ liberado: true }, null),
+    ].every(indisponivel)
+      && /a Pinbank não foi consultada/.test(p.FRASE_LIMITE_INDISPONIVEL) && /Nada foi alterado/.test(p.FRASE_LIMITE_INDISPONIVEL)
+      && /fale com o suporte da Quattro/.test(p.FRASE_LIMITE_INDISPONIVEL);
   });
 
   // A resposta só com contagens NÃO TEM o cruzamento: nem `estado`, nem `resumo`, nem `itens`.
@@ -2099,15 +2125,28 @@ const PLANTAS_ROTA: PlantaRota[] = [
     de: "if (passouDoTeto(linhas.length, TETO_LINHAS, count)) return volumeAlto;", para: "if (linhas.length >= TETO_LINHAS || (count != null && count > linhas.length)) return volumeAlto;" },
   { nome: "PL3 o servidor que corta passa calado (a janela sem olhar a contagem)", arquivo: "leitura", caso: CL.TETOS,
     de: "if (passouDoTeto(linhas.length, TETO_LINHAS, count)) return volumeAlto;", para: "if (passouDoTeto(linhas.length, TETO_LINHAS)) return volumeAlto;" },
-  // ── a espera por empresa (revisão de autorização, D4) ──
-  { nome: "PR3 a espera nunca recusa", arquivo: "portoes", caso: CR.ESPERA,
-    de: "if (ultima != null && agoraMs - ultima < esperaMs) {", para: "if (false) {" },
-  { nome: "PR4 uma espera só para todas as empresas (a outra empresa espera também)", arquivo: "portoes", caso: CR.ESPERA,
-    de: "const ultima = mapa.get(org);", para: "const ultima = Array.from(mapa.values()).sort((x, y) => y - x)[0];" },
-  { nome: "PR5 a recusa carimba (quem insiste empurra o prazo e nunca passa)", arquivo: "portoes", caso: CR.ESPERA,
-    de: "    return { ok: false, restanteMs:", para: "    mapa.set(org, agoraMs);\n    return { ok: false, restanteMs:" },
-  { nome: "PR6 as reservas vencidas nunca saem do mapa", arquivo: "portoes", caso: CR.MAPA,
-    de: "if (agoraMs - t >= esperaMs) mapa.delete(k);", para: "void k;" },
+  // ── a espera por empresa, DURÁVEL no banco (D4, 14/10/2026) ──
+  // (a recusa que carimba, a espera que nunca recusa e a reserva sem o portão de papel são
+  // plantadas na FUNÇÃO do banco, em `scripts/pinbank-limite-ec.sql`; aqui, a leitura da rota)
+  { nome: "PR3 o erro da reserva ignorado (a função ausente, ou a recusa por papel, deixa a Pinbank ser chamada)", arquivo: "portoes", caso: CR.FALHA_FECHADA,
+    de: "  if (erro != null) return LIMITE_INDISPONIVEL;\n", para: "" },
+  { nome: "PR4 qualquer ok que \"pareça\" verdadeiro libera (\"true\", 1, \"false\")", arquivo: "portoes", caso: CR.FALHA_FECHADA,
+    de: "if (d.ok === true) return { ok: true };", para: "if (d.ok) return { ok: true };" },
+  { nome: "PR5 a resposta que não se entende segue para a Pinbank", arquivo: "portoes", caso: CR.FALHA_FECHADA,
+    de: "  return LIMITE_INDISPONIVEL;\n}\n", para: "  return { ok: true };\n}\n" },
+  { nome: "PR6 a recusa sem teto (o relógio torto do banco vira espera maior que a regra)", arquivo: "portoes", caso: CR.RESERVA,
+    de: "Math.min(ESPERA_CONFERENCIA_MS, Math.max(1, Math.ceil(r)))", para: "Math.max(1, Math.ceil(r))" },
+  { nome: "PR6b a recusa de 0 ms (o botão libera na hora e o banco recusa de novo)", arquivo: "portoes", caso: CR.RESERVA,
+    de: "Math.min(ESPERA_CONFERENCIA_MS, Math.max(1, Math.ceil(r)))", para: "Math.min(ESPERA_CONFERENCIA_MS, Math.ceil(r))" },
+  { nome: "PR6c a recusa ilegível vira espera ZERO (a pessoa clica de novo e cai na mesma recusa)", arquivo: "portoes", caso: CR.RESERVA,
+    de: "      : ESPERA_CONFERENCIA_MS;", para: "      : 0;" },
+  { nome: "PR6d o 429 ignora o restante (o botão espera 60 s ao lado da frase \"Espere 23 segundos\")", arquivo: "portoes", caso: CR.BOTAO,
+    de: "  if (!r.ok && r.codigo === \"aguarde\" && typeof r.restanteMs === \"number\" && Number.isFinite(r.restanteMs)) {",
+    para: "  if (false) {" },
+  { nome: "PR6e o restante do 429 sem teto (um carimbo torto desliga o botão por mais que a regra)", arquivo: "portoes", caso: CR.BOTAO,
+    de: "    return Math.min(ESPERA_CONFERENCIA_MS, Math.max(1, Math.ceil(r.restanteMs)));", para: "    return Math.max(1, Math.ceil(r.restanteMs));" },
+  { nome: "PR6f qualquer recusa com número usa o número (o 502 com um número qualquer libera o botão na hora)", arquivo: "portoes", caso: CR.BOTAO,
+    de: "  if (!r.ok && r.codigo === \"aguarde\" && typeof r.restanteMs", para: "  if (!r.ok && typeof r.restanteMs" },
   // ── só as contagens sem venda em comum ATESTADA (revisões de autorização, D10) ──
   { nome: "PR7 sem venda em comum, o relatório do motor (lista, situações, soma do extrato) vai junto", arquivo: "portoes", caso: CR.CONTAGENS_EC,
     de: "    versao: r.versao,\n    vazio: false,", para: "    ...r,\n    versao: r.versao,\n    vazio: false," },

@@ -158,7 +158,30 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261014120000_pinbank_conferencia_limite",
+        "objetos_ausentes": [
+          "tabela pinbank_conferencia_limite (sem política e sem concessão; gatilho de trilha)",
+          "função pinbank_conferencia_reservar(uuid) — SECURITY DEFINER, execute só para authenticated"
+        ],
+        "impacto": "Até ser aplicada, a rota da conferência extrato × sistema FALHA FECHADA (503 limite_indisponivel) se for chamada — hoje ela já está desligada (PINBANK_CONFERENCIA ≠ ligado, D2), então nada muda para a empresa. Aplicada, a espera de 60 s por empresa passa a ser do banco (durável entre instâncias) em vez do mapa em memória, e só reserva o vínculo vivo, ativo e com o EC.",
+        "resolver_ate": "2026-10-21",
+        "origem": "sessão Claude de 14/10/2026 (D4 da conferência Pinbank) — o job migrar do CI aplica no merge, que espera o OK do dono"
+      },
+      {
+        "nome": "20261014120100_pinbank_ec_auditado",
+        "objetos_ausentes": [
+          "extensão btree_gist (no esquema extensions) + restrição de exclusão pinbank_vinculos_ec_uma_empresa_excl (o EC vivo em uma empresa só, em qualquer nível de isolamento)",
+          "função + gatilho pinbank_vinculo_ec_uma_empresa (a frase nomeada; EC > 0)",
+          "função + gatilho pinbank_vinculo_ciclo_da_plataforma (o desvinculado não volta; só o desvincular da plataforma exclui; só sai junto com a empresa)",
+          "admin_pinbank_painel/vincular/desvincular e lixeira_listar — os objetos existem; mudam os corpos (o EC no painel e no rastro, a marca do desvincular, a lixeira sem o vínculo)"
+        ],
+        "impacto": "Até ser aplicada, o /admin mostra \"EC não informado pelo servidor\" em todo vínculo (o painel ainda não devolve o EC), o rastro do vínculo não guarda o EC, nada impede o mesmo EC vivo em duas empresas e a lixeira da empresa ainda restaura o vínculo que a plataforma desvinculou. A migration se RECUSA (pela classe e pela contagem, sem escrever EC nem empresa no log público do CI) se produção já tiver EC vivo repetido entre empresas ou EC vivo que não é positivo — e aí o job migrar fica vermelho em todo push e NENHUMA migration seguinte é aplicada até a plataforma desvincular o vínculo errado (as consultas que nomeiam o conflito estão em docs/rodada-10/conferencia.md, decisão D2: \"Conferir o acervo ANTES do merge\").",
+        "resolver_ate": "2026-10-21",
+        "origem": "sessão Claude de 14/10/2026 (D10 da conferência Pinbank) — o job migrar do CI aplica no merge, que espera o OK do dono"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",

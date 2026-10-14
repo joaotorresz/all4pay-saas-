@@ -96,7 +96,8 @@ export async function reprocessarPinbank(): Promise<{ total: number; contagem: R
 
 export type ResultadoConferencia =
   | { ok: true; relatorio: RelatorioParaEmpresa; consultadoEm: string }
-  | { ok: false; codigo: string; motivo: string };
+  /** `restanteMs`: só no 429 (`aguarde`) — quanto o BANCO disse que falta; o botão espera isso. */
+  | { ok: false; codigo: string; motivo: string; restanteMs?: number };
 
 /**
  * Quanto a tela espera pela rota: o `maxDuration` dela (60 s) e uma folga.
@@ -134,7 +135,7 @@ export async function conferirComExtrato(p: { vinculoId: string; de: string; ate
     return { ok: false, codigo: "rede", motivo: "Não foi possível falar com o servidor. Confira a conexão e tente de novo. Nada foi alterado." };
   }
   const corpo = (await r.json().catch(() => null)) as
-    | { ok?: boolean; codigo?: string; motivo?: string; erro?: string; relatorio?: RelatorioParaEmpresa; consultadoEm?: string }
+    | { ok?: boolean; codigo?: string; motivo?: string; erro?: string; relatorio?: RelatorioParaEmpresa; consultadoEm?: string; restanteMs?: unknown }
     | null;
   clearTimeout(relogio);
   // O tempo acabou no meio do corpo: a resposta não veio inteira.
@@ -150,5 +151,7 @@ export async function conferirComExtrato(p: { vinculoId: string; de: string; ate
     ok: false,
     codigo: typeof corpo?.codigo === "string" && corpo.codigo ? corpo.codigo : semFrase.codigo,
     motivo: typeof corpo?.motivo === "string" && corpo.motivo.trim() ? corpo.motivo : semFrase.motivo,
+    // O 429 diz quanto o BANCO ainda recusa; a tela o lê por `esperaDoBotao` (que o limita a 1 ms … 60 s).
+    ...(typeof corpo?.restanteMs === "number" && Number.isFinite(corpo.restanteMs) ? { restanteMs: corpo.restanteMs } : {}),
   };
 }

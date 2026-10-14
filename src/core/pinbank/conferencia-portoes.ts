@@ -4,7 +4,11 @@
  * guarda (`npm run pinbank-conferencia`) os dirige com defeitos plantados.
  *
  *   · `pedirAte` / `passouDoTeto` — o teto das leituras do banco;
- *   · `reservarConferencia` — a espera por EMPRESA entre duas chamadas à Pinbank;
+ *   · `lerReservaConferencia` — a resposta do BANCO sobre a espera por EMPRESA
+ *     entre duas chamadas à Pinbank (quem confere e carimba é a função
+ *     `pinbank_conferencia_reservar`; aqui só se lê o que ela disse, e o que
+ *     não se entende FALHA FECHADO); `esperaDoBotao` — o botão espera o que o
+ *     banco disse no 429;
  *   · `relatorioParaEmpresa` — sem nenhuma venda em comum ATESTADA pelo aviso
  *     da Pinbank, só as contagens de cada lado (nada que cruze os dois).
  */
@@ -37,47 +41,88 @@ export function passouDoTeto(recebidas: number, teto: number, total?: number | n
 
 /* ─────────────────────────────── a espera por empresa ─────────────────────────────── */
 
-/** Entre duas conferências da MESMA empresa: 60 segundos. */
+/**
+ * Entre duas conferências da MESMA empresa: 60 segundos. O BANCO recusa isto
+ * (`interval '60 seconds'` em `pinbank_conferencia_reservar`, migration
+ * 20261014120000) — o `engine-audit` prova que os dois números batem —, e o
+ * botão espera isto depois de uma conferência (na recusa, o que o banco disse
+ * que falta: `esperaDoBotao`).
+ */
 export const ESPERA_CONFERENCIA_MS = 60_000;
 
-export type ReservaConferencia = { ok: true } | { ok: false; restanteMs: number };
+/** A função do banco que confere E carimba a espera, numa instrução (D4). */
+export const RPC_RESERVA_CONFERENCIA = "pinbank_conferencia_reservar" as const;
+
+export type ReservaConferencia =
+  | { ok: true }
+  | { ok: false; codigo: "aguarde"; restanteMs: number }
+  | { ok: false; codigo: "limite_indisponivel" };
+
+const LIMITE_INDISPONIVEL: ReservaConferencia = { ok: false, codigo: "limite_indisponivel" };
 
 /**
- * A espera por EMPRESA entre duas chamadas à Pinbank, conferida E carimbada no
- * mesmo passo (sem `await` no meio, nada passa entre ler e escrever o mapa).
+ * O que a reserva do BANCO respondeu (`{ ok: true }` ou `{ ok: false,
+ * restante_ms }`), lido para a rota.
  *
- * ⚠️ A recusa NÃO carimba: quem insiste antes do prazo não empurra o prazo — ele
- * conta da última chamada que SAIU. E a chamada que falha conta: ela também
- * chegou à Pinbank com a credencial da plataforma.
+ * ⚠️ **FALHA FECHADA.** Só `ok === true` (o booleano, nada parecido) deixa a
+ * rota chamar a Pinbank. Erro da chamada — a função ausente (o código no ar
+ * antes de o dono aplicar a migration), a recusa por papel, a rede — ou uma
+ * resposta que não se entende viram `limite_indisponivel` (503): sem o limite
+ * durável confirmado, a credencial da plataforma não sai.
  *
- * ⚠️ O mapa é de UMA instância do servidor (a rota o guarda no módulo): outra
- * instância não o vê. É o freio do clique repetido, não o limite durável (D4 em
- * `docs/rodada-10/conferencia.md`) — o interruptor da conferência fica
- * desligado até existir um limite que o banco guarde.
+ * ⚠️ A recusa (`ok === false`) é sempre "aguarde": o tempo que falta vem do
+ * banco, limitado a 1 ms … 60 s (relógio torto não vira espera maior que a
+ * regra, nem zero); ilegível, a espera inteira.
+ *
+ * ⚠️ Não há mais espera em memória: o `Map` por instância saiu (uma autoridade
+ * só — duas fontes para o mesmo prazo divergiriam na primeira instância nova).
  */
-export function reservarConferencia(
-  mapa: Map<string, number>,
-  org: string,
-  agoraMs: number,
-  esperaMs: number = ESPERA_CONFERENCIA_MS,
-): ReservaConferencia {
-  const ultima = mapa.get(org);
-  if (ultima != null && agoraMs - ultima < esperaMs) {
-    // Relógio que andou para trás não vira espera maior que a regra.
-    return { ok: false, restanteMs: Math.min(esperaMs, Math.max(1, esperaMs - (agoraMs - ultima))) };
+export function lerReservaConferencia(dados: unknown, erro: unknown): ReservaConferencia {
+  if (erro != null) return LIMITE_INDISPONIVEL;
+  if (dados == null || typeof dados !== "object" || Array.isArray(dados)) return LIMITE_INDISPONIVEL;
+  const d = dados as Record<string, unknown>;
+  if (d.ok === true) return { ok: true };
+  if (d.ok === false) {
+    const r = d.restante_ms;
+    const ms = typeof r === "number" && Number.isFinite(r)
+      ? Math.min(ESPERA_CONFERENCIA_MS, Math.max(1, Math.ceil(r)))
+      : ESPERA_CONFERENCIA_MS;
+    return { ok: false, codigo: "aguarde", restanteMs: ms };
   }
-  // As reservas vencidas saem: o mapa não cresce sem fim numa instância longa.
-  for (const [k, t] of Array.from(mapa.entries())) {
-    if (agoraMs - t >= esperaMs) mapa.delete(k);
-  }
-  mapa.set(org, agoraMs);
-  return { ok: true };
+  return LIMITE_INDISPONIVEL;
 }
+
+/**
+ * Sem a reserva confirmada pelo banco, a Pinbank NÃO é chamada — a frase diz
+ * isso, e o que fazer.
+ */
+export const FRASE_LIMITE_INDISPONIVEL =
+  "Não foi possível confirmar o intervalo entre as conferências desta empresa, e a Pinbank não foi consultada. Nada foi alterado. Tente de novo em alguns minutos; se continuar, fale com o suporte da Quattro.";
 
 /** A frase da recusa, com os segundos que faltam (arredondados para cima, nunca zero). */
 export function fraseDeEspera(restanteMs: number): string {
   const s = Math.max(1, Math.ceil(restanteMs / 1000));
   return `Esta empresa acabou de conferir com o extrato da Pinbank. Nada foi alterado. Espere ${s} ${s === 1 ? "segundo" : "segundos"} para conferir de novo.`;
+}
+
+/**
+ * Quanto o BOTÃO espera depois de uma conferência: os 60 s inteiros — ou, na
+ * recusa do banco (o 429 `aguarde`, que traz `restanteMs`), o que o BANCO disse
+ * que falta, entre 1 ms e 60 s.
+ *
+ * ⚠️ Com a espera no banco, o 429 chega sempre que OUTRA aba, outra pessoa ou
+ * outra instância da empresa conferiu há pouco. Esperando sempre 60 s, a tela
+ * mostrava a frase da rota ("Espere 23 segundos") ao lado de "Conferir de novo
+ * em 60 s" — dois números para a mesma espera —, e o botão seguia desligado
+ * depois que o banco já aceitaria. Só o `aguarde` usa o número: qualquer outro
+ * resultado (inclusive o 429 sem número, de um servidor antigo) espera a regra
+ * inteira, que nunca oferece o que o banco recusaria.
+ */
+export function esperaDoBotao(r: { ok: boolean; codigo?: string; restanteMs?: unknown }): number {
+  if (!r.ok && r.codigo === "aguarde" && typeof r.restanteMs === "number" && Number.isFinite(r.restanteMs)) {
+    return Math.min(ESPERA_CONFERENCIA_MS, Math.max(1, Math.ceil(r.restanteMs)));
+  }
+  return ESPERA_CONFERENCIA_MS;
 }
 
 /* ─────────────────────────────── só as contagens ─────────────────────────────── */

@@ -487,5 +487,10 @@
   "grant:recurrences.service_role": "0aa2355c17537e92f166cb050553c808"
  },
  "_nota_service_role": "77 grants, DUAS assinaturas: audit_log, admin_audit e admin_acessos NÃO têm TRUNCATE (revogação da ONDA 9); as outras 74 têm. Se audit_log.service_role recuperar TRUNCATE, a trilha de auditoria vira apagável pela chave que ignora o RLS — é a mudança que esta linha de base existe para reprovar.",
- "pendentes_de_aplicacao": {}
+ "pendentes_de_aplicacao": {
+  "tabela:pinbank_conferencia_limite": "20261014120000_pinbank_conferencia_limite — o job migrar aplica no merge; o esquema-prod do merge roda antes dele",
+  "funcao:pinbank_conferencia_reservar(p_vinculo uuid)": "20261014120000_pinbank_conferencia_limite — o job migrar aplica no merge; o esquema-prod do merge roda antes dele",
+  "funcao:pinbank_vinculo_ec_uma_empresa()": "20261014120100_pinbank_ec_auditado — o job migrar aplica no merge; o esquema-prod do merge roda antes dele",
+  "funcao:pinbank_vinculo_ciclo_da_plataforma()": "20261014120100_pinbank_ec_auditado — o job migrar aplica no merge; o esquema-prod do merge roda antes dele"
+ }
 }

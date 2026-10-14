@@ -18,8 +18,10 @@
  *     parte, compara o MDR do extrato (percentual) com a taxa contratada.
  *     Só leitura;
  *   · `conferencia-portoes.ts` — os portões da rota da conferência: o teto das
- *     leituras, a espera por empresa e só as contagens de cada lado sem venda
- *     em comum ATESTADA pelo aviso da Pinbank.
+ *     leituras, a leitura da reserva que o BANCO faz da espera por empresa
+ *     (falha fechada), quanto o botão espera (no 429, o número do banco) e só
+ *     as contagens de cada lado sem venda em comum ATESTADA pelo aviso da
+ *     Pinbank.
  */
 export const PINBANK_VERSION = "pinbank/1.0.0";
 

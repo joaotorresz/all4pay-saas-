@@ -126,9 +126,10 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     parcela, o cancelamento e — num eixo à parte, sem mudar o status — o MDR
     do extrato (percentual) com a taxa cadastrada no vínculo. Nada é gravado.
   - **Desligada por dois interruptores**: `PINBANK_CONFERENCIA=ligado` E
-    `PINBANK_API_AMBIENTE=producao`. Hoje a credencial de produção (BaaS,
-    canal 1919) não tem o ExtratoPos, e a que tem é a de dev (canal 47): o
-    botão responde "modo de teste" — o esperado.
+    `PINBANK_API_AMBIENTE=producao`. A credencial de produção (BaaS, canal
+    1919) passou a ter o ExtratoPos em 14/10/2026 (e-mail da Pinbank "Sua
+    credencial foi atualizada"); enquanto a Vercel usar a de dev (canal 47),
+    o botão responde "modo de teste" — o esperado.
   - **Condições para ligar** (D2 de `conferencia.md`): conferir uma venda REAL
     de produção contra o ExtratoPos da credencial de produção; o limite
     DURÁVEL de chamadas por empresa no servidor (D4 — hoje a espera de 60 s é

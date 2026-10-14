@@ -65,6 +65,17 @@ function entidadeDoEvento(
   if (k.startsWith("organizacao.") || k.startsWith("isolamento.")) {
     return { entityType: "security", entityId: acao };
   }
+  // ⚠️ A reserva da espera da conferência com a Pinbank (D4,
+  // `pinbank_conferencia_limite`): quem reservou e quando — a rota chama a
+  // Pinbank logo depois. É acesso a dado de fora, não dinheiro: rotulada
+  // "Lançamento", sumiria entre os movimentos. ⚠️ Ela prova a RESERVA, não a
+  // chamada: uma chamada direta à função também reserva, e membros da empresa
+  // podem inserir na trilha. O rastro de quem CHAMOU a Pinbank é o registro por
+  // chamada no log do servidor (a rota).
+  if (k.startsWith("pinbank_conferencia_limite.")) {
+    const vinculo = typeof depois?.vinculo_id === "string" ? depois.vinculo_id : "";
+    return { entityType: "security", entityId: vinculo || idDaLinha || acao };
+  }
   return { entityType: "movement", entityId: idDaLinha };
 }
 

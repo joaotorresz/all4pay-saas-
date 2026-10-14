@@ -57,6 +57,7 @@ import {
   ROTULO_STATUS,
   TOLERANCIA_TAXA_BP,
   TOM_DO_STATUS,
+  esperaDoBotao,
   itemComDivergencia,
   problemasDoPeriodoExtratoPos,
   somaDias,
@@ -221,17 +222,21 @@ export function PinbankConferencia({ vinculo }: { vinculo: VinculoTela }) {
 
   async function conferir() {
     setConsultando(true);
+    // A espera do botão é a regra inteira (ESPERA_CONFERENCIA_MS) — ou, no 429, o que o BANCO disse que
+    // falta: com a espera no banco, outra aba ou outra pessoa da empresa pode ter conferido há 37 s, e a
+    // frase da rota diz "Espere 23 segundos"; o botão não pode dizer 60 ao lado dela.
+    let espera = ESPERA_CONFERENCIA_MS;
     try {
       const r = await conferirComExtrato({ vinculoId: vinculo.id, de, ate });
       setResultado(r);
+      espera = esperaDoBotao(r);
       if (!r.ok && (r.codigo === "desligada" || r.codigo === "ambiente_teste")) {
         indisponivelNaSessao = r.motivo;
         setIndisponivel(r.motivo);
       }
     } finally {
       setConsultando(false);
-      // A MESMA espera que o servidor aplica por empresa: o botão não oferece o que a rota recusaria.
-      setEsperaAte(Date.now() + ESPERA_CONFERENCIA_MS);
+      setEsperaAte(Date.now() + espera);
       setAgora(Date.now());
     }
   }

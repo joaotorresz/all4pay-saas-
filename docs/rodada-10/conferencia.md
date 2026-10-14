@@ -3,7 +3,9 @@
 Combinado com o dono: uma conferência **só de leitura** entre o extrato
 consolidado da Pinbank (`ExtratoPos`) e os títulos que o webhook `Compra.*`
 lançou — para UMA empresa, UM estabelecimento (EC) e UM período de até 31
-dias. Nada é gravado: nem título, nem evento, nem vínculo, nem migration.
+dias. Nada do dinheiro é gravado: nem título, nem evento, nem vínculo. O único
+registro é o carimbo da última conferência da EMPRESA (o limite durável, D4 —
+tabela `pinbank_conferencia_limite`, com trilha), feito logo antes da Pinbank.
 
 ```
 Integrações → cartão da maquininha → "Conferir com o extrato"
@@ -16,7 +18,10 @@ Integrações → cartão da maquininha → "Conferir com o extrato"
     6. PINBANK_CONFERENCIA=ligado E PINBANK_API_AMBIENTE=producao → 503
     7. vínculo ativo e com o código do extrato (EC) → 409
     8. títulos da janela (semAmostra + teto + org_id do vínculo) → 422 se passar do teto
-    9. a ESPERA por empresa (60 s, nesta instância) → 429 com os segundos que faltam
+    9. a ESPERA por empresa (60 s, no BANCO: pinbank_conferencia_reservar, que
+       confere de novo o vínculo vivo, ativo e com EC) → 429 com os segundos que
+       faltam (a frase E o número, que o botão espera); sem a resposta do banco
+       → 503 limite_indisponivel
    10. consultarExtratoPos(filtro) pela saída fixa → 502 se falhar
    11. sem a LISTA, com erro ou com ResultCode ≠ 0 → 502 (nunca "zero vendas")
    12. pelo NSU (org_id do vínculo), cada lado com o SEU teto (2.000 NSUs da
@@ -388,11 +393,54 @@ só a contagem.
   - ⚠️ Custo conhecido: com a numeração diferente dos dois lados (D8), a
     resposta nunca abre, e a contagem de pares prováveis (que cruza os lados)
     também não sai — a evidência para D8 vem da rota de teste da plataforma.
-- **A espera por EMPRESA** (`reservarConferencia`, 60 s, 429 com os segundos
-  que faltam), conferida e carimbada logo antes da chamada à Pinbank. A recusa
-  não empurra o prazo; a chamada que falha conta (ela chegou à Pinbank). ⚠️ O
-  mapa é de UMA instância do servidor: outra instância começa vazia. É o freio
-  do clique repetido e do laço de uma aba, NÃO o limite durável (D4).
+- **A espera por EMPRESA é do BANCO** (D4, 14/10/2026 — migration
+  `20261014120000_pinbank_conferencia_limite`). Logo antes da chamada à
+  Pinbank, a rota pede `pinbank_conferencia_reservar(p_vinculo)` (SECURITY
+  DEFINER): a empresa sai do VÍNCULO VIVO lido no banco (nunca do pedido), a
+  função exige `tem_permissao('administrar', <empresa do vínculo>)` — a mesma
+  `ACAO_CONFERENCIA` da rota — e confere E carimba numa instrução só (`insert …
+  on conflict (org_id) do update … where ultima_em <= now() - 60 s`): duas
+  chamadas ao mesmo tempo, só uma passa (medido com duas sessões no Supabase
+  local: a segunda recebe `restante_ms` 59.470). Devolve `{ ok: true }` ou
+  `{ ok: false, restante_ms }` (1 ms … 60 s) → 429 com os segundos que faltam.
+  ⚠️ O teto de 60 s não é enfeite: `now()` é o INÍCIO da transação, e a sessão
+  que abriu ANTES da que carimbou (e pediu depois) vê o carimbo à frente do
+  próprio relógio — medido com duas sessões abertas a 0,3 s uma da outra: sem
+  o teto ela recebe 60.293 ms; com ele, 60.000.
+  A recusa NÃO carimba (quem insiste não empurra o prazo); a chamada que falha
+  depois CONTA (ela já saiu com a credencial da plataforma). A tabela
+  `pinbank_conferencia_limite` (uma linha por empresa: `ultima_em`, `por`,
+  `vinculo_id`) não tem política nem concessão a anon, authenticated ou
+  service_role, e tem o gatilho de trilha: cada reserva que passa vira um
+  evento em `audit_log` com quem e quando — e a maquininha na primeira reserva
+  da empresa e sempre que ela muda (a trilha guarda só o que MUDOU: medido, a
+  reserva repetida da mesma maquininha traz só o novo `ultima_em`, e a
+  maquininha é a do evento anterior). ⚠️ **O evento prova a RESERVA, não a
+  chamada à Pinbank:** quem administra a empresa pode chamar a função direto
+  pelo PostgREST (reserva sem Pinbank nenhuma), e a política de `audit_log`
+  deixa QUALQUER membro da empresa — até o leitor — inserir um evento com o
+  `usuario` que quiser (medido; anterior a esta rodada, fechar é decisão à
+  parte). O rastro de quem CHAMOU a Pinbank com a credencial da plataforma é o
+  registro por chamada no log do SERVIDOR (a rota), que a empresa não escreve.
+  ⚠️ **As pré-condições da rota, de novo no banco:** a função só reserva o
+  vínculo VIVO, ATIVO e COM o EC (`> 0`) — a rota recusa os dois últimos com
+  409 antes de reservar, mas sem eles na função uma chamada direta carimbaria
+  a espera da empresa com uma maquininha que nunca chega à Pinbank (e a
+  maquininha desativada entre a leitura da rota e a reserva passaria).
+  ⚠️ **FALHA FECHADA**
+  (`lerReservaConferencia`): só `ok === true` libera; erro da RPC (a função
+  ausente — o código no ar antes da migration —, a recusa por papel, a rede) ou
+  resposta que não se entende → **503 `limite_indisponivel`**, com a frase "a
+  Pinbank não foi consultada" e um registro `[falha·pinbank]` no log, e a
+  Pinbank NÃO é chamada. O `Map` por instância SAIU (uma autoridade só);
+  `ESPERA_CONFERENCIA_MS` e `fraseDeEspera` ficam (o `engine-audit` prova que o
+  número da migration bate com `ESPERA_CONFERENCIA_MS`). ⚠️ **O 429 leva o
+  NÚMERO** (`restanteMs`, além da frase) e o botão espera ESSE tempo
+  (`esperaDoBotao`, entre 1 ms e 60 s; os 60 s inteiros em todo outro
+  resultado): com a espera no banco, o 429 chega sempre que outra aba, outra
+  pessoa ou outra instância da empresa conferiu há pouco, e esperando sempre
+  60 s a tela mostrava "Espere 23 segundos" ao lado de "Conferir de novo em
+  60 s" — e o botão seguia desligado depois que o banco já aceitaria.
 - **A empresa do vínculo em toda leitura.** As cinco leituras depois do
   vínculo levam `.eq("org_id", orgId)` com o `org_id` DO VÍNCULO. A política
   olha a empresa aberta no instante de cada consulta; trocar de empresa em
@@ -405,10 +453,14 @@ A tela não soma nada: desenha o resumo e a lista que o motor devolveu. O que
 ela decide é COMO dizer cada estado — e cada um é diferente, nunca zeros:
 
 - **Indisponível** (503: desligada, modo de teste, sem configuração) → o
-  motivo no lugar do relatório, e o botão fica desligado na sessão.
+  motivo no lugar do relatório, e o botão fica desligado na sessão. O 503
+  **`limite_indisponivel`** (o banco não confirmou a espera — a função ausente
+  antes da migration, ou um erro) é diferente: sai como recusa com a frase
+  ("a Pinbank não foi consultada") e o botão NÃO fica desligado na sessão.
 - **Recusas com frase da rota** (400, 403, 404, 409, 422, 429, 500, 502) → a
   frase, com "Nada foi alterado." quando ela ainda não diz. O **429** traz os
-  segundos que faltam; o **`extrato_recusado`** diz que a Pinbank recusou ou
+  segundos que faltam — e o número, que o botão espera (o mesmo que a frase
+  diz); o **`extrato_recusado`** diz que a Pinbank recusou ou
   respondeu sem a lista.
 - **Falha SEM a frase da rota** (o 504 da plataforma quando a função passa de
   60 s, uma página de erro no caminho, ou o tempo de espera da tela — 75 s —
@@ -548,13 +600,60 @@ de carga da sétima regra antes. Tarefa separada.
   acusam o estouro de verdade (1.000 títulos passam e 1.001 não no padrão;
   5.000 e 5.001 sem `max_rows`), o servidor que corta abaixo do teto (2.400
   títulos e 1.500 avisos cortados em 1.000), o teto POR LADO das NSUs, a
-  espera por empresa, só as contagens de cada lado sem venda em comum
+  leitura da espera que o BANCO decide (falha fechada), a espera do botão
+  (no 429, o número do banco; em todo o resto, os 60 s), só as contagens de cada lado sem venda em comum
   ATESTADA (o título forjado não abre; a resposta não muda com o que a
   empresa grava), a maquininha trocada com a frase própria, a empresa do
   vínculo em toda leitura, o título da NSU do extrato lido só com o aviso do
   dia da venda e a COMPOSIÇÃO da rota sem oráculo antes do portão (um
   espelho; o `engine-audit` fixa no texto da rota as mesmas chamadas) —
-  **mais 31 defeitos plantados**. Ao todo: 105 casos, 128 defeitos plantados.
+  **mais 36 defeitos plantados**. Ao todo: 106 casos, 133 defeitos plantados.
+- `scripts/pinbank-limite-ec.sql` (job `isolamento` do CI; arreio copiado de
+  `pinbank.sql`, savepoint por caso com o MESMO EC e os mesmos
+  estabelecimentos, tudo em ROLLBACK) — a FECHADURA no banco. **O limite
+  (12 casos):** a empresa reserva (a linha com quem, quando e a maquininha, e
+  o evento na trilha — também o da reserva REPETIDA); antes de 60 s recusa
+  com o que falta SEM carimbar; o carimbo à frente do relógio da transação
+  (a sessão que abriu antes da que carimbou) recusa com no máximo 60 s, nunca
+  mais; OUTRO administrador da mesma empresa também espera (por empresa, não
+  por pessoa — e o carimbo continua de quem chamou); exatamente 60 s passa e
+  59,999 s não; a empresa B não espera pela A; o leitor, o titular de outra
+  empresa, a maquininha desvinculada (inclusive com o `ativo` religado à mão),
+  a INATIVA, a SEM o EC e a sessão sem usuário não reservam; anon e a chave
+  de serviço nem executam a função; ninguém do cliente lê nem escreve a
+  tabela. **O EC (10 casos):** o painel e o rastro (vincular e desvincular)
+  com o EC; o EC vivo em OUTRA empresa recusado pela RPC com a FRASE nomeada,
+  por INSERT e UPDATE diretos e ao reativar o excluído; o desvinculado que
+  NÃO volta (à mão e pela lixeira do lançador); a mesma empresa com duas
+  maquininhas no mesmo EC permitida; o EC liberado ao desvincular; EC zero ou
+  negativo recusado; o gatilho nas colunas certas, a trava pela CHAVE do EC
+  e ANTES de conferir (no texto e DE FATO, em `pg_locks`) e a RESTRIÇÃO DE
+  EXCLUSÃO que trava sozinha (com o gatilho desligado, o EC de A não entra em
+  B: 23P01); e a lixeira da empresa que não alcança o vínculo (o lançador
+  não o exclui; a lixeira não o lista e continua listando o resto; o titular
+  não o apaga de vez; e ele SAI junto com a empresa que já não existe). E
+  **27 defeitos plantados dentro do arquivo**, lendo a mensagem: a recusa que
+  carimba, a espera que nunca recusa, a recusa sem o teto de 60 s, a espera
+  por PESSOA (nos dois jeitos: o `where` e o retorno antecipado), a RPC sem o
+  portão, a que aceita o excluído, o inativo ou o sem EC; o gatilho que não
+  olha outra empresa (a restrição recusa, mas sem a frase) e, sem a
+  restrição, o EC vivo em DUAS empresas; o gatilho e a restrição que recusam
+  as irmãs; o gatilho e a restrição em que o excluído prende o EC; o EC ≤ 0
+  aceito; a trava depois de conferir, pela linha, pela empresa e EC, e no
+  texto mas num ramo que nunca roda (só `pg_locks` o pega); a restrição
+  tirada; a reativação aceita; a exclusão por qualquer um; a lixeira que lista
+  o vínculo; o apagar por qualquer um; o apagar recusado até junto com a
+  empresa; e o desvincular sem a marca. Provada também de fora (14/10): sem o
+  gatilho do ciclo reprova no E4 ("não foi recusado pelo ciclo da
+  plataforma"), sem a restrição no E8, e a RPC antiga (sem `ativo` e sem EC)
+  no L7b — cada uma com a frase do caso.
+- **A corrida de duas sessões** (medição, fora do CI): o mesmo EC gravado ao
+  mesmo tempo em duas empresas — em READ COMMITTED a segunda recebe a FRASE
+  (a trava pelo EC a faz esperar e conferir depois); em REPEATABLE READ a
+  RESTRIÇÃO recusa (23P01); em SERIALIZABLE, 40001. Sem a restrição, em
+  REPEATABLE READ as DUAS empresas ficavam com o EC (o gatilho confere com o
+  retrato da transação, tirado antes de esperar a trava) — é por isso que a
+  trava é a restrição, e o gatilho só diz o motivo.
 - **A varredura aleatória** (quarta e quinta revisões, fora do `npm test`, uma
   medição — não uma guarda): ~220 mil cenários de 1 a 6 vendas, o lado do
   sistema montado pelo PLANEJADOR real, a leitura real sobre um PostgREST de
@@ -570,7 +669,21 @@ de carga da sétima regra antes. Tarefa separada.
   de sucesso (`extratoServeParaConferir`), a espera por empresa antes da
   Pinbank, o relatório pela restrição de contagens, o `org_id` do vínculo em
   toda leitura, um registro por chamada sem valor, a resposta
-  sem vazamento, a credencial intocada, `PINBANK_CONFERENCIA` lida só em
+  sem vazamento (o número da espera só no 429), a credencial intocada, a
+  espera pedida ao BANCO pelo vínculo depois da janela e antes da Pinbank,
+  com 429 (frase E número) e a falha fechada (503) e nenhum mapa por
+  instância, o número e a ação da migration do limite iguais a
+  `ESPERA_CONFERENCIA_MS` e `ACAO_CONFERENCIA`, a reserva só do vínculo vivo,
+  ativo e com EC, o texto que diz que o evento prova a RESERVA (não a
+  chamada), o botão que espera o número do 429, a última definição do painel
+  com o EC, o rastro do vínculo com o EC, o gatilho do EC (outra empresa, a
+  trava pela chave do EC ANTES de conferir — ordem e chave numa regex só —,
+  colunas, recusa nomeada), a restrição de exclusão com a `btree_gist` fora de
+  `public`, o ciclo do vínculo (reativar nunca, excluir só com a marca do
+  desvincular, apagar só sem a empresa), a lixeira que não o lista, o acervo
+  que recusa pela classe e pela contagem (nunca o EC nem a empresa) e nunca
+  apaga, e o `/admin` com o EC (três estados: o número, "—" e "não informado
+  pelo servidor") e a frase do banco, `PINBANK_CONFERENCIA` lida só em
   `lib/pinbank/api.ts`, nenhuma escrita, os filtros de leitura, nenhum módulo
   `"use client"`, a permissão na empresa do vínculo, a tela, e o EC obrigatório
   no vínculo da plataforma, e as regras da tela das revisões de 13/10 (o
@@ -600,10 +713,12 @@ de carga da sétima regra antes. Tarefa separada.
   resumo nunca soma taxa. E a recusa com a lista vazia (ResultCode 4 com o
   `Data` cifrado `[]`, pelo servidor de mentira) não serve para conferir.
 
-## Decisões (do dono) — como estão em 13/10/2026
+## Decisões (do dono) — como estão em 14/10/2026
 
-Respondidas: **D6** (pela Pinbank) e, em parte, **D7**. Abertas: as demais.
-O interruptor fica DESLIGADO enquanto D2 não for cumprido.
+Respondidas: **D6** (pela Pinbank) e, em parte, **D7**. **D4** e **D10**
+implementadas no código em 14/10/2026 (valem com as migrations aplicadas — o
+merge aplica). Abertas: as demais. O interruptor fica DESLIGADO enquanto D2
+não for cumprido.
 
 - **D1 — o nível de permissão. EM ABERTO.** `administrar` (padrão; o mesmo de
   configurar e reprocessar) × `fechar`, que daria a conferência também ao
@@ -611,34 +726,93 @@ O interruptor fica DESLIGADO enquanto D2 não for cumprido.
   credencial da plataforma. Fixado em `ACAO_CONFERENCIA`, com guarda.
 - **D2 — quem liga e quando. EM ABERTO, com as condições escritas.** Os dois
   interruptores (`PINBANK_CONFERENCIA=ligado` E `PINBANK_API_AMBIENTE=producao`).
-  Hoje a credencial que tem o ExtratoPos é a de DEV (canal 47) e a de produção
-  (BaaS, canal 1919) ainda não o tem: o botão recusa com "modo de teste" — o
-  esperado. Condições para ligar: (a) a credencial de produção com o
-  ExtratoPos liberado e uma venda REAL de produção conferida contra ele; (b) o
-  limite durável no servidor (D4); (c) o EC visível e auditado no `/admin`
-  (D10); (d) o `max_rows` do PostgREST de produção conferido — com o padrão
-  de 1.000 (o PADRÃO do servidor de mentira da guarda, desde a terceira
-  revisão), a janela recusa ("vendas demais") qualquer período com mais de
-  1.000 títulos, cerca de 42 vendas em 12x, muito abaixo do teto de 5.000; se
-  for menor que 5.001, as leituras passam a paginar com `.range()` em passos
-  de `max_rows` até o teto (código, sem migration) em vez de recusar. (b) e
-  (c) pedem migration — as mitigações desta rodada (a espera por instância e
-  só as contagens de cada lado sem venda em comum atestada) reduzem o dano,
-  não o fecham.
+  Em 14/10/2026 a Pinbank liberou o ExtratoPos também na credencial de
+  produção (BaaS, canal 1919 — e-mail "Sua credencial foi atualizada", com o
+  `ExtratoPosEncrypted` na lista); até a Vercel apontar para ela, o botão
+  segue recusando com "modo de teste". Condições para ligar: (a) uma venda
+  REAL de produção conferida contra o ExtratoPos da BaaS — **EM ABERTO** (as
+  primeiras vendas reais chegaram pelo webhook no mesmo dia, ainda na
+  quarentena); (b) o limite durável no servidor (D4) e (c) o EC visível,
+  auditado e único entre empresas no `/admin` (D10) — **IMPLEMENTADOS no
+  código em 14/10/2026** (migrations `20261014120000` e `20261014120100`),
+  valendo quando estiverem aplicadas em produção (ver a nota do `migrar`
+  abaixo); (d) o `max_rows` do PostgREST de produção conferido — **EM
+  ABERTO**: com o padrão de 1.000 (o PADRÃO do servidor de mentira da guarda,
+  desde a terceira revisão), a janela recusa ("vendas demais") qualquer
+  período com mais de 1.000 títulos, cerca de 42 vendas em 12x, muito abaixo
+  do teto de 5.000; se for menor que 5.001, as leituras passam a paginar com
+  `.range()` em passos de `max_rows` até o teto (código, sem migration) em vez
+  de recusar.
+  - ⚠️ **O MERGE APLICA AS MIGRATIONS EM PRODUÇÃO** (medido em 14/10/2026). O
+    job `migrar` do `ci.yml` roda em todo push ao `main` (depois do `verify`)
+    com o segredo `SUPABASE_DB_URL_MIGRACAO` — que EXISTE: no merge do PR #183
+    o log diz "Applying migration 20261009120000_enterprise_libera_pro.sql…
+    Finished supabase db push", e no do #190 "arquivos: 111 · aplicadas: 111".
+    Então "o dono aplica depois do merge" é o próprio merge: o OK do PR é o OK
+    das duas migrations.
+  - ⚠️ **O que a recusa da D10 faz, de verdade.** A D10 se RECUSA se produção
+    já tiver EC vivo repetido entre empresas ou EC vivo que não é positivo. O
+    `supabase db push` aplica uma migration por vez: a D4 fica aplicada, a D10
+    não — e, como o `push` para na primeira que falha, **a cada push ao `main`
+    ele tenta a D10 de novo e NENHUMA migration seguinte é aplicada** até
+    alguém resolver o conflito (o A4P-086 de volta: código publicado sem o
+    esquema). A recusa diz a CLASSE e QUANTOS, nunca o EC nem a empresa: o
+    log do Actions é PÚBLICO (o repositório é público). O mesmo vale se o
+    papel de migração não puder criar a extensão `btree_gist` (a migration
+    falha nomeada; no Supabase ela é liberada ao `postgres`, como no local).
+  - ⚠️ **Conferir o acervo ANTES do merge — no SQL Editor do Supabase, não no
+    `/admin`.** Antes da D10 o `/admin` não mostra o EC em lugar nenhum (é
+    ela que o põe no painel; só o cartão de Integrações de cada empresa o
+    mostra). As duas consultas da recusa, só de leitura:
+
+    ```sql
+    -- EC vivo em mais de uma empresa (tem de voltar vazio)
+    select v.codigo_cliente, count(distinct v.org_id) as empresas,
+           string_agg(distinct o.name || ' (' || v.org_id || ')', '; ') as quais,
+           string_agg(v.id::text || ' · estab ' || coalesce(v.estabelecimento_id::text, v.chave_gateway), '; ') as vinculos
+      from public.pinbank_vinculos v join public.organizations o on o.id = v.org_id
+     where v.excluido_em is null and v.codigo_cliente is not null
+     group by v.codigo_cliente
+    having count(distinct v.org_id) > 1;
+
+    -- EC vivo que não é positivo (tem de voltar vazio)
+    select v.id, o.name as empresa, v.estabelecimento_id, v.codigo_cliente
+      from public.pinbank_vinculos v join public.organizations o on o.id = v.org_id
+     where v.excluido_em is null and v.codigo_cliente is not null and v.codigo_cliente <= 0;
+    ```
+
+    Com linha em qualquer uma: desvincular no `/admin` o vínculo errado (com
+    motivo) ANTES do merge.
+  - ⚠️ **O `migrar` só espera o `verify`.** O job `isolamento` — onde rodam a
+    guarda `pinbank-limite-ec.sql` e as outras de banco — é portão do PR,
+    não da aplicação no `main`: a prova das migrations é o CI verde do PR.
+  - ⚠️ **A janela do deploy.** A Vercel publica o código em paralelo (sem
+    `needs:`): entre o deploy e o `migrar`, a rota responde 503
+    `limite_indisponivel` se alguém conferir (com o interruptor desligado,
+    ninguém chega lá), e o `/admin` mostra "EC não informado pelo servidor"
+    — nunca "EC —", que diria "não cadastrado" de um vínculo que TEM EC.
 - **D3 — o OK do merge. EM ABERTO.** Caminho novo, alcançável pela empresa,
   que chama a Pinbank com a credencial da plataforma: muda quem pode chamar o
   quê. O PR espera o OK do dono.
-- **D4 — limite de chamadas. EM ABERTO (mitigado).** A tela e o servidor usam
-  a MESMA espera de 60 s por empresa (`ESPERA_CONFERENCIA_MS`; no servidor,
-  `reservarConferencia` com 429) — mas o mapa do servidor é de UMA instância:
-  outra instância, ou uma nova depois de ociosa, começa vazia, e um laço
-  contra o endereço pode cair em várias. O limite DURÁVEL (uma tabela pequena
-  + uma RPC `SECURITY DEFINER` que confere e carimba a última chamada da
-  empresa numa transação, recusando com 429) pede migration e a prova
-  `begin … rollback`. Condição para ligar (D2). E o volume: a leitura não
-  trunca calada nem quando o servidor corta abaixo do teto (`count: "exact"`
-  na janela, nos títulos e nos avisos pelo NSU) — mas o `max_rows` de produção
-  decide até onde a conferência vai sem pedir período menor (D2 (d)).
+- **D4 — limite de chamadas. IMPLEMENTADO no código (14/10/2026), vale
+  quando a migration `20261014120000_pinbank_conferencia_limite` estiver em
+  produção (o merge a aplica).** A espera de 60 s por empresa mora no BANCO:
+  `pinbank_conferencia_reservar(p_vinculo)` confere e carimba numa instrução,
+  pela empresa do vínculo vivo, ATIVO e COM o EC (as pré-condições da rota, de
+  novo no banco), exigindo `administrar` nela; a recusa não carimba; a rota
+  falha FECHADA (503 `limite_indisponivel`) sem a resposta do banco; o 429
+  leva o número e o botão espera ESSE tempo. O mapa por instância saiu. ⚠️ O
+  evento da trilha prova a RESERVA, não a chamada à Pinbank (a função direta
+  também reserva, e membros da empresa inserem na trilha): o rastro da
+  chamada é o log do servidor. Provado em `begin … rollback` (executa,
+  reaplica, a guarda `pinbank-limite-ec.sql` verde, os defeitos plantados
+  derrubam o caso certo) e com duas sessões ao mesmo tempo (só uma passa). E o
+  volume: a leitura não trunca calada nem quando o servidor corta abaixo do
+  teto (`count: "exact"` na janela, nos títulos e nos avisos pelo NSU) — mas o
+  `max_rows` de produção decide até onde a conferência vai sem pedir período
+  menor (D2 (d)). ⚠️ Resíduo declarado: a espera é por EMPRESA, não por
+  credencial — N empresas diferentes chamam N vezes por minuto (o teto global
+  da credencial da plataforma, se a Pinbank tiver um, é outra decisão).
 - **D5 — um "aplicar" futuro. EM ABERTO — é a próxima fase.** Atualizar
   `due_date` (e a taxa) dos títulos `previsto`/`confirmado` pelo extrato? Se
   sim: só título em aberto, nunca baixado/conciliado, com motivo e trilha, por
@@ -684,7 +858,9 @@ O interruptor fica DESLIGADO enquanto D2 não for cumprido.
 - **D9 — o repasse estimado. EM ABERTO.** O `plano.ts` deveria postergar a
   estimativa para o dia útil? Tiraria o "conferida no dia útil seguinte"
   sistemático, mas move o fluxo de caixa dos títulos novos.
-- **D10 — EC de outra empresa. EM ABERTO (mitigado).** Não há unicidade de
+- **D10 — EC de outra empresa. A CORREÇÃO DURÁVEL ESTÁ IMPLEMENTADA no código
+  (14/10/2026), vale quando a migration `20261014120100_pinbank_ec_auditado`
+  estiver em produção (o merge a aplica).** Até ela, não há unicidade de
   `codigo_cliente` entre empresas: um erro de digitação no `/admin` deixaria
   uma empresa ler o extrato de outra — de outro cliente da Quattro ou de
   qualquer lojista da Pinbank no mesmo canal (a credencial lê todo EC do
@@ -714,14 +890,57 @@ O interruptor fica DESLIGADO enquanto D2 não for cumprido.
   QUALQUER maquininha da empresa (também a trocada) e lê os títulos pela
   coluna `nsu` — então o 422, `outraMaquininha` e `lados.sistema` só mudam
   com o extrato alheio quando uma NSU dele é igual a uma NSU da própria
-  empresa NO MESMO DIA, a mesma coincidência. **A correção durável pede migration e fica EM ABERTO:** (a)
-  `admin_pinbank_painel` devolver o `codigo_cliente` e o `/admin` mostrá-lo ao
-  lado de cada vínculo; (b) `admin_pinbank_vincular` gravar o
-  `codigo_cliente` no `admin_audit`; (c) recusar o EC vivo repetido entre
-  empresas (índice único parcial, ou recusa na RPC com uma exceção nomeada
-  para o EC legítimo de várias lojas). Hoje, corrigir um EC errado é
-  desvincular e vincular de novo (não há RPC de edição). Condição para ligar
-  (D2).
+  empresa NO MESMO DIA, a mesma coincidência. **A correção durável (migration `20261014120100`):** (a)
+  `admin_pinbank_painel` devolve o `codigo_cliente` (mesma assinatura, mesmo
+  portão) e o `/admin` o mostra ao lado de cada vínculo — em TRÊS estados: o
+  número, "EC —" (o painel disse que não há) e "EC não informado pelo
+  servidor" (o painel antigo, sem o campo — "—" ali afirmaria a ausência de
+  um EC que existe); (b) `admin_pinbank_vincular` grava o `codigo_cliente` no
+  `admin_audit`, e `admin_pinbank_desvincular` também (o rastro diz qual EC
+  saiu); (c) o banco RECUSA o EC vivo repetido ENTRE EMPRESAS por uma
+  **RESTRIÇÃO DE EXCLUSÃO** (`pinbank_vinculos_ec_uma_empresa_excl`: `exclude
+  using gist (codigo_cliente with =, org_id with <>) where (excluido_em is
+  null and codigo_cliente is not null)`, com a `btree_gist` no esquema
+  `extensions`) — para QUALQUER escritor e em QUALQUER nível de isolamento. O
+  gatilho `pinbank_vinculos_ec_uma_empresa` (BEFORE INSERT OR UPDATE OF
+  `codigo_cliente`, `org_id`, `excluido_em`) fica para DIZER o motivo: a frase
+  "A4P-PINBANK: o código do estabelecimento no extrato (EC) N já está
+  vinculado a outra empresa." (`unique_violation`, com a dica do que fazer),
+  que chega ao `/admin` inteira, e o EC que não é positivo (`check_violation`);
+  em READ COMMITTED (o das RPCs) a trava `pg_advisory_xact_lock` pela chave do
+  EC, ANTES de conferir, faz a segunda gravação esperar a primeira e receber a
+  frase. ⚠️ A trava do gatilho SOZINHA não bastava (achado da revisão,
+  medido com duas sessões): em REPEATABLE READ o gatilho confere com o retrato
+  da transação, tirado antes de esperar a trava, e as DUAS empresas ficavam
+  com o EC; com a restrição, a segunda é recusada (23P01; em SERIALIZABLE,
+  40001). A MESMA empresa com várias maquininhas no mesmo EC continua
+  permitida (as irmãs da conferência); o vínculo excluído não conta
+  (desvincular libera o EC). (d) **O CICLO DO VÍNCULO É DA PLATAFORMA**
+  (gatilho `pinbank_vinculos_ciclo_da_plataforma`, BEFORE UPDATE OF
+  `excluido_em` OR DELETE, para qualquer escritor). Achado da revisão: a
+  lixeira genérica (`restaurar_logico`, `excluir_logico`, `lixeira_expurgar`,
+  que alcançam toda tabela com `excluido_em`) deixava a EMPRESA — com o papel
+  de LANÇADOR — desfazer o desvínculo da plataforma: o vínculo voltava vivo
+  com o EC dentro, a reserva da conferência voltava a aceitá-lo, o webhook
+  voltava a lançar as vendas daquela loja na empresa, e o `admin_audit` não
+  dizia nada; e deixava o lançador tirar a maquininha e o titular apagá-la de
+  vez, sem o rastro da plataforma. Agora: REATIVAR nunca (religar é vincular
+  de novo, linha nova, com rastro); EXCLUIR só dentro de
+  `admin_pinbank_desvincular`, que liga a marca `a4p.pinbank_desvincular`
+  (local à transação, com o id do vínculo) só durante o UPDATE dela; APAGAR
+  só junto com a empresa (quando ela já não existe — a cascata); e
+  `lixeira_listar` não lista o vínculo (ele aparecia para todo membro, até o
+  leitor, com o e-mail do administrador da plataforma e o motivo dele, ao
+  lado de um "Restaurar" que agora seria recusado). A migration CONFERE o
+  acervo antes e se RECUSA pela classe e pela contagem — nunca escreve o EC
+  nem a empresa (o log do CI é público); as consultas que nomeiam o conflito
+  estão na nota do `migrar`, em D2 — e não apaga nada. ⚠️ **Fora de escopo,
+  declarado:** não há RPC de EDIÇÃO do EC — corrigir um EC errado continua
+  sendo desvincular (com motivo, auditado) e vincular de novo. O resíduo de
+  cima (a contagem do extrato do EC pedido e a coincidência de NSU no mesmo
+  dia) continua: a unicidade impede o EC de OUTRA EMPRESA da Quattro, não o EC
+  de um lojista da Pinbank que não é cliente (só a plataforma, ao digitar,
+  confere isso com a Pinbank).
 - **D11 — as regras de borda. EM ABERTO.** Aceitar "borda", "recente
   (hoje/ontem)", Pix sem conclusão e o calendário só nacional (feriado
   municipal aparece como "data diferente" de +1).
@@ -744,7 +963,11 @@ O interruptor fica DESLIGADO enquanto D2 não for cumprido.
 ## Fora desta etapa
 
 Atualizar títulos pelo extrato · derivar a taxa em reais do percentual ·
-comparar bruto da parcela, split ou líquido · limite DURÁVEL no servidor (D4;
-a espera desta rodada é por instância) · EC visível e auditado no `/admin`
-(D10) · histórico de conferências · teste ponta a ponta da rota contra o
-Supabase local e a Pinbank de mentira.
+comparar bruto da parcela, split ou líquido · RPC de edição do EC (corrigir é
+desvincular e vincular de novo) · limite por CREDENCIAL (o de 14/10 é por
+empresa) · histórico de conferências · teste ponta a ponta da rota contra o
+Supabase local e a Pinbank de mentira · tirar o INSERT de `authenticated` em
+`audit_log` (hoje qualquer membro da empresa insere um evento com o `usuario`
+que quiser — anterior a esta rodada, decisão à parte e com guarda; por isso o
+evento da reserva prova a reserva, e o rastro da chamada à Pinbank é o log do
+servidor).

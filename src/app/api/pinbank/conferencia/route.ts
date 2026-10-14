@@ -3,7 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { consultarExtratoPos, conferenciaPinbankLiberada, descreverErroApi, extratoServeParaConferir } from "@/lib/pinbank/api";
 import { hojeSaoPaulo } from "@/lib/pinbank/processar";
 import { lerDetalhesPorNsu, lerTitulosDaJanela, lerVinculosDaEmpresa } from "@/lib/pinbank/conferencia-leitura";
-import { fraseDeEspera, relatorioParaEmpresa, reservarConferencia } from "@/core/pinbank/conferencia-portoes";
+import {
+  FRASE_LIMITE_INDISPONIVEL,
+  RPC_RESERVA_CONFERENCIA,
+  fraseDeEspera,
+  lerReservaConferencia,
+  relatorioParaEmpresa,
+} from "@/core/pinbank/conferencia-portoes";
 import {
   ACAO_CONFERENCIA,
   FRASE_EXTRATO_RECUSADO,
@@ -38,7 +44,8 @@ import {
  * o vínculo é desta empresa → a pessoa ADMINISTRA a empresa do vínculo → a
  * conferência está liberada (interruptor + ambiente de produção) → o vínculo
  * está ativo e tem o código do extrato → os títulos da janela → a ESPERA por
- * empresa (429) → só então a Pinbank.
+ * empresa, conferida e carimbada pelo BANCO (429; sem a resposta dele, 503
+ * `limite_indisponivel`) → só então a Pinbank.
  *
  * ⚠️ A resposta nunca traz a credencial, a identificação dela, o motivo cru da
  * Pinbank nem nada de outro estabelecimento: só o relatório (que já sai sem
@@ -62,15 +69,6 @@ const resposta = (status: number, corpo: Record<string, unknown>) =>
   NextResponse.json(corpo, { status, headers: { "cache-control": "no-store, max-age=0" } });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * A última chamada à Pinbank de cada EMPRESA, NESTA instância do servidor.
- * ⚠️ Não é o limite durável: outra instância (ou uma nova, depois de ociosa)
- * começa com o mapa vazio. Freia o clique repetido e o laço de uma aba só; o
- * limite que o banco guarda pede tabela e migration (D4). Por isso o
- * interruptor `PINBANK_CONFERENCIA` fica desligado até ele existir (D2).
- */
-const CONFERENCIAS_RECENTES = new Map<string, number>();
 
 const FRASE_LEITURA_FALHOU = "Não foi possível ler as vendas da maquininha no sistema. Nada foi alterado.";
 
@@ -136,9 +134,18 @@ export async function POST(req: Request) {
       : resposta(500, { ok: false, codigo: "leitura_falhou", motivo: FRASE_LEITURA_FALHOU });
   }
 
-  // A ESPERA por empresa, logo antes da Pinbank: confere e carimba no mesmo passo (nada de await no meio).
-  const reserva = reservarConferencia(CONFERENCIAS_RECENTES, v.org_id, Date.now());
-  if (!reserva.ok) return resposta(429, { ok: false, codigo: "aguarde", motivo: fraseDeEspera(reserva.restanteMs) });
+  // A ESPERA por empresa, logo antes da Pinbank — DURÁVEL (D4): o BANCO confere e carimba numa instrução,
+  // pela empresa do VÍNCULO (lida lá, nunca do pedido), e exige 'administrar' nela. A recusa não carimba;
+  // a chamada que falhar depois conta (já saiu com a credencial da plataforma). Sem a resposta do banco
+  // (a função ausente antes da migration, erro, resposta ilegível) a rota FALHA FECHADA: a Pinbank não é chamada.
+  const { data: reservaDoBanco, error: eR } = await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id });
+  const reserva = lerReservaConferencia(reservaDoBanco, eR);
+  if (!reserva.ok) {
+    // O 429 leva o NÚMERO que o banco disse (além da frase): o botão espera isso, não os 60 s inteiros.
+    if (reserva.codigo === "aguarde") return resposta(429, { ok: false, codigo: "aguarde", motivo: fraseDeEspera(reserva.restanteMs), restanteMs: reserva.restanteMs });
+    console.error("[falha·pinbank] conferencia limite indisponível", JSON.stringify({ user: auth.user.id, org: v.org_id, vinculo: v.id, resultado: "limite_indisponivel", erro: eR?.code ?? null }));
+    return resposta(503, { ok: false, codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL });
+  }
 
   // O rastro da chamada: identificadores e o período — nenhum valor, nenhum dado pessoal.
   const rastro = { user: auth.user.id, org: v.org_id, vinculo: v.id, ec, de, ate };
