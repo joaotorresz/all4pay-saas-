@@ -28,6 +28,7 @@ import {
   type EstadoPinbank, type VinculoTela,
 } from "@/lib/pinbank/cliente";
 import { PRAZOS_PADRAO, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
+import { PinbankConferencia } from "./PinbankConferencia";
 
 const FORMAS_TAXA: { id: keyof TaxasPinbank; label: string }[] = [
   { id: "debito", label: "Débito" },
@@ -269,6 +270,9 @@ function VinculoForm({
               {vinculo.estabelecimento_id && vinculo.chave_gateway ? " · " : ""}
               {vinculo.chave_gateway ? `Chave ${vinculo.chave_gateway}` : ""}
             </span>
+            <span className="text-caption text-muted tabular-nums">
+              Código no extrato (EC): {vinculo.codigo_cliente ?? "não cadastrado"}
+            </span>
           </div>
           <StatusBadge tone={vinculo.ativo ? "positive" : "warning"}>
             {vinculo.ativo ? "Ativa" : "Aguardando ativação"}
@@ -316,6 +320,8 @@ function VinculoForm({
         ) : (
           <span className="text-caption text-muted">Só quem administra a empresa ativa e configura a maquininha.</span>
         )}
+
+        {administra && <PinbankConferencia vinculo={vinculo} />}
       </div>
     </Card>
   );

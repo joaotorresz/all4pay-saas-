@@ -310,9 +310,19 @@ export async function getPinbankAdmin(): Promise<{ vinculos: PinbankVinculoAdmin
   };
 }
 
-export async function vincularPinbank(p: { orgId: string; estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null }): Promise<void> {
+/**
+ * ⚠️ `codigoCliente` é OBRIGATÓRIO no tipo (pode ser `null`): é o código do
+ * estabelecimento no EXTRATO (o EC), e é dele que a conferência extrato ×
+ * sistema lê. Opcional, a próxima tela de vínculo compilaria sem perguntar por
+ * ele — e a conferência daquela maquininha nasceria sem saber de quem é o
+ * extrato (a lição do A4P-085).
+ */
+export async function vincularPinbank(p: {
+  orgId: string; estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null; codigoCliente: number | null;
+}): Promise<void> {
   const { error } = await createClient().rpc("admin_pinbank_vincular", {
     p_org: p.orgId, p_estabelecimento_id: p.estabelecimentoId, p_chave_gateway: p.chaveGateway, p_nome: p.nome,
+    p_codigo_cliente: p.codigoCliente,
   });
   if (error) throw error;
 }

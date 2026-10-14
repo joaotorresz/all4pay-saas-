@@ -26,20 +26,16 @@
  */
 
 /**
- * 5.000 linhas. Acima disso nenhuma tela do produto é usável de qualquer forma:
- * a maior tabela do sistema (extrato) pagina em 50–5.000, e os motores rodam
- * sobre agregados. Quem precisa de mais precisa de um relatório, não de uma
- * lista.
+ * ⚠️ **A IMPLEMENTAÇÃO MORA EM `./filtros`** (sem diretiva). Este arquivo é
+ * `"use client"`, e um export de módulo `"use client"` importado por um route
+ * handler vira uma referência de cliente (um proxy que LANÇA quando chamado) —
+ * medido no build. Aqui ficam só os reexports, com nome (`export *` não
+ * atravessa a fronteira de cliente). Código de SERVIDOR importa de
+ * `@/lib/supabase/filtros`.
  */
-export const TETO_LINHAS = 5000;
-
-/** O contrato mínimo do construtor de consulta — evita depender do tipo gerado. */
-interface ComLimite<T> { limit(n: number): T }
-
-/** Aplica o teto. Use em TODA consulta que devolve lista. */
-export function comTeto<T extends ComLimite<T>>(q: T, teto: number = TETO_LINHAS): T {
-  return q.limit(teto);
-}
+import { TETO_LINHAS } from "./filtros";
+export { TETO_LINHAS, comTeto, semAmostra } from "./filtros";
+export type { IncluirAmostra } from "./filtros";
 
 /**
  * Diz, alto, que a consulta bateu no teto.
@@ -111,9 +107,6 @@ export const TABELAS_COM_AMOSTRA = [
   "movements", "movement_splits", "sales_docs", "sale_items", "recurrences",
 ] as const;
 
-/** A única forma de ver dado de demonstração. Escrita à mão, sempre. */
-export type IncluirAmostra = "incluir-amostra";
-
 /**
  * POR QUE a linha está marcada. `is_sample` sozinho significava duas coisas com
  * destinos diferentes, e a purga em lote trataria as duas igual.
@@ -146,27 +139,6 @@ export const ROTULO_MOTIVO: Record<MotivoAmostra, string> = {
 };
 
 /**
- * O contrato mínimo do construtor.
- *
- * ⚠️ **Sem restrição recursiva** (`T extends ComIgual<T>`, como faz `comTeto`).
- * O construtor do PostgREST carrega os tipos das colunas no genérico, e casar
- * `T` contra uma interface que se refere a `T` faz o compilador desenrolar a
- * cadeia inteira — `TS2589: type instantiation is excessively deep`, medido no
- * primeiro ponto de chamada. Aqui `T` atravessa intacto e só a chamada de `eq`
- * é afirmada, que é o suficiente para o encadeamento continuar tipado.
+ * `semAmostra` (o filtro) é reexportado acima, de `./filtros`: uma implementação
+ * só, que o servidor também alcança. A saída explícita é `"incluir-amostra"`.
  */
-interface ComIgual<T> { eq(coluna: string, valor: unknown): T }
-
-/**
- * Tira o dado de demonstração da consulta. **Chame em TODA leitura** das
- * tabelas de `TABELAS_COM_AMOSTRA`.
- *
- * ⚠️ A coluna é `not null default false`, então `eq("is_sample", false)` alcança
- * toda linha real — inclusive as gravadas antes da migration, que o `default`
- * preencheu. Fosse anulável, este filtro esconderia lançamento verdadeiro, que
- * é um defeito pior do que a contaminação que ele conserta.
- */
-export function semAmostra<T>(q: T, incluir?: IncluirAmostra): T {
-  if (incluir === "incluir-amostra") return q;
-  return (q as unknown as ComIgual<T>).eq("is_sample", false);
-}

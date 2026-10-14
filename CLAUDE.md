@@ -258,7 +258,9 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
 - ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
   taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
-  é a próxima fase: o CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
+  existe SÓ DE LEITURA, e desligada (bullet abaixo); levar a data e a taxa do
+  extrato aos títulos é a PRÓXIMA fase (D5 de `docs/rodada-10/conferencia.md`,
+  com migration própria). O CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
   + `cifra.ts`: token OAuth2, AES-128-CBC com IV zero, pela saída fixa) e é
   testado por `GET /api/admin/pinbank-extrato` (`&ambiente=dev|producao` e
   `&canal=` no LINK, sem trocar variável nem refazer deploy; a resposta diz
@@ -267,9 +269,12 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   envelope, "Sucesso." e 18 parcelas no dev; só o conteúdo, "Erro de
   Sistema." sem nomear campo. `&envelope=interno`, `&datas=utc`, `&token=novo`
   e `&terminal=vazio` no link isolam cada hipótese sem deploy. ⚠️ **O
-  `ValorTaxaAdm` ainda não é confiável**: veio 2,65 em TODAS as vendas do dev
-  (R$ 9 a R$ 300, débito e crédito) — cara de percentual, nome de valor. Até a
-  Pinbank responder, a taxa do extrato NÃO substitui a do contrato. ⚠️ São DUAS credenciais
+  `ValorTaxaAdm` é o MDR em PERCENTUAL** (a Pinbank, 13/10/2026: "Taxa ADM
+  seria o MDR, são todas em percentual"; os 2,65 do dev são valores de teste):
+  é lido em PONTOS-BASE inteiros (`mdrBp`, 2,65% = 265; negativo ou acima de
+  100% = ausente) e o resumo do extrato LISTA os MDR distintos, nunca os soma.
+  A taxa do extrato NÃO substitui a do contrato no título (só é comparada).
+  O `ValorTaxaMes` também é percentual, com sentido ainda não dito. ⚠️ São DUAS credenciais
   (BaaS, canal 1919, sem ExtratoPos × "ERP Integration Produção", canal 47,
   com ExtratoPos), com senhas diferentes — ver `docs/rodada-10/pinbank.md`.
   ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a
@@ -297,6 +302,103 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `core/indicadores/classificacao`, exceções por trecho (bloco
   `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
   "traduzir não é classificar").
+- ⚠️ **CONFERÊNCIA EXTRATO × SISTEMA** (13/10/2026, `docs/rodada-10/conferencia.md`):
+  o botão "Conferir com o extrato" no cartão da maquininha (só quem ADMINISTRA)
+  chama `POST /api/pinbank/conferencia`, que casa cada parcela do ExtratoPos com
+  o título `pinbank:<nsu>:<k>:r` (motor puro `core/pinbank/conferencia`) e
+  compara a DATA do repasse (por dia; fim de semana pago no dia útil seguinte é
+  conferido), o BRUTO da parcela (estimado por `dividir`, a regra do sistema) e
+  o cancelamento — esses decidem o STATUS. ⚠️ **A TAXA é comparada num eixo
+  SEPARADO** (`compararTaxa`): o MDR do extrato (pontos-base) × a taxa que a
+  empresa cadastrou no vínculo para o tipo (`DEBITO`→débito, `A VISTA`→crédito
+  à vista, `PARCEL…`→parcelado SÓ com mais de 1 parcela — em 1x é crédito à
+  vista, como `formaDaTransacao` lança —, pela mesma `taxaDaForma` do
+  planejador; o resto é "tipo desconhecido" e não se compara). Diferença de 1
+  ponto-base OU MAIS contra a taxa contratada EXATA (sem arredondar: 1,99%
+  contratado × 2,00% no extrato é diferente; 1,995% × 1,99% é igual) é
+  DIVERGÊNCIA (vista de divergências via `itemComDivergencia`
+  e `resumo.taxa.porResultado`) SEM mudar o status — data certa com taxa errada
+  aparece como as duas coisas; sem taxa cadastrada é "sem contrato", nunca
+  divergente; sem NSU em comum a taxa também fica sem conclusão (o extrato
+  pode nem ser desta maquininha); a da venda CANCELADA e a da venda com
+  ESTORNO PARCIAL (`estorno_parcial`) não são comparadas; com OUTRA maquininha
+  viva no mesmo EC, só a venda cujo aviso veio DESTA é comparada com as taxas
+  desta (`outra_maquininha` — cada irmã tem as suas); MDR cobrado com a
+  taxa cadastrada, a regra do sistema lançando taxa POSITIVA na parcela e SEM
+  o título de taxa no sistema é o sinal `taxa_sem_titulo_no_sistema` (vai à
+  vista de divergências — o MDR falta no resultado); cada título de taxa soma
+  UMA vez no resumo. A MESMA venda dividida em números de parcelas DIFERENTES
+  nos dois lados: a parcela sem par fica sem conclusão
+  (`parcelas_diferentes_no_extrato` — o valor dela pode estar nas parcelas do
+  outro lado; nunca "só no sistema"/"só no extrato", MESMO com o total
+  diferente — o atalho tem defeito plantado), a divergência fica nas parcelas
+  com par, e o total bruto da venda é comparado (a parcela que falta no
+  sistema conta ZERO, não anula a comparação). ⚠️ **O TOTAL DIFERENTE É
+  DIVERGÊNCIA**: `total_da_venda_diferente` leva TODAS as parcelas da venda à
+  vista de divergências, sem mudar o status, com a frase em toda situação —
+  o número de parcelas do sistema é DEDUZIDO da maior chave, e o título da
+  última parcela que some parecia "o sistema dividiu em menos". Com o MESMO
+  número de parcelas, a parcela que falta NOS DOIS lados (título perdido e
+  linha ausente) também dá o sinal às que conferem — e só ela: a parcela de
+  valor diferente não espalha o total. Nenhum valor em
+  reais sai do percentual. Nada é gravado. O EC sai
+  do VÍNCULO lido como a pessoa, nunca do pedido; sem NSU em comum, ou com o
+  extrato sem nenhuma parcela legível deste EC (`extrato_vazio`), nada é afirmado (só
+  o par provável); linha cancelada sem título nunca é "só no extrato"; a venda
+  que a Pinbank cancelou noutra parcela nunca deixa as parcelas que o extrato
+  não traz "só no sistema"; a desfeita no sistema e viva no extrato é
+  "cancelada só no sistema"; a linha ilegível SEM número protege as vendas do
+  mesmo dia OU do vizinho, e a linha SEM o código do estabelecimento protege
+  como ela (`linha_sem_estabelecimento` — os valores dela nunca entram num
+  item). Portões: `tem_permissao('administrar', org do vínculo)`,
+  `PINBANK_CONFERENCIA=ligado` E `PINBANK_API_AMBIENTE=producao` (lidos só em
+  `lib/pinbank/api.ts`). Muda quem pode chamar o quê: o PR esperou o OK do
+  dono. ⚠️ **Os portões da rota** (`core/pinbank/conferencia-portoes`): ResultCode
+  ≠ 0 é recusa mesmo com a lista vazia (`extratoServeParaConferir`); sem NENHUMA
+  venda em comum ATESTADA pelo aviso da Pinbank NO DIA DA VENDA
+  (`nsusEmComumAtestados`, `avisoNoDiaDaVenda`: o aviso só a plataforma grava;
+  o título a empresa também — um título forjado com o NSU alheio não atesta, e
+  o aviso de outro dia também não) a resposta leva só as CONTAGENS DE CADA LADO
+  (`relatorioParaEmpresa` → `RelatorioSoContagens`: sem situação, soma do
+  extrato, taxa ou aviso que cruze os lados — variar o que a empresa grava e
+  ler a contagem seria um oráculo sobre a loja alheia; o EC é digitado pela
+  plataforma, e um EC errado é o extrato de outra loja; a maquininha TROCADA
+  tem código e frase próprios, `maquininha_excluida`); as leituras ANTES do
+  portão também não são oráculo: um teto de NSUs POR LADO (nunca o da união),
+  primeiro os avisos e as transações, depois os títulos só da janela e das NSUs
+  do extrato com aviso desta empresa no dia da venda; espera
+  de 60 s por empresa (429) — POR INSTÂNCIA, então o interruptor fica desligado
+  até o limite durável (D4) e o EC visível no `/admin` (D10), que pedem
+  migration; toda leitura fixa o `org_id` do vínculo; o teto pede uma linha a
+  mais (o lote cheio de 100 vendas não é estouro) e as leituras que podem
+  passar do `max_rows` do PostgREST pedem `count: "exact"` (o corte do servidor
+  é volume alto, nunca conferência sobre o pedaço — conferir o `max_rows` de
+  produção antes de ligar); um registro no log por
+  chamada à Pinbank, sem valor. ⚠️ Código de servidor importa `semAmostra`/`TETO_LINHAS` de
+  `lib/supabase/filtros` — de `consulta.ts` (`"use client"`) eles são PROXIES
+  que lançam no route handler (medido no build; as rotas de cron que ainda
+  importam de lá são tarefa separada, com prova de carga). Guardas:
+  `npm run pinbank-conferencia` (105 casos, 128 defeitos plantados: 97 no
+  motor, 31 nos portões e na leitura — servidor de mentira com o `max_rows`
+  padrão de 1.000, e a COMPOSIÇÃO da rota num espelho que o `engine-audit` fixa
+  no texto dela) e o bloco `conferencia-pinbank:` do `engine-audit`. Uma
+  varredura aleatória (~220 mil cenários contra a verdade do gerador, fora do
+  `npm test`) achou o total escondido, a linha sem código e o dia vizinho; o
+  que ela ainda acha cai nos resíduos DECLARADOS no doc (NSU diferente nos
+  dois lados, linhas que discordam no número de parcelas). ⚠️ **A tela** mostra a taxa em
+  percentual com DUAS casas (0,01 ponto percentual a mais já é "taxa
+  diferente"; com uma casa, 1,99% e 2,00% sairiam iguais ao lado dela), o
+  motivo VERDADEIRO no lugar do valor ausente ("ausente do extrato" ≠ "não
+  informado pela Pinbank"), e — sem venda em comum atestada — o bloco "Só as
+  quantidades" (a legenda POR CAUSA: "outra loja" só sem venda em comum,
+  nunca na maquininha trocada), com o "i" do que cada lado conta ("linha(s) do extrato" ×
+  "parcela(s) válida(s) lançada(s)": só as vivas, de vendas não desfeitas), a
+  frase com as duas causas e o caminho do suporte, e a numeração das vendas
+  explicada (nunca "chave"). O relatório inteiro é sempre "conferido": os
+  estados "numeração não confirmada" e "extrato sem vendas" chegam à empresa
+  como "Só as quantidades", e a tela não tem selo para eles. E a falha sem a frase da rota (o
+  504 da plataforma) por `falhaDaConferenciaSemCorpo` — o número do status
+  fica no código, nunca na frase.
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
   `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
   vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.

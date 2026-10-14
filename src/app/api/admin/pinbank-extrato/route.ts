@@ -29,7 +29,8 @@ import type { FormatoDatasExtratoPos, MeioCapturaExtratoPos, StatusExtratoPos } 
  * Roda DENTRO da função da Vercel, com a credencial de `PINBANK_API_*` e pelos 2
  * IPs fixos. É a prova que a Pinbank pediu antes de liberar o método em
  * produção: o token sai, o pedido cifrado é aceito, a resposta abre, e as
- * parcelas trazem a data do repasse e a taxa. NÃO grava nada.
+ * parcelas trazem a data do repasse e a taxa (o MDR, em percentual: o resumo
+ * lista os MDR distintos em pontos-base, nunca os soma). NÃO grava nada.
  *
  * ⚠️ A resposta nunca traz dado pessoal (CPF/CNPJ, nome do comprador, cartão):
  * as linhas passam pela leitura por lista de permitidos de `core/pinbank`. E
