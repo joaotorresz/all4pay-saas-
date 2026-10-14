@@ -246,6 +246,12 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   de vocabulário da ONDA 11); "Contratos a aprovar" virou "Compras a aprovar"
   (não há fila de aprovação de contrato).
 - `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
+- **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
+  foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
+  ou setas do teclado; só a alça inicia, porque o card é link), por grupo,
+  guardado em `a4p_home_painel_ordem` (preferência local); a busca saiu da
+  barra de cima E do ⋮ (o ⌘K continua abrindo a paleta); a barra de cima e o
+  menu lateral não têm borda.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 

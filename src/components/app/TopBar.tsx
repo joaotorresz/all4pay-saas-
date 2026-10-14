@@ -74,7 +74,7 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    <header className="shrink-0 flex items-center gap-3 h-[60px] px-5 mx-3 mt-3 a4p-topbar bg-white border border-border rounded-[20px]">
+    <header className="shrink-0 flex items-center gap-3 h-[60px] px-5 mx-3 mt-3 a4p-topbar bg-white rounded-[20px]">
       {/* ⚠️ Só existe quando HÁ gaveta. O grupo ativo pode não ter itens (o
           Início é folha) e aí a lateral não é renderizada — um hambúrguer ali
           seria um botão que abre o nada, que é pior que botão nenhum. */}
@@ -102,22 +102,7 @@ export function TopBar() {
         )}
       </Link>
 
-      {/* Busca: campo por fora, BOTÃO por dentro — abre a command palette. */}
-      <button
-        onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
-        data-topbar="busca"
-        aria-label="Buscar (⌘K)"
-        className="hidden md:flex flex-1 max-w-[620px] mx-auto items-center gap-3 h-11 px-4 rounded-pill transition-colors text-left"
-        style={{ background: "var(--color-surface-2)", color: "var(--color-text-secondary)" }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-surface-3)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "var(--color-surface-2)"; }}
-      >
-        <Icon name="search" size={18} color="currentColor" />
-        <span className="flex-1 text-label">Buscar…</span>
-        <kbd className="text-[11px] font-medium tabular-nums">⌘K</kbd>
-      </button>
-
-      <div className="flex-1 md:hidden" />
+      <div className="flex-1" />
 
       <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration")} />
       <AcaoTopo
@@ -161,10 +146,6 @@ export function TopBar() {
                 <div className="text-caption text-faint truncate">{email}</div>
               </div>
             </div>
-            <ItemMenu
-              icone="search" rotulo="Buscar" atalho="⌘K"
-              onClick={() => { setMenu(false); window.dispatchEvent(new Event("a4p:open-search")); }}
-            />
             <ItemMenu icone="settings" rotulo="Meu perfil" onClick={() => { setMenu(false); router.push("/configuracoes"); }} />
             <ItemMenu icone="shield-check" rotulo="Segurança da conta" onClick={() => { setMenu(false); router.push(ROTA_SEGURANCA_CONTA); }} />
             <ItemMenu icone="help-circle" rotulo="Central de ajuda" onClick={() => { setMenu(false); router.push("/dashboard/help"); }} />

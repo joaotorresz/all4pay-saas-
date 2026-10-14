@@ -85,7 +85,7 @@ function CaixaIA() {
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Pergunte à Quattro AI ou crie um fluxo"
           aria-label="Pergunte à Quattro AI"
-          className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
+          className="a4p-ia-campo flex-1 min-w-0 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
         />
         <span aria-hidden className="flex-none text-ink"><MicIcon /></span>
         <button
@@ -129,15 +129,97 @@ function MicIcon() {
 
 /* ------------------------------ peças dos cards ------------------------------ */
 
-function Alca() {
+/**
+ * A ordem dos cards é PREFERÊNCIA de tela (do dispositivo, como a dos widgets
+ * antigos): cada grupo guarda a sua, e um id que sumiu ou nasceu depois cai no
+ * lugar padrão em vez de quebrar a grade.
+ */
+const CHAVE_ORDEM = "a4p_home_painel_ordem";
+
+function lerOrdens(): Record<string, string[]> {
+  try { return JSON.parse(localStorage.getItem(CHAVE_ORDEM) ?? "{}") ?? {}; } catch { return {}; }
+}
+
+function useOrdem(grupo: string, padrao: string[]) {
+  const [ordem, setOrdem] = React.useState<string[]>(padrao);
+  const chavePadrao = padrao.join("|");
+  React.useEffect(() => {
+    const salva = lerOrdens()[grupo] ?? [];
+    const validos = salva.filter((id) => padrao.includes(id));
+    setOrdem([...validos, ...padrao.filter((id) => !validos.includes(id))]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupo, chavePadrao]);
+  const mover = React.useCallback((de: string, para: string) => {
+    setOrdem((atual) => {
+      const i = atual.indexOf(de), j = atual.indexOf(para);
+      if (i < 0 || j < 0 || i === j) return atual;
+      const nova = [...atual];
+      nova.splice(i, 1);
+      nova.splice(j, 0, de);
+      try { localStorage.setItem(CHAVE_ORDEM, JSON.stringify({ ...lerOrdens(), [grupo]: nova })); } catch { /* preferência: sem cota, fica só na sessão */ }
+      return nova;
+    });
+  }, [grupo]);
+  return { ordem, mover };
+}
+
+/**
+ * Grade arrastável. Só a ALÇA inicia o arraste (o card inteiro é link, e
+ * arrastar pelo corpo brigaria com o clique). Pelo teclado, as setas na alça
+ * trocam o card de lugar com o vizinho.
+ */
+function GradeArrastavel<T extends { id: string }>({
+  grupo, itens, render, className,
+}: { grupo: string; itens: T[]; render: (item: T) => React.ReactNode; className: string }) {
+  const { ordem, mover } = useOrdem(grupo, itens.map((i) => i.id));
+  const [arrastando, setArrastando] = React.useState<string | null>(null);
+  const [armado, setArmado] = React.useState<string | null>(null);
+  const porId = new Map(itens.map((i) => [i.id, i]));
   return (
-    <span
+    <div className={className}>
+      {ordem.map((id, idx) => {
+        const item = porId.get(id);
+        if (!item) return null;
+        return (
+          <div
+            key={id}
+            className="relative transition-opacity"
+            style={{ opacity: arrastando === id ? 0.45 : 1 }}
+            draggable={armado === id}
+            onDragStart={(e) => { setArrastando(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); }}
+            onDragOver={(e) => { if (arrastando) { e.preventDefault(); if (arrastando !== id) mover(arrastando, id); } }}
+            onDrop={(e) => e.preventDefault()}
+            onDragEnd={() => { setArrastando(null); setArmado(null); }}
+          >
+            {render(item)}
+            <Alca
+              onArmar={() => setArmado(id)}
+              onDesarmar={() => { if (!arrastando) setArmado(null); }}
+              onMover={(passo) => { const alvo = ordem[idx + passo]; if (alvo) mover(id, alvo); }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Alca({ onArmar, onDesarmar, onMover }: { onArmar: () => void; onDesarmar: () => void; onMover: (passo: -1 | 1) => void }) {
+  return (
+    <button
+      type="button"
       title="Arraste para mudar a posição"
-      aria-hidden
-      className="absolute right-4 top-4 w-5 h-8 flex items-center justify-center text-muted cursor-grab"
+      aria-label="Mover card (setas do teclado)"
+      onPointerDown={onArmar}
+      onPointerUp={onDesarmar}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); onMover(-1); }
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); onMover(1); }
+      }}
+      className="absolute right-4 top-4 w-6 h-8 flex items-center justify-center text-muted cursor-grab active:cursor-grabbing"
     >
       <Icon name="grip-vertical" size={18} strokeWidth={1.5} />
-    </span>
+    </button>
   );
 }
 
@@ -217,10 +299,10 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
   return (
     <Link
       href={n.href}
-      className="relative flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6 border"
+      draggable={false}
+      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6 border"
       style={{ background: "var(--color-surface-1)", borderColor: "var(--color-border)", borderRadius: "var(--a4p-box-radius)" }}
     >
-      <Alca />
       <span className="text-[15px] text-ink">{n.rotulo}</span>
       <div className="flex items-center gap-[13.8px] flex-wrap">
         <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><Valor n={n} /></span>
@@ -239,10 +321,10 @@ function CardPequeno({ n, carimbo }: { n: NumeroHome; carimbo: string }) {
   return (
     <Link
       href={n.href}
-      className="relative flex flex-col gap-3 px-7 py-[22px]"
+      draggable={false}
+      className="relative h-full flex flex-col gap-3 px-7 py-[22px]"
       style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
     >
-      <Alca />
       <span className="text-[15px] text-muted">{n.rotulo}</span>
       <div className="flex items-center gap-3 flex-wrap">
         <span style={{ fontSize: 30, lineHeight: 1 }}><Valor n={n} compacto /></span>
@@ -370,13 +452,18 @@ export function HomeSnapshot() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <CardGrande n={snap.caixa} curva={snap.caixa.curva} carimbo={carimbo} />
-              <CardGrande n={snap.arr} curva={snap.arr.curva} carimbo={carimbo} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {snap.pequenos.map((n) => <CardPequeno key={n.id} n={n} carimbo={carimbo} />)}
-            </div>
+            <GradeArrastavel
+              grupo="grandes"
+              itens={[snap.caixa, snap.arr]}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              render={(n) => <CardGrande n={n} curva={n.curva} carimbo={carimbo} />}
+            />
+            <GradeArrastavel
+              grupo="pequenos"
+              itens={snap.pequenos}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              render={(n) => <CardPequeno n={n} carimbo={carimbo} />}
+            />
           </>
         )}
       </section>

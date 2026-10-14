@@ -132,7 +132,7 @@ export function Sidebar() {
       <aside
         style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "a4p-sidebar relative bg-white border border-border flex flex-col p-4 z-50 rounded-[20px]",
+          "a4p-sidebar relative bg-white flex flex-col p-4 z-50 rounded-[20px]",
           "fixed inset-y-3 left-3 w-sidebar transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-[110%]",
           "lg:static lg:translate-x-0 lg:shrink-0 lg:self-start lg:max-h-full",

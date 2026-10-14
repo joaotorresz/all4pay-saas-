@@ -532,6 +532,10 @@ button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+/* A caixa da Quattro AI na Home: o campo some dentro da barra branca, e o
+   anel escuro de foco desenhava uma segunda caixa por dentro dela (dono,
+   14/10/2026). O foco continua visível — o cursor piscando na barra. */
+.a4p-ia-campo:focus, .a4p-ia-campo:focus-visible { outline: none; box-shadow: none; }
 /* Campos — transição suave no foco */
 input, select, textarea { transition: border-color 0.18s ease, box-shadow 0.2s var(--ease-smooth), background-color 0.18s ease; }
 
@@ -1223,7 +1227,8 @@ html.dark .a4p-canvas {
    não separa nada — e separar é a função dele. */
 .a4p-sidebar {
   background: var(--color-white);
-  border-color: var(--a4p-hairline);
+  /* Sem borda (dono, 14/10/2026): o contraste com a moldura já recorta. */
+  border: 0;
 }
 /* ⚠️ A TopBar SAIU do material do cartão. Ela era branca com o mesmo hairline
    dos boxes; agora é a moldura escura, e por isso não herda mais nada daqui —
@@ -1235,7 +1240,7 @@ html.dark .a4p-canvas {
      branco com a borda dos cards — logo Quattro à esquerda, ações à direita,
      sobre a moldura verde-base. */
   background: var(--color-white);
-  border-color: var(--color-border);
+  border: 0;
   color: var(--color-ink);
 }
 @media (prefers-reduced-transparency: reduce) {
