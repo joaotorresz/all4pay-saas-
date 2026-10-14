@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { BRL, Icon, SemDados } from "@/components/ui";
 import { useRiscoInput, useUnreconciled } from "./hooks";
 import { montarHomeSnapshot, type CurvaHome, type NumeroHome } from "@/core/home/snapshot";
@@ -26,7 +25,8 @@ import {
 import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
-import { ChatTelaCheia, type SugestaoChat } from "@/components/ia/ChatTelaCheia";
+import type { SugestaoChat } from "@/components/ia/ChatTelaCheia";
+import { abrirChat } from "@/components/ia/ChatGlobal";
 
 /**
  * A HOME "SNAPSHOT" — a prancheta "Home · proposta snapshot" do canvas
@@ -230,11 +230,7 @@ function CaixaIA({ sugestoes, extras, prefs }: {
   extras: CandidataIA[];
   prefs: PreferenciasIA;
 }) {
-  const router = useRouter();
   const [texto, setTexto] = React.useState("");
-  // O chat em tela cheia (modelo do dono, 14/10/2026): o chip ou o envio abre
-  // a conversa já com a pergunta, por cima da Home, em vez de trocar de tela.
-  const [chat, setChat] = React.useState<{ q: string; n: number } | null>(null);
   const todas = React.useMemo(() => {
     const out: SugestaoChat[] = [];
     for (const c of [...(sugestoes ?? []), ...extras]) {
@@ -248,11 +244,13 @@ function CaixaIA({ sugestoes, extras, prefs }: {
   const perguntando = primeiroAcesso || ajustando;
   // No primeiro acesso só as duas básicas aparecem; o resto vem da resposta.
   const visiveis = (sugestoes ?? []).slice(0, perguntando ? 2 : undefined);
-  const perguntar = (q: string) => {
-    const t = q.trim();
-    if (!t) { router.push("/quattro-ai"); return; }
+  // O chat em tela cheia (modelo do dono, 14/10/2026) é o MESMO de todo o
+  // sistema (`ChatGlobal`): o chip ou o envio abre a conversa já com a
+  // pergunta, por cima da Home; o "+" e o envio vazio abrem na saudação.
+  const perguntar = (q?: string) => {
+    const t = q?.trim();
     setTexto("");
-    setChat((c) => ({ q: t, n: (c?.n ?? 0) + 1 }));
+    abrirChat({ pergunta: t || undefined, sugestoes: todas, aoClicarSugestao: prefs.clicou });
   };
   return (
     <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-11">
@@ -261,14 +259,15 @@ function CaixaIA({ sugestoes, extras, prefs }: {
         className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
         style={{ background: "var(--color-surface-1)" }}
       >
-        <Link
-          href="/quattro-ai"
+        <button
+          type="button"
+          onClick={() => perguntar()}
           aria-label="Abrir a Quattro AI"
           className="w-9 h-9 flex-none rounded-pill flex items-center justify-center"
           style={{ background: "var(--color-white)", color: "var(--color-ink)" }}
         >
           <Icon name="plus" size={18} strokeWidth={1.5} />
-        </Link>
+        </button>
         <input
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
@@ -315,15 +314,6 @@ function CaixaIA({ sugestoes, extras, prefs }: {
         <button type="button" onClick={() => setAjustando(true)} className="text-[12px] text-ink opacity-70 hover:opacity-100">
           Ajustar prioridades
         </button>
-      )}
-      {chat && (
-        <ChatTelaCheia
-          key={chat.n}
-          pergunta={chat.q}
-          sugestoes={todas}
-          aoFechar={() => setChat(null)}
-          aoClicarSugestao={prefs.clicou}
-        />
       )}
     </section>
   );

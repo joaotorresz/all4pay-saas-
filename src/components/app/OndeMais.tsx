@@ -11,7 +11,7 @@
  *    o MRR delas difere do que a tela de investidores mostra.
  *  - **Inteligência artificial**: o chat de `/quattro-ai`, as abas do
  *    `/copiloto` e o botão flutuante. Não havia resposta para "onde eu falo com
- *    a IA".
+ *    a IA". (Desde 14/10/2026 a conversa é só o chat em tela cheia.)
  *
  * Telas irmãs sem link entre si obrigam o usuário a descobrir sozinho que
  * existem — e, quando os números diferem, a supor que uma delas está errada.

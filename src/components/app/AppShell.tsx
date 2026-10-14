@@ -2,7 +2,7 @@ import * as React from "react";
 import { ShellGate } from "@/components/app/shell-nesting";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
-import { AssistantWidget } from "@/components/app/AssistantWidget";
+import { ChatGlobal } from "@/components/ia/ChatGlobal";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { TituloDaAba } from "@/components/app/TituloDaAba";
@@ -160,7 +160,7 @@ export function AppShell({
       )}
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
-      <AssistantWidget />
+      <ChatGlobal />
       <ContatoDrawer />
       <NovaTransacao />
       <CriarNovo />

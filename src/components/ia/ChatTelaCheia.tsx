@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * O chat da Quattro AI em TELA CHEIA, aberto da caixa da Home (modelo que o
- * dono escolheu em 14/10/2026): clicar numa sugestão ou enviar uma mensagem
- * abre, com animação, a conversa já com aquela pergunta — logo no alto,
- * "Fechar chat" à direita, a pergunta num balão à direita, a resposta solta na
- * coluna com os números em cartões e, embaixo, "Veja tudo o que eu faço" com
- * as sugestões, que perguntam na mesma conversa.
+ * O chat da Quattro AI em TELA CHEIA — a ÚNICA superfície de conversa do
+ * sistema (decisão do dono, 14/10/2026). Abre por cima de qualquer tela pelo
+ * `ChatGlobal` (menu "Quattro AI", ⌘K e a caixa da Home): logo no alto,
+ * "Conversas" e "Fechar chat" à direita, a pergunta num balão à direita, a
+ * resposta solta na coluna com os números em cartões e, embaixo, "Veja tudo o
+ * que eu faço" com as sugestões, que perguntam na mesma conversa.
  *
- * ⚠️ É a MESMA IA do painel e da página (`useChatIA` + `chat-kit`): nada de um
- * terceiro chat divergindo. A conversa entra no histórico (`ia-conversas`) e
- * continua em `/quattro-ai`.
+ * ⚠️ O botão flutuante "4", o painel lateral e a aba "Conversa" de
+ * `/quattro-ai` SAÍRAM — e com eles o histórico, que veio para cá ("Conversas":
+ * retomar, apagar, nova conversa). Uma IA (`useChatIA` + `chat-kit`), um lugar.
  *
  * Sobreposto: fecha por Esc e por "Fechar chat", trava a rolagem da página e
  * vai para o `<body>` por portal (um ancestral com `transform` prenderia o
@@ -18,11 +18,16 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { BolhaResposta, EtapasAnalise, type Turno } from "./chat-kit";
 import { useChatIA } from "./useChatIA";
-import { salvarConversa } from "@/lib/ia-conversas";
+import {
+  agruparPorRecencia, apagarConversa, getConversa, inscreverConversas, listarConversas, salvarConversa,
+  type Conversa,
+} from "@/lib/ia-conversas";
+import { isDemo } from "@/lib/demo";
+import { MARCA_IA } from "@/core/marca";
+import { loadCompany } from "@/lib/company";
 
 /** `texto` é a pergunta que vai para a conversa; `curto` + `icone`, o chip. */
 export interface SugestaoChat { id: string; texto: string; curto: string; icone: string; motivo?: string }
@@ -30,20 +35,48 @@ export interface SugestaoChat { id: string; texto: string; curto: string; icone:
 /** Quanto dura a saída (tem de bater com `.a4p-chat-tela[data-saindo]` no CSS). */
 const SAIDA_MS = 260;
 
+/**
+ * Primeiro nome de quem está logado — a saudação. Vem do perfil salvo no
+ * onboarding: o representante (PJ) ou o nome (PF), com o nome fantasia /
+ * razão social de reserva. Em `useEffect` porque `localStorage` não existe no
+ * servidor.
+ */
+function usePrimeiroNome(): string | null {
+  const [nome, setNome] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const c = loadCompany();
+    const bruto = c?.pessoal?.nome || c?.db?.repNome || c?.db?.fantasia || c?.db?.razaoSocial || "";
+    setNome(String(bruto).trim().split(/\s+/)[0] || null);
+  }, []);
+  return nome;
+}
+
 export function ChatTelaCheia({
   pergunta, sugestoes, aoFechar, aoClicarSugestao,
 }: {
-  /** A primeira pergunta — do chip ou do campo da Home. */
-  pergunta: string;
-  /** "Veja tudo o que eu faço": as sugestões da Home e as candidatas seguintes. */
-  sugestoes: SugestaoChat[];
+  /** A primeira pergunta — do chip ou do campo da Home. Sem ela, a saudação. */
+  pergunta?: string;
+  /** "Veja tudo o que eu faço". Sem elas, as sugestões aprendidas da IA. */
+  sugestoes?: SugestaoChat[];
   aoFechar: () => void;
   /** Conta o clique (o mesmo peso que o chip da Home soma). */
   aoClicarSugestao?: (id: string) => void;
 }) {
+  const nome = usePrimeiroNome();
   const conversaRef = React.useRef<string | null>(null);
+  const [ativa, setAtiva] = React.useState<string | null>(null);
+  const [conversas, setConversas] = React.useState<Conversa[]>([]);
+  const [historico, setHistorico] = React.useState(false);
+  const recarregar = React.useCallback(() => setConversas(listarConversas()), []);
+  // Ouve o histórico: a hidratação do servidor chega DEPOIS da montagem, e sem
+  // isto a lista nascia vazia numa máquina nova.
+  React.useEffect(() => { recarregar(); return inscreverConversas(recarregar); }, [recarregar]);
+
+  // Cada resposta grava a conversa (cria na primeira, atualiza nas seguintes).
   const aoMudar = React.useCallback((turnos: Turno[]) => {
-    conversaRef.current = salvarConversa(conversaRef.current, turnos);
+    const id = salvarConversa(conversaRef.current, turnos);
+    if (id !== conversaRef.current) { conversaRef.current = id; setAtiva(id); }
+    setConversas(listarConversas());
   }, []);
   const chat = useChatIA({ onMudou: aoMudar });
   const [montado, setMontado] = React.useState(false);
@@ -55,9 +88,9 @@ export function ChatTelaCheia({
   // duas vezes em desenvolvimento) — e só quando os dados chegaram, senão a
   // resposta seria "os dados ainda estão carregando".
   const enviada = React.useRef(false);
-  const { pronto, responder } = chat;
+  const { pronto, responder, carregar } = chat;
   React.useEffect(() => {
-    if (enviada.current || !pronto) return;
+    if (enviada.current || !pronto || !pergunta?.trim()) return;
     enviada.current = true;
     void responder(pergunta);
   }, [pronto, responder, pergunta]);
@@ -89,13 +122,37 @@ export function ChatTelaCheia({
     caixa.scrollTo({ top: ultima.offsetTop - 24, behavior: "smooth" });
   }, [qtdPerguntas]);
 
+  const abrirConversa = (c: Conversa) => {
+    conversaRef.current = c.id; setAtiva(c.id);
+    carregar(getConversa(c.id)?.turnos ?? []);
+    setHistorico(false);
+  };
+  const novaConversa = () => {
+    conversaRef.current = null; setAtiva(null);
+    carregar([]);
+    setHistorico(false);
+    campoRef.current?.focus();
+  };
+  const apagar = (id: string) => {
+    apagarConversa(id);
+    if (id === conversaRef.current) { conversaRef.current = null; setAtiva(null); carregar([]); }
+    setConversas(listarConversas());
+  };
+  const grupos = React.useMemo(() => agruparPorRecencia(conversas), [conversas]);
+
+  // Sem sugestões de quem abriu (menu, ⌘K), entram as aprendidas da IA.
+  const chips: SugestaoChat[] = sugestoes?.length
+    ? sugestoes
+    : chat.sugeridas.map((q) => ({ id: q, texto: q, curto: q, icone: "sparkles" }));
+
   if (!montado) return null;
 
   const perguntar = (q: string, id?: string) => {
     if (!q.trim() || chat.pensando) return;
-    if (id) aoClicarSugestao?.(id);
+    if (id && sugestoes?.some((s) => s.id === id)) aoClicarSugestao?.(id);
     void chat.responder(q);
   };
+  const vazio = chat.turnos.length === 0 && !chat.pergunta && !chat.pensando;
 
   return createPortal(
     <div
@@ -106,71 +163,147 @@ export function ChatTelaCheia({
       className="a4p-chat-tela fixed inset-0 z-[90] flex flex-col"
       style={{ background: "var(--color-surface-1)" }}
     >
-      <header className="flex-none flex items-center justify-between px-6 md:px-10 pt-8 pb-4">
+      <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
         <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[92px] h-[25px]" />
-        <button
-          type="button"
-          onClick={fechar}
-          className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink"
-          style={{ background: "var(--color-white)" }}
-        >
-          <Icon name="x" size={16} strokeWidth={1.5} />
-          Fechar chat
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setHistorico((h) => !h)}
+            aria-expanded={historico}
+            aria-controls="a4p-chat-conversas"
+            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink"
+            style={{ background: "var(--color-white)" }}
+          >
+            <Icon name="menu" size={16} strokeWidth={1.5} />
+            Conversas
+          </button>
+          <button
+            type="button"
+            onClick={fechar}
+            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink"
+            style={{ background: "var(--color-white)" }}
+          >
+            <Icon name="x" size={16} strokeWidth={1.5} />
+            Fechar chat
+          </button>
+        </div>
       </header>
 
-      <div ref={rolagemRef} className="relative flex-1 min-h-0 overflow-y-auto" tabIndex={-1}>
-        <div className="mx-auto w-full max-w-[720px] px-5 pt-10 pb-10 flex flex-col gap-8">
-          {chat.turnos.map((t) => (
-            <React.Fragment key={t.id}>
-              <Pergunta texto={t.q} />
-              <div className="a4p-entra">
-                <BolhaResposta
-                  t={t}
-                  variante="aberta"
-                  copia={chat.copia?.id === t.id ? chat.copia.estado : undefined}
-                  onCopiar={chat.copiar}
-                  onFeedback={chat.darFeedback}
-                  onNavegar={fechar}
-                />
-              </div>
-            </React.Fragment>
-          ))}
-          {chat.pergunta && <Pergunta texto={chat.pergunta} />}
-          {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start w-full max-w-[420px]" />}
+      <div className="relative flex-1 min-h-0 flex">
+        {historico && (
+          <aside
+            id="a4p-chat-conversas"
+            aria-label="Histórico de conversas"
+            data-ia="historico"
+            className="a4p-entra absolute md:static inset-y-0 left-0 z-10 w-[min(320px,100%)] flex-none flex flex-col gap-3 ml-0 md:ml-6 mb-6 p-4 rounded-[24px] overflow-y-auto"
+            style={{ background: "var(--color-white)" }}
+          >
+            <button
+              type="button"
+              onClick={novaConversa}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] text-ink"
+              style={{ background: "var(--color-surface-1)" }}
+            >
+              <Icon name="plus" size={15} strokeWidth={1.5} />
+              Nova conversa
+            </button>
+            {grupos.length === 0 ? (
+              <p className="m-0 text-[13px] text-muted leading-[1.5] pt-1">
+                As conversas que você tiver com a {MARCA_IA} aparecem aqui, agrupadas por data.
+              </p>
+            ) : (
+              grupos.map((g) => (
+                <div key={g.label} className="flex flex-col gap-1">
+                  <span className="a4p-label text-muted px-1 pt-1">{g.label}</span>
+                  {g.conversas.map((c) => (
+                    <div
+                      key={c.id}
+                      className="group flex items-center gap-1 rounded-[12px] px-2 py-[7px]"
+                      style={c.id === ativa ? { background: "var(--color-surface-1)" } : undefined}
+                    >
+                      <button type="button" onClick={() => abrirConversa(c)} className="flex-1 min-w-0 text-left text-[14px] text-ink truncate">
+                        {c.titulo}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => apagar(c.id)}
+                        aria-label={`Apagar conversa ${c.titulo}`}
+                        className="w-7 h-7 flex-none rounded-pill inline-flex items-center justify-center text-muted hover:text-ink opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      >
+                        <Icon name="trash-2" size={14} strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+            {/* ⚠️ O aviso diz a VERDADE do ambiente: em produção o histórico é
+                gravado na empresa pelo `store-org`, por pessoa. */}
+            <span className="mt-auto pt-2 text-[12px] text-muted leading-[1.4]">
+              {isDemo
+                ? "Na demonstração, as conversas ficam só neste navegador."
+                : "As conversas ficam guardadas na sua conta nesta empresa: acompanham você em outra máquina e não aparecem na lista dos colegas."}
+            </span>
+          </aside>
+        )}
 
-          {sugestoes.length > 0 && (
-            <section className="flex flex-col gap-4 pt-6">
-              <span className="text-[15px] text-ink">Veja tudo o que eu faço:</span>
-              <div className="flex flex-wrap gap-3">
-                {sugestoes.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => perguntar(s.texto, s.id)}
-                    disabled={chat.pensando}
-                    title={s.motivo ? `${s.texto} · sugerida porque ${s.motivo}` : s.texto}
-                    aria-label={s.texto}
-                    data-sugestao={s.id}
-                    className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink disabled:opacity-50"
-                    style={{ background: "var(--color-white)" }}
-                  >
-                    <Icon name={s.icone} size={16} strokeWidth={1.5} />
-                    {s.curto}
-                  </button>
-                ))}
+        <div ref={rolagemRef} className="relative flex-1 min-w-0 overflow-y-auto" tabIndex={-1}>
+          <div className="mx-auto w-full max-w-[720px] px-5 pt-10 pb-10 flex flex-col gap-8">
+            {vazio && !pergunta && (
+              <div className="a4p-entra flex flex-col gap-2 pt-6" data-ia="saudacao">
+                <h2 className="m-0 text-[28px] text-ink">{nome ? `Olá, ${nome}.` : "Olá."}</h2>
+                <p className="m-0 text-[16px] text-muted">Pergunte sobre os seus números, ou escolha um caminho abaixo.</p>
               </div>
-            </section>
-          )}
-          <Link href="/quattro-ai" onClick={fechar} className="self-start text-[13px] text-muted hover:text-ink">
-            Abrir o histórico de conversas
-          </Link>
+            )}
+            {chat.turnos.map((t) => (
+              <React.Fragment key={t.id}>
+                <Pergunta texto={t.q} />
+                <div className="a4p-entra">
+                  <BolhaResposta
+                    t={t}
+                    variante="aberta"
+                    copia={chat.copia?.id === t.id ? chat.copia.estado : undefined}
+                    onCopiar={chat.copiar}
+                    onFeedback={chat.darFeedback}
+                    onNavegar={fechar}
+                  />
+                </div>
+              </React.Fragment>
+            ))}
+            {chat.pergunta && <Pergunta texto={chat.pergunta} />}
+            {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start w-full max-w-[420px]" />}
+
+            {chips.length > 0 && (
+              <section className="flex flex-col gap-4 pt-6">
+                <span className="text-[15px] text-ink">Veja tudo o que eu faço:</span>
+                <div className="flex flex-wrap gap-3">
+                  {chips.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => perguntar(s.texto, s.id)}
+                      disabled={chat.pensando}
+                      title={s.motivo ? `${s.texto} · sugerida porque ${s.motivo}` : s.texto}
+                      aria-label={s.texto}
+                      data-sugestao={s.id}
+                      data-ia="chip"
+                      className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink disabled:opacity-50"
+                      style={{ background: "var(--color-white)" }}
+                    >
+                      <Icon name={s.icone} size={16} strokeWidth={1.5} />
+                      {s.curto}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       </div>
 
       <form
         onSubmit={(e) => { e.preventDefault(); perguntar(chat.texto); }}
-        className="flex-none mx-auto mb-6 w-[calc(100%-40px)] max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
+        className="flex-none mx-auto mb-2 w-[calc(100%-40px)] max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
         style={{ background: "var(--color-white)" }}
       >
         <input
@@ -191,6 +324,7 @@ export function ChatTelaCheia({
           <Icon name="arrow-up" size={18} strokeWidth={1.5} />
         </button>
       </form>
+      <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
     </div>,
     document.body,
   );

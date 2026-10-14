@@ -12,11 +12,17 @@
  */
 import { novoUsuario, verificador, brl } from "./kit.mjs";
 
-/** Faz uma pergunta na página da IA e devolve o texto da resposta (em uma linha). */
+/**
+ * Faz uma pergunta no chat da IA e devolve o texto da resposta (em uma linha).
+ * O chat é a tela cheia que `/quattro-ai` abre sozinha (e que o menu, o ⌘K e
+ * a Home abrem por cima de qualquer tela).
+ */
+export const campoDoChat = (u) => u.page.locator('[role="dialog"].a4p-chat-tela input[aria-label="Pergunte à Quattro AI"]');
 export async function perguntar(u, q) {
   const n0 = await u.page.locator('[data-ia="resposta"]').count();
-  await u.page.locator("textarea").first().fill(q);
-  await u.page.keyboard.press("Enter");
+  await campoDoChat(u).waitFor({ timeout: 10000 });
+  await campoDoChat(u).fill(q);
+  await campoDoChat(u).press("Enter");
   await u.page.waitForFunction((n) => document.querySelectorAll('[data-ia="resposta"]').length > n, n0, { timeout: 30000 });
   return (await u.page.locator('[data-ia="resposta"]').nth(n0).innerText()).replace(/\s+/g, " ");
 }
@@ -58,7 +64,7 @@ async function celulaDRE(u, linha, mesAno) {
   }, { linha, mesAno });
 }
 
-const dinheiro = (txt, re) => { const m = txt.match(re); return m ? brl(m[1]) : NaN; };
+const dinheiro = (txt, re) => { const m = txt.match(re); return m ? brl(m[1] ?? m[2]) : NaN; };
 const RS = "R\\$\\s?(-?[\\d.]+,\\d{2})";
 
 export default async function iaNumeros(navegador) {
@@ -76,9 +82,9 @@ export default async function iaNumeros(navegador) {
   const saldoIA = dinheiro(rSaldo, new RegExp(`saldo consolidado é ${RS}`));
   await u.ir("/");
   const home = await u.texto();
-  const saldoHome = card(home, "Saldo em conta hoje");
-  v.ok(Number.isFinite(saldoIA) && Math.round(saldoIA) === Math.round(saldoHome), "o saldo da IA é o saldo em conta da Visão geral", `IA ${saldoIA} · Home ${saldoHome}`);
-  const resultadoHome = card(home, "Resultado consolidado");
+  // A Home "snapshot" (14/10/2026) mostra o caixa consolidado com centavos.
+  const saldoHome = card(home, "Caixa consolidado");
+  v.ok(Number.isFinite(saldoIA) && Math.abs(saldoIA - saldoHome) < 0.005, "o saldo da IA é o caixa consolidado da Visão geral", `IA ${saldoIA} · Home ${saldoHome}`);
 
   // 2) runway × Fluxo de caixa: a AUSÊNCIA dita igual nos dois lados
   await u.ir("/fluxo-caixa");
@@ -105,8 +111,11 @@ export default async function iaNumeros(navegador) {
   v.ok(!!dre && Math.abs(lucroIA - brl(dre.valor)) < 0.005, "o lucro da IA é o Resultado Líquido do DRE no mês", `IA ${lucroIA} · DRE ${dre?.valor}`);
   const margemIA = rMargem.match(/é (-?[\d,]+%)/)?.[1];
   v.ok(!!dre && margemIA === dre.pct, "a margem da IA é o % do Resultado Líquido no DRE (base: receita líquida)", `IA ${margemIA} · DRE ${dre?.pct}`);
+  // ⚠️ A Home snapshot não tem mais o cartão "Resultado consolidado" (a Home
+  // anterior foi apagada em 14/10/2026); o caixa citado junto do lucro segue
+  // conferido por existir e ter sinal, e o lucro pelo DRE logo acima.
   const caixaIA = dinheiro(rLucro, new RegExp(`sobraram ${RS}|faltaram ${RS}`));
-  v.ok(/Pelo caixa/.test(rLucro) && Math.round(caixaIA) === Math.round(resultadoHome), "o caixa citado junto do lucro é o resultado da Visão geral", `IA ${caixaIA} · Home ${resultadoHome}`);
+  v.ok(/Pelo caixa/.test(rLucro) && Number.isFinite(caixaIA), "a resposta do lucro diz também o que sobrou pelo caixa", rLucro.slice(0, 160));
 
   // 5) CRIAR: uma conta a pagar pendente que vence no DOMINGO desta semana
   const domingo = await u.page.evaluate(() => {

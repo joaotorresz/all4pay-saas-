@@ -331,6 +331,17 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   `title`. A guarda exige rótulo e ícone EXISTENTE para cada pergunta. ⚠️ A
   conversa sobe a ÚLTIMA PERGUNTA para o alto, nunca rola até o fim: o fim é
   o "Veja tudo", e rolar até ele escondia a resposta que acabou de chegar.
+- ⚠️ **A IA MORA NUM LUGAR SÓ (decisão do dono, 14/10/2026):** o botão
+  flutuante "4" (`AssistantWidget`) e o painel lateral SAÍRAM, e a aba
+  "Conversa" de `/quattro-ai` também (`IAView` apagado). O chat em tela cheia
+  abre por cima de QUALQUER tela por `abrirChat()` (`ia/ChatGlobal.tsx`,
+  evento `a4p:open-ia`, montado no `AppShell`): o item "Quattro AI" do menu
+  (clique comum abre o chat; com Ctrl/⌘ segue o endereço), o ⌘K, a caixa da
+  Home e `/quattro-ai` (que abre o chat sozinho e guarda `?q=`). O histórico
+  veio para DENTRO do chat ("Conversas"). Os motores (Quant, Decisão, Risco,
+  Sugestões) seguem como abas de `/quattro-ai`. ⚠️ Pedido de abertura feito
+  antes de o anfitrião montar fica na fila (`pendente`): os efeitos do React
+  rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
   ou setas do teclado; só a alça inicia, porque o card é link), por grupo,
@@ -4508,7 +4519,12 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 
 ### Quattro AI — assistente flutuante (global) + ficha de contato
 
-A IA tem **duas portas para o MESMO cérebro**:
+> ⚠️ **HISTÓRICO.** Desde 14/10/2026 o FAB, o painel lateral e o `IAView` não
+> existem: a conversa é só o chat em tela cheia (ver "A IA MORA NUM LUGAR SÓ",
+> na seção da Home). O que segue sobre o cérebro (`useChatIA`, `chat-kit`,
+> `ia-conversas`) continua valendo; o que fala do FAB e do painel é registro.
+
+A IA tinha **duas portas para o MESMO cérebro**:
 
 1. **FAB flutuante** (`src/components/app/AssistantWidget.tsx`, montado no
    `AppShell`) — painel à direita, disponível em toda tela. Some em

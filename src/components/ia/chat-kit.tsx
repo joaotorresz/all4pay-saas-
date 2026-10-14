@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Kit do chat da Quattro AI — as peças COMPARTILHADAS entre o painel
- * flutuante (`AssistantWidget`, em toda tela) e a página inteira
- * (`/quattro-ai`, com histórico de conversas).
+ * Kit do chat da Quattro AI — as peças do chat em tela cheia
+ * (`ChatTelaCheia`, aberto de qualquer tela pelo `ChatGlobal`).
  *
- * A regra é uma só: **a IA é a mesma nos dois lugares**. Tipos, marca,
- * etapas de análise, bolha de resposta e gráfico moram aqui; cada superfície
- * só decide o LAYOUT em volta.
+ * Tipos, marca, etapas de análise, bolha de resposta e gráfico moram aqui; a
+ * superfície só decide o LAYOUT em volta. (Até 14/10/2026 havia também o
+ * painel flutuante e a aba Conversa de `/quattro-ai`, que usavam estas mesmas
+ * peças.)
  */
 import * as React from "react";
 import Link from "next/link";
