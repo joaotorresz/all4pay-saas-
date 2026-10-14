@@ -213,7 +213,7 @@ export const CHAVES_DE_NEGOCIO: string[] = Object.values(CHAVES_ORG);
  */
 export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_theme", "a4p_theme_draft", "a4p_modo", "a4p_tipo_conta",
-  "a4p_sidebar_width", "a4p_home_widgets", "a4p_home_order", "a4p_home_period",
+  "a4p_sidebar_width", "a4p_home_widgets", "a4p_home_order", "a4p_home_painel_ordem", "a4p_home_period",
   "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros", "a4p_designlab",
   "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
