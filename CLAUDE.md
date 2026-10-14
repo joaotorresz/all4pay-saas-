@@ -268,6 +268,18 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   rota exige usuário fora da demonstração) ou com erro, vale a ordem das regras,
   sem aviso na tela. Só pergunta depois do primeiro acesso; cache de 1 h no
   React Query, por dia e por conjunto de candidatas.
+- **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
+  chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
+  com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a
+  pergunta: logo no alto, "Fechar chat" (e Esc), a pergunta num balão à
+  direita, a resposta solta com os números em CARTÕES (`BolhaResposta
+  variante="aberta"`) e "Veja tudo o que eu faço" com até 12 sugestões. É a
+  MESMA IA (`useChatIA`) e a conversa entra no histórico de `/quattro-ai`.
+  ⚠️ O chip mostra o RÓTULO CURTO com ícone (`ROTULOS`: "Fechar o mês"); a
+  pergunta inteira vai para a conversa, para o nome acessível e para o
+  `title`. A guarda exige rótulo e ícone EXISTENTE para cada pergunta. ⚠️ A
+  conversa sobe a ÚLTIMA PERGUNTA para o alto, nunca rola até o fim: o fim é
+  o "Veja tudo", e rolar até ele escondia a resposta que acabou de chegar.
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
   ou setas do teclado; só a alça inicia, porque o card é link), por grupo,

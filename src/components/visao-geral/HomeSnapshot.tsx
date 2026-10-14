@@ -23,6 +23,7 @@ import { reportar } from "@/lib/erros";
 import { lerPreferencia, gravarPreferencia } from "@/lib/store-org";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
+import { ChatTelaCheia, type SugestaoChat } from "@/components/ia/ChatTelaCheia";
 
 /**
  * A HOME "SNAPSHOT" — a prancheta "Home · proposta snapshot" do canvas
@@ -167,9 +168,28 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
   );
 }
 
-function CaixaIA({ sugestoes, prefs }: { sugestoes: SugestaoEscolhida[] | null; prefs: PreferenciasIA }) {
+/** Quantas perguntas o "Veja tudo o que eu faço" do chat mostra. */
+const TODAS_NO_CHAT = 12;
+
+function CaixaIA({ sugestoes, extras, prefs }: {
+  sugestoes: SugestaoEscolhida[] | null;
+  /** As candidatas seguintes, para completar o "Veja tudo o que eu faço". */
+  extras: CandidataIA[];
+  prefs: PreferenciasIA;
+}) {
   const router = useRouter();
   const [texto, setTexto] = React.useState("");
+  // O chat em tela cheia (modelo do dono, 14/10/2026): o chip ou o envio abre
+  // a conversa já com a pergunta, por cima da Home, em vez de trocar de tela.
+  const [chat, setChat] = React.useState<{ q: string; n: number } | null>(null);
+  const todas = React.useMemo(() => {
+    const out: SugestaoChat[] = [];
+    for (const c of [...(sugestoes ?? []), ...extras]) {
+      if (out.length >= TODAS_NO_CHAT) break;
+      if (!out.some((o) => o.id === c.id)) out.push({ id: c.id, texto: c.texto, curto: c.curto, icone: c.icone, motivo: c.motivo });
+    }
+    return out;
+  }, [sugestoes, extras]);
   const [ajustando, setAjustando] = React.useState(false);
   const primeiroAcesso = prefs.interesses === null;
   const perguntando = primeiroAcesso || ajustando;
@@ -177,7 +197,9 @@ function CaixaIA({ sugestoes, prefs }: { sugestoes: SugestaoEscolhida[] | null; 
   const visiveis = (sugestoes ?? []).slice(0, perguntando ? 2 : undefined);
   const perguntar = (q: string) => {
     const t = q.trim();
-    router.push(t ? `/quattro-ai?q=${encodeURIComponent(t)}` : "/quattro-ai");
+    if (!t) { router.push("/quattro-ai"); return; }
+    setTexto("");
+    setChat((c) => ({ q: t, n: (c?.n ?? 0) + 1 }));
   };
   return (
     <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-11">
@@ -214,20 +236,23 @@ function CaixaIA({ sugestoes, prefs }: { sugestoes: SugestaoEscolhida[] | null; 
         </button>
       </form>
       {/* As sugestões saem de `core/home/sugestoes`: até seis, escolhidas pelo
-          contexto da empresa. O motivo vai no `title` — a Home não explica
-          cada chip, mas quem quiser saber por que ele está ali consegue. */}
+          contexto da empresa. O chip mostra o rótulo CURTO com ícone; a
+          pergunta inteira é o nome acessível e o que vai para a conversa. O
+          motivo vai no `title`. */}
       <div className="flex flex-wrap justify-center gap-[10px] max-w-[900px] min-h-[36px]">
         {visiveis.map((c) => (
           <button
             key={c.id}
             type="button"
             onClick={() => { prefs.clicou(c.id); perguntar(c.texto); }}
-            title={`Sugerida porque ${c.motivo}`}
+            title={`${c.texto} · sugerida porque ${c.motivo}`}
+            aria-label={c.texto}
             data-sugestao={c.id}
-            className="px-4 py-2 rounded-pill text-[13px] text-ink"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] text-ink"
             style={{ background: "var(--color-surface-1)" }}
           >
-            {c.texto}
+            <Icon name={c.icone} size={16} strokeWidth={1.5} />
+            {c.curto}
           </button>
         ))}
       </div>
@@ -237,6 +262,15 @@ function CaixaIA({ sugestoes, prefs }: { sugestoes: SugestaoEscolhida[] | null; 
         <button type="button" onClick={() => setAjustando(true)} className="text-[12px] text-ink opacity-70 hover:opacity-100">
           Ajustar prioridades
         </button>
+      )}
+      {chat && (
+        <ChatTelaCheia
+          key={chat.n}
+          pergunta={chat.q}
+          sugestoes={todas}
+          aoFechar={() => setChat(null)}
+          aoClicarSugestao={prefs.clicou}
+        />
       )}
     </section>
   );
@@ -614,7 +648,7 @@ export function HomeSnapshot() {
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
-      <CaixaIA sugestoes={sugestoes} prefs={prefs} />
+      <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} />
 
       <section className="flex flex-col gap-4 mt-7">
         <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>

@@ -242,20 +242,38 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
  * precisa fazer nada.
  */
 export function BolhaResposta({
-  t, copia, onCopiar, onFeedback, onNavegar,
+  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha",
 }: {
   t: Turno;
+  /**
+   * "bolha" = o balão do painel e da página; "aberta" = o chat em tela cheia
+   * da Home: texto solto na coluna e o gráfico e os números em CARTÕES, como
+   * no modelo que o dono escolheu. O conteúdo é o mesmo nos dois.
+   */
+  variante?: "bolha" | "aberta";
   /** `undefined` = nada pedido; "ok" = copiou; "falhou" = o navegador recusou. */
   copia?: EstadoCopia;
   onCopiar: (t: Turno) => void;
   onFeedback: (t: Turno, dir: "up" | "down") => void;
   onNavegar?: () => void;
 }) {
+  const aberta = variante === "aberta";
   return (
-    <div data-ia="resposta" className="self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2">
-      <p className="m-0 text-[15px] leading-[1.5] text-ink whitespace-pre-wrap">{t.resposta}</p>
-      {t.grafico && <GraficoDaResposta g={t.grafico} />}
-      {t.numeros && t.numeros.length > 0 && <NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} />}
+    <div data-ia="resposta" className={aberta
+      ? "self-stretch flex flex-col gap-4"
+      : "self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2"}>
+      <p className={`m-0 text-ink whitespace-pre-wrap ${aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"}`}>{t.resposta}</p>
+      {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}
+          {t.numeros && t.numeros.length > 0 && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} /></div>}
+        </div>
+      ) : (
+        <>
+          {t.grafico && <GraficoDaResposta g={t.grafico} />}
+          {t.numeros && t.numeros.length > 0 && <NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} />}
+        </>
+      ))}
       {/* ⚠️ A IA SUGERE, NÃO EXECUTA (Rodada 9). O rótulo era "Ação:", e quem
           lê "Ação: antecipar o recebível da Alpha" conclui que algo foi feito.
           Nada foi: o chat não tem caminho de escrita nenhum (a guarda

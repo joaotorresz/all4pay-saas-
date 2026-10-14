@@ -13,11 +13,13 @@
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
-  BASICAS, CANDIDATAS_IA, CATALOGO_SUGESTOES, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, candidatasParaIA, contextoParaIA,
+  BASICAS, CANDIDATAS_IA, CATALOGO_SUGESTOES, ROTULOS, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, candidatasParaIA, contextoParaIA,
   recomendarSugestoes, sinaisDaHome,
   type SinaisHome,
 } from "@/core/home/sugestoes";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
+import { SOLAR_ICONS } from "@/components/ui/solar-icons";
+import { readFileSync } from "node:fs";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -126,6 +128,19 @@ ok("ia: id repetido não ocupa duas vagas", new Set(porTemaIA.map((x) => x.id)).
 const ctx = contextoParaIA(semDado);
 ok("ia: ausente vai à IA como null, nunca zero", ctx.receberVencido === null && ctx.pendencias.notas === null && ctx.variacaoBurn30d === null);
 ok("ia: o contexto não leva lançamento nem nome", !("movements" in ctx) && !JSON.stringify(ctx).includes("party"));
+
+// O chip do modelo do dono (14/10/2026): rótulo CURTO + ícone. Toda pergunta
+// tem os dois, o ícone existe no DS (ícone desconhecido some sem erro, e o
+// chip fica só com texto) e o rótulo é de fato curto e distinto.
+const ICONES_CUSTOM = readFileSync(new URL("../src/components/ui/Icon.tsx", import.meta.url), "utf8");
+const iconeExiste = (n: string) => n in SOLAR_ICONS || new RegExp(`^\\s*"?${n}"?:\\s*\\{`, "m").test(ICONES_CUSTOM);
+ok("rótulo: toda pergunta do catálogo tem rótulo curto", CATALOGO_SUGESTOES.every((c) => ROTULOS[c.id]), CATALOGO_SUGESTOES.filter((c) => !ROTULOS[c.id]).map((c) => c.id).join(","));
+ok("rótulo: nenhum rótulo sobra sem pergunta", Object.keys(ROTULOS).every((id) => CATALOGO_SUGESTOES.some((c) => c.id === id)));
+ok("rótulo: curto de verdade (até 24 letras) e menor que a pergunta", CATALOGO_SUGESTOES.every((c) => ROTULOS[c.id] && ROTULOS[c.id].curto.length <= 24 && ROTULOS[c.id].curto.length < c.texto.length));
+ok("rótulo: todo ícone existe no DS", Object.values(ROTULOS).every((r) => iconeExiste(r.icone)), Object.values(ROTULOS).filter((r) => !iconeExiste(r.icone)).map((r) => r.icone).join(","));
+ok("rótulo: rótulos distintos dentro de cada público", ["empresa", "pessoal"].every((p) => { const r = CATALOGO_SUGESTOES.filter((c) => c.publico === p).map((c) => ROTULOS[c.id]?.curto); return new Set(r).size === r.length; }));
+ok("rótulo: a escolha carrega rótulo e ícone, e o texto continua a pergunta inteira", recomendarSugestoes(BASE).every((e) => e.curto === ROTULOS[e.id].curto && e.icone === ROTULOS[e.id].icone && e.texto !== e.curto));
+ok("rótulo: as candidatas da IA também", candidatasParaIA(BASE).every((e) => e.curto === ROTULOS[e.id].curto));
 
 // ponta a ponta: snapshot real → sinais → sugestões
 const movs: RiskMovement[] = [

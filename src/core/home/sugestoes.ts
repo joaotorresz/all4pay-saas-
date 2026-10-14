@@ -98,6 +98,9 @@ interface Regra {
 export interface SugestaoEscolhida {
   id: string;
   texto: string;
+  /** O rótulo do chip (`ROTULOS`); a pergunta inteira é `texto`. */
+  curto: string;
+  icone: string;
   tema: TemaSugestao;
   pontos: number;
   /** Por que ela está na tela — o motivo da regra de maior peso, ou "pergunta frequente". */
@@ -293,6 +296,62 @@ export const CATALOGO_SUGESTOES: Sugestao[] = [
 /* ------------------------------ prioridades e uso ------------------------------ */
 
 /**
+ * O RÓTULO CURTO e o ícone de cada pergunta — o chip mostra isto ("Fechar o
+ * mês"), e a pergunta inteira é o que vai para a conversa. Modelo do dono
+ * (14/10/2026): chips curtos com ícone, como no protótipo de referência.
+ * Os ícones são chaves do `Icon` do DS. A guarda exige um rótulo por pergunta.
+ */
+export const ROTULOS: Record<string, { curto: string; icone: string }> = {
+  "fechar-mes": { curto: "Fechar o mês", icone: "list-checks" },
+  "conciliar": { curto: "Conciliar", icone: "check" },
+  "notas": { curto: "Notas a emitir", icone: "file-text" },
+  "aprovacoes": { curto: "Minhas aprovações", icone: "shield-check" },
+  "resultado-mes": { curto: "Resultado do mês", icone: "activity" },
+  "variacao-dre": { curto: "O que mudou?", icone: "arrow-left-right" },
+  "impostos": { curto: "Impostos do mês", icone: "receipt" },
+  "fluxo-13-semanas": { curto: "Fluxo 13 semanas", icone: "calendar" },
+  "fluxo-3-semanas": { curto: "Fluxo 3 semanas", icone: "calendar" },
+  "runway": { curto: "Quanto aguento?", icone: "gauge" },
+  "caixa-caiu": { curto: "Por que caiu?", icone: "trending-down" },
+  "caixa-subiu": { curto: "De onde veio?", icone: "trending-up" },
+  "caixa-negativo": { curto: "Cobrir o caixa", icone: "triangle-alert" },
+  "posso-gastar": { curto: "Posso gastar?", icone: "credit-card" },
+  "aplicar-sobra": { curto: "Aplicar a sobra", icone: "target" },
+  "burn-mudou": { curto: "Mudança no burn", icone: "activity" },
+  "cortar-despesas": { curto: "Cortar despesas", icone: "minus" },
+  "maiores-gastos": { curto: "Maiores gastos", icone: "shopping-cart" },
+  "softwares": { curto: "Assinaturas", icone: "repeat" },
+  "folha": { curto: "Peso da folha", icone: "users" },
+  "combustivel-frete": { curto: "Combustível e frete", icone: "workflow" },
+  "marketing": { curto: "Custo por cliente", icone: "target" },
+  "quem-deve": { curto: "Quem me deve?", icone: "users" },
+  "cobrar-primeiro": { curto: "Cobrar primeiro", icone: "mail" },
+  "receber-semana": { curto: "Receber na semana", icone: "inbox" },
+  "concentracao": { curto: "Dependência de clientes", icone: "network" },
+  "melhores-clientes": { curto: "Melhores clientes", icone: "trending-up" },
+  "pagar-semana": { curto: "Pagar na semana", icone: "calendar" },
+  "fornecedores": { curto: "Fornecedores", icone: "building" },
+  "renegociar": { curto: "Renegociar contas", icone: "rotate-ccw" },
+  "arr-evolucao": { curto: "Receita recorrente", icone: "repeat" },
+  "churn": { curto: "Cancelamentos", icone: "trending-down" },
+  "investidores": { curto: "Resumo p/ investidores", icone: "mail" },
+  "taxas-cartao": { curto: "Taxas de cartão", icone: "credit-card" },
+  "antecipar": { curto: "Antecipar recebíveis", icone: "arrow-up-right" },
+  "sazonalidade": { curto: "Sazonalidade", icone: "calendar" },
+  "ticket-medio": { curto: "Ticket médio", icone: "receipt" },
+  "margem-produto": { curto: "Margem por produto", icone: "layers" },
+  "saude": { curto: "Saúde financeira", icone: "gauge" },
+  "importar-extrato": { curto: "Importar extrato", icone: "upload" },
+  "o-que-faz": { curto: "O que você faz?", icone: "help-circle" },
+  "pf-gastos-mes": { curto: "Gastos do mês", icone: "shopping-cart" },
+  "pf-orcamento": { curto: "Meu orçamento", icone: "target" },
+  "pf-contas-semana": { curto: "Contas da semana", icone: "calendar" },
+  "pf-guardar": { curto: "Guardar dinheiro", icone: "database" },
+  "pf-subiu": { curto: "O que subiu?", icone: "trending-up" },
+  "pf-assinaturas": { curto: "Assinaturas", icone: "repeat" },
+};
+
+/**
  * As duas perguntas FIXAS de cada público — aparecem antes de qualquer
  * interação, inclusive no primeiro acesso, e sempre nas duas primeiras
  * posições. Decisão do dono (14/10/2026): "antes do chat, duas sugestões
@@ -334,6 +393,8 @@ const TETO_CLIQUES = 4;
 
 /* ------------------------------ a escolha ------------------------------ */
 
+const rotuloDe = (c: Sugestao) => ROTULOS[c.id] ?? { curto: c.texto, icone: "sparkles" };
+
 /** Pontua o catálogo do público: base + regras + prioridades + cliques; zero sai. */
 function avaliar(s: SinaisHome): SugestaoEscolhida[] {
   return CATALOGO_SUGESTOES
@@ -348,7 +409,7 @@ function avaliar(s: SinaisHome): SugestaoEscolhida[] {
       const pontos = c.base + casadas.reduce((t, g) => t + g.peso, 0);
       return {
         ordem,
-        e: { id: c.id, texto: c.texto, tema: c.tema, pontos, motivo: casadas[0]?.motivo ?? "pergunta frequente" } as SugestaoEscolhida,
+        e: { id: c.id, texto: c.texto, ...rotuloDe(c), tema: c.tema, pontos, motivo: casadas[0]?.motivo ?? "pergunta frequente" } as SugestaoEscolhida,
       };
     })
     .filter((x) => x.e.pontos > 0)
@@ -382,7 +443,7 @@ export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES, pr
   for (const id of basicas) {
     const c = CATALOGO_SUGESTOES.find((x) => x.id === id);
     if (!c || out.length >= limite) continue;
-    out.push({ id: c.id, texto: c.texto, tema: c.tema, pontos: 99, motivo: "sugestão básica" });
+    out.push({ id: c.id, texto: c.texto, ...rotuloDe(c), tema: c.tema, pontos: 99, motivo: "sugestão básica" });
     porTema.set(c.tema, (porTema.get(c.tema) ?? 0) + 1);
   }
   for (const e of ordenadas) {
@@ -416,7 +477,7 @@ function idsValidosDaIA(preferidas: unknown, avaliadas: SugestaoEscolhida[], bas
 /** Quantas candidatas vão à IA: as mais bem pontuadas pelas regras, sem as básicas. */
 export const CANDIDATAS_IA = 14;
 
-export interface CandidataIA { id: string; texto: string; tema: TemaSugestao; motivo: string }
+export interface CandidataIA { id: string; texto: string; curto: string; icone: string; tema: TemaSugestao; motivo: string }
 
 /** As candidatas que a IA pode ordenar — só as que as regras deixaram de pé. */
 export function candidatasParaIA(s: SinaisHome, teto = CANDIDATAS_IA): CandidataIA[] {
@@ -424,7 +485,7 @@ export function candidatasParaIA(s: SinaisHome, teto = CANDIDATAS_IA): Candidata
   return avaliar(s)
     .filter((e) => !basicas.includes(e.id))
     .slice(0, teto)
-    .map(({ id, texto, tema, motivo }) => ({ id, texto, tema, motivo }));
+    .map(({ id, texto, curto, icone, tema, motivo }) => ({ id, texto, curto, icone, tema, motivo }));
 }
 
 /**
