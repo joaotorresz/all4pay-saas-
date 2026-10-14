@@ -945,6 +945,30 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
+   CAIXA DA QUATTRO AI NA HOME (canvas "Home · proposta snapshot",
+   14/10/2026) — o lime e o verde-base da marca em camadas que
+   ondulam devagar atrás da barra de pergunta. Só tokens; só o
+   `background-position` anima. Para em `prefers-reduced-motion`.
+   ============================================================ */
+.a4p-ondas-ia {
+  background-color: var(--color-lime);
+  background-image:
+    radial-gradient(60% 90% at 20% 30%, color-mix(in srgb, var(--color-ink) 55%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 80% at 80% 70%, color-mix(in srgb, var(--color-ink) 35%, transparent) 0%, transparent 70%),
+    radial-gradient(45% 70% at 55% 40%, color-mix(in srgb, var(--color-lime) 90%, var(--color-surface-1)) 0%, transparent 70%),
+    linear-gradient(115deg, var(--color-lime) 0%, color-mix(in srgb, var(--color-lime) 60%, var(--color-ink)) 50%, var(--color-lime) 100%);
+  background-size: 220% 220%, 240% 240%, 200% 200%, 300% 300%;
+  animation: a4p-ondas-ia 12s ease-in-out infinite;
+}
+@keyframes a4p-ondas-ia {
+  0%, 100% { background-position: 0% 50%, 100% 0%, 50% 100%, 0% 0%; }
+  50% { background-position: 100% 60%, 0% 100%, 20% 0%, 100% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a4p-ondas-ia { animation: none; }
+}
+
+/* ============================================================
    QUATTRO AI — tipografia e movimento do assistente.
 
    O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do

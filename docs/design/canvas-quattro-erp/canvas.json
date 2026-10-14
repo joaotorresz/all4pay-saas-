@@ -107,6 +107,27 @@
       "x": 8160,
       "y": 3820
     },
+    "HomeReal.dc.html": {
+      "h": 1660,
+      "title": "Página inicial (no ar, editável)",
+      "w": 1280,
+      "x": 4520,
+      "y": 0
+    },
+    "HomeSnapshot.dc.html": {
+      "h": 1620,
+      "title": "Home · proposta snapshot",
+      "w": 1280,
+      "x": 5880,
+      "y": 0
+    },
+    "Icones.dc.html": {
+      "h": 1320,
+      "title": "Ícones (61)",
+      "w": 1280,
+      "x": 3160,
+      "y": 0
+    },
     "Login.dc.html": {
       "expand": "fill",
       "h": 820,
@@ -151,6 +172,13 @@
       "x": 1360,
       "y": 0
     },
+    "Valor.dc.html": {
+      "h": 80,
+      "title": "Valor R$ (componente)",
+      "w": 360,
+      "x": 2720,
+      "y": 0
+    },
     "Vendas.dc.html": {
       "expand": "fill",
       "h": 1000,
@@ -165,27 +193,6 @@
       "w": 390,
       "x": 5440,
       "y": 3820
-    },
-    "Valor.dc.html": {
-      "x": 2720,
-      "y": 0,
-      "w": 360,
-      "h": 80,
-      "title": "Valor R$ (componente)"
-    },
-    "Icones.dc.html": {
-      "x": 3160,
-      "y": 0,
-      "w": 1280,
-      "h": 1320,
-      "title": "Ícones (61)"
-    },
-    "HomeReal.dc.html": {
-      "x": 4520,
-      "y": 0,
-      "w": 1280,
-      "h": 1660,
-      "title": "Página inicial (no ar, editável)"
     }
   },
   "createdOnFiles": {
@@ -215,7 +222,7 @@
     },
     "t_tema": {
       "kind": "title1",
-      "maxW": 5900,
+      "maxW": 7200,
       "text": "Tema e moldura",
       "w": 240,
       "x": 0,
@@ -228,6 +235,7 @@
     "Valor.dc.html",
     "Icones.dc.html",
     "HomeReal.dc.html",
+    "HomeSnapshot.dc.html",
     "Login.dc.html",
     "Dashboard.dc.html",
     "Financeiro.dc.html",
