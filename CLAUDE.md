@@ -247,7 +247,7 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   (não há fila de aprovação de contrato).
 - `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
 
-## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home")
+## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
 O dono desenhou a Home no canvas de design e aprovou a prancheta "Proposta —
 nova Home". Ela foi levada ao código com a MOLDURA do app junto:
