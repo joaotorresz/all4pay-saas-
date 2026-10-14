@@ -28,6 +28,7 @@ export function AppShell({
   children,
   scopeClassName = "ds-visor",
   stickyHeader = true,
+  semCabecalho = false,
 }: {
   title: React.ReactNode;
   /**
@@ -43,6 +44,11 @@ export function AppShell({
   scopeClassName?: string;
   /** Header fixo no topo (padrão). `false` → rola junto com o conteúdo. */
   stickyHeader?: boolean;
+  /**
+   * Sem o cabeçalho da tela (título e ações). A Home do canvas abre direto na
+   * caixa da Quattro AI; o título continua indo para a ABA do navegador.
+   */
+  semCabecalho?: boolean;
 }) {
   const header = (
     <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
@@ -113,7 +119,7 @@ export function AppShell({
         {/* ⚠️ Abaixo do de amostra e acima do cabeçalho, fora da área que rola:
             os dois falam do ESTADO da conta, não do conteúdo da tela. */}
         <BannerAssinatura />
-        {stickyHeader && header}
+        {stickyHeader && !semCabecalho && header}
         {/*
           ⚠️ **A FOLGA DE BAIXO É O TAMANHO DO FAB, e era menor que ele.**
 
@@ -130,7 +136,7 @@ export function AppShell({
         */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-24">
           {/* Header rola junto com o conteúdo quando stickyHeader=false. */}
-          {!stickyHeader && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
+          {!stickyHeader && !semCabecalho && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
           {children}
         </div>
       </main>

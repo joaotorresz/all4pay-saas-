@@ -63,6 +63,18 @@ export function IAView() {
   const chat = useChatIA({ onMudou: aoMudar });
   const { texto, setTexto, turnos, pensando, etapa, pergunta, copia, copiar, darFeedback, responder, carregar, sugeridas } = chat;
 
+  // A pergunta que chega pela caixa da Home (`/quattro-ai?q=…`) é feita uma
+  // vez, ao abrir, e o parâmetro sai do endereço — recarregar não repergunta.
+  const perguntaDaHome = React.useRef(false);
+  React.useEffect(() => {
+    if (perguntaDaHome.current) return;
+    perguntaDaHome.current = true;
+    const q = new URLSearchParams(window.location.search).get("q")?.trim();
+    if (!q) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    void responder(q);
+  }, [responder]);
+
   const fimRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turnos, pensando]);
 

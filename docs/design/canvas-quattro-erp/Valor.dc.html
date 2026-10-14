@@ -14,7 +14,7 @@ body{margin:0}
 </helmet>
 <span style="{{raiz}}"><sc-if value="{{temSinal}}" hint-placeholder-val="{{false}}"><span style="{{sSinal}}">{{sinal}}</span></sc-if><sc-if value="{{temMoeda}}" hint-placeholder-val="{{true}}"><span style="{{sMoeda}}">R$</span></sc-if><span style="{{sInt}}">{{inteiro}}</span><sc-if value="{{temDec}}" hint-placeholder-val="{{true}}"><span style="{{sDec}}">{{dec}}</span></sc-if><sc-if value="{{temResto}}" hint-placeholder-val="{{false}}"><span style="{{sResto}}">{{resto}}</span></sc-if></span>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"valor":{"editor":"text","default":"R$184.320,55"},"tamanho":{"editor":null,"default":"40px"},"tom":{"editor":"enum","default":"padrao","options":["padrao","claro"]},"alinhar":{"editor":null,"default":"esquerda"},"nivel":{"editor":"enum","default":"padrao","options":["padrao","principal"]},"fonte":{"editor":null,"default":""},"$preview":{"width":360,"height":80}}'>
+<script type="text/x-dc" data-dc-script data-props='{"valor":{"editor":"text","default":"R$184.320,55"},"tamanho":{"editor":null,"default":"40px"},"tom":{"editor":"enum","default":"padrao","options":["padrao","claro"]},"alinhar":{"editor":null,"default":"esquerda"},"nivel":{"editor":"enum","default":"padrao","options":["padrao","principal"]},"fonte":{"editor":null,"default":""},"espacoresto":{"editor":null,"default":""},"$preview":{"width":360,"height":80}}'>
 class Component extends DCLogic {
   renderVals() {
     const bruto = String(this.props.valor ?? 'R$184.320,55').trim();
@@ -47,7 +47,7 @@ class Component extends DCLogic {
       temDec: !!dec, dec,
       sDec: 'font-size:var(--erp-centavos-escala, 50%);color:' + corParte('--erp-centavos-cor', '#6B7060') + ';align-self:var(--erp-centavos-alinhar, baseline);display:var(--erp-centavos-mostrar, inline);line-height:1;',
       temResto: !!resto.trim(), resto,
-      sResto: 'font-size:55%;color:' + corParte('--erp-texto-2', '#6B7060') + ';margin-left:0.12em;line-height:1;'
+      sResto: 'font-size:55%;color:' + corParte('--erp-texto-2', '#6B7060') + ';margin-left:' + (this.props.espacoresto || '0.12em') + ';line-height:1;'
     };
   }
 }

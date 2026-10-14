@@ -104,6 +104,10 @@ tela mostra variação). Gráficos de entrada × saída: entradas em
 - **Cartão com alerta** (`MetricCard`/`HojeStat` do cockpit): o número fica
   em tinta; o alerta vira um PONTO ao lado do rótulo, e só quando é atenção ou
   crítico — "está tudo bem" não ganha marca.
+- ⚠️ **UMA exceção declarada (14/10/2026): a PÍLULA DE VARIAÇÃO da Home**
+  ("+2,4% em 30 dias"), verde ao subir e vermelha ao cair, desenhada pelo
+  dono no canvas. Só a função `Pilula` de `visao-geral/HomeSnapshot.tsx`;
+  o número ao lado segue em tinta e a guarda `cor:` reprova qualquer outra.
 - ⚠️ **A guarda antiga do DRE ("todo cartão recebe a cor de prejuízo") foi
   INVERTIDA, não apagada:** agora ela prova que a cor não voltou. E há
   **teto ZERO** no sistema inteiro (`cor:` em `npm run consistencia`) para cor
@@ -221,6 +225,27 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
   mapa gerado em `solar-icons.ts`, não o app).
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
+
+## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
+
+Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
+`HomeSnapshot.tsx` (sem o cabeçalho de tela: `AppShell semCabecalho`):
+
+- **Caixa da Quattro AI** em degradê lime × verde-base que ondula
+  (`.a4p-ondas-ia`, só tokens, para em `prefers-reduced-motion`); barra branca,
+  "+" cinza, enviar preto com ícone branco. Perguntar leva a `/quattro-ai?q=`,
+  que pergunta uma vez e limpa o endereço.
+- **"Seu painel"**: caixa consolidado e ARR com curva de 7 meses; burn,
+  runway, a pagar e a receber (próximos 30 dias). Todos com a variação de 30
+  dias. ⚠️ Os números saem de `core/home/snapshot` (só camada canônica): o
+  "há 30 dias" é a MESMA função sobre o estado reconstruído naquela data
+  (`estadoEm`: `saldoEm` + `hoje` recuado). Sem base, a pílula diz "sem base".
+- **Três colunas**: Precisa de ação (conciliação, NFs a emitir, compras a
+  aprovar, aprovações, boletos), Fechamento do mês (`close_tasks`) e
+  Relatórios fixados. ⚠️ "Seu dashboard" do canvas saiu "Seu painel" (guarda
+  de vocabulário da ONDA 11); "Contratos a aprovar" virou "Compras a aprovar"
+  (não há fila de aprovação de contrato).
+- `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home")
 

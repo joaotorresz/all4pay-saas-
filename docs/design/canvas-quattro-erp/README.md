@@ -20,6 +20,7 @@ lê daqui.
 | `Valor.dc.html` | o **valor em R$**: número principal × número comum, moeda colada, centavos a 50% |
 | `Icones.dc.html` | os 61 ícones duotônicos — **registro apenas**: desde 13/10/2026 o sistema voltou ao Hugeicons (`Icon` + `solar-icons.ts`) |
 | `HomeReal.dc.html` | a **Página inicial** como está no ar, elemento por elemento, para edição à mão |
+| `HomeSnapshot.dc.html` | a **Home "snapshot"** (14/10/2026) — a regra da Página inicial no ar desde então (`HomeSnapshot.tsx`) |
 | `Login`, `Dashboard`, `Financeiro`, `Estoque`, `Vendas`, `Compras`, `Fiscal`, `Cadastros`, `Relatorios`, `Configuracoes` (`.dc.html`) | as telas do protótipo em desktop |
 | `*Mobile.dc.html` | as mesmas telas a 390px |
 | `canvas.json` | a disposição das pranchetas no canvas |

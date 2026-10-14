@@ -3635,14 +3635,28 @@ const AGOSTO = janelaMes(2026, 7);
  */
 {
   const COR_POR_SINAL = /(?:>=|<=|>|<)\s*0(?:\.0+)?\s*\?\s*[^:;]{0,50}?(?:var\(--color-(?:positive|negative)\)|\btext-(?:positive|negative)\b)/;
+  // ⚠️ A ÚNICA exceção, declarada com motivo: a PÍLULA DE VARIAÇÃO da Home
+  // ("+2,4% em 30 dias"), que o dono desenhou no canvas "Quattro ERP ·
+  // Protótipo" (prancheta "Home · proposta snapshot", 14/10/2026) verde ao
+  // subir e vermelha ao cair. O NÚMERO ao lado continua na tinta. A exceção é
+  // por ARQUIVO e por FUNÇÃO (`Pilula`): uma segunda cor por sinal no mesmo
+  // arquivo, fora dela, continua reprovando.
+  const EXCECOES_COR: Record<string, string> = {
+    [join("src", "components", "visao-geral", "HomeSnapshot.tsx")]: "function Pilula(",
+  };
   const achados: string[] = [];
   const varrer = (dir: string) => {
     for (const nome of readdirSync(dir)) {
       const caminho = join(dir, nome);
       if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
       if (!/\.(ts|tsx)$/.test(nome)) continue;
-      readFileSync(caminho, "utf8").split("\n").forEach((linha, i) => {
+      const linhas = readFileSync(caminho, "utf8").split("\n");
+      const marco = EXCECOES_COR[caminho];
+      const ini = marco ? linhas.findIndex((l) => l.includes(marco)) : -1;
+      const fim = ini >= 0 ? linhas.findIndex((l, k) => k > ini && /^}/.test(l)) : -1;
+      linhas.forEach((linha, i) => {
         if (/^\s*(\/\/|\*)/.test(linha)) return; // comentário explica, não pinta
+        if (ini >= 0 && i > ini && i < fim) return; // a pílula declarada
         if (COR_POR_SINAL.test(linha)) achados.push(`${caminho}:${i + 1}`);
       });
     }
@@ -3650,6 +3664,9 @@ const AGOSTO = janelaMes(2026, 7);
   varrer("src");
   ok("cor: teto ZERO de número colorido pelo sinal (verde positivo / vermelho negativo)",
      achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("cor: a exceção da pílula existe e só cobre a função declarada",
+     Object.entries(EXCECOES_COR).every(([arq, marco]) => existsSync(arq) && readFileSync(arq, "utf8").includes(marco))
+     && Object.keys(EXCECOES_COR).length === 1);
   ok("cor: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
      COR_POR_SINAL.test('style={{ color: v >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}')
      && COR_POR_SINAL.test('className={x < 0 ? "text-negative" : "text-ink"}')
