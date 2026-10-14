@@ -373,6 +373,20 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   A seção do primeiro item visível vem primeiro ("o que precisa de ação
   primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
   `npm run e2e -- home-ajuste`.
+- **BIBLIOTECA DE CARDS (14/10/2026, pedido do dono).** Os cards prontos do
+  cockpit (`core/home/biblioteca`, 92 — os 4 que repetem o painel ficam de fora
+  por `EQUIVALENTES_AO_PAINEL`) ficam OCULTOS e entram na Home pela conversa
+  ("coloca a inadimplência e o EBITDA", "bota os custos fixos em cima"), na
+  seção "Seus cards", com id `card:<id do cockpit>` no MESMO arranjo. Saem pelo
+  pedido ("tira…", "só…", "volta ao padrão") ou pelo X do card — card que sai
+  deixa a ordem, nunca vai para `ocultos`. "O que mais dá para colocar?" (ou
+  "quais de cobrança?") lista por tema o que ainda não está na Home, sem mudar
+  nada. O desenho é o do cockpit (`CATALOG_BY_ID` + `useCockpitCtx`, montado SÓ
+  com card na Home: os motores são pesados). ⚠️ Teto de 12 cards
+  (`TETO_CARDS`), dito no chat. ⚠️ Nenhum sinônimo aponta para dois itens
+  (o mais longo vence e o empate fica com o fixo: "contas bancárias" saiu do
+  caixa para o card alcançar) — a guarda também prova que TODO card do cockpit
+  tem casa e que todo card é alcançável pelo próprio sinônimo.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
