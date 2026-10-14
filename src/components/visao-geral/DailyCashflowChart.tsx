@@ -30,6 +30,7 @@ const INK = "var(--color-ink)";
 const LINE = "var(--color-text-quaternary)";
 const FAINT = "var(--color-text-tertiary)";
 import { chartAnim } from "@/lib/chart-anim";
+import { RAIO_BASE, RAIO_TOPO } from "@/lib/grafico";
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -165,12 +166,12 @@ export function DailyCashflowChart() {
                   dois realces para o mesmo dia. */}
               <Tooltip content={<CashflowTooltip />} cursor={false} />
               {filtro !== "saida" && (
-                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={[4, 4, 0, 0]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={RAIO_TOPO} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
                   {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
               {filtro !== "entrada" && (
-                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={[0, 0, 4, 4]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={RAIO_BASE} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
                   {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}

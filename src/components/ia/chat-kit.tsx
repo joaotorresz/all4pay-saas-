@@ -18,6 +18,7 @@ import { Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
+import { RAIO_DIREITA } from "@/lib/grafico";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -173,7 +174,7 @@ export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
                 contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}
                 formatter={(v: number | string) => formatBRL(Number(v))}
               />
-              <Bar dataKey="valor" fill={cor} radius={[0, 4, 4, 0]} barSize={10} {...chartAnim()} />
+              <Bar dataKey="valor" fill={cor} radius={RAIO_DIREITA} barSize={10} {...chartAnim()} />
             </BarChart>
           )}
         </ResponsiveContainer>

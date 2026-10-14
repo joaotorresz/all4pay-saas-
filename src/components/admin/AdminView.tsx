@@ -22,6 +22,7 @@ import {
   getPinbankAdmin, vincularPinbank, desvincularPinbank, type PinbankVinculoAdmin, type PinbankQuarentena,
   type SubStatus, type AdminPlan, type UserDetalhe, type AdminOrg,
 } from "@/lib/admin";
+import { RAIO_TOPO } from "@/lib/grafico";
 
 /*
  * ⚠️ **"Sem assinatura" precisou de linha PRÓPRIA.** A lista não tinha o estado
@@ -350,7 +351,7 @@ function GrowthCard() {
                 <div className="text-muted tabular-nums">base: {payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0}</div>
               </div>
             ) : null} />
-            <Bar dataKey="novas" radius={[3, 3, 0, 0]} fill="var(--color-lime)" />
+            <Bar dataKey="novas" radius={RAIO_TOPO} fill="var(--color-lime)" />
             <Line dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={1.6} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>

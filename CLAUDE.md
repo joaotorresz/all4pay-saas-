@@ -226,6 +226,25 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ GRÁFICOS E TABELAS (14/10/2026, canvas "Quattro ERP · Gráficos e tabelas")
+
+Canvas https://claude.ai/artifact/4rYK8bAPxeZsitQFAqozJU (cópia em
+`docs/design/canvas-quattro-erp/graficos/`). Levado ao sistema por PAPEL, não
+gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
+(só tema claro):
+
+- **Linha** em verde-base (`--color-chart-line` vira `--erp-graf-serie-1` no
+  `.ds-visor` claro), 1,6px; **área** lime; **comparação** (período anterior)
+  em areia tracejada 5/5 (`COMPARACAO`/`--erp-graf-comparacao`).
+- **Grade** `#E2E2E2` tracejada 3/4, por CSS sobre `.recharts-cartesian-grid`.
+- **Barra** com raio 6: `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` de
+  `lib/grafico.ts` (o Recharts só aceita raio por prop).
+- **Séries 1–5**: verde-base, areia, lime, cinza 2, cinza médio (`SERIES`).
+- **Tabela**: cabeçalho em micro-rótulo (11px, 500, caixa alta, 0,08em),
+  divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.
+- **Situação** (`StatusBadge`): PÍLULA com ponto — fundo da cor a 14%, texto
+  sempre verde-base. Isto inverte a regra antiga "nunca pílula preenchida".
+
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 
 Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza

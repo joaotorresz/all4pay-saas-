@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Velas · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div style="width: 1280px; height: 640px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px">
+  <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Velas</h1>
+
+  <div style="background: #f6f6f6; border-radius: 20px; padding: 28px 32px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 500">Saldo por semana</h2>
+        <span style="font-size: 13px; color: #6B7060">Abertura, fechamento, mínimo e máximo do saldo em cada semana</span>
+      </div>
+      <div style="display: flex; gap: 16px; font-size: 12px; color: #6B7060">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 14px; border-radius: 2px; background: {{corAlta}}"></span>Fechou acima</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 14px; border-radius: 2px; background: {{corBaixa}}"></span>Fechou abaixo</span>
+      </div>
+    </div>
+    <svg width="100%" height="380" viewBox="0 0 1120 380" preserveAspectRatio="none" role="img" aria-label="Saldo semanal em velas, doze semanas, com tendência de alta">
+      <sc-for list="{{grade}}" as="g" hint-placeholder-count="4">
+        <line x1="0" y1="{{g.y}}" x2="1120" y2="{{g.y}}" stroke="#e2e2e2" stroke-dasharray="3 4"></line>
+      </sc-for>
+      <sc-for list="{{velas}}" as="v" hint-placeholder-count="12">
+        <line x1="{{v.cx}}" y1="{{v.yMax}}" x2="{{v.cx}}" y2="{{v.yMin}}" stroke="{{v.cor}}" stroke-width="{{pavio}}"></line>
+        <rect x="{{v.x}}" y="{{v.y}}" width="{{v.w}}" height="{{v.h}}" rx="{{raio}}" fill="{{v.cor}}"></rect>
+      </sc-for>
+    </svg>
+    <div style="display: flex; justify-content: space-around; font-size: 11px; color: #6B7060">
+      <sc-for list="{{velas}}" as="v" hint-placeholder-count="12"><span>{{v.rotulo}}</span></sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"corAlta":{"editor":"color","default":"#3B4332","section":"Cores"},"corBaixa":{"editor":"color","default":"#B5B594","section":"Cores"},"largura":{"editor":"range","default":0.5,"min":0.2,"max":0.9,"step":0.05,"section":"Forma"},"raio":{"editor":"range","default":3,"min":0,"max":10,"step":1,"unit":"px","section":"Forma"},"pavio":{"editor":"range","default":1.5,"min":0.5,"max":4,"step":0.5,"unit":"px","section":"Forma"},"$preview":{"width":1280,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const d = [[100,112,96,118],[112,108,102,120],[108,124,104,128],[124,130,118,136],[130,122,116,134],[122,138,120,142],[138,146,132,150],[146,140,134,152],[140,156,138,160],[156,168,150,172],[168,162,154,174],[162,178,158,182]];
+    const W = 1120, topo = 20, base = 360, min = 90, max = 190;
+    const y = (v) => base - ((v - min) / (max - min)) * (base - topo);
+    const passo = W / d.length;
+    const larg = passo * (p.largura ?? 0.5);
+    const alta = p.corAlta ?? '#3B4332', baixa = p.corBaixa ?? '#B5B594';
+    const velas = d.map(([ab, fe, mi, ma], i) => {
+      const cx = passo * i + passo / 2;
+      const y1 = y(Math.max(ab, fe)), y2 = y(Math.min(ab, fe));
+      return { cx: cx.toFixed(1), x: (cx - larg / 2).toFixed(1), w: larg.toFixed(1), y: y1.toFixed(1), h: Math.max(2, y2 - y1).toFixed(1), yMax: y(ma).toFixed(1), yMin: y(mi).toFixed(1), cor: fe >= ab ? alta : baixa, rotulo: 'S' + (i + 1) };
+    });
+    return {
+      velas,
+      grade: [0.25, 0.5, 0.75, 1].map((f) => ({ y: topo + (base - topo) * f })),
+      corAlta: alta, corBaixa: baixa, raio: p.raio ?? 3, pavio: p.pavio ?? 1.5,
+    };
+  }
+}
+</script>
+</body>
+</html>
