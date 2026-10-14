@@ -86,27 +86,30 @@ export default async function homeAjuste(navegador) {
   const recarregada = await ordem();
   v.ok(recarregada[0] === "acao" && recarregada.indexOf("pagar") < recarregada.indexOf("caixa"), "recarregar mantém o arranjo", recarregada.join(","));
 
-  // 7) escondido tem caminho de volta pela própria Home
+  // 7) escondido volta pela conversa (a linha "itens escondidos" saiu da Home, decisão do dono)
   await abrir();
   await pedir("não preciso do ARR nem do runway");
   await verHome();
-  const aviso = u.page.locator('[data-home="escondidos"]');
-  v.ok(/2 itens escondidos/.test(await aviso.innerText()), "a Home diz quantos itens estão escondidos");
-  await aviso.getByRole("button", { name: "Mostrar de novo" }).click();
-  await u.page.waitForTimeout(300);
-  v.ok((await ordem()).length === 9 && (await aviso.count()) === 0, "\"Mostrar de novo\" traz todos de volta");
+  v.ok((await ordem()).length === 7 && (await u.page.locator('[data-home="escondidos"]').count()) === 0, "esconder tira os itens sem deixar linha de aviso na Home", (await ordem()).join(","));
+  await abrir();
+  await pedir("traz o ARR e o runway de volta");
+  await verHome();
+  v.ok((await ordem()).length === 9, "pedir de volta traz os dois", (await ordem()).join(","));
 
   // 8) cards de outras telas entram pela conversa, saem pelo X, e o chat diz o que dá para pôr
   await abrir();
   const r4 = await pedir("coloca a inadimplência e o EBITDA");
-  v.ok(/Na Home agora: Inadimplência, EBITDA/.test(r4), "o chat diz os cards que entraram", r4.slice(0, 160));
+  v.ok(/Na Home agora, no topo de "Seu painel": Inadimplência, EBITDA/.test(r4), "o chat diz os cards que entraram", r4.slice(0, 160));
   await verHome();
   const secao = u.page.locator('[data-home="cards"]');
   await secao.waitFor({ timeout: 15000 });
   const cards = await secao.locator("[data-item-home]").evaluateAll((els) => els.map((e) => e.getAttribute("data-item-home")));
-  v.ok(cards.join(",") === "card:inadimplencia_pct,card:ebitda-mes", "a seção \"Seus cards\" mostra os dois, na ordem pedida", cards.join(","));
+  v.ok(cards.join(",") === "card:inadimplencia_pct,card:ebitda-mes", "os dois cards entram, na ordem pedida", cards.join(","));
+  v.ok((await ordem()).slice(0, 2).join(",") === "card:inadimplencia_pct,card:ebitda-mes", "e entram PRIMEIRO na página", (await ordem()).slice(0, 4).join(","));
+  const doPainel = secao.locator("xpath=ancestor::section[1]");
+  v.ok(/Seu painel/.test(await doPainel.locator("h2").first().innerText()) && (await u.page.getByText("Seus cards").count()) === 0, "dentro de \"Seu painel\", sem seção à parte");
   const texto = (await secao.innerText()).replace(/\s+/g, " ");
-  v.ok(/Seus cards/.test(texto) && /R\$|%|—/.test(texto), "os cards chegam desenhados, com número", texto.slice(0, 160));
+  v.ok(/R\$|%|—/.test(texto), "os cards chegam desenhados, com número", texto.slice(0, 160));
   await secao.getByRole("button", { name: "Tirar Inadimplência da Home" }).click();
   await u.page.waitForTimeout(300);
   v.ok((await ordem()).filter((x) => x.startsWith("card:")).join(",") === "card:ebitda-mes", "o X tira o card da Home", (await ordem()).join(","));
@@ -114,6 +117,15 @@ export default async function homeAjuste(navegador) {
   const r5 = await pedir("o que mais dá para colocar?");
   v.ok(/dá para colocar/.test(r5) && /Cobrança: .*Inadimplência/.test(r5) && !/Resultado do mês: [^.]*\bEBITDA\b/.test(r5), "o chat lista por tema o que ainda não está na Home", r5.slice(0, 200));
   v.ok((await ordem()).filter((x) => x.startsWith("card:")).join(",") === "card:ebitda-mes", "perguntar não mexe na Home");
+  await chat().getByRole("button", { name: "Fechar chat" }).click();
+  await chat().waitFor({ state: "detached", timeout: 8000 });
+
+  // 8b) pedido com outras palavras e nome de tema
+  await abrir();
+  const r6 = await pedir("coloque as movimentacoes do meu mes");
+  v.ok(/Movimentos no mês/.test(r6), "\"coloque as movimentações do meu mês\" é entendido", r6.slice(0, 160));
+  const r7 = await pedir("Resumo executivo:");
+  v.ok(/Resumo executivo:/.test(r7) && !/Não encontrei/.test(r7), "o nome de um tema lista os cards dele", r7.slice(0, 160));
   await chat().getByRole("button", { name: "Fechar chat" }).click();
   await chat().waitFor({ state: "detached", timeout: 8000 });
 

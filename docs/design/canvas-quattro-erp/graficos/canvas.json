@@ -1,0 +1,84 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Biblioteca.dc.html": {
+      "h": 1932,
+      "title": "Biblioteca de gráficos",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "Tabela.dc.html": {
+      "h": 760,
+      "title": "Tabela",
+      "w": 1280,
+      "x": 0,
+      "y": 2192
+    },
+    "TabelaCadastro.dc.html": {
+      "h": 760,
+      "title": "Cadastro (clientes)",
+      "w": 1280,
+      "x": 1360,
+      "y": 3132
+    },
+    "TabelaCelular.dc.html": {
+      "h": 844,
+      "title": "Tabela no celular",
+      "w": 390,
+      "x": 2720,
+      "y": 2192
+    },
+    "TabelaDRE.dc.html": {
+      "h": 820,
+      "title": "DRE em cascata",
+      "w": 1280,
+      "x": 1360,
+      "y": 2192
+    },
+    "TabelaExtrato.dc.html": {
+      "h": 820,
+      "title": "Extrato por dia",
+      "w": 1280,
+      "x": 0,
+      "y": 3132
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-14T16:50:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "tabelas": {
+      "kind": "title1",
+      "maxW": 2640,
+      "text": "Tabelas do sistema",
+      "w": 240,
+      "x": 0,
+      "y": 2056
+    },
+    "titulo": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "Gráficos e tabelas · Quattro ERP",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Biblioteca.dc.html",
+    "Tabela.dc.html",
+    "TabelaDRE.dc.html",
+    "TabelaExtrato.dc.html",
+    "TabelaCadastro.dc.html",
+    "TabelaCelular.dc.html"
+  ],
+  "pages": [],
+  "title": "Quattro ERP · Gráficos e tabelas"
+}

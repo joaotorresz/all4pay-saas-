@@ -108,6 +108,10 @@ tela mostra variação). Gráficos de entrada × saída: entradas em
   ("+2,4% em 30 dias"), verde ao subir e vermelha ao cair, desenhada pelo
   dono no canvas. Só a função `Pilula` de `visao-geral/HomeSnapshot.tsx`;
   o número ao lado segue em tinta e a guarda `cor:` reprova qualquer outra.
+- ⚠️ **SEGUNDA exceção declarada (14/10/2026): a PÍLULA DE VARIAÇÃO das dicas
+  dos gráficos** (`VariacaoPill` em `ui/Grafico.tsx`), desenhada pelo dono na
+  prancheta "Biblioteca de gráficos". Mesma regra: só a pílula pinta; o número
+  da dica fica em tinta. A guarda `cor:` conhece as duas e só as duas.
 - ⚠️ **A guarda antiga do DRE ("todo cartão recebe a cor de prejuízo") foi
   INVERTIDA, não apagada:** agora ela prova que a cor não voltou. E há
   **teto ZERO** no sistema inteiro (`cor:` em `npm run consistencia`) para cor
@@ -244,6 +248,27 @@ gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
   divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.
 - **Situação** (`StatusBadge`): PÍLULA com ponto — fundo da cor a 14%, texto
   sempre verde-base. Isto inverte a regra antiga "nunca pílula preenchida".
+- **Biblioteca de gráficos (14/10/2026)** — prancheta que reúne os 24 modelos
+  (os 20 do print de referência + Linha, Barras, Velas e Rosca) num painel só.
+  Levada ao sistema por PAPEL:
+  - **Linha 1px, ponto 2px com borda 1px, selecionado 5px; grade CHEIA**
+    (deixou de ser tracejada); **comparação** areia 0,6px tracejada 2/2
+    (`COMPARACAO`).
+  - **Área em DEGRADÊ** lime de 50% a 5% — `DegradeArea` (`ui/Grafico.tsx`)
+    no `<defs>`; os seis degradês próprios das telas saíram.
+  - **UMA dica ao passar o mouse**: `DicaGrafico` / `DicaRecharts`
+    (`ui/Grafico.tsx`, tokens `--erp-dica-*`): branco, raio 16, padding 14/15,
+    sombra, rótulo 10px, valor 15px, 7px entre os dois. A dica padrão do
+    Recharts (`formatter`/`contentStyle`) ganha o mesmo desenho por CSS. ⚠️
+    Dica nova de gráfico nasce destas peças, nunca de um `div` próprio — eram
+    trinta desenhos diferentes.
+  - **Pílula de variação** (`VariacaoPill`): proporcional ao número (0,5),
+    texto centrado, frase dentro ("+4,1% sobre setembro"); sem base diz "sem
+    base de comparação", nunca "0,0%". Nos comparativos do fluxo de caixa ela
+    sai de (atual − anterior) ÷ |anterior|.
+  - Os 20 modelos novos (mapa de calor, radar, rosca de anéis, blocos, poupado
+    em líquido…) ficam como REFERÊNCIA na pasta do canvas: viram componente
+    quando uma tela os usar, com as mesmas peças.
 
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 
@@ -368,7 +393,9 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   oferece Desfazer (arranjo E prioridades de antes). O texto também alimenta as
   prioridades das sugestões (`interessesDaDescricao`). ⚠️ "Fluxo de caixa" é o
   RELATÓRIO, não o caixa: o sinônimo mais longo casa primeiro. ⚠️ Item
-  escondido tem caminho de volta na própria Home ("Mostrar de novo"); item que
+  escondido volta PELA CONVERSA ("traz o ARR de volta", "volta ao padrão"): a
+  linha "N itens escondidos · Mostrar de novo" SAIU da Home a pedido do dono
+  (14/10/2026), e a guarda prova que ela não voltou; item que
   falta num arranjo guardado volta no lugar padrão DO SEU GRUPO, nunca some.
   A seção do primeiro item visível vem primeiro ("o que precisa de ação
   primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
@@ -376,8 +403,9 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
 - **BIBLIOTECA DE CARDS (14/10/2026, pedido do dono).** Os cards prontos do
   cockpit (`core/home/biblioteca`, 92 — os 4 que repetem o painel ficam de fora
   por `EQUIVALENTES_AO_PAINEL`) ficam OCULTOS e entram na Home pela conversa
-  ("coloca a inadimplência e o EBITDA", "bota os custos fixos em cima"), na
-  seção "Seus cards", com id `card:<id do cockpit>` no MESMO arranjo. Saem pelo
+  ("coloca a inadimplência e o EBITDA", "bota os custos fixos em cima")
+  PRIMEIRO na página, DENTRO de "Seu painel", acima dos números fixos — não há
+  seção "Seus cards" (decisão do dono, 14/10/2026) —, com id `card:<id do cockpit>` no MESMO arranjo. Saem pelo
   pedido ("tira…", "só…", "volta ao padrão") ou pelo X do card — card que sai
   deixa a ordem, nunca vai para `ocultos`. "O que mais dá para colocar?" (ou
   "quais de cobrança?") lista por tema o que ainda não está na Home, sem mudar
@@ -387,6 +415,15 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   (o mais longo vence e o empate fica com o fixo: "contas bancárias" saiu do
   caixa para o card alcançar) — a guarda também prova que TODO card do cockpit
   tem casa e que todo card é alcançável pelo próprio sinônimo.
+  ⚠️ **Texto livre** (14/10/2026: "coloque as movimentações do meu mês" não
+  era entendido): sem sinônimo exato, `itemAproximado` casa por RAIZ (5
+  letras, sem palavras vazias nem verbos de pedido) e só devolve item quando
+  TODAS as raízes do pedido são dele e o candidato é único — saudação e
+  palavra solta ("mês") não escolhem item ao acaso. O NOME de um tema
+  ("Resumo executivo") lista os cards dele. ⚠️ Em produção o chat (Home e
+  ajuste) vem respondendo pelas REGRAS, não pelo Claude (14/10/2026: o
+  `ai_actions` só tem a resposta determinística) — conferir
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` na Vercel por `GET /api/inbox/ocr`.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 

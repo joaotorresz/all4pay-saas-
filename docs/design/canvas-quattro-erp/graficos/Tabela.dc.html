@@ -14,9 +14,11 @@
 @font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
 body{margin:0}
 *{box-sizing:border-box}
+.t-linha{transition:background-color .15s ease;cursor:pointer}
+.t-linha:hover{background-color:var(--hover) !important}
 </style>
 </helmet>
-<div style="width: 1280px; height: 760px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px">
+<div style="width: 1280px; height: 760px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
   <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Tabela</h1>
 
   <div style="background: #f6f6f6; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1">
@@ -44,8 +46,8 @@ body{margin:0}
         </thead>
         <tbody>
           <sc-for list="{{linhas}}" as="l" hint-placeholder-count="8">
-            <tr style="background: {{l.fundo}}; border-top: 1px solid {{linhaDivisoria}}">
-              <td style="padding: {{altura}}px 20px; color: #6B7060; font-variant-numeric: tabular-nums">{{l.venc}}</td>
+            <tr class="t-linha" style="background-color: {{l.fundo}}; border-top: {{espessuraDivisoria}}px solid {{linhaDivisoria}}">
+              <td style="padding: {{altura}}px 20px; color: #6B7060; font-variant-numeric: tabular-nums; box-shadow: {{l.marca}}">{{l.venc}}</td>
               <td style="padding: {{altura}}px 20px; font-weight: 500">{{l.nome}}</td>
               <td style="padding: {{altura}}px 20px; color: #6B7060">{{l.cat}}</td>
               <td style="padding: {{altura}}px 20px">
@@ -68,7 +70,7 @@ body{margin:0}
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"zebra":{"editor":"boolean","default":false,"section":"Linhas"},"altura":{"editor":"range","default":14,"min":8,"max":24,"step":1,"unit":"px","section":"Linhas"},"linhaDivisoria":{"editor":"color","default":"#f4f4f4","section":"Linhas"},"fundoCabecalho":{"editor":"color","default":"#ffffff","section":"Cabeçalho"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Forma"},"$preview":{"width":1280,"height":760}}'>
+<script type="text/x-dc" data-dc-script data-props='{"zebra":{"editor":"boolean","default":false,"section":"Linhas"},"altura":{"editor":"range","default":14,"min":8,"max":24,"step":1,"unit":"px","section":"Linhas"},"linhaDivisoria":{"editor":"color","default":"#f4f4f4","section":"Linhas"},"fundoCabecalho":{"editor":"color","default":"#ffffff","section":"Cabeçalho"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Forma"},"espessuraDivisoria": {"editor": "range", "default": 1, "min": 0, "max": 3, "step": 0.5, "unit": "px", "section": "Linhas"}, "corHover": {"editor": "color", "default": "#fafafa", "section": "Interação"}, "linhaSelecionada": {"editor": "select", "default": "3", "options": ["Nenhuma", "1", "2", "3", "4", "5", "6", "7", "8"], "section": "Interação"}, "corSelecao": {"editor": "color", "default": "#f6f6f6", "section": "Interação"}, "marcaSelecao": {"editor": "color", "default": "#ECFD52", "section": "Interação"}, "espessuraMarca": {"editor": "range", "default": 3, "min": 0, "max": 8, "step": 1, "unit": "px", "section": "Interação"},"$preview":{"width":1280,"height":760}}'>
 class Component extends DCLogic {
   renderVals() {
     const p = this.props;
@@ -88,10 +90,13 @@ class Component extends DCLogic {
       ['28/10', 'Software Cloud', 'Assinaturas', 'A vencer', 1269],
       ['02/10', 'Transportes Rio', 'Fornecedores', 'Vencido', 15400],
     ];
+    const selLinha = String(p.linhaSelecionada ?? '3');
+    const marcaSel = 'inset ' + (p.espessuraMarca ?? 3) + 'px 0 0 ' + (p.marcaSelecao ?? '#ECFD52');
+    const fundoSel = p.corSelecao ?? '#f6f6f6';
     const zebra = p.zebra ?? false;
     const linhas = dados.map(([venc, nome, cat, situacao, v], i) => {
       const [inteiro, cent] = v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
-      return { venc, nome, cat, situacao, inteiro: 'R$' + inteiro, cent: ',' + cent, tagCor: sit[situacao][0], tagFundo: sit[situacao][1], fundo: zebra && i % 2 ? '#fafafa' : '#ffffff' };
+      return { venc, nome, cat, situacao, inteiro: 'R$' + inteiro, cent: ',' + cent, tagCor: sit[situacao][0], tagFundo: sit[situacao][1], fundo: String(i + 1) === selLinha ? fundoSel : (zebra && i % 2 ? '#fafafa' : '#ffffff'), marca: String(i + 1) === selLinha ? marcaSel : 'none' };
     });
     return {
       linhas,
@@ -99,6 +104,8 @@ class Component extends DCLogic {
       linhaDivisoria: p.linhaDivisoria ?? '#f4f4f4',
       fundoCabecalho: p.fundoCabecalho ?? '#ffffff',
       raio: p.raio ?? 16,
+      espessuraDivisoria: p.espessuraDivisoria ?? 1,
+      corHover: p.corHover ?? '#fafafa',
     };
   }
 }

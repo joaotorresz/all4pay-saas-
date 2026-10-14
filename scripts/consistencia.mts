@@ -3641,8 +3641,13 @@ const AGOSTO = janelaMes(2026, 7);
   // subir e vermelha ao cair. O NÚMERO ao lado continua na tinta. A exceção é
   // por ARQUIVO e por FUNÇÃO (`Pilula`): uma segunda cor por sinal no mesmo
   // arquivo, fora dela, continua reprovando.
+  // ⚠️ A SEGUNDA, também do dono: a pílula de variação das DICAS dos gráficos
+  // (`VariacaoPill`, canvas "Gráficos e tabelas", prancheta Biblioteca,
+  // 14/10/2026). Mesmo desenho e mesma regra — só a pílula pinta, o número
+  // da dica fica na tinta.
   const EXCECOES_COR: Record<string, string> = {
     [join("src", "components", "visao-geral", "HomeSnapshot.tsx")]: "function Pilula(",
+    [join("src", "components", "ui", "Grafico.tsx")]: "export function VariacaoPill(",
   };
   const achados: string[] = [];
   const varrer = (dir: string) => {
@@ -3666,7 +3671,7 @@ const AGOSTO = janelaMes(2026, 7);
      achados.length === 0, achados.slice(0, 8).join(" | "));
   ok("cor: a exceção da pílula existe e só cobre a função declarada",
      Object.entries(EXCECOES_COR).every(([arq, marco]) => existsSync(arq) && readFileSync(arq, "utf8").includes(marco))
-     && Object.keys(EXCECOES_COR).length === 1);
+     && Object.keys(EXCECOES_COR).length === 2);
   ok("cor: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
      COR_POR_SINAL.test('style={{ color: v >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}')
      && COR_POR_SINAL.test('className={x < 0 ? "text-negative" : "text-ink"}')
