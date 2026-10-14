@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon, InfoHint } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint, DicaGrafico, DegradeArea } from "@/components/ui";
 import { formatBRLCompact } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
@@ -342,11 +342,7 @@ function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; ruptur
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={pontos} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
-            <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-lime)" stopOpacity="0.30" />
-              <stop offset="70%" stopColor="var(--color-lime)" stopOpacity="0.06" />
-              <stop offset="100%" stopColor="var(--color-lime)" stopOpacity="0" />
-            </linearGradient>
+            <DegradeArea id="liq" />
           </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
           <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={9} />
@@ -357,10 +353,7 @@ function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; ruptur
             cursor={{ stroke: "var(--color-border)" }}
             content={({ active, payload, label }: any) =>
               active && payload?.length ? (
-                <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-                  <div className="font-medium text-ink mb-1">Dia {label}</div>
-                  <div className="text-muted tabular-nums"><BRL value={payload[0].value} /></div>
-                </div>
+                <DicaGrafico rotulo={`Dia ${label}`} valor={Number(payload[0].value)} />
               ) : null
             }
           />

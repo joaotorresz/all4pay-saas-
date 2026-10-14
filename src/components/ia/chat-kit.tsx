@@ -14,7 +14,7 @@ import Link from "next/link";
 import { valorDoTexto, type NumeroResposta } from "@/core/assistant/numero";
 import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Icon } from "@/components/ui";
+import { Icon, DegradeArea } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
@@ -145,10 +145,7 @@ export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
           {g.tipo === "linha" ? (
             <AreaChart data={g.dados} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
               <defs>
-                <linearGradient id={`${id}-glow`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
-                </linearGradient>
+                <DegradeArea id={`${id}-glow`} />
               </defs>
               <XAxis dataKey="nome" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
               <YAxis hide />

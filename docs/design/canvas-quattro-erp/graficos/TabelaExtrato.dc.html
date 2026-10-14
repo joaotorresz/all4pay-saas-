@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Extrato por dia · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+.t-linha{transition:background-color .15s ease;cursor:pointer}
+.t-linha:hover{background-color:var(--hover) !important}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
+  <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Extrato por dia</h1>
+
+  <div style="background: #f6f6f6; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{resumo}}" as="r" hint-placeholder-count="4">
+        <div style="background: #ffffff; border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; color: #6B7060">{{r.rotulo}}</span>
+          <span style="font-size: 20px; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{r.i}}<span style="font-size: 11px; color: #6B7060">{{r.c}}</span></span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="background: #ffffff; border-radius: {{raio}}px; overflow: hidden; display: flex; flex-direction: column">
+      <sc-for list="{{dias}}" as="d" hint-placeholder-count="3">
+        <div style="display: flex; justify-content: space-between; padding: 12px 20px; background: {{fundoDia}}; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">
+          <span>{{d.dia}}</span>
+          <span style="font-variant-numeric: tabular-nums">{{d.saldo}}</span>
+        </div>
+        <sc-for list="{{d.itens}}" as="t" hint-placeholder-count="3">
+          <div class="t-linha" style="display: grid; grid-template-columns: 36px 1fr 160px 160px 140px; align-items: center; gap: 14px; padding: {{altura}}px 20px; border-top: {{espessuraDivisoria}}px solid {{divisoria}}; font-size: 14px; background-color: {{t.fundo}}; box-shadow: {{t.marca}}">
+            <span style="width: 32px; height: 32px; border-radius: 999px; background: #f6f6f6; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500">{{t.ini}}</span>
+            <div style="display: flex; flex-direction: column; gap: 2px">
+              <span style="font-weight: 500">{{t.nome}}</span>
+              <span style="font-size: 12px; color: #6B7060">{{t.conta}}</span>
+            </div>
+            <span><span style="display: inline-block; padding: 4px 10px; border-radius: 16px; background: #f6f6f6; font-size: 12px; color: #3B4332">{{t.cat}}</span></span>
+            <span style="font-size: 12px; color: #6B7060">{{t.forma}}</span>
+            <span style="text-align: right; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{t.i}}<span style="font-size: 11px; color: #6B7060">{{t.c}}</span></span>
+          </div>
+        </sc-for>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"fundoDia":{"editor":"color","default":"#fafafa","section":"Grupo do dia"},"altura":{"editor":"range","default":12,"min":6,"max":22,"step":1,"unit":"px","section":"Linhas"},"divisoria":{"editor":"color","default":"#f4f4f4","section":"Linhas"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Forma"},"espessuraDivisoria": {"editor": "range", "default": 1, "min": 0, "max": 3, "step": 0.5, "unit": "px", "section": "Linhas"}, "corHover": {"editor": "color", "default": "#fafafa", "section": "Interação"}, "linhaSelecionada": {"editor": "select", "default": "2", "options": ["Nenhuma", "1", "2", "3", "4", "5", "6", "7"], "section": "Interação"}, "corSelecao": {"editor": "color", "default": "#f6f6f6", "section": "Interação"}, "marcaSelecao": {"editor": "color", "default": "#ECFD52", "section": "Interação"}, "espessuraMarca": {"editor": "range", "default": 3, "min": 0, "max": 8, "step": 1, "unit": "px", "section": "Interação"},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const fmt = (v, sinal) => {
+      const [i, c] = Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
+      const s = sinal ? (v < 0 ? '−' : '+') : (v < 0 ? '−' : '');
+      return { i: s + 'R$' + i, c: ',' + c };
+    };
+    const dados = [
+      ['Hoje · ter, 14 out', [
+        ['Distribuidora Alfa', 'Itaú · conta principal', 'Fornecedores', 'Boleto', -12640],
+        ['Loja Centro', 'Pinbank · maquininha', 'Vendas', 'Cartão de crédito', 8420.5],
+        ['Energia Sul', 'Itaú · conta principal', 'Utilidades', 'Débito automático', -1890.3],
+      ]],
+      ['Ontem · seg, 13 out', [
+        ['Construtora Mar', 'Inter · recebimentos', 'Serviços', 'Pix', 22000],
+        ['Folha de outubro', 'Itaú · conta principal', 'Folha', 'Transferência', -38450.75],
+      ]],
+      ['Sex, 10 out', [
+        ['Prefeitura', 'Itaú · conta principal', 'Impostos', 'Guia', -4210.5],
+        ['Clínica Vida', 'Inter · recebimentos', 'Serviços', 'Boleto', 6900],
+      ]],
+    ];
+    const selLinha = String(p.linhaSelecionada ?? '2');
+    const marcaSel = 'inset ' + (p.espessuraMarca ?? 3) + 'px 0 0 ' + (p.marcaSelecao ?? '#ECFD52');
+    const fundoSel = p.corSelecao ?? '#f6f6f6';
+    let ent = 0, sai = 0, n = 0, idx = 0;
+    const dias = dados.map(([dia, itens]) => {
+      const liq = itens.reduce((s, t) => s + t[4], 0);
+      itens.forEach((t) => { n++; if (t[4] > 0) ent += t[4]; else sai += t[4]; });
+      const f = fmt(liq, true);
+      return {
+        dia, saldo: f.i + f.c,
+        itens: itens.map(([nome, conta, cat, forma, v]) => {
+          idx++;
+          const ativo = String(idx) === selLinha;
+          return { nome, conta, cat, forma, ini: nome.slice(0, 1), ...fmt(v, true), fundo: ativo ? fundoSel : '#ffffff', marca: ativo ? marcaSel : 'none' };
+        }),
+      };
+    });
+    const r = (rotulo, v, s) => ({ rotulo, ...fmt(v, s) });
+    return {
+      resumo: [
+        { rotulo: 'Lançamentos', i: String(n), c: '' },
+        r('Entradas', ent, false),
+        r('Saídas', sai, false),
+        r('Resultado', ent + sai, true),
+      ],
+      dias,
+      fundoDia: p.fundoDia ?? '#fafafa',
+      altura: p.altura ?? 12,
+      divisoria: p.divisoria ?? '#f4f4f4',
+      raio: p.raio ?? 16,
+      espessuraDivisoria: p.espessuraDivisoria ?? 1,
+      corHover: p.corHover ?? '#fafafa',
+    };
+  }
+}
+</script>
+</body>
+</html>

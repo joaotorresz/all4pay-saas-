@@ -19,7 +19,7 @@ import * as React from "react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, PieChart, Pie, Cell,
 } from "recharts";
-import { Card, BRL, Icon, Skeleton } from "@/components/ui";
+import { Card, BRL, Icon, Skeleton, DicaGrafico } from "@/components/ui";
 import { useRiscoInput, useRegrasRecorrentes } from "@/components/visao-geral/hooks";
 import { formatBRL, pct } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
@@ -505,28 +505,19 @@ function ProjecaoTooltip({ active, payload, label }: {
   const de = (k: string) => payload.find((p) => p.dataKey === k)?.value ?? 0;
   const realizado = de("realizado");
   const projetado = de("projetado");
+  const linhas = [
+    ...(realizado > 0 ? [{ cor: "var(--erp-graf-serie-1)", nome: "Realizado", valor: realizado }] : []),
+    ...(projetado > 0 ? [{ cor: "var(--erp-graf-serie-2)", nome: "Projetado", valor: projetado }] : []),
+  ];
   return (
-    <div className="rounded-card bg-white shadow-popover px-4 py-3 min-w-[210px]">
-      <p className="m-0 text-caption text-muted">{label ? rotuloMes(String(label)) : ""}</p>
-      <p className="m-0 mt-1 a4p-num text-[17px] text-ink">
-        <BRL value={realizado + projetado} />
-      </p>
-      {realizado > 0 && (
-        <p className="m-0 mt-2 text-caption text-muted flex items-center justify-between gap-4">
-          <span>Realizado</span><span className="tabular-nums">{formatBRL(realizado)}</span>
-        </p>
-      )}
-      {projetado > 0 && (
-        <>
-          <p className="m-0 mt-1 text-caption text-muted flex items-center justify-between gap-4">
-            <span>Projetado</span><span className="tabular-nums">{formatBRL(projetado)}</span>
-          </p>
-          {/* ⚠️ O tooltip DIZ que é estimativa. Sem isso o número de novembro
-              tem a mesma cara do de julho, e um deles ainda não aconteceu. */}
-          <p className="m-0 mt-2 text-caption text-warning">Estimativa a partir das regras de recorrência.</p>
-        </>
-      )}
-    </div>
+    <DicaGrafico
+      rotulo={label ? rotuloMes(String(label)) : ""}
+      valor={realizado + projetado}
+      linhas={linhas}
+      // ⚠️ A dica DIZ que é estimativa. Sem isso o número de novembro tem a
+      // mesma cara do de julho, e um deles ainda não aconteceu.
+      rodape={projetado > 0 ? <span className="text-warning">Estimativa a partir das regras de recorrência.</span> : undefined}
+    />
   );
 }
 
@@ -552,24 +543,13 @@ function VelaTooltip({ active, payload, label }: {
   const de = (k: Especie) => payload.find((p) => p.dataKey === k)?.value ?? 0;
   const total = CAMADAS.reduce((s, e) => s + de(e), 0);
   return (
-    <div className="rounded-card bg-white shadow-popover px-4 py-3 min-w-[210px]">
-      <span className="text-label text-ink">{label}</span>
-      <div className="mt-2 flex flex-col gap-[6px]">
-        {[...CAMADAS].reverse().filter((e) => de(e) > 0).map((e) => (
-          <span key={e} className="flex items-center justify-between gap-4">
-            <span className="inline-flex items-center gap-2 text-caption text-muted">
-              <span className="w-2 h-2 rounded-pill" style={{ background: TOKEN_ESPECIE[e] }} />
-              {ROTULO_ESPECIE[e]}
-            </span>
-            <span className="a4p-num text-caption text-ink"><BRL value={de(e)} showDecimals={false} /></span>
-          </span>
-        ))}
-        <span className="border-t border-border-soft pt-[6px] flex items-center justify-between gap-4">
-          <span className="text-caption text-muted">Total</span>
-          <span className="a4p-num text-caption text-ink"><BRL value={total} showDecimals={false} /></span>
-        </span>
-      </div>
-    </div>
+    <DicaGrafico
+      rotulo={label}
+      linhas={[...CAMADAS].reverse().filter((e) => de(e) > 0).map((e) => ({
+        cor: TOKEN_ESPECIE[e], nome: ROTULO_ESPECIE[e], valor: <BRL value={de(e)} showDecimals={false} />,
+      }))}
+      rodape={<>Total <BRL value={total} showDecimals={false} /></>}
+    />
   );
 }
 

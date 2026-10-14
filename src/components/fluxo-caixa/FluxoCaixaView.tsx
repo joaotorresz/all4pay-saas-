@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
 } from "recharts";
-import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo, DegradeArea } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
@@ -541,11 +541,7 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={bandas} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="projGlow" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.20} />
-                <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.05} />
-                <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
-              </linearGradient>
+              <DegradeArea id="projGlow" />
             </defs>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="data" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={(d: string) => d.slice(5)} minTickGap={28} />

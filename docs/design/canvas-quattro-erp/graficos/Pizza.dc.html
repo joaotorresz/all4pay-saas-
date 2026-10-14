@@ -14,32 +14,38 @@
 @font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
 body{margin:0}
 *{box-sizing:border-box}
+.p-arco{cursor:pointer;transition:stroke .15s ease}
+.p-arco:hover{stroke:var(--hover)}
+.p-fatia{cursor:pointer;transition:fill .15s ease}
+.p-fatia:hover{fill:var(--hover)}
+.p-leg{border-radius:10px;transition:background-color .15s ease}
+.p-leg:hover{background-color:#ffffff}
 </style>
 </helmet>
-<div style="width: 1280px; height: 640px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px">
+<div style="width: 1280px; height: 640px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
   <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Pizza e rosca</h1>
 
   <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; flex: 1">
     <div style="background: #f6f6f6; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <h2 style="margin: 0; font-size: 17px; font-weight: 500">Receita por origem (rosca)</h2>
       <div style="display: flex; align-items: center; gap: 32px; flex: 1">
-        <div style="position: relative; width: 260px; height: 260px; flex: none">
-          <svg width="260" height="260" viewBox="0 0 260 260" role="img" aria-label="Receita: serviços 46%, produtos 28%, assinaturas 18%, outros 8%">
-            <circle cx="130" cy="130" r="{{raioRosca}}" fill="none" stroke="#ffffff" stroke-width="{{espessura}}"></circle>
+        <div style="position: relative; width: {{tamanho}}px; height: {{tamanho}}px; flex: none">
+          <svg width="{{tamanho}}" height="{{tamanho}}" viewBox="0 0 280 280" role="img" aria-label="Receita: serviços 46%, produtos 28%, assinaturas 18%, outros 8%">
+            <circle cx="140" cy="140" r="{{raioRosca}}" fill="none" stroke="#ffffff" stroke-width="{{espessura}}"></circle>
             <sc-for list="{{rosca}}" as="s" hint-placeholder-count="4">
-              <circle cx="130" cy="130" r="{{raioRosca}}" fill="none" stroke="{{s.cor}}" stroke-width="{{espessura}}" stroke-dasharray="{{s.dash}}" stroke-dashoffset="{{s.offset}}" transform="rotate(-90 130 130)"></circle>
+              <circle class="p-arco" cx="140" cy="140" r="{{raioRosca}}" fill="none" stroke="{{s.cor}}" stroke-width="{{s.esp}}" stroke-linecap="{{ponta}}" stroke-dasharray="{{s.dash}}" stroke-dashoffset="{{s.offset}}" transform="rotate(-90 140 140)" opacity="{{s.opacidade}}"></circle>
             </sc-for>
           </svg>
-          <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px">
-            <span style="font-size: 12px; color: #6B7060">Total</span>
-            <span style="font-size: 22px; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">R$312 mil</span>
+          <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; pointer-events: none">
+            <span style="font-size: 12px; color: #6B7060">{{centro.rotulo}}</span>
+            <span style="font-size: 22px; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{centro.valor}}</span>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 12px; flex: 1">
+        <div style="display: flex; flex-direction: column; gap: {{espacoLegenda}}px; flex: 1">
           <sc-for list="{{rosca}}" as="s" hint-placeholder-count="4">
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px">
+            <div class="p-leg" style="display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 8px; background: {{s.fundoLeg}}">
               <span style="width: 10px; height: 10px; border-radius: 999px; background: {{s.cor}}"></span>
-              <span style="flex: 1">{{s.nome}}</span>
+              <span style="flex: 1; font-weight: {{s.peso}}">{{s.nome}}</span>
               <span style="font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{s.pct}}%</span>
             </div>
           </sc-for>
@@ -50,16 +56,16 @@ body{margin:0}
     <div style="background: #f6f6f6; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <h2 style="margin: 0; font-size: 17px; font-weight: 500">Despesas por categoria (pizza)</h2>
       <div style="display: flex; align-items: center; gap: 32px; flex: 1">
-        <svg width="260" height="260" viewBox="0 0 260 260" role="img" aria-label="Despesas: folha 39%, fornecedores 29%, impostos 17%, aluguel 9%, outros 6%" style="flex: none">
+        <svg width="{{tamanho}}" height="{{tamanho}}" viewBox="0 0 280 280" role="img" aria-label="Despesas: folha 39%, fornecedores 29%, impostos 17%, aluguel 9%, outros 6%" style="flex: none">
           <sc-for list="{{pizza}}" as="f" hint-placeholder-count="5">
-            <path d="{{f.d}}" fill="{{f.cor}}" stroke="#f6f6f6" stroke-width="{{separacao}}"></path>
+            <path class="p-fatia" d="{{f.d}}" fill="{{f.cor}}" stroke="#f6f6f6" stroke-width="{{separacao}}" stroke-linejoin="round" transform="{{f.mover}}" opacity="{{f.opacidade}}"></path>
           </sc-for>
         </svg>
-        <div style="display: flex; flex-direction: column; gap: 12px; flex: 1">
+        <div style="display: flex; flex-direction: column; gap: {{espacoLegenda}}px; flex: 1">
           <sc-for list="{{pizza}}" as="f" hint-placeholder-count="5">
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px">
+            <div class="p-leg" style="display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 8px; background: {{f.fundoLeg}}">
               <span style="width: 10px; height: 10px; border-radius: 999px; background: {{f.cor}}"></span>
-              <span style="flex: 1">{{f.nome}}</span>
+              <span style="flex: 1; font-weight: {{f.peso}}">{{f.nome}}</span>
               <span style="font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{f.pct}}%</span>
             </div>
           </sc-for>
@@ -69,35 +75,62 @@ body{margin:0}
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"cor1":{"editor":"color","default":"#3B4332","section":"Cores"},"cor2":{"editor":"color","default":"#6B7060","section":"Cores"},"cor3":{"editor":"color","default":"#B5B594","section":"Cores"},"cor4":{"editor":"color","default":"#ECFD52","section":"Cores"},"cor5":{"editor":"color","default":"#D6D8CA","section":"Cores"},"espessura":{"editor":"range","default":34,"min":8,"max":80,"step":1,"unit":"px","section":"Rosca"},"separacao":{"editor":"range","default":2,"min":0,"max":8,"step":1,"unit":"px","section":"Pizza"},"$preview":{"width":1280,"height":640}}'>
+<script type="text/x-dc" data-dc-script data-props='{"cor1":{"editor":"color","default":"#3B4332","section":"Cores"},"cor2":{"editor":"color","default":"#6B7060","section":"Cores"},"cor3":{"editor":"color","default":"#B5B594","section":"Cores"},"cor4":{"editor":"color","default":"#ECFD52","section":"Cores"},"cor5":{"editor":"color","default":"#D6D8CA","section":"Cores"},"tamanho":{"editor":"range","default":260,"min":160,"max":320,"step":10,"unit":"px","section":"Tamanho"},"espessura":{"editor":"range","default":34,"min":8,"max":80,"step":1,"unit":"px","section":"Rosca"},"espacoArcos":{"editor":"range","default":0,"min":0,"max":20,"step":1,"unit":"px","section":"Rosca"},"pontasRedondas":{"editor":"boolean","default":false,"section":"Rosca"},"separacao":{"editor":"range","default":2,"min":0,"max":10,"step":1,"unit":"px","section":"Pizza"},"corHover":{"editor":"color","default":"#6B7060","section":"Interação"},"roscaSelecionada":{"editor":"select","default":"Serviços","options":["Nenhuma","Serviços","Produtos","Assinaturas","Outros"],"section":"Interação"},"pizzaSelecionada":{"editor":"select","default":"Folha","options":["Nenhuma","Folha","Fornecedores","Impostos","Aluguel","Outros"],"section":"Interação"},"realceRosca":{"editor":"range","default":8,"min":0,"max":24,"step":1,"unit":"px","section":"Interação"},"deslocamentoPizza":{"editor":"range","default":8,"min":0,"max":20,"step":1,"unit":"px","section":"Interação"},"opacidadeOutros":{"editor":"range","default":1,"min":0.2,"max":1,"step":0.05,"section":"Interação"},"espacoLegenda":{"editor":"range","default":6,"min":0,"max":20,"step":1,"unit":"px","section":"Legenda"},"$preview":{"width":1280,"height":640}}'>
 class Component extends DCLogic {
   renderVals() {
     const p = this.props;
     const cores = [p.cor1 ?? '#3B4332', p.cor2 ?? '#6B7060', p.cor3 ?? '#B5B594', p.cor4 ?? '#ECFD52', p.cor5 ?? '#D6D8CA'];
     const espessura = p.espessura ?? 34;
-    const raioRosca = 130 - espessura / 2 - 2;
+    const realce = p.realceRosca ?? 8;
+    const raioRosca = 140 - (espessura + realce) / 2 - 2;
     const circ = 2 * Math.PI * raioRosca;
+    const gap = p.espacoArcos ?? 0;
+    const outros = p.opacidadeOutros ?? 1;
+    const selR = p.roscaSelecionada ?? 'Serviços';
     const rd = [['Serviços', 46], ['Produtos', 28], ['Assinaturas', 18], ['Outros', 8]];
     let acc = 0;
+    let centro = { rotulo: 'Total', valor: 'R$312 mil' };
     const rosca = rd.map(([nome, pct], i) => {
       const len = (pct / 100) * circ;
-      const s = { nome, pct, cor: cores[i], dash: len.toFixed(2) + ' ' + (circ - len).toFixed(2), offset: (-acc).toFixed(2) };
+      const vis = Math.max(0.5, len - gap);
+      const ativo = nome === selR;
+      if (ativo) centro = { rotulo: nome, valor: 'R$' + Math.round(312 * pct / 100) + ' mil' };
+      const s = {
+        nome, pct, cor: cores[i], dash: vis.toFixed(2) + ' ' + (circ - vis).toFixed(2), offset: (-(acc + gap / 2)).toFixed(2),
+        esp: ativo ? espessura + realce : espessura,
+        opacidade: selR === 'Nenhuma' || ativo ? 1 : outros,
+        fundoLeg: ativo ? '#ffffff' : 'transparent', peso: ativo ? 500 : 400,
+      };
       acc += len;
       return s;
     });
+    const selP = p.pizzaSelecionada ?? 'Folha';
+    const desl = p.deslocamentoPizza ?? 8;
     const pd = [['Folha', 39], ['Fornecedores', 29], ['Impostos', 17], ['Aluguel', 9], ['Outros', 6]];
     let a0 = -Math.PI / 2;
-    const R = 125, c = 130;
+    const R = 120, c = 140;
     const pizza = pd.map(([nome, pct], i) => {
       const a1 = a0 + (pct / 100) * Math.PI * 2;
       const x0 = c + R * Math.cos(a0), y0 = c + R * Math.sin(a0);
       const x1 = c + R * Math.cos(a1), y1 = c + R * Math.sin(a1);
       const big = a1 - a0 > Math.PI ? 1 : 0;
       const d = 'M' + c + ' ' + c + ' L' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + big + ' 1 ' + x1.toFixed(2) + ' ' + y1.toFixed(2) + ' Z';
+      const meio = (a0 + a1) / 2;
+      const ativo = nome === selP;
       a0 = a1;
-      return { nome, pct, cor: cores[i], d };
+      return {
+        nome, pct, cor: cores[i], d,
+        mover: ativo ? 'translate(' + (Math.cos(meio) * desl).toFixed(2) + ' ' + (Math.sin(meio) * desl).toFixed(2) + ')' : 'translate(0 0)',
+        opacidade: selP === 'Nenhuma' || ativo ? 1 : outros,
+        fundoLeg: ativo ? '#ffffff' : 'transparent', peso: ativo ? 500 : 400,
+      };
     });
-    return { rosca, pizza, espessura, raioRosca: raioRosca.toFixed(2), separacao: p.separacao ?? 2 };
+    return {
+      rosca, pizza, centro, espessura, raioRosca: raioRosca.toFixed(2),
+      separacao: p.separacao ?? 2, tamanho: p.tamanho ?? 260,
+      ponta: (p.pontasRedondas ?? false) ? 'round' : 'butt',
+      corHover: p.corHover ?? '#6B7060', espacoLegenda: p.espacoLegenda ?? 6,
+    };
   }
 }
 </script>

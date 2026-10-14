@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { Card, Icon, BRL, ValorIndicador, SemDados, type IconName } from "@/components/ui";
+import { Card, Icon, BRL, ValorIndicador, SemDados, type IconName, DicaGrafico } from "@/components/ui";
 import { useRiscoInput } from "./hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -223,29 +223,14 @@ function ResumoTooltip({ active, payload, label }: {
   const ent = de("entradas");
   const sai = de("saidas");
   return (
-    <div className="rounded-card bg-white shadow-popover px-4 py-3 min-w-[190px]">
-      <span className="a4p-label text-muted">{label}</span>
-      <div className="mt-2 flex flex-col gap-[6px]">
-        <LinhaTip cor="var(--a4p-cat-1)" nome="Entradas" valor={ent} />
-        <LinhaTip cor="var(--a4p-cat-3)" nome="Saídas" valor={sai} />
-        <span className="border-t border-border-soft pt-[6px] flex items-center justify-between gap-4">
-          <span className="text-caption text-muted">Resultado</span>
-          <span className="text-caption text-ink tabular-nums"><BRL value={ent - sai} showDecimals={false} /></span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function LinhaTip({ cor, nome, valor }: { cor: string; nome: string; valor: number }) {
-  return (
-    <span className="flex items-center justify-between gap-4">
-      <span className="inline-flex items-center gap-2 text-caption text-muted">
-        <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: cor }} />
-        {nome}
-      </span>
-      <span className="text-caption text-ink tabular-nums"><BRL value={valor} showDecimals={false} /></span>
-    </span>
+    <DicaGrafico
+      rotulo={label}
+      linhas={[
+        { cor: "var(--a4p-cat-1)", nome: "Entradas", valor: <BRL value={ent} showDecimals={false} /> },
+        { cor: "var(--a4p-cat-3)", nome: "Saídas", valor: <BRL value={sai} showDecimals={false} /> },
+      ]}
+      rodape={<>Resultado <BRL value={ent - sai} showDecimals={false} /></>}
+    />
   );
 }
 

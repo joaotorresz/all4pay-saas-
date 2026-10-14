@@ -36,3 +36,4 @@ export { AcaoDestrutiva } from "./AcaoDestrutiva";
 export { MarcaProcedencia, InfoProcedencia, LinhaProcedencia, textoDeOrigem } from "./Procedencia";
 export { ValorIndicador, SemDados, PainelOrigem, type FormatoValor } from "./ValorIndicador";
 export { NotaCancelados } from "./NotaCancelados";
+export { DicaGrafico, DicaRecharts, VariacaoPill, DegradeArea, type DicaGraficoProps, type LinhaDica, type VariacaoDica } from "./Grafico";

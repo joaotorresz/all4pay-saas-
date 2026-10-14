@@ -10,7 +10,13 @@ export const RAIO_TOPO: [number, number, number, number] = [RAIO_BARRA, RAIO_BAR
 export const RAIO_BASE: [number, number, number, number] = [0, 0, RAIO_BARRA, RAIO_BARRA];
 /** Barra horizontal (ponta direita arredondada). */
 export const RAIO_DIREITA: [number, number, number, number] = [0, RAIO_BARRA, RAIO_BARRA, 0];
-/** Linha de comparação (período anterior): areia, tracejada 5/5. */
-export const COMPARACAO = { stroke: "var(--erp-graf-comparacao)", strokeDasharray: "5 5", strokeWidth: 1.4 } as const;
+/**
+ * Linha de comparação (período anterior): areia, 0,6px, tracejada 2/2 — a
+ * prancheta Biblioteca (14/10/2026). O traço vai por PROP porque o Recharts
+ * escreve o atributo; o CSS de `--erp-graf-comparacao-*` é o espelho.
+ */
+export const COMPARACAO = { stroke: "var(--erp-graf-comparacao)", strokeDasharray: "2 2", strokeWidth: 0.6 } as const;
+/** Espessura da linha principal (o CSS já a aplica; para quem passa por prop). */
+export const ESPESSURA_LINHA = 1;
 /** As cinco séries do canvas, na ordem. */
 export const SERIES = [1, 2, 3, 4, 5].map((i) => `var(--erp-graf-serie-${i})`);
