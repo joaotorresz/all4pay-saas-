@@ -72,6 +72,10 @@ export interface SinaisHome {
   };
   /** Fração do checklist de fechamento concluída (0..1), ou null sem checklist. */
   fechamento: number | null;
+  /** O que o cliente disse ser mais importante no dia a dia (ids de `INTERESSES`). */
+  interesses?: string[];
+  /** Quantas vezes cada sugestão foi clicada (id → vezes). */
+  cliques?: Record<string, number>;
 }
 
 export interface Sugestao {
@@ -237,7 +241,7 @@ export const CATALOGO_SUGESTOES: Sugestao[] = [
 
   // ── receita recorrente
   { id: "arr-evolucao", texto: "Como evoluiu a receita recorrente nos últimos meses?", tema: "recorrencia", publico: "empresa", base: 0, regras: [
-    r(1.0, "a empresa vive de receita recorrente", recorrente),
+    r(1.3, "a empresa vive de receita recorrente", recorrente),
   ] },
   { id: "churn", texto: "Quantos clientes cancelaram a assinatura este mês?", tema: "recorrencia", publico: "empresa", base: 0, regras: [
     r(0.9, "modelo de assinatura", (s) => modelo(s, "SaaS", "Assinatura") || receita(s, "Mensalidade")),
@@ -286,6 +290,48 @@ export const CATALOGO_SUGESTOES: Sugestao[] = [
   { id: "pf-assinaturas", texto: "Quais assinaturas eu pago todo mês?", tema: "pessoal", publico: "pessoal", base: 0.3, regras: [] },
 ];
 
+/* ------------------------------ prioridades e uso ------------------------------ */
+
+/**
+ * As duas perguntas FIXAS de cada público — aparecem antes de qualquer
+ * interação, inclusive no primeiro acesso, e sempre nas duas primeiras
+ * posições. Decisão do dono (14/10/2026): "antes do chat, duas sugestões
+ * básicas e o resto de acordo com o que o cliente for interagindo".
+ */
+export const BASICAS: Record<SinaisHome["tipoConta"], string[]> = {
+  empresa: ["saude", "fechar-mes"],
+  pessoal: ["pf-gastos-mes", "pf-orcamento"],
+};
+
+export interface Interesse {
+  id: string;
+  rotulo: string;
+  publico: "empresa" | "pessoal";
+  /** As sugestões que esta prioridade puxa para cima. */
+  sugestoes: string[];
+}
+
+/** A pergunta do primeiro acesso: "o que é mais importante no seu dia a dia?". */
+export const INTERESSES: Interesse[] = [
+  { id: "calendario-pagamentos", rotulo: "Calendário de pagamentos", publico: "empresa", sugestoes: ["pagar-semana", "aprovacoes", "renegociar", "impostos"] },
+  { id: "vendas", rotulo: "Gestão de vendas", publico: "empresa", sugestoes: ["melhores-clientes", "ticket-medio", "margem-produto", "notas", "taxas-cartao"] },
+  { id: "fluxo-caixa", rotulo: "Fluxo de caixa", publico: "empresa", sugestoes: ["fluxo-3-semanas", "fluxo-13-semanas", "runway", "posso-gastar"] },
+  { id: "cobranca", rotulo: "Cobrança e recebimentos", publico: "empresa", sugestoes: ["quem-deve", "cobrar-primeiro", "receber-semana", "concentracao"] },
+  { id: "despesas", rotulo: "Controle de despesas", publico: "empresa", sugestoes: ["maiores-gastos", "burn-mudou", "cortar-despesas", "softwares"] },
+  { id: "fechamento", rotulo: "Fechamento e contabilidade", publico: "empresa", sugestoes: ["conciliar", "variacao-dre", "resultado-mes", "notas"] },
+  { id: "recorrente", rotulo: "Receita recorrente", publico: "empresa", sugestoes: ["arr-evolucao", "churn", "investidores"] },
+  { id: "impostos", rotulo: "Impostos", publico: "empresa", sugestoes: ["impostos", "notas"] },
+  { id: "pf-gastos", rotulo: "Controlar gastos", publico: "pessoal", sugestoes: ["pf-subiu", "pf-assinaturas"] },
+  { id: "pf-contas", rotulo: "Contas a pagar", publico: "pessoal", sugestoes: ["pf-contas-semana"] },
+  { id: "pf-guardar", rotulo: "Guardar dinheiro", publico: "pessoal", sugestoes: ["pf-guardar"] },
+];
+
+/** Peso de uma prioridade declarada: vence regra de perfil, perde para urgência (caixa negativo, primeiro uso). */
+const PESO_INTERESSE = 1.5;
+/** Cada clique soma um pouco, até um teto — senão uma pergunta clicada no 1º dia fica para sempre. */
+const PESO_CLIQUE = 0.25;
+const TETO_CLIQUES = 4;
+
 /* ------------------------------ a escolha ------------------------------ */
 
 /**
@@ -300,7 +346,12 @@ export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES): S
   const avaliadas = CATALOGO_SUGESTOES
     .filter((c) => c.publico === s.tipoConta)
     .map((c, ordem) => {
-      const casadas = c.regras.filter((g) => g.casa(s)).sort((a, b) => b.peso - a.peso);
+      const casadas = c.regras.filter((g) => g.casa(s));
+      const interesse = INTERESSES.find((i) => s.interesses?.includes(i.id) && i.sugestoes.includes(c.id));
+      if (interesse) casadas.push(r(PESO_INTERESSE, `você marcou ${interesse.rotulo.toLowerCase()} como prioridade`, () => true));
+      const vezes = Math.min(TETO_CLIQUES, s.cliques?.[c.id] ?? 0);
+      if (vezes > 0) casadas.push(r(PESO_CLIQUE * vezes, "você costuma perguntar isto", () => true));
+      casadas.sort((a, b) => b.peso - a.peso);
       const pontos = c.base + casadas.reduce((t, g) => t + g.peso, 0);
       return {
         ordem,
@@ -313,7 +364,15 @@ export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES): S
 
   const out: SugestaoEscolhida[] = [];
   const porTema = new Map<TemaSugestao, number>();
+  // As duas básicas primeiro, sempre — e entram na conta do tema.
+  for (const id of BASICAS[s.tipoConta]) {
+    const c = CATALOGO_SUGESTOES.find((x) => x.id === id);
+    if (!c || out.length >= limite) continue;
+    out.push({ id: c.id, texto: c.texto, tema: c.tema, pontos: 99, motivo: "sugestão básica" });
+    porTema.set(c.tema, (porTema.get(c.tema) ?? 0) + 1);
+  }
   for (const e of avaliadas) {
+    if (out.some((o) => o.id === e.id)) continue;
     if (out.length >= limite) break;
     const k = porTema.get(e.tema) ?? 0;
     if (k >= MAX_POR_TEMA) continue;
@@ -322,7 +381,7 @@ export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES): S
   }
   for (const e of avaliadas) {
     if (out.length >= limite) break;
-    if (!out.includes(e)) out.push(e);
+    if (!out.some((o) => o.id === e.id)) out.push(e);
   }
   return out;
 }
@@ -344,6 +403,8 @@ export function sinaisDaHome(args: {
   perfil: PerfilSinais | null;
   pendencias?: Partial<SinaisHome["pendencias"]>;
   fechamento?: number | null;
+  interesses?: string[];
+  cliques?: Record<string, number>;
 }): SinaisHome {
   const { snap, input } = args;
   const burn = pequeno(snap, "burn");
@@ -373,5 +434,7 @@ export function sinaisDaHome(args: {
       boletos: args.pendencias?.boletos ?? null,
     },
     fechamento: args.fechamento ?? null,
+    interesses: args.interesses ?? [],
+    cliques: args.cliques ?? {},
   };
 }

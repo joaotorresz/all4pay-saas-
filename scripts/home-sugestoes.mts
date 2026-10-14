@@ -9,7 +9,7 @@
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
-  CATALOGO_SUGESTOES, LIMITE_SUGESTOES, MAX_POR_TEMA, recomendarSugestoes, sinaisDaHome,
+  BASICAS, CATALOGO_SUGESTOES, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, recomendarSugestoes, sinaisDaHome,
   type SinaisHome,
 } from "@/core/home/sugestoes";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
@@ -53,8 +53,24 @@ for (const s of varios) {
 }
 
 // o contexto muda a lista
-ok("contexto: caixa negativo vem primeiro", ids(com({ caixa: -5000, runwayMeses: null, runwayMotivo: "caixa_negativo" }))[0] === "caixa-negativo");
-ok("contexto: primeiro uso abre com importar o extrato", ids(com({ temLancamentos: false }))[0] === "importar-extrato");
+// as duas básicas, sempre primeiro
+ok("básicas: as duas primeiras são as fixas da empresa", varios.every((s) => JSON.stringify(ids(s).slice(0, 2)) === JSON.stringify(BASICAS.empresa)));
+ok("básicas: as duas primeiras são as fixas da pessoa física", JSON.stringify(ids(com({ tipoConta: "pessoal" })).slice(0, 2)) === JSON.stringify(BASICAS.pessoal));
+ok("básicas: existem no catálogo", [...BASICAS.empresa, ...BASICAS.pessoal].every((id) => CATALOGO_SUGESTOES.some((c) => c.id === id)));
+ok("contexto: caixa negativo vem logo depois das básicas", ids(com({ caixa: -5000, runwayMeses: null, runwayMotivo: "caixa_negativo" }))[2] === "caixa-negativo");
+ok("contexto: primeiro uso traz importar o extrato logo depois das básicas", ids(com({ temLancamentos: false }))[2] === "importar-extrato");
+
+// prioridades e cliques
+ok("prioridades: toda sugestão apontada existe no catálogo", INTERESSES.every((i) => i.sugestoes.every((id) => CATALOGO_SUGESTOES.some((c) => c.id === id && c.publico === i.publico))));
+const vendas = ids(com({ interesses: ["vendas"] }));
+ok("prioridades: marcar gestão de vendas traz pergunta de vendas", vendas.some((id) => ["melhores-clientes", "ticket-medio", "margem-produto", "taxas-cartao"].includes(id)), JSON.stringify(vendas));
+ok("prioridades: (defeito plantado) sem marcar vendas, ticket médio não aparece", !ids(BASE).includes("ticket-medio"));
+ok("prioridades: marcar calendário de pagamentos traz o que vence", ids(com({ interesses: ["calendario-pagamentos"] })).includes("pagar-semana"));
+ok("cliques: a pergunta usada sobe para a lista", ids(com({ cliques: { "churn": 4 }, interesses: ["recorrente"] })).includes("churn"));
+const r1 = recomendarSugestoes(com({ cliques: { "sazonalidade": 1 } })).find((x) => x.id === "sazonalidade");
+const r4 = recomendarSugestoes(com({ cliques: { "sazonalidade": 40 } }), 50).find((x) => x.id === "sazonalidade");
+ok("cliques: o peso tem teto", !!r4 && r4.pontos <= 1.0 + 1e-9, String(r4?.pontos));
+void r1;
 ok("contexto: SaaS vê a receita recorrente", ids(varios[2]).includes("arr-evolucao"));
 ok("contexto: burn mudando sugere explicar o burn", ids(com({ burnVar: 0.25 })).includes("burn-mudou"));
 ok("contexto: vencidos sugerem quem deve", ids(com({ receberVencido: 12_000, qtdReceberVencidos: 4 })).includes("quem-deve"));

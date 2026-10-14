@@ -252,6 +252,11 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   burn, vencidos, pendências, dia do mês). No máximo duas por tema; o motivo vai
   no `title` do chip. ⚠️ Sinal `null` não dispara regra. A IA, quando entrar,
   só REORDENA ids deste catálogo. Guarda: `npm run home-sugestoes`.
+  As DUAS primeiras são fixas (`BASICAS`: saúde financeira e fechar o mês;
+  na PF, gastos e orçamento). No primeiro acesso só elas aparecem, com a
+  pergunta "O que é mais importante no seu dia a dia?" (`INTERESSES`); a
+  resposta e os cliques (preferência LOCAL de quem usa, `a4p_home_interesses`
+  e `a4p_home_cliques`) completam as outras quatro.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 

@@ -14,7 +14,8 @@ import { hydrateAprovacoes, listSolicitacoes } from "@/lib/aprovacoes";
 import { tarefasDoMes } from "@/lib/fechamento-tarefas";
 import type { TarefaFechamento } from "@/core/close/checklist";
 import { decimalBR, pct } from "@/lib/format";
-import { recomendarSugestoes, sinaisDaHome, type SugestaoEscolhida } from "@/core/home/sugestoes";
+import { INTERESSES, recomendarSugestoes, sinaisDaHome, type SugestaoEscolhida } from "@/core/home/sugestoes";
+import { lerPreferencia, gravarPreferencia } from "@/lib/store-org";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
 
@@ -59,9 +60,84 @@ function useCarimbo(): string {
 
 /* ------------------------------ Quattro AI ------------------------------ */
 
-function CaixaIA({ sugestoes }: { sugestoes: SugestaoEscolhida[] | null }) {
+const KEY_INTERESSES = "a4p_home_interesses";
+const KEY_CLIQUES = "a4p_home_cliques";
+
+/**
+ * As prioridades do dia a dia e os cliques nas sugestões. `interesses === null`
+ * é o PRIMEIRO ACESSO (a pergunta nunca foi respondida); `[]` é "pulei".
+ */
+function usePreferenciasIA(tipo: "empresa" | "pessoal") {
+  const [interesses, setInteresses] = React.useState<string[] | null | undefined>(undefined);
+  const [cliques, setCliques] = React.useState<Record<string, number>>({});
+  React.useEffect(() => {
+    setInteresses(lerPreferencia<string[] | null>(KEY_INTERESSES, null));
+    setCliques(lerPreferencia<Record<string, number>>(KEY_CLIQUES, {}));
+  }, []);
+  const salvarInteresses = (ids: string[]) => { setInteresses(ids); gravarPreferencia(KEY_INTERESSES, ids); };
+  const clicou = (id: string) => {
+    const novo = { ...cliques, [id]: (cliques[id] ?? 0) + 1 };
+    setCliques(novo);
+    gravarPreferencia(KEY_CLIQUES, novo);
+  };
+  const opcoes = INTERESSES.filter((i) => i.publico === tipo);
+  return { interesses, cliques, salvarInteresses, clicou, opcoes };
+}
+
+type PreferenciasIA = ReturnType<typeof usePreferenciasIA>;
+
+/** "O que é mais importante no seu dia a dia?" — a pergunta do primeiro acesso. */
+function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFechar: () => void }) {
+  const [marcadas, setMarcadas] = React.useState<string[]>(prefs.interesses ?? []);
+  const alternar = (id: string) =>
+    setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
+  const concluir = (ids: string[]) => { prefs.salvarInteresses(ids); aoFechar(); };
+  return (
+    <div className="w-full max-w-[720px] flex flex-col items-center gap-3 px-5 py-4 rounded-[24px]" style={{ background: "var(--color-surface-1)" }}>
+      <span className="text-[14px] text-ink">O que é mais importante no seu dia a dia?</span>
+      <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Prioridades do dia a dia">
+        {prefs.opcoes.map((o) => {
+          const on = marcadas.includes(o.id);
+          return (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => alternar(o.id)}
+              className="px-3 py-[6px] rounded-pill text-[13px] border"
+              style={on
+                ? { background: "var(--color-ink)", color: "var(--color-surface-1)", borderColor: "var(--color-ink)" }
+                : { background: "var(--color-white)", color: "var(--color-ink)", borderColor: "var(--color-border)" }}
+            >
+              {o.rotulo}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-4 items-center">
+        <button type="button" onClick={() => concluir([])} className="text-[13px] text-muted">Agora não</button>
+        <button
+          type="button"
+          disabled={marcadas.length === 0}
+          onClick={() => concluir(marcadas)}
+          className="px-4 py-[6px] rounded-pill text-[13px] disabled:opacity-40"
+          style={{ background: "var(--erp-num-cor)", color: "var(--color-surface-1)" }}
+        >
+          Gerar sugestões
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CaixaIA({ sugestoes, prefs }: { sugestoes: SugestaoEscolhida[] | null; prefs: PreferenciasIA }) {
   const router = useRouter();
   const [texto, setTexto] = React.useState("");
+  const [ajustando, setAjustando] = React.useState(false);
+  const primeiroAcesso = prefs.interesses === null;
+  const perguntando = primeiroAcesso || ajustando;
+  // No primeiro acesso só as duas básicas aparecem; o resto vem da resposta.
+  const visiveis = (sugestoes ?? []).slice(0, perguntando ? 2 : undefined);
   const perguntar = (q: string) => {
     const t = q.trim();
     router.push(t ? `/quattro-ai?q=${encodeURIComponent(t)}` : "/quattro-ai");
@@ -104,11 +180,11 @@ function CaixaIA({ sugestoes }: { sugestoes: SugestaoEscolhida[] | null }) {
           contexto da empresa. O motivo vai no `title` — a Home não explica
           cada chip, mas quem quiser saber por que ele está ali consegue. */}
       <div className="flex flex-wrap justify-center gap-[10px] max-w-[900px] min-h-[36px]">
-        {(sugestoes ?? []).map((c) => (
+        {visiveis.map((c) => (
           <button
             key={c.id}
             type="button"
-            onClick={() => perguntar(c.texto)}
+            onClick={() => { prefs.clicou(c.id); perguntar(c.texto); }}
             title={`Sugerida porque ${c.motivo}`}
             data-sugestao={c.id}
             className="px-4 py-2 rounded-pill text-[13px] text-ink"
@@ -118,6 +194,13 @@ function CaixaIA({ sugestoes }: { sugestoes: SugestaoEscolhida[] | null }) {
           </button>
         ))}
       </div>
+      {perguntando ? (
+        <PerguntaPrioridades prefs={prefs} aoFechar={() => setAjustando(false)} />
+      ) : prefs.interesses !== undefined && (
+        <button type="button" onClick={() => setAjustando(true)} className="text-[12px] text-ink opacity-70 hover:opacity-100">
+          Ajustar prioridades
+        </button>
+      )}
     </section>
   );
 }
@@ -390,6 +473,7 @@ export function HomeSnapshot() {
   const pendencias = usePendencias();
   const tarefas = useTarefasDoMes(mes);
   const { tipo } = useTipoConta();
+  const prefs = usePreferenciasIA(tipo);
   const [perfil, setPerfil] = React.useState<ReturnType<typeof loadCompany> | undefined>(undefined);
   React.useEffect(() => { setPerfil(loadCompany()); }, []);
 
@@ -398,12 +482,13 @@ export function HomeSnapshot() {
     const fechamento = tarefas && tarefas.length > 0 ? tarefas.filter((t) => t.status === "done").length / tarefas.length : null;
     return recomendarSugestoes(sinaisDaHome({
       snap, input, tipoConta: tipo, perfil: perfil?.perfil ?? null, pendencias, fechamento,
+      interesses: prefs.interesses ?? [], cliques: prefs.cliques,
     }));
-  }, [snap, input, perfil, tipo, pendencias, tarefas]);
+  }, [snap, input, perfil, tipo, pendencias, tarefas, prefs.interesses, prefs.cliques]);
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
-      <CaixaIA sugestoes={sugestoes} />
+      <CaixaIA sugestoes={sugestoes} prefs={prefs} />
 
       <section className="flex flex-col gap-4 mt-7">
         <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
