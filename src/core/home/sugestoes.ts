@@ -23,8 +23,9 @@
 import type { RiskInput } from "@/core/risk-engine/types";
 import { inadimplencia, temValor, type Indicador } from "@/core/indicadores";
 import type { HomeSnapshot, NumeroHome } from "./snapshot";
+import { redigirSegredos } from "@/core/ajuda/segredos";
 
-export const SUGESTOES_HOME_VERSION = "home-sugestoes/1.1.0";
+export const SUGESTOES_HOME_VERSION = "home-sugestoes/1.2.0";
 
 /** Quantas sugestões a Home mostra — decisão do dono. */
 export const LIMITE_SUGESTOES = 6;
@@ -42,6 +43,8 @@ export interface PerfilSinais {
   funcionarios?: string;
   meiosRecebimento?: string[];
   despesas?: string[];
+  /** O que a pessoa escreveu no onboarding sobre a empresa (texto livre, etapa 3). */
+  descricao?: string;
 }
 
 export interface SinaisHome {
@@ -387,9 +390,68 @@ export const INTERESSES: Interesse[] = [
 
 /** Peso de uma prioridade declarada: vence regra de perfil, perde para urgência (caixa negativo, primeiro uso). */
 const PESO_INTERESSE = 1.5;
+/**
+ * Peso de uma prioridade LIDA da descrição livre: abaixo da marcada (a pessoa
+ * escolher na lista é mais forte que uma palavra no meio de um parágrafo).
+ */
+const PESO_DESCRICAO = 1;
 /** Cada clique soma um pouco, até um teto — senão uma pergunta clicada no 1º dia fica para sempre. */
 const PESO_CLIQUE = 0.25;
 const TETO_CLIQUES = 4;
+
+/* ------------------------------ a descrição livre do onboarding (etapa 3) ------------------------------ */
+
+/** Quanto do texto livre vai à IA. A ordem de quatro perguntas não precisa de mais que um parágrafo. */
+export const TETO_DESCRICAO = 500;
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * O texto livre como ele pode sair para a IA: espaços colapsados, segredos
+ * cobertos (CPF, CNPJ, cartão, chave, senha — `redigirSegredos`, o MESMO
+ * detector da Central de Ajuda) e corte em `TETO_DESCRICAO`. Vazio é `null`,
+ * nunca "".
+ *
+ * ⚠️ Quem escreve um parágrafo sobre a empresa costuma colar o CNPJ, o PIX ou
+ * o e-mail do sócio. Nada disso muda a ordem das sugestões e nada disso
+ * precisa sair do navegador.
+ */
+export function descricaoParaIA(texto: unknown): string | null {
+  if (typeof texto !== "string") return null;
+  const limpo = redigirSegredos(texto.replace(/\s+/g, " ").trim());
+  if (!limpo) return null;
+  return limpo.length > TETO_DESCRICAO ? `${limpo.slice(0, TETO_DESCRICAO).trimEnd()}…` : limpo;
+}
+
+/**
+ * As palavras que ligam a descrição livre a uma prioridade de `INTERESSES`.
+ * ⚠️ Ancoradas em `\b` e sobre o texto SEM acento: "vendas" não pode casar
+ * dentro de "revendas" nem "caixa" depender do til de quem digitou.
+ */
+const PALAVRAS_DO_INTERESSE: Record<string, RegExp> = {
+  "calendario-pagamentos": /\b(fornecedor(es)?|boletos?|contas a pagar|pagamentos? (a|de) fornecedor\w*|vencimentos?)\b/,
+  vendas: /\b(vendas?|vender|vendemos|loja|lojas|e-?commerce|varejo|ticket medio|comercial)\b/,
+  "fluxo-caixa": /\b(fluxo de caixa|caixa|capital de giro|runway|liquidez|saldo)\b/,
+  cobranca: /\b(cobranca|cobrar|inadimplen\w*|atrasos?|recebimentos?|receber)\b/,
+  despesas: /\b(despesas?|custos?|gastos?|economizar|cortar)\b/,
+  fechamento: /\b(fechamento|fechar o mes|contador|contabilidade|contabil|dre|conciliacao|conciliar)\b/,
+  recorrente: /\b(assinaturas?|recorren\w*|mrr|arr|saas|churn|mensalidades?)\b/,
+  impostos: /\b(impostos?|tributos?|tributari\w*|simples nacional|notas? fisca\w*|nf-?e|nfs-?e)\b/,
+  "pf-gastos": /\b(gastos?|gastar|gasto|despesas?)\b/,
+  "pf-contas": /\b(contas?|boletos?|vencimentos?|faturas?)\b/,
+  "pf-guardar": /\b(guardar|poupar|economizar|reserva|investir|investimentos?)\b/,
+};
+
+/**
+ * As prioridades que a DESCRIÇÃO livre sugere, no público certo. É a ponte
+ * determinística: sem chave de IA, o que a pessoa escreveu ainda pesa, e pesa
+ * pelas MESMAS listas da pergunta do primeiro acesso.
+ */
+export function interessesDaDescricao(texto: unknown, publico: SinaisHome["tipoConta"]): string[] {
+  if (typeof texto !== "string" || !texto.trim()) return [];
+  const t = semAcento(texto);
+  return INTERESSES.filter((i) => i.publico === publico && PALAVRAS_DO_INTERESSE[i.id]?.test(t)).map((i) => i.id);
+}
 
 /* ------------------------------ a escolha ------------------------------ */
 
@@ -397,12 +459,17 @@ const rotuloDe = (c: Sugestao) => ROTULOS[c.id] ?? { curto: c.texto, icone: "spa
 
 /** Pontua o catálogo do público: base + regras + prioridades + cliques; zero sai. */
 function avaliar(s: SinaisHome): SugestaoEscolhida[] {
+  const daDescricao = interessesDaDescricao(s.perfil?.descricao, s.tipoConta);
   return CATALOGO_SUGESTOES
     .filter((c) => c.publico === s.tipoConta)
     .map((c, ordem) => {
       const casadas = c.regras.filter((g) => g.casa(s));
       const interesse = INTERESSES.find((i) => s.interesses?.includes(i.id) && i.sugestoes.includes(c.id));
       if (interesse) casadas.push(r(PESO_INTERESSE, `você marcou ${interesse.rotulo.toLowerCase()} como prioridade`, () => true));
+      // A descrição só soma onde a prioridade marcada não somou: a mesma
+      // vontade dita duas vezes não vale o dobro.
+      const descrito = !interesse && INTERESSES.find((i) => daDescricao.includes(i.id) && i.sugestoes.includes(c.id));
+      if (descrito) casadas.push(r(PESO_DESCRICAO, `você descreveu a empresa com foco em ${descrito.rotulo.toLowerCase()}`, () => true));
       const vezes = Math.min(TETO_CLIQUES, s.cliques?.[c.id] ?? 0);
       if (vezes > 0) casadas.push(r(PESO_CLIQUE * vezes, "você costuma perguntar isto", () => true));
       casadas.sort((a, b) => b.peso - a.peso);
@@ -498,7 +565,8 @@ export function contextoParaIA(s: SinaisHome) {
   return {
     diaDoMes: dia(s),
     tipoConta: s.tipoConta,
-    perfil: s.perfil,
+    // A descrição livre sai SANEADA (segredos cobertos, corte no teto) — nunca crua.
+    perfil: s.perfil ? { ...s.perfil, descricao: descricaoParaIA(s.perfil.descricao) } : null,
     temLancamentos: s.temLancamentos,
     caixa: s.caixa,
     variacaoCaixa30d: s.caixaVar,

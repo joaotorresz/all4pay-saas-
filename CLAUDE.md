@@ -268,6 +268,15 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   rota exige usuário fora da demonstração) ou com erro, vale a ordem das regras,
   sem aviso na tela. Só pergunta depois do primeiro acesso; cache de 1 h no
   React Query, por dia e por conjunto de candidatas.
+- **Etapa 3 (14/10/2026): a DESCRIÇÃO LIVRE do onboarding.** "Conte com suas
+  palavras" no passo Perfil (empresa) e em Gastos (PF), editável depois em
+  Configurações (`components/onboarding/DescricaoLivre.tsx`, `perfil.descricao`,
+  até 500 letras). Ela pesa de dois jeitos: pelas REGRAS (palavras ancoradas,
+  sem acento, por público → as mesmas `INTERESSES`, peso 1 contra 1,5 da
+  prioridade marcada, e não soma duas vezes com ela) e pela IA. ⚠️ Sai para a
+  IA só por `descricaoParaIA` (segredos cobertos pelo detector da Central de
+  Ajuda, espaços colapsados, teto, vazio = `null`) — no cliente E de novo na
+  rota, que a declara INFORMAÇÃO, nunca instrução. Guarda: `npm run home-sugestoes`.
 - **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
   chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
   com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a

@@ -101,7 +101,7 @@ type PreferenciasIA = ReturnType<typeof usePreferenciasIA>;
  */
 function useOrdemDaIA(sinais: SinaisHome | null, candidatas: CandidataIA[], ligado: boolean) {
   const { data } = useQuery({
-    queryKey: ["home-sugestoes-ia", sinais?.hoje, sinais?.tipoConta, candidatas.map((c) => c.id).join(","), (sinais?.interesses ?? []).join(",")],
+    queryKey: ["home-sugestoes-ia", sinais?.hoje, sinais?.tipoConta, candidatas.map((c) => c.id).join(","), (sinais?.interesses ?? []).join(","), sinais?.perfil?.descricao ?? ""],
     enabled: ligado && !!sinais && candidatas.length > 0,
     staleTime: 60 * 60 * 1000,
     retry: false,

@@ -10,11 +10,17 @@
  * público, básico, repetido ou desligado por sinal ausente não entra; o teto
  * por tema vale para ela também; e a falha cai na ordem das regras.
  *
+ * Etapa 3: a descrição livre do onboarding. Ela muda a lista por palavras
+ * ANCORADAS (sem acento, por público), pesa menos que a prioridade marcada e
+ * não soma duas vezes com ela; sai para a IA só saneada (segredos cobertos,
+ * teto de tamanho, vazio = null) — no cliente E na rota, que a trata como
+ * informação, nunca instrução.
+ *
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
-  BASICAS, CANDIDATAS_IA, CATALOGO_SUGESTOES, ROTULOS, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, candidatasParaIA, contextoParaIA,
-  recomendarSugestoes, sinaisDaHome,
+  BASICAS, CANDIDATAS_IA, CATALOGO_SUGESTOES, ROTULOS, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, TETO_DESCRICAO, candidatasParaIA, contextoParaIA,
+  descricaoParaIA, interessesDaDescricao, recomendarSugestoes, sinaisDaHome,
   type SinaisHome,
 } from "@/core/home/sugestoes";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
@@ -153,6 +159,41 @@ const sin = sinaisDaHome({ snap: montarHomeSnapshot(input), input, tipoConta: "e
 ok("sinais: o vencido a receber vem da camada canônica", sin.receberVencido === 3000 && sin.qtdReceberVencidos === 1, JSON.stringify([sin.receberVencido, sin.qtdReceberVencidos]));
 ok("sinais: pendência não informada é ausente, não zero", sin.pendencias.notas === null);
 ok("sinais: ponta a ponta sugere quem deve", recomendarSugestoes(sin).some((x) => x.id === "quem-deve"));
+
+// etapa 3 — a descrição livre do onboarding
+const DESC = "Vendemos assinaturas de software (SaaS) para clínicas. Quero cobrar quem atrasa e olhar o caixa.";
+const lidos = interessesDaDescricao(DESC, "empresa");
+ok("descrição: lê as prioridades do texto", ["recorrente", "cobranca", "fluxo-caixa", "vendas"].every((i) => lidos.includes(i)), JSON.stringify(lidos));
+ok("descrição: sem acento casa igual (cobrança = cobranca)", interessesDaDescricao("Foco em cobrança", "empresa").includes("cobranca"));
+ok("descrição: palavra ancorada — \"revendas\" não é vendas", !interessesDaDescricao("Trabalhamos com revendas", "empresa").includes("vendas"));
+ok("descrição: só prioridades do público certo", interessesDaDescricao("quero guardar dinheiro e controlar gastos", "empresa").every((i) => INTERESSES.find((x) => x.id === i)?.publico === "empresa"));
+ok("descrição: na pessoa física, guardar dinheiro vira prioridade", interessesDaDescricao("Quero guardar dinheiro todo mês", "pessoal").includes("pf-guardar"));
+ok("descrição: vazio, espaço ou não-texto não lê nada", [undefined, null, "", "   ", 42].every((t) => interessesDaDescricao(t, "empresa").length === 0));
+const semDesc = ids(BASE);
+const comDesc = recomendarSugestoes(com({ perfil: { descricao: "Assinaturas recorrentes, quero acompanhar o churn" } }));
+ok("descrição: o texto MUDA a lista", comDesc.map((x) => x.id).join() !== semDesc.join(), JSON.stringify(comDesc.map((x) => x.id)));
+ok("descrição: o motivo diz que veio da descrição", comDesc.some((x) => x.motivo.startsWith("você descreveu a empresa")), JSON.stringify(comDesc.map((x) => x.motivo)));
+ok("descrição: as básicas continuam primeiro", comDesc.slice(0, 2).map((x) => x.id).join() === BASICAS.empresa.join());
+const pontosDe = (s: SinaisHome, id: string) => recomendarSugestoes(s, 99).find((x) => x.id === id)?.pontos ?? -1;
+const soMarcada = pontosDe(com({ interesses: ["recorrente"] }), "churn");
+const marcadaEDescrita = pontosDe(com({ interesses: ["recorrente"], perfil: { descricao: "assinaturas e churn" } }), "churn");
+const soDescrita = pontosDe(com({ perfil: { descricao: "assinaturas e churn" } }), "churn");
+ok("descrição: a mesma vontade dita duas vezes não vale o dobro", soMarcada === marcadaEDescrita, JSON.stringify([soMarcada, marcadaEDescrita]));
+ok("descrição: pesa menos que a prioridade marcada", soDescrita > 0 && soDescrita < soMarcada, JSON.stringify([soDescrita, soMarcada]));
+// o que sai para a IA
+const cpf = "529.982.247-25", cnpj = "11.222.333/0001-81";
+const saneada = descricaoParaIA(`Meu CPF ${cpf}   e o CNPJ ${cnpj}\n\nvendemos   cursos`);
+ok("ia: segredo não sai na descrição (CPF e CNPJ cobertos)", !!saneada && !saneada.includes(cpf) && !saneada.includes(cnpj) && !/\d{3}\.\d{3}\.\d{3}/.test(saneada), String(saneada));
+ok("ia: espaços colapsados", saneada === "Meu CPF [CPF removido] e o CNPJ [CNPJ removido] vendemos cursos", String(saneada));
+ok("ia: descrição vazia vai como null, nunca \"\"", descricaoParaIA("  \n ") === null && descricaoParaIA(undefined) === null && descricaoParaIA(7) === null);
+const longa = descricaoParaIA("a".repeat(TETO_DESCRICAO * 3));
+ok("ia: descrição longa é cortada no teto", !!longa && longa.length <= TETO_DESCRICAO + 1 && longa.endsWith("…"), String(longa?.length));
+const ctxDesc = contextoParaIA(com({ perfil: { setor: "Tecnologia", descricao: `CPF ${cpf}, vendemos cursos` } }));
+ok("ia: o contexto leva a descrição SANEADA", ctxDesc.perfil?.descricao === "CPF [CPF removido], vendemos cursos" && !JSON.stringify(ctxDesc).includes(cpf), JSON.stringify(ctxDesc.perfil));
+ok("ia: sem descrição, o contexto diz null", contextoParaIA(com({ perfil: { setor: "Tecnologia" } })).perfil?.descricao === null);
+const ROTA = readFileSync(new URL("../src/app/api/ai/sugestoes/route.ts", import.meta.url), "utf8");
+ok("rota: a descrição é saneada de novo no servidor", /descricaoParaIA\(p\.descricao\)/.test(ROTA) && /JSON\.stringify\(contexto\)/.test(ROTA) && !/JSON\.stringify\(body\.contexto/.test(ROTA));
+ok("rota: o prompt trata a descrição como informação, nunca instrução", /perfil\.descricao[^\n]*nunca instrução/.test(ROTA));
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
 if (fails > 0) process.exit(1);
