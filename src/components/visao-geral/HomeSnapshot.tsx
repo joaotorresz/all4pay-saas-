@@ -20,7 +20,10 @@ import {
   type CandidataIA, type SinaisHome, type SugestaoEscolhida,
 } from "@/core/home/sugestoes";
 import { reportar } from "@/lib/erros";
-import { lerPreferencia, gravarPreferencia } from "@/lib/store-org";
+import {
+  gravarPreferenciasHome, inscreverPreferenciasHome, lerPreferenciasHome, sincronizarPreferenciasHome,
+} from "@/lib/home-preferencias";
+import type { PreferenciasHome } from "@/core/home/preferencias";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { ChatTelaCheia, type SugestaoChat } from "@/components/ia/ChatTelaCheia";
@@ -66,28 +69,36 @@ function useCarimbo(): string {
 
 /* ------------------------------ Quattro AI ------------------------------ */
 
-const KEY_INTERESSES = "a4p_home_interesses";
-const KEY_CLIQUES = "a4p_home_cliques";
-
 /**
  * As prioridades do dia a dia e os cliques nas sugestões. `interesses === null`
  * é o PRIMEIRO ACESSO (a pergunta nunca foi respondida); `[]` é "pulei".
+ * Seguem a pessoa entre computadores (`lib/home-preferencias`, etapa 4): o que
+ * está no dispositivo aparece na hora e o que veio do servidor entra quando ele
+ * responder.
  */
 function usePreferenciasIA(tipo: "empresa" | "pessoal") {
-  const [interesses, setInteresses] = React.useState<string[] | null | undefined>(undefined);
-  const [cliques, setCliques] = React.useState<Record<string, number>>({});
+  const [prefs, setPrefs] = React.useState<PreferenciasHome | undefined>(undefined);
   React.useEffect(() => {
-    setInteresses(lerPreferencia<string[] | null>(KEY_INTERESSES, null));
-    setCliques(lerPreferencia<Record<string, number>>(KEY_CLIQUES, {}));
+    const reler = () => setPrefs(lerPreferenciasHome());
+    reler();
+    const sair = inscreverPreferenciasHome(reler);
+    sincronizarPreferenciasHome().then(reler, (e) =>
+      reportar("home.preferencias", e, "as prioridades e os cliques ficam só neste computador até a próxima sessão", true));
+    return sair;
   }, []);
-  const salvarInteresses = (ids: string[]) => { setInteresses(ids); gravarPreferencia(KEY_INTERESSES, ids); };
+  const salvarInteresses = (ids: string[]) => {
+    const novo = { ...lerPreferenciasHome(), interesses: ids };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo);
+  };
   const clicou = (id: string) => {
-    const novo = { ...cliques, [id]: (cliques[id] ?? 0) + 1 };
-    setCliques(novo);
-    gravarPreferencia(KEY_CLIQUES, novo);
+    const atual = lerPreferenciasHome();
+    const novo = { ...atual, cliques: { ...atual.cliques, [id]: (atual.cliques[id] ?? 0) + 1 } };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo, { adiar: true });
   };
   const opcoes = INTERESSES.filter((i) => i.publico === tipo);
-  return { interesses, cliques, salvarInteresses, clicou, opcoes };
+  return { interesses: prefs === undefined ? undefined : prefs.interesses, cliques: prefs?.cliques ?? {}, salvarInteresses, clicou, opcoes };
 }
 
 type PreferenciasIA = ReturnType<typeof usePreferenciasIA>;

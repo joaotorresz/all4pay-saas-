@@ -277,6 +277,17 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   IA só por `descricaoParaIA` (segredos cobertos pelo detector da Central de
   Ajuda, espaços colapsados, teto, vazio = `null`) — no cliente E de novo na
   rota, que a declara INFORMAÇÃO, nunca instrução. Guarda: `npm run home-sugestoes`.
+- **Etapa 4 (14/10/2026): prioridades e cliques no SERVIDOR.** Moram em
+  `org_state` (`a4p_home_preferencias`, mapa `usuário → preferências`, mesma
+  forma do histórico da IA) e seguem a pessoa entre computadores. Regras puras
+  em `core/home/preferencias`, servidor em `lib/home-preferencias`. ⚠️ O mapa é
+  regravado INTEIRO: só se envia depois de o servidor RESPONDER
+  (`hidratarComStatus`) e com o usuário conhecido — sem isso, gravar apagaria
+  os colegas. ⚠️ Os cliques sobem ADIADOS (30 s e na saída da página): cada
+  gravação vira evento na trilha. A cópia do dispositivo (`a4p_home_interesses`/
+  `a4p_home_cliques`) continua: é a reserva de quem não pode escrever
+  (`org_state` exige o papel de lançar) e o que a primeira conferência sobe.
+  Mescla: o servidor vence nas prioridades; cliques pelo MAIOR de cada lado.
 - **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
   chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
   com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a

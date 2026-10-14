@@ -16,6 +16,11 @@
  * teto de tamanho, vazio = null) — no cliente E na rota, que a trata como
  * informação, nunca instrução.
  *
+ * Etapa 4: prioridades e cliques no SERVIDOR, num mapa usuário → preferências.
+ * Gravar uma pessoa não toca nos colegas; dado torto vira ausente (nunca
+ * "pulei"); nada sobe antes de o servidor responder nem sem usuário; a cópia
+ * do dispositivo mescla pelo MAIOR clique, sem contar duas vezes.
+ *
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
@@ -23,6 +28,10 @@ import {
   descricaoParaIA, interessesDaDescricao, recomendarSugestoes, sinaisDaHome,
   type SinaisHome,
 } from "@/core/home/sugestoes";
+import {
+  comPreferencias, mesclarComDispositivo, mesmasPreferencias, normalizarPreferencias, podeEnviarPreferencias,
+  preferenciasDoUsuario,
+} from "@/core/home/preferencias";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
 import { SOLAR_ICONS } from "@/components/ui/solar-icons";
 import { readFileSync } from "node:fs";
@@ -194,6 +203,37 @@ ok("ia: sem descrição, o contexto diz null", contextoParaIA(com({ perfil: { se
 const ROTA = readFileSync(new URL("../src/app/api/ai/sugestoes/route.ts", import.meta.url), "utf8");
 ok("rota: a descrição é saneada de novo no servidor", /descricaoParaIA\(p\.descricao\)/.test(ROTA) && /JSON\.stringify\(contexto\)/.test(ROTA) && !/JSON\.stringify\(body\.contexto/.test(ROTA));
 ok("rota: o prompt trata a descrição como informação, nunca instrução", /perfil\.descricao[^\n]*nunca instrução/.test(ROTA));
+
+// etapa 4 — prioridades e cliques no servidor
+const mapaBase = { ana: { interesses: ["caixa"], cliques: { runway: 3 } }, bia: { interesses: [], cliques: {} } };
+const gravado = comPreferencias(mapaBase, "carlos", { interesses: ["fechamento"], cliques: { dre: 1 } }, "2026-10-14T10:00:00Z");
+ok("prefs: gravar uma pessoa não mexe nos colegas", JSON.stringify(gravado.ana) === JSON.stringify(mapaBase.ana) && JSON.stringify(gravado.bia) === JSON.stringify(mapaBase.bia), JSON.stringify(gravado));
+ok("prefs: a entrada nova leva a data", gravado.carlos?.atualizadoEm === "2026-10-14T10:00:00Z" && gravado.carlos.interesses?.join() === "fechamento");
+const trocado = comPreferencias(gravado, "ana", { interesses: ["dre"], cliques: {} }, "2026-10-14T11:00:00Z");
+ok("prefs: regravar alguém troca só a entrada dele", trocado.ana.interesses?.join() === "dre" && trocado.carlos.interesses?.join() === "fechamento");
+ok("prefs: mapa torto não vira mapa de ninguém", Object.keys(comPreferencias([1, 2], "ana", { interesses: null, cliques: {} }, "x")).join() === "ana");
+ok("prefs: lê a entrada da pessoa certa", preferenciasDoUsuario(mapaBase, "ana")?.cliques.runway === 3 && preferenciasDoUsuario(mapaBase, "zé") === null && preferenciasDoUsuario(mapaBase, null) === null);
+const torto = normalizarPreferencias({ interesses: "caixa", cliques: { a: -2, b: 2.7, c: "9", d: Infinity, e: 5000 } });
+ok("prefs: interesse torto é AUSENTE, nunca \"pulei\"", torto?.interesses === null, JSON.stringify(torto));
+ok("prefs: só contagem válida entra, inteira e com teto", JSON.stringify(torto?.cliques) === JSON.stringify({ b: 2, e: 1000 }), JSON.stringify(torto?.cliques));
+ok("prefs: interesse repetido entra uma vez", normalizarPreferencias({ interesses: ["a", "a", 3, "b"] })?.interesses?.join() === "a,b");
+ok("prefs: \"pulei\" continua \"pulei\"", JSON.stringify(normalizarPreferencias({ interesses: [] })?.interesses) === "[]");
+ok("prefs: nada sobe antes de o servidor responder", !podeEnviarPreferencias(false, "ana"));
+ok("prefs: nada sobe sem usuário conhecido", !podeEnviarPreferencias(true, null) && !podeEnviarPreferencias(true, "local") && podeEnviarPreferencias(true, "ana"));
+const mesclado = mesclarComDispositivo({ interesses: ["caixa"], cliques: { runway: 3, dre: 1 } }, { interesses: ["dre"], cliques: { runway: 2, churn: 4 } });
+ok("prefs: o servidor vence nas prioridades", mesclado?.interesses?.join() === "caixa");
+ok("prefs: cliques mesclam pelo MAIOR, sem somar", JSON.stringify(mesclado?.cliques) === JSON.stringify({ runway: 3, dre: 1, churn: 4 }), JSON.stringify(mesclado?.cliques));
+ok("prefs: sem resposta no servidor, vale a do dispositivo", mesclarComDispositivo({ interesses: null, cliques: {} }, { interesses: ["dre"], cliques: {} })?.interesses?.join() === "dre");
+ok("prefs: sem nada em lado nenhum é null (primeiro acesso)", mesclarComDispositivo(null, null) === null);
+ok("prefs: igualdade ignora a ordem e enxerga o clique a mais",
+  mesmasPreferencias({ interesses: ["a", "b"], cliques: { x: 1 } }, { interesses: ["b", "a"], cliques: { x: 1 } })
+  && !mesmasPreferencias({ interesses: ["a"], cliques: { x: 1 } }, { interesses: ["a"], cliques: { x: 2 } })
+  && !mesmasPreferencias({ interesses: null, cliques: {} }, { interesses: [], cliques: {} }));
+const LIB = readFileSync(new URL("../src/lib/home-preferencias.ts", import.meta.url), "utf8");
+ok("prefs: o envio pergunta podeEnviarPreferencias antes de gravar", /if \(!podeEnviarPreferencias\(conferido, usuario\)\) return;[\s\S]*gravarOrg\(KEY/.test(LIB));
+ok("prefs: só conta como conferido o que o servidor respondeu", /conferido = \(await hidratarComStatus\(\[KEY\]\)\)\.ok/.test(LIB));
+ok("prefs: o clique sobe adiado (a trilha não ganha um evento por clique)", /adiar: true/.test(readFileSync(new URL("../src/components/visao-geral/HomeSnapshot.tsx", import.meta.url), "utf8")) && /setTimeout\(enviar, ADIAR_MS\)/.test(LIB) && /pagehide/.test(LIB));
+ok("prefs: a cópia do dispositivo continua sendo gravada", /gravarPreferencia\(LOCAL_INTERESSES/.test(LIB) && /gravarPreferencia\(LOCAL_CLIQUES/.test(LIB));
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
 if (fails > 0) process.exit(1);
