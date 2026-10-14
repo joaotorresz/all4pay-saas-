@@ -222,6 +222,8 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // em cada sugestão. São de QUEM usa, não da empresa: o sócio que cuida de
   // vendas e o que cuida do caixa veem sugestões diferentes na mesma Home.
   "a4p_home_interesses", "a4p_home_cliques",
+  // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
+  "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
   // por definição — subir esta marca ao servidor não diria nada.
   "a4p_org_do_cache",

@@ -285,7 +285,10 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   ou setas do teclado; só a alça inicia, porque o card é link), por grupo,
   guardado em `a4p_home_painel_ordem` (preferência local); a busca saiu da
   barra de cima E do ⋮ (o ⌘K continua abrindo a paleta); a barra de cima e o
-  menu lateral não têm borda.
+  menu lateral não têm borda. Os avisos do topo (amostra e assinatura)
+  ganharam "x" que fecha SÓ NESTA SESSÃO (`FecharAviso.tsx`, sessionStorage):
+  voltam na próxima enquanto a causa existir — a guarda `amostra:` foi
+  invertida para provar isso.
 
 ## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
