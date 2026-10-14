@@ -37,8 +37,40 @@ export interface TituloPos {
 
 export const CATEGORIA_RECEITA_POS = "Vendas";
 export const CATEGORIA_TAXA_POS = "Tarifas de adquirência";
+/**
+ * O custo de RECEBER ANTES: a adquirente adianta o repasse do crédito e cobra
+ * por isso. É custo de dinheiro no tempo, não de vender — vai para o Resultado
+ * Financeiro, abaixo do EBITDA (`ehAntecipacaoDeRecebiveis`, a regra única em
+ * `core/indicadores/classificacao`).
+ */
+export const CATEGORIA_ANTECIPACAO_POS = "Antecipação de recebíveis";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Dias de antecipação pelo número de parcelas: crédito à vista = 30, e 15 a mais por parcela (2x = 45, 3x = 60). */
+export function diasDeAntecipacao(parcelas: number): number {
+  return parcelas <= 1 ? 30 : 15 * (parcelas + 1);
+}
+
+/**
+ * ⚠️ **A ANTECIPAÇÃO TEM UMA REGRA SÓ** — a do simulador de taxas da maquininha
+ * (`lib/pos-taxas`, que a reexporta) e a do lançamento da venda da Pinbank
+ * (`core/pinbank/plano`). Duas contas para o mesmo custo divergiriam na
+ * primeira parcela nova.
+ *
+ * A fração do valor que a antecipação consome, dada a taxa AO MÊS: à vista paga
+ * um mês; parcelado, a taxa diária equivalente (composta) vezes os dias de
+ * `diasDeAntecipacao`. Pix e débito (parcelas ≤ 0) não antecipam.
+ *
+ * Medido contra o extrato da Pinbank em 14/10/2026 (1,55% a.m.): o crédito à
+ * vista e o 2x de R$ 9,99 repassaram exatamente o que esta fração dá.
+ */
+export function fracaoDeAntecipacao(parcelas: number, mensal: number): number {
+  if (parcelas <= 0) return 0;
+  if (parcelas === 1) return mensal;
+  const diario = Math.pow(1 + mensal, 1 / 30) - 1;
+  return diario * diasDeAntecipacao(parcelas);
+}
 
 /** `iso` + `m` meses, sem escorregar de mês (31/01 + 1 → 28/02, nunca 03/03). */
 export function somaMeses(iso: string, m: number): string {

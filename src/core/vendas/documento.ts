@@ -279,6 +279,10 @@ export function vendaDaMaquininha(
 export function vendaDaPinbank(
   v: {
     nsu: number; total: number; taxaTotal: number; parcelas: number;
+    /** Tarifa fixa da venda (R$) — custo da maquininha, junto da taxa. */
+    tarifaTotal?: number;
+    /** Custo da antecipação (R$) — o campo próprio do documento, fora da taxa. */
+    antecipacaoTotal?: number;
     forma: "debito" | "credito_vista" | "parcelado" | "voucher" | "pix" | "desconhecida";
     dataVenda: string; descricao: string;
     autorizacao: string | null; nsuAdquirente: string | null;
@@ -302,7 +306,11 @@ export function vendaDaPinbank(
     plataforma: "Maquininha Pinbank",
     idExterno: String(v.nsu),
     chaveTransacao: v.nsuAdquirente ?? v.autorizacao ?? "",
-    taxaPlataforma: { valor: Math.max(0, Math.round(v.taxaTotal * 100) / 100), fornecedorId: "" },
+    // A taxa da maquininha e a tarifa fixa são o MESMO custo de vender (a
+    // categoria dos dois títulos é a da taxa); a antecipação tem campo próprio
+    // — o líquido do documento fecha no que a Pinbank deposita.
+    taxaPlataforma: { valor: Math.max(0, Math.round((v.taxaTotal + (v.tarifaTotal ?? 0)) * 100) / 100), fornecedorId: "" },
+    taxaAntecipacao: { valor: Math.max(0, Math.round((v.antecipacaoTotal ?? 0) * 100) / 100), fornecedorId: "" },
     categoria: "Vendas", categoriaNome: "Vendas",
     descricao: v.descricao,
     statusNF: "a_emitir", numeroNF: "",

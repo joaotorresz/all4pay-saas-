@@ -440,7 +440,8 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   é lido em PONTOS-BASE inteiros (`mdrBp`, 2,65% = 265; negativo ou acima de
   100% = ausente) e o resumo do extrato LISTA os MDR distintos, nunca os soma.
   A taxa do extrato NÃO substitui a do contrato no título (só é comparada).
-  O `ValorTaxaMes` também é percentual, com sentido ainda não dito. ⚠️ São DUAS credenciais
+  O `ValorTaxaMes` é a ANTECIPAÇÃO ao mês (medido em produção em 14/10/2026:
+  zero no débito, 1,55% no crédito antecipado). ⚠️ São DUAS credenciais
   (BaaS, canal 1919, de PRODUÇÃO, com ExtratoPos desde 14/10/2026 × "ERP
   Integration Produção", canal 47, que é a de DEV), com senhas diferentes —
   ver `docs/rodada-10/pinbank.md`.
@@ -469,6 +470,24 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `core/indicadores/classificacao`, exceções por trecho (bloco
   `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
   "traduzir não é classificar").
+- ⚠️ **TARIFA FIXA E ANTECIPAÇÃO** (14/10/2026, medidas no extrato de
+  PRODUÇÃO — `docs/rodada-10/pinbank.md`). A Pinbank tira uma tarifa FIXA por
+  VENDA (R$ 1,00) antes da taxa da forma, que é cobrada sobre o que sobra, e,
+  com o repasse antecipado, a antecipação do crédito ao mês pela regra do
+  simulador (`fracaoDeAntecipacao` em `core/vendas/pos`, UMA para o simulador
+  e o planejador). O vínculo guarda `tarifa_fixa` (em REAIS, até R$ 100 — a
+  única chave do `taxas` que não é fração) e `antecipacao_mes` (fração), e o
+  banco recusa a faixa errada, a chave fora do contrato e a taxa em texto
+  (migration `20261015120000`). O planejador (`custosDaVenda`, a MESMA conta
+  da conferência) lança por parcela a receita, a taxa (`:t`), a tarifa (`:f`,
+  na categoria da taxa) e a antecipação (`:a`, "Antecipação de recebíveis",
+  só antecipado E crédito; sem a cadastrada, a venda entra sem ela e AVISA) —
+  as três vendas reais fecham ao centavo no depositado (R$ 8,91, R$ 8,69 e
+  R$ 4,28 + R$ 4,28). ⚠️ **No DRE, a tarifa é Despesa Variável (com o MDR) e
+  a ANTECIPAÇÃO é Resultado Financeiro** (decisão do dono): regra única
+  `ehAntecipacaoDeRecebiveis` (a tributária, "ICMS antecipação", segue
+  imposto; "despesa antecipada" não casa). Guardas: bloco `pinbank (real)` do
+  `engine-audit` e `scripts/pinbank.sql` (caso 5c).
 - ⚠️ **CONFERÊNCIA EXTRATO × SISTEMA** (13/10/2026, `docs/rodada-10/conferencia.md`):
   o botão "Conferir com o extrato" no cartão da maquininha (só quem ADMINISTRA)
   chama `POST /api/pinbank/conferencia`, que casa cada parcela do ExtratoPos com
@@ -507,7 +526,16 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   última parcela que some parecia "o sistema dividiu em menos". Com o MESMO
   número de parcelas, a parcela que falta NOS DOIS lados (título perdido e
   linha ausente) também dá o sinal às que conferem — e só ela: a parcela de
-  valor diferente não espalha o total. Nenhum valor em
+  valor diferente não espalha o total. ⚠️ **A ANTECIPAÇÃO e o LÍQUIDO**
+  (1.6.0, 14/10/2026): o `ValorTaxaMes` é comparado com a antecipação
+  cadastrada no crédito e com ZERO no débito, como a taxa (eixo separado, as
+  mesmas portas; sem repasse antecipado no vínculo, `nao_antecipado`, nunca
+  comparado); o líquido do extrato é o DEPÓSITO e é comparado POR VENDA — só
+  a venda INTEIRA nos dois lados, contra receita − taxa − tarifa − antecipação
+  lançadas, com folga de 1 centavo (a Pinbank reparte o líquido da venda:
+  428 + 428, não 428 + 429). Os dois diferentes vão à vista de divergências,
+  sem mudar o status; os títulos `:f` e `:a` são lidos cada um no SEU papel
+  (somados à taxa, o MDR lançado sairia errado). Nenhum valor em
   reais sai do percentual. Nada do dinheiro é gravado (só o carimbo do limite). O EC sai
   do VÍNCULO lido como a pessoa, nunca do pedido; sem NSU em comum, ou com o
   extrato sem nenhuma parcela legível deste EC (`extrato_vazio`), nada é afirmado (só
@@ -565,7 +593,7 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `lib/supabase/filtros` — de `consulta.ts` (`"use client"`) eles são PROXIES
   que lançam no route handler (medido no build; as rotas de cron que ainda
   importam de lá são tarefa separada, com prova de carga). Guardas:
-  `npm run pinbank-conferencia` (106 casos, 133 defeitos plantados: 97 no
+  `npm run pinbank-conferencia` (120 casos, 155 defeitos plantados: 119 no
   motor, 36 nos portões e na leitura — servidor de mentira com o `max_rows`
   padrão de 1.000, e a COMPOSIÇÃO da rota num espelho que o `engine-audit` fixa
   no texto dela) e o bloco `conferencia-pinbank:` do `engine-audit`. Uma

@@ -15,6 +15,7 @@ import { isDemo } from "@/lib/demo";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { diasDeAntecipacao, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
 export type Bandeira = "master" | "visa" | "elo";
 export const BANDEIRAS: { id: Bandeira; label: string }[] = [
@@ -143,18 +144,13 @@ export const CDI_POR_RANGE: Record<string, number> = {
   "RANGE 4": 0.03114261, "RANGE 5": 0.027697174,
 };
 
-/** Dias de antecipação por parcela (crédito à vista = 30, +15 a cada parcela). */
-export function diasParcela(p: number): number {
-  return p <= 1 ? 30 : 15 * (p + 1);
-}
-
-/** Antecipação ao EC por parcela (decimal), dada a taxa mensal. Pix/Débito = 0. */
-export function antecipEC(parcela: number, mensal: number): number {
-  if (parcela <= 0) return 0;
-  if (parcela === 1) return mensal; // crédito à vista
-  const diario = Math.pow(1 + mensal, 1 / 30) - 1;
-  return diario * diasParcela(parcela);
-}
+/**
+ * Dias de antecipação por parcela e a antecipação ao EC — a regra mora em
+ * `core/vendas/pos`, a MESMA que lança o custo da venda da maquininha Pinbank.
+ * Uma cópia aqui divergiria do lançamento na primeira parcela nova.
+ */
+export const diasParcela = diasDeAntecipacao;
+export const antecipEC = fracaoDeAntecipacao;
 
 /** Custo de antecipação do PARCEIRO ao mês = ((1+selic)·(1+cdi))^(1/12) − 1. */
 export function custoAntecipParceiroMensal(selic: number, range: string): number {

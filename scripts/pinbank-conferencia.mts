@@ -119,8 +119,16 @@ const LINHA_DEV: LinhaExtratoPos = {
 const TITULOS_F0 = [R(136576350, 1, 9, "2025-08-30", "2025-07-31"), T(136576350, 1, 0.27, "2025-08-30", "2025-07-31")];
 const F0 = () => base({ de: "2025-07-30", ate: "2025-07-31", extrato: [LINHA_DEV], titulos: TITULOS_F0 });
 const F7 = () => base({ de: "2025-07-30", ate: "2025-07-31", extrato: [LINHA_DEV], titulos: [...TITULOS_F0, ...TITULOS_F0] });
-/** F0 com a taxa de crédito à vista CADASTRADA: igual (2,65%) e diferente (1,99%). */
-const F0_TAXA = (credito_vista: number) => ({ ...F0(), vinculo: { id: "v1", codigoCliente: EC, taxas: { credito_vista } } });
+/**
+ * F0 SEM o líquido da linha. ⚠️ O líquido da amostra do dev é de TESTE (3,29 de
+ * uma parcela de 9,00): verbatim, o eixo do líquido acusa a venda (o caso
+ * F0_LIQUIDO prova isso) — e os casos da TAXA, sobre ela, mediriam dois eixos
+ * misturados. Sem o líquido, a venda não é comparada por ele e a vista de
+ * divergências volta a depender só da taxa.
+ */
+const F0_SEM_LIQUIDO = () => base({ de: "2025-07-30", ate: "2025-07-31", extrato: [{ ...LINHA_DEV, liquidoRepasseCentavos: null }], titulos: TITULOS_F0 });
+/** F0 (sem o líquido) com a taxa de crédito à vista CADASTRADA: igual (2,65%) e diferente (1,99%). */
+const F0_TAXA = (credito_vista: number) => ({ ...F0_SEM_LIQUIDO(), vinculo: { id: "v1", codigoCliente: EC, taxas: { credito_vista } } });
 
 /** F1 — uma loja inteira, julho de 2025. */
 const F1 = (): Entrada => base({
@@ -751,11 +759,69 @@ const FIRMA = (irma = true): Entrada => base({
   eventos: irma ? [EV(33001, { vinculo_id: "v1b" }), EV(33002, { vinculo_id: "v1" })] : [EV(33001), EV(33002)],
 });
 
+/**
+ * FREAL — o extrato de PRODUÇÃO de 14/10/2026: três vendas de R$ 9,99 numa
+ * maquininha com o repasse ANTECIPADO (débito, crédito à vista e 2x). O
+ * estabelecimento e as vendas estão RENUMERADOS (o repositório é público); os
+ * valores, as taxas, os tipos e as datas são os do extrato, verbatim — o bruto
+ * e o split da parcela já sem a tarifa (899; 449 + 450), o líquido (891, 869,
+ * 428 + 428), o MDR (0,88%, 1,81%, 2,46%) e a antecipação ao mês (zero no
+ * débito, 1,55% no crédito). Os títulos do sistema são os que o planejador
+ * lança com esse contrato (tarifa de R$ 1,00 e antecipação de 1,55% ao mês),
+ * escritos À MÃO — nunca gerados por função nenhuma.
+ */
+const LINHA_REAL = (nsu: number, tipoCompra: string, k: number, n: number, brutoParcela: number, liquido: number | null, mdrBp: number, taxaMesBp: number): LinhaExtratoPos => ({
+  nsu, codigoCliente: EC, terminal: null, bandeira: "MASTERCARD", tipoCompra, parcela: k, totalParcelas: n,
+  dataTransacao: "2026-10-14T17:49:48.332", dataFuturaPagamento: "2026-10-15T17:49:48.332", dataCancelamento: null,
+  brutoCentavos: 999, brutoParcelaCentavos: brutoParcela, liquidoRepasseCentavos: liquido, splitCentavos: brutoParcela,
+  mdrBp, taxaMesBp, status: "TRANS. APROVADO", statusPagamento: "Pendente", codAutorizacao: null, nsuLoja: null,
+});
+const EXTRATO_REAL = (): LinhaExtratoPos[] => [
+  LINHA_REAL(41001, "DEBITO", 1, 1, 899, 891, 88, 0),
+  LINHA_REAL(41002, "A VISTA", 1, 1, 899, 869, 181, 155),
+  LINHA_REAL(41003, "PARCELADO SEM JUROS", 2, 2, 450, 428, 246, 155),
+  LINHA_REAL(41003, "PARCELADO SEM JUROS", 1, 2, 449, 428, 246, 155),
+];
+const VENC_REAL = "2026-10-15";
+const COMP_REAL = "2026-10-14";
+/** A tarifa fixa (`:f`) e a antecipação (`:a`) da parcela, como o planejador as lança. */
+const TF = (nsu: number, k: number, amount: number, situacao = "previsto"): Mov => ({
+  id: `f-${nsu}-${k}`, chave: `pinbank:${nsu}:${k}:f`, nsu: String(nsu), type: "saida", amount, due_date: VENC_REAL, competence_date: COMP_REAL, situacao,
+});
+const TA = (nsu: number, k: number, amount: number, situacao = "previsto"): Mov => ({
+  id: `a-${nsu}-${k}`, chave: `pinbank:${nsu}:${k}:a`, nsu: String(nsu), type: "saida", amount, due_date: VENC_REAL, competence_date: COMP_REAL, situacao,
+});
+const TITULOS_REAIS = (): Mov[] => [
+  R(41001, 1, 9.99, VENC_REAL, COMP_REAL), T(41001, 1, 0.08, VENC_REAL, COMP_REAL), TF(41001, 1, 1),
+  R(41002, 1, 9.99, VENC_REAL, COMP_REAL), T(41002, 1, 0.16, VENC_REAL, COMP_REAL), TF(41002, 1, 1), TA(41002, 1, 0.14),
+  R(41003, 1, 5, VENC_REAL, COMP_REAL), T(41003, 1, 0.11, VENC_REAL, COMP_REAL), TF(41003, 1, 0.5), TA(41003, 1, 0.11),
+  R(41003, 2, 4.99, VENC_REAL, COMP_REAL), T(41003, 2, 0.11, VENC_REAL, COMP_REAL), TF(41003, 2, 0.5), TA(41003, 2, 0.1),
+];
+/** Os títulos como o sistema os lançava ANTES da tarifa e da antecipação: só receita e taxa, a taxa sobre o total. */
+const TITULOS_ANTIGOS = (): Mov[] => [
+  R(41001, 1, 9.99, VENC_REAL, COMP_REAL), T(41001, 1, 0.09, VENC_REAL, COMP_REAL),
+  R(41002, 1, 9.99, VENC_REAL, COMP_REAL), T(41002, 1, 0.18, VENC_REAL, COMP_REAL),
+  R(41003, 1, 5, VENC_REAL, COMP_REAL), T(41003, 1, 0.13, VENC_REAL, COMP_REAL),
+  R(41003, 2, 4.99, VENC_REAL, COMP_REAL), T(41003, 2, 0.12, VENC_REAL, COMP_REAL),
+];
+const CONTRATO_REAL = { debito: 0.0088, credito_vista: 0.0181, parcelado: 0.0246, tarifa_fixa: 1, antecipacao_mes: 0.0155 };
+const FREAL = (o: Partial<Entrada> = {}): Entrada => base({
+  de: "2026-10-01", ate: "2026-10-14", hoje: "2026-10-15",
+  vinculo: { id: "v1", codigoCliente: EC, taxas: CONTRATO_REAL, antecipado: true },
+  extrato: EXTRATO_REAL(), titulos: TITULOS_REAIS(),
+  eventos: [41001, 41002, 41003].map((n) => EV(n, { ocorrido_em: "2026-10-14T17:00:00Z" })),
+  ...o,
+});
+/** A linha `nsu`/`k` do extrato real trocada. */
+const comLinha = (nsu: number, k: number, troca: Partial<LinhaExtratoPos>) =>
+  EXTRATO_REAL().map((l) => (l.nsu === nsu && l.parcela === k ? { ...l, ...troca } : l));
+
 /* ─────────────────────────────── os casos ─────────────────────────────── */
 
 const C = {
   F0: "(F0) amostra do dev: conferida no dia útil seguinte (+2 dias), 900 = 900 centavos",
   F0_TAXA: "(F0) sem taxa cadastrada, o MDR do extrato (2,65%) fica SEM CONTRATO — nunca divergente — e o título de taxa do sistema é contado",
+  F0_LIQUIDO: "(F0) a amostra do dev VERBATIM tem líquido de teste (3,29 de uma parcela de 9,00): o líquido da venda é DIFERENTE (329 × 873 = 900 − 27), com os dois valores na frase e na vista de divergências — o status segue conferido no dia útil seguinte, e a antecipação não é comparada (o vínculo não antecipa)",
   F0_TAXA_IGUAL: "(F0) com 2,65% cadastrado para crédito à vista, a taxa é IGUAL (265 = 265 pontos-base), sem diferença exibida, e nada diverge",
   F0_TAXA_DIF: "(F0) com 1,99% cadastrado, a taxa é DIFERENTE (+66 pontos-base): entra na vista de divergências e na frase, e o status SEGUE conferido no dia útil seguinte",
   F7: "(F7) os títulos lidos duas vezes (janela + NSU) dão as MESMAS contagens",
@@ -784,7 +850,7 @@ const C = {
   F1_RESUMO: "(F1) resumo por situação: as âncoras literais (quantidade, extrato, sistema)",
   F1_GRUPOS: "(F1) grupos e estado: 10 conferidas, 9 divergências, 8 sem conclusão, 27 itens, conferido",
   NULO: "(F1) só no extrato: o lado do sistema é AUSENTE (null), nunca R$ 0,00",
-  INVARIANTE: "(todas) cartão × tabela: o resumo particiona a lista (quantidade e as duas somas, null sem o lado), e a vista de divergências é a da lista literal (status, taxa diferente, taxa sem título, total da venda diferente)",
+  INVARIANTE: "(todas) cartão × tabela: o resumo particiona a lista (quantidade e as duas somas, null sem o lado; a taxa e a antecipação por resultado; o líquido uma vez por venda), e a vista de divergências é a da lista literal (status, taxa ou antecipação diferente, taxa sem título, total ou líquido da venda diferente)",
   F2: "(F2) sem NSU em comum: chave não confirmada, 2 pares prováveis, 2 sem conclusão e NENHUMA divergência",
   F2_SEM_AUT: "(F2) o código de autorização nunca sai no relatório",
   F2_TAXA: "(F2) sem NSU em comum, a taxa também fica SEM CONCLUSÃO (2,65% × 1,99% cadastrado não é afirmado: o extrato pode nem ser desta maquininha)",
@@ -836,7 +902,20 @@ const C = {
   FT2: "(FT2) a taxa da venda CANCELADA não é comparada (MDR 0 no extrato × 1,63% cadastrado): \"venda cancelada\", fora da vista de divergências e sem a frase da taxa",
   FT3: "(FT3) PARCELADO em 1x é crédito à vista (como o planejador lança): 2,65% × 2,65% cadastrado à vista é IGUAL, mesmo com 3,10% para parcelado; em 2x é parcelado; sem o número de parcelas, tipo desconhecido",
   FB: "(FB·21001) o extrato cobrou 2,65% (igual ao cadastrado) e o sistema não lançou o título de taxa: o sinal, a frase e a vista de divergências — o status segue conferido; com o título (21002) ou sem taxa cadastrada (21003), nada",
-  CHAVE: "(puro) chaveDoTitulo lê r/t/estorno e recusa o que não é chave da Pinbank",
+  CHAVE: "(puro) chaveDoTitulo lê r/t/f/a/estorno e recusa o que não é chave da Pinbank",
+  REAL: "(FREAL) o extrato de PRODUÇÃO de 14/10/2026 contra os títulos do contrato medido: as quatro parcelas conferidas, a taxa e a antecipação IGUAIS (o débito com antecipação zero), o líquido das três vendas igual (891 + 869 + 856 = 2616 nos dois lados), a taxa, a tarifa e a antecipação de cada parcela nos campos DELAS — nada diverge",
+  REAL_ANTIGO: "(FREAL) o MESMO extrato contra os títulos que o sistema lançava antes da tarifa e da antecipação (a taxa sobre o total): as parcelas seguem conferidas e a taxa igual, mas o líquido das três vendas é DIFERENTE (990 × 891 no débito; 2945 × 2616 no total), com os dois valores na frase e as 4 parcelas na vista de divergências",
+  ANT_DIF: "(FREAL) com 1,99% ao mês cadastrado, a antecipação do crédito (1,55%) é DIFERENTE (−44 pontos-base): na frase e na vista de divergências (3 parcelas), sem mudar o status; o débito (zero × zero) segue igual",
+  ANT_NAO: "(FREAL) o vínculo SEM repasse antecipado: a antecipação não é comparada em parcela nenhuma (\"repasse não antecipado\"), sem esperada e fora da vista de divergências",
+  ANT_SEM: "(FREAL) antecipado SEM a antecipação cadastrada: o crédito fica \"não cadastrada\" — nunca divergente — e o débito, cuja esperada é zero de qualquer jeito, segue igual",
+  ANT_DEB: "(FREAL) o extrato com 1,55% ao mês num DÉBITO: a antecipação é diferente (esperada zero, +155), com a frase própria do débito",
+  ANT_CANC: "(FREAL) a venda que a Pinbank CANCELOU (antecipação zerada na linha) e o sistema não: cancelada só no extrato, a antecipação \"venda cancelada\" — nunca \"diferente\" — e o líquido não comparado; e o 2x com SÓ a 2ª parcela cancelada no extrato: a 1ª conferida, sem o líquido da venda comparado",
+  LIQ_PARCELA: "(FREAL) o 2x com o título da 2ª parcela CANCELADO no sistema e as duas vivas no extrato: a 2ª cancelada só no sistema, a 1ª conferida — e a venda sem o líquido comparado (a parcela que falta não vira divergência do líquido)",
+  ANT_SEM_CONCLUSAO: "(F2) sem NSU em comum, a antecipação também fica SEM CONCLUSÃO (o extrato pode nem ser desta maquininha), fora da vista de divergências",
+  ANT_IRMA: "(FREAL) com OUTRA maquininha viva no mesmo estabelecimento e o aviso da venda vindo dela, a antecipação dessa venda não é comparada com a desta (\"outra maquininha\")",
+  LIQ_TOLERANCIA: "(FREAL) a folga do líquido é de 1 centavo POR VENDA: 890 × 891 é igual (os arredondamentos separados), 889 × 891 já é diferente",
+  LIQ_METADE: "(FREAL) a meia venda não tem o líquido comparado: o 2x com só a 1ª parcela no extrato e o débito sem o líquido na linha ficam sem o sinal — e o resumo só conta a venda inteira (1)",
+  LIQ_ESTORNO: "(FREAL) a venda com estorno PARCIAL no sistema e a desfeita no sistema (a transação cancelada) não têm o líquido comparado — só a do 2x, inteira e viva",
   POSTERGAR: "(puro) postergarParaDiaUtil: sábado → segunda, Sexta-feira Santa → segunda, 20/11 → 21/11, 31/12 útil fica",
   CENTAVOS: "(puro) centavosDeReais: 145.52 → 14552, \"10.30\" → 1030, 0.29 → 29, \"x\" → null",
   DIAS: "(puro) diasEntreDatas(30/08, 01/09) = 2",
@@ -873,15 +952,26 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
       && i[0].extrato!.taxa.extratoBp === 265 && i[0].extrato!.aguardandoDefinicao.brutoParcelaCentavos === 675
       && f0!.estado === "conferido";
   }, () => resumo(f0?.itens[0]));
+  const f0s = seguro(F0_SEM_LIQUIDO());
   caso(C.F0_TAXA, () => {
-    const t = f0!.resumo.taxa;
-    return f0!.resumo.porStatus.valor_diferente.quantidade === 0 && f0!.resumo.porStatus.data_e_valor_diferentes.quantidade === 0
-      && f0!.itens[0].status === "casada_dia_util" && f0!.itens[0].sistema!.taxaCentavos === 27
-      && resumo(f0!.itens[0].extrato!.taxa) === resumo({ resultado: "sem_contrato", tipo: "credito_vista", extratoBp: 265, contratoBp: null, diferencaBp: null })
+    const t = f0s!.resumo.taxa;
+    return f0s!.resumo.porStatus.valor_diferente.quantidade === 0 && f0s!.resumo.porStatus.data_e_valor_diferentes.quantidade === 0
+      && f0s!.itens[0].status === "casada_dia_util" && f0s!.itens[0].sistema!.taxaCentavos === 27
+      && resumo(f0s!.itens[0].extrato!.taxa) === resumo({ resultado: "sem_contrato", tipo: "credito_vista", extratoBp: 265, contratoBp: null, diferencaBp: null })
       && resumo(t.porResultado) === resumo({ diferente: 0, igual: 0, sem_contrato: 1, sem_extrato: 0, tipo_desconhecido: 0, sem_conclusao: 0, outra_maquininha: 0, venda_cancelada: 0, estorno_parcial: 0 })
-      && f0!.resumo.itensComDivergencia === 0
+      && f0s!.resumo.itensComDivergencia === 0
       && t.parcelasComTaxaInformada === 1 && t.titulosDeTaxaNoSistema === 1 && t.centavosTaxaNoSistema === 27;
-  }, () => resumo({ s: f0?.itens[0]?.status, x: f0?.itens[0]?.extrato?.taxa, t: f0?.resumo.taxa }));
+  }, () => resumo({ s: f0s?.itens[0]?.status, x: f0s?.itens[0]?.extrato?.taxa, t: f0s?.resumo.taxa, d: f0s?.resumo.itensComDivergencia }));
+  caso(C.F0_LIQUIDO, () => {
+    const i = f0!.itens[0];
+    return i.status === "casada_dia_util" && i.sinais.includes("liquido_da_venda_diferente") && !i.sinais.includes("liquido_da_venda_igual")
+      && resumo(i.liquidoDaVenda) === resumo({ extratoCentavos: 329, sistemaCentavos: 873 })
+      && i.extrato!.liquidoCentavos === 329
+      && resumo(f0!.resumo.liquido) === resumo({ vendasComparadas: 1, vendasIguais: 0, vendasDiferentes: 1, centavosExtrato: 329, centavosSistema: 873 })
+      && f0!.resumo.itensComDivergencia === 1 && f0!.resumo.grupos.divergencias === 0
+      && /R\$3,29/.test(i.frase) && /R\$8,73/.test(i.frase)
+      && i.extrato!.antecipacao.resultado === "nao_antecipado";
+  }, () => resumo({ s: f0?.itens[0]?.sinais, l: f0?.itens[0]?.liquidoDaVenda, r: f0?.resumo.liquido, f: f0?.itens[0]?.frase, a: f0?.itens[0]?.extrato?.antecipacao }));
   const f0i = seguro(F0_TAXA(0.0265));
   caso(C.F0_TAXA_IGUAL, () => f0i!.itens[0].status === "casada_dia_util"
     && resumo(f0i!.itens[0].extrato!.taxa) === resumo({ resultado: "igual", tipo: "credito_vista", extratoBp: 265, contratoBp: 265, diferencaBp: null })
@@ -1405,7 +1495,9 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
     // total da venda diferente (lista LITERAL, não a do motor).
     const DIVERGENTES = ["data_diferente", "valor_diferente", "data_e_valor_diferentes", "cancelada_no_extrato", "cancelada_so_no_sistema", "so_no_extrato", "so_no_sistema"];
     const naVista = rel.itens.filter((i) => DIVERGENTES.includes(i.status) || i.extrato?.taxa.resultado === "diferente"
-      || i.sinais.includes("taxa_sem_titulo_no_sistema") || i.sinais.includes("total_da_venda_diferente")).length;
+      || i.extrato?.antecipacao.resultado === "diferente"
+      || i.sinais.includes("taxa_sem_titulo_no_sistema") || i.sinais.includes("total_da_venda_diferente")
+      || i.sinais.includes("liquido_da_venda_diferente")).length;
     if (naVista !== rel.resumo.itensComDivergencia) erros.push(`itensComDivergencia ${rel.resumo.itensComDivergencia} ≠ ${naVista}`);
     const comExtrato = rel.itens.filter((i) => i.extrato).length;
     const somaTaxa = Object.values(rel.resumo.taxa.porResultado).reduce((a, b) => a + b, 0);
@@ -1413,6 +1505,29 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
     for (const [r, n] of Object.entries(rel.resumo.taxa.porResultado)) {
       const m = rel.itens.filter((i) => i.extrato?.taxa.resultado === r).length;
       if (m !== n) erros.push(`taxa ${r}: ${n} ≠ ${m}`);
+    }
+    const somaAnt = Object.values(rel.resumo.antecipacao.porResultado).reduce((a, b) => a + b, 0);
+    if (somaAnt !== comExtrato) erros.push(`Σ antecipação ${somaAnt} ≠ ${comExtrato} itens com extrato`);
+    for (const [r, n] of Object.entries(rel.resumo.antecipacao.porResultado)) {
+      const m = rel.itens.filter((i) => i.extrato?.antecipacao.resultado === r).length;
+      if (m !== n) erros.push(`antecipação ${r}: ${n} ≠ ${m}`);
+    }
+    // O líquido: uma vez por VENDA, e o sinal em TODA parcela dela concorda com os valores (folga de 1 centavo).
+    const vendasLiq = new Map<string, { extratoCentavos: number; sistemaCentavos: number }>();
+    for (const i of rel.itens) if (i.liquidoDaVenda && i.nsu) vendasLiq.set(i.nsu, i.liquidoDaVenda);
+    const vs = Array.from(vendasLiq.values());
+    const dif = vs.filter((x) => Math.abs(x.extratoCentavos - x.sistemaCentavos) > 1).length;
+    const esperado = {
+      vendasComparadas: vs.length, vendasIguais: vs.length - dif, vendasDiferentes: dif,
+      centavosExtrato: vs.length ? vs.map((x) => x.extratoCentavos).reduce((a, b) => a + b, 0) : null,
+      centavosSistema: vs.length ? vs.map((x) => x.sistemaCentavos).reduce((a, b) => a + b, 0) : null,
+    };
+    if (resumo(rel.resumo.liquido) !== resumo(esperado)) erros.push(`líquido ${resumo(rel.resumo.liquido)} ≠ ${resumo(esperado)}`);
+    for (const i of rel.itens) {
+      const temIgual = i.sinais.includes("liquido_da_venda_igual");
+      const temDif = i.sinais.includes("liquido_da_venda_diferente");
+      if (!!i.liquidoDaVenda !== (temIgual || temDif) || (temIgual && temDif)) erros.push(`${i.id}: o sinal do líquido não acompanha os valores`);
+      if (i.liquidoDaVenda && temDif !== (Math.abs(i.liquidoDaVenda.extratoCentavos - i.liquidoDaVenda.sistemaCentavos) > 1)) erros.push(`${i.id}: o sinal do líquido contradiz os valores`);
     }
     for (const [s, l] of Object.entries(rel.resumo.porStatus)) {
       const is = rel.itens.filter((i) => i.status === s);
@@ -1424,7 +1539,154 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
     }
     return erros;
   };
-  const todos = [f0, f0i, f0d, f1, f2, f2t, f3, f3b, f3c, f4, f5, f6, f7, f8, f8b, f9, f10, f11, f12, ft, f13, f14, f15, fg, ft2, ft3, fb, fxSemAviso,
+  /* FREAL — o extrato de produção */
+  const freal = seguro(FREAL());
+  const itemReal = (rel: Relatorio | null, nsu: number, k = 1) => item(rel, String(nsu), k);
+  caso(C.REAL, () => {
+    const r = freal!;
+    const d = itemReal(r, 41001)!, v = itemReal(r, 41002)!, p1 = itemReal(r, 41003, 1)!, p2 = itemReal(r, 41003, 2)!;
+    return r.itens.length === 4 && r.itens.every((i) => i.status === "casada" && i.extrato!.taxa.resultado === "igual" && i.extrato!.antecipacao.resultado === "igual"
+        && i.sinais.includes("liquido_da_venda_igual") && !i.sinais.includes("liquido_da_venda_diferente"))
+      && resumo(d.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "debito", extratoBp: 0, contratoBp: 0, diferencaBp: null })
+      && resumo(v.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "credito_vista", extratoBp: 155, contratoBp: 155, diferencaBp: null })
+      && resumo(p1.extrato!.antecipacao) === resumo({ resultado: "igual", tipo: "parcelado", extratoBp: 155, contratoBp: 155, diferencaBp: null })
+      && resumo([d.sistema!.taxaCentavos, d.sistema!.tarifaCentavos, d.sistema!.antecipacaoCentavos]) === resumo([8, 100, null])
+      && resumo([v.sistema!.taxaCentavos, v.sistema!.tarifaCentavos, v.sistema!.antecipacaoCentavos]) === resumo([16, 100, 14])
+      && resumo([p1.sistema!.taxaCentavos, p1.sistema!.tarifaCentavos, p1.sistema!.antecipacaoCentavos]) === resumo([11, 50, 11])
+      && resumo([p2.sistema!.taxaCentavos, p2.sistema!.tarifaCentavos, p2.sistema!.antecipacaoCentavos]) === resumo([11, 50, 10])
+      && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 891 })
+      && resumo(v.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 869 })
+      && resumo(p1.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 856 }) && resumo(p2.liquidoDaVenda) === resumo(p1.liquidoDaVenda)
+      && d.extrato!.liquidoCentavos === 891 && p2.extrato!.liquidoCentavos === 428
+      && resumo(r.resumo.liquido) === resumo({ vendasComparadas: 3, vendasIguais: 3, vendasDiferentes: 0, centavosExtrato: 2616, centavosSistema: 2616 })
+      && r.resumo.antecipacao.porResultado.igual === 4 && r.resumo.antecipacao.parcelasComAntecipacaoInformada === 4
+      && r.resumo.antecipacao.titulosDeAntecipacaoNoSistema === 3 && r.resumo.antecipacao.centavosAntecipacaoNoSistema === 35
+      && r.resumo.taxa.titulosDeTaxaNoSistema === 4 && r.resumo.taxa.centavosTaxaNoSistema === 46
+      && r.resumo.itensComDivergencia === 0 && r.resumo.grupos.conferidas === 4;
+  }, () => resumo({ itens: freal?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais, i.extrato?.antecipacao, i.sistema && [i.sistema.taxaCentavos, i.sistema.tarifaCentavos, i.sistema.antecipacaoCentavos], i.liquidoDaVenda]), l: freal?.resumo.liquido, a: freal?.resumo.antecipacao }));
+
+  const fantigo = seguro(FREAL({ titulos: TITULOS_ANTIGOS() }));
+  caso(C.REAL_ANTIGO, () => {
+    const r = fantigo!;
+    const d = itemReal(r, 41001)!;
+    return r.itens.length === 4 && r.itens.every((i) => i.status === "casada" && i.extrato!.taxa.resultado === "igual" && i.sinais.includes("liquido_da_venda_diferente"))
+      && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 990 })
+      && resumo(itemReal(r, 41002)!.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 981 })
+      && resumo(itemReal(r, 41003, 2)!.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 974 })
+      && /R\$8,91/.test(d.frase) && /R\$9,90/.test(d.frase) && /tarifa fixa/.test(d.frase)
+      && resumo(r.resumo.liquido) === resumo({ vendasComparadas: 3, vendasIguais: 0, vendasDiferentes: 3, centavosExtrato: 2616, centavosSistema: 2945 })
+      && r.resumo.itensComDivergencia === 4 && r.resumo.grupos.divergencias === 0
+      && d.sistema!.tarifaCentavos === null && d.sistema!.antecipacaoCentavos === null;
+  }, () => resumo({ itens: fantigo?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais, i.liquidoDaVenda, i.frase]), l: fantigo?.resumo.liquido, d: fantigo?.resumo.itensComDivergencia }));
+
+  const fantDif = seguro(FREAL({ vinculo: { id: "v1", codigoCliente: EC, taxas: { ...CONTRATO_REAL, antecipacao_mes: 0.0199 }, antecipado: true } }));
+  caso(C.ANT_DIF, () => {
+    const r = fantDif!;
+    const v = itemReal(r, 41002)!;
+    return resumo(v.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "credito_vista", extratoBp: 155, contratoBp: 199, diferencaBp: -44 })
+      && itemReal(r, 41003, 1)!.extrato!.antecipacao.resultado === "diferente" && itemReal(r, 41003, 2)!.extrato!.antecipacao.resultado === "diferente"
+      && itemReal(r, 41001)!.extrato!.antecipacao.resultado === "igual"
+      && r.itens.every((i) => i.status === "casada" && i.sinais.includes("liquido_da_venda_igual"))
+      && /Antecipação: o extrato informa 1,55% ao mês e a cadastrada na maquininha é 1,99%\./.test(v.frase)
+      && r.resumo.antecipacao.porResultado.diferente === 3 && r.resumo.antecipacao.porResultado.igual === 1
+      && r.resumo.itensComDivergencia === 3 && r.resumo.grupos.divergencias === 0;
+  }, () => resumo({ itens: fantDif?.itens.map((i) => [i.nsu, i.parcela, i.status, i.extrato?.antecipacao, i.frase]), d: fantDif?.resumo.itensComDivergencia }));
+
+  const fantNao = seguro(FREAL({ vinculo: { id: "v1", codigoCliente: EC, taxas: CONTRATO_REAL, antecipado: false } }));
+  caso(C.ANT_NAO, () => fantNao!.itens.length === 4
+    && fantNao!.itens.every((i) => i.extrato!.antecipacao.resultado === "nao_antecipado" && i.extrato!.antecipacao.contratoBp === null && i.extrato!.antecipacao.diferencaBp === null)
+    && fantNao!.resumo.antecipacao.porResultado.nao_antecipado === 4 && fantNao!.resumo.itensComDivergencia === 0,
+  () => resumo({ a: fantNao?.itens.map((i) => i.extrato?.antecipacao), d: fantNao?.resumo.itensComDivergencia }));
+
+  const { antecipacao_mes: _semAnt, ...semAntecipacao } = CONTRATO_REAL;
+  void _semAnt;
+  const fantSem = seguro(FREAL({ vinculo: { id: "v1", codigoCliente: EC, taxas: semAntecipacao, antecipado: true } }));
+  caso(C.ANT_SEM, () => itemReal(fantSem, 41001)!.extrato!.antecipacao.resultado === "igual"
+    && [itemReal(fantSem, 41002)!, itemReal(fantSem, 41003, 1)!, itemReal(fantSem, 41003, 2)!].every((i) =>
+      resumo(i.extrato!.antecipacao) === resumo({ resultado: "sem_contrato", tipo: i.extrato!.antecipacao.tipo, extratoBp: 155, contratoBp: null, diferencaBp: null }))
+    && fantSem!.resumo.antecipacao.porResultado.sem_contrato === 3 && fantSem!.resumo.itensComDivergencia === 0,
+  () => resumo({ a: fantSem?.itens.map((i) => i.extrato?.antecipacao), d: fantSem?.resumo.itensComDivergencia }));
+
+  const fantDeb = seguro(FREAL({ extrato: comLinha(41001, 1, { taxaMesBp: 155 }) }));
+  caso(C.ANT_DEB, () => {
+    const d = itemReal(fantDeb, 41001)!;
+    return resumo(d.extrato!.antecipacao) === resumo({ resultado: "diferente", tipo: "debito", extratoBp: 155, contratoBp: 0, diferencaBp: 155 })
+      && /Antecipação: o extrato informa 1,55% ao mês numa venda no débito, que não tem antecipação\./.test(d.frase)
+      && fantDeb!.resumo.itensComDivergencia === 1;
+  }, () => resumo({ a: itemReal(fantDeb, 41001)?.extrato?.antecipacao, f: itemReal(fantDeb, 41001)?.frase }));
+
+  const fantCanc = seguro(FREAL({ extrato: EXTRATO_REAL().map((l) =>
+    l.nsu === 41002 ? { ...l, taxaMesBp: 0, mdrBp: 0, dataCancelamento: "2026-10-14T18:00:00" }
+    : l.nsu === 41003 && l.parcela === 2 ? { ...l, dataCancelamento: "2026-10-14T18:00:00" }
+    : l) }));
+  caso(C.ANT_CANC, () => {
+    const v = itemReal(fantCanc, 41002)!;
+    const p1 = itemReal(fantCanc, 41003, 1)!;
+    return v.status === "cancelada_no_extrato" && v.extrato!.antecipacao.resultado === "venda_cancelada" && v.extrato!.antecipacao.diferencaBp === null
+      && !v.sinais.some((x) => x.startsWith("liquido_da_venda")) && v.liquidoDaVenda === undefined
+      && itemReal(fantCanc, 41003, 2)!.status === "cancelada_no_extrato"
+      && p1.status === "casada" && !p1.sinais.some((x) => x.startsWith("liquido_da_venda")) && p1.liquidoDaVenda === undefined
+      && fantCanc!.resumo.antecipacao.porResultado.diferente === 0 && fantCanc!.resumo.liquido.vendasComparadas === 1;
+  }, () => resumo({ v: itemReal(fantCanc, 41002), p1: itemReal(fantCanc, 41003, 1)?.sinais, l: fantCanc?.resumo.liquido }));
+
+  const fliqParcela = seguro(FREAL({ titulos: TITULOS_REAIS().map((t) => (t.id === "r-41003-2" ? { ...t, situacao: "cancelado" } : t)) }));
+  caso(C.LIQ_PARCELA, () => {
+    const p1 = itemReal(fliqParcela, 41003, 1)!;
+    return itemReal(fliqParcela, 41003, 2)!.status === "cancelada_so_no_sistema"
+      && p1.status === "casada" && !p1.sinais.some((x) => x.startsWith("liquido_da_venda")) && p1.liquidoDaVenda === undefined
+      && fliqParcela!.resumo.liquido.vendasComparadas === 2;
+  }, () => resumo({ itens: fliqParcela?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais]), l: fliqParcela?.resumo.liquido }));
+
+  const fantF2 = seguro({ ...F2(), vinculo: { id: "v1", codigoCliente: EC, taxas: { credito_vista: 0.0265, antecipacao_mes: 0.0155 }, antecipado: true } });
+  caso(C.ANT_SEM_CONCLUSAO, () => fantF2!.estado === "chave_nao_confirmada"
+    && fantF2!.itens.filter((i) => i.extrato).length > 0
+    && fantF2!.itens.filter((i) => i.extrato).every((i) => i.extrato!.antecipacao.resultado === "sem_conclusao" && i.extrato!.antecipacao.diferencaBp === null)
+    && fantF2!.resumo.antecipacao.porResultado.diferente === 0,
+  () => resumo(fantF2?.itens.map((i) => i.extrato?.antecipacao)));
+
+  const fantIrma = seguro(FREAL({
+    vinculo: { id: "v1", codigoCliente: EC, taxas: { ...CONTRATO_REAL, antecipacao_mes: 0.0199 }, antecipado: true },
+    vinculosDoEstabelecimento: ["v1", "v2"], vinculosDaEmpresa: ["v1", "v2"],
+    eventos: [EV(41001, { ocorrido_em: "2026-10-14T17:00:00Z" }), EV(41002, { vinculo_id: "v2", ocorrido_em: "2026-10-14T17:00:00Z" }), EV(41003, { ocorrido_em: "2026-10-14T17:00:00Z" })],
+  }));
+  caso(C.ANT_IRMA, () => itemReal(fantIrma, 41002)!.extrato!.antecipacao.resultado === "outra_maquininha"
+    && itemReal(fantIrma, 41002)!.extrato!.antecipacao.diferencaBp === null
+    && itemReal(fantIrma, 41003, 1)!.extrato!.antecipacao.resultado === "diferente",
+  () => resumo(fantIrma?.itens.map((i) => [i.nsu, i.extrato?.antecipacao])));
+
+  const fliq890 = seguro(FREAL({ extrato: comLinha(41001, 1, { liquidoRepasseCentavos: 890 }) }));
+  const fliq889 = seguro(FREAL({ extrato: comLinha(41001, 1, { liquidoRepasseCentavos: 889 }) }));
+  caso(C.LIQ_TOLERANCIA, () => {
+    const a = itemReal(fliq890, 41001)!, b = itemReal(fliq889, 41001)!;
+    return a.sinais.includes("liquido_da_venda_igual") && resumo(a.liquidoDaVenda) === resumo({ extratoCentavos: 890, sistemaCentavos: 891 })
+      && fliq890!.resumo.itensComDivergencia === 0 && fliq890!.resumo.liquido.vendasIguais === 3
+      && b.sinais.includes("liquido_da_venda_diferente") && resumo(b.liquidoDaVenda) === resumo({ extratoCentavos: 889, sistemaCentavos: 891 })
+      && fliq889!.resumo.itensComDivergencia === 1 && fliq889!.resumo.liquido.vendasDiferentes === 1;
+  }, () => resumo({ a: itemReal(fliq890, 41001)?.sinais, b: itemReal(fliq889, 41001)?.sinais }));
+
+  const fliqMetade = seguro(FREAL({ extrato: EXTRATO_REAL().filter((l) => !(l.nsu === 41003 && l.parcela === 2)).map((l) => (l.nsu === 41001 ? { ...l, liquidoRepasseCentavos: null } : l)) }));
+  caso(C.LIQ_METADE, () => {
+    const r = fliqMetade!;
+    const semSinal = (i: { sinais: string[]; liquidoDaVenda?: unknown } | undefined) => !!i && !i.sinais.some((x) => x.startsWith("liquido_da_venda")) && i.liquidoDaVenda === undefined;
+    return semSinal(itemReal(r, 41003, 1)) && semSinal(itemReal(r, 41003, 2)) && semSinal(itemReal(r, 41001))
+      && itemReal(r, 41002)!.sinais.includes("liquido_da_venda_igual")
+      && resumo(r.resumo.liquido) === resumo({ vendasComparadas: 1, vendasIguais: 1, vendasDiferentes: 0, centavosExtrato: 869, centavosSistema: 869 });
+  }, () => resumo({ itens: fliqMetade?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais]), l: fliqMetade?.resumo.liquido }));
+
+  const fliqEst = seguro(FREAL({
+    titulos: [...TITULOS_REAIS(), EST(41002, "499", 5, "2026-10-14")],
+    transacoes: [TR(41002, "Reembolsada", 4.99, 9.99), TR(41001, "Cancelada", 9.99, 9.99)],
+  }));
+  caso(C.LIQ_ESTORNO, () => {
+    const r = fliqEst!;
+    const semSinal = (i: { sinais: string[]; liquidoDaVenda?: unknown } | undefined) => !!i && !i.sinais.some((x) => x.startsWith("liquido_da_venda")) && i.liquidoDaVenda === undefined;
+    return semSinal(itemReal(r, 41002)) && semSinal(itemReal(r, 41001))
+      && itemReal(r, 41002)!.status === "inconclusivo" && itemReal(r, 41001)!.status === "cancelada_so_no_sistema"
+      && itemReal(r, 41003, 1)!.sinais.includes("liquido_da_venda_igual")
+      && r.resumo.liquido.vendasComparadas === 1;
+  }, () => resumo({ itens: fliqEst?.itens.map((i) => [i.nsu, i.parcela, i.status, i.sinais]), l: fliqEst?.resumo.liquido }));
+
+  const todos = [f0, f0s, f0i, f0d, freal, fantigo, fantDif, fantNao, fantSem, fantDeb, fantCanc, fantF2, fantIrma, fliq890, fliq889, fliqMetade, fliqEst, fliqParcela, f1, f2, f2t, f3, f3b, f3c, f4, f5, f6, f7, f8, f8b, f9, f10, f11, f12, ft, f13, f14, f15, fg, ft2, ft3, fb, fxSemAviso,
     fx2023, fxNoDia, fpAntiga, fvivos, fv, fl, fborda, ftol, ft4, fbz, ftot, fdisc];
   caso(C.INVARIANTE, () => todos.every((x) => invariante(x).length === 0), () => todos.flatMap(invariante).slice(0, 4).join(" | "));
 
@@ -1438,6 +1700,9 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
       && resumo(b) === resumo({ nsu: "1013", tipo: "estorno", alvo: 3000 })
       && resumo(c) === resumo({ nsu: "1021", tipo: "estorno", alvo: "total" })
       && resumo(d) === resumo({ nsu: "9", tipo: "parcela", parcela: 1, papel: "t" })
+      && resumo(m.eng.chaveDoTitulo("pinbank:9:2:f")) === resumo({ nsu: "9", tipo: "parcela", parcela: 2, papel: "f" })
+      && resumo(m.eng.chaveDoTitulo("pinbank:9:2:a")) === resumo({ nsu: "9", tipo: "parcela", parcela: 2, papel: "a" })
+      && m.eng.chaveDoTitulo("pinbank:9:2:x") === null
       && m.eng.chaveDoTitulo("pinbank:abc:1:r") === null && m.eng.chaveDoTitulo("pinbankx:1:1:r") === null
       && m.eng.chaveDoTitulo(null) === null && m.eng.chaveDoTitulo("rec:abc:2025-07-01") === null;
   });
@@ -1642,12 +1907,12 @@ const PLANTAS: Planta[] = [
   { nome: "PT6 a taxa sem contrato (ou sem MDR) vira divergência", caso: C.FT_RESUMO,
     de: "=== \"divergencias\" || i.extrato?.taxa.resultado === \"diferente\"", para: "=== \"divergencias\" || (i.extrato != null && i.extrato.taxa.resultado !== \"igual\")" },
   { nome: "PT7 a vista de divergências ignora a taxa diferente", caso: C.FT_RESUMO,
-    de: " || i.extrato?.taxa.resultado === \"diferente\"\n    || i.sinais", para: "\n    || i.sinais" },
+    de: " || i.extrato?.taxa.resultado === \"diferente\"\n    || i.extrato?.antecipacao", para: "\n    || i.extrato?.antecipacao" },
   { nome: "PT8 um valor em reais derivado do percentual", caso: C.FT_SEM_REAIS,
     de: "    taxa: taxaDaLinha(x.l),",
     para: "    taxa: taxaDaLinha(x.l),\n    taxaCentavos: est != null && x.l.mdrBp != null ? Math.round((est * x.l.mdrBp) / 10_000) : null," },
   { nome: "PT9 sem a frase da taxa diferente", caso: C.F0_TAXA_DIF,
-    de: "+ fraseDaTaxa(p.extrato?.taxa, p.sinais),", para: "," },
+    de: "+ fraseDaTaxa(p.extrato?.taxa, p.sinais) + fraseDaAntecipacao", para: "+ fraseDaAntecipacao" },
   { nome: "PT10 a taxa é afirmada sem NSU em comum (o extrato pode ser de outra maquininha)", caso: C.F2_TAXA,
     de: "    if (chaveNaoConfirmada) return { ...t, resultado: \"sem_conclusao\" };\n", para: "" },
   { nome: "PT11 a taxa da venda cancelada é comparada (o MDR zerado vira \"taxa diferente\")", caso: C.FT2,
@@ -1680,13 +1945,13 @@ const PLANTAS: Planta[] = [
   { nome: "PT20d a diferença da taxa sai também na IGUAL (o parcelado em 1x)", caso: C.FT3,
     de: "diferencaBp: resultado === \"diferente\" && extratoBp != null", para: "diferencaBp: extratoBp != null" },
   { nome: "PV1 a vista de divergências ignora o total diferente (o título da última parcela some sem divergência nenhuma)", caso: C.TOTAL_ULTIMA,
-    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\");", para: ";" },
+    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\")\n", para: "\n" },
   { nome: "PV1b a vista de divergências ignora o total diferente (o resumo da FTOT)", caso: C.TOTAL_RESUMO,
-    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\");", para: ";" },
+    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\")\n", para: "\n" },
   { nome: "PV1c a vista de divergências ignora o total diferente (a lista literal do invariante discorda)", caso: C.INVARIANTE,
-    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\");", para: ";" },
+    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\")\n", para: "\n" },
   { nome: "PV1d a vista de divergências ignora o total diferente (a 22002 de 1x × 3x)", caso: C.PARCELAS_V,
-    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\");", para: ";" },
+    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\")\n", para: "\n" },
   { nome: "PV2 a frase das parcelas e do total volta a sair só nas situações divergentes (a conferida diz que está tudo certo)", caso: C.TOTAL_LANCADO,
     de: "  return fraseDaSituacao(status, motivo, sinais, dS, dE, datas) + parcelas;",
     para: "  return fraseDaSituacao(status, motivo, sinais, dS, dE, datas) + (GRUPO_DO_STATUS[status] === \"divergencias\" ? parcelas : \"\");" },
@@ -1694,7 +1959,7 @@ const PLANTAS: Planta[] = [
     de: "  return fraseDaSituacao(status, motivo, sinais, dS, dE, datas) + parcelas;",
     para: "  return fraseDaSituacao(status, motivo, sinais, dS, dE, datas) + (GRUPO_DO_STATUS[status] === \"divergencias\" ? parcelas : \"\");" },
   { nome: "PV3 a vista leva TODA venda de números de parcelas diferentes (a redividida com o mesmo total vira divergência sem par)", caso: C.TOTAL_IGUAL,
-    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\");", para: "\n    || i.sinais.includes(\"parcelas_diferentes\");" },
+    de: "\n    || i.sinais.includes(\"total_da_venda_diferente\")\n", para: "\n    || i.sinais.includes(\"parcelas_diferentes\")\n" },
   { nome: "PV4 a parcela que falta no sistema anula a comparação do total (a lacuna esconde o título perdido)", caso: C.TOTAL_LACUNA,
     de: "    for (const rs of Array.from(v.r.values())) {\n      if (rs.length !== 1",
     para: "    for (let k = 1; k <= (maiorParcela(v.r) ?? 0); k++) {\n      const rs = v.r.get(k) ?? [];\n      if (rs.length !== 1" },
@@ -1728,6 +1993,53 @@ const PLANTAS: Planta[] = [
     de: "if (motivo === \"parcela_ausente_no_extrato\" && nExt !== maiorParcela(v.r)) {", para: "if (false) {" },
   { nome: "PF2 a 1022 (3x × 2x) volta a deixar a p3 \"só no sistema\" — os grupos da loja inteira", caso: C.F1_GRUPOS,
     de: "if (motivo === \"parcela_ausente_no_extrato\" && nExt !== maiorParcela(v.r)) {", para: "if (false) {" },
+  // ── a antecipação e o líquido (14/10/2026): cada um, o atalho tentador ──
+  { nome: "PA1 a antecipação sem comparar (sempre igual)", caso: C.ANT_DIF,
+    de: "Math.abs(extratoBp - esperadaExata) < TOLERANCIA_TAXA_BP", para: "true" },
+  { nome: "PA2 o débito espera a antecipação do crédito", caso: C.REAL,
+    de: ": tipo === \"debito\" ? 0", para: ": tipo === \"debito\" ? pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {}))" },
+  { nome: "PA3 sem o portão do repasse antecipado (o vínculo que não antecipa é comparado)", caso: C.ANT_NAO,
+    de: "  antecipado: boolean | null | undefined,\n): AntecipacaoDoItem {\n",
+    para: "  _antecipado: boolean | null | undefined,\n): AntecipacaoDoItem {\n  const antecipado = true as boolean | null | undefined;\n" },
+  { nome: "PA4 a antecipação diferente fora da vista de divergências", caso: C.ANT_DIF,
+    de: "\n    || i.extrato?.antecipacao.resultado === \"diferente\"", para: "" },
+  { nome: "PA5 a antecipação da venda cancelada comparada (a linha zerada vira \"diferente\")", caso: C.ANT_CANC,
+    de: "    if (l.dataCancelamento != null) return { ...a, resultado: \"venda_cancelada\", diferencaBp: null };\n", para: "" },
+  { nome: "PA6 sem a frase da antecipação diferente", caso: C.ANT_DIF,
+    de: "+ fraseDaAntecipacao(p.extrato?.antecipacao)", para: "" },
+  { nome: "PA7 a antecipação afirmada sem NSU em comum", caso: C.ANT_SEM_CONCLUSAO,
+    de: "    if (chaveNaoConfirmada) return { ...a, resultado: \"sem_conclusao\", diferencaBp: null };\n", para: "" },
+  { nome: "PA8 a antecipação da venda da maquininha irmã comparada com a desta", caso: C.ANT_IRMA,
+    de: "    if (temIrma && !avisoDesta(l)) return { ...a, resultado: \"outra_maquininha\", diferencaBp: null };\n", para: "" },
+  { nome: "PA9 a antecipação sem contrato vira \"igual a zero\"", caso: C.ANT_SEM,
+    de: "    : pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {}));", para: "    : (pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {})) ?? 0);" },
+  { nome: "PL1 o líquido sem a folga de 1 centavo (o arredondamento vira divergência)", caso: C.LIQ_TOLERANCIA,
+    de: "<= TOLERANCIA_LIQUIDO_CENTAVOS ? \"liquido_da_venda_igual\"", para: "< TOLERANCIA_LIQUIDO_CENTAVOS ? \"liquido_da_venda_igual\"" },
+  { nome: "PL2 o líquido com folga de 2 centavos (dinheiro passa por arredondamento)", caso: C.LIQ_TOLERANCIA,
+    de: "<= TOLERANCIA_LIQUIDO_CENTAVOS ? \"liquido_da_venda_igual\"", para: "<= 2 ? \"liquido_da_venda_igual\"" },
+  { nome: "PL3 a meia venda comparada (só as parcelas que o extrato traz)", caso: C.LIQ_METADE,
+    de: "if (ls.length !== 1 || ls[0].l.liquidoRepasseCentavos == null || ls[0].l.dataCancelamento != null) return null;",
+    para: "if (ls.length !== 1) continue;\n        if (ls[0].l.liquidoRepasseCentavos == null || ls[0].l.dataCancelamento != null) return null;" },
+  { nome: "PL4 o líquido do sistema sem a antecipação", caso: C.REAL,
+    de: "[v.t, v.f, v.a]", para: "[v.t, v.f]" },
+  { nome: "PL5 o líquido do sistema sem a tarifa fixa", caso: C.REAL,
+    de: "[v.t, v.f, v.a]", para: "[v.t, v.a]" },
+  { nome: "PL6 o líquido diferente fora da vista de divergências", caso: C.REAL_ANTIGO,
+    de: "\n    || i.sinais.includes(\"liquido_da_venda_diferente\")", para: "" },
+  { nome: "PL7 a chave sem a tarifa e a antecipação (os títulos delas somem do sistema)", caso: C.REAL,
+    de: "(r|t|f|a)$/;", para: "(r|t)$/;" },
+  { nome: "PL8 a tarifa e a antecipação somadas à taxa (MDR) da parcela", caso: C.REAL,
+    de: "      const m = v[c.papel];", para: "      const m = c.papel === \"r\" ? v.r : v.t;" },
+  { nome: "PL9 o estorno não impede a comparação do líquido", caso: C.LIQ_ESTORNO,
+    de: "      if (v.estornos.length > 0 || reembolsoParcial(v)) return null;\n", para: "" },
+  { nome: "PL10 o resumo do líquido conta PARCELA, não venda (o 2x conta duas vezes)", caso: C.REAL,
+    de: "liquidoPorNsu.set(it.nsu, it.liquidoDaVenda);", para: "liquidoPorNsu.set(it.id, it.liquidoDaVenda);" },
+  { nome: "PL11 a linha cancelada no extrato entra no líquido", caso: C.ANT_CANC,
+    de: "ls[0].l.dataCancelamento != null) return null;", para: "false) return null;" },
+  { nome: "PL12 a parcela cancelada no sistema entra no líquido", caso: C.LIQ_PARCELA,
+    de: "rs.length === 1 && vivo(rs[0].situacao) ? centavosDeReais", para: "rs.length === 1 ? centavosDeReais" },
+  { nome: "PL13 sem a frase do líquido diferente", caso: C.REAL_ANTIGO,
+    de: "\n      + fraseDoLiquido(p.sinais, p.liquidoDaVenda),", para: "," },
 ];
 
 /* ─────────────────── os portões da rota e a leitura do banco ─────────────────── */

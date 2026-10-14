@@ -11,9 +11,12 @@
  *
  * ⚠️ A TAXA da Pinbank é o MDR em PERCENTUAL (confirmado pela Pinbank em
  * 13/10/2026): aparece como percentual, nunca como dinheiro, e o motor a
- * compara com a taxa cadastrada na maquininha. Bruto da parcela, split e
- * líquido seguem "aguardando definição": o sentido deles na loja de teste está
- * em aberto. Por isso nenhum deles passa pelo tratamento de dinheiro (`BRL`).
+ * compara com a taxa cadastrada na maquininha. A ANTECIPAÇÃO (o `ValorTaxaMes`,
+ * percentual ao mês) também é percentual, e é comparada com a contratada. O
+ * LÍQUIDO é o que a Pinbank deposita (extrato de produção, 14/10/2026): esse é
+ * dinheiro, e a conferência o compara por VENDA com o que o sistema lançou.
+ * Bruto da parcela e split seguem "aguardando definição": nenhum deles passa
+ * pelo tratamento de dinheiro (`BRL`).
  *
  * ⚠️ A taxa sai com DUAS casas, e não com a uma casa da regra geral de
  * percentual: a taxa contratada tem duas casas (2,65%) e o motor acusa como
@@ -51,8 +54,10 @@ import { conferirComExtrato, type ResultadoConferencia, type VinculoTela } from 
 import {
   ESPERA_CONFERENCIA_MS,
   GRUPO_DO_STATUS,
+  ORDEM_RESULTADO_ANTECIPACAO,
   ORDEM_RESULTADO_TAXA,
   ORDEM_STATUS,
+  ROTULO_RESULTADO_ANTECIPACAO,
   ROTULO_RESULTADO_TAXA,
   ROTULO_STATUS,
   TOLERANCIA_TAXA_BP,
@@ -68,6 +73,7 @@ import {
   type RelatorioConferencia,
   type RelatorioParaEmpresa,
   type RelatorioSoContagens,
+  type ResultadoAntecipacao,
   type ResultadoTaxa,
   type SinalConferencia,
 } from "@/core/pinbank";
@@ -116,6 +122,8 @@ const ROTULO_SINAL: Record<SinalConferencia, string> = {
   taxa_sem_titulo_no_sistema: "O extrato cobrou a taxa e o sistema não lançou o título dela",
   total_da_venda_igual: "Total bruto da venda igual nos dois lados",
   total_da_venda_diferente: "Total bruto da venda diferente nos dois lados",
+  liquido_da_venda_igual: "Líquido da venda igual nos dois lados",
+  liquido_da_venda_diferente: "Líquido da venda diferente nos dois lados",
 };
 
 /** O selo da taxa: diferente pede atenção; igual confere; o resto é neutro (não é divergência). */
@@ -123,6 +131,20 @@ const TOM_DA_TAXA: Record<ResultadoTaxa, "positive" | "warning" | "neutral"> = {
   diferente: "warning",
   igual: "positive",
   sem_contrato: "neutral",
+  sem_extrato: "neutral",
+  tipo_desconhecido: "neutral",
+  sem_conclusao: "neutral",
+  outra_maquininha: "neutral",
+  venda_cancelada: "neutral",
+  estorno_parcial: "neutral",
+};
+
+/** O selo da antecipação: o mesmo critério do da taxa. */
+const TOM_DA_ANTECIPACAO: Record<ResultadoAntecipacao, "positive" | "warning" | "neutral"> = {
+  diferente: "warning",
+  igual: "positive",
+  sem_contrato: "neutral",
+  nao_antecipado: "neutral",
   sem_extrato: "neutral",
   tipo_desconhecido: "neutral",
   sem_conclusao: "neutral",
@@ -161,7 +183,9 @@ const COMO_CALCULA_RESUMO =
   + "O bruto estimado no extrato é o bruto da venda dividido pelo número de parcelas, pela mesma divisão que o sistema usa ao lançar a venda — a diferença de centavos fica na última parcela. "
   + "Quando o extrato e o sistema dividem a mesma venda em números de parcelas diferentes, a parcela sem par fica sem conclusão (o valor dela pode estar nas parcelas do outro lado), e o total bruto da venda é comparado — uma parcela que falta no sistema conta zero. O total diferente leva todas as parcelas da venda também à aba de divergências, mesmo as que conferem uma a uma. "
   + `A taxa (MDR) do extrato é comparada com a taxa cadastrada na maquininha para o tipo de venda (débito, crédito à vista ou parcelado — parcelado em 1x é crédito à vista, como ao lançar), sem arredondar a cadastrada: uma diferença menor que ${TOLERANCIA_TEXTO} conta como igual; `
-  + "a da venda cancelada e a da venda com estorno parcial não são comparadas. A taxa não muda a situação da parcela, mas a taxa diferente — ou cobrada no extrato sem o título dela no sistema, quando pelo contrato ela existe — leva a parcela também à aba de divergências.";
+  + "a da venda cancelada e a da venda com estorno parcial não são comparadas. A taxa não muda a situação da parcela, mas a taxa diferente — ou cobrada no extrato sem o título dela no sistema, quando pelo contrato ela existe — leva a parcela também à aba de divergências. "
+  + "A antecipação ao mês do extrato é comparada do mesmo jeito: no crédito, com a antecipação cadastrada na maquininha; no débito, com zero; sem o repasse antecipado na maquininha, ela não é comparada. "
+  + "E o líquido, o que a Pinbank deposita, é comparado por venda inteira com o que o sistema lançou (receita menos taxa, tarifa fixa e antecipação), com folga de 1 centavo pelos arredondamentos; a venda pela metade em algum dos lados não é comparada. A antecipação e o líquido diferentes também levam a parcela à aba de divergências, sem mudar a situação dela.";
 
 const OQUE_CONTAGENS =
   "Sem nenhuma venda do extrato com o mesmo número (NSU), no mesmo dia, de uma venda que chegou a esta maquininha pelo aviso da Pinbank, nada prova que o extrato é desta maquininha. "
@@ -246,7 +270,7 @@ export function PinbankConferencia({ vinculo }: { vinculo: VinculoTela }) {
       <div className="flex flex-col gap-1">
         <span className="a4p-label text-muted">Conferência com o extrato da Pinbank</span>
         <p className="m-0 text-label text-ink max-w-[80ch]">
-          Compara cada parcela do extrato da Pinbank com o que o sistema lançou: data do repasse, valor bruto, cancelamentos e a taxa cobrada, contra a cadastrada na maquininha. Só lê — nada é alterado.
+          Compara cada parcela do extrato da Pinbank com o que o sistema lançou: data do repasse, valor bruto, cancelamentos, a taxa e a antecipação cobradas, contra as cadastradas na maquininha, e o líquido de cada venda. Só lê — nada é alterado.
         </p>
       </div>
 
@@ -368,6 +392,10 @@ function Relatorio({ r, consultadoEm }: { r: RelatorioParaEmpresa; consultadoEm:
 
       <TaxaDaMaquininha r={r} />
 
+      <AntecipacaoDaMaquininha r={r} />
+
+      <LiquidoDasVendas r={r} />
+
       <ForaDaConferencia f={r.resumo.foraDaConferencia} />
 
       {r.detalhes.visiveis && <Itens r={r} />}
@@ -454,6 +482,77 @@ function TaxaDaMaquininha({ r }: { r: RelatorioCompleto }) {
   );
 }
 
+function AntecipacaoDaMaquininha({ r }: { r: RelatorioCompleto }) {
+  const a = r.resumo.antecipacao;
+  const resultados = ORDEM_RESULTADO_ANTECIPACAO.filter((x) => a.porResultado[x] > 0);
+  return (
+    <div className="flex flex-col gap-1 max-w-[80ch]">
+      <span className="text-label font-medium text-ink">Antecipação</span>
+      <span className="text-caption text-muted">
+        O extrato informa a antecipação ao mês de cada parcela. No crédito ela é comparada com a cadastrada na maquininha, e no débito com zero, sem arredondar a cadastrada; uma diferença menor que {TOLERANCIA_TEXTO} conta como igual.
+      </span>
+      {resultados.length === 0 ? (
+        <span className="text-label text-muted">Nenhuma parcela do extrato para comparar.</span>
+      ) : (
+        <ul className="m-0 p-0 list-none flex flex-col gap-1">
+          {resultados.map((x) => (
+            <li key={x} className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={TOM_DA_ANTECIPACAO[x]}>{ROTULO_RESULTADO_ANTECIPACAO[x]}</StatusBadge>
+              <span className="text-label text-ink tabular-nums">{a.porResultado[x]} parcela(s)</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <span className="text-label text-ink tabular-nums">
+        Parcelas com antecipação informada no extrato: {a.parcelasComAntecipacaoInformada}
+      </span>
+      <span className="text-label text-ink">
+        Antecipação lançada pelo sistema (pelo contrato):{" "}
+        {a.titulosDeAntecipacaoNoSistema > 0
+          ? <BRL value={a.centavosAntecipacaoNoSistema / 100} />
+          : <SemDados motivo="nenhum título de antecipação nestas parcelas" />}
+      </span>
+    </div>
+  );
+}
+
+/** O líquido por VENDA: o que a Pinbank deposita × o que o sistema lançou — as somas vêm prontas do motor. */
+function LiquidoDasVendas({ r }: { r: RelatorioCompleto }) {
+  const l = r.resumo.liquido;
+  return (
+    <div className="flex flex-col gap-1 max-w-[80ch]">
+      <span className="text-label font-medium text-ink">Líquido das vendas</span>
+      <span className="text-caption text-muted">
+        O que a Pinbank deposita, somado por venda, comparado com o que o sistema lançou: a receita menos a taxa, a tarifa fixa e a antecipação. Só a venda inteira nos dois lados é comparada, com folga de 1 centavo pelos arredondamentos.
+      </span>
+      {l.vendasComparadas === 0 ? (
+        <span className="text-label text-muted">Nenhuma venda inteira nos dois lados para comparar.</span>
+      ) : (
+        <>
+          <ul className="m-0 p-0 list-none flex flex-col gap-1">
+            {l.vendasIguais > 0 && (
+              <li className="flex flex-wrap items-center gap-2">
+                <StatusBadge tone="positive">Líquido igual</StatusBadge>
+                <span className="text-label text-ink tabular-nums">{l.vendasIguais} venda(s)</span>
+              </li>
+            )}
+            {l.vendasDiferentes > 0 && (
+              <li className="flex flex-wrap items-center gap-2">
+                <StatusBadge tone="warning">Líquido diferente</StatusBadge>
+                <span className="text-label text-ink tabular-nums">{l.vendasDiferentes} venda(s)</span>
+              </li>
+            )}
+          </ul>
+          <span className="text-label text-ink">
+            Depositado pela Pinbank: <Valor centavos={l.centavosExtrato} semValor="nenhuma venda comparada" />
+            {" · "}Lançado no sistema: <Valor centavos={l.centavosSistema} semValor="nenhuma venda comparada" />
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Avisos({ avisos }: { avisos: RelatorioConferencia["avisos"] }) {
   const lista = avisos;
   if (!lista.length) return null;
@@ -526,7 +625,7 @@ function Itens({ r }: { r: RelatorioCompleto }) {
       </div>
       {aba === "divergencias" && r.resumo.itensComDivergencia > r.resumo.grupos.divergencias && (
         <span className="text-caption text-muted max-w-[80ch]">
-          Inclui as parcelas com taxa diferente da cadastrada, ou cobrada no extrato sem o título dela no sistema, e as parcelas de uma venda com o total bruto diferente nos dois lados, mesmo quando a data e o valor delas conferem — elas aparecem também no grupo da situação delas.
+          Inclui as parcelas com taxa ou antecipação diferente da cadastrada, ou com a taxa cobrada no extrato sem o título dela no sistema, e as parcelas de uma venda com o total bruto ou o líquido diferente nos dois lados, mesmo quando a data e o valor delas conferem — elas aparecem também no grupo da situação delas.
         </span>
       )}
 
@@ -537,7 +636,7 @@ function Itens({ r }: { r: RelatorioCompleto }) {
           <table className="w-full text-label tabular-nums">
             <thead>
               <tr className="text-left">
-                {["NSU", "Parcela", "Venda", "Repasse no sistema", "Repasse no extrato", "Diferença", "Bruto no sistema", "Bruto estimado no extrato", "Taxa no extrato", "Situação", ""].map((h, i) => (
+                {["NSU", "Parcela", "Venda", "Repasse no sistema", "Repasse no extrato", "Diferença", "Bruto no sistema", "Bruto estimado no extrato", "Taxa e antecipação no extrato", "Situação", ""].map((h, i) => (
                   <th key={`${h}-${i}`} className={TH}>{h}</th>
                 ))}
               </tr>
@@ -555,6 +654,21 @@ function Itens({ r }: { r: RelatorioCompleto }) {
           Mostrar mais ({daAba.length - limite} restantes)
         </Button>
       )}
+    </div>
+  );
+}
+
+/** A antecipação da parcela: só quando houve comparação (igual, diferente ou sem a cadastrada) — em percentual ao mês. */
+function AntecipacaoDaParcela({ i }: { i: ItemConferencia }) {
+  const a = i.extrato?.antecipacao;
+  if (!a || a.extratoBp == null || !(a.resultado === "igual" || a.resultado === "diferente" || a.resultado === "sem_contrato")) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-ink">
+        {taxaPct(a.extratoBp)} ao mês
+        {a.contratoBp != null && <span className="text-muted"> · esperada {taxaPct(a.contratoBp)}</span>}
+      </span>
+      <StatusBadge tone={TOM_DA_ANTECIPACAO[a.resultado]}>{ROTULO_RESULTADO_ANTECIPACAO[a.resultado]}</StatusBadge>
     </div>
   );
 }
@@ -580,6 +694,7 @@ function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean;
   const n = i.extrato ? (i.totalParcelasExtrato ?? i.totalParcelasSistema) : (i.totalParcelasSistema ?? i.totalParcelasExtrato);
   const ad = i.extrato?.aguardandoDefinicao;
   const tx = i.extrato?.taxa;
+  const an = i.extrato?.antecipacao;
   return (
     <>
       <tr className="border-t border-border-soft align-top">
@@ -595,7 +710,12 @@ function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean;
         <td className="py-2 pr-4 whitespace-nowrap">
           <Valor centavos={i.extrato?.brutoParcelaEstimadoCentavos ?? null} semValor={semBrutoDoExtrato(i)} />
         </td>
-        <td className="py-2 pr-4 whitespace-nowrap"><TaxaDaParcela i={i} /></td>
+        <td className="py-2 pr-4 whitespace-nowrap">
+          <div className="flex flex-col gap-2">
+            <TaxaDaParcela i={i} />
+            <AntecipacaoDaParcela i={i} />
+          </div>
+        </td>
         <td className="py-2 pr-4 min-w-[260px]">
           <div className="flex flex-col gap-1">
             <StatusBadge tone={TOM_DO_STATUS[i.status]}>{ROTULO_STATUS[i.status]}</StatusBadge>
@@ -618,8 +738,14 @@ function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean;
               {i.extrato?.dataCancelamento && <Par t="Cancelada no extrato em" v={dataBR(i.extrato.dataCancelamento)} />}
               {i.sistema && <Par t="Situação no sistema" v={i.sistema.situacao} />}
               {i.sistema && (
-                <Par t="Taxa lançada pelo sistema (pelo contrato)"
-                  v={i.sistema.taxaCentavos == null ? "nenhum título de taxa" : <BRL value={i.sistema.taxaCentavos / 100} />} />
+                <>
+                  <Par t="Taxa lançada pelo sistema (pelo contrato)"
+                    v={i.sistema.taxaCentavos == null ? "nenhum título de taxa" : <BRL value={i.sistema.taxaCentavos / 100} />} />
+                  <Par t="Tarifa fixa lançada pelo sistema"
+                    v={i.sistema.tarifaCentavos == null ? "nenhum título de tarifa" : <BRL value={i.sistema.tarifaCentavos / 100} />} />
+                  <Par t="Antecipação lançada pelo sistema"
+                    v={i.sistema.antecipacaoCentavos == null ? "nenhum título de antecipação" : <BRL value={i.sistema.antecipacaoCentavos / 100} />} />
+                </>
               )}
               {i.sistema?.estornoDaVendaCentavos != null && (
                 <Par t="Estornos da venda no sistema" v={<BRL value={i.sistema.estornoDaVendaCentavos / 100} />} />
@@ -642,12 +768,30 @@ function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean;
                   <Par t="Comparação da taxa" v={ROTULO_RESULTADO_TAXA[tx.resultado]} />
                 </>
               )}
+              {an && (
+                <>
+                  <Par t="Antecipação informada no extrato" v={an.extratoBp == null ? "não informada pela Pinbank" : `${taxaPct(an.extratoBp)} ao mês`} />
+                  <Par t="Antecipação esperada pelo contrato"
+                    v={an.contratoBp != null ? `${taxaPct(an.contratoBp)} ao mês`
+                      : an.resultado === "nao_antecipado" ? "repasse não antecipado na maquininha" : "não cadastrada"} />
+                  {an.diferencaBp != null && <Par t="Diferença da antecipação" v={pontosPercentuais(an.diferencaBp)} />}
+                  <Par t="Comparação da antecipação" v={ROTULO_RESULTADO_ANTECIPACAO[an.resultado]} />
+                </>
+              )}
+              {i.extrato && (
+                <Par t="Líquido desta parcela no extrato (o que a Pinbank deposita)"
+                  v={<Valor centavos={i.extrato.liquidoCentavos} semValor="não informado pela Pinbank" />} />
+              )}
+              {i.liquidoDaVenda && (
+                <>
+                  <Par t="Líquido da venda depositado pela Pinbank" v={<BRL value={i.liquidoDaVenda.extratoCentavos / 100} />} />
+                  <Par t="Líquido da venda lançado no sistema" v={<BRL value={i.liquidoDaVenda.sistemaCentavos / 100} />} />
+                </>
+              )}
               {ad && (
                 <>
-                  <Par t="Taxa do mês informada" v={`${ad.taxaMesBp == null ? "—" : taxaPct(ad.taxaMesBp)} (aguardando definição)`} />
                   <Par t="Bruto da parcela informado" v={`${informado(ad.brutoParcelaCentavos)} (aguardando definição)`} />
                   <Par t="Split informado" v={`${informado(ad.splitCentavos)} (aguardando definição)`} />
-                  <Par t="Líquido informado" v={`${informado(ad.liquidoCentavos)} (aguardando definição)`} />
                 </>
               )}
             </dl>

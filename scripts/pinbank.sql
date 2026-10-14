@@ -12,6 +12,10 @@
 --   3. o evento sem vínculo fica na quarentena, e a plataforma o vê;
 --   4. vínculo não ativado não vira dinheiro;
 --   5. o LEITOR não ativa; taxa digitada como percentual é recusada;
+--  5c. a tarifa fixa (em reais, até R$ 100, em centavos) e a antecipação ao
+--      mês (fração) do contrato real são aceitas e gravadas como vieram; fora
+--      da faixa, chave que o contrato não tem, taxa em texto e taxas em lista
+--      são recusadas pela frase que as nomeia — e a recusa não mexe no gravado;
 --   6. a venda aprovada vira documento + títulos (origem, espécie, autor, NSU,
 --      chave) numa transação só, e deixa trilha;
 --   7. a reentrega do mesmo EventId não duplica, e a versão velha é recusada;
@@ -21,6 +25,11 @@
 --  11. assinatura vencida: o dinheiro não entra, e o motivo é nomeado;
 --  12. a empresa B não lê nada da A; a sessão do cliente não executa as RPCs
 --      de serviço nem escreve direto.
+--
+-- E os DEFEITOS PLANTADOS no fim (da validação do contrato) — cada um reescreve
+-- `pinbank_configurar_vinculo` dentro de um savepoint e exige que o caso 5c
+-- REPROVE, lendo a mensagem. Planta que não acha mais o texto a substituir
+-- "envelheceu" — e isso também reprova. O arreio é o de `pinbank-limite-ec.sql`.
 --
 -- ⚠️ SAVEPOINT POR CASO, desfeito no fim de cada um — e o MESMO EventId e o
 -- MESMO NSU usados de propósito em todos: se um `rollback to savepoint` deixar
@@ -290,6 +299,86 @@ end
 $c5$;
 rollback to savepoint caso;
 
+--- 5c. a TARIFA FIXA e a ANTECIPAÇÃO do contrato: aceitas na faixa, recusadas fora ---
+-- Funções, e não um bloco solto: os DEFEITOS PLANTADOS no fim chamam a prova de
+-- novo com a validação reescrita.
+--
+-- Uma configuração que TEM de ser recusada, pela frase que a nomeia.
+create or replace function pg_temp.recusa_taxas(p_vinculo uuid, p_taxas jsonb, p_espera text, p_caso text)
+returns void language plpgsql as $$
+declare msg text;
+begin
+  perform pg_temp.como(current_setting('guarda.ua')::uuid);
+  set local role authenticated;
+  begin
+    perform public.pinbank_configurar_vinculo(p_vinculo, current_setting('guarda.ca')::uuid, p_taxas, '{}'::jsonb, true, true);
+    msg := null;
+  exception when others then msg := SQLERRM;
+  end;
+  reset role;
+  if msg is null then raise exception 'CASO 5c FALHOU: % — foi aceita.', p_caso; end if;
+  if msg not like p_espera then
+    raise exception 'VERMELHO PELO MOTIVO ERRADO (caso 5c, %): esperado %, veio "%"', p_caso, p_espera, msg;
+  end if;
+end $$;
+
+-- Uma configuração que TEM de passar — o erro, se vier, sai com a frase do caso.
+create or replace function pg_temp.aceita_taxas(p_vinculo uuid, p_taxas jsonb, p_caso text) returns void language plpgsql as $$
+declare msg text;
+begin
+  perform pg_temp.como(current_setting('guarda.ua')::uuid);
+  set local role authenticated;
+  begin
+    perform public.pinbank_configurar_vinculo(p_vinculo, current_setting('guarda.ca')::uuid, p_taxas, '{"antecipado":1}'::jsonb, true, true);
+    msg := null;
+  exception when others then msg := SQLERRM;
+  end;
+  reset role;
+  if msg is not null then raise exception 'CASO 5c FALHOU: % foi recusado: "%"', p_caso, msg; end if;
+end $$;
+
+create or replace function pg_temp.prova_tarifa_antecipacao() returns void language plpgsql as $$
+declare
+  v uuid; t jsonb;
+  -- O contrato do extrato de produção (14/10/2026).
+  contrato constant jsonb := '{"debito":0.0088,"credito_vista":0.0181,"parcelado":0.0246,"tarifa_fixa":1,"antecipacao_mes":0.0155}';
+begin
+  v := pg_temp.vincular_77();
+
+  -- As bordas que PASSAM: tarifa e antecipação em zero (zero é contrato), a
+  -- tarifa no teto, e taxa em branco (null é "não cadastrada").
+  perform pg_temp.aceita_taxas(v, '{"tarifa_fixa":0,"antecipacao_mes":0}', 'o contrato sem tarifa e sem custo de antecipação');
+  perform pg_temp.aceita_taxas(v, '{"tarifa_fixa":100,"debito":null}', 'a tarifa no teto de R$ 100 com uma taxa em branco');
+
+  -- O contrato real é aceito e gravado EXATAMENTE como veio.
+  perform pg_temp.aceita_taxas(v, contrato, 'o contrato real (tarifa de R$ 1,00 e antecipação de 1,55% ao mês)');
+  select taxas into t from public.pinbank_vinculos where id = v;
+  if t is distinct from contrato then
+    raise exception 'CASO 5c FALHOU: o contrato gravado não é o enviado: %', t;
+  end if;
+
+  -- As recusas, cada uma pela frase que a nomeia.
+  perform pg_temp.recusa_taxas(v, '{"tarifa_fixa":101}', '%tarifa fixa%', 'a tarifa fixa de R$ 101 (acima do teto)');
+  perform pg_temp.recusa_taxas(v, '{"tarifa_fixa":-1}', '%tarifa fixa%', 'a tarifa fixa negativa');
+  perform pg_temp.recusa_taxas(v, '{"tarifa_fixa":1.005}', '%tarifa fixa%', 'a tarifa fixa de R$ 1,005 (fração de centavo)');
+  perform pg_temp.recusa_taxas(v, '{"antecipacao_mes":1.55}', '%antecipacao_mes%fora de 0 a 1%', 'a antecipação digitada como percentual (1.55 = 155% ao mês)');
+  perform pg_temp.recusa_taxas(v, '{"mdr":0.02}', '%não é uma taxa do contrato%', 'a chave fora do contrato ("mdr")');
+  perform pg_temp.recusa_taxas(v, '{"debito":"0.0088"}', '%não é um número%', 'a taxa em TEXTO');
+  perform pg_temp.recusa_taxas(v, '[0.0088]', '%vir como objeto%', 'as taxas em lista');
+
+  -- Nenhuma recusa mexeu no que estava gravado.
+  select taxas into t from public.pinbank_vinculos where id = v;
+  if t is distinct from contrato then
+    raise exception 'CASO 5c FALHOU: uma configuração recusada mudou o contrato gravado: %', t;
+  end if;
+end $$;
+
+grant execute on all functions in schema pg_temp to authenticated, service_role;
+
+savepoint caso;
+do $c5c$ begin perform pg_temp.prova_tarifa_antecipacao(); end $c5c$;
+rollback to savepoint caso;
+
 ---------- 6/7/8. venda aprovada → documento + títulos; reentrega; cancelamento ---
 savepoint caso;
 do $c6$
@@ -497,6 +586,98 @@ end
 $c12$;
 rollback to savepoint caso;
 
-do $fim$ begin raise notice 'pinbank: 12 casos · a fechadura confere'; end $fim$;
+-- ═══════════════════════════ DEFEITOS PLANTADOS ═══════════════════════════
+-- Cada um reescreve a validação do contrato dentro do savepoint e exige que o
+-- caso 5c REPROVE, lendo a mensagem. O arreio é o de `pinbank-limite-ec.sql`.
+create or replace function pg_temp.plantar(p_funcao regprocedure, p_de text, p_para text) returns void language plpgsql as $$
+declare def text := pg_get_functiondef(p_funcao); novo text;
+begin
+  novo := replace(def, p_de, p_para);
+  if novo = def then
+    raise exception 'PLANTA ENVELHECIDA: o trecho "%" não está mais em %', p_de, p_funcao;
+  end if;
+  execute novo;
+end $$;
+create or replace function pg_temp.reprova(p_prova text, p_espera text, p_defeito text) returns void language plpgsql as $$
+declare msg text;
+begin
+  begin
+    execute format('select %s()', p_prova);
+    msg := null;
+  exception when others then msg := SQLERRM;
+  end;
+  reset role;
+  if msg is null then
+    raise exception 'DEFEITO PLANTADO NÃO FOI PEGO: "%" — % passou.', p_defeito, p_prova;
+  end if;
+  if msg not like p_espera then
+    raise exception 'VERMELHO PELO MOTIVO ERRADO ("%"): esperado %, veio "%"', p_defeito, p_espera, msg;
+  end if;
+end $$;
+create or replace function pg_temp.plantar_contrato(p_de text, p_para text) returns void language sql as $$
+  select pg_temp.plantar('public.pinbank_configurar_vinculo(uuid,uuid,jsonb,jsonb,boolean,boolean)'::regprocedure, p_de, p_para)
+$$;
+grant execute on all functions in schema pg_temp to authenticated, service_role;
+
+savepoint caso;
+do $p1$ begin
+  perform pg_temp.plantar_contrato('v > 100', 'v > 1000');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%tarifa fixa de R$ 101%foi aceita%', 'a tarifa sem o teto de R$ 100');
+end $p1$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p2$ begin
+  perform pg_temp.plantar_contrato(' or v <> round(v, 2)', '');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%R$ 1,005%foi aceita%', 'a tarifa com fração de centavo');
+end $p2$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p3$ begin
+  perform pg_temp.plantar_contrato('    elsif v < 0 or v >= 1 then', '    elsif v < 0 or (v >= 1 and k <> ''antecipacao_mes'') then');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%antecipação digitada como percentual%foi aceita%', 'a antecipação de 155% ao mês aceita');
+end $p3$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p4$ begin
+  -- O buraco da versão anterior: só o valor NUMÉRICO era conferido.
+  perform pg_temp.plantar_contrato('if jsonb_typeof(j) <> ''number'' then', 'if false then');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%taxa em TEXTO%foi aceita%', 'a taxa em texto gravada calada');
+end $p4$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p5$ begin
+  perform pg_temp.plantar_contrato('''tarifa_fixa'',''antecipacao_mes'') then', '''tarifa_fixa'',''antecipacao_mes'',''mdr'') then');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%chave fora do contrato%foi aceita%', 'a chave que ninguém lê gravada');
+end $p5$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p6$ begin
+  -- A validação ANTERIOR a esta rodada: tarifa e antecipação não existiam.
+  perform pg_temp.plantar_contrato('''voucher'',''tarifa_fixa'',''antecipacao_mes'')', '''voucher'')');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%CASO 5c FALHOU: o contrato sem tarifa%foi recusado%', 'o contrato sem as chaves novas');
+end $p6$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p7$ begin
+  -- A tarifa lida como FRAÇÃO, como as outras: R$ 100 vira "100 = 10.000%".
+  perform pg_temp.plantar_contrato('if k = ''tarifa_fixa'' then', 'if false then');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%tarifa no teto de R$ 100%foi recusado%', 'a tarifa em reais lida como fração');
+end $p7$;
+rollback to savepoint caso;
+
+savepoint caso;
+do $p8$ begin
+  perform pg_temp.plantar_contrato('if p_taxas is not null and jsonb_typeof(p_taxas) <> ''object'' then', 'if false then');
+  perform pg_temp.reprova('pg_temp.prova_tarifa_antecipacao', '%caso 5c, as taxas em lista%', 'as taxas em lista sem a frase do banco');
+end $p8$;
+rollback to savepoint caso;
+
+do $fim$ begin raise notice 'pinbank: 13 casos · 8 defeitos plantados pegos · a fechadura confere'; end $fim$;
 
 rollback;

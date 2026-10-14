@@ -16,10 +16,15 @@
  * ⚠️ Taxa em branco NÃO é zero: a venda entra sem o custo de adquirência e o
  * evento diz que a taxa não estava cadastrada. Zero afirmaria uma maquininha
  * sem custo.
+ *
+ * ⚠️ A TARIFA FIXA é a única em REAIS (R$ 1,00 por venda, não 1%): sai uma vez
+ * por venda, antes da taxa da forma, que é cobrada sobre o que sobra. A
+ * ANTECIPAÇÃO é percentual AO MÊS e só cobra com o repasse antecipado, no
+ * crédito. As duas foram medidas no extrato de produção em 14/10/2026.
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, Button, Input, Select, Switch, StatusBadge, BRL } from "@/components/ui";
+import { Card, Button, Input, CurrencyInput, Select, Switch, StatusBadge, BRL } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { useContasBancarias } from "@/components/registros/hooks";
 import { usePermissoes } from "@/components/app/usePermissoes";
@@ -27,7 +32,7 @@ import {
   lerPinbank, configurarVinculo, reprocessarPinbank, SITUACOES_PENDENTES,
   type EstadoPinbank, type VinculoTela,
 } from "@/lib/pinbank/cliente";
-import { PRAZOS_PADRAO, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
+import { PRAZOS_PADRAO, TARIFA_FIXA_MAXIMA, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
 import { PinbankConferencia } from "./PinbankConferencia";
 
 const FORMAS_TAXA: { id: keyof TaxasPinbank; label: string }[] = [
@@ -130,7 +135,7 @@ export function PinbankPainel({ toast }: { toast: (s: string) => void }) {
           <span className="a4p-label text-muted">Como funciona</span>
           <ol className="m-0 pl-5 flex flex-col gap-1 text-label text-ink">
             <li>A equipe da Quattro vincula o seu estabelecimento Pinbank a esta empresa.</li>
-            <li>Quem administra a empresa escolhe a conta do repasse, informa as taxas contratadas e ativa.</li>
+            <li>Quem administra a empresa escolhe a conta do repasse, informa as taxas, a tarifa por venda e a antecipação contratadas, e ativa.</li>
             <li>A partir daí, toda venda aprovada vira venda e contas a receber (por parcela, com a taxa ao lado); cancelamento e estorno desfazem o que ainda não caiu na conta.</li>
           </ol>
           <span className="text-caption text-muted max-w-[80ch]">
@@ -223,6 +228,10 @@ function VinculoForm({
     Object.fromEntries(PRAZOS.map((p) => [p.id, vinculo.prazos?.[p.id] != null ? String(vinculo.prazos[p.id]) : ""])),
   );
   const [antecipado, setAntecipado] = React.useState(vinculo.antecipado);
+  const [tarifa, setTarifa] = React.useState<number>(
+    typeof vinculo.taxas?.tarifa_fixa === "number" ? vinculo.taxas.tarifa_fixa : 0,
+  );
+  const [antecipacao, setAntecipacao] = React.useState(paraPct(vinculo.taxas?.antecipacao_mes));
   const [salvando, setSalvando] = React.useState(false);
 
   const opcoesConta = (contas.data ?? [])
@@ -236,6 +245,16 @@ function VinculoForm({
       if (Number.isNaN(v)) { toast(`Taxa de ${f.label.toLowerCase()} não é um número.`); return; }
       if (v != null) t[f.id] = v;
     }
+    // A tarifa em REAIS; em branco (zero) é "sem tarifa" — não há aviso a dar.
+    if (tarifa < 0 || tarifa > TARIFA_FIXA_MAXIMA) { toast("Tarifa fixa: use um valor de até R$ 100,00 por venda."); return; }
+    if (tarifa > 0) t.tarifa_fixa = Math.round(tarifa * 100) / 100;
+    // A antecipação em PERCENTUAL ao mês, gravada em fração (1,55 → 0,0155).
+    const a = deCampoPct(antecipacao);
+    if (Number.isNaN(a) || (a != null && (a < 0 || a >= 1))) {
+      toast("Antecipação: use o percentual ao mês (1,55 para 1,55% ao mês), abaixo de 100%.");
+      return;
+    }
+    if (a != null) t.antecipacao_mes = a;
     const p: PrazosPinbank = {};
     for (const q of PRAZOS) {
       const s = (prazos[q.id] ?? "").trim();
@@ -294,6 +313,17 @@ function VinculoForm({
         </div>
 
         <div className="flex flex-col gap-2">
+          <span className="a4p-label text-muted">Tarifa por venda</span>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <CurrencyInput label="Tarifa fixa por venda" value={tarifa} onValueChange={setTarifa}
+              placeholder="sem tarifa" disabled={!administra} />
+          </div>
+          <span className="text-caption text-muted max-w-[80ch]">
+            Sai uma vez por venda, antes da taxa: a taxa é cobrada sobre o valor da venda menos a tarifa. No parcelado, a tarifa é repartida entre as parcelas.
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-2">
           <span className="a4p-label text-muted">Prazo do repasse</span>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {PRAZOS.map((q) => (
@@ -304,6 +334,20 @@ function VinculoForm({
           </div>
           <Switch checked={antecipado} onChange={setAntecipado} disabled={!administra}
             label="Recebo antecipado (todas as parcelas no prazo da antecipação)" />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Input label="Antecipação (% ao mês)" inputMode="decimal" placeholder="não informada" suffix="%"
+              value={antecipacao} disabled={!administra}
+              onChange={(e) => setAntecipacao(e.target.value)} />
+          </div>
+          {antecipado && !antecipacao.trim() ? (
+            <span className="text-caption text-warning max-w-[80ch]">
+              Sem a taxa de antecipação, as vendas no crédito entram sem esse custo, e cada uma avisa que ela falta.
+            </span>
+          ) : (
+            <span className="text-caption text-muted max-w-[80ch]">
+              Cobrada só com o repasse antecipado, e só no crédito (à vista e parcelado). Ela vai ao resultado financeiro, não ao custo de vender.
+            </span>
+          )}
         </div>
 
         {administra ? (

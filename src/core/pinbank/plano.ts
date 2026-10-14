@@ -20,7 +20,10 @@
  * cadastrada, a venda entra SEM o título da taxa e o aviso diz isso — inventar
  * uma taxa seria afirmar um custo que ninguém informou.
  */
-import { somaMeses, dividir, CATEGORIA_RECEITA_POS, CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
+import {
+  somaMeses, dividir, fracaoDeAntecipacao,
+  CATEGORIA_RECEITA_POS, CATEGORIA_TAXA_POS, CATEGORIA_ANTECIPACAO_POS,
+} from "@/core/vendas/pos";
 import {
   consolidarStatus,
   type FormaPinbank,
@@ -38,6 +41,20 @@ export interface TaxasPinbank {
   parcelado?: number | null;
   pix?: number | null;
   voucher?: number | null;
+  /**
+   * Tarifa FIXA por venda, em REAIS (R$ 1,00 = 1) — e não fração. Sai UMA vez
+   * por venda (no parcelado, repartida pelas parcelas) e ANTES da taxa da forma,
+   * que é cobrada sobre o que sobra. Medido no extrato de produção em 14/10/2026:
+   * débito, crédito à vista e 2x de R$ 9,99 repassaram sobre R$ 8,99.
+   */
+  tarifa_fixa?: number | null;
+  /**
+   * Antecipação, em FRAÇÃO AO MÊS (1,55% = 0,0155). Só vale com o repasse
+   * antecipado e só no crédito (à vista e parcelado): o débito já cai em D+1.
+   * O custo é `fracaoDeAntecipacao(parcelas, mensal)` sobre o valor sem a
+   * tarifa — a regra do simulador de taxas, a mesma que o extrato confirmou.
+   */
+  antecipacao_mes?: number | null;
 }
 
 /** Prazos do repasse, em DIAS corridos a partir da venda. */
@@ -88,7 +105,10 @@ export interface TituloPlano {
   competence_date: string;
   category: string;
   description: string;
-  /** `pinbank:<nsu>:<parcela>:r|t` ou `pinbank:<nsu>:estorno:…` — índice único no banco. */
+  /**
+   * `pinbank:<nsu>:<parcela>:r|t|f|a` (receita, taxa, tarifa fixa, antecipação)
+   * ou `pinbank:<nsu>:estorno:…` — índice único no banco.
+   */
   chave: string;
 }
 
@@ -97,6 +117,10 @@ export interface VendaPinbank {
   nsu: number;
   total: number;
   taxaTotal: number;
+  /** A tarifa fixa da venda (R$), quando o contrato a tem. */
+  tarifaTotal: number;
+  /** O custo da antecipação da venda (R$), quando o repasse é antecipado. */
+  antecipacaoTotal: number;
   parcelas: number;
   forma: FormaPinbank;
   dataVenda: string;
@@ -168,9 +192,109 @@ export function taxaDaForma(forma: FormaPinbank, taxas: TaxasPinbank): number | 
   return typeof t === "number" && Number.isFinite(t) && t >= 0 && t < 1 ? t : null;
 }
 
+/** O teto da tarifa fixa, em reais — o mesmo que o banco aceita no vínculo. */
+export const TARIFA_FIXA_MAXIMA = 100;
+
+/** A tarifa fixa por venda do contrato, em reais; 0 quando não informada ou fora de 0 a R$ 100. */
+export function tarifaFixaDoContrato(taxas: TaxasPinbank): number {
+  const t = taxas.tarifa_fixa;
+  return typeof t === "number" && Number.isFinite(t) && t > 0 && t <= TARIFA_FIXA_MAXIMA ? r2(t) : 0;
+}
+
+/** A antecipação ao mês do contrato, em fração; `null` quando não informada ou fora de 0 a 1. */
+export function antecipacaoDoContrato(taxas: TaxasPinbank): number | null {
+  const a = taxas.antecipacao_mes;
+  return typeof a === "number" && Number.isFinite(a) && a >= 0 && a < 1 ? a : null;
+}
+
 /**
- * A agenda de recebimento da venda: por parcela, a receita bruta e a taxa, na
- * data estimada do repasse.
+ * A forma em que a antecipação COBRA: só o crédito. O débito cai em D+1 de
+ * qualquer jeito e o Pix em D+0 — no extrato de 14/10/2026 o débito antecipado
+ * veio com a taxa ao mês ZERO. Voucher e forma não identificada ficam de fora
+ * até haver venda real deles no extrato: cobrar seria afirmar um custo medido
+ * em outra forma.
+ */
+export function formaAntecipavel(forma: FormaPinbank): boolean {
+  return forma === "credito_vista" || forma === "parcelado";
+}
+
+/** O que sobra da venda depois da tarifa fixa: a base da taxa da forma e da antecipação. */
+export function baseDosCustos(total: number, taxas: TaxasPinbank | null | undefined): number {
+  const t = r2(Math.max(0, total));
+  return r2(t - Math.min(tarifaFixaDoContrato(taxas ?? {}), t));
+}
+
+/** Quantas parcelas o sistema lança para a venda: só o parcelado divide. */
+export function parcelasDaVenda(forma: FormaPinbank, parcelas: number): number {
+  return forma === "parcelado" ? Math.max(1, Math.floor(parcelas || 1)) : 1;
+}
+
+/** Os custos de UMA venda pelo CONTRATO, no total e por parcela. */
+export interface CustosDaVenda {
+  parcelas: number;
+  total: number;
+  /** A tarifa fixa da venda — nunca maior que o próprio total. */
+  tarifa: number;
+  /** Total − tarifa: a base da taxa da forma e da antecipação. */
+  base: number;
+  /** A taxa da forma (fração); `null` = não cadastrada. */
+  taxa: number | null;
+  taxaTotal: number;
+  /** A fração de antecipação aplicada; `null` = não se aplica ou não está cadastrada. */
+  antecipacao: number | null;
+  antecipacaoTotal: number;
+  /** A venda antecipa (repasse antecipado + forma de crédito), com ou sem taxa cadastrada. */
+  antecipa: boolean;
+  /** Por parcela, com o resto dos centavos na ÚLTIMA (`dividir`). */
+  brutos: number[];
+  taxas: number[];
+  tarifas: number[];
+  antecipacoes: number[];
+}
+
+/**
+ * ⚠️ **OS CUSTOS DA VENDA TÊM UMA CONTA SÓ** — a que lança os títulos
+ * (`agendaDaTransacao`) e a que a conferência refaz para saber o que o sistema
+ * lançaria (`core/pinbank/conferencia`). Duas contas divergiriam no centavo da
+ * última parcela e acusariam uma diferença que é só de arredondamento.
+ *
+ *   tarifa      = a tarifa fixa do contrato (até o total da venda)
+ *   base        = total − tarifa
+ *   taxa        = base × a taxa da forma                     (ao centavo)
+ *   antecipação = base × fracaoDeAntecipacao(n, ao mês)      (ao centavo)
+ *
+ * Medido no extrato de produção em 14/10/2026, R$ 9,99 com tarifa de R$ 1,00,
+ * taxas de 0,88% / 1,81% / 2,46% e antecipação de 1,55% a.m.: o débito repassou
+ * R$ 8,91, o crédito à vista R$ 8,69 e o 2x R$ 8,56 (R$ 4,28 + R$ 4,28) — o que
+ * esta conta dá, ao centavo, nos três.
+ */
+export function custosDaVenda(
+  venda: { total: number; forma: FormaPinbank; parcelas: number },
+  v: Pick<VinculoPinbank, "taxas" | "antecipado">,
+): CustosDaVenda {
+  const n = parcelasDaVenda(venda.forma, venda.parcelas);
+  const total = r2(Math.max(0, venda.total));
+  const base = baseDosCustos(total, v.taxas);
+  const tarifa = r2(total - base);
+  const taxa = taxaDaForma(venda.forma, v.taxas ?? {});
+  const taxaTotal = taxa == null ? 0 : r2(base * taxa);
+  const antecipa = !!v.antecipado && formaAntecipavel(venda.forma);
+  const mensal = antecipa ? antecipacaoDoContrato(v.taxas ?? {}) : null;
+  const antecipacao = mensal == null ? null : fracaoDeAntecipacao(n, mensal);
+  const antecipacaoTotal = antecipacao == null ? 0 : r2(base * antecipacao);
+  return {
+    parcelas: n, total, tarifa, base, taxa, taxaTotal, antecipacao, antecipacaoTotal, antecipa,
+    brutos: dividir(total, n),
+    taxas: dividir(taxaTotal, n),
+    tarifas: dividir(tarifa, n),
+    antecipacoes: dividir(antecipacaoTotal, n),
+  };
+}
+
+/**
+ * A agenda de recebimento da venda: por parcela, a receita bruta e os custos
+ * (taxa da forma, tarifa fixa e antecipação), todos na data estimada do repasse
+ * — o caixa fecha no líquido que a Pinbank deposita.
  *
  *   · débito: D+1 · crédito à vista e voucher: D+30 · Pix: D+0;
  *   · parcelado: a 1ª em D+30 e as seguintes de mês em mês (sem escorregar:
@@ -180,15 +304,21 @@ export function taxaDaForma(forma: FormaPinbank, taxas: TaxasPinbank): number | 
  * ⚠️ **A COMPETÊNCIA NÃO SE PARCELA.** Toda parcela leva a data da VENDA como
  * competência: vender em março para receber em seis vezes é receita de março
  * inteira. O vencimento é que se espalha.
+ *
+ * ⚠️ **A TARIFA É CUSTO DE VENDER; A ANTECIPAÇÃO, CUSTO DE DINHEIRO.** A tarifa
+ * fixa entra na categoria da taxa da maquininha (despesa variável, acima do
+ * EBITDA); a antecipação, em "Antecipação de recebíveis" (Resultado
+ * Financeiro, abaixo dele). Somar as duas na taxa deixaria o EBITDA menor do
+ * que é toda vez que a empresa escolhe receber antes.
  */
-export function agendaDaTransacao(t: TransacaoPinbank, v: VinculoPinbank): { titulos: TituloPlano[]; taxaTotal: number; taxa: number | null } {
+export function agendaDaTransacao(t: TransacaoPinbank, v: VinculoPinbank): {
+  titulos: TituloPlano[]; taxaTotal: number; taxa: number | null;
+  tarifaTotal: number; antecipacaoTotal: number; antecipa: boolean; antecipacao: number | null;
+} {
   const prazos = { ...PRAZOS_PADRAO, ...v.prazos };
-  const n = t.forma === "parcelado" ? Math.max(1, t.parcelas) : 1;
-  const taxa = taxaDaForma(t.forma, v.taxas);
-  const total = r2(Math.max(0, t.valorOriginal));
-  const taxaTotal = taxa == null ? 0 : r2(total * taxa);
-  const brutos = dividir(total, n);
-  const taxas = dividir(taxaTotal, n);
+  const c = custosDaVenda({ total: t.valorOriginal, forma: t.forma, parcelas: t.parcelas }, v);
+  const n = c.parcelas;
+  const { taxa, taxaTotal, brutos, taxas, tarifas, antecipacoes } = c;
 
   const vencimento = (k: number): string => {
     if (v.antecipado && t.forma !== "pix") return somaDias(t.dataVenda, prazos.antecipado);
@@ -214,8 +344,23 @@ export function agendaDaTransacao(t: TransacaoPinbank, v: VinculoPinbank): { tit
         category: CATEGORIA_TAXA_POS, description: `${desc(k)} · taxa`, chave: `pinbank:${t.nsu}:${k + 1}:t`,
       });
     }
+    if (tarifas[k] > 0) {
+      out.push({
+        type: "saida", amount: tarifas[k], due_date: due, competence_date: t.dataVenda,
+        category: CATEGORIA_TAXA_POS, description: `${desc(k)} · tarifa fixa`, chave: `pinbank:${t.nsu}:${k + 1}:f`,
+      });
+    }
+    if (antecipacoes[k] > 0) {
+      out.push({
+        type: "saida", amount: antecipacoes[k], due_date: due, competence_date: t.dataVenda,
+        category: CATEGORIA_ANTECIPACAO_POS, description: `${desc(k)} · antecipação`, chave: `pinbank:${t.nsu}:${k + 1}:a`,
+      });
+    }
   }
-  return { titulos: out, taxaTotal, taxa };
+  return {
+    titulos: out, taxaTotal, taxa,
+    tarifaTotal: c.tarifa, antecipacaoTotal: c.antecipacaoTotal, antecipa: c.antecipa, antecipacao: c.antecipacao,
+  };
 }
 
 const ehEstorno = (chave: string | null, nsu: number) => !!chave && chave.startsWith(`pinbank:${nsu}:estorno`);
@@ -263,10 +408,13 @@ export function planejarEvento(e: EntradaPlano): Plano {
       return { acao: "erro", motivo: "A empresa não tem conta bancária ativa para receber o repasse. Cadastre a conta e reprocesse." };
     }
     if (t.valorOriginal <= 0) return { acao: "registrar", novoEstado, motivo: "Venda aprovada com valor zero — nada a lançar." };
-    const { titulos, taxaTotal, taxa } = agendaDaTransacao(t, e.vinculo);
+    const { titulos, taxaTotal, taxa, tarifaTotal, antecipacaoTotal, antecipa, antecipacao } = agendaDaTransacao(t, e.vinculo);
     const avisos: string[] = [];
     if (taxa == null) {
       avisos.push(`A taxa de ${NOME_FORMA[t.forma]} não está cadastrada no vínculo: a venda entrou sem o custo de adquirência.`);
+    }
+    if (antecipa && antecipacao == null) {
+      avisos.push("O repasse é antecipado, mas a taxa de antecipação não está cadastrada no vínculo: a venda entrou sem o custo de antecipação.");
     }
     if (t.forma === "desconhecida") {
       avisos.push(`Forma de pagamento "${t.formaBruta ?? "?"}" não reconhecida: o repasse foi estimado como crédito à vista.`);
@@ -275,7 +423,8 @@ export function planejarEvento(e: EntradaPlano): Plano {
       acao: "criar_venda",
       novoEstado,
       venda: {
-        nsu: t.nsu, total: r2(t.valorOriginal), taxaTotal, parcelas: t.forma === "parcelado" ? t.parcelas : 1,
+        nsu: t.nsu, total: r2(t.valorOriginal), taxaTotal, tarifaTotal, antecipacaoTotal,
+        parcelas: t.forma === "parcelado" ? t.parcelas : 1,
         forma: t.forma, dataVenda: t.dataVenda,
         descricao: `Venda na maquininha Pinbank · NSU ${t.nsu}`,
         bandeira: t.bandeira, autorizacao: t.autorizacao, nsuAdquirente: t.nsuAdquirente,

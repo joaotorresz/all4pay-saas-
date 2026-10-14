@@ -48,6 +48,45 @@ Pinbank ──POST──▶ /api/pinbank/webhook
   ela. Levar a data e a taxa do extrato aos títulos é a próxima fase (D5 de
   `conferencia.md`). Taxa em branco = venda sem o custo, com aviso — nunca uma
   taxa inventada.
+- **A TARIFA FIXA e a ANTECIPAÇÃO também são do contrato** (14/10/2026,
+  medidas no extrato de PRODUÇÃO). Três vendas de R$ 9,99 numa maquininha com
+  o repasse antecipado mostraram duas cobranças que o vínculo não sabia
+  guardar: uma tarifa FIXA de R$ 1,00 por venda, tirada ANTES da taxa da forma
+  (que é cobrada sobre o que sobra, R$ 8,99), e a antecipação do repasse no
+  crédito, a 1,55% ao mês pela regra do simulador de taxas
+  (`fracaoDeAntecipacao`, agora em `core/vendas/pos`: 1x = um mês; n ≥ 2 =
+  juro composto por dia × 15 × (n + 1) dias). A Pinbank depositou R$ 8,91 no
+  débito (0,88%), R$ 8,69 no crédito à vista (1,81% + 1,55%) e R$ 8,56 no 2x
+  (2,46% + 2,31%), repartidos em R$ 4,28 + R$ 4,28 — e o sistema lançava R$
+  9,90, R$ 9,81 e R$ 9,74. Agora:
+  - o vínculo guarda `tarifa_fixa` (em REAIS, até R$ 100, em centavos — a
+    única chave do `taxas` que não é fração) e `antecipacao_mes` (fração ao
+    mês), e o banco recusa a faixa errada, a chave que o contrato não tem e a
+    taxa em texto (migration `20261015120000`, guarda `scripts/pinbank.sql`,
+    caso 5c, com 8 defeitos plantados);
+  - o planejador (`custosDaVenda`, UMA conta para o lançamento e para a
+    conferência) lança, por parcela, além da receita e da taxa, o título da
+    tarifa (`:f`, dividida pelas parcelas, na categoria da taxa) e o da
+    antecipação (`:a`, só com o repasse antecipado e só no crédito, em
+    "Antecipação de recebíveis"), todos na data do repasse — o caixa fecha no
+    que a Pinbank deposita. Antecipado sem a antecipação cadastrada: a venda
+    entra sem esse custo e o evento AVISA;
+  - **no DRE, a tarifa fica com o MDR (Despesas Variáveis, acima do EBITDA) e
+    a antecipação vai ao Resultado Financeiro** (decisão do dono): é custo de
+    dinheiro, não de vender. A regra é UMA (`ehAntecipacaoDeRecebiveis`, em
+    `core/indicadores/classificacao`) para os dois classificadores; a
+    antecipação TRIBUTÁRIA ("ICMS antecipação") segue imposto e "despesa
+    antecipada" não é recebível. Medido antes: nenhum lançamento de produção
+    dizia "antecipação";
+  - a tela de Integrações tem "Tarifa fixa por venda" (campo de moeda) e
+    "Antecipação (% ao mês)", com o aviso quando o repasse é antecipado e a
+    antecipação está em branco.
+  Provado ponta a ponta no Supabase local: as três vendas, assinadas como a
+  Pinbank as assina, viraram títulos com o líquido de R$ 8,91, R$ 8,69 e R$
+  8,56, e o DRE da empresa fechou com EBITDA de R$ 26,51 e resultado de R$
+  26,16 (a soma do depositado). Guardas: o bloco `pinbank (real)` do
+  `engine-audit` (os três casos com os valores literais, e 13 defeitos
+  plantados acusados pelo nome).
 - **A competência não se parcela**: toda parcela leva a data da venda.
 - **Nenhum evento se perde.** Sem vínculo → quarentena da plataforma; vínculo
   não ativado → espera; assinatura vencida → `bloqueado` (o bloqueio suave para
@@ -135,10 +174,12 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     DURÁVEL de chamadas por empresa no servidor (D4 — hoje a espera de 60 s é
     por instância); e o EC visível e auditado no `/admin` (D10). As duas
     últimas pedem migration.
-  - **Em aberto com a Pinbank:** se o `nsu` do webhook é o `NsuOperacao` do
-    extrato (D8; sem NSU em comum a conferência não afirma nada, e o par
-    provável é a evidência) e o sentido do bruto da parcela, do split e do
-    líquido em produção (D7: os do dev são valores de teste).
+  - **Medido em produção em 14/10/2026** (D7 e D8 de `conferencia.md`): o
+    `nsu` do webhook é o `NsuOperacao` do extrato e o EC é o `CodigoCliente`
+    (as vendas de teste chegaram pelos dois lados com o mesmo número); o
+    líquido é o que a Pinbank DEPOSITA e o `ValorTaxaMes` é a antecipação ao
+    mês — os dois viraram eixos da conferência; o bruto da parcela e o split
+    vieram SEM a tarifa fixa e seguem só exibidos.
   - **Próxima fase:** levar a data e a taxa do extrato aos títulos (D5) — em
     PR próprio, com migration, só título em aberto, com motivo e trilha.
   - Histórico: a Pinbank emitiu a credencial de produção ("ALL4 PAY - BaaS",
@@ -230,8 +271,9 @@ Pinbank ──POST──▶ /api/pinbank/webhook
     o lê em PONTOS-BASE inteiros (`mdrBp`: 2,65% = 265; negativo ou acima de
     100% vira ausente) — antes o lia como reais (265 centavos por parcela) e o
     resumo SOMAVA percentuais; agora o resumo lista os MDR distintos
-    (`mdrDistintosBp`). O `ValorTaxaMes` também é percentual (`taxaMesBp`), com
-    sentido ainda não dito. A conferência compara o MDR com a taxa cadastrada
+    (`mdrDistintosBp`). O `ValorTaxaMes` também é percentual (`taxaMesBp`): é a
+    ANTECIPAÇÃO ao mês (medido em produção em 14/10/2026 — zero no débito,
+    1,55% no crédito antecipado). A conferência compara o MDR com a taxa cadastrada
     no vínculo (`docs/rodada-10/conferencia.md`); a taxa do extrato NÃO
     substitui a do contrato no título. No mesmo extrato, `ValorBrutoParcela` e
     `ValorSplit` vieram com 75% do `ValorBruto` e o `ValorLiquidoRepasse` com

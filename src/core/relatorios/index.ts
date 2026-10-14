@@ -20,7 +20,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dataDe, ehTransferenciaEntreContas, liquidado, assinado } from "@/core/indicadores/convencoes";
 import { chaveCategoria } from "@/core/categorias/chave";
-import { ehTaxaAdquirencia, ehDevolucaoDeTaxaAdquirencia, citaVendaOuRepasse } from "@/core/indicadores/classificacao";
+import { ehTaxaAdquirencia, ehDevolucaoDeTaxaAdquirencia, citaVendaOuRepasse, ehAntecipacaoDeRecebiveis } from "@/core/indicadores/classificacao";
 
 import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
@@ -137,11 +137,16 @@ const ehCustoVariavel = (m: RiskMovement) => /cmv|mercadoria|insumo|fornecedor|f
  * que o real pelo valor dele. O resultado líquido não muda: é reclassificação
  * DENTRO do DRE. A tarifa BANCÁRIA continua no Resultado Financeiro.
  */
+// ⚠️ A ANTECIPAÇÃO DE RECEBÍVEL saiu daqui e foi para o financeiro, mesmo com
+// "taxa" no nome ("Taxa de antecipação"): é custo de dinheiro, não de vender —
+// a regra única em `ehAntecipacaoDeRecebiveis` (`core/indicadores/classificacao`).
 const ehDespesaVariavel = (m: RiskMovement) =>
-  ehTaxaAdquirencia(m.category)
-  || /comiss|taxa|gateway|adquir[eê]n|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m));
+  !ehAntecipacaoDeRecebiveis(m.category)
+  && (ehTaxaAdquirencia(m.category)
+    || /comiss|taxa|gateway|adquir[eê]n|plataforma|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m)));
 const ehFinanceiro = (m: RiskMovement) =>
-  !ehTaxaAdquirencia(m.category) && /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
+  ehAntecipacaoDeRecebiveis(m.category)
+  || (!ehTaxaAdquirencia(m.category) && /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m)));
 /**
  * A taxa da maquininha que VOLTA (estorno do MDR): reduz a despesa variável,
  * não é faturamento.
@@ -292,7 +297,7 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "despesas_variaveis", label: "Despesas Variáveis", tipo: "soma", sinal: "-", nivel: 1,
     entra:
-      "O que varia com a venda mas não é custo do produto: comissão, taxa de gateway e plataforma, a taxa da maquininha (tarifa de adquirência, MDR), antecipação de recebível, marketing, anúncios e tráfego pago. A taxa da maquininha devolvida entra aqui como estorno, reduzindo a despesa.",
+      "O que varia com a venda mas não é custo do produto: comissão, taxa de gateway e plataforma, a taxa da maquininha (tarifa de adquirência, MDR, tarifa fixa por venda), marketing, anúncios e tráfego pago. A taxa da maquininha devolvida entra aqui como estorno, reduzindo a despesa. A antecipação de recebível não entra aqui: é custo de dinheiro, e vai para o Resultado Financeiro.",
     // A taxa da maquininha que VOLTA entra como estorno (o montador a faz
     // negativa): sem isto ela, deixando de ser financeira, cairia na Receita
     // Bruta e inflaria o faturamento.
@@ -330,7 +335,7 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "resultado_financeiro", label: "Resultado Financeiro", tipo: "soma", sinal: "+/-", nivel: 1,
     entra:
-      "Juros pagos e recebidos, tarifa bancária, IOF, encargos de financiamento e empréstimo, rendimento de aplicação. Entra nos DOIS sentidos, por isso o sinal é +/−.",
+      "Juros pagos e recebidos, tarifa bancária, IOF, encargos de financiamento e empréstimo, o custo de antecipar recebíveis, rendimento de aplicação. Entra nos DOIS sentidos, por isso o sinal é +/−.",
     // Entra com o SINAL do movimento: receita financeira soma, despesa subtrai.
     casa: (m) => ehFinanceiro(m) && !ehNaoOperacional(m),
   },

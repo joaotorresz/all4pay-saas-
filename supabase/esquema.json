@@ -180,6 +180,15 @@
         "impacto": "Até ser aplicada, o /admin mostra \"EC não informado pelo servidor\" em todo vínculo (o painel ainda não devolve o EC), o rastro do vínculo não guarda o EC, nada impede o mesmo EC vivo em duas empresas e a lixeira da empresa ainda restaura o vínculo que a plataforma desvinculou. A migration se RECUSA (pela classe e pela contagem, sem escrever EC nem empresa no log público do CI) se produção já tiver EC vivo repetido entre empresas ou EC vivo que não é positivo — e aí o job migrar fica vermelho em todo push e NENHUMA migration seguinte é aplicada até a plataforma desvincular o vínculo errado (as consultas que nomeiam o conflito estão em docs/rodada-10/conferencia.md, decisão D2: \"Conferir o acervo ANTES do merge\").",
         "resolver_ate": "2026-10-21",
         "origem": "sessão Claude de 14/10/2026 (D10 da conferência Pinbank) — o job migrar do CI aplica no merge, que espera o OK do dono"
+      },
+      {
+        "nome": "20261015120000_pinbank_tarifa_antecipacao",
+        "objetos_ausentes": [
+          "pinbank_configurar_vinculo(uuid,uuid,jsonb,jsonb,boolean,boolean) — o objeto existe; muda o corpo: aceita tarifa_fixa (em reais, de 0 a R$ 100, em centavos) e antecipacao_mes (fração ao mês) e passa a recusar, nomeados, chave fora do contrato, taxa em texto e taxas em lista. Assinatura, SECURITY DEFINER e concessões iguais (provado por SELECT em begin…rollback)"
+        ],
+        "impacto": "Até ser aplicada, a empresa não grava a tarifa fixa nem a antecipação no vínculo da maquininha (o banco recusa as duas chaves como 'fora de 0 a 1'), e a venda continua entrando sem esses custos — o líquido do sistema fica acima do que a Pinbank deposita (R$ 9,90 contra R$ 8,91 no débito medido em 14/10/2026). Nenhum vínculo existe em produção (medido em 14/10/2026), então nada gravado muda.",
+        "resolver_ate": "2026-10-22",
+        "origem": "sessão Claude de 14/10/2026 (tarifa fixa e antecipação da Pinbank) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

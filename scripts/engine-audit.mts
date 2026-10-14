@@ -10688,6 +10688,129 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("pinbank: sem taxa cadastrada → nenhuma taxa inventada, e o AVISO diz isso",
      semTaxa.acao === "criar_venda" && semTaxa.titulos.every((x) => x.type === "entrada") && semTaxa.avisos.some((a) => /taxa/.test(a)));
 
+  /* ── 5b. a TARIFA FIXA e a ANTECIPAÇÃO — as três vendas REAIS ──────────── */
+  /*
+   * ⚠️ Medido no extrato de PRODUÇÃO (14/10/2026): três vendas de R$ 9,99 na
+   * mesma maquininha, com o repasse antecipado (D+1). A Pinbank tirou R$ 1,00
+   * de tarifa fixa POR VENDA, cobrou a taxa da forma sobre o que sobrou
+   * (R$ 8,99) e, no crédito, a antecipação de 1,55% ao mês pela regra do
+   * simulador de taxas. Depositou R$ 8,91 no débito, R$ 8,69 no crédito à
+   * vista e R$ 8,56 no 2x (R$ 4,28 + R$ 4,28). Os valores esperados são
+   * LITERAIS, escritos à mão a partir do extrato — nunca saídos da função
+   * auditada.
+   *
+   * Cada defeito provável dá OUTRO número (conferido à mão), e é por isso que
+   * os três casos pegam a maioria deles:
+   *   · taxa e antecipação sobre o TOTAL, não sobre total − tarifa → 8,90 · 8,66 · 8,51;
+   *   · antecipação cobrada também no débito                     → 8,77 no débito;
+   *   · tarifa fixa por PARCELA (R$ 1,00 em cada)                 → R$ 1,00 a menos no 2x;
+   *   · sem tarifa e sem antecipação (o sistema até 14/10)        → 9,90 · 9,81 · 9,74.
+   * O 2x NÃO separa a regra composta da média simples ((n+1)/2 × 1,55% dá os
+   * mesmos R$ 0,21) — daí o caso de 10x logo abaixo.
+   */
+  const VIN_REAL: PB.VinculoPinbank = {
+    ...VIN, antecipado: true, prazos: { antecipado: 1 },
+    taxas: { debito: 0.0088, credito_vista: 0.0181, parcelado: 0.0246, tarifa_fixa: 1, antecipacao_mes: 0.0155 },
+  };
+  const real = (forma: string, parcelas: number, vinculo: PB.VinculoPinbank = VIN_REAL, centavosVenda = 999) =>
+    PB.planejarEvento({
+      transacao: tx({}, { valor: centavosVenda, valorOriginal: centavosVenda, formaPagamento: forma, numeroParcelas: parcelas, data: "2026-10-14T10:00:00" }),
+      estado: null, vinculo, titulos: [], hoje: "2026-10-14",
+    });
+  const titulosDe = (p: PB.Plano) => (p.acao === "criar_venda" ? p.titulos : []);
+  const liqCent = (ts: PB.TituloPlano[]) => Math.round(ts.reduce((s, x) => s + (x.type === "entrada" ? x.amount : -x.amount), 0) * 100);
+  const daParcela = (p: PB.Plano, k: number) => titulosDe(p).filter((x) => x.chave.startsWith(`pinbank:123456:${k}:`));
+  const comoLinha = (p: PB.Plano) => titulosDe(p).map((x) => `${x.chave.replace("pinbank:123456:", "")}=${x.amount.toFixed(2)}`).join(" ");
+  const pDeb = real("DEBITO", 1), pVis = real("AVISTA", 1), p2x = real("PARCELADO_LOJISTA", 2);
+  ok("pinbank (real): débito de R$ 9,99 deposita R$ 8,91 — R$ 1,00 de tarifa e 0,88% sobre R$ 8,99, sem antecipação",
+     liqCent(titulosDe(pDeb)) === 891, `${liqCent(titulosDe(pDeb))}`);
+  ok("pinbank (real): crédito à vista de R$ 9,99 deposita R$ 8,69 — tarifa, 1,81% e um mês de antecipação (1,55%) sobre R$ 8,99",
+     liqCent(titulosDe(pVis)) === 869, `${liqCent(titulosDe(pVis))}`);
+  ok("pinbank (real): 2x de R$ 9,99 deposita R$ 8,56 — e R$ 4,28 em CADA parcela, como o extrato (428 + 428)",
+     liqCent(titulosDe(p2x)) === 856 && [1, 2].map((k) => liqCent(daParcela(p2x, k))).join() === "428,428",
+     `${liqCent(titulosDe(p2x))} · ${[1, 2].map((k) => liqCent(daParcela(p2x, k))).join()}`);
+  ok("pinbank (real): título a título — receita, taxa, tarifa e antecipação, o resto dos centavos na ÚLTIMA parcela",
+     comoLinha(pDeb) === "1:r=9.99 1:t=0.08 1:f=1.00"
+     && comoLinha(pVis) === "1:r=9.99 1:t=0.16 1:f=1.00 1:a=0.14"
+     // 9,99 ÷ 2 = 4,995 arredonda para 5,00 na 1ª e a ÚLTIMA leva o que sobra (4,99).
+     && comoLinha(p2x) === "1:r=5.00 1:t=0.11 1:f=0.50 1:a=0.11 2:r=4.99 2:t=0.11 2:f=0.50 2:a=0.10",
+     `${comoLinha(pDeb)} | ${comoLinha(pVis)} | ${comoLinha(p2x)}`);
+  ok("pinbank (real): a tarifa vai na categoria da TAXA da maquininha (custo de vender) e a antecipação na sua (custo de dinheiro)",
+     titulosDe(p2x).filter((x) => x.chave.endsWith(":f")).every((x) => x.category === "Tarifas de adquirência" && x.type === "saida")
+     && titulosDe(p2x).filter((x) => x.chave.endsWith(":a")).every((x) => x.category === "Antecipação de recebíveis" && x.type === "saida")
+     && titulosDe(p2x).filter((x) => /:(f|a)$/.test(x.chave)).length === 4);
+  ok("pinbank (real): antecipado → TODOS os títulos (as duas parcelas inclusive) no D+1, com a competência na data da venda",
+     [pDeb, pVis, p2x].every((p) => titulosDe(p).length > 0 && titulosDe(p).every((x) => x.due_date === "2026-10-15" && x.competence_date === "2026-10-14")));
+  ok("pinbank (real): débito antecipado não cobra antecipação e não avisa que ela falta",
+     pDeb.acao === "criar_venda" && pDeb.avisos.every((a) => !/antecipa/.test(a)) && !titulosDe(pDeb).some((x) => x.chave.endsWith(":a")));
+
+  // ⚠️ O caso que SEPARA a regra composta (a do simulador de taxas, que o
+  // extrato confirmou) da média simples: R$ 1.000 em 10x, R$ 999 de base.
+  //   composta: ((1,0155)^(1/30) − 1) × 15 × 11 dias = 8,4618% → R$ 84,53
+  //   simples:  1,55% × (10 + 1)/2 meses             = 8,525%  → R$ 85,16
+  const p10 = real("PARCELADO_LOJISTA", 10, VIN_REAL, 100_000);
+  const ant10 = titulosDe(p10).filter((x) => x.chave.endsWith(":a"));
+  ok("pinbank: 10x de R$ 1.000 antecipado cobra R$ 84,53 (regra composta por dia), nunca R$ 85,16 (média simples)",
+     p10.acao === "criar_venda" && p10.venda.antecipacaoTotal === 84.53 && Math.round(ant10.reduce((s, x) => s + x.amount, 0) * 100) === 8453
+     && ant10.length === 10 && ant10[9].amount === 8.48 && ant10.slice(0, 9).every((x) => x.amount === 8.45),
+     JSON.stringify(p10.acao === "criar_venda" ? { a: p10.venda.antecipacaoTotal, t: ant10.map((x) => x.amount) } : p10.acao));
+  ok("pinbank: no 10x a taxa também é sobre R$ 999 (24,58) e a tarifa sai UMA vez (R$ 1,00 repartido nas 10)",
+     p10.acao === "criar_venda" && p10.venda.taxaTotal === 24.58 && p10.venda.tarifaTotal === 1
+     && Math.round(titulosDe(p10).filter((x) => x.chave.endsWith(":f")).reduce((s, x) => s + x.amount, 0) * 100) === 100);
+
+  // Sem antecipação no repasse, sem a taxa dela, com ela em zero, ou digitada como percentual.
+  const pSemAnt = real("AVISTA", 1, { ...VIN_REAL, antecipado: false });
+  ok("pinbank: repasse NÃO antecipado → sem título de antecipação, a tarifa continua, e o crédito à vista volta ao D+30",
+     liqCent(titulosDe(pSemAnt)) === 883 && !titulosDe(pSemAnt).some((x) => x.chave.endsWith(":a"))
+     && titulosDe(pSemAnt).some((x) => x.chave.endsWith(":f")) && titulosDe(pSemAnt).every((x) => x.due_date === "2026-11-13"),
+     `${liqCent(titulosDe(pSemAnt))} · ${comoLinha(pSemAnt)}`);
+  const pSemTaxaAnt = real("AVISTA", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, antecipacao_mes: null } });
+  ok("pinbank: antecipado SEM a taxa de antecipação cadastrada → nenhum custo inventado, e o AVISO diz isso",
+     pSemTaxaAnt.acao === "criar_venda" && !titulosDe(pSemTaxaAnt).some((x) => x.chave.endsWith(":a"))
+     && pSemTaxaAnt.avisos.some((a) => /antecipa/.test(a)), JSON.stringify(pSemTaxaAnt.acao === "criar_venda" ? pSemTaxaAnt.avisos : pSemTaxaAnt));
+  const pPct = real("AVISTA", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, antecipacao_mes: 1.55 } });
+  ok("pinbank: antecipação digitada como PERCENTUAL (1.55) não vira 155% ao mês — fica não cadastrada, com aviso",
+     pPct.acao === "criar_venda" && !titulosDe(pPct).some((x) => x.chave.endsWith(":a")) && pPct.avisos.some((a) => /antecipa/.test(a)));
+  const pZero = real("AVISTA", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, antecipacao_mes: 0 } });
+  ok("pinbank: antecipação contratada em ZERO → nenhum título dela e nenhum aviso (zero é contrato, não ausência)",
+     pZero.acao === "criar_venda" && !titulosDe(pZero).some((x) => x.chave.endsWith(":a")) && pZero.avisos.every((a) => !/antecipa/.test(a)));
+
+  // A tarifa nunca passa do valor da venda, e nunca vira número estranho.
+  const pMini = real("DEBITO", 1, VIN_REAL, 50);
+  ok("pinbank: venda de R$ 0,50 com tarifa de R$ 1,00 → tarifa limitada a R$ 0,50, líquido ZERO, nenhum título negativo ou zerado",
+     liqCent(titulosDe(pMini)) === 0 && titulosDe(pMini).every((x) => x.amount > 0) && comoLinha(pMini) === "1:r=0.50 1:f=0.50",
+     comoLinha(pMini));
+  ok("pinbank: tarifa fixa fora de 0 a R$ 100 (negativa, acima do teto, NaN, texto) não entra",
+     [-1, 101, Number.NaN, "1" as unknown as number, null].every((t) => PB.tarifaFixaDoContrato({ tarifa_fixa: t }) === 0)
+     && PB.tarifaFixaDoContrato({ tarifa_fixa: 100 }) === 100 && PB.tarifaFixaDoContrato({}) === 0);
+
+  // O documento da venda: a tarifa soma à taxa (custo de vender); a antecipação no campo dela.
+  if (p2x.acao === "criar_venda") {
+    const v2 = vendaDaPinbankPB(p2x.venda, "00000000-0000-4000-8000-000000000001", "", "00000000-0000-4000-8000-000000000002");
+    ok("pinbank (real): no documento, taxa da plataforma R$ 1,22 (0,22 + tarifa 1,00), antecipação R$ 0,21 e líquido R$ 8,56",
+       v2.taxaPlataforma.valor === 1.22 && v2.taxaAntecipacao.valor === 0.21 && valorLiquido(v2) === 8.56,
+       `${v2.taxaPlataforma.valor} · ${v2.taxaAntecipacao.valor} · ${valorLiquido(v2)}`);
+  } else ok("pinbank (real): plano do 2x", false, p2x.acao);
+
+  // ⚠️ DUAS LISTAS DO MESMO CONTRATO: as chaves que o planejador lê
+  // (`TaxasPinbank`) e as que o banco aceita (`pinbank_configurar_vinculo`, na
+  // migration MAIS NOVA que a define). Divergir é ou chave que o banco recusa e
+  // a tela oferece, ou chave que o banco grava e ninguém lê — a tarifa digitada
+  // que não vira título nenhum.
+  {
+    const fsT = await import("node:fs");
+    const fonte = fsT.readFileSync("src/core/pinbank/plano.ts", "utf8");
+    const ini = fonte.indexOf("export interface TaxasPinbank {");
+    const chavesTs = [...fonte.slice(ini, fonte.indexOf("\n}", ini)).matchAll(/^\s+(\w+)\?:/gm)].map((m) => m[1]).sort();
+    const migs = fsT.readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort()
+      .filter((f) => fsT.readFileSync(`supabase/migrations/${f}`, "utf8").includes("function public.pinbank_configurar_vinculo("));
+    const sql = fsT.readFileSync(`supabase/migrations/${migs[migs.length - 1]}`, "utf8");
+    const lista = sql.match(/jsonb_each\(coalesce\(p_taxas[\s\S]*?k not in \(([^)]*)\)/)?.[1] ?? "";
+    const chavesSql = [...lista.matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+    ok("pinbank: as chaves do contrato que o banco aceita são exatamente as que o planejador lê",
+       chavesTs.length === 7 && chavesSql.join() === chavesTs.join(), `planejador ${chavesTs} · banco (${migs[migs.length - 1]}) ${chavesSql}`);
+  }
+
   /* ── 6. as duas chaves e a conta ───────────────────────────────────────── */
   ok("pinbank: sem vínculo → sem_vinculo", PB.planejarEvento({ transacao: t3, estado: null, vinculo: null, titulos: [], hoje: "2026-10-05" }).acao === "sem_vinculo");
   ok("pinbank: vínculo não ATIVADO → aguardando_ativacao (nada vira dinheiro)",
@@ -10712,6 +10835,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     { estado: { ...estado, status: "Cancelada" }, titulos: jaEstornado });
   ok("pinbank: o estorno é INCREMENTO — um segundo evento de desfazer não estorna de novo",
      reemb.acao === "desfazer_venda" && reemb.estornos.length === 0);
+  // Com a tarifa e a antecipação: desfazer leva os títulos NOVOS junto, e o
+  // estorno do que já caiu é o LÍQUIDO — o que a Pinbank de fato depositou.
+  const vivos2x: PB.TituloExistente[] = titulosDe(p2x).map((x, i) => ({ id: `q${i}`, type: x.type, situacao: "previsto", amount: x.amount, chave: x.chave }));
+  const estado2x = { status: "Aprovada" as const, ocorridoEm: "2026-10-14T10:00:00Z", valor: 9.99, valorOriginal: 9.99, saleDocId: "doc", versao: 1 };
+  const cancela2x = (tits: PB.TituloExistente[]) => PB.planejarEvento({
+    transacao: tx({ EventType: "Compra.TransacaoCancelada", OccurredAt: "2026-10-14T11:00:00Z" },
+      { status: "Cancelada", valor: 999, valorOriginal: 999, numeroParcelas: 2, data: "2026-10-14T10:00:00" }),
+    estado: estado2x, vinculo: VIN_REAL, titulos: tits, hoje: "2026-10-14",
+  });
+  const c2a = cancela2x(vivos2x);
+  ok("pinbank (real): cancelar o 2x com tudo previsto cancela os 8 títulos — tarifa e antecipação inclusive",
+     c2a.acao === "desfazer_venda" && c2a.cancelar.length === 8 && c2a.estornos.length === 0, JSON.stringify(c2a));
+  const c2b = cancela2x(vivos2x.map((x) => (x.chave?.startsWith("pinbank:123456:1:") ? { ...x, situacao: "baixado" } : x)));
+  ok("pinbank (real): com a 1ª parcela já recebida, o estorno é o LÍQUIDO dela (R$ 4,28: tarifa e antecipação descontadas)",
+     c2b.acao === "desfazer_venda" && c2b.cancelar.length === 4 && c2b.estornos.length === 1 && c2b.estornos[0].amount === 4.28,
+     JSON.stringify(c2b));
 
   /* ── 8. reembolso parcial ──────────────────────────────────────────────── */
   const parc = plano(tx({ EventType: "Compra.TransacaoReembolsada" }, { status: "Reembolsada", valor: 20000 }), { estado, titulos: titulosVivos });
@@ -10750,6 +10889,57 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     { id: "pbe", type: "saida", amount: 100, due_date: "2026-10-06", paid_date: null, status: "pendente", category: PB.CATEGORIA_ESTORNO_POS, party_id: null },
   ] } as unknown as RiskInput, { intervalo: { de: "2026-10-01", ate: "2026-10-31" }, tipo: "vertical" });
   ok("pinbank: o estorno da maquininha é DEDUÇÃO da receita", relEst.classificacao.pbe?.linha === "deducoes", JSON.stringify(relEst.classificacao.pbe));
+
+  /* ── 11b. a tarifa é custo de VENDER; a antecipação, custo de DINHEIRO ──── */
+  /*
+   * ⚠️ Decisão do dono (15/10/2026): a tarifa fixa fica com a taxa da
+   * maquininha, em Despesas Variáveis (acima do EBITDA); a antecipação vai ao
+   * Resultado Financeiro (abaixo dele). A regra antiga do DRE jogava tudo que
+   * dizia "antecipa" na despesa variável, e o EBITDA de quem escolhe receber
+   * antes saía menor do que é — no 2x real, 8,56 em vez de 8,77.
+   */
+  {
+    const OUT = { de: "2026-10-01", ate: "2026-10-31" };
+    const comoMov = (p: PB.Plano, pago = false) => titulosDe(p).map((x, i) => ({
+      id: `pb${i}`, type: x.type, amount: x.amount, due_date: x.due_date, competence_date: x.competence_date,
+      paid_date: pago ? x.due_date : null, status: pago ? "pago" : "pendente", category: x.category, party_id: null,
+    }));
+    const inp = (movs: unknown[]) => ({ hoje: "2026-10-31", saldoAtual: 0, partyNames: {}, movements: movs }) as unknown as RiskInput;
+    const lc = (r: ReturnType<typeof montarDRE>, id: string) => Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? Number.NaN) * 100);
+    const dre2x = montarDRE(inp(comoMov(p2x)), { intervalo: OUT, tipo: "vertical" });
+    ok("pinbank (real): DRE do 2x — receita 9,99 · variáveis 1,22 (taxa + tarifa) · EBITDA 8,77 · financeiro −0,21 · líquido 8,56",
+       lc(dre2x, "receita_bruta") === 999 && lc(dre2x, "despesas_variaveis") === 122 && lc(dre2x, "ebitda") === 877
+       && lc(dre2x, "resultado_financeiro") === -21 && lc(dre2x, "resultado_liquido") === 856,
+       ["receita_bruta", "despesas_variaveis", "ebitda", "resultado_financeiro", "resultado_liquido"].map((id) => `${id} ${lc(dre2x, id)}`).join(" · "));
+    const dfc2x = montarDFC(inp(comoMov(p2x, true)), { intervalo: OUT, tipo: "dfc" });
+    ok("pinbank (real): no DFC a tarifa é saída OPERACIONAL e a antecipação é financiamento",
+       lc(dfc2x, "entradas_operacionais") === 999 && lc(dfc2x, "saidas_operacionais") === 122 && lc(dfc2x, "fluxo_financiamento") === -21,
+       ["entradas_operacionais", "saidas_operacionais", "fluxo_financiamento"].map((id) => `${id} ${lc(dfc2x, id)}`).join(" · "));
+
+    const nomes = ["Antecipação de recebíveis", "Taxa de antecipação", "Custo de antecipação", "ICMS antecipação", "Despesa antecipada", "Tarifas de adquirência"];
+    const relN = montarDRE(inp([
+      { id: "v", type: "entrada", amount: 1_000, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Vendas", party_id: null },
+      ...nomes.map((c, k) => ({ id: `n${k}`, type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: c, party_id: null })),
+    ]), { intervalo: OUT, tipo: "vertical" });
+    const linhaN = (k: number) => relN.classificacao[`n${k}`]?.linha;
+    ok("antecipação: a de RECEBÍVEL (mesmo com 'taxa' ou 'custo' no nome) vai ao Resultado Financeiro; a tributária é dedução; 'despesa antecipada' não é recebível",
+       linhaN(0) === "resultado_financeiro" && linhaN(1) === "resultado_financeiro" && linhaN(2) === "resultado_financeiro"
+       && linhaN(3) === "deducoes" && linhaN(4) === "despesas_operacionais" && linhaN(5) === "despesas_variaveis",
+       nomes.map((c, k) => `${c} → ${linhaN(k)}`).join(" · "));
+    const { classificarDespesa: cdA, ehAntecipacaoDeRecebiveis: ehAntA } = await import("@/core/indicadores/classificacao");
+    ok("antecipação: o SEGUNDO classificador (comparativo, orçamento, IA) concorda nos mesmos seis nomes",
+       cdA(nomes[0]) === "financeiro" && cdA(nomes[1]) === "financeiro" && cdA(nomes[2]) === "financeiro"
+       && cdA(nomes[3]) === "impostos" && cdA(nomes[4]) === "opex" && cdA(nomes[5]) === "opex",
+       nomes.map((c) => `${c} → ${cdA(c)}`).join(" · "));
+    ok("antecipação: a regra única aceita as grafias (sem acento, caixa alta, plural) e recusa a tributária e o 'antecipado'",
+       ["ANTECIPACAO DE RECEBIVEIS", "Antecipações de recebíveis", "Antecipação de recebíveis".normalize("NFD")].every((c) => ehAntA(c))
+       && !["ICMS antecipação", "Antecipação tributária", "Despesa antecipada", "Repasse antecipado"].some((c) => ehAntA(c)));
+    const relE = montarDRE(inp([
+      { id: "e", type: "entrada", amount: 500, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de recebíveis", party_id: null },
+    ]), { intervalo: OUT, tipo: "vertical" });
+    ok("antecipação: o dinheiro ADIANTADO que entra não é faturamento de novo (a venda já foi receita)",
+       lc(relE, "receita_bruta") === 0, `${lc(relE, "receita_bruta")} · ${relE.classificacao.e?.linha}`);
+  }
 
   /* ── 12. a assinatura Ed25519 ──────────────────────────────────────────── */
   const par1 = gerarParPB("ed25519");
@@ -11758,7 +11948,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     return /administra\s*&&\s*<PinbankConferencia\b/.test(semComC(painel))
       && !/\.reduce\(/.test(c)
       // A taxa da Pinbank é PERCENTUAL (pontos-base): nunca passa pelo tratamento de dinheiro.
-      && !/<BRL[^>]*(taxaAdm|aguardandoDefinicao|\bad\.|\btaxa\.(extratoBp|contratoBp|diferencaBp)|mdrBp|taxaMesBp)/.test(c)
+      && !/<BRL[^>]*(taxaAdm|aguardandoDefinicao|\bad\.|\b(taxa|antecipacao|an|a)\.(extratoBp|contratoBp|diferencaBp)|mdrBp|taxaMesBp)/.test(c)
       && !/\bfetch\s*\(/.test(c);
   };
   ok("conferencia-pinbank: o bloco só aparece para quem administra, não soma nada, e a taxa da Pinbank nunca vira R$", telaC(lerC(PAINEL_C), compC));
@@ -11766,6 +11956,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !telaC(lerC(PAINEL_C), compC + "\nconst x = (i: any) => <BRL value={i.extrato.aguardandoDefinicao.taxaMesBp / 100} />;"));
   ok("conferencia-pinbank: (defeito plantado) o MDR do extrato (pontos-base) mostrado em R$ é ACUSADO",
      !telaC(lerC(PAINEL_C), compC + "\nconst y = (i: any) => <BRL value={i.extrato.taxa.extratoBp / 100} />;"));
+  ok("conferencia-pinbank: (defeito plantado) a antecipação do extrato (pontos-base, ao mês) mostrada em R$ é ACUSADA",
+     !telaC(lerC(PAINEL_C), compC + "\nconst z = (i: any) => <BRL value={i.extrato.antecipacao.extratoBp / 100} />;"));
   ok("conferencia-pinbank: (defeito plantado) o bloco aberto para quem não administra é ACUSADO",
      !telaC(lerC(PAINEL_C).replace("{administra && <PinbankConferencia", "{<PinbankConferencia"), compC));
 
