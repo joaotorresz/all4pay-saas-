@@ -20,6 +20,7 @@
  * Puro, tipado, sem relógio (o dia vem de `hoje`).
  */
 
+import type { Exibicao } from "./preferencias";
 import type { RiskInput } from "@/core/risk-engine/types";
 import { inadimplencia, temValor, type Indicador } from "@/core/indicadores";
 import type { HomeSnapshot, NumeroHome } from "./snapshot";
@@ -46,6 +47,8 @@ export interface PerfilSinais {
   /** O que a pessoa escreveu no onboarding sobre a empresa (texto livre, etapa 3). */
   descricao?: string;
 }
+
+export type { Exibicao };
 
 export interface SinaisHome {
   hoje: string;
@@ -79,6 +82,11 @@ export interface SinaisHome {
   interesses?: string[];
   /** Quantas vezes cada sugestão foi clicada (id → vezes). */
   cliques?: Record<string, number>;
+  /**
+   * Por quantos DIAS cada sugestão apareceu na Home sem ser clicada, e o
+   * último deles (etapa 5: o que a pessoa ignora desce). O clique zera.
+   */
+  exibidas?: Record<string, Exibicao>;
 }
 
 export interface Sugestao {
@@ -399,6 +407,59 @@ const PESO_DESCRICAO = 1;
 const PESO_CLIQUE = 0.25;
 const TETO_CLIQUES = 4;
 
+/* ------------------------------ o que a pessoa ignora desce (etapa 5) ------------------------------ */
+
+/** Dias de exibição sem clique que ainda não custam nada — ninguém clica em tudo no primeiro dia. */
+export const DIAS_DE_GRACA = 3;
+/** Quanto cada dia ignorado além da graça tira da pontuação. */
+const PESO_IGNORADA = 0.4;
+/**
+ * O teto do desconto. Alto o bastante para a ignorada DESCER de verdade (a
+ * soma das regras comuns chega a ~2,5); quem não pode descer é a urgência,
+ * isenta à parte (`PESO_URGENTE`), e a volta é garantida pela janela.
+ */
+export const TETO_IGNORADA = 2;
+/**
+ * A partir deste peso a regra é URGÊNCIA (caixa negativo, primeiro uso) e a
+ * pergunta não desce por ser ignorada. ⚠️ Só o teto não bastava — medido na
+ * guarda: com o caixa negativo, "Como cobrir o caixa negativo?" descontada
+ * perdia a vaga do tema caixa para "Fluxo 13 semanas" e saía da tela. Ignorar
+ * o alarme não desliga o alarme.
+ */
+export const PESO_URGENTE = 2.5;
+/**
+ * Depois de tantos dias SEM aparecer, o desconto some e a pergunta volta a
+ * ter a chance dela. Sem isso, o que desceu uma vez nunca mais seria visto —
+ * e não aparecer de novo não é sinal de nada.
+ */
+export const JANELA_IGNORADA = 14;
+
+const diasEntre = (de: string, ate: string): number | null => {
+  const ok = (x: string) => /^\d{4}-\d{2}-\d{2}$/.test(x);
+  if (!ok(de) || !ok(ate)) return null;
+  const t = (x: string) => Date.UTC(Number(x.slice(0, 4)), Number(x.slice(5, 7)) - 1, Number(x.slice(8, 10)));
+  return Math.round((t(ate) - t(de)) / 86_400_000);
+};
+
+/**
+ * Quanto a sugestão perde por ter sido ignorada. As BÁSICAS nunca perdem (são
+ * fixas). ⚠️ O dia de HOJE só conta amanhã: a exibição de hoje é gravada com a
+ * Home aberta, e se ela mudasse o desconto de hoje os chips trocariam de lugar
+ * diante de quem está olhando.
+ */
+export function descontoPorIgnorar(s: SinaisHome, id: string): number {
+  if (BASICAS[s.tipoConta].includes(id)) return 0;
+  const e = s.exibidas?.[id];
+  if (!e || !Number.isFinite(e.dias) || e.dias <= 0) return 0;
+  const desde = diasEntre(e.ultimo, s.hoje);
+  if (desde === null || desde > JANELA_IGNORADA) return 0;
+  const dias = desde <= 0 ? e.dias - 1 : e.dias;
+  return Math.min(TETO_IGNORADA, Math.max(0, dias - DIAS_DE_GRACA) * PESO_IGNORADA);
+}
+
+/** Ignorada até o teto: nem a escolha da Quattro AI a põe de volta na frente. */
+export const cansada = (s: SinaisHome, id: string) => descontoPorIgnorar(s, id) >= TETO_IGNORADA;
+
 /* ------------------------------ a descrição livre do onboarding (etapa 3) ------------------------------ */
 
 /** Quanto do texto livre vai à IA. A ordem de quatro perguntas não precisa de mais que um parágrafo. */
@@ -455,9 +516,20 @@ export function interessesDaDescricao(texto: unknown, publico: SinaisHome["tipoC
 
 /* ------------------------------ a escolha ------------------------------ */
 
+/** O piso de quem foi descontado por ignorar: continua de pé, só lá atrás. */
+const PISO_PONTOS = 0.01;
+
 const rotuloDe = (c: Sugestao) => ROTULOS[c.id] ?? { curto: c.texto, icone: "sparkles" };
 
-/** Pontua o catálogo do público: base + regras + prioridades + cliques; zero sai. */
+/**
+ * Pontua o catálogo do público: base + regras + prioridades + cliques; zero
+ * sai; o desconto por ignorar vem por último.
+ *
+ * ⚠️ O desconto REORDENA, não desliga: quem sai por pontuação zero é decidido
+ * ANTES dele, e ele nunca leva a pontuação abaixo de um piso positivo. Uma
+ * pergunta ignorada continua disponível para completar a lista; uma desligada
+ * por sinal ausente não volta por causa dele.
+ */
 function avaliar(s: SinaisHome): SugestaoEscolhida[] {
   const daDescricao = interessesDaDescricao(s.perfil?.descricao, s.tipoConta);
   return CATALOGO_SUGESTOES
@@ -473,7 +545,9 @@ function avaliar(s: SinaisHome): SugestaoEscolhida[] {
       const vezes = Math.min(TETO_CLIQUES, s.cliques?.[c.id] ?? 0);
       if (vezes > 0) casadas.push(r(PESO_CLIQUE * vezes, "você costuma perguntar isto", () => true));
       casadas.sort((a, b) => b.peso - a.peso);
-      const pontos = c.base + casadas.reduce((t, g) => t + g.peso, 0);
+      const bruto = c.base + casadas.reduce((t, g) => t + g.peso, 0);
+      const urgente = casadas.some((g) => g.peso >= PESO_URGENTE);
+      const pontos = bruto > 0 && !urgente ? Math.max(PISO_PONTOS, bruto - descontoPorIgnorar(s, c.id)) : bruto;
       return {
         ordem,
         e: { id: c.id, texto: c.texto, ...rotuloDe(c), tema: c.tema, pontos, motivo: casadas[0]?.motivo ?? "pergunta frequente" } as SugestaoEscolhida,
@@ -498,7 +572,7 @@ function avaliar(s: SinaisHome): SugestaoEscolhida[] {
 export function recomendarSugestoes(s: SinaisHome, limite = LIMITE_SUGESTOES, preferidas?: unknown): SugestaoEscolhida[] {
   const avaliadas = avaliar(s);
   const basicas = BASICAS[s.tipoConta];
-  const daIA = idsValidosDaIA(preferidas, avaliadas, basicas);
+  const daIA = idsValidosDaIA(preferidas, avaliadas, basicas).filter((id) => !cansada(s, id));
   const ordenadas = [
     ...daIA.map((id) => avaliadas.find((e) => e.id === id)!),
     ...avaliadas,
@@ -583,6 +657,10 @@ export function contextoParaIA(s: SinaisHome) {
     fechamentoConcluido: s.fechamento,
     prioridades: s.interesses ?? [],
     cliques: s.cliques ?? {},
+    // Só o que JÁ desceu por ser ignorado (id → dias sem clique); o resto não muda nada.
+    ignoradas: Object.fromEntries(
+      Object.entries(s.exibidas ?? {}).filter(([id]) => descontoPorIgnorar(s, id) > 0).map(([id, e]) => [id, e.dias]),
+    ),
   };
 }
 
@@ -605,6 +683,7 @@ export function sinaisDaHome(args: {
   fechamento?: number | null;
   interesses?: string[];
   cliques?: Record<string, number>;
+  exibidas?: Record<string, Exibicao>;
 }): SinaisHome {
   const { snap, input } = args;
   const burn = pequeno(snap, "burn");
@@ -636,5 +715,6 @@ export function sinaisDaHome(args: {
     fechamento: args.fechamento ?? null,
     interesses: args.interesses ?? [],
     cliques: args.cliques ?? {},
+    exibidas: args.exibidas ?? {},
   };
 }

@@ -54,7 +54,7 @@ Escolha ${QUANTAS} perguntas da lista CANDIDATAS, na ordem do que mais ajuda a p
 
 Critérios, nesta ordem:
 1. Urgência nos números: caixa negativo, runway curto, valores vencidos, pendências acumuladas, fechamento do mês em aberto nos primeiros dias.
-2. As prioridades que a pessoa marcou ("prioridades") e o que ela costuma perguntar ("cliques").
+2. As prioridades que a pessoa marcou ("prioridades") e o que ela costuma perguntar ("cliques"). "ignoradas" são perguntas que ficaram na tela por vários dias sem clique (id → dias): evite-as, salvo urgência nos números.
 3. O perfil do onboarding (setor, modelo, de onde vem a receita, despesas típicas) e "perfil.descricao", o que a pessoa escreveu sobre a empresa.
 4. Variedade: não escolha duas perguntas que digam a mesma coisa.
 

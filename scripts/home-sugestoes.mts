@@ -21,16 +21,23 @@
  * "pulei"); nada sobe antes de o servidor responder nem sem usuário; a cópia
  * do dispositivo mescla pelo MAIOR clique, sem contar duas vezes.
  *
+ * Etapa 5: o que a pessoa IGNORA desce. Uma vez por dia conta; três dias são
+ * de graça; o desconto tem teto ABAIXO da urgência; o dia de hoje só conta
+ * amanhã (a lista não mexe diante de quem olha); duas semanas sem aparecer
+ * devolvem a chance; o clique zera; o desconto reordena, nunca ressuscita o
+ * que um sinal ausente desligou; e nem a IA traz de volta a pergunta cansada.
+ *
  *   npm run home-sugestoes   (também roda dentro de npm test)
  */
 import {
   BASICAS, CANDIDATAS_IA, CATALOGO_SUGESTOES, ROTULOS, INTERESSES, LIMITE_SUGESTOES, MAX_POR_TEMA, TETO_DESCRICAO, candidatasParaIA, contextoParaIA,
+  DIAS_DE_GRACA, JANELA_IGNORADA, TETO_IGNORADA, cansada, descontoPorIgnorar,
   descricaoParaIA, interessesDaDescricao, recomendarSugestoes, sinaisDaHome,
   type SinaisHome,
 } from "@/core/home/sugestoes";
 import {
   comPreferencias, mesclarComDispositivo, mesmasPreferencias, normalizarPreferencias, podeEnviarPreferencias,
-  preferenciasDoUsuario,
+  preferenciasDoUsuario, registrarClique, registrarExibicao,
 } from "@/core/home/preferencias";
 import { montarHomeSnapshot } from "@/core/home/snapshot";
 import { SOLAR_ICONS } from "@/components/ui/solar-icons";
@@ -234,6 +241,67 @@ ok("prefs: o envio pergunta podeEnviarPreferencias antes de gravar", /if \(!pode
 ok("prefs: só conta como conferido o que o servidor respondeu", /conferido = \(await hidratarComStatus\(\[KEY\]\)\)\.ok/.test(LIB));
 ok("prefs: o clique sobe adiado (a trilha não ganha um evento por clique)", /adiar: true/.test(readFileSync(new URL("../src/components/visao-geral/HomeSnapshot.tsx", import.meta.url), "utf8")) && /setTimeout\(enviar, ADIAR_MS\)/.test(LIB) && /pagehide/.test(LIB));
 ok("prefs: a cópia do dispositivo continua sendo gravada", /gravarPreferencia\(LOCAL_INTERESSES/.test(LIB) && /gravarPreferencia\(LOCAL_CLIQUES/.test(LIB));
+
+// etapa 5 — o que a pessoa ignora desce
+{
+const HOJE = BASE.hoje;
+const ontem = "2026-10-13";
+const ign = (dias: number, ultimo = ontem) => ({ dias, ultimo });
+const alvo = ids(BASE).find((id) => !BASICAS.empresa.includes(id))!;
+ok("ignorar: dentro da graça não custa nada", descontoPorIgnorar(com({ exibidas: { [alvo]: ign(DIAS_DE_GRACA) } }), alvo) === 0);
+ok("ignorar: passou da graça, desconta", descontoPorIgnorar(com({ exibidas: { [alvo]: ign(DIAS_DE_GRACA + 1) } }), alvo) > 0);
+ok("ignorar: o desconto tem teto", descontoPorIgnorar(com({ exibidas: { [alvo]: ign(300) } }), alvo) === TETO_IGNORADA);
+ok("ignorar: o teto desce de verdade, mas não abaixo de zero de quem estava de pé", TETO_IGNORADA >= 1.5);
+const cansadaSinais = com({ exibidas: { [alvo]: ign(30) } });
+ok("ignorar: a ignorada SAI da frente — a lista muda e ela desce", ids(cansadaSinais).indexOf(alvo) === -1 || ids(cansadaSinais).indexOf(alvo) > ids(BASE).indexOf(alvo), JSON.stringify([ids(BASE), ids(cansadaSinais)]));
+ok("ignorar: as básicas nunca perdem", BASICAS.empresa.every((b) => descontoPorIgnorar(com({ exibidas: { [b]: ign(300) } }), b) === 0)
+  && ids(com({ exibidas: Object.fromEntries(BASICAS.empresa.map((b) => [b, ign(300)])) })).slice(0, 2).join() === BASICAS.empresa.join());
+ok("ignorar: o dia de HOJE só conta amanhã (a lista não mexe com a Home aberta)",
+  descontoPorIgnorar(com({ exibidas: { [alvo]: ign(DIAS_DE_GRACA + 2, HOJE) } }), alvo) === descontoPorIgnorar(com({ exibidas: { [alvo]: ign(DIAS_DE_GRACA + 1) } }), alvo));
+ok("ignorar: duas semanas sem aparecer devolvem a chance",
+  descontoPorIgnorar(com({ exibidas: { [alvo]: ign(30, "2026-09-01") } }), alvo) === 0 && JANELA_IGNORADA >= 7);
+ok("ignorar: data torta não desconta", descontoPorIgnorar(com({ exibidas: { [alvo]: { dias: 30, ultimo: "ontem" } } }), alvo) === 0);
+// urgência vence
+const negativo = com({ caixa: -5000, caixaVar: -0.5, exibidas: { "caixa-negativo": ign(300) } });
+ok("ignorar: caixa negativo continua na tela mesmo ignorado", ids(negativo).includes("caixa-negativo"), JSON.stringify(ids(negativo)));
+// reordena, nunca ressuscita
+// "caixa-negativo" tem base 0 e só liga com o caixa abaixo de zero — na BASE ele está desligado.
+ok("ignorar: o teste parte de uma sugestão desligada", !recomendarSugestoes(BASE, 99).some((e) => e.id === "caixa-negativo"));
+ok("ignorar: o desconto não ressuscita quem um sinal desligou", !recomendarSugestoes(com({ exibidas: { "caixa-negativo": ign(300) } }), 99).some((e) => e.id === "caixa-negativo"));
+ok("ignorar: a descontada continua de pé (só lá atrás)", recomendarSugestoes(cansadaSinais, 99).some((e) => e.id === alvo && e.pontos > 0));
+ok("ignorar: ainda seis na tela", recomendarSugestoes(cansadaSinais).length === LIMITE_SUGESTOES);
+// a IA não traz de volta a cansada
+const comIACansada = recomendarSugestoes(cansadaSinais, LIMITE_SUGESTOES, [alvo]).map((x) => x.id);
+ok("ignorar: nem a IA põe a cansada de volta na frente", comIACansada.indexOf(alvo) !== 2, JSON.stringify(comIACansada));
+ok("ignorar: cansada é o teto do desconto", cansada(cansadaSinais, alvo) && !cansada(com({ exibidas: { [alvo]: ign(DIAS_DE_GRACA + 1) } }), alvo));
+const ctxIgn = contextoParaIA(com({ exibidas: { [alvo]: ign(30), outra: ign(1) } }));
+ok("ignorar: a IA recebe só o que já desceu", JSON.stringify(ctxIgn.ignoradas) === JSON.stringify({ [alvo]: 30 }), JSON.stringify(ctxIgn.ignoradas));
+ok("rota: o prompt fala das ignoradas", /"ignoradas"/.test(ROTA));
+// o registro
+const r1 = registrarExibicao({}, ["a", "b"], HOJE);
+ok("exibição: um dia por sugestão", r1.a?.dias === 1 && r1.a.ultimo === HOJE && r1.b?.dias === 1);
+const r2 = registrarExibicao(r1, ["a", "b"], HOJE);
+ok("exibição: abrir a Home de novo no MESMO dia não conta outra vez (e não regrava)", r2 === r1);
+ok("exibição: no dia seguinte soma", registrarExibicao(r1, ["a"], "2026-10-15").a?.dias === 2);
+ok("exibição: data torta não grava", registrarExibicao({}, ["a"], "hoje") && Object.keys(registrarExibicao({}, ["a"], "hoje")).length === 0);
+const zerado = registrarClique({ a: ign(20) }, "a", HOJE);
+ok("clique: zera os dias ignorados e hoje não conta", zerado.a?.dias === 0 && registrarExibicao(zerado, ["a"], HOJE).a?.dias === 0);
+ok("clique: zerado não desconta", descontoPorIgnorar(com({ exibidas: zerado }), "a") === 0);
+const tortaEx = normalizarPreferencias({ interesses: [], cliques: {}, exibidas: { a: { dias: 2.9, ultimo: HOJE }, b: { dias: -1, ultimo: HOJE }, c: { dias: 3, ultimo: "x" }, d: "y", e: { dias: 9999, ultimo: HOJE } } });
+ok("prefs: exibição torta fica de fora, inteira e com teto", JSON.stringify(tortaEx?.exibidas) === JSON.stringify({ a: { dias: 2, ultimo: HOJE }, e: { dias: 365, ultimo: HOJE } }), JSON.stringify(tortaEx?.exibidas));
+ok("prefs: entrada antiga (sem exibidas) lê como nada ignorado", JSON.stringify(normalizarPreferencias({ interesses: [], cliques: {} })?.exibidas) === "{}");
+const mesEx = mesclarComDispositivo(
+  { interesses: [], cliques: {}, exibidas: { a: ign(5, "2026-10-10"), b: ign(2, HOJE) } },
+  { interesses: [], cliques: {}, exibidas: { a: ign(1, HOJE), b: ign(4, HOJE), c: ign(3) } });
+ok("prefs: exibição mescla pela MAIS RECENTE (ela carrega o clique que zerou)", mesEx?.exibidas?.a?.dias === 1 && mesEx?.exibidas?.b?.dias === 4 && mesEx?.exibidas?.c?.dias === 3, JSON.stringify(mesEx?.exibidas));
+ok("prefs: a igualdade enxerga um dia a mais de exibição",
+  !mesmasPreferencias({ interesses: [], cliques: {}, exibidas: { a: ign(1) } }, { interesses: [], cliques: {}, exibidas: { a: ign(2) } })
+  && mesmasPreferencias({ interesses: [], cliques: {} }, { interesses: [], cliques: {}, exibidas: {} }));
+const HOME = readFileSync(new URL("../src/components/visao-geral/HomeSnapshot.tsx", import.meta.url), "utf8");
+ok("tela: a exibição só conta com a lista PARADA e sem as básicas", /EXIBIDA_APOS_MS/.test(HOME) && /BASICAS\[sinais\.tipoConta\]\.includes/.test(HOME) && /clearTimeout\(t\)/.test(HOME));
+ok("tela: a exibição sobe adiada, como o clique", /gravarPreferenciasHome\(novo, \{ adiar: true \}\);\s*\};\s*const opcoes/.test(HOME));
+ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPreferencia\(LOCAL_EXIBIDAS/.test(LIB));
+}
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
 if (fails > 0) process.exit(1);

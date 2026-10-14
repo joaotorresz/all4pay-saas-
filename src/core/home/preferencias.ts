@@ -20,7 +20,15 @@ export interface PreferenciasHome {
   interesses: string[] | null;
   /** id da sugestão → vezes clicada. */
   cliques: Record<string, number>;
+  /**
+   * id da sugestão → por quantos dias ela apareceu sem clique, e o último dia
+   * (etapa 5: o que a pessoa ignora desce). Opcional: entrada gravada antes da
+   * etapa 5 não tem, e ler sem ela é ler "nada ignorado".
+   */
+  exibidas?: Record<string, Exibicao>;
 }
+
+export interface Exibicao { dias: number; ultimo: string }
 
 export type MapaPreferencias = Record<string, PreferenciasHome & { atualizadoEm?: string }>;
 
@@ -30,6 +38,21 @@ const TETO_IDS = 80;
 const TETO_CLIQUES = 1000;
 
 const idValido = (x: unknown): x is string => typeof x === "string" && x.length > 0 && x.length <= 60;
+/** Teto de dias contados — o desconto para bem antes; guardar mais não muda nada. */
+const TETO_DIAS = 365;
+const dataValida = (x: unknown): x is string => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x);
+
+function normalizarExibidas(bruto: unknown): Record<string, Exibicao> {
+  const out: Record<string, Exibicao> = {};
+  if (!bruto || typeof bruto !== "object" || Array.isArray(bruto)) return out;
+  for (const [id, e] of Object.entries(bruto as Record<string, unknown>).slice(0, TETO_IDS)) {
+    if (!idValido(id) || !e || typeof e !== "object") continue;
+    const { dias, ultimo } = e as { dias?: unknown; ultimo?: unknown };
+    if (typeof dias !== "number" || !Number.isFinite(dias) || dias < 0 || !dataValida(ultimo)) continue;
+    out[id] = { dias: Math.min(TETO_DIAS, Math.floor(dias)), ultimo };
+  }
+  return out;
+}
 
 /**
  * Normaliza o que veio de fora (servidor, cache, versão antiga): interesses só
@@ -50,7 +73,7 @@ export function normalizarPreferencias(bruto: unknown): PreferenciasHome | null 
       cliques[id] = Math.min(TETO_CLIQUES, Math.floor(n));
     }
   }
-  return { interesses, cliques };
+  return { interesses, cliques, exibidas: normalizarExibidas((bruto as { exibidas?: unknown }).exibidas) };
 }
 
 /** A entrada de UM usuário no mapa, ou `null` se ele ainda não tem nenhuma. */
@@ -62,7 +85,7 @@ export function preferenciasDoUsuario(mapa: unknown, usuario: string | null): Pr
 /** O mapa com a entrada deste usuário trocada — e SÓ ela: os colegas ficam como estavam. */
 export function comPreferencias(mapa: unknown, usuario: string, p: PreferenciasHome, agora: string): MapaPreferencias {
   const base = mapa && typeof mapa === "object" && !Array.isArray(mapa) ? (mapa as MapaPreferencias) : {};
-  return { ...base, [usuario]: { ...(normalizarPreferencias(p) ?? { interesses: null, cliques: {} }), atualizadoEm: agora } };
+  return { ...base, [usuario]: { ...(normalizarPreferencias(p) ?? { interesses: null, cliques: {}, exibidas: {} }), atualizadoEm: agora } };
 }
 
 /**
@@ -81,7 +104,10 @@ export function mesmasPreferencias(a: PreferenciasHome | null, b: PreferenciasHo
   const ib = b.interesses === null ? null : [...b.interesses].sort().join(",");
   if (ia !== ib) return false;
   const ka = Object.keys(a.cliques).sort(), kb = Object.keys(b.cliques).sort();
-  return ka.join(",") === kb.join(",") && ka.every((k) => a.cliques[k] === b.cliques[k]);
+  if (ka.join(",") !== kb.join(",") || !ka.every((k) => a.cliques[k] === b.cliques[k])) return false;
+  const ea = a.exibidas ?? {}, eb = b.exibidas ?? {};
+  const xa = Object.keys(ea).sort(), xb = Object.keys(eb).sort();
+  return xa.join(",") === xb.join(",") && xa.every((k) => ea[k].dias === eb[k].dias && ea[k].ultimo === eb[k].ultimo);
 }
 
 /**
@@ -96,5 +122,37 @@ export function mesclarComDispositivo(servidor: PreferenciasHome | null, disposi
   if (!dispositivo) return servidor;
   const cliques: Record<string, number> = { ...servidor.cliques };
   for (const [id, n] of Object.entries(dispositivo.cliques)) cliques[id] = Math.max(cliques[id] ?? 0, n);
-  return { interesses: servidor.interesses ?? dispositivo.interesses, cliques };
+  // Exibição: vale a MAIS RECENTE de cada lado (ela já carrega o clique que
+  // zerou a contagem); no mesmo dia, a de mais dias.
+  const exibidas: Record<string, Exibicao> = { ...(servidor.exibidas ?? {}) };
+  for (const [id, e] of Object.entries(dispositivo.exibidas ?? {})) {
+    const s = exibidas[id];
+    if (!s || e.ultimo > s.ultimo || (e.ultimo === s.ultimo && e.dias > s.dias)) exibidas[id] = e;
+  }
+  return { interesses: servidor.interesses ?? dispositivo.interesses, cliques, exibidas };
+}
+
+/**
+ * A Home mostrou estas sugestões HOJE. Cada uma ganha um dia de exibição sem
+ * clique — uma vez por dia, por mais que a Home seja aberta (abrir dez vezes
+ * não é ignorar dez vezes). Devolve o MESMO objeto quando nada muda, para quem
+ * chama não regravar à toa.
+ */
+export function registrarExibicao(exibidas: Record<string, Exibicao> | undefined, ids: string[], hoje: string): Record<string, Exibicao> {
+  const base = exibidas ?? {};
+  if (!dataValida(hoje)) return base;
+  let out: Record<string, Exibicao> | null = null;
+  for (const id of ids) {
+    if (!idValido(id) || base[id]?.ultimo === hoje) continue;
+    out ??= { ...base };
+    out[id] = { dias: Math.min(TETO_DIAS, (base[id]?.dias ?? 0) + 1), ultimo: hoje };
+  }
+  return out ?? base;
+}
+
+/** Clicou: a contagem de dias ignorados ZERA — e o dia de hoje não conta como ignorado. */
+export function registrarClique(exibidas: Record<string, Exibicao> | undefined, id: string, hoje: string): Record<string, Exibicao> {
+  const base = exibidas ?? {};
+  if (!idValido(id) || !dataValida(hoje)) return base;
+  return { ...base, [id]: { dias: 0, ultimo: hoje } };
 }

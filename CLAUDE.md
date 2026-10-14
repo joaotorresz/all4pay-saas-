@@ -288,6 +288,18 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   `a4p_home_cliques`) continua: é a reserva de quem não pode escrever
   (`org_state` exige o papel de lançar) e o que a primeira conferência sobe.
   Mescla: o servidor vence nas prioridades; cliques pelo MAIOR de cada lado.
+- **Etapa 5 (14/10/2026): o que a pessoa IGNORA desce.** Cada sugestão (menos
+  as básicas) guarda por quantos DIAS apareceu sem clique (`exibidas` em
+  `a4p_home_preferencias`, cópia em `a4p_home_exibidas`) — uma vez por dia,
+  só com a lista PARADA 8 s na tela. Três dias são de graça; depois −0,4 por
+  dia até o teto de 2 (com 1,2 nada mudava na tela: medido no navegador,
+  a ignorada seguia na frente). O clique zera. ⚠️ O
+  dia de HOJE só conta amanhã (senão os chips trocariam de lugar diante de
+  quem olha); 14 dias sem aparecer devolvem a chance; o desconto REORDENA,
+  nunca ressuscita o que um sinal desligou; regra de URGÊNCIA (peso ≥ 2,5:
+  caixa negativo, primeiro uso) não desce — medido: sem isso "Cobrir o
+  caixa" ignorada perdia a vaga do tema para "Fluxo 13 semanas". A IA recebe
+  as `ignoradas` e não traz de volta a que chegou ao teto (`cansada`).
 - **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
   chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
   com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a

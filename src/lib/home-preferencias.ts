@@ -15,6 +15,10 @@
  * (leitor, contador — `org_state` exige o papel de lançar) e o rastro que a
  * primeira sincronização sobe.
  *
+ * Etapa 5: os DIAS em que cada sugestão apareceu sem clique também moram
+ * aqui (`exibidas`, cópia no dispositivo em `a4p_home_exibidas`). Sobem
+ * adiados como os cliques — no máximo uma vez por dia mudam.
+ *
  * ⚠️ Os cliques sobem ADIADOS (no máximo um envio a cada 30 s, e na saída da
  * página): cada gravação em `org_state` vira um evento na trilha de auditoria,
  * e um evento por clique encheria a trilha de ruído.
@@ -31,6 +35,7 @@ import {
 const KEY = CHAVES_ORG.homePreferencias;
 const LOCAL_INTERESSES = "a4p_home_interesses";
 const LOCAL_CLIQUES = "a4p_home_cliques";
+const LOCAL_EXIBIDAS = "a4p_home_exibidas";
 const ADIAR_MS = 30_000;
 
 /** O servidor respondeu nesta sessão? Em demonstração não há servidor: o "mapa" é só o cache local. */
@@ -43,15 +48,16 @@ let adiado: ReturnType<typeof setTimeout> | null = null;
 function doDispositivo(): PreferenciasHome | null {
   const interesses = lerPreferencia<unknown>(LOCAL_INTERESSES, null);
   const cliques = lerPreferencia<unknown>(LOCAL_CLIQUES, null);
-  if (interesses === null && cliques === null) return null;
-  return normalizarPreferencias({ interesses, cliques });
+  const exibidas = lerPreferencia<unknown>(LOCAL_EXIBIDAS, null);
+  if (interesses === null && cliques === null && exibidas === null) return null;
+  return normalizarPreferencias({ interesses, cliques, exibidas });
 }
 
 /** As preferências de quem está usando: a da sessão, senão servidor + dispositivo. */
 export function lerPreferenciasHome(): PreferenciasHome {
   if (daSessao) return daSessao;
   const servidor = preferenciasDoUsuario(lerOrg<unknown>(KEY, {}), usuario);
-  return mesclarComDispositivo(servidor, doDispositivo()) ?? { interesses: null, cliques: {} };
+  return mesclarComDispositivo(servidor, doDispositivo()) ?? { interesses: null, cliques: {}, exibidas: {} };
 }
 
 function enviar(): void {
@@ -68,6 +74,7 @@ export function gravarPreferenciasHome(p: PreferenciasHome, opcoes: { adiar?: bo
   daSessao = p;
   gravarPreferencia(LOCAL_INTERESSES, p.interesses);
   gravarPreferencia(LOCAL_CLIQUES, p.cliques);
+  gravarPreferencia(LOCAL_EXIBIDAS, p.exibidas ?? {});
   if (opcoes.adiar) {
     if (!adiado) adiado = setTimeout(enviar, ADIAR_MS);
     return;

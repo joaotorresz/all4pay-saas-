@@ -16,14 +16,14 @@ import type { TarefaFechamento } from "@/core/close/checklist";
 import { decimalBR, pct } from "@/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import {
-  INTERESSES, LIMITE_SUGESTOES, candidatasParaIA, contextoParaIA, recomendarSugestoes, sinaisDaHome,
+  BASICAS, INTERESSES, LIMITE_SUGESTOES, candidatasParaIA, contextoParaIA, recomendarSugestoes, sinaisDaHome,
   type CandidataIA, type SinaisHome, type SugestaoEscolhida,
 } from "@/core/home/sugestoes";
 import { reportar } from "@/lib/erros";
 import {
   gravarPreferenciasHome, inscreverPreferenciasHome, lerPreferenciasHome, sincronizarPreferenciasHome,
 } from "@/lib/home-preferencias";
-import type { PreferenciasHome } from "@/core/home/preferencias";
+import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { ChatTelaCheia, type SugestaoChat } from "@/components/ia/ChatTelaCheia";
@@ -76,8 +76,11 @@ function useCarimbo(): string {
  * está no dispositivo aparece na hora e o que veio do servidor entra quando ele
  * responder.
  */
-function usePreferenciasIA(tipo: "empresa" | "pessoal") {
+function usePreferenciasIA(tipo: "empresa" | "pessoal", hoje: string) {
   const [prefs, setPrefs] = React.useState<PreferenciasHome | undefined>(undefined);
+  // O "hoje" da Home (o mesmo dos sinais), para o clique e a exibição contarem no mesmo calendário.
+  const hojeRef = React.useRef(hoje);
+  hojeRef.current = hoje;
   React.useEffect(() => {
     const reler = () => setPrefs(lerPreferenciasHome());
     reler();
@@ -93,15 +96,54 @@ function usePreferenciasIA(tipo: "empresa" | "pessoal") {
   };
   const clicou = (id: string) => {
     const atual = lerPreferenciasHome();
-    const novo = { ...atual, cliques: { ...atual.cliques, [id]: (atual.cliques[id] ?? 0) + 1 } };
+    const novo = {
+      ...atual,
+      cliques: { ...atual.cliques, [id]: (atual.cliques[id] ?? 0) + 1 },
+      exibidas: registrarClique(atual.exibidas, id, hojeRef.current),
+    };
+    setPrefs(novo);
+    gravarPreferenciasHome(novo, { adiar: true });
+  };
+  /** A Home mostrou estas sugestões hoje (uma vez por dia conta como um dia sem clique). */
+  const exibiu = (ids: string[]) => {
+    const atual = lerPreferenciasHome();
+    const exibidas = registrarExibicao(atual.exibidas, ids, hojeRef.current);
+    if (exibidas === atual.exibidas) return;
+    const novo = { ...atual, exibidas };
     setPrefs(novo);
     gravarPreferenciasHome(novo, { adiar: true });
   };
   const opcoes = INTERESSES.filter((i) => i.publico === tipo);
-  return { interesses: prefs === undefined ? undefined : prefs.interesses, cliques: prefs?.cliques ?? {}, salvarInteresses, clicou, opcoes };
+  return {
+    interesses: prefs === undefined ? undefined : prefs.interesses, cliques: prefs?.cliques ?? {}, exibidas: prefs?.exibidas ?? {},
+    salvarInteresses, clicou, exibiu, opcoes,
+  };
 }
 
 type PreferenciasIA = ReturnType<typeof usePreferenciasIA>;
+
+/** Quanto a lista precisa ficar parada na tela para contar como vista. */
+const EXIBIDA_APOS_MS = 8_000;
+
+/**
+ * Etapa 5: registra que as sugestões (sem as básicas, que são fixas) ficaram
+ * na tela hoje. Só depois de a lista PARAR por alguns segundos — a ordem das
+ * regras é trocada pela da IA logo depois de carregar, e a lista que piscou
+ * antes disso ninguém viu. No primeiro acesso não há o que contar.
+ */
+function useExibicoes(sugestoes: SugestaoEscolhida[] | null, sinais: SinaisHome | null, prefs: PreferenciasIA) {
+  const ids = (sugestoes ?? []).filter((x) => !sinais || !BASICAS[sinais.tipoConta].includes(x.id)).map((x) => x.id);
+  const chave = ids.join(",");
+  const hoje = sinais?.hoje;
+  const ligado = Array.isArray(prefs.interesses) && ids.length > 0 && !!hoje;
+  const exibiu = React.useRef(prefs.exibiu);
+  exibiu.current = prefs.exibiu;
+  React.useEffect(() => {
+    if (!ligado) return;
+    const t = setTimeout(() => exibiu.current(chave.split(",")), EXIBIDA_APOS_MS);
+    return () => clearTimeout(t);
+  }, [ligado, chave, hoje]);
+}
 
 /**
  * A ordem que a Quattro AI propõe para as quatro sugestões depois das básicas
@@ -637,7 +679,7 @@ export function HomeSnapshot() {
   const pendencias = usePendencias();
   const tarefas = useTarefasDoMes(mes);
   const { tipo } = useTipoConta();
-  const prefs = usePreferenciasIA(tipo);
+  const prefs = usePreferenciasIA(tipo, hoje);
   const [perfil, setPerfil] = React.useState<ReturnType<typeof loadCompany> | undefined>(undefined);
   React.useEffect(() => { setPerfil(loadCompany()); }, []);
 
@@ -646,9 +688,9 @@ export function HomeSnapshot() {
     const fechamento = tarefas && tarefas.length > 0 ? tarefas.filter((t) => t.status === "done").length / tarefas.length : null;
     return sinaisDaHome({
       snap, input, tipoConta: tipo, perfil: perfil?.perfil ?? null, pendencias, fechamento,
-      interesses: prefs.interesses ?? [], cliques: prefs.cliques,
+      interesses: prefs.interesses ?? [], cliques: prefs.cliques, exibidas: prefs.exibidas,
     });
-  }, [snap, input, perfil, tipo, pendencias, tarefas, prefs.interesses, prefs.cliques]);
+  }, [snap, input, perfil, tipo, pendencias, tarefas, prefs.interesses, prefs.cliques, prefs.exibidas]);
   const candidatas = React.useMemo(() => (sinais ? candidatasParaIA(sinais) : []), [sinais]);
   // No primeiro acesso (`interesses === null`) só as básicas aparecem: não há o que a IA ordenar.
   const ordemIA = useOrdemDaIA(sinais, candidatas, Array.isArray(prefs.interesses));
@@ -656,6 +698,7 @@ export function HomeSnapshot() {
     () => (sinais ? recomendarSugestoes(sinais, LIMITE_SUGESTOES, ordemIA) : null),
     [sinais, ordemIA],
   );
+  useExibicoes(sugestoes, sinais, prefs);
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">

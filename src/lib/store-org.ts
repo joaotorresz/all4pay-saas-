@@ -229,7 +229,8 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // servidor; estas ficam como a cópia do DISPOSITIVO — a reserva de quem não
   // pode gravar no estado da empresa (leitor, contador) e o rastro que a
   // primeira sincronização sobe.
-  "a4p_home_interesses", "a4p_home_cliques",
+  // Etapa 5: os dias em que cada sugestão apareceu sem clique, mesma regra.
+  "a4p_home_interesses", "a4p_home_cliques", "a4p_home_exibidas",
   // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
   "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
