@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * Quattro DS — StatusBadge
- * Status as icon + text, NOT a filled colored pill. Color is quiet and
- * tied to the icon: amber for issues, neutral ink for review, a muted
- * green for cleared. Default uses a small dot as the icon.
+ * Situação em PÍLULA com ponto (canvas "Quattro ERP · Gráficos e tabelas",
+ * 14/10/2026): fundo da cor do status bem clarinho, ponto na cor cheia e o
+ * TEXTO sempre em verde-base — a cor é o sinal, não a leitura.
  */
 type StatusTone = "warning" | "neutral" | "positive" | "ink";
 
@@ -21,6 +21,11 @@ const toneColor: Record<StatusTone, string> = {
   positive: "var(--color-positive)",
   ink: "var(--color-ink)",
 };
+/** Fundo da pílula: a cor do status a 14% sobre o branco (neutro = cinza do card). */
+const toneFundo = (tone: StatusTone, c: string) =>
+  tone === "neutral" || tone === "ink"
+    ? "var(--erp-menu-fundo)"
+    : `color-mix(in srgb, ${c} 14%, var(--color-white))`;
 
 export function StatusBadge({
   children,
@@ -34,15 +39,15 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-[6px] text-label font-medium",
+        "inline-flex items-center gap-[6px] rounded-pill px-[10px] py-[4px] text-[12px] font-medium text-ink",
         className,
       )}
-      style={{ color: c, ...style }}
+      style={{ background: toneFundo(tone, c), ...style }}
       {...rest}
     >
-      {icon || (
+      {icon ? <span style={{ color: c }} className="inline-flex">{icon}</span> : (
         <span
-          className="w-[7px] h-[7px] rounded-pill shrink-0"
+          className="w-[6px] h-[6px] rounded-pill shrink-0"
           style={{ background: c }}
         />
       )}

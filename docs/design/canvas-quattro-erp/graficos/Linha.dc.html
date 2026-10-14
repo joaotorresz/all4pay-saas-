@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Linha e área · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div style="width: 1280px; height: 640px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px">
+  <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Linha e área</h1>
+
+  <div style="background: #f6f6f6; border-radius: 20px; padding: 28px 32px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 15px">Saldo em conta</span>
+        <span style="font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 36px; line-height: 1; color: #000000; font-variant-numeric: tabular-nums">R$248.850<span style="font-size: 18px; color: #6B7060">,50</span></span>
+      </div>
+      <div style="display: flex; gap: 18px; font-size: 13px; color: #6B7060">
+        <span style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; height: 2px; background: {{cor}}"></span>Este período</span>
+        <sc-if value="{{comparar}}" hint-placeholder-val="{{ true }}">
+          <span style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; border-top: 2px dashed {{corComparacao}}"></span>Período anterior</span>
+        </sc-if>
+      </div>
+    </div>
+
+    <svg width="100%" height="360" viewBox="0 0 1100 360" preserveAspectRatio="none" role="img" aria-label="Saldo mês a mês, de janeiro a dezembro, subindo de R$120 mil para R$248 mil">
+      <sc-for list="{{grade}}" as="g" hint-placeholder-count="4">
+        <line x1="0" y1="{{g.y}}" x2="1100" y2="{{g.y}}" stroke="#e2e2e2" stroke-dasharray="3 4"></line>
+      </sc-for>
+      <sc-if value="{{area}}" hint-placeholder-val="{{ true }}">
+        <path d="{{caminhoArea}}" fill="{{corArea}}" fill-opacity="{{opacidadeArea}}"></path>
+      </sc-if>
+      <sc-if value="{{comparar}}" hint-placeholder-val="{{ true }}">
+        <path d="{{caminhoComp}}" fill="none" stroke="{{corComparacao}}" stroke-width="1.4" stroke-dasharray="5 5"></path>
+      </sc-if>
+      <path d="{{caminho}}" fill="none" stroke="{{cor}}" stroke-width="{{espessura}}" stroke-linejoin="round" stroke-linecap="round"></path>
+      <sc-if value="{{pontos}}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{pts}}" as="p" hint-placeholder-count="12">
+          <circle cx="{{p.x}}" cy="{{p.y}}" r="4" fill="#ffffff" stroke="{{cor}}" stroke-width="2"></circle>
+        </sc-for>
+      </sc-if>
+    </svg>
+    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6B7060">
+      <sc-for list="{{meses}}" as="m" hint-placeholder-count="12"><span>{{m}}</span></sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"cor":{"editor":"color","default":"#3B4332","section":"Linha","options":["#3B4332","#000000","#6B7060"]},"espessura":{"editor":"range","default":1.6,"min":0.5,"max":5,"step":0.1,"unit":"px","section":"Linha"},"suave":{"editor":"boolean","default":true,"section":"Linha"},"pontos":{"editor":"boolean","default":false,"section":"Linha"},"area":{"editor":"boolean","default":true,"section":"Área"},"corArea":{"editor":"color","default":"#ECFD52","section":"Área"},"opacidadeArea":{"editor":"range","default":0.55,"min":0,"max":1,"step":0.05,"section":"Área"},"comparar":{"editor":"boolean","default":true,"section":"Comparação"},"corComparacao":{"editor":"color","default":"#B5B594","section":"Comparação"},"$preview":{"width":1280,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const W = 1100, H = 360, topo = 20, base = 340;
+    const valores = [120, 132, 128, 150, 162, 158, 176, 190, 204, 214, 232, 248];
+    const anteriores = [110, 118, 125, 122, 140, 146, 150, 160, 168, 174, 182, 196];
+    const max = 260, min = 100;
+    const y = (v) => base - ((v - min) / (max - min)) * (base - topo);
+    const x = (i) => (i / (valores.length - 1)) * W;
+    const suave = p.suave ?? true;
+    const traca = (vs) => {
+      const pts = vs.map((v, i) => [x(i), y(v)]);
+      if (!suave) return pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
+      let d = 'M' + pts[0][0] + ' ' + pts[0][1].toFixed(1);
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+        const mx = (x0 + x1) / 2;
+        d += ' C' + mx.toFixed(1) + ' ' + y0.toFixed(1) + ' ' + mx.toFixed(1) + ' ' + y1.toFixed(1) + ' ' + x1.toFixed(1) + ' ' + y1.toFixed(1);
+      }
+      return d;
+    };
+    const caminho = traca(valores);
+    return {
+      caminho,
+      caminhoArea: caminho + ' L' + W + ' ' + base + ' L0 ' + base + ' Z',
+      caminhoComp: traca(anteriores),
+      pts: valores.map((v, i) => ({ x: x(i), y: y(v) })),
+      grade: [0.25, 0.5, 0.75, 1].map((f) => ({ y: topo + (base - topo) * f })),
+      meses: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+      cor: p.cor ?? '#3B4332',
+      espessura: p.espessura ?? 1.6,
+      pontos: p.pontos ?? false,
+      area: p.area ?? true,
+      corArea: p.corArea ?? '#ECFD52',
+      opacidadeArea: p.opacidadeArea ?? 0.55,
+      comparar: p.comparar ?? true,
+      corComparacao: p.corComparacao ?? '#B5B594',
+    };
+  }
+}
+</script>
+</body>
+</html>
