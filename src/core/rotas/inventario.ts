@@ -94,7 +94,11 @@ export interface RotaInventario {
  */
 export const INVENTARIO: RotaInventario[] = [
   { rota: "/", nome: "Visão geral", dono: "home", status: "canonica", criterio: "nucleo" },
-  { rota: "/admin", nome: "Dono da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin", nome: "Visão geral da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/clientes", nome: "Clientes e planos", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/cobranca", nome: "Cobrança da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/acessos", nome: "Acessos da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/suporte", nome: "Suporte aos clientes", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/quattro-ai", nome: "Quattro AI", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
   { rota: "/aprovacoes", nome: "Aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
   { rota: "/central", nome: "Central financeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },

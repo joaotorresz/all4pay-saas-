@@ -1,10 +1,11 @@
 import { type NextRequest, type NextFetchEvent, NextResponse } from "next/server";
-import { updateSession, planoDoUsuario, ehDonoDaPlataforma, exigeCodigo } from "@/lib/supabase/middleware";
-import { ROTA_CODIGO, ehRotaDoCodigo } from "@/core/segundo-fator";
+import { updateSession, planoDoUsuario, ehDonoDaPlataforma, exigeCodigo, portaDoAdmin } from "@/lib/supabase/middleware";
+import { ROTA_CODIGO, ROTA_SEGURANCA_CONTA, ehRotaDoCodigo } from "@/core/segundo-fator";
 import { exigePro } from "@/core/planos";
 import { destinoDe } from "@/core/rotas/aliases";
 import { lerMotivo } from "@/core/recuperacao";
 import { registrarAcessoAlias } from "@/lib/supabase/middleware";
+import { decidirPorHost, ERRO_PORTA_ADMIN } from "@/core/area-admin";
 
 /**
  * Route guard. Only enforces auth when Supabase is configured (live);
@@ -17,7 +18,7 @@ import { registrarAcessoAlias } from "@/lib/supabase/middleware";
  * quem digitasse o endereço. Menu é apresentação; quem tranca porta é servidor.
  */
 export async function middleware(request: NextRequest, event: NextFetchEvent) {
-  const { pathname } = request.nextUrl;
+  const { pathname: pedido } = request.nextUrl;
 
   /*
    * ⚠️ OS ENDEREÇOS ANTIGOS, resolvidos no SERVIDOR e antes de tudo.
@@ -31,7 +32,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
    * destino certo mesmo quando a pessoa ainda precisa entrar, senão ela loga e
    * cai na Home, perdendo o endereço que tentou abrir.
    */
-  const desvio = destinoDe(pathname, request.nextUrl.search);
+  const desvio = destinoDe(pedido, request.nextUrl.search);
   if (desvio) {
     /*
      * ⚠️ REGISTRA O ACESSO antes de desviar. "Remover o alias quando ninguém
@@ -43,15 +44,55 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
      * `event.waitUntil` de propósito: a contagem não pode atrasar o desvio.
      * A resposta 308 sai na hora; o registro termina depois.
      */
-    event.waitUntil(registrarAcessoAlias(pathname));
+    event.waitUntil(registrarAcessoAlias(pedido));
     // 308 (permanente): são links já compartilhados e em favoritos. Um 302
     // diria ao navegador "volte a perguntar", e o endereço antigo nunca
     // deixaria de ser tratado como o canônico.
     return NextResponse.redirect(new URL(desvio, request.url), 308);
   }
 
+  /*
+   * ⚠️ A ÁREA DA PLATAFORMA MORA NO SEU PRÓPRIO ENDEREÇO (`ADMIN_HOST`,
+   * regras em `core/area-admin`). Lá, `/` e `/clientes` servem `/admin` e
+   * `/admin/clientes` por REESCRITA — e daqui para baixo toda porta olha o
+   * caminho EFETIVO (`pathname`), nunca o que a pessoa digitou (`pedido`): senão o
+   * perímetro da plataforma veria `/clientes`, não reconheceria a área e
+   * deixaria passar sem perguntar quem é o dono.
+   */
+  const decisao = decidirPorHost({
+    host: request.headers.get("host") ?? request.nextUrl.host,
+    pathname: pedido,
+    hostAdmin: process.env.ADMIN_HOST,
+  });
+  if (decisao.tipo === "redirecionar") {
+    const url = request.nextUrl.clone();
+    url.hostname = decisao.host;
+    url.pathname = decisao.caminho;
+    return NextResponse.redirect(url, 308);
+  }
+  if (decisao.tipo === "inexistente") {
+    return pedido.startsWith("/api")
+      ? NextResponse.json({ erro: "inexistente" }, { status: 404 })
+      : new NextResponse(null, { status: 404 });
+  }
+  const pathname = decisao.tipo === "reescrever" ? decisao.caminho : pedido;
+
   const { response, user, configured, supabase } = await updateSession(request);
-  if (!configured) return response;
+  /*
+   * A resposta que SEGUE. Na reescrita ela leva a requisição (com os cookies
+   * que o `getUser` acabou de renovar) ao caminho efetivo, e devolve ao
+   * navegador os mesmos cookies — perder um dos dois faria o próximo clique
+   * apresentar o token antigo, já trocado.
+   */
+  const seguir = () => {
+    if (decisao.tipo !== "reescrever") return response;
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    const reescrita = NextResponse.rewrite(url, { request });
+    response.cookies.getAll().forEach((c) => reescrita.cookies.set(c));
+    return reescrita;
+  };
+  if (!configured) return seguir();
 
   const isPublic =
     pathname.startsWith("/login") ||
@@ -160,6 +201,33 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     || pathname.startsWith("/admin/")
     || pathname.startsWith("/api/admin/");
   if (areaDaPlataforma && supabase) {
+    /*
+     * ⚠️ **O SEGUNDO FATOR É OBRIGATÓRIO AQUI**, não uma escolha. A porta do
+     * código acima só pede a quem JÁ cadastrou o aplicativo; o dono sem
+     * aplicativo passaria com a senha só e chegaria a um painel que muda
+     * plano, cobrança e "loga como" qualquer cliente. Página → cadastro do
+     * aplicativo (ou o código); API → 403 JSON. Falha fechada.
+     *
+     * ⚠️ **Vem ANTES da pergunta "é o dono?"**: `is_platform_admin()` já
+     * responde pelo veredito, que nega a sessão sem o segundo fator — o dono
+     * em aal1 levaria "área exclusiva do administrador" (a frase errada) e
+     * nunca a porta do aplicativo. Quem não é o dono cumpre o passo e leva
+     * o 403 depois: o endereço da plataforma pede o fator a quem entra.
+     */
+    const porta = user ? await portaDoAdmin(supabase, user) : "entrar";
+    if (porta !== "entrar") {
+      if (pathname.startsWith("/api/")) {
+        const recusa = NextResponse.json(ERRO_PORTA_ADMIN[porta], { status: 403 });
+        response.cookies.getAll().forEach((c) => recusa.cookies.set(c));
+        return recusa;
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = porta === "cadastrar_aplicativo" ? ROTA_SEGURANCA_CONTA : ROTA_CODIGO;
+      url.search = "";
+      const aoFator = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((c) => aoFator.cookies.set(c));
+      return aoFator;
+    }
     if (!user || !(await ehDonoDaPlataforma(supabase))) {
       return new NextResponse(
         JSON.stringify({
@@ -170,7 +238,6 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       );
     }
   }
-
   // O plano só é consultado quando a rota realmente exige Pro: uma RPC por
   // navegação em TODA rota custaria latência na aplicação inteira para
   // responder a uma pergunta que quase nenhuma tela faz.
@@ -186,7 +253,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     }
   }
 
-  return response;
+  return seguir();
 }
 
 /**
