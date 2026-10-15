@@ -332,8 +332,7 @@ function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
             title={`${c.texto} · sugerida porque ${c.motivo}`}
             aria-label={c.texto}
             data-sugestao={c.id}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] text-ink"
-            style={{ background: "var(--color-surface-1)" }}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula"
           >
             <Icon name={c.icone} size={16} strokeWidth={1.5} />
             {c.curto}

@@ -197,16 +197,16 @@
    ============================================================ */
 :root {
   --color-black-pure: #000000; /* marketing only — nunca no app */
-  --color-ink: #3b4332; /* Verde-base — texto e fundo escuro */
-  --color-ink-soft: #2b3125; /* Texto — o verde-base um passo abaixo (hover do escuro) */
+  --color-ink: #1a1a1a; /* Preto da referência Jota — texto, número e fundo escuro */
+  --color-ink-soft: #535353; /* Cinza escuro da referência — hover do escuro */
   /* ⚠️ SUPERFÍCIES — ajuste vindo do Laboratório (ver CLAUDE.md). O par
      branco+bege da tabela de marca continua sendo a identidade; o que mudou
      é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
      frame #2C251E (o Black quente rebaixado) e área #F1F3F6. O card fica
      branco puro para separar da área por CONTRASTE, agora que não há borda. */
-  --color-white: #f6f6f6; /* superfície de card */
-  --color-surface-1: #ffffff; /* área de trabalho (dentro do cartão do app) */
-  --color-surface-2: #ffffff; /* chips / seções / hover */
+  --color-white: #fbfbfb; /* superfície de card (referência Jota) */
+  --color-surface-1: #f2f2f2; /* fundo de página (referência Jota) */
+  --color-surface-2: #f2f2f2; /* chips / seções / hover dentro do card (o círculo do ícone da referência) */
   --color-surface-3: #d6d8ca; /* Cinza médio — desabilitado / teclado / sheet */
   --color-border: #e2e2e2; /* Cinza médio — borda de card e divisória */
   /* Areia — borda de campo e separador em fundo claro. */
@@ -234,17 +234,17 @@
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
      ============================================================ */
-  --a4p-chrome: #ffffff;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
+  --a4p-chrome: #f2f2f2;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
   --a4p-chrome-ink: #f3f1ee;    /* Cinza claro sobre a moldura */
   --a4p-chrome-mut: #b5b594;    /* Areia — secundário sobre a moldura */
   --a4p-chrome-field: #2b3125;  /* busca e botões de ícone sobre a moldura */
   --a4p-chrome-field-hover: #6b7060;
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #ffffff;
+  --a4p-app-bg: #f2f2f2;
   --a4p-app-radius: 28px;
 
-  --color-text-secondary: #6b7060; /* Texto secundário */
+  --color-text-secondary: #535353; /* Rótulo — cinza escuro da referência ("Dinheiro escapando") */
   /* ⚠️ `faint` pinta o prefixo "R$" e os CENTAVOS de todo valor, a 7pt. A
      paleta tem UM cinza de texto (Grey #534D41) e um Placeholder #A9A6A4 —
      e o Placeholder dá 2,36:1 sobre o branco quente, contra os 4,5:1 da
@@ -252,7 +252,7 @@
      Então `faint` é o MESMO Grey (8,21:1): a hierarquia do tratamento do
      dinheiro vem do TAMANHO, que é como `Money`/`BRL` já a constroem, não de
      um quarto cinza que a paleta não tem. */
-  --color-text-tertiary: #6b7060; /* Texto secundário (R$ e centavos) */
+  --color-text-tertiary: #9a9a9a; /* Meta — cinza claro da referência ("últimos 90 dias") */
   --color-text-quaternary: #a9ad9e; /* Placeholder — SÓ placeholder de campo */
 
   /* Lime #ECFD52 — a cor de AÇÃO (botão primário, destaque, número grande).
@@ -598,14 +598,14 @@ html:not(.dark) .ds-visor {
   /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
      escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
-  --color-surface-1: #ffffff;      /* área de trabalho */
-  --color-surface-2: #ffffff;      /* chips / seções */
+  --color-surface-1: #f2f2f2;      /* fundo de página */
+  --color-surface-2: #f2f2f2;      /* chips / seções */
   --color-surface-3: #d6d8ca;      /* Cinza médio */
-  --color-white: #f6f6f6;          /* superfície de card */
-  --color-ink: #3b4332;            /* Verde-base — NUNCA preto */
-  --color-ink-soft: #2b3125;
-  --color-text-secondary: #6b7060;
-  --color-text-tertiary: #6b7060;
+  --color-white: #fbfbfb;          /* superfície de card */
+  --color-ink: #1a1a1a;            /* Preto da referência Jota */
+  --color-ink-soft: #535353;
+  --color-text-secondary: #535353;
+  --color-text-tertiary: #9a9a9a;
   /* ⚠️ Placeholder #A9A6A4 dá 2,36:1 sobre o branco quente — serve para o
      texto-fantasma de um campo vazio e para NADA que precise ser lido.
      Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
@@ -1579,10 +1579,10 @@ html.dark .a4p-canvas {
    e cor do número, centavos à metade em cinza, menu com linha entre itens.
    ============================================================ */
 :root {
-  --erp-num-cor: #000000;      /* cor do número (decisão do dono no canvas) */
-  --erp-moeda-cor: #000000;    /* R$ na mesma cor do número */
-  --erp-centavos-cor: #6b7060; /* só os centavos diferem */
-  --erp-menu-fundo: #f6f6f6;
+  --erp-num-cor: #1a1a1a;      /* cor do número: o preto do dinheiro da referência Jota (15/10/2026) */
+  --erp-moeda-cor: #1a1a1a;    /* R$ na mesma cor do número */
+  --erp-centavos-cor: #535353; /* só os centavos diferem */
+  --erp-menu-fundo: var(--color-white); /* o menu é um card: o branco da referência */
   --erp-menu-borda: #f4f4f4;
   --erp-menu-ativo: #ecfd52;
   --erp-logo-cor: #3b4332;
@@ -1679,7 +1679,7 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   --erp-graf-ponto-espessura: 1px;
   --erp-graf-ponto-selecionado: 5px;
   /* A dica ao passar o mouse e a pílula de variação (prancheta Biblioteca). */
-  --erp-dica-fundo: var(--color-surface-1);
+  --erp-dica-fundo: var(--a4p-pilula-fundo);
   --erp-dica-raio: 16px;
   --erp-dica-padding-y: 14px;
   --erp-dica-padding-x: 15px;
@@ -1807,3 +1807,45 @@ html:not(.dark) .ds-visor tbody tr + tr { border-top-color: var(--erp-tabela-lin
 html:not(.dark) .ds-visor tbody tr { border-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tbody td { border-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade); }
+
+/* ============================================================
+   REFERÊNCIA JOTA (decisão do dono, 15/10/2026) — vence o TEMA ERP e toda
+   seção de identidade acima onde discordar. As cores foram MEDIDAS nos
+   pixels do print de referência (docs/design/referencia-jota/), não
+   estimadas:
+
+     fundo de página  #F2F2F2   (--color-surface-1, --a4p-app-bg, --a4p-chrome)
+     card             #FBFBFB   (--color-white) · sem borda, sem sombra
+     balão de quem pergunta  #EAEAEA (--a4p-bolha-usuario)
+     pílula           #FFFFFF   texto e ícone #1A1A1A (--a4p-pilula-*)
+     rótulo           #535353   (--color-text-secondary)
+     meta             #9A9A9A   (--color-text-tertiary)
+     número e texto   #1A1A1A   (--color-ink, --erp-num-cor)
+
+   A fonte (Roobert Trial) e os ícones (Lucide 1,75px) não mudaram. O lime
+   segue sendo o acento; o dark mode segue como estava.
+   ============================================================ */
+:root {
+  --a4p-bolha-usuario: #eaeaea;
+  --a4p-pilula-fundo: #ffffff;
+  --a4p-pilula-texto: var(--color-ink);
+}
+/* Pílula: branca, texto e ícone pretos, sem borda, raio cheio. É o chip de
+   sugestão da IA, o "Fechar chat" e as ações soltas sobre o fundo cinza. */
+.a4p-pilula {
+  background: var(--a4p-pilula-fundo);
+  color: var(--a4p-pilula-texto);
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+.a4p-pilula svg { color: var(--a4p-pilula-texto); }
+.a4p-pilula:hover:not(:disabled) { background: var(--color-white); }
+/* O balão da pergunta de quem usa: o cinza um passo mais escuro que o fundo. */
+.a4p-bolha-usuario {
+  background: var(--a4p-bolha-usuario);
+  color: var(--color-ink);
+}
+html.dark {
+  --a4p-bolha-usuario: var(--color-surface-2);
+  --a4p-pilula-fundo: var(--color-white);
+}

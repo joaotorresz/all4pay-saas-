@@ -443,9 +443,9 @@ const DEFAULT_CORES: Record<string, string> = {
   // repintar o app com a paleta ANTERIOR para quem abrisse a tela — que é
   // literalmente o defeito descrito acima. A guarda `npm run paleta` confere
   // este bloco contra os tokens reais e reprova quando divergem.
-  ink: "#3b4332", lime: "#ecfd52", onLime: "#3b4332", bg: "#f3f1ee",
-  cardBg: "#ffffff", surface2: "#f3f1ee", border: "#d6d8ca",
-  body: "#6b7060", muted: "#6b7060",
+  ink: "#1a1a1a", lime: "#ecfd52", onLime: "#3b4332", bg: "#f2f2f2",
+  cardBg: "#fbfbfb", surface2: "#f2f2f2", border: "#e2e2e2",
+  body: "#535353", muted: "#9a9a9a",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de

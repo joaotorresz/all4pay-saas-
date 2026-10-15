@@ -175,6 +175,21 @@ junto. Provada em `begin … rollback`: recusa com dado, apaga tudo vazia,
 reaplica sem erro, tira só o job da OWN do cron. As menções históricas a
 `own_*` nas seções abaixo ficam como registro.
 
+## ⚠️ REFERÊNCIA JOTA — PALETA MEDIDA NO PRINT (decisão do dono, 15/10/2026)
+
+O dono adotou o print do chat do Jota.ai como design system de cores. Vence o
+TEMA ERP e toda seção de identidade abaixo onde discordar (inclusive o
+"Verde-base no texto" e o "preto puro só no número"). Cores lidas nos PIXELS
+do arquivo; tabela, formas e o print em `docs/design/referencia-jota/`.
+
+- Fundo de página `#F2F2F2` · card `#FBFBFB` (sem borda, sem sombra) · dentro
+  do card `#F2F2F2` · balão da pergunta `#EAEAEA` (`.a4p-bolha-usuario`).
+- Texto e número `#1A1A1A` (`--color-ink`, `--erp-num-cor`) · rótulo `#535353`
+  (`--color-text-secondary`) · meta `#9A9A9A` (`--color-text-tertiary`).
+- **Pílula** (`.a4p-pilula`): branca `#FFFFFF`, texto e ícone `#1A1A1A`, raio
+  cheio, sem borda — chips de sugestão da IA e da Home, "Fechar chat".
+- Fonte, ícones (Lucide 1,75px), lime como acento e dark mode: inalterados.
+
 ## ⚠️ O CANVAS "QUATTRO ERP · PROTÓTIPO" É A REGRA DE TUDO (decisão do dono, 13/10/2026)
 
 O quadro **Tema** e as telas do protótipo do canvas
