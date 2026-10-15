@@ -18,9 +18,19 @@
  * arredondar) é sinal de divergência e entra na vista de
  * divergências e no resumo — sem mudar o status da parcela, para que uma
  * leitura não esconda a outra (data certa com taxa errada aparece como as
- * duas coisas). Nenhum valor em reais é derivado do percentual nesta versão.
- * Bruto da parcela, split e líquido do extrato seguem "aguardando definição":
- * o sentido deles na loja de teste está em aberto (D7).
+ * duas coisas). Nenhum valor em reais é derivado do percentual.
+ *
+ * ⚠️ **A ANTECIPAÇÃO E O LÍQUIDO** (14/10/2026, extrato de produção). O
+ * `ValorTaxaMes` é a antecipação AO MÊS (1,55% no crédito antecipado, zero no
+ * débito) e vira um TERCEIRO eixo, do mesmo jeito que a taxa: comparada com a
+ * antecipação contratada no vínculo, sem mudar o status. E o líquido do extrato
+ * é o que a Pinbank DEPOSITA: somado por VENDA, ele é comparado com o que o
+ * sistema lançou (receita − taxa − tarifa fixa − antecipação), só quando a
+ * venda inteira está nos dois lados — a Pinbank calcula o líquido da venda e o
+ * reparte (R$ 8,56 do 2x virou 428 + 428), então a parcela não fecha sozinha. O
+ * bruto da parcela e o split do extrato seguem "aguardando definição" (D7):
+ * no extrato de produção os dois vieram SEM a tarifa fixa (899 de uma venda de
+ * 999), mas nenhum deles decide nada.
  *
  * ⚠️ **O BRUTO DA PARCELA É ESTIMADO PELA MESMA REGRA DO SISTEMA.** O extrato
  * traz o bruto da VENDA; a parcela sai de `dividir` (`core/vendas/pos`), a
@@ -50,11 +60,12 @@
  * têm como discordar (a guarda cobra).
  */
 import type { LinhaExtratoPos } from "@/core/pinbank/extrato-pos";
-import { somaDias, taxaDaForma, type TaxasPinbank } from "@/core/pinbank/plano";
-import { dividir } from "@/core/vendas/pos";
+import { somaDias, taxaDaForma, baseDosCustos, antecipacaoDoContrato, type TaxasPinbank } from "@/core/pinbank/plano";
+import { dividir, dividirCusto } from "@/core/vendas/pos";
 import { ehDiaUtil, postergarParaDiaUtil } from "@/core/folha/calendario";
+import { formatBRL } from "@/lib/format";
 
-export const CONFERENCIA_PINBANK_VERSION = "pinbank-conferencia/1.5.0";
+export const CONFERENCIA_PINBANK_VERSION = "pinbank-conferencia/1.7.0";
 
 /**
  * A permissão que a conferência pede, na empresa do vínculo (decisão D1 do
@@ -107,7 +118,15 @@ export interface EntradaConferencia {
    * CONTRATOU (frações, como o planejador as usa). `taxas: null` = nenhuma
    * cadastrada — a taxa do extrato fica "sem contrato", nunca divergente.
    */
-  vinculo: { id: string; codigoCliente: number; taxas: TaxasPinbank | null };
+  vinculo: {
+    id: string; codigoCliente: number; taxas: TaxasPinbank | null;
+    /**
+     * O repasse é ANTECIPADO no vínculo. Sem ele (`undefined`/`null`/`false`)
+     * a antecipação do extrato não é comparada — o que o `ValorTaxaMes`
+     * mostra numa venda não antecipada ainda não foi medido.
+     */
+    antecipado?: boolean | null;
+  };
   /** Os vínculos vivos da empresa com o MESMO código de extrato (inclui este). */
   vinculosDoEstabelecimento: string[];
   /**
@@ -253,7 +272,10 @@ export type SinalConferencia =
   | "taxa_sem_titulo_no_sistema"
   // com números de parcelas diferentes, o total bruto da VENDA (os dois lados inteiros) confere / não confere
   | "total_da_venda_igual"
-  | "total_da_venda_diferente";
+  | "total_da_venda_diferente"
+  // a venda inteira nos dois lados: o líquido que a Pinbank deposita × o que o sistema lançou (receita − taxa − tarifa − antecipação)
+  | "liquido_da_venda_igual"
+  | "liquido_da_venda_diferente";
 
 export type AvisoConferencia =
   | "chave_nao_confirmada"
@@ -393,6 +415,140 @@ export function compararTaxa(l: Pick<LinhaExtratoPos, "tipoCompra" | "mdrBp" | "
   };
 }
 
+/* ─────────────────────────────── a antecipação ─────────────────────────────── */
+
+/**
+ * O resultado da comparação da ANTECIPAÇÃO de uma parcela do extrato (o
+ * `ValorTaxaMes`, percentual AO MÊS) com a contratada — o mesmo desenho da taxa:
+ *   · `igual` / `diferente` — contra a esperada EXATA: no crédito (à vista e
+ *     parcelado), a antecipação ao mês cadastrada; no débito, ZERO (ele cai em
+ *     D+1 de qualquer jeito, e o extrato de 14/10/2026 o trouxe com zero);
+ *   · `sem_contrato` — repasse antecipado e a antecipação não cadastrada;
+ *   · `nao_antecipado` — o vínculo não recebe antecipado: o que o extrato
+ *     mostra numa venda sem antecipação ainda não foi medido, então não se
+ *     afirma nada (a venda antecipada sem o vínculo dizer isso aparece pela
+ *     DATA do repasse, que diverge);
+ *   · `venda_nao_antecipada` — no crédito, a Pinbank NÃO cobrou antecipação
+ *     (zero no extrato) e o sistema também não lançou nenhuma para a venda:
+ *     os dois lados concordam que ela não foi antecipada. Comparar com a
+ *     antecipação cadastrada HOJE acusaria toda venda de antes de a empresa
+ *     ligar o repasse antecipado (achado da revisão adversarial);
+ *   · os demais, como na taxa: `sem_extrato`, `tipo_desconhecido`,
+ *     `sem_conclusao`, `outra_maquininha`, `venda_cancelada`, `estorno_parcial`.
+ */
+export const ORDEM_RESULTADO_ANTECIPACAO = [
+  "diferente", "igual", "sem_contrato", "nao_antecipado", "venda_nao_antecipada", "sem_extrato", "tipo_desconhecido",
+  "sem_conclusao", "outra_maquininha", "venda_cancelada", "estorno_parcial",
+] as const;
+export type ResultadoAntecipacao = (typeof ORDEM_RESULTADO_ANTECIPACAO)[number];
+
+export const ROTULO_RESULTADO_ANTECIPACAO: Record<ResultadoAntecipacao, string> = {
+  diferente: "Antecipação diferente da contratada",
+  igual: "Antecipação igual à contratada",
+  sem_contrato: "Antecipação não cadastrada na maquininha",
+  nao_antecipado: "Repasse não antecipado na maquininha: antecipação não comparada",
+  venda_nao_antecipada: "Venda não antecipada: nem a Pinbank cobrou nem o sistema lançou antecipação",
+  sem_extrato: "Antecipação não informada no extrato",
+  tipo_desconhecido: "Tipo de venda não identificado",
+  sem_conclusao: "Antecipação sem conclusão (numeração não confirmada)",
+  outra_maquininha: "Antecipação não comparada (a venda pode ser de outra maquininha do mesmo estabelecimento)",
+  venda_cancelada: "Venda cancelada: antecipação não comparada",
+  estorno_parcial: "Venda com estorno parcial: antecipação não comparada",
+};
+
+/**
+ * De onde vem a antecipação ESPERADA — o que a tela escreve no lugar dela
+ * quando não há número: o tipo da venda não foi identificado, o vínculo não
+ * recebe antecipado, ou a antecipação não está cadastrada. Sem isto a tela
+ * dizia "não cadastrada" também para a venda de tipo desconhecido com a taxa
+ * cadastrada (achado da revisão adversarial).
+ */
+export type EsperadaDaAntecipacao = "contrato" | "zero_no_debito" | "tipo_desconhecido" | "repasse_nao_antecipado" | "nao_cadastrada";
+
+export interface AntecipacaoDoItem {
+  resultado: ResultadoAntecipacao;
+  tipo: TipoTaxaExtrato | null;
+  /** A base do esperado — ver `EsperadaDaAntecipacao`. */
+  esperada: EsperadaDaAntecipacao;
+  /** A antecipação ao mês que o extrato informou (`ValorTaxaMes`), em pontos-base (1,55% = 155). */
+  extratoBp: number | null;
+  /** A esperada pelo contrato, em pontos-base INTEIROS (para exibir): a cadastrada no crédito, zero no débito. */
+  contratoBp: number | null;
+  /** Extrato − esperada exibida, em pontos-base — SÓ quando `diferente`. */
+  diferencaBp: number | null;
+}
+
+/**
+ * Compara a antecipação de UMA linha do extrato com a contratada. Pura. A
+ * esperada é exata, sem arredondar, com a MESMA folga da taxa
+ * (`TOLERANCIA_TAXA_BP`).
+ */
+export function compararAntecipacao(
+  l: Pick<LinhaExtratoPos, "tipoCompra" | "taxaMesBp" | "totalParcelas">,
+  taxas: TaxasPinbank | null,
+  antecipado: boolean | null | undefined,
+  /** O sistema lançou antecipação (`:a`) para a venda; `null` quando a venda não está no sistema. */
+  sistemaAntecipou: boolean | null = null,
+): AntecipacaoDoItem {
+  const tipo = tipoDaCompraNoExtrato(l.tipoCompra, l.totalParcelas);
+  const extratoBp = l.taxaMesBp;
+  const esperadaExata = antecipado !== true || tipo == null ? null
+    : tipo === "debito" ? 0
+    : pontosBaseExatosDaFracao(antecipacaoDoContrato(taxas ?? {}));
+  const contratoBp = esperadaExata == null ? null : Math.round(esperadaExata);
+  const esperada: EsperadaDaAntecipacao =
+    tipo == null ? "tipo_desconhecido"
+    : antecipado !== true ? "repasse_nao_antecipado"
+    : tipo === "debito" ? "zero_no_debito"
+    : esperadaExata == null ? "nao_cadastrada"
+    : "contrato";
+  const resultado: ResultadoAntecipacao =
+    extratoBp == null ? "sem_extrato"
+    : tipo == null ? "tipo_desconhecido"
+    : antecipado !== true ? "nao_antecipado"
+    : esperadaExata == null ? "sem_contrato"
+    // Os dois lados dizem que a venda NÃO antecipou: só no crédito com antecipação
+    // cadastrada (o débito espera zero e confere como `igual`).
+    : esperadaExata > 0 && extratoBp === 0 && sistemaAntecipou === false ? "venda_nao_antecipada"
+    : Math.abs(extratoBp - esperadaExata) < TOLERANCIA_TAXA_BP ? "igual"
+    : "diferente";
+  return {
+    resultado, tipo, esperada, extratoBp, contratoBp,
+    diferencaBp: resultado === "diferente" && extratoBp != null && contratoBp != null ? extratoBp - contratoBp : null,
+  };
+}
+
+/**
+ * O líquido de UMA venda nos dois lados, em centavos: o que a Pinbank deposita
+ * (Σ do líquido das parcelas do extrato) e o que o sistema lançou (Σ receita −
+ * taxa − tarifa fixa − antecipação dos títulos vivos).
+ */
+export interface LiquidoDaVenda {
+  extratoCentavos: number;
+  sistemaCentavos: number;
+  /** As parcelas da venda — a folga cresce com elas (`toleranciaDoLiquido`). */
+  parcelas: number;
+}
+
+/**
+ * A folga da comparação do líquido: 1 centavo POR PARCELA da venda. O sistema
+ * arredonda a taxa, a tarifa e a antecipação da venda (cada uma ao centavo) e
+ * as reparte; a Pinbank, no 2x antecipado medido em 14/10/2026, repartiu o
+ * líquido da VENDA (428 + 428) — mas como ela arredonda o parcelado SEM
+ * antecipação não foi medido, e se for parcela a parcela cada uma pode
+ * desviar meio centavo. Uma folga fixa de 1 centavo acusaria todo 12x por
+ * arredondamento (achado da revisão adversarial); a que cresce com as parcelas
+ * ainda acusa o que importa — a tarifa de R$ 1,00 que falta, a taxa errada.
+ */
+export const TOLERANCIA_LIQUIDO_CENTAVOS_POR_PARCELA = 1;
+export function toleranciaDoLiquido(parcelas: number): number {
+  return TOLERANCIA_LIQUIDO_CENTAVOS_POR_PARCELA * Math.max(1, Math.floor(parcelas || 1));
+}
+/** O líquido dos dois lados confere, dentro da folga da venda. */
+export function liquidoConfere(l: LiquidoDaVenda): boolean {
+  return Math.abs(l.extratoCentavos - l.sistemaCentavos) <= toleranciaDoLiquido(l.parcelas);
+}
+
 export interface ExtratoDoItem {
   /** AAAA-MM-DD. */
   dataVenda: string | null;
@@ -407,16 +563,18 @@ export interface ExtratoDoItem {
   statusPagamento: string | null;
   /** A taxa (MDR) desta parcela × a contratada — eixo SEPARADO do status. */
   taxa: TaxaDoItem;
+  /** A antecipação desta parcela (`ValorTaxaMes`) × a contratada — outro eixo separado. */
+  antecipacao: AntecipacaoDoItem;
+  /** O líquido desta parcela no extrato: o que a Pinbank DEPOSITA (comparado por VENDA, nunca por parcela). */
+  liquidoCentavos: number | null;
   /**
    * O que a Pinbank informa e ainda não tem sentido confirmado (D7). NUNCA
-   * entra em status nenhum. O `ValorTaxaMes` é percentual (pontos-base), mas o
-   * que ele mede não foi dito.
+   * entra em status nenhum. No extrato de produção de 14/10/2026 os dois
+   * vieram sem a tarifa fixa (899 de uma venda de 999).
    */
   aguardandoDefinicao: {
     brutoParcelaCentavos: number | null;
     splitCentavos: number | null;
-    liquidoCentavos: number | null;
-    taxaMesBp: number | null;
   };
 }
 
@@ -435,6 +593,12 @@ export interface SistemaDoItem {
    * soma cada título de taxa UMA vez, por estes ids.
    */
   taxaTituloIds: string[];
+  /** A tarifa fixa que o sistema lançou nesta parcela; `null` = nenhum título de tarifa vivo. */
+  tarifaCentavos: number | null;
+  /** A antecipação que o sistema lançou nesta parcela; `null` = nenhum título de antecipação vivo. */
+  antecipacaoCentavos: number | null;
+  /** Os títulos de antecipação vivos desta parcela — o resumo soma cada um UMA vez. */
+  antecipacaoTituloIds: string[];
   /** Os estornos da venda, só no item da menor parcela (senão a soma contaria o estorno N vezes). */
   estornoDaVendaCentavos: number | null;
 }
@@ -463,6 +627,8 @@ export interface ItemConferencia {
    * extrato nunca saem.
    */
   provavel?: { via: "autorizacao" | "nsu_loja"; nsuNoSistema: string };
+  /** Só nas parcelas de uma venda cujo líquido foi comparado (a venda inteira nos dois lados). */
+  liquidoDaVenda?: LiquidoDaVenda;
 }
 
 export interface LinhaResumo {
@@ -551,6 +717,25 @@ export interface RelatorioConferencia {
       titulosDeTaxaNoSistema: number;
       centavosTaxaNoSistema: number;
     };
+    antecipacao: {
+      /** Por resultado da comparação, quantas PARCELAS do extrato (itens com o lado do extrato). */
+      porResultado: Record<ResultadoAntecipacao, number>;
+      /** Linhas mantidas (deste EC) que trazem a antecipação. */
+      parcelasComAntecipacaoInformada: number;
+      titulosDeAntecipacaoNoSistema: number;
+      centavosAntecipacaoNoSistema: number;
+    };
+    /**
+     * O líquido POR VENDA, só das vendas inteiras nos dois lados. As somas são
+     * das vendas comparadas, `null` sem nenhuma (o ausente é ausente).
+     */
+    liquido: {
+      vendasComparadas: number;
+      vendasIguais: number;
+      vendasDiferentes: number;
+      centavosExtrato: number | null;
+      centavosSistema: number | null;
+    };
   };
   itens: ItemConferencia[];
 }
@@ -573,8 +758,10 @@ export interface RelatorioConferencia {
  */
 export function itemComDivergencia(i: Pick<ItemConferencia, "status" | "extrato" | "sinais">): boolean {
   return GRUPO_DO_STATUS[i.status] === "divergencias" || i.extrato?.taxa.resultado === "diferente"
+    || i.extrato?.antecipacao.resultado === "diferente"
     || i.sinais.includes("taxa_sem_titulo_no_sistema")
-    || i.sinais.includes("total_da_venda_diferente");
+    || i.sinais.includes("total_da_venda_diferente")
+    || i.sinais.includes("liquido_da_venda_diferente");
 }
 
 /* ─────────────────────── frases fora do relatório ─────────────────────── */
@@ -621,11 +808,14 @@ export function falhaDaConferenciaSemCorpo(status: number | null): { codigo: str
 
 /* ─────────────────────────────── utilitários ─────────────────────────────── */
 
-const CHAVE_PARCELA = /^pinbank:(\d{1,19}):(\d{1,3}):(r|t)$/;
+const CHAVE_PARCELA = /^pinbank:(\d{1,19}):(\d{1,3}):(r|t|f|a)$/;
 const CHAVE_ESTORNO = /^pinbank:(\d{1,19}):estorno:(total|\d+)$/;
 
+/** O papel do título da parcela: receita, taxa (MDR), tarifa fixa e antecipação. */
+export type PapelDoTitulo = "r" | "t" | "f" | "a";
+
 export type ChaveTitulo =
-  | { nsu: string; tipo: "parcela"; parcela: number; papel: "r" | "t" }
+  | { nsu: string; tipo: "parcela"; parcela: number; papel: PapelDoTitulo }
   | { nsu: string; tipo: "estorno"; alvo: "total" | number };
 
 /** Lê a chave do título da maquininha; o que não é chave da Pinbank devolve `null`. */
@@ -635,7 +825,7 @@ export function chaveDoTitulo(chave: string | null): ChaveTitulo | null {
   if (p) {
     const nsu = nsuCanonico(p[1]);
     const parcela = Number(p[2]);
-    return nsu && parcela >= 1 ? { nsu, tipo: "parcela", parcela, papel: p[3] as "r" | "t" } : null;
+    return nsu && parcela >= 1 ? { nsu, tipo: "parcela", parcela, papel: p[3] as PapelDoTitulo } : null;
   }
   const e = CHAVE_ESTORNO.exec(chave);
   if (e) {
@@ -876,6 +1066,20 @@ function fraseDaTaxa(t: TaxaDoItem | undefined, sinais: SinalConferencia[] = [])
   return ` Taxa: o extrato cobrou ${pctDeBp(t.extratoBp)} e a taxa cadastrada para ${NOME_TIPO_TAXA[t.tipo]} é ${pctDeBp(t.contratoBp)}.${semTitulo}`;
 }
 
+/** A frase da ANTECIPAÇÃO, que se soma às outras — só quando ela diverge. */
+function fraseDaAntecipacao(a: AntecipacaoDoItem | undefined): string {
+  if (!a || a.resultado !== "diferente" || a.extratoBp == null || a.contratoBp == null || !a.tipo) return "";
+  return a.tipo === "debito"
+    ? ` Antecipação: o extrato informa ${pctDeBp(a.extratoBp)} ao mês numa venda no débito, que não tem antecipação.`
+    : ` Antecipação: o extrato informa ${pctDeBp(a.extratoBp)} ao mês e a cadastrada na maquininha é ${pctDeBp(a.contratoBp)}.`;
+}
+
+/** A frase do LÍQUIDO da venda — só quando ele diverge, com os dois valores. */
+function fraseDoLiquido(sinais: SinalConferencia[], l: LiquidoDaVenda | undefined): string {
+  if (!l || !sinais.includes("liquido_da_venda_diferente")) return "";
+  return ` O líquido da venda é diferente nos dois lados: a Pinbank deposita ${formatBRL(l.extratoCentavos / 100)} e o sistema lançou ${formatBRL(l.sistemaCentavos / 100)} — confira a taxa, a tarifa fixa e a antecipação cadastradas na maquininha.`;
+}
+
 const FRASE_AVISO = (c: AvisoConferencia, n: number): string => {
   switch (c) {
     case "chave_nao_confirmada":
@@ -897,6 +1101,9 @@ interface VendaNoSistema {
   nsu: string;
   r: Map<number, LinhaMovimentoPinbank[]>;
   t: Map<number, LinhaMovimentoPinbank[]>;
+  /** Tarifa fixa (`:f`) e antecipação (`:a`), por parcela — fora do bruto e da taxa. */
+  f: Map<number, LinhaMovimentoPinbank[]>;
+  a: Map<number, LinhaMovimentoPinbank[]>;
   estornos: { alvo: "total" | number; linha: LinhaMovimentoPinbank }[];
   vendaCentavos: number;
 }
@@ -948,12 +1155,13 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
   for (const t of titulos) {
     const c = chaveDoTitulo(t.chave);
     if (!c) continue;
-    const v: VendaNoSistema = sistema.get(c.nsu) ?? { nsu: c.nsu, r: new Map(), t: new Map(), estornos: [], vendaCentavos: 0 };
+    const v: VendaNoSistema = sistema.get(c.nsu) ?? { nsu: c.nsu, r: new Map(), t: new Map(), f: new Map(), a: new Map(), estornos: [], vendaCentavos: 0 };
     sistema.set(c.nsu, v);
     if (c.tipo === "estorno") {
       v.estornos.push({ alvo: c.alvo, linha: t });
     } else {
-      const m = c.papel === "r" ? v.r : v.t;
+      // Cada papel na SUA lista: a tarifa e a antecipação nunca se misturam à taxa (MDR) nem ao bruto.
+      const m = v[c.papel];
       m.set(c.parcela, [...(m.get(c.parcela) ?? []), t]);
     }
   }
@@ -1117,10 +1325,10 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
       || (tr?.status === "Reembolsada" && valor != null && original != null && valor > 0 && valor < original);
   };
   const titulosDeTaxa = (v: VendaNoSistema, k: number) => (v.t.get(k) ?? []).filter((t) => vivo(t.situacao));
-  const taxaDe = (v: VendaNoSistema, k: number): number | null => {
-    const ts = titulosDeTaxa(v, k);
-    return ts.length ? ts.reduce((s, t) => s + (centavosDeReais(t.amount) ?? 0), 0) : null;
-  };
+  const somaCentavos = (ts: LinhaMovimentoPinbank[]): number | null =>
+    ts.length ? ts.reduce((s, t) => s + (centavosDeReais(t.amount) ?? 0), 0) : null;
+  const taxaDe = (v: VendaNoSistema, k: number): number | null => somaCentavos(titulosDeTaxa(v, k));
+  const titulosVivos = (m: Map<number, LinhaMovimentoPinbank[]>, k: number) => (m.get(k) ?? []).filter((t) => vivo(t.situacao));
   // Sem NSU em comum, não se sabe se a linha é desta maquininha: a taxa também fica sem conclusão.
   // Venda cancelada no extrato não tem taxa a conferir (o MDR da linha cancelada pode vir zerado).
   // O estabelecimento com OUTRA maquininha viva da empresa: cada uma tem as
@@ -1138,19 +1346,31 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     if (l.dataCancelamento != null) return { ...t, resultado: "venda_cancelada", diferencaBp: null };
     return t;
   };
+  // A antecipação passa pelas MESMAS portas da taxa — e a diferença sai em toda porta que não compara.
+  const antecipacaoDaLinha = (l: LinhaExtratoPos, nsu: string | null): AntecipacaoDoItem => {
+    const v = nsu ? sistema.get(nsu) : undefined;
+    // A INTENÇÃO do sistema conta, não a situação: título de antecipação desfeito também diz que a venda foi planejada antecipada.
+    const a = compararAntecipacao(l, e.vinculo.taxas, e.vinculo.antecipado, v ? v.a.size > 0 : null);
+    if (chaveNaoConfirmada) return { ...a, resultado: "sem_conclusao", diferencaBp: null };
+    if (temIrma && !avisoDesta(l)) return { ...a, resultado: "outra_maquininha", diferencaBp: null };
+    if (l.dataCancelamento != null) return { ...a, resultado: "venda_cancelada", diferencaBp: null };
+    return a;
+  };
   /**
    * A taxa (em REAIS) que a regra do SISTEMA lança nesta parcela pelo
    * CONTRATO — a mesma conta de `agendaDaTransacao`: o total da venda × a taxa
-   * da forma, arredondado ao centavo, dividido pelas parcelas por `dividir`. O
+   * da forma, arredondado ao centavo, repartido pelas parcelas por
+   * `dividirCusto` (centavos inteiros, o resto na última, nunca negativa). O
    * planejador só grava o título de taxa quando esta parte é POSITIVA (a taxa
-   * de R$ 0,30 a 1,63% arredonda para zero; R$ 10 em 12x a 3,10% deixa a 12ª
-   * parcela negativa). Nenhum real sai do percentual do EXTRATO: a conta é a
-   * do contrato, a que o sistema já faz ao lançar.
+   * de R$ 0,30 a 1,63% arredonda para zero; numa taxa de poucos centavos em
+   * 12x, as primeiras parcelas ficam em zero). Nenhum real sai do percentual
+   * do EXTRATO: a conta é a do contrato, a que o sistema já faz ao lançar.
    */
   const taxaPeloContrato = (v: VendaNoSistema, k: number, tipo: TipoTaxaExtrato): number => {
     const f = e.vinculo.taxas ? taxaDaForma(tipo, e.vinculo.taxas) : null;
     if (f == null) return 0;
-    return dividir(r2((v.vendaCentavos / 100) * f), maiorParcela(v.r) ?? 1)[k - 1] ?? 0;
+    // A taxa é cobrada sobre a venda SEM a tarifa fixa — a base de `custosDaVenda`.
+    return dividirCusto(r2(baseDosCustos(v.vendaCentavos / 100, tipo, e.vinculo.taxas) * f), maiorParcela(v.r) ?? 1)[k - 1] ?? 0;
   };
   /**
    * O extrato cobrou MDR, a taxa daquele tipo está cadastrada (a comparação é
@@ -1202,6 +1422,41 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     const t = totalDaVenda(nsu, v);
     return t == null ? ["parcelas_diferentes"] : ["parcelas_diferentes", t === "igual" ? "total_da_venda_igual" : "total_da_venda_diferente"];
   };
+  /**
+   * O líquido da VENDA nos dois lados — só quando cada lado a tem INTEIRA e sem
+   * dúvida. No extrato: nenhuma linha ilegível dela, as linhas concordando no
+   * número de parcelas, UMA linha por parcela de 1 a N, todas com o líquido e
+   * nenhuma cancelada. No sistema: o MESMO N, UM título de receita vivo por
+   * parcela e nenhum estorno (total ou parcial). Sem isso,
+   * `null`: não se compara — a parcela solta não fecha (a Pinbank reparte o
+   * líquido da venda), e comparar meia venda acusaria a metade que falta.
+   */
+  const liquidoMemo = new Map<string, LiquidoDaVenda | null>();
+  const liquidoDaVenda = (nsu: string, v: VendaNoSistema): LiquidoDaVenda | null => {
+    if (liquidoMemo.has(nsu)) return liquidoMemo.get(nsu)!;
+    const calc = (): LiquidoDaVenda | null => {
+      const n = parcelasNoExtrato(nsu);
+      if (n == null || nsusComLinhaIlegivel.has(nsu) || maiorParcela(v.r) !== n || v.r.size !== n) return null;
+      if (v.estornos.length > 0 || reembolsoParcial(v)) return null;
+      let extratoCentavos = 0;
+      let sistemaCentavos = 0;
+      for (let k = 1; k <= n; k++) {
+        const ls = porChave.get(`${nsu}:${k}`) ?? [];
+        if (ls.length !== 1 || ls[0].l.liquidoRepasseCentavos == null || ls[0].l.dataCancelamento != null) return null;
+        extratoCentavos += ls[0].l.liquidoRepasseCentavos;
+        const rs = v.r.get(k) ?? [];
+        // A venda desfeita inteira (transação cancelada, estorno total) nem chega aqui: o par dela sai
+        // antes, como cancelado. O que sobra é a parcela cancelada sozinha — e ela tira a venda da comparação.
+        const bruto = rs.length === 1 && vivo(rs[0].situacao) ? centavosDeReais(rs[0].amount) : null;
+        if (bruto == null) return null;
+        sistemaCentavos += bruto - [v.t, v.f, v.a].reduce((s, m) => s + (somaCentavos(titulosVivos(m, k)) ?? 0), 0);
+      }
+      return { extratoCentavos, sistemaCentavos, parcelas: n };
+    };
+    const r = calc();
+    liquidoMemo.set(nsu, r);
+    return r;
+  };
   const blocoExtrato = (x: { l: LinhaExtratoPos; nsu: string | null }, est: number | null): ExtratoDoItem => ({
     dataVenda: dia(x.l.dataTransacao),
     dataRepasse: dia(x.l.dataFuturaPagamento),
@@ -1213,11 +1468,11 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     status: x.l.status,
     statusPagamento: x.l.statusPagamento,
     taxa: taxaDaLinha(x.l),
+    antecipacao: antecipacaoDaLinha(x.l, x.nsu),
+    liquidoCentavos: x.l.liquidoRepasseCentavos,
     aguardandoDefinicao: {
       brutoParcelaCentavos: x.l.brutoParcelaCentavos,
       splitCentavos: x.l.splitCentavos,
-      liquidoCentavos: x.l.liquidoRepasseCentavos,
-      taxaMesBp: x.l.taxaMesBp,
     },
   });
   const blocoSistema = (r: LinhaMovimentoPinbank, v: VendaNoSistema, k: number): SistemaDoItem => ({
@@ -1229,6 +1484,9 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     vendaCentavos: v.vendaCentavos,
     taxaCentavos: taxaDe(v, k),
     taxaTituloIds: titulosDeTaxa(v, k).map((t) => t.id),
+    tarifaCentavos: somaCentavos(titulosVivos(v.f, k)),
+    antecipacaoCentavos: somaCentavos(titulosVivos(v.a, k)),
+    antecipacaoTituloIds: titulosVivos(v.a, k).map((t) => t.id),
     estornoDaVendaCentavos: null,
   });
 
@@ -1250,7 +1508,8 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     nExtratoDaVenda: number | null = p.totalParcelasExtrato): ItemConferencia => ({
     ...p,
     frase: fraseDoItem(p.status, p.motivo, p.sinais, dS, dE, p.diferencaDias, nExtratoDaVenda, p.totalParcelasSistema)
-      + fraseDaTaxa(p.extrato?.taxa, p.sinais),
+      + fraseDaTaxa(p.extrato?.taxa, p.sinais) + fraseDaAntecipacao(p.extrato?.antecipacao)
+      + fraseDoLiquido(p.sinais, p.liquidoDaVenda),
   });
   /** O que muda num item de um lado só quando a venda está nos dois lados com números de parcelas diferentes. */
   type ExtraDoItem = { sinais?: SinalConferencia[]; totalParcelasExtrato?: number | null; totalParcelasSistema?: number | null };
@@ -1299,7 +1558,8 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     if (canceladaExtrato && !canceladaSistema && reembolsoParcial(v)) {
       sinais.push("reembolso_parcial", "valor_nao_comparado");
       const taxa: TaxaDoItem = { ...base.extrato.taxa, resultado: "estorno_parcial", diferencaBp: null };
-      return novoItem({ ...base, extrato: { ...base.extrato, taxa }, status: "inconclusivo", motivo: "reembolso_parcial", sinais, diferencaDias: null, diferencaCentavos: null });
+      const antecipacao: AntecipacaoDoItem = { ...base.extrato.antecipacao, resultado: "estorno_parcial", diferencaBp: null };
+      return novoItem({ ...base, extrato: { ...base.extrato, taxa, antecipacao }, status: "inconclusivo", motivo: "reembolso_parcial", sinais, diferencaDias: null, diferencaCentavos: null });
     }
     if (canceladaSistema || canceladaExtrato) {
       const status: StatusConferencia = canceladaSistema && canceladaExtrato
@@ -1308,6 +1568,10 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     }
     // O MDR cobrado no extrato sem o título de taxa no sistema — não muda o status.
     if (faltaTituloDeTaxa(l, base.extrato.taxa, v, x.k)) sinais.push("taxa_sem_titulo_no_sistema");
+    // O líquido da venda inteira: o que a Pinbank deposita × o que o sistema lançou — não muda o status.
+    const liq = liquidoDaVenda(x.nsu, v);
+    if (liq) sinais.push(liquidoConfere(liq) ? "liquido_da_venda_igual" : "liquido_da_venda_diferente");
+    const comLiquido = liq ? { liquidoDaVenda: liq } : {};
 
     // b. a data do repasse, comparada por DIA (a hora da Pinbank não é a do título).
     const dE = l.dataFuturaPagamento?.slice(0, 10) ?? null;
@@ -1358,7 +1622,7 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     } else {
       status = "valor_diferente";
     }
-    return novoItem({ ...base, status, motivo, sinais, diferencaDias, diferencaCentavos }, dS, dE);
+    return novoItem({ ...base, ...comLiquido, status, motivo, sinais, diferencaDias, diferencaCentavos }, dS, dE);
   };
 
   for (const linhas of Array.from(porChave.values())) {
@@ -1379,7 +1643,7 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
         const it = itemDeTitulo(r, v, x.k, "inconclusivo", "chave_repetida_no_sistema");
         if (i !== 0) { itens.push(it); return; }
         const extrato = blocoExtrato(x, estimativa(x));
-        itens.push({ ...it, extrato, totalParcelasExtrato: x.n, frase: it.frase + fraseDaTaxa(extrato.taxa) });
+        itens.push({ ...it, extrato, totalParcelasExtrato: x.n, frase: it.frase + fraseDaTaxa(extrato.taxa) + fraseDaAntecipacao(extrato.antecipacao) });
       });
       continue;
     }
@@ -1614,6 +1878,11 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
   ) as Record<StatusConferencia, LinhaResumo>;
   const grupos = { conferidas: 0, divergencias: 0, semConclusao: 0 };
   const porResultado = Object.fromEntries(ORDEM_RESULTADO_TAXA.map((r) => [r, 0])) as Record<ResultadoTaxa, number>;
+  const porResultadoAntecipacao = Object.fromEntries(ORDEM_RESULTADO_ANTECIPACAO.map((r) => [r, 0])) as Record<ResultadoAntecipacao, number>;
+  const antecipacoesContadas = new Set<string>();
+  let centavosAntecipacao = 0;
+  // O líquido conta uma vez por VENDA (todas as parcelas dela levam o mesmo par de valores).
+  const liquidoPorNsu = new Map<string, LiquidoDaVenda>();
   let itensComDivergencia = 0;
   // Cada título de taxa conta UMA vez: dois títulos de receita da mesma parcela
   // (a chave repetida) trazem o MESMO título de taxa no bloco do sistema.
@@ -1624,6 +1893,12 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
     linha.quantidade++;
     grupos[GRUPO_DO_STATUS[it.status]]++;
     if (it.extrato) porResultado[it.extrato.taxa.resultado]++;
+    if (it.extrato) porResultadoAntecipacao[it.extrato.antecipacao.resultado]++;
+    if (it.liquidoDaVenda && it.nsu) liquidoPorNsu.set(it.nsu, it.liquidoDaVenda);
+    if (it.sistema?.antecipacaoCentavos != null && it.sistema.antecipacaoTituloIds.some((id) => !antecipacoesContadas.has(id))) {
+      for (const id of it.sistema.antecipacaoTituloIds) antecipacoesContadas.add(id);
+      centavosAntecipacao += it.sistema.antecipacaoCentavos;
+    }
     if (itemComDivergencia(it)) itensComDivergencia++;
     const ext = it.extrato?.brutoParcelaEstimadoCentavos ?? null;
     if (ext != null) linha.centavosExtrato = (linha.centavosExtrato ?? 0) + ext;
@@ -1683,6 +1958,23 @@ export function conferirExtratoPinbank(e: EntradaConferencia): RelatorioConferen
         titulosDeTaxaNoSistema: taxasContadas.size,
         centavosTaxaNoSistema: centavosTaxa,
       },
+      antecipacao: {
+        porResultado: porResultadoAntecipacao,
+        parcelasComAntecipacaoInformada: mantidas.filter((l) => l.taxaMesBp != null).length,
+        titulosDeAntecipacaoNoSistema: antecipacoesContadas.size,
+        centavosAntecipacaoNoSistema: centavosAntecipacao,
+      },
+      liquido: (() => {
+        const vs = Array.from(liquidoPorNsu.values());
+        const diferentes = vs.filter((x) => !liquidoConfere(x)).length;
+        return {
+          vendasComparadas: vs.length,
+          vendasIguais: vs.length - diferentes,
+          vendasDiferentes: diferentes,
+          centavosExtrato: vs.length ? vs.reduce((s, x) => s + x.extratoCentavos, 0) : null,
+          centavosSistema: vs.length ? vs.reduce((s, x) => s + x.sistemaCentavos, 0) : null,
+        };
+      })(),
     },
     itens,
   };

@@ -46,9 +46,62 @@ credencial da plataforma for usada demais.
 | Compara | Não compara (fica "aguardando definição") |
 | --- | --- |
 | a data do repasse (por DIA, cortando a hora) | o bruto da parcela da Pinbank (`ValorBrutoParcela`) |
-| o valor bruto da parcela | o split e o líquido do repasse |
-| o cancelamento (extrato × título × transação) | o `ValorTaxaMes` (percentual, sentido não dito) |
-| a TAXA (MDR, `ValorTaxaAdm`) × a cadastrada no vínculo — eixo SEPARADO do status | a taxa em REAIS (nenhum valor é derivado do percentual) |
+| o valor bruto da parcela | o split (`ValorSplit`) |
+| o cancelamento (extrato × título × transação) | a taxa em REAIS (nenhum valor é derivado do percentual) |
+| a TAXA (MDR, `ValorTaxaAdm`) × a cadastrada no vínculo — eixo SEPARADO do status | |
+| a ANTECIPAÇÃO (`ValorTaxaMes`, ao mês) × a cadastrada — outro eixo separado (1.6.0) | |
+| o LÍQUIDO da VENDA (Σ `ValorLiquidoRepasse`) × o que o sistema lançou — um sinal, sem mudar o status (1.6.0) | |
+
+- **A antecipação e o líquido entraram na versão 1.6.0** (14/10/2026), com o
+  extrato de produção na mão. O `ValorTaxaMes` é a antecipação AO MÊS — zero
+  no débito, 1,55% no crédito antecipado — e é comparado como a taxa: contra
+  a cadastrada no vínculo (`antecipacao_mes`) no crédito e contra ZERO no
+  débito, exata, com a mesma folga de menos de 1 ponto-base; sem o repasse
+  antecipado no vínculo NÃO se compara (`nao_antecipado`: o que o campo mostra
+  numa venda sem antecipação nunca foi medido, e a venda antecipada sem o
+  vínculo dizer isso já diverge pela DATA). As mesmas portas da taxa valem:
+  numeração não confirmada, maquininha irmã, venda cancelada, estorno parcial.
+  O líquido é o que a Pinbank DEPOSITA, e é comparado POR VENDA — a Pinbank
+  calcula o líquido da venda e o reparte (R$ 8,56 do 2x virou 428 + 428; por
+  parcela, a conta daria 428 + 429) —, só quando a venda está INTEIRA nos dois
+  lados (uma linha viva e com o líquido por parcela, o mesmo número de
+  parcelas, um título de receita vivo por parcela, nenhum estorno), contra a
+  receita menos a taxa, a tarifa fixa e a antecipação lançadas, com folga de 1
+  centavo (o sistema arredonda a taxa e a antecipação separadas). O líquido
+  diferente — e a antecipação diferente — levam a parcela à vista de
+  divergências, com os dois valores na frase. Por isso o título da tarifa
+  (`:f`) e o da antecipação (`:a`) são lidos pela chave, cada um no seu papel:
+  somados à taxa, o MDR lançado pelo sistema sairia errado. Guardas:
+  `npm run pinbank-conferencia` (o extrato de produção renumerado contra os
+  títulos do contrato medido, e contra os títulos de antes da tarifa) e 22
+  defeitos plantados novos.
+- **A revisão adversarial levou o motor à 1.7.0** (14/10/2026, antes do
+  merge):
+  - **a venda que NÃO foi antecipada nos dois lados** (`venda_nao_antecipada`):
+    no crédito, a Pinbank não cobrou antecipação (zero no extrato) e o
+    sistema também não lançou nenhuma para a venda (nenhum título `:a`). É o
+    retrato coerente da venda de ANTES de a empresa ligar o repasse
+    antecipado, e comparar com a antecipação cadastrada HOJE a acusaria de
+    "diferente". Sai em tom neutro, fora da vista de divergências. O sistema
+    que lançou a antecipação contra a Pinbank que não a cobrou continua
+    "diferente";
+  - **a antecipação esperada diz o MOTIVO de não haver número** (`esperada`:
+    `contrato` · `zero_no_debito` · `tipo_desconhecido` ·
+    `repasse_nao_antecipado` · `nao_cadastrada`): a tela dizia "não
+    cadastrada" também para o tipo de venda não identificado e para o
+    vínculo que não antecipa, COM a antecipação cadastrada. A taxa
+    cadastrada do tipo desconhecido diz o tipo, pelo mesmo motivo;
+  - **a folga do líquido é de 1 centavo POR PARCELA** (`toleranciaDoLiquido`,
+    `liquidoConfere`): cada parcela arredonda os seus títulos, e a folga fixa
+    de 1 centavo por venda acusava o 12x que confere. O 2x real (R$ 8,56 nos
+    dois lados) segue igual, e 13 centavos num 12x já é diferente;
+  - **o estimador da taxa por parcela é o do planejador** (`dividirCusto`):
+    com a divisão de antes, a 12ª parte de R$ 0,31 em 12x saía negativa e o
+    título de taxa PERDIDO na 12ª passava calado; agora a regra lança R$ 0,09
+    nela, e a parcela sem o título é acusada (`taxa_sem_titulo_no_sistema`).
+  Guardas: `npm run pinbank-conferencia` — 125 casos e 160 defeitos plantados
+  (124 no motor, 36 nos portões e na leitura): 5 casos e 5 defeitos novos, e
+  3 defeitos antigos reescritos contra o código novo.
 
 - **A taxa é o MDR em percentual, e é comparada à parte** (desde a versão
   1.1.0 do motor; 1.2.0 com a segunda revisão; 1.3.0 com a terceira; 1.4.0 com a quarta; 1.5.0 com a quinta). A Pinbank respondeu em 13/10/2026: "Taxa ADM seria o MDR, são todas
@@ -103,10 +156,12 @@ credencial da plataforma for usada demais.
   a linha viva cobrou MDR, a taxa daquele tipo está cadastrada (a comparação é
   conclusiva — igual ou diferente), a REGRA DO SISTEMA lançaria uma taxa
   positiva nesta parcela e o sistema não tem título de taxa vivo nela. A regra
-  é a do planejador (`agendaDaTransacao`): o total da venda × a taxa da forma,
-  ao centavo, dividido pelas parcelas por `dividir` — R$ 0,30 a 1,63%
-  arredonda para zero e não tem título a lançar; R$ 10 em 12x a 3,10% deixa a
-  12ª parte negativa (o planejador grava 11 títulos de taxa e nenhum na 12ª).
+  é a do planejador (`agendaDaTransacao`): a base da venda (o total menos a
+  tarifa fixa, no cartão) × a taxa da forma, ao centavo, dividida pelas
+  parcelas por `dividirCusto` — R$ 0,30 a 1,63% arredonda para zero e não tem
+  título a lançar; R$ 10 em 12x a 3,10% deixava a 12ª parte negativa com
+  `dividir` (11 títulos de taxa e nenhum na 12ª) e, desde a 1.7.0, sai 11 ×
+  R$ 0,02 + R$ 0,09 — o título perdido na 12ª é acusado.
   Nenhum real sai do percentual do extrato: a conta é a do contrato. É dinheiro que falta no resultado (o EBITDA sai maior do que é — a
   venda entrou quando a taxa estava em branco, por exemplo). Não muda o
   status; vai à vista de divergências e à frase ("O sistema não lançou a taxa
@@ -607,7 +662,9 @@ de carga da sétima regra antes. Tarefa separada.
   vínculo em toda leitura, o título da NSU do extrato lido só com o aviso do
   dia da venda e a COMPOSIÇÃO da rota sem oráculo antes do portão (um
   espelho; o `engine-audit` fixa no texto da rota as mesmas chamadas) —
-  **mais 36 defeitos plantados**. Ao todo: 106 casos, 133 defeitos plantados.
+  **mais 36 defeitos plantados**. Ao todo: 106 casos, 133 defeitos plantados
+  (120 casos e 155 defeitos plantados com a antecipação e o líquido, 1.6.0;
+  125 casos e 160 defeitos plantados com a revisão adversarial, 1.7.0).
 - `scripts/pinbank-limite-ec.sql` (job `isolamento` do CI; arreio copiado de
   `pinbank.sql`, savepoint por caso com o MESMO EC e os mesmos
   estabelecimentos, tudo em ROLLBACK) — a FECHADURA no banco. **O limite
@@ -839,19 +896,32 @@ não for cumprido.
   negativa de `dividir`** (`core/vendas/pos`, anterior a esta etapa): com o
   total pequeno diante das parcelas (taxa total < 0,005 × n × (n − 1) — em
   12x, menos de R$ 0,66 de taxa, vendas de até ~R$ 21 a 3,1%), a última parte
-  sai negativa, e o planejador grava títulos de taxa que somam MAIS que o
+  sai negativa, e o planejador gravava títulos de taxa que somam MAIS que o
   contratado (R$ 10 em 12x a 3,10%: 11 × R$ 0,03 = R$ 0,33 para R$ 0,31) e
-  nenhum na última parcela. A conferência já não acusa a parcela sem título
-  (a regra do sistema não lançaria taxa nela); consertar a divisão é tarefa
-  separada — muda o valor de títulos lançados e pede a prova de carga.
-- **D7 — bruto da parcela, split e líquido. RESPONDIDO EM PARTE.** A Pinbank
-  disse que os do dev (bruto da parcela e split a 75% do bruto, líquido a
-  ~48,7% da parcela) são valores de TESTE — então nada se conclui deles. O
-  sentido em produção segue em aberto: nenhum dos três é comparado, e a tela
-  os mostra como "aguardando definição", nunca em R$.
-- **D8 — a equivalência do NSU. EM ABERTO (pergunta feita à Pinbank).** O
-  `nsu` do webhook é o `NsuOperacao` do extrato? Se forem diferentes, a chave
-  do casamento muda. Enquanto nenhum NSU for comum aos dois lados, o motor não
+  nenhum na última parcela. **Na Pinbank, CONSERTADO para a venda nova**
+  (14/10/2026, com a tarifa): o custo se reparte por `dividirCusto` — a
+  divisão de `dividir` quando a última parte fica de pé; quando não,
+  centavos inteiros com o resto na última (11 × R$ 0,02 + R$ 0,09) —, e a
+  conferência estima pela MESMA regra, então volta a acusar o título de taxa
+  perdido na última parcela. O que já foi lançado não é reescrito. A venda
+  da maquininha PRÓPRIA (`titulosDaVendaPos`) segue com `dividir`: tarefa
+  separada, que muda títulos já lançados e pede a prova de carga.
+- **D7 — bruto da parcela, split e líquido. RESPONDIDO EM PRODUÇÃO (líquido e
+  `ValorTaxaMes`).** A Pinbank disse que os do dev (bruto da parcela e split a
+  75% do bruto, líquido a ~48,7% da parcela) são valores de TESTE. O extrato
+  de PRODUÇÃO de 14/10/2026 respondeu o resto: o líquido é o depósito (R$
+  8,91, R$ 8,69 e R$ 4,28 + R$ 4,28 em vendas de R$ 9,99 = bruto − tarifa fixa
+  − MDR − antecipação) e o `ValorTaxaMes` é a antecipação ao mês — os dois
+  viraram eixos (1.6.0). O bruto da parcela e o split vieram iguais entre si e
+  SEM a tarifa fixa (899 de 999; 449 + 450): seguem só exibidos, "aguardando
+  definição", nunca em R$. ⚠️ A amostra do DEV, verbatim, acusa "líquido
+  diferente" (3,29 contra 8,73): é valor de teste, e é por isso que a
+  conferência só roda com a credencial de produção.
+- **D8 — a equivalência do NSU. MEDIDA EM PRODUÇÃO (14/10/2026).** As vendas
+  de teste chegaram pelo webhook com o MESMO número do `NsuOperacao` do
+  extrato, e o estabelecimento do aviso é o `CodigoCliente` (EC). Antes da
+  medição a pergunta era: o `nsu` do webhook é o `NsuOperacao` do extrato? Se
+  fossem diferentes, a chave do casamento mudaria. Enquanto nenhum NSU for comum aos dois lados, o motor não
   afirma nada ("numeração não confirmada"), a rota devolve só as quantidades
   e o par provável (pelo NSU da loja ou pelo código de autorização no mesmo
   dia e valor) é a evidência para responder.
@@ -963,7 +1033,7 @@ não for cumprido.
 ## Fora desta etapa
 
 Atualizar títulos pelo extrato · derivar a taxa em reais do percentual ·
-comparar bruto da parcela, split ou líquido · RPC de edição do EC (corrigir é
+comparar bruto da parcela ou split · RPC de edição do EC (corrigir é
 desvincular e vincular de novo) · limite por CREDENCIAL (o de 14/10 é por
 empresa) · histórico de conferências · teste ponta a ponta da rota contra o
 Supabase local e a Pinbank de mentira · tirar o INSERT de `authenticated` em

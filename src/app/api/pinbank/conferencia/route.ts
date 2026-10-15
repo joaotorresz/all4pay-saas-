@@ -103,7 +103,7 @@ export async function POST(req: Request) {
   if (problemas.length) return resposta(400, { ok: false, codigo: "pedido_invalido", motivo: problemas.join(" ") });
 
   // O vínculo, COMO A PESSOA: a política só devolve os da empresa aberta.
-  const { data: v, error: eV } = await s.from("pinbank_vinculos").select("id, org_id, codigo_cliente, ativo, taxas").eq("id", vinculoId).maybeSingle();
+  const { data: v, error: eV } = await s.from("pinbank_vinculos").select("id, org_id, codigo_cliente, ativo, taxas, antecipado").eq("id", vinculoId).maybeSingle();
   if (eV) return resposta(500, { ok: false, codigo: "leitura_falhou", motivo: FRASE_LEITURA_FALHOU });
   if (!v) {
     return resposta(404, { ok: false, codigo: "vinculo_nao_encontrado", motivo: "Esta maquininha não está vinculada à empresa aberta." });
@@ -188,8 +188,9 @@ export async function POST(req: Request) {
     de,
     ate,
     hoje,
-    // As taxas CONTRATADAS (frações, jsonb do vínculo): o motor compara com o MDR do extrato.
-    vinculo: { id: v.id, codigoCliente: ec, taxas: v.taxas ?? null },
+    // As taxas CONTRATADAS (frações, jsonb do vínculo): o motor compara com o MDR do extrato — e, com o
+    // repasse antecipado, a antecipação ao mês com o ValorTaxaMes.
+    vinculo: { id: v.id, codigoCliente: ec, taxas: v.taxas ?? null, antecipado: v.antecipado === true },
     vinculosDoEstabelecimento: vinculos.dados.filter((x) => Number(x.codigo_cliente) === ec).map((x) => x.id),
     vinculosDaEmpresa: vinculos.dados.map((x) => x.id),
     extrato: extrato.resposta.linhas,

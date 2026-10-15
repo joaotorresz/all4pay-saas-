@@ -477,7 +477,8 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   é lido em PONTOS-BASE inteiros (`mdrBp`, 2,65% = 265; negativo ou acima de
   100% = ausente) e o resumo do extrato LISTA os MDR distintos, nunca os soma.
   A taxa do extrato NÃO substitui a do contrato no título (só é comparada).
-  O `ValorTaxaMes` também é percentual, com sentido ainda não dito. ⚠️ São DUAS credenciais
+  O `ValorTaxaMes` é a ANTECIPAÇÃO ao mês (medido em produção em 14/10/2026:
+  zero no débito, 1,55% no crédito antecipado). ⚠️ São DUAS credenciais
   (BaaS, canal 1919, de PRODUÇÃO, com ExtratoPos desde 14/10/2026 × "ERP
   Integration Produção", canal 47, que é a de DEV), com senhas diferentes —
   ver `docs/rodada-10/pinbank.md`.
@@ -506,6 +507,38 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `core/indicadores/classificacao`, exceções por trecho (bloco
   `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
   "traduzir não é classificar").
+- ⚠️ **TARIFA FIXA E ANTECIPAÇÃO** (14/10/2026, medidas no extrato de
+  PRODUÇÃO — `docs/rodada-10/pinbank.md`). A Pinbank tira uma tarifa FIXA por
+  VENDA (R$ 1,00) antes da taxa da forma, que é cobrada sobre o que sobra, e,
+  com o repasse antecipado, a antecipação do crédito ao mês pela regra do
+  simulador (`fracaoDeAntecipacao` em `core/vendas/pos`, UMA para o simulador
+  e o planejador). O vínculo guarda `tarifa_fixa` (em REAIS, até R$ 100 — a
+  única chave do `taxas` que não é fração) e `antecipacao_mes` (fração, de 0
+  a 10% ao mês: o "15,5" digitado no lugar de "1,55" levaria 137% da venda),
+  e o banco recusa a faixa errada, a chave fora do contrato e a taxa em texto
+  (migration `20261015120000`). O planejador (`custosDaVenda`, a MESMA conta
+  da conferência) lança por parcela a receita, a taxa (`:t`), a tarifa (`:f`,
+  na categoria da taxa) e a antecipação (`:a`, "Antecipação de recebíveis",
+  só antecipado E crédito; sem a cadastrada, a venda entra sem ela e AVISA) —
+  as três vendas reais fecham ao centavo no depositado (R$ 8,91, R$ 8,69 e
+  R$ 4,28 + R$ 4,28). ⚠️ **Da revisão adversarial:** a tarifa só no CARTÃO
+  (débito, crédito à vista e parcelado — as formas medidas; Pix, voucher e a
+  forma desconhecida entram sem ela, com aviso); a antecipação nunca passa do
+  que sobra depois da taxa (o líquido para em zero, com aviso); e o CUSTO se
+  reparte por `dividirCusto` — a divisão de `dividir` quando a última parte
+  fica de pé (a que bateu com o 2x da Pinbank, 0,11 + 0,10), e centavos
+  inteiros com o resto na última quando ela sairia NEGATIVA (R$ 1,00 de
+  tarifa em 18x lançava 17 × 0,06 = R$ 1,02). A venda da maquininha PRÓPRIA
+  (`titulosDaVendaPos`) segue em `dividir`: a mesma classe, anterior,
+  declarada, tarefa separada. ⚠️ **No DRE, a tarifa é Despesa Variável (com
+  o MDR) e a ANTECIPAÇÃO DE RECEBÍVEL é Resultado Financeiro** (decisão do
+  dono): regra única `ehAntecipacaoDeRecebiveis`, que exige o CONTEXTO do
+  recebível (recebível, cartão, adquirente, maquininha, crédito, repasse,
+  taxa, custo, juros, deságio) e recusa tributo, salário, 13º, lucros,
+  cliente e fornecedor — "antecipação" sozinha também é o adiantamento de
+  salário e o IRPJ mensal, e nenhum dos dois é juro; o que a regra não pega
+  segue a linha que já tinha. Guardas: bloco `pinbank (real)` do
+  `engine-audit` e `scripts/pinbank.sql` (caso 5c, 9 defeitos plantados).
 - ⚠️ **CONFERÊNCIA EXTRATO × SISTEMA** (13/10/2026, `docs/rodada-10/conferencia.md`):
   o botão "Conferir com o extrato" no cartão da maquininha (só quem ADMINISTRA)
   chama `POST /api/pinbank/conferencia`, que casa cada parcela do ExtratoPos com
@@ -544,7 +577,23 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   última parcela que some parecia "o sistema dividiu em menos". Com o MESMO
   número de parcelas, a parcela que falta NOS DOIS lados (título perdido e
   linha ausente) também dá o sinal às que conferem — e só ela: a parcela de
-  valor diferente não espalha o total. Nenhum valor em
+  valor diferente não espalha o total. ⚠️ **A ANTECIPAÇÃO e o LÍQUIDO**
+  (1.6.0, 14/10/2026; 1.7.0 com a revisão adversarial): o `ValorTaxaMes` é
+  comparado com a antecipação cadastrada no crédito e com ZERO no débito,
+  como a taxa (eixo separado, as mesmas portas; sem repasse antecipado no
+  vínculo, `nao_antecipado`, nunca comparado); o crédito que nem a Pinbank
+  antecipou (zero no extrato) nem o sistema (sem título `:a` da venda) é
+  `venda_nao_antecipada` — a venda de ANTES de ligar o repasse antecipado não
+  é "diferente" do contrato de hoje —, e a tela diz o MOTIVO de não haver
+  número esperado (`esperada`: tipo de venda não identificado · repasse não
+  antecipado · não cadastrada). O líquido do extrato é o DEPÓSITO e é
+  comparado POR VENDA (a Pinbank reparte o líquido da venda: 428 + 428, não
+  428 + 429) — só a venda INTEIRA nos dois lados, contra receita − taxa −
+  tarifa − antecipação lançadas, com folga de 1 centavo POR PARCELA
+  (`toleranciaDoLiquido`: cada parcela arredonda os seus títulos, e a folga
+  fixa por venda acusaria o 12x que confere). Os dois diferentes vão à vista de divergências,
+  sem mudar o status; os títulos `:f` e `:a` são lidos cada um no SEU papel
+  (somados à taxa, o MDR lançado sairia errado). Nenhum valor em
   reais sai do percentual. Nada do dinheiro é gravado (só o carimbo do limite). O EC sai
   do VÍNCULO lido como a pessoa, nunca do pedido; sem NSU em comum, ou com o
   extrato sem nenhuma parcela legível deste EC (`extrato_vazio`), nada é afirmado (só
@@ -602,7 +651,7 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `lib/supabase/filtros` — de `consulta.ts` (`"use client"`) eles são PROXIES
   que lançam no route handler (medido no build; as rotas de cron que ainda
   importam de lá são tarefa separada, com prova de carga). Guardas:
-  `npm run pinbank-conferencia` (106 casos, 133 defeitos plantados: 97 no
+  `npm run pinbank-conferencia` (125 casos, 160 defeitos plantados: 124 no
   motor, 36 nos portões e na leitura — servidor de mentira com o `max_rows`
   padrão de 1.000, e a COMPOSIÇÃO da rota num espelho que o `engine-audit` fixa
   no texto dela) e o bloco `conferencia-pinbank:` do `engine-audit`. Uma
