@@ -289,14 +289,15 @@ function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
       <form
         onSubmit={(e) => { e.preventDefault(); perguntar(texto); }}
         className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
-        style={{ background: "var(--color-surface-1)" }}
+        // Barra BRANCA (pedido do dono, 15/10/2026): o mesmo branco da pílula.
+        style={{ background: "var(--a4p-pilula-fundo)" }}
       >
         <button
           type="button"
           onClick={() => perguntar()}
           aria-label="Abrir a Quattro AI"
           className="w-9 h-9 flex-none rounded-pill flex items-center justify-center"
-          style={{ background: "var(--color-white)", color: "var(--color-ink)" }}
+          style={{ background: "var(--color-surface-1)", color: "var(--color-ink)" }}
         >
           <Icon name="plus" size={18} strokeWidth={1.5} />
         </button>
