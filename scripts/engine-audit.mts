@@ -68,6 +68,8 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
+import { execSync as execSyncIcone } from "node:child_process";
+import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
 import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { rotuloSituacao } from "@/core/movimentacoes";
@@ -12616,6 +12618,24 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !rastroC(rotaC.replace('JSON.stringify({ ...chamada, resultado: "ok" })', 'JSON.stringify({ ...chamada, resultado: "ok", vendas: extrato.resposta.linhas })')));
   ok("conferencia-pinbank: (defeito plantado) a falha da Pinbank sem dizer quem pediu é ACUSADA",
      !rastroC(rotaC.replace('JSON.stringify({ ...rastro, resultado: "pinbank_falhou", etapa: d.etapa })', 'JSON.stringify({ resultado: "pinbank_falhou", etapa: d.etapa })')));
+}
+
+// ── ícone: Lucide, traço 2px, e nenhuma chave pedida sem glifo ──
+// Chave que não está no mapa renderiza NADA — e um botão sem ícone não quebra
+// teste nenhum. Na troca para o Lucide (15/10/2026) a varredura achou cinco
+// chaves que já não desenhavam com o set anterior (user, download, chevron-up,
+// arrow-left e o "b" do "Novo produto" no painel Criar).
+{
+  const arquivos = execSyncIcone("git ls-files src", { encoding: "utf8" }).split("\n").filter((f) => /\.(tsx?|ts)$/.test(f));
+  const pedidos = (txt: string) => [...txt.matchAll(/(?:<Icon\b[^>]*?\bname|\bicon|\bicone)\s*[:=]\s*\{?\s*"([a-z][a-z0-9-]*)"/g)].map((m) => m[1]);
+  const faltando = new Set<string>();
+  for (const f of arquivos) for (const n of pedidos(readFileSync(f, "utf8"))) if (!iconeExisteLucide(n)) faltando.add(`${n} (${f})`);
+  ok("icone: toda chave pedida pelas telas existe no conjunto Lucide", faltando.size === 0, [...faltando].join(", "));
+  ok("icone: (defeito plantado) uma chave inexistente é ACUSADA", pedidos('<Icon name="nao-existe" />').some((n) => !iconeExisteLucide(n)));
+  const icon = readFileSync("src/components/ui/Icon.tsx", "utf8");
+  ok("icone: o traço padrão do sistema é 2px", /STROKE_ICONE = 2;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
+  ok("icone: o traço é absoluto (2px em qualquer tamanho)", /absoluteStrokeWidth/.test(icon));
+  ok("icone: nenhuma tela importa o lucide-react por fora do Icon", arquivos.filter((f) => !f.endsWith("ui/lucide-icons.ts") && /from "lucide-react"/.test(readFileSync(f, "utf8"))).length === 0);
 }
 
 /* ===================== bancos: o logo certo, ou nenhum ===================== */
