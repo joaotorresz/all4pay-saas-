@@ -1,23 +1,24 @@
 "use client";
 
 /**
- * Kit do chat da Quattro AI — as peças COMPARTILHADAS entre o painel
- * flutuante (`AssistantWidget`, em toda tela) e a página inteira
- * (`/quattro-ai`, com histórico de conversas).
+ * Kit do chat da Quattro AI — as peças do chat em tela cheia
+ * (`ChatTelaCheia`, aberto de qualquer tela pelo `ChatGlobal`).
  *
- * A regra é uma só: **a IA é a mesma nos dois lugares**. Tipos, marca,
- * etapas de análise, bolha de resposta e gráfico moram aqui; cada superfície
- * só decide o LAYOUT em volta.
+ * Tipos, marca, etapas de análise, bolha de resposta e gráfico moram aqui; a
+ * superfície só decide o LAYOUT em volta. (Até 14/10/2026 havia também o
+ * painel flutuante e a aba Conversa de `/quattro-ai`, que usavam estas mesmas
+ * peças.)
  */
 import * as React from "react";
 import Link from "next/link";
 import { valorDoTexto, type NumeroResposta } from "@/core/assistant/numero";
 import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Icon } from "@/components/ui";
+import { Icon, DegradeArea } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
+import { RAIO_DIREITA } from "@/lib/grafico";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -144,10 +145,7 @@ export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
           {g.tipo === "linha" ? (
             <AreaChart data={g.dados} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
               <defs>
-                <linearGradient id={`${id}-glow`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
-                </linearGradient>
+                <DegradeArea id={`${id}-glow`} />
               </defs>
               <XAxis dataKey="nome" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
               <YAxis hide />
@@ -173,7 +171,7 @@ export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
                 contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}
                 formatter={(v: number | string) => formatBRL(Number(v))}
               />
-              <Bar dataKey="valor" fill={cor} radius={[0, 4, 4, 0]} barSize={10} {...chartAnim()} />
+              <Bar dataKey="valor" fill={cor} radius={RAIO_DIREITA} barSize={10} {...chartAnim()} />
             </BarChart>
           )}
         </ResponsiveContainer>
@@ -242,20 +240,38 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
  * precisa fazer nada.
  */
 export function BolhaResposta({
-  t, copia, onCopiar, onFeedback, onNavegar,
+  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha",
 }: {
   t: Turno;
+  /**
+   * "bolha" = o balão do painel e da página; "aberta" = o chat em tela cheia
+   * da Home: texto solto na coluna e o gráfico e os números em CARTÕES, como
+   * no modelo que o dono escolheu. O conteúdo é o mesmo nos dois.
+   */
+  variante?: "bolha" | "aberta";
   /** `undefined` = nada pedido; "ok" = copiou; "falhou" = o navegador recusou. */
   copia?: EstadoCopia;
   onCopiar: (t: Turno) => void;
   onFeedback: (t: Turno, dir: "up" | "down") => void;
   onNavegar?: () => void;
 }) {
+  const aberta = variante === "aberta";
   return (
-    <div data-ia="resposta" className="self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2">
-      <p className="m-0 text-[15px] leading-[1.5] text-ink whitespace-pre-wrap">{t.resposta}</p>
-      {t.grafico && <GraficoDaResposta g={t.grafico} />}
-      {t.numeros && t.numeros.length > 0 && <NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} />}
+    <div data-ia="resposta" className={aberta
+      ? "self-stretch flex flex-col gap-4"
+      : "self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2"}>
+      <p className={`m-0 text-ink whitespace-pre-wrap ${aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"}`}>{t.resposta}</p>
+      {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}
+          {t.numeros && t.numeros.length > 0 && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} /></div>}
+        </div>
+      ) : (
+        <>
+          {t.grafico && <GraficoDaResposta g={t.grafico} />}
+          {t.numeros && t.numeros.length > 0 && <NumerosDaResposta numeros={t.numeros} onNavegar={onNavegar} />}
+        </>
+      ))}
       {/* ⚠️ A IA SUGERE, NÃO EXECUTA (Rodada 9). O rótulo era "Ação:", e quem
           lê "Ação: antecipar o recebível da Alpha" conclui que algo foi feito.
           Nada foi: o chat não tem caminho de escrita nenhum (a guarda

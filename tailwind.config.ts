@@ -151,8 +151,11 @@ const config: Config = {
         "28": "112px",
         sidebar: "240px",
         // Padding do botão do guia Quattro (15px 30px).
-        "botao-y": "15px",
-        "botao-x": "30px",
+        "botao-y": "13px",
+        "botao-x": "36px",
+      },
+      minWidth: {
+        botao: "104px", // largura mínima do botão (canvas Quattro ERP)
       },
       borderRadius: {
         // ⚠️ A CURVA PERTENCE AO CARD, NÃO AO CONTROLE. O card leva o raio

@@ -1,0 +1,262 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Cadastros.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "Cadastros",
+      "w": 1280,
+      "x": 9520,
+      "y": 2300
+    },
+    "CadastrosMobile.dc.html": {
+      "h": 1700,
+      "title": "CadastrosMobile",
+      "w": 390,
+      "x": 9520,
+      "y": 3820
+    },
+    "Compras.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "Compras",
+      "w": 1280,
+      "x": 6800,
+      "y": 2300
+    },
+    "ComprasMobile.dc.html": {
+      "h": 1700,
+      "title": "ComprasMobile",
+      "w": 390,
+      "x": 6800,
+      "y": 3820
+    },
+    "Configuracoes.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "Configurações",
+      "w": 1280,
+      "x": 12240,
+      "y": 2300
+    },
+    "ConfiguracoesMobile.dc.html": {
+      "h": 1700,
+      "title": "ConfiguracoesMobile",
+      "w": 390,
+      "x": 12240,
+      "y": 3820
+    },
+    "Dashboard.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "Dashboard",
+      "w": 1280,
+      "x": 1360,
+      "y": 2300
+    },
+    "DashboardMobile.dc.html": {
+      "h": 1900,
+      "title": "DashboardMobile",
+      "w": 390,
+      "x": 1360,
+      "y": 3820
+    },
+    "Estoque.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "Estoque",
+      "w": 1280,
+      "x": 4080,
+      "y": 2300
+    },
+    "EstoqueMobile.dc.html": {
+      "h": 1700,
+      "title": "EstoqueMobile",
+      "w": 390,
+      "x": 4080,
+      "y": 3820
+    },
+    "Financeiro.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "Financeiro",
+      "w": 1280,
+      "x": 2720,
+      "y": 2300
+    },
+    "FinanceiroMobile.dc.html": {
+      "h": 1900,
+      "title": "FinanceiroMobile",
+      "w": 390,
+      "x": 2720,
+      "y": 3820
+    },
+    "Fiscal.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "Fiscal (NF-e)",
+      "w": 1280,
+      "x": 8160,
+      "y": 2300
+    },
+    "FiscalMobile.dc.html": {
+      "h": 1700,
+      "title": "FiscalMobile",
+      "w": 390,
+      "x": 8160,
+      "y": 3820
+    },
+    "HomeReal.dc.html": {
+      "h": 1660,
+      "title": "Página inicial (no ar, editável)",
+      "w": 1280,
+      "x": 4520,
+      "y": 0
+    },
+    "HomeSnapshot.dc.html": {
+      "h": 1620,
+      "title": "Home · proposta snapshot",
+      "w": 1280,
+      "x": 5880,
+      "y": 0
+    },
+    "Icones.dc.html": {
+      "h": 1320,
+      "title": "Ícones (61)",
+      "w": 1280,
+      "x": 3160,
+      "y": 0
+    },
+    "Login.dc.html": {
+      "expand": "fill",
+      "h": 820,
+      "title": "Login",
+      "w": 1280,
+      "x": 0,
+      "y": 2300
+    },
+    "LoginMobile.dc.html": {
+      "h": 844,
+      "title": "LoginMobile",
+      "w": 390,
+      "x": 0,
+      "y": 3820
+    },
+    "Main.dc.html": {
+      "h": 1900,
+      "title": "Tema",
+      "w": 1280,
+      "x": 36,
+      "y": 0
+    },
+    "Relatorios.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "Relatórios",
+      "w": 1280,
+      "x": 10880,
+      "y": 2300
+    },
+    "RelatoriosMobile.dc.html": {
+      "h": 1900,
+      "title": "RelatoriosMobile",
+      "w": 390,
+      "x": 10880,
+      "y": 3820
+    },
+    "Shell.dc.html": {
+      "h": 820,
+      "title": "Moldura (componente)",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "Valor.dc.html": {
+      "h": 80,
+      "title": "Valor R$ (componente)",
+      "w": 360,
+      "x": 2720,
+      "y": 0
+    },
+    "Vendas.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "Pedidos e vendas",
+      "w": 1280,
+      "x": 5440,
+      "y": 2300
+    },
+    "VendasMobile.dc.html": {
+      "h": 1700,
+      "title": "VendasMobile",
+      "w": 390,
+      "x": 5440,
+      "y": 3820
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-13T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t_desk": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Telas · desktop 1280px",
+      "w": 240,
+      "x": 0,
+      "y": 2040
+    },
+    "t_mob": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Telas · celular 390px",
+      "w": 240,
+      "x": 0,
+      "y": 3560
+    },
+    "t_tema": {
+      "kind": "title1",
+      "maxW": 7200,
+      "text": "Tema e moldura",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Shell.dc.html",
+    "Valor.dc.html",
+    "Icones.dc.html",
+    "HomeReal.dc.html",
+    "HomeSnapshot.dc.html",
+    "Login.dc.html",
+    "Dashboard.dc.html",
+    "Financeiro.dc.html",
+    "Estoque.dc.html",
+    "Vendas.dc.html",
+    "Compras.dc.html",
+    "Fiscal.dc.html",
+    "Cadastros.dc.html",
+    "Relatorios.dc.html",
+    "Configuracoes.dc.html",
+    "LoginMobile.dc.html",
+    "DashboardMobile.dc.html",
+    "FinanceiroMobile.dc.html",
+    "EstoqueMobile.dc.html",
+    "VendasMobile.dc.html",
+    "ComprasMobile.dc.html",
+    "FiscalMobile.dc.html",
+    "CadastrosMobile.dc.html",
+    "RelatoriosMobile.dc.html",
+    "ConfiguracoesMobile.dc.html"
+  ],
+  "pages": [],
+  "title": "Quattro ERP · Protótipo"
+}

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Tabela · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+.t-linha{transition:background-color .15s ease;cursor:pointer}
+.t-linha:hover{background-color:var(--hover) !important}
+</style>
+</helmet>
+<div style="width: 1280px; height: 760px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
+  <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Tabela</h1>
+
+  <div style="background: #f6f6f6; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 500">Títulos a pagar</h2>
+      <div style="display: flex; gap: 10px">
+        <label style="display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; background: #ffffff; border-radius: 999px; font-size: 14px; color: #6B7060">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <input type="search" placeholder="Buscar título" aria-label="Buscar título" style="border: 0; outline: 0; background: transparent; font: inherit; color: #3B4332; width: 180px">
+        </label>
+        <button type="button" style="height: 42px; min-width: 104px; padding: 0 36px; border: 0; border-radius: 999px; background: #ECFD52; color: #3B4332; font: inherit; font-weight: 500; cursor: pointer">Exportar</button>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; border-radius: {{raio}}px; overflow: hidden">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+        <thead>
+          <tr style="background: {{fundoCabecalho}}">
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Vencimento</th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Fornecedor</th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Categoria</th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Situação</th>
+            <th style="text-align: right; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{linhas}}" as="l" hint-placeholder-count="8">
+            <tr class="t-linha" style="background-color: {{l.fundo}}; border-top: {{espessuraDivisoria}}px solid {{linhaDivisoria}}">
+              <td style="padding: {{altura}}px 20px; color: #6B7060; font-variant-numeric: tabular-nums; box-shadow: {{l.marca}}">{{l.venc}}</td>
+              <td style="padding: {{altura}}px 20px; font-weight: 500">{{l.nome}}</td>
+              <td style="padding: {{altura}}px 20px; color: #6B7060">{{l.cat}}</td>
+              <td style="padding: {{altura}}px 20px">
+                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 16px; background: {{l.tagFundo}}; font-size: 12px; font-weight: 500; color: #3B4332">
+                  <span style="width: 6px; height: 6px; border-radius: 999px; background: {{l.tagCor}}"></span>{{l.situacao}}
+                </span>
+              </td>
+              <td style="padding: {{altura}}px 20px; text-align: right; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{l.inteiro}}<span style="font-size: 11px; color: #6B7060">{{l.cent}}</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+        <tfoot>
+          <tr style="border-top: 1px solid #e2e2e2">
+            <td style="padding: 14px 20px; font-weight: 500" colspan="4">Total · 8 títulos</td>
+            <td style="padding: 14px 20px; text-align: right; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">R$58.930<span style="font-size: 11px; color: #6B7060">,40</span></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"zebra":{"editor":"boolean","default":false,"section":"Linhas"},"altura":{"editor":"range","default":14,"min":8,"max":24,"step":1,"unit":"px","section":"Linhas"},"linhaDivisoria":{"editor":"color","default":"#f4f4f4","section":"Linhas"},"fundoCabecalho":{"editor":"color","default":"#ffffff","section":"Cabeçalho"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Forma"},"espessuraDivisoria": {"editor": "range", "default": 1, "min": 0, "max": 3, "step": 0.5, "unit": "px", "section": "Linhas"}, "corHover": {"editor": "color", "default": "#fafafa", "section": "Interação"}, "linhaSelecionada": {"editor": "select", "default": "3", "options": ["Nenhuma", "1", "2", "3", "4", "5", "6", "7", "8"], "section": "Interação"}, "corSelecao": {"editor": "color", "default": "#f6f6f6", "section": "Interação"}, "marcaSelecao": {"editor": "color", "default": "#ECFD52", "section": "Interação"}, "espessuraMarca": {"editor": "range", "default": 3, "min": 0, "max": 8, "step": 1, "unit": "px", "section": "Interação"},"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const sit = {
+      'Pago': ['#35c759', '#e6f7ea'],
+      'A vencer': ['#6B7060', '#f6f6f6'],
+      'Vence hoje': ['#f2a519', '#fdf2dc'],
+      'Vencido': ['#e5484d', '#fbe4e5'],
+    };
+    const dados = [
+      ['05/10', 'Imobiliária Central', 'Aluguel', 'Pago', 9800],
+      ['10/10', 'Prefeitura', 'Impostos', 'Pago', 4210.5],
+      ['14/10', 'Distribuidora Alfa', 'Fornecedores', 'Vence hoje', 12640],
+      ['15/10', 'Energia Sul', 'Utilidades', 'A vencer', 1890.3],
+      ['20/10', 'Receita Federal', 'Impostos', 'A vencer', 7320.6],
+      ['25/10', 'Agência Norte', 'Marketing', 'A vencer', 6400],
+      ['28/10', 'Software Cloud', 'Assinaturas', 'A vencer', 1269],
+      ['02/10', 'Transportes Rio', 'Fornecedores', 'Vencido', 15400],
+    ];
+    const selLinha = String(p.linhaSelecionada ?? '3');
+    const marcaSel = 'inset ' + (p.espessuraMarca ?? 3) + 'px 0 0 ' + (p.marcaSelecao ?? '#ECFD52');
+    const fundoSel = p.corSelecao ?? '#f6f6f6';
+    const zebra = p.zebra ?? false;
+    const linhas = dados.map(([venc, nome, cat, situacao, v], i) => {
+      const [inteiro, cent] = v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
+      return { venc, nome, cat, situacao, inteiro: 'R$' + inteiro, cent: ',' + cent, tagCor: sit[situacao][0], tagFundo: sit[situacao][1], fundo: String(i + 1) === selLinha ? fundoSel : (zebra && i % 2 ? '#fafafa' : '#ffffff'), marca: String(i + 1) === selLinha ? marcaSel : 'none' };
+    });
+    return {
+      linhas,
+      altura: p.altura ?? 14,
+      linhaDivisoria: p.linhaDivisoria ?? '#f4f4f4',
+      fundoCabecalho: p.fundoCabecalho ?? '#ffffff',
+      raio: p.raio ?? 16,
+      espessuraDivisoria: p.espessuraDivisoria ?? 1,
+      corHover: p.corHover ?? '#fafafa',
+    };
+  }
+}
+</script>
+</body>
+</html>

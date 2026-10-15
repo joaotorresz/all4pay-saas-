@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
 } from "recharts";
-import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo, DegradeArea } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
@@ -25,6 +25,7 @@ import { janela as fazJanela, rotuloRunwayLido } from "@/core/indicadores";
 import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
 import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
+import { RAIO_TOPO } from "@/lib/grafico";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -540,11 +541,7 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={bandas} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="projGlow" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.20} />
-                <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.05} />
-                <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
-              </linearGradient>
+              <DegradeArea id="projGlow" />
             </defs>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="data" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={(d: string) => d.slice(5)} minTickGap={28} />
@@ -668,7 +665,7 @@ function WaterfallView({ passos }: { passos: WaterfallPasso[] }) {
             <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={fmtAxis} width={42} />
             <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => fmtBRL(v)} />
             <Bar dataKey="base" stackId="w" fill="transparent" />
-            <Bar dataKey="valor" stackId="w" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="valor" stackId="w" radius={RAIO_TOPO}>
               {data.map((d, i) => (
                 <Cell key={i} fill={d.tipo === "deducao" ? "var(--color-areia)" : d.tipo === "total" ? "var(--color-chart-line)" : "var(--color-ink)"} />
               ))}

@@ -596,7 +596,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 }
 
 // ── chain: possessiva de métrica NÃO pode ser sombreada pela KB (vai ao motor) ──
-// A KB roda ANTES do motor no AssistantWidget; se buscarKB responder uma
+// A KB roda ANTES do motor no chat (useChatIA); se buscarKB responder uma
 // possessiva ("qual meu EBITDA"), o usuário recebe o CONCEITO em vez do NÚMERO.
 {
   const possessivas = ["qual meu EBITDA?", "qual meu runway?", "quanto é meu burn?", "qual meu score?", "qual minha receita líquida?", "qual meu fluxo de caixa livre?"];
@@ -8216,19 +8216,37 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   for (const f of ["src/components/ajuda/AjudaView.tsx", "src/components/app/guides.ts"]) {
     ok(`ajuda: ${f.split("/").pop()} não promete entrega ao suporte que não existe`, !promessaSuporte.test(semComentIA(srcIA(f))));
   }
-  for (const f of ["src/components/ia/IAView.tsx", "src/components/app/AssistantWidget.tsx"]) {
-    const s = srcIA(f);
-    const cls = s.match(/aria-label="Enviar"\s*className="([^"]+)"/)?.[1] ?? "";
-    ok(`ia: o botão Enviar de ${f.split("/").pop()} é lime + verde-base (a seta em on-lime sobre ink era invisível)`,
-       /\bbg-lime\b/.test(cls) && /\btext-on-lime\b/.test(cls) && !/\bbg-ink\b/.test(cls), cls);
-    ok(`ia: ${f.split("/").pop()} não escreve "Quattro IA" na tela (a marca é ${"Quattro AI"})`, !/Quattro IA\b/.test(semComentIA(s)));
-  }
-  const iaView = semComentIA(srcIA("src/components/ia/IAView.tsx"));
+  // ⚠️ UMA superfície de conversa (14/10/2026): o chat em tela cheia, aberto
+  // pelo `ChatGlobal` de qualquer tela. O botão "4", o painel lateral e a aba
+  // Conversa saíram — e nenhum pode voltar por acidente.
+  ok("ia: o botão flutuante e o painel lateral não existem mais",
+     !fsIA.existsSync("src/components/app/AssistantWidget.tsx") && !fsIA.existsSync("src/components/ia/IAView.tsx"));
+  const shellApp = srcIA("src/components/app/AppShell.tsx");
+  ok("ia: o AppShell monta o anfitrião do chat global (e não o botão flutuante)",
+     /<ChatGlobal \/>/.test(shellApp) && !/AssistantWidget/.test(shellApp));
+  const telaIA = srcIA("src/components/ia/ChatTelaCheia.tsx");
+  const telaIASem = semComentIA(telaIA);
+  ok("ia: o chat não escreve \"Quattro IA\" na tela (a marca é Quattro AI)", !/Quattro IA\b/.test(telaIASem));
   ok("ia: o rodapé do histórico diz a verdade do ambiente (não afirma \"neste navegador\" em produção)",
-     /isDemo\s*\?/.test(iaView) && !/não acompanham você em outra máquina/.test(iaView));
-  ok("ia: o histórico ouve a hidratação (a lista nascia vazia numa máquina nova)", /inscreverConversas\(/.test(iaView));
-  const widget = srcIA("src/components/app/AssistantWidget.tsx");
-  ok("ia: a conversa do painel flutuante entra no MESMO histórico da página", /salvarConversa\(/.test(widget) && /onMudou:\s*aoMudar/.test(widget));
+     /isDemo\s*\?/.test(telaIASem) && !/não acompanham você em outra máquina/.test(telaIASem));
+  ok("ia: o histórico do chat ouve a hidratação (a lista nascia vazia numa máquina nova)", /inscreverConversas\(/.test(telaIASem));
+  ok("ia: a conversa do chat entra no histórico, e retomar carrega os turnos",
+     /salvarConversa\(/.test(telaIASem) && /onMudou:\s*aoMudar/.test(telaIASem) && /carregar\(getConversa\(c\.id\)\?\.turnos/.test(telaIASem));
+  ok("ia: o chat não manda para outra tela de conversa (o histórico mora DENTRO dele)",
+     !/href="\/quattro-ai"/.test(telaIASem));
+  const globalIA = semComentIA(srcIA("src/components/ia/ChatGlobal.tsx"));
+  ok("ia: abrir o chat antes de o anfitrião montar fica na fila (efeitos rodam do filho para o pai)",
+     /if \(!ouvindo\) \{ pendente = opcoes; return; \}/.test(globalIA) && /if \(pendente\) \{ abrir\(pendente\); pendente = null; \}/.test(globalIA));
+  const navIA = srcIA("src/components/dashboard/nav-data.ts");
+  ok("ia: o item Quattro AI do menu abre o chat por cima da tela (evento), sem perder o endereço",
+     /label: "Quattro AI",[^}]*href: "\/quattro-ai",[^}]*event: "a4p:open-ia"/.test(navIA)
+     && /e\.preventDefault\(\);\s*window\.dispatchEvent\(new Event\(it\.event!\)\)/.test(srcIA("src/components/dashboard/Sidebar.tsx")));
+  const shellIA = semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"));
+  ok("ia: /quattro-ai sem aba abre o chat, e não há mais aba Conversa",
+     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && /useState<Aba \| null>\(null\)/.test(shellIA));
+  const homeIA = semComentIA(srcIA("src/components/visao-geral/HomeSnapshot.tsx"));
+  ok("ia: a caixa da Home abre o MESMO chat global (nenhum chat próprio montado nela)",
+     /abrirChat\(\{/.test(homeIA) && !/<ChatTelaCheia/.test(homeIA) && !/href="\/quattro-ai"/.test(homeIA));
   const kit = srcIA("src/components/ia/chat-kit.tsx"), chat = srcIA("src/components/ia/useChatIA.ts");
   ok("ia: \"Copiado\" só aparece se copiou (a cópia é AGUARDADA e devolve o resultado)",
      /await navigator\.clipboard\.writeText/.test(kit) && /const ok = await copiarTexto\(/.test(chat) && /copia === "falhou"/.test(kit));
@@ -8251,27 +8269,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia: o voto desfeito também sai do aprendizado da empresa, e a recusa do banco não é engolida",
      /\.update\(\{ \[anterior\]/.test(remFb) && /reportar\(/.test(remFb) && !/catch \{ \/\* ignore/.test(remFb));
 
-  // ⚠️ O painel flutuante renasce a cada tela; ele RETOMA a conversa salva.
-  const { conversaParaRetomar } = await import("@/lib/ia-conversas");
-  const cv = (id: string, em: string) => ({ id, titulo: id, criadaEm: em, atualizadaEm: em, turnos: [] });
-  const hist = [cv("velha", "2026-09-01T10:00:00Z"), cv("nova", "2026-09-30T10:00:00Z"), cv("meio", "2026-09-15T10:00:00Z")];
-  ok("ia: o painel, sem escolha na sessão, retoma a conversa MAIS RECENTE",
-     conversaParaRetomar(undefined, hist)?.id === "nova");
-  ok("ia: o painel retoma a conversa que ele tinha aberta, mesmo não sendo a mais recente",
-     conversaParaRetomar("meio", hist)?.id === "meio");
-  ok("ia: depois de \"Nova conversa\" o painel NÃO ressuscita a anterior",
-     conversaParaRetomar(null, hist) === undefined && conversaParaRetomar(undefined, []) === undefined);
-  const widgetIA = srcIA("src/components/app/AssistantWidget.tsx");
-  ok("ia: o painel chama a retomada ao montar e carrega os turnos",
-     /conversaParaRetomar\(escolhaDoPainel\(\), listarConversas\(\)\)/.test(widgetIA) && /carregar\(c\.turnos\)/.test(widgetIA));
-  // ⚠️ Numa máquina nova o histórico chega DEPOIS da montagem: ler só ao montar
-  // deixava o painel vazio. A retomada também roda quando a hidratação avisa —
-  // e só com o painel OCIOSO (sem conversa aberta e sem pergunta em curso).
-  const corpoRetomar = widgetIA.slice(widgetIA.indexOf("const retomar = () =>"), widgetIA.indexOf("const fimRef"));
-  ok("ia: o painel OUVE a hidratação do histórico e só retoma ocioso",
-     /return inscreverConversas\(retomar\)/.test(corpoRetomar)
-     && /if \(ativaRef\.current \|\| !ociosoRef\.current\) return;/.test(corpoRetomar)
-     && /ociosoRef\.current = turnos\.length === 0 && !pensando/.test(widgetIA), corpoRetomar.slice(0, 120));
   const copilotoLib = srcIA("src/lib/ai-copilot.ts");
   const logIA = copilotoLib.slice(copilotoLib.indexOf("export async function logAcaoIA"), copilotoLib.indexOf("export async function listAcoesIA"));
   ok("ia: a recusa do banco ao gravar a trilha da IA não é engolida (o cliente devolve `error`, não lança)",
@@ -10691,6 +10688,176 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("pinbank: sem taxa cadastrada → nenhuma taxa inventada, e o AVISO diz isso",
      semTaxa.acao === "criar_venda" && semTaxa.titulos.every((x) => x.type === "entrada") && semTaxa.avisos.some((a) => /taxa/.test(a)));
 
+  /* ── 5b. a TARIFA FIXA e a ANTECIPAÇÃO — as três vendas REAIS ──────────── */
+  /*
+   * ⚠️ Medido no extrato de PRODUÇÃO (14/10/2026): três vendas de R$ 9,99 na
+   * mesma maquininha, com o repasse antecipado (D+1). A Pinbank tirou R$ 1,00
+   * de tarifa fixa POR VENDA, cobrou a taxa da forma sobre o que sobrou
+   * (R$ 8,99) e, no crédito, a antecipação de 1,55% ao mês pela regra do
+   * simulador de taxas. Depositou R$ 8,91 no débito, R$ 8,69 no crédito à
+   * vista e R$ 8,56 no 2x (R$ 4,28 + R$ 4,28). Os valores esperados são
+   * LITERAIS, escritos à mão a partir do extrato — nunca saídos da função
+   * auditada.
+   *
+   * Cada defeito provável dá OUTRO número (conferido à mão), e é por isso que
+   * os três casos pegam a maioria deles:
+   *   · taxa e antecipação sobre o TOTAL, não sobre total − tarifa → 8,90 · 8,66 · 8,51;
+   *   · antecipação cobrada também no débito                     → 8,77 no débito;
+   *   · tarifa fixa por PARCELA (R$ 1,00 em cada)                 → R$ 1,00 a menos no 2x;
+   *   · sem tarifa e sem antecipação (o sistema até 14/10)        → 9,90 · 9,81 · 9,74.
+   * O 2x NÃO separa a regra composta da média simples ((n+1)/2 × 1,55% dá os
+   * mesmos R$ 0,21) — daí o caso de 10x logo abaixo.
+   */
+  const VIN_REAL: PB.VinculoPinbank = {
+    ...VIN, antecipado: true, prazos: { antecipado: 1 },
+    taxas: { debito: 0.0088, credito_vista: 0.0181, parcelado: 0.0246, tarifa_fixa: 1, antecipacao_mes: 0.0155 },
+  };
+  const real = (forma: string, parcelas: number, vinculo: PB.VinculoPinbank = VIN_REAL, centavosVenda = 999) =>
+    PB.planejarEvento({
+      transacao: tx({}, { valor: centavosVenda, valorOriginal: centavosVenda, formaPagamento: forma, numeroParcelas: parcelas, data: "2026-10-14T10:00:00" }),
+      estado: null, vinculo, titulos: [], hoje: "2026-10-14",
+    });
+  const titulosDe = (p: PB.Plano) => (p.acao === "criar_venda" ? p.titulos : []);
+  const liqCent = (ts: PB.TituloPlano[]) => Math.round(ts.reduce((s, x) => s + (x.type === "entrada" ? x.amount : -x.amount), 0) * 100);
+  const daParcela = (p: PB.Plano, k: number) => titulosDe(p).filter((x) => x.chave.startsWith(`pinbank:123456:${k}:`));
+  const comoLinha = (p: PB.Plano) => titulosDe(p).map((x) => `${x.chave.replace("pinbank:123456:", "")}=${x.amount.toFixed(2)}`).join(" ");
+  const pDeb = real("DEBITO", 1), pVis = real("AVISTA", 1), p2x = real("PARCELADO_LOJISTA", 2);
+  ok("pinbank (real): débito de R$ 9,99 deposita R$ 8,91 — R$ 1,00 de tarifa e 0,88% sobre R$ 8,99, sem antecipação",
+     liqCent(titulosDe(pDeb)) === 891, `${liqCent(titulosDe(pDeb))}`);
+  ok("pinbank (real): crédito à vista de R$ 9,99 deposita R$ 8,69 — tarifa, 1,81% e um mês de antecipação (1,55%) sobre R$ 8,99",
+     liqCent(titulosDe(pVis)) === 869, `${liqCent(titulosDe(pVis))}`);
+  ok("pinbank (real): 2x de R$ 9,99 deposita R$ 8,56 — e R$ 4,28 em CADA parcela, como o extrato (428 + 428)",
+     liqCent(titulosDe(p2x)) === 856 && [1, 2].map((k) => liqCent(daParcela(p2x, k))).join() === "428,428",
+     `${liqCent(titulosDe(p2x))} · ${[1, 2].map((k) => liqCent(daParcela(p2x, k))).join()}`);
+  ok("pinbank (real): título a título — receita, taxa, tarifa e antecipação, o resto dos centavos na ÚLTIMA parcela",
+     comoLinha(pDeb) === "1:r=9.99 1:t=0.08 1:f=1.00"
+     && comoLinha(pVis) === "1:r=9.99 1:t=0.16 1:f=1.00 1:a=0.14"
+     // 9,99 ÷ 2 = 4,995 arredonda para 5,00 na 1ª e a ÚLTIMA leva o que sobra (4,99).
+     && comoLinha(p2x) === "1:r=5.00 1:t=0.11 1:f=0.50 1:a=0.11 2:r=4.99 2:t=0.11 2:f=0.50 2:a=0.10",
+     `${comoLinha(pDeb)} | ${comoLinha(pVis)} | ${comoLinha(p2x)}`);
+  ok("pinbank (real): a tarifa vai na categoria da TAXA da maquininha (custo de vender) e a antecipação na sua (custo de dinheiro)",
+     titulosDe(p2x).filter((x) => x.chave.endsWith(":f")).every((x) => x.category === "Tarifas de adquirência" && x.type === "saida")
+     && titulosDe(p2x).filter((x) => x.chave.endsWith(":a")).every((x) => x.category === "Antecipação de recebíveis" && x.type === "saida")
+     && titulosDe(p2x).filter((x) => /:(f|a)$/.test(x.chave)).length === 4);
+  ok("pinbank (real): antecipado → TODOS os títulos (as duas parcelas inclusive) no D+1, com a competência na data da venda",
+     [pDeb, pVis, p2x].every((p) => titulosDe(p).length > 0 && titulosDe(p).every((x) => x.due_date === "2026-10-15" && x.competence_date === "2026-10-14")));
+  ok("pinbank (real): débito antecipado não cobra antecipação e não avisa que ela falta",
+     pDeb.acao === "criar_venda" && pDeb.avisos.every((a) => !/antecipa/.test(a)) && !titulosDe(pDeb).some((x) => x.chave.endsWith(":a")));
+
+  // ⚠️ O caso que SEPARA a regra composta (a do simulador de taxas, que o
+  // extrato confirmou) da média simples: R$ 1.000 em 10x, R$ 999 de base.
+  //   composta: ((1,0155)^(1/30) − 1) × 15 × 11 dias = 8,4618% → R$ 84,53
+  //   simples:  1,55% × (10 + 1)/2 meses             = 8,525%  → R$ 85,16
+  const p10 = real("PARCELADO_LOJISTA", 10, VIN_REAL, 100_000);
+  const ant10 = titulosDe(p10).filter((x) => x.chave.endsWith(":a"));
+  ok("pinbank: 10x de R$ 1.000 antecipado cobra R$ 84,53 (regra composta por dia), nunca R$ 85,16 (média simples)",
+     p10.acao === "criar_venda" && p10.venda.antecipacaoTotal === 84.53 && Math.round(ant10.reduce((s, x) => s + x.amount, 0) * 100) === 8453
+     && ant10.length === 10 && ant10[9].amount === 8.48 && ant10.slice(0, 9).every((x) => x.amount === 8.45),
+     JSON.stringify(p10.acao === "criar_venda" ? { a: p10.venda.antecipacaoTotal, t: ant10.map((x) => x.amount) } : p10.acao));
+  ok("pinbank: no 10x a taxa também é sobre R$ 999 (24,58) e a tarifa sai UMA vez (R$ 1,00 repartido nas 10)",
+     p10.acao === "criar_venda" && p10.venda.taxaTotal === 24.58 && p10.venda.tarifaTotal === 1
+     && Math.round(titulosDe(p10).filter((x) => x.chave.endsWith(":f")).reduce((s, x) => s + x.amount, 0) * 100) === 100);
+
+  // Sem antecipação no repasse, sem a taxa dela, com ela em zero, ou digitada como percentual.
+  const pSemAnt = real("AVISTA", 1, { ...VIN_REAL, antecipado: false });
+  ok("pinbank: repasse NÃO antecipado → sem título de antecipação, a tarifa continua, e o crédito à vista volta ao D+30",
+     liqCent(titulosDe(pSemAnt)) === 883 && !titulosDe(pSemAnt).some((x) => x.chave.endsWith(":a"))
+     && titulosDe(pSemAnt).some((x) => x.chave.endsWith(":f")) && titulosDe(pSemAnt).every((x) => x.due_date === "2026-11-13"),
+     `${liqCent(titulosDe(pSemAnt))} · ${comoLinha(pSemAnt)}`);
+  const pSemTaxaAnt = real("AVISTA", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, antecipacao_mes: null } });
+  ok("pinbank: antecipado SEM a taxa de antecipação cadastrada → nenhum custo inventado, e o AVISO diz isso",
+     pSemTaxaAnt.acao === "criar_venda" && !titulosDe(pSemTaxaAnt).some((x) => x.chave.endsWith(":a"))
+     && pSemTaxaAnt.avisos.some((a) => /antecipa/.test(a)), JSON.stringify(pSemTaxaAnt.acao === "criar_venda" ? pSemTaxaAnt.avisos : pSemTaxaAnt));
+  const pPct = real("AVISTA", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, antecipacao_mes: 1.55 } });
+  ok("pinbank: antecipação digitada como PERCENTUAL (1.55) não vira 155% ao mês — fica não cadastrada, com aviso",
+     pPct.acao === "criar_venda" && !titulosDe(pPct).some((x) => x.chave.endsWith(":a")) && pPct.avisos.some((a) => /antecipa/.test(a)));
+  const pZero = real("AVISTA", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, antecipacao_mes: 0 } });
+  ok("pinbank: antecipação contratada em ZERO → nenhum título dela e nenhum aviso (zero é contrato, não ausência)",
+     pZero.acao === "criar_venda" && !titulosDe(pZero).some((x) => x.chave.endsWith(":a")) && pZero.avisos.every((a) => !/antecipa/.test(a)));
+
+  // A tarifa nunca passa do valor da venda, e nunca vira número estranho.
+  const pMini = real("DEBITO", 1, VIN_REAL, 50);
+  ok("pinbank: venda de R$ 0,50 com tarifa de R$ 1,00 → tarifa limitada a R$ 0,50, líquido ZERO, nenhum título negativo ou zerado",
+     liqCent(titulosDe(pMini)) === 0 && titulosDe(pMini).every((x) => x.amount > 0) && comoLinha(pMini) === "1:r=0.50 1:f=0.50",
+     comoLinha(pMini));
+  ok("pinbank: tarifa fixa fora de 0 a R$ 100 (negativa, acima do teto, NaN, texto) não entra",
+     [-1, 101, Number.NaN, "1" as unknown as number, null].every((t) => PB.tarifaFixaDoContrato({ tarifa_fixa: t }) === 0)
+     && PB.tarifaFixaDoContrato({ tarifa_fixa: 100 }) === 100 && PB.tarifaFixaDoContrato({}) === 0);
+
+  // ⚠️ Os achados da revisão adversarial (14/10/2026), cada um com o valor que o fixa.
+  // 1. O custo repartido sem parte NEGATIVA: R$ 1,00 em 18x saía 17 × 0,06 = R$ 1,02 (a 18ª, −0,02, descartada).
+  const { dividirCusto: dividirCustoPOS } = await import("@/core/vendas/pos");
+  const somaCent = (xs: number[]) => Math.round(xs.reduce((s, x) => s + x, 0) * 100);
+  const varredura = [0.2, 0.25, 0.3, 0.31, 0.5, 1, 2, 0.05].flatMap((v) => Array.from({ length: 18 }, (_, i) => [v, i + 1] as const));
+  const furaCusto = ([v, n]: readonly [number, number]) => {
+    const d = dividirCustoPOS(v, n);
+    return d.length !== n || somaCent(d) !== Math.round(v * 100) || d.some((x) => x < 0);
+  };
+  ok("pinbank: o custo repartido em 1 a 18 parcelas soma EXATAMENTE o total e nenhuma parte é negativa (R$ 1,00 em 18x não vira R$ 1,02)",
+     !varredura.some(furaCusto), varredura.filter(furaCusto).map(([v, n]) => `${v}/${n}`).join(" "));
+  ok("pinbank: onde a última parte fica de pé, a repartição é a de antes — a que bateu, parcela a parcela, com o 2x da Pinbank (0,21 → 0,11 + 0,10)",
+     dividirCustoPOS(0.21, 2).join() === "0.11,0.1" && dividirCustoPOS(1, 18).join() === [...Array(17).fill(0.05), 0.15].join(),
+     `${dividirCustoPOS(0.21, 2).join()} · ${dividirCustoPOS(1, 18).join()}`);
+  const p18 = real("PARCELADO_LOJISTA", 18, VIN_REAL, 100_000);
+  const tar18 = titulosDe(p18).filter((x) => x.chave.endsWith(":f"));
+  ok("pinbank: 18x com a tarifa de R$ 1,00 lança EXATAMENTE R$ 1,00 de tarifa (17 × 0,05 + 0,15), e o líquido fecha com a conta do contrato",
+     p18.acao === "criar_venda" && somaCent(tar18.map((x) => x.amount)) === 100 && tar18.length === 18
+     && liqCent(titulosDe(p18)) === Math.round((1000 - p18.venda.taxaTotal - p18.venda.tarifaTotal - p18.venda.antecipacaoTotal) * 100),
+     JSON.stringify(tar18.map((x) => x.amount)));
+
+  // 2. A tarifa só no cartão (débito e crédito, as formas medidas) — e o aviso que diz o que ficou de fora.
+  const pVoucher = real("VOUCHER", 1, { ...VIN_REAL, antecipado: false });
+  ok("pinbank: voucher com a tarifa cadastrada NÃO lança a tarifa (medida só no cartão) — e o aviso diz que ela ficou de fora",
+     pVoucher.acao === "criar_venda" && !titulosDe(pVoucher).some((x) => x.chave.endsWith(":f")) && pVoucher.venda.tarifaTotal === 0
+     && pVoucher.avisos.some((a) => /tarifa fixa do contrato não foi lançada/.test(a)),
+     JSON.stringify(pVoucher.acao === "criar_venda" ? { t: comoLinha(pVoucher), a: pVoucher.avisos } : pVoucher.acao));
+  const pOutra = real("OUTRA", 1);
+  ok("pinbank: a forma não identificada também fica sem a tarifa e sem a antecipação",
+     pOutra.acao === "criar_venda" && !titulosDe(pOutra).some((x) => /:(f|a)$/.test(x.chave)), comoLinha(pOutra));
+  const pDebSemTaxa = real("DEBITO", 1, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, debito: null } });
+  ok("pinbank: débito sem a taxa cadastrada e com a tarifa → o aviso diz que entrou SÓ com a tarifa, nunca \"sem o custo de adquirência\"",
+     pDebSemTaxa.acao === "criar_venda" && titulosDe(pDebSemTaxa).some((x) => x.chave.endsWith(":f"))
+     && pDebSemTaxa.avisos.some((a) => /só com a tarifa fixa/.test(a)) && pDebSemTaxa.avisos.every((a) => !/sem o custo de adquirência/.test(a)),
+     JSON.stringify(pDebSemTaxa.acao === "criar_venda" ? pDebSemTaxa.avisos : pDebSemTaxa.acao));
+
+  // 3. A antecipação com teto (10% ao mês) e nunca maior que o que sobra da venda.
+  ok("pinbank: antecipação acima de 10% ao mês (o \"15,5\" no lugar de \"1,55\") fica NÃO cadastrada — nunca 137% da venda",
+     PB.antecipacaoDoContrato({ antecipacao_mes: 0.155 }) === null && PB.antecipacaoDoContrato({ antecipacao_mes: 0.1 }) === 0.1
+     && PB.ANTECIPACAO_MENSAL_MAXIMA === 0.1);
+  const pTeto = real("PARCELADO_LOJISTA", 18, { ...VIN_REAL, taxas: { ...VIN_REAL.taxas, parcelado: 0.5, antecipacao_mes: 0.1 } }, 100_000);
+  ok("pinbank: com taxas absurdas a antecipação para no que sobra da venda — o líquido nunca fica negativo, e o aviso diz isso",
+     pTeto.acao === "criar_venda" && liqCent(titulosDe(pTeto)) === 0
+     && pTeto.venda.antecipacaoTotal === Math.round((999 - pTeto.venda.taxaTotal) * 100) / 100
+     && pTeto.avisos.some((a) => /líquido zero/.test(a)),
+     JSON.stringify(pTeto.acao === "criar_venda" ? { v: pTeto.venda, a: pTeto.avisos, l: liqCent(titulosDe(pTeto)) } : pTeto.acao));
+
+  // O documento da venda: a tarifa soma à taxa (custo de vender); a antecipação no campo dela.
+  if (p2x.acao === "criar_venda") {
+    const v2 = vendaDaPinbankPB(p2x.venda, "00000000-0000-4000-8000-000000000001", "", "00000000-0000-4000-8000-000000000002");
+    ok("pinbank (real): no documento, taxa da plataforma R$ 1,22 (0,22 + tarifa 1,00), antecipação R$ 0,21 e líquido R$ 8,56",
+       v2.taxaPlataforma.valor === 1.22 && v2.taxaAntecipacao.valor === 0.21 && valorLiquido(v2) === 8.56,
+       `${v2.taxaPlataforma.valor} · ${v2.taxaAntecipacao.valor} · ${valorLiquido(v2)}`);
+  } else ok("pinbank (real): plano do 2x", false, p2x.acao);
+
+  // ⚠️ DUAS LISTAS DO MESMO CONTRATO: as chaves que o planejador lê
+  // (`TaxasPinbank`) e as que o banco aceita (`pinbank_configurar_vinculo`, na
+  // migration MAIS NOVA que a define). Divergir é ou chave que o banco recusa e
+  // a tela oferece, ou chave que o banco grava e ninguém lê — a tarifa digitada
+  // que não vira título nenhum.
+  {
+    const fsT = await import("node:fs");
+    const fonte = fsT.readFileSync("src/core/pinbank/plano.ts", "utf8");
+    const ini = fonte.indexOf("export interface TaxasPinbank {");
+    const chavesTs = [...fonte.slice(ini, fonte.indexOf("\n}", ini)).matchAll(/^\s+(\w+)\?:/gm)].map((m) => m[1]).sort();
+    const migs = fsT.readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort()
+      .filter((f) => fsT.readFileSync(`supabase/migrations/${f}`, "utf8").includes("function public.pinbank_configurar_vinculo("));
+    const sql = fsT.readFileSync(`supabase/migrations/${migs[migs.length - 1]}`, "utf8");
+    const lista = sql.match(/jsonb_each\(coalesce\(p_taxas[\s\S]*?k not in \(([^)]*)\)/)?.[1] ?? "";
+    const chavesSql = [...lista.matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+    ok("pinbank: as chaves do contrato que o banco aceita são exatamente as que o planejador lê",
+       chavesTs.length === 7 && chavesSql.join() === chavesTs.join(), `planejador ${chavesTs} · banco (${migs[migs.length - 1]}) ${chavesSql}`);
+  }
+
   /* ── 6. as duas chaves e a conta ───────────────────────────────────────── */
   ok("pinbank: sem vínculo → sem_vinculo", PB.planejarEvento({ transacao: t3, estado: null, vinculo: null, titulos: [], hoje: "2026-10-05" }).acao === "sem_vinculo");
   ok("pinbank: vínculo não ATIVADO → aguardando_ativacao (nada vira dinheiro)",
@@ -10715,6 +10882,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     { estado: { ...estado, status: "Cancelada" }, titulos: jaEstornado });
   ok("pinbank: o estorno é INCREMENTO — um segundo evento de desfazer não estorna de novo",
      reemb.acao === "desfazer_venda" && reemb.estornos.length === 0);
+  // Com a tarifa e a antecipação: desfazer leva os títulos NOVOS junto, e o
+  // estorno do que já caiu é o LÍQUIDO — o que a Pinbank de fato depositou.
+  const vivos2x: PB.TituloExistente[] = titulosDe(p2x).map((x, i) => ({ id: `q${i}`, type: x.type, situacao: "previsto", amount: x.amount, chave: x.chave }));
+  const estado2x = { status: "Aprovada" as const, ocorridoEm: "2026-10-14T10:00:00Z", valor: 9.99, valorOriginal: 9.99, saleDocId: "doc", versao: 1 };
+  const cancela2x = (tits: PB.TituloExistente[]) => PB.planejarEvento({
+    transacao: tx({ EventType: "Compra.TransacaoCancelada", OccurredAt: "2026-10-14T11:00:00Z" },
+      { status: "Cancelada", valor: 999, valorOriginal: 999, numeroParcelas: 2, data: "2026-10-14T10:00:00" }),
+    estado: estado2x, vinculo: VIN_REAL, titulos: tits, hoje: "2026-10-14",
+  });
+  const c2a = cancela2x(vivos2x);
+  ok("pinbank (real): cancelar o 2x com tudo previsto cancela os 8 títulos — tarifa e antecipação inclusive",
+     c2a.acao === "desfazer_venda" && c2a.cancelar.length === 8 && c2a.estornos.length === 0, JSON.stringify(c2a));
+  const c2b = cancela2x(vivos2x.map((x) => (x.chave?.startsWith("pinbank:123456:1:") ? { ...x, situacao: "baixado" } : x)));
+  ok("pinbank (real): com a 1ª parcela já recebida, o estorno é o LÍQUIDO dela (R$ 4,28: tarifa e antecipação descontadas)",
+     c2b.acao === "desfazer_venda" && c2b.cancelar.length === 4 && c2b.estornos.length === 1 && c2b.estornos[0].amount === 4.28,
+     JSON.stringify(c2b));
 
   /* ── 8. reembolso parcial ──────────────────────────────────────────────── */
   const parc = plano(tx({ EventType: "Compra.TransacaoReembolsada" }, { status: "Reembolsada", valor: 20000 }), { estado, titulos: titulosVivos });
@@ -10753,6 +10936,100 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     { id: "pbe", type: "saida", amount: 100, due_date: "2026-10-06", paid_date: null, status: "pendente", category: PB.CATEGORIA_ESTORNO_POS, party_id: null },
   ] } as unknown as RiskInput, { intervalo: { de: "2026-10-01", ate: "2026-10-31" }, tipo: "vertical" });
   ok("pinbank: o estorno da maquininha é DEDUÇÃO da receita", relEst.classificacao.pbe?.linha === "deducoes", JSON.stringify(relEst.classificacao.pbe));
+
+  /* ── 11b. a tarifa é custo de VENDER; a antecipação, custo de DINHEIRO ──── */
+  /*
+   * ⚠️ Decisão do dono (15/10/2026): a tarifa fixa fica com a taxa da
+   * maquininha, em Despesas Variáveis (acima do EBITDA); a antecipação vai ao
+   * Resultado Financeiro (abaixo dele). A regra antiga do DRE jogava tudo que
+   * dizia "antecipa" na despesa variável, e o EBITDA de quem escolhe receber
+   * antes saía menor do que é — no 2x real, 8,56 em vez de 8,77.
+   */
+  {
+    const OUT = { de: "2026-10-01", ate: "2026-10-31" };
+    const comoMov = (p: PB.Plano, pago = false) => titulosDe(p).map((x, i) => ({
+      id: `pb${i}`, type: x.type, amount: x.amount, due_date: x.due_date, competence_date: x.competence_date,
+      paid_date: pago ? x.due_date : null, status: pago ? "pago" : "pendente", category: x.category, party_id: null,
+    }));
+    const inp = (movs: unknown[]) => ({ hoje: "2026-10-31", saldoAtual: 0, partyNames: {}, movements: movs }) as unknown as RiskInput;
+    const lc = (r: ReturnType<typeof montarDRE>, id: string) => Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? Number.NaN) * 100);
+    const dre2x = montarDRE(inp(comoMov(p2x)), { intervalo: OUT, tipo: "vertical" });
+    ok("pinbank (real): DRE do 2x — receita 9,99 · variáveis 1,22 (taxa + tarifa) · EBITDA 8,77 · financeiro −0,21 · líquido 8,56",
+       lc(dre2x, "receita_bruta") === 999 && lc(dre2x, "despesas_variaveis") === 122 && lc(dre2x, "ebitda") === 877
+       && lc(dre2x, "resultado_financeiro") === -21 && lc(dre2x, "resultado_liquido") === 856,
+       ["receita_bruta", "despesas_variaveis", "ebitda", "resultado_financeiro", "resultado_liquido"].map((id) => `${id} ${lc(dre2x, id)}`).join(" · "));
+    const dfc2x = montarDFC(inp(comoMov(p2x, true)), { intervalo: OUT, tipo: "dfc" });
+    ok("pinbank (real): no DFC a tarifa é saída OPERACIONAL e a antecipação é financiamento",
+       lc(dfc2x, "entradas_operacionais") === 999 && lc(dfc2x, "saidas_operacionais") === 122 && lc(dfc2x, "fluxo_financiamento") === -21,
+       ["entradas_operacionais", "saidas_operacionais", "fluxo_financiamento"].map((id) => `${id} ${lc(dfc2x, id)}`).join(" · "));
+
+    const nomes = ["Antecipação de recebíveis", "Taxa de antecipação", "Custo de antecipação", "ICMS antecipação", "Despesa antecipada", "Tarifas de adquirência"];
+    const relN = montarDRE(inp([
+      { id: "v", type: "entrada", amount: 1_000, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Vendas", party_id: null },
+      ...nomes.map((c, k) => ({ id: `n${k}`, type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: c, party_id: null })),
+    ]), { intervalo: OUT, tipo: "vertical" });
+    const linhaN = (k: number) => relN.classificacao[`n${k}`]?.linha;
+    // "Despesa antecipada" fica na linha que já tinha antes deste PR (o "antecipa"
+    // antigo do DRE): o que este PR afirma é só que ela NÃO vira juro.
+    ok("antecipação: a de RECEBÍVEL (mesmo com 'taxa' ou 'custo' no nome) vai ao Resultado Financeiro; a tributária é dedução; 'despesa antecipada' não é recebível",
+       linhaN(0) === "resultado_financeiro" && linhaN(1) === "resultado_financeiro" && linhaN(2) === "resultado_financeiro"
+       && linhaN(3) === "deducoes" && linhaN(4) !== "resultado_financeiro" && linhaN(5) === "despesas_variaveis",
+       nomes.map((c, k) => `${c} → ${linhaN(k)}`).join(" · "));
+    const { classificarDespesa: cdA, ehAntecipacaoDeRecebiveis: ehAntA } = await import("@/core/indicadores/classificacao");
+    ok("antecipação: o SEGUNDO classificador (comparativo, orçamento, IA) concorda nos mesmos seis nomes",
+       cdA(nomes[0]) === "financeiro" && cdA(nomes[1]) === "financeiro" && cdA(nomes[2]) === "financeiro"
+       && cdA(nomes[3]) === "impostos" && cdA(nomes[4]) === "opex" && cdA(nomes[5]) === "opex",
+       nomes.map((c) => `${c} → ${cdA(c)}`).join(" · "));
+    ok("antecipação: a regra única aceita as grafias (sem acento, caixa alta, plural) e recusa a tributária e o 'antecipado'",
+       ["ANTECIPACAO DE RECEBIVEIS", "Antecipações de recebíveis", "Antecipação de recebíveis".normalize("NFD")].every((c) => ehAntA(c))
+       && !["ICMS antecipação", "Antecipação tributária", "Despesa antecipada", "Repasse antecipado"].some((c) => ehAntA(c)));
+    const relE = montarDRE(inp([
+      { id: "e", type: "entrada", amount: 500, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de recebíveis", party_id: null },
+    ]), { intervalo: OUT, tipo: "vertical" });
+    ok("antecipação: o dinheiro ADIANTADO que entra não é faturamento de novo (a venda já foi receita)",
+       lc(relE, "receita_bruta") === 0, `${lc(relE, "receita_bruta")} · ${relE.classificacao.e?.linha}`);
+
+    /*
+     * ⚠️ Achado da revisão adversarial: a primeira versão da regra levava ao
+     * Resultado Financeiro QUALQUER "antecipação de X". "Antecipação" sozinha
+     * também é adiantamento de salário, a fornecedor, de cliente, de lucros e a
+     * antecipação mensal do IRPJ — nenhuma é juro de recebível. A regra exige o
+     * contexto do recebível (ou da cobrança: taxa, custo, juros) e recusa o
+     * tributo mesmo com ele.
+     */
+    const naoRecebivel = [
+      "Antecipação de IRPJ", "IRPJ - antecipação mensal", "Antecipação CSLL", "DIFAL antecipação",
+      "Antecipação de salário", "Antecipação do 13º", "Antecipação a fornecedores", "Antecipação de clientes",
+      "Antecipação de lucros", "Antecipação", "Custo de antecipação do ICMS", "Taxa de antecipação de INSS",
+    ];
+    ok("antecipação: sem o contexto do recebível (ou com tributo) NÃO é antecipação de recebível — salário, 13º, fornecedor, cliente, lucros, IRPJ, CSLL, DIFAL, ICMS e INSS",
+       naoRecebivel.every((c) => !ehAntA(c)),
+       naoRecebivel.filter((c) => ehAntA(c)).join(" · "));
+    ok("antecipação: com o contexto do recebível ou da cobrança, é — cartão, juros, repasse e crédito",
+       ["Antecipação de cartão", "Juros de antecipação", "Antecipação do repasse", "Antecipação de crédito", "Deságio da antecipação"].every((c) => ehAntA(c)));
+    // A preposição "das" não é o DAS do Simples: recusá-la tirava do financeiro a antecipação mais comum.
+    const comDas = ["Taxa de antecipação das vendas no cartão", "Custo de antecipação das parcelas", "Antecipação das vendas de crédito"];
+    ok("antecipação: a preposição \"das\" não recusa a antecipação de recebível (\"Taxa de antecipação das vendas no cartão\")",
+       comDas.every((c) => ehAntA(c)), comDas.filter((c) => !ehAntA(c)).join(" · "));
+    const relR = montarDRE(inp([
+      { id: "v", type: "entrada", amount: 1_000, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Vendas", party_id: null },
+      { id: "i1", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de IRPJ", party_id: null },
+      { id: "i2", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "IRPJ - antecipação mensal", party_id: null },
+      { id: "i3", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação CSLL", party_id: null },
+      { id: "s", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de salário", party_id: null },
+      { id: "f", type: "saida", amount: 10, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação a fornecedores", party_id: null },
+      { id: "c", type: "entrada", amount: 200, due_date: "2026-10-05", paid_date: null, status: "pendente", category: "Antecipação de clientes", party_id: null },
+    ]), { intervalo: OUT, tipo: "vertical" });
+    const lr = (id: string) => relR.classificacao[id]?.linha;
+    ok("antecipação: no DRE o IRPJ/CSLL antecipado segue imposto sobre o lucro, o adiantamento a fornecedor segue custo, o de cliente segue receita e o de salário não vira juro",
+       lr("i1") === "impostos_lucro" && lr("i2") === "impostos_lucro" && lr("i3") === "impostos_lucro"
+       && lr("f") === "custos_variaveis" && lr("c") === "receita_bruta" && lr("s") !== "resultado_financeiro",
+       ["i1", "i2", "i3", "s", "f", "c"].map((id) => `${id} → ${lr(id)}`).join(" · "));
+    ok("antecipação: no SEGUNDO classificador o salário segue folha, o fornecedor segue custo e o IRPJ segue imposto",
+       cdA("Antecipação de salário") === "folha" && cdA("Antecipação a fornecedores") === "cmv"
+       && cdA("Antecipação de IRPJ") === "impostos" && cdA("IRPJ - antecipação mensal") === "impostos",
+       ["Antecipação de salário", "Antecipação a fornecedores", "Antecipação de IRPJ"].map((c) => `${c} → ${cdA(c)}`).join(" · "));
+  }
 
   /* ── 12. a assinatura Ed25519 ──────────────────────────────────────────── */
   const par1 = gerarParPB("ed25519");
@@ -11598,6 +11875,21 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("area-admin: /administracao não é confundido com /admin",
      d("app.quattro.finance", "/administracao").tipo === "seguir");
   ok("area-admin: o app dos clientes segue intacto", d("app.quattro.finance", "/fluxo-caixa").tipo === "seguir");
+  // ⚠️ Quem chama de FORA não sabe que o painel mudou de endereço: a Pinbank
+  // manda o webhook ao app, e o pg_cron do Open Finance e a guarda `no-ar`
+  // chamam o `all4pay-saas.vercel.app`. Ligar o ADMIN_HOST não pode tocar
+  // nesses caminhos — um 404 aqui seria venda da maquininha que não entra.
+  const deFora = [
+    ["app.quattro.finance", "/api/pinbank/webhook"], ["all4pay-saas.vercel.app", "/api/pinbank/webhook"],
+    ["app.quattro.finance", "/api/pinbank/reprocessar"], ["app.quattro.finance", "/api/pinbank/conferencia"],
+    ["all4pay-saas.vercel.app", "/api/recorrencias/run"], ["all4pay-saas.vercel.app", "/api/financial-os/run"],
+    ["all4pay-saas.vercel.app", "/api/versao"],
+  ] as const;
+  const travados = deFora.filter(([h, p]) => d(h, p).tipo !== "seguir").map(([h, p]) => `${h}${p}`);
+  ok("area-admin: com ADMIN_HOST ligado, webhook da Pinbank, rotas da maquininha e crons seguem no app e no vercel.app",
+     travados.length === 0, travados.join(", "));
+  ok("area-admin: o webhook da Pinbank não responde no endereço da plataforma (só o app o recebe)",
+     d(H, "/api/pinbank/webhook").tipo === "inexistente");
   // O middleware tem de julgar o caminho EFETIVO: com o digitado, `/clientes`
   // passaria pelo perímetro da plataforma sem a pergunta "é o dono?".
   const mw = readFileSync("src/middleware.ts", "utf8");
@@ -11652,6 +11944,675 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("area-admin: o painel não usa a moldura do cliente",
      !/AppShell/.test(readFileSync("src/components/admin/AdminView.tsx", "utf8"))
      && !/AppShell/.test(readFileSync("src/components/admin/AdminShell.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")));
+}
+
+// ═══ CONFERÊNCIA EXTRATO × SISTEMA — a empresa pede, a plataforma chama ════════
+// O COMPORTAMENTO do motor (pares, datas, centavos, o que é afirmado e o que
+// fica sem conclusão) é provado em `npm run pinbank-conferencia`. Aqui, o que
+// se prova LENDO o código: a ordem dos portões, que o estabelecimento vem do
+// vínculo (nunca do pedido), que nada é gravado, que a resposta não vaza, e que
+// o filtro de amostra e o teto de linhas não caem no proxy do "use client".
+// ⚠️ É o primeiro caminho em que alguém de uma EMPRESA dispara uma chamada à
+// Pinbank com a credencial da plataforma: muda quem pode chamar o quê.
+{
+  const fsC = await import("node:fs");
+  const CONF = await import("@/core/pinbank/conferencia");
+  const semComC = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const lerC = (p: string) => (fsC.existsSync(p) ? fsC.readFileSync(p, "utf8") : "");
+  const ROTA_C = "src/app/api/pinbank/conferencia/route.ts";
+  const LEIT_C = "src/lib/pinbank/conferencia-leitura.ts";
+  const ENG_C = "src/core/pinbank/conferencia.ts";
+  const COMP_C = "src/components/administracao/PinbankConferencia.tsx";
+  const PAINEL_C = "src/components/administracao/PinbankPainel.tsx";
+  const ADMIN_C = "src/lib/admin.ts";
+  const API_C = "src/lib/pinbank/api.ts";
+  const rotaC = lerC(ROTA_C);
+  const leitC = lerC(LEIT_C);
+  const engC = lerC(ENG_C);
+  const compC = lerC(COMP_C);
+  ok("conferencia-pinbank: os arquivos existem (rota, leitura, motor, tela)", [rotaC, leitC, engC, compC].every((t) => t.length > 0));
+
+  /* ── 1. a ordem dos portões ──────────────────────────────────────────────── */
+  const ordemC = (t: string) => {
+    const x = semComC(t);
+    const marcos = ["NEXT_PUBLIC_SUPABASE_URL", "auth.getUser()", '.from("pinbank_vinculos")', 'rpc("tem_permissao"',
+      "conferenciaPinbankLiberada(", "consultarExtratoPos(filtro", "conferirExtratoPinbank("].map((m) => x.indexOf(m));
+    return marcos.every((v, k) => v > 0 && (k === 0 || v > marcos[k - 1])) && /export const runtime = "nodejs"/.test(x);
+  };
+  ok("conferencia-pinbank: sem banco → sessão → vínculo → tem_permissao → liberação → Pinbank → motor (nodejs)", ordemC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) chamar a Pinbank antes de tem_permissao é REPROVADO",
+     !ordemC(rotaC.replace('const { data: pode, error: eP } = await s.rpc("tem_permissao"', 'await consultarExtratoPos(filtro0);\n  const { data: pode, error: eP } = await s.rpc("tem_permissao"')));
+
+  /* ── 2. os códigos de cada recusa ───────────────────────────────────────── */
+  const codigosC = (t: string) => {
+    const x = semComC(t);
+    return (x.match(/resposta\(404,/g) ?? []).length >= 2
+      && ["resposta(401,", "resposta(400,", "resposta(403,", "resposta(503,", "resposta(409,"].every((c) => x.includes(c));
+  };
+  ok("conferencia-pinbank: 404 sem banco e sem vínculo, 401 sem sessão, 400 pedido, 403 permissão, 503 liberação, 409 vínculo", codigosC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) a permissão negada respondendo 200 é REPROVADA",
+     !codigosC(rotaC.replace("resposta(403,", "resposta(200,")));
+
+  /* ── 3. o estabelecimento vem do VÍNCULO, nunca do pedido ───────────────── */
+  const ecDoVinculo = (t: string) => {
+    const x = semComC(t);
+    return x.includes("const ec = Number(v.codigo_cliente);") && x.includes("codigoCliente: ec,")
+      && !/searchParams|req\.url|estabelecimento_id/.test(x)
+      && !/corpo\?\.(codigo|cliente|ec|canal|ambiente)/.test(x)
+      && !/\bcampo\(\s*["'](?!(?:vinculoId|de|ate)["'])/.test(x);
+  };
+  ok("conferencia-pinbank: o código do extrato (EC) sai do vínculo lido como a pessoa — o pedido só traz vinculoId, de e ate", ecDoVinculo(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) o EC vindo do link é REPROVADO",
+     !ecDoVinculo(rotaC.replace("const ec = Number(v.codigo_cliente);", 'const ec = Number(new URL(req.url).searchParams.get("cliente"));')));
+  ok("conferencia-pinbank: (defeito plantado) o EC tirado do id da loja (estabelecimento_id) é REPROVADO",
+     !ecDoVinculo(rotaC.replace("const ec = Number(v.codigo_cliente);", "const ec = Number(v.estabelecimento_id);")));
+  ok("conferencia-pinbank: (defeito plantado) um campo a mais lido do pedido é REPROVADO",
+     !ecDoVinculo(rotaC.replace('const ate = campo("ate");', 'const ate = campo("ate");\n  const cliente = campo("cliente");')));
+
+  /* ── 4. nenhuma opção de TESTE na chamada ───────────────────────────────── */
+  const semOpcoesC = (t: string) => {
+    const x = semComC(t);
+    const chamadas = x.match(/consultarExtratoPos\(/g) ?? [];
+    return chamadas.length === 1 && /consultarExtratoPos\(filtro\)/.test(x) && !/\bambiente:|\benvelope:|tokenNovo|\bdatas:|codigoCanal/.test(x);
+  };
+  ok("conferencia-pinbank: a chamada é exatamente consultarExtratoPos(filtro) — sem ambiente, envelope, token, datas ou canal", semOpcoesC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) trocar o ambiente na chamada é REPROVADO",
+     !semOpcoesC(rotaC.replace("consultarExtratoPos(filtro)", 'consultarExtratoPos(filtro, { ambiente: "producao" })')));
+
+  /* ── 5. sucesso exige a LISTA e o código de sucesso ─────────────────────── */
+  // A regra mora em `extratoServeParaConferir` (lib/pinbank/api.ts): sem erros,
+  // com a lista E com ResultCode 0 (ou nenhum). O COMPORTAMENTO dela — inclusive
+  // a recusa com lista vazia, ResultCode 4 — é provado em `npm run pinbank-api`.
+  const pelaListaC = (t: string) => semComC(t).includes("const ok = extratoServeParaConferir(extrato.resposta);");
+  ok("conferencia-pinbank: sem a lista, com erro ou com o código de recusa a conferência não roda (zero sem lista não é 'sem vendas')", pelaListaC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) ok só pela ausência de Errors é REPROVADO",
+     !pelaListaC(rotaC.replace("const ok = extratoServeParaConferir(extrato.resposta);", "const ok = extrato.resposta.erros.length === 0;")));
+  ok("conferencia-pinbank: (defeito plantado) a forma antiga, que aceita a recusa com lista vazia (ResultCode 4), é REPROVADA",
+     !pelaListaC(rotaC.replace("const ok = extratoServeParaConferir(extrato.resposta);", "const ok = extrato.resposta.erros.length === 0 && extrato.resposta.listaRecebida;")));
+
+  /* ── 6. a resposta não vaza ─────────────────────────────────────────────── */
+  const naoVazaC = (t: string) => {
+    const x = semComC(t);
+    const semLog = x.replace(/console\.error\([^;]*\);/g, "");
+    const respostas = [...x.matchAll(/resposta\((\d{3}),\s*\{([^}]*)\}\)/g)]
+      .map((m) => ({ status: m[1], chaves: m[2].split(",").map((p) => /^\s*([A-Za-z_]\w*)/.exec(p)?.[1] ?? "").filter(Boolean) }));
+    const chaves = respostas.flatMap((r) => r.chaves);
+    return !/extrato\.(identificacao|via|etapas|resumo|formato|campos|envelope|datas|ambiente)\b/.test(x)
+      && !/\bd\.motivo\b/.test(semLog)
+      && chaves.length >= 10
+      && respostas.every((r) => r.chaves.every((k) => ["ok", "relatorio", "consultadoEm", "codigo", "motivo"].includes(k)
+        // O número da espera, SÓ no 429: é do BANCO (quanto falta para a empresa conferir de novo), não da Pinbank.
+        || (k === "restanteMs" && r.status === "429")));
+  };
+  ok("conferencia-pinbank: a resposta só leva ok/relatorio/consultadoEm ou codigo/motivo (e o número da espera, só no 429) — nunca a identificação, o resumo cru ou o motivo da Pinbank", naoVazaC(rotaC));
+  const numeroForaDo429C = rotaC.replace('codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL });',
+    'codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL, restanteMs: 1 });');
+  ok("conferencia-pinbank: (defeito plantado) um número fora do 429 (o restante numa resposta que não é a da espera) é REPROVADO",
+     numeroForaDo429C !== rotaC && !naoVazaC(numeroForaDo429C));
+  ok("conferencia-pinbank: (defeito plantado) devolver o motivo cru da Pinbank é REPROVADO",
+     !naoVazaC(rotaC.replace('codigo: "pinbank_falhou", motivo: FRASE_FALHA_PINBANK', 'codigo: "pinbank_falhou", motivo: d.motivo')));
+  ok("conferencia-pinbank: (defeito plantado) devolver a identificação da credencial é REPROVADO",
+     !naoVazaC(rotaC.replace("{ ok: true, relatorio, consultadoEm:", "{ ok: true, quem: extrato.identificacao, relatorio, consultadoEm:")));
+
+  /* ── 7. ninguém toca na credencial; o interruptor tem UMA casa ───────────── */
+  const vazaCredC = (t: string) => /lerCredencialPinbank|process\.env\.PINBANK_API|\bcredencial\b\s*[:,}]|\.chave\b/.test(semComC(t));
+  ok("conferencia-pinbank: a rota e a leitura nunca tocam na credencial", !vazaCredC(rotaC) && !vazaCredC(leitC));
+  ok("conferencia-pinbank: (defeito plantado) a rota decidindo o ambiente pela variável é ACUSADA",
+     vazaCredC(rotaC.replace("const liberada = conferenciaPinbankLiberada();", 'const liberada = conferenciaPinbankLiberada();\n  const prod = process.env.PINBANK_API_AMBIENTE === "producao";')));
+  const arqsC: string[] = [];
+  const andarC = (d: string) => {
+    if (!fsC.existsSync(d)) return;
+    for (const e of fsC.readdirSync(d, { withFileTypes: true })) {
+      const p = `${d}/${e.name}`;
+      if (e.isDirectory()) andarC(p);
+      else if (/\.(ts|tsx)$/.test(e.name)) arqsC.push(p);
+    }
+  };
+  andarC("src");
+  const lemInterruptor = (ler: (p: string) => string) => arqsC.filter((p) => p !== API_C && /PINBANK_CONFERENCIA/.test(semComC(ler(p))));
+  ok("conferencia-pinbank: PINBANK_CONFERENCIA só é lida em lib/pinbank/api.ts (e está no .env.example)",
+     lemInterruptor(lerC).length === 0 && /PINBANK_CONFERENCIA/.test(semComC(lerC(API_C))) && /^#?\s*PINBANK_CONFERENCIA=/m.test(lerC(".env.example")),
+     lemInterruptor(lerC).join(", "));
+  ok("conferencia-pinbank: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
+     lemInterruptor((p) => (p === ROTA_C ? lerC(p) + "\nconst ligada = process.env.PINBANK_CONFERENCIA;" : lerC(p))).includes(ROTA_C));
+
+  /* ── 8. SÓ LEITURA ──────────────────────────────────────────────────────── */
+  const escreveC = (t: string) => /\.insert\(|\.update\(|\.upsert\(|\.delete\(|pinbank_aplicar|pinbank_configurar|createAdmin/.test(semComC(t));
+  ok("conferencia-pinbank: a rota e a leitura não gravam nada (nem insert/update/upsert/delete, nem RPC que grava, nem chave de serviço)",
+     !escreveC(rotaC) && !escreveC(leitC));
+  ok("conferencia-pinbank: (defeito plantado) corrigir o vencimento do título pela conferência é ACUSADO",
+     escreveC(leitC + '\nawait s.from("movements").update({ due_date }).eq("id", id);'));
+
+  /* ── 9. os filtros obrigatórios na leitura ───────────────────────────────── */
+  const filtrosC = (t: string) => {
+    const x = semComC(t);
+    const ms = [...x.matchAll(/\.from\("movements"\)/g)];
+    return ms.length >= 2 && ms.every((m) => {
+      const antes = x.slice(Math.max(0, (m.index ?? 0) - 400), m.index);
+      const cadeia = x.slice(m.index ?? 0).split("\n")[0];
+      return /semAmostra\(/.test(antes) && /\.limit\(/.test(cadeia);
+    });
+  };
+  ok("conferencia-pinbank: toda leitura de movements passa por semAmostra e tem teto (.limit)", filtrosC(leitC));
+  ok("conferencia-pinbank: (defeito plantado) leitura de movements sem o filtro de amostra é ACUSADA",
+     !filtrosC(leitC.replace('semAmostra(s.from("movements").select(COLS, { count: "exact" }))', 's.from("movements").select(COLS, { count: "exact" })')));
+  // A outra metade da mesma asserção: o TETO (.limit) de cada leitura de movements.
+  // Cada planta exige que o texto exista e saia (senão o negativo passaria sobre o vazio).
+  const semTetoC = (de: string, para: string) => {
+    const t = leitC.replace(de, para);
+    return t !== leitC && !filtrosC(t);
+  };
+  ok("conferencia-pinbank: (defeito plantado) a leitura da JANELA sem teto (.limit) é ACUSADA",
+     semTetoC('.order("id").limit(pedirAte(TETO_LINHAS))', '.order("id")'));
+  ok("conferencia-pinbank: (defeito plantado) a leitura dos títulos PELO NSU sem teto (.limit) é ACUSADA",
+     semTetoC('.in("nsu", lote).limit(pedirAte(TETO_LINHAS));', '.in("nsu", lote);'));
+
+  /* ── 10. nenhum módulo "use client" no caminho do servidor ──────────────── */
+  const resolverC = (spec: string) => {
+    const b = `src/${spec.slice(2)}`;
+    return [b, `${b}.ts`, `${b}.tsx`, `${b}/index.ts`].find((p) => fsC.existsSync(p) && fsC.statSync(p).isFile()) ?? "";
+  };
+  const doClienteC = (t: string) => [...semComC(t).matchAll(/from\s+["'](@\/[^"']+)["']/g)]
+    .map((m) => m[1])
+    .filter((s) => {
+      const arq = resolverC(s);
+      return !arq || /lib\/supabase\/consulta$/.test(s) || /^\s*["']use client["']/.test(lerC(arq));
+    });
+  const clienteNoServidor = [...doClienteC(rotaC), ...doClienteC(leitC), ...doClienteC(engC)];
+  ok("conferencia-pinbank: a rota, a leitura e o motor não importam módulo \"use client\" (nem consulta.ts: no servidor, semAmostra de lá é um proxy que LANÇA)",
+     clienteNoServidor.length === 0, clienteNoServidor.join(", "));
+  ok("conferencia-pinbank: (defeito plantado) a leitura importando semAmostra de consulta.ts é ACUSADA",
+     doClienteC('import { semAmostra } from "@/lib/supabase/consulta";\n' + leitC).length > 0);
+
+  /* ── 11. a permissão, na empresa DO VÍNCULO ─────────────────────────────── */
+  const permissaoC = (t: string) => /p_acao:\s*ACAO_CONFERENCIA,\s*p_org:\s*v\.org_id/.test(semComC(t));
+  ok("conferencia-pinbank: tem_permissao pergunta pela empresa do vínculo (p_org: v.org_id)", permissaoC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) tem_permissao sem p_org (o papel de OUTRA empresa) é REPROVADO",
+     !permissaoC(rotaC.replace("p_acao: ACAO_CONFERENCIA, p_org: v.org_id", "p_acao: ACAO_CONFERENCIA")));
+  ok("conferencia-pinbank: o nível é 'administrar' (decisão D1 do dono — trocar exige mexer AQUI de propósito)",
+     CONF.ACAO_CONFERENCIA === "administrar");
+
+  /* ── 12. a tela ─────────────────────────────────────────────────────────── */
+  const telaC = (painel: string, comp: string) => {
+    const c = semComC(comp);
+    return /administra\s*&&\s*<PinbankConferencia\b/.test(semComC(painel))
+      && !/\.reduce\(/.test(c)
+      // A taxa da Pinbank é PERCENTUAL (pontos-base): nunca passa pelo tratamento de dinheiro.
+      && !/<BRL[^>]*(taxaAdm|aguardandoDefinicao|\bad\.|\b(taxa|antecipacao|an|a)\.(extratoBp|contratoBp|diferencaBp)|mdrBp|taxaMesBp)/.test(c)
+      && !/\bfetch\s*\(/.test(c);
+  };
+  ok("conferencia-pinbank: o bloco só aparece para quem administra, não soma nada, e a taxa da Pinbank nunca vira R$", telaC(lerC(PAINEL_C), compC));
+  ok("conferencia-pinbank: (defeito plantado) a taxa informada pela Pinbank em R$ é ACUSADA",
+     !telaC(lerC(PAINEL_C), compC + "\nconst x = (i: any) => <BRL value={i.extrato.aguardandoDefinicao.taxaMesBp / 100} />;"));
+  ok("conferencia-pinbank: (defeito plantado) o MDR do extrato (pontos-base) mostrado em R$ é ACUSADO",
+     !telaC(lerC(PAINEL_C), compC + "\nconst y = (i: any) => <BRL value={i.extrato.taxa.extratoBp / 100} />;"));
+  ok("conferencia-pinbank: (defeito plantado) a antecipação do extrato (pontos-base, ao mês) mostrada em R$ é ACUSADA",
+     !telaC(lerC(PAINEL_C), compC + "\nconst z = (i: any) => <BRL value={i.extrato.antecipacao.extratoBp / 100} />;"));
+  ok("conferencia-pinbank: (defeito plantado) o bloco aberto para quem não administra é ACUSADO",
+     !telaC(lerC(PAINEL_C).replace("{administra && <PinbankConferencia", "{<PinbankConferencia"), compC));
+
+  /* ── 12b. a tela depois das revisões de 13/10 (dinheiro e repositório) ──── */
+  // Cada asserção nomeia UMA regra da tela, e cada uma tem o defeito ao lado.
+  // `planta` exige que a substituição ACONTEÇA: um texto que mudou de forma faz
+  // o negativo passar sobre o vazio — e isso reprova (a planta envelheceu).
+  const planta = (t: string, de: string | RegExp, para: string) => {
+    const r = t.replace(de, para);
+    return r === t ? null : r;
+  };
+  const negativo = (t: string | null, regra: (x: string) => boolean) => t != null && !regra(t);
+  const REGRAS_TELA_C: [string, (x: string) => boolean, string | RegExp, string][] = [
+    ["o relatório remonta a cada conferência (key={resultado.consultadoEm}): aba, página e linhas abertas não sobram do anterior",
+      (x) => /<Relatorio\s+key=\{resultado\.consultadoEm\}/.test(x),
+      "<Relatorio key={resultado.consultadoEm} ", "<Relatorio "],
+    ["a coluna do resumo diz que o bruto do extrato é ESTIMADO (nunca \"Bruto no extrato\")",
+      (x) => /"Bruto estimado no extrato"/.test(x) && !/["'>]\s*Bruto no extrato\s*["'<]/.test(x),
+      '["Situação", "Parcelas", "Bruto estimado no extrato",', '["Situação", "Parcelas", "Bruto no extrato",'],
+    ["o resumo tem o \"i\" ao lado do título, com o cálculo ancorado no motor (tolerância lida de TOLERANCIA_TAXA_BP)",
+      (x) => /Resumo por situação<\/span>\s*<InfoHint[\s\S]{0,400}?comoCalcula=\{COMO_CALCULA_RESUMO\}/.test(x)
+        && /const TOLERANCIA_TEXTO = `\$\{decimalBR\(TOLERANCIA_TAXA_BP \/ 100, 2\)\}/.test(x)
+        && /mesma divisão que o sistema usa ao lançar a venda/.test(x) && /número da parcela/.test(x),
+      "comoCalcula={COMO_CALCULA_RESUMO}", ""],
+    ["o motivo no lugar do valor é o verdadeiro (nunca \"não se aplica\" para tudo)",
+      (x) => !/não se aplica/.test(x) && /"ausente do extrato"/.test(x) && /"ausente do sistema"/.test(x)
+        && /"não informado pela Pinbank"/.test(x),
+      'semValor="ausente do sistema"', 'semValor="não se aplica"'],
+    // O que a empresa VÊ sem venda em comum atestada é o bloco só de contagens (os selos de
+    // "numeração não confirmada" e "extrato sem vendas" do relatório inteiro nunca chegam a ela):
+    // é nele que a regra mora — fala de numeração das vendas e do código do estabelecimento, nunca de "chave".
+    ["o bloco só de contagens fala de numeração das vendas e do código do estabelecimento (EC), não de \"chave\" (palavra de implementação)",
+      (x) => /numeração das vendas confere/.test(x) && /código do estabelecimento \(EC\)/.test(x) && !/\b[Cc]haves?\b/.test(x),
+      "a numeração das vendas confere", "a chave das vendas confere"],
+    ["o bloco só de contagens tem o \"i\", com o que cada lado conta (linhas do extrato × parcelas válidas do sistema)",
+      (x) => /Só as quantidades<\/StatusBadge>\s*<InfoHint[\s\S]{0,200}?comoCalcula=\{COMO_CALCULA_CONTAGENS\}/.test(x)
+        && /linha\(s\) do extrato/.test(x) && /parcela\(s\) válida\(s\) lançada\(s\)/.test(x),
+      "comoCalcula={COMO_CALCULA_CONTAGENS}", ""],
+    ["a aba de divergências é a VISTA do motor (status OU taxa diferente), com a contagem dele",
+      (x) => /itemComDivergencia\(i\)/.test(x) && /r\.resumo\.itensComDivergencia/.test(x),
+      'aba === "divergencias" ? itemComDivergencia(i) : ', ""],
+    ["sem venda em comum, nenhuma linha do extrato é desenhada (só as contagens)",
+      (x) => /\{r\.detalhes\.visiveis && <Itens\b/.test(x),
+      "{r.detalhes.visiveis && <Itens", "{<Itens"],
+    ["sem venda em comum ATESTADA, a tela sai pelo bloco só de contagens ANTES de qualquer situação, soma do extrato ou taxa",
+      (x) => /if \(soContagens\(r\)\) return <SoContagens r=\{r\} rodape=\{rodape\} \/>;\s*\n\s*const ps = r\.resumo\.porStatus;/.test(x),
+      "if (soContagens(r)) return <SoContagens r={r} rodape={rodape} />;", ""],
+    // A espera do botão parte da MESMA regra do servidor, e é a ÚNICA forma de pôr o prazo (um segundo
+    // `setEsperaAte` noutro ramo voltaria a dar dois números para a mesma espera).
+    ["a espera do botão parte da MESMA regra do servidor (ESPERA_CONFERENCIA_MS), nunca um número próprio, e só um lugar a põe",
+      (x) => /let espera = ESPERA_CONFERENCIA_MS;/.test(x) && /setEsperaAte\(Date\.now\(\) \+ espera\)/.test(x)
+        && (x.match(/setEsperaAte\(/g) ?? []).length === 1,
+      "let espera = ESPERA_CONFERENCIA_MS;", "let espera = 30_000;"],
+    // No 429 o banco diz quanto falta (outra aba, outra pessoa ou outra instância da empresa conferiu há
+    // pouco): o botão espera ISSO — senão a tela diz "Espere 23 segundos" ao lado de "Conferir de novo em 60 s".
+    ["no 429 o botão espera o que o BANCO disse (esperaDoBotao), nunca os 60 s inteiros ao lado da frase da rota",
+      (x) => /espera = esperaDoBotao\(r\);/.test(x),
+      "      espera = esperaDoBotao(r);\n", ""],
+    // A legenda do bloco só de contagens é POR CAUSA: "o EC pode ser o de outra loja" só na falta de venda
+    // em comum — na maquininha trocada a frase logo acima diz que o EC provavelmente está certo.
+    ["a legenda do bloco só de contagens é por causa: \"outra loja\" só sem venda em comum, nunca ao lado da maquininha trocada",
+      (x) => /sem_venda_em_comum:\s*"[^"]*pode ser o de outra loja[^"]*"/.test(x)
+        && /maquininha_excluida:\s*"(?![^"]*outra loja)[^"]*"/.test(x)
+        && /\{POR_QUE_SO_CONTAGENS\[r\.detalhes\.codigo\]\}/.test(x),
+      "O aviso da maquininha antiga não serve de prova", "Sem isso, o código do estabelecimento (EC) pode ser o de outra loja. O aviso da maquininha antiga não serve de prova"],
+    ["a legenda do bloco só de contagens sai da causa da resposta (r.detalhes.codigo), nunca uma fixa",
+      (x) => /\{POR_QUE_SO_CONTAGENS\[r\.detalhes\.codigo\]\}/.test(x),
+      "{POR_QUE_SO_CONTAGENS[r.detalhes.codigo]}", "{POR_QUE_SO_CONTAGENS.sem_venda_em_comum}"],
+    // Achado da revisão adversarial (14/10/2026): "não cadastrada" aparecia também para a venda de
+    // tipo desconhecido e para o vínculo que não antecipa — com a taxa cadastrada.
+    ["a antecipação esperada diz o MOTIVO de não haver número (tipo de venda não identificado · repasse não antecipado · não cadastrada), nunca \"não cadastrada\" para tudo",
+      (x) => /an\.esperada === "tipo_desconhecido" \? "tipo de venda não identificado"/.test(x)
+        && /an\.esperada === "repasse_nao_antecipado" \? "repasse não antecipado na maquininha"/.test(x)
+        && /<Par t="Antecipação esperada pelo contrato" v=\{ESPERADA_DA_ANTECIPACAO\(an\)\} \/>/.test(x),
+      'an.esperada === "tipo_desconhecido" ? "tipo de venda não identificado"', 'an.esperada === "tipo_desconhecido" ? "não cadastrada"'],
+    ["a taxa cadastrada da venda de tipo desconhecido diz o tipo, nunca \"não cadastrada\"",
+      (x) => /tx\.tipo == null \? "tipo de venda não identificado" : "não cadastrada"/.test(x),
+      'tx.tipo == null ? "tipo de venda não identificado" : "não cadastrada"', '"não cadastrada"'],
+  ];
+  for (const [nome, regra, de, para] of REGRAS_TELA_C) {
+    ok(`conferencia-pinbank: ${nome}`, regra(semComC(compC)));
+    ok(`conferencia-pinbank: (defeito plantado) ${nome} — o defeito é ACUSADO`,
+       negativo(planta(compC, de, para), (x) => regra(semComC(x))));
+  }
+
+  // As frases de "só as quantidades" (o portão as manda; a tela as mostra): número (NSU) e código do
+  // estabelecimento, nunca "chave", e cada uma diz o que FAZER (o suporte) — "confira o EC" sozinho não
+  // abre os detalhes quando o EC está certo e nenhuma venda chegou pelo aviso.
+  const PORTOES_C = "src/core/pinbank/conferencia-portoes.ts";
+  const portoesTxtC = lerC(PORTOES_C);
+  const frasesOcultasC = (t: string) => {
+    const x = semComC(t);
+    const frases = [/export const FRASE_DETALHES_OCULTOS =\s*"([^"]+)"/, /export const FRASE_DETALHES_MAQUININHA_EXCLUIDA =\s*"([^"]+)"/]
+      .map((re) => re.exec(x)?.[1] ?? "");
+    return frases.every((f) => f.length > 0 && /código do estabelecimento \(EC\)/.test(f) && /fale com o suporte da Quattro/.test(f) && !/\b[Cc]haves?\b/.test(f))
+      && /mesmo número \(NSU\), no mesmo dia/.test(frases[0]);
+  };
+  ok("conferencia-pinbank: as frases de \"só as quantidades\" falam do número (NSU) no mesmo dia e do código do estabelecimento, nunca de \"chave\", e dizem o que fazer (o suporte)",
+     frasesOcultasC(portoesTxtC));
+  ok("conferencia-pinbank: (defeito plantado) \"chave\" no lugar do número, na frase de só as quantidades, é ACUSADO",
+     negativo(planta(portoesTxtC, "Nenhuma venda do extrato tem o mesmo número (NSU), no mesmo dia,", "Nenhuma venda do extrato tem a mesma chave (NSU), no mesmo dia,"), frasesOcultasC));
+  ok("conferencia-pinbank: (defeito plantado) a frase de só as quantidades sem o caminho (só \"confira o EC\") é ACUSADA",
+     negativo(planta(portoesTxtC, "; se não estiver, fale com o suporte da Quattro.\";", ". Confira o código do estabelecimento.\";"), frasesOcultasC));
+
+  // A falha sem a frase da rota (o 504 da plataforma): o número do status fica no CÓDIGO.
+  const CLIENTE_C = "src/lib/pinbank/cliente.ts";
+  const clienteTxtC = lerC(CLIENTE_C);
+  const clienteC = (t: string) => {
+    const x = semComC(t);
+    return /falhaDaConferenciaSemCorpo\(r\.status\)/.test(x) && /falhaDaConferenciaSemCorpo\(null\)/.test(x)
+      && !/motivo:[^\n]*\$\{r\.status\}/.test(x) && /signal: controle\.signal/.test(x)
+      // O número do 429 chega à tela (o botão espera o que o banco disse).
+      && /typeof corpo\?\.restanteMs === "number" && Number\.isFinite\(corpo\.restanteMs\) \? \{ restanteMs: corpo\.restanteMs \}/.test(x);
+  };
+  ok("conferencia-pinbank: a tela nunca mostra o número do status HTTP (falhaDaConferenciaSemCorpo) e não espera para sempre (tempo de espera)",
+     clienteC(clienteTxtC));
+  ok("conferencia-pinbank: (defeito plantado) \"A conferência respondeu 504\" de volta na frase é ACUSADO",
+     negativo(planta(clienteTxtC, "motivo: typeof corpo?.motivo === \"string\" && corpo.motivo.trim() ? corpo.motivo : semFrase.motivo,",
+       "motivo: corpo?.motivo ?? `A conferência respondeu ${r.status}. Nada foi alterado.`,"), clienteC));
+  ok("conferencia-pinbank: (defeito plantado) a chamada sem tempo de espera (o botão girando para sempre) é ACUSADA",
+     negativo(planta(clienteTxtC, "      signal: controle.signal,\n", ""), clienteC));
+  ok("conferencia-pinbank: (defeito plantado) o número do 429 jogado fora pelo cliente (o botão volta aos 60 s ao lado da frase de 23 s) é ACUSADO",
+     negativo(planta(clienteTxtC, /\n\s*\.\.\.\(typeof corpo\?\.restanteMs[^\n]*/, ""), clienteC));
+
+  /* ── 13. o vínculo da plataforma pergunta pelo EC ───────────────────────── */
+  const adminC = (t: string) => {
+    const x = semComC(t);
+    const assinatura = /export async function vincularPinbank\(p:\s*\{([\s\S]*?)\}\)/.exec(x)?.[1] ?? "";
+    return /codigoCliente:\s*number\s*\|\s*null/.test(assinatura) && !/codigoCliente\?:/.test(assinatura)
+      && /p_codigo_cliente:\s*p\.codigoCliente/.test(x);
+  };
+  ok("conferencia-pinbank: vincularPinbank exige codigoCliente (number | null) e o manda à RPC", adminC(lerC(ADMIN_C)));
+  ok("conferencia-pinbank: (defeito plantado) o EC fora do pedido da RPC é ACUSADO",
+     !adminC(lerC(ADMIN_C).replace("p_codigo_cliente: p.codigoCliente,", "")));
+
+  /* ── 13b. o EC VISÍVEL, AUDITADO e de UMA empresa (D10) ─────────────────── */
+  // Um dígito trocado no EC é o extrato de OUTRA loja. A migration 20261014120100 faz o painel devolver o EC,
+  // o rastro da plataforma guardá-lo e o banco recusar o EC vivo em duas empresas (provado em
+  // `scripts/pinbank-limite-ec.sql`); aqui, que a ÚLTIMA definição de cada função é a que faz isso, e que a
+  // tela mostra o EC e a frase do banco.
+  const semComSql = (t: string) => t.replace(/--.*$/gm, "");
+  const migsC = fsC.readdirSync("supabase/migrations").filter((f: string) => f.endsWith(".sql")).sort();
+  const ultimaDefC = (nome: string, extra?: { arq: string; txt: string }) => {
+    let def = "";
+    for (const f of migsC) {
+      const t = semComSql(extra && extra.arq === f ? extra.txt : lerC(`supabase/migrations/${f}`));
+      const k = t.lastIndexOf(`create or replace function public.${nome}(`);
+      if (k >= 0) def = t.slice(k, t.indexOf("\n$$;", k) + 4);
+    }
+    return def;
+  };
+  const MIG_EC_C = "20261014120100_pinbank_ec_auditado.sql";
+  const migEcTxtC = lerC(`supabase/migrations/${MIG_EC_C}`);
+  const ecAuditadoC = (txt: string) => {
+    const extra = { arq: MIG_EC_C, txt };
+    const painel = ultimaDefC("admin_pinbank_painel", extra);
+    const vinc = ultimaDefC("admin_pinbank_vincular", extra);
+    const desv = ultimaDefC("admin_pinbank_desvincular", extra);
+    const gat = ultimaDefC("pinbank_vinculo_ec_uma_empresa", extra);
+    const ciclo = ultimaDefC("pinbank_vinculo_ciclo_da_plataforma", extra);
+    const lixeira = ultimaDefC("lixeira_listar", extra);
+    const x = semComSql(txt);
+    const acervo = /do \$acervo\$[\s\S]*?\$acervo\$;/.exec(x)?.[0] ?? "";
+    return /perform public\.admin_exigir_acesso\('admin_pinbank_painel', null\);/.test(painel)
+      && /'codigo_cliente', v\.codigo_cliente/.test(painel)
+      && /'pinbank\.vincular'[\s\S]*'codigo_cliente', p_codigo_cliente/.test(vinc)
+      && /returning org_id, codigo_cliente into v_org, v_ec;/.test(desv) && /'pinbank\.desvincular'[\s\S]*'codigo_cliente', v_ec/.test(desv)
+      // O gatilho dá a FRASE: outra empresa, vivo, nomeado, EC > 0 — e a trava pela CHAVE do EC, ANTES de
+      // conferir, numa instrução só (ordem e chave juntas: a trava depois do `if exists`, pela linha ou pela
+      // empresa deixaria a segunda gravação conferir sem esperar a primeira).
+      && /security definer/.test(gat)
+      && /perform pg_advisory_xact_lock\(hashtext\('a4p\.pinbank_vinculos\.codigo_cliente'\), hashint8\(new\.codigo_cliente\)\);\s*if exists \(/.test(gat)
+      && /and v\.org_id <> new\.org_id/.test(gat) && /v\.excluido_em is null/.test(gat)
+      && /errcode = 'unique_violation'/.test(gat) && /new\.codigo_cliente <= 0/.test(gat)
+      && /before insert or update of codigo_cliente, org_id, excluido_em on public\.pinbank_vinculos\s+for each row execute function public\.pinbank_vinculo_ec_uma_empresa\(\);/.test(x)
+      // A TRAVA é a restrição de exclusão (qualquer escritor, qualquer nível de isolamento), com a btree_gist
+      // fora de `public` (senão as funções dela entrariam no inventário de objetos como se fossem nossas).
+      && /create extension if not exists btree_gist with schema extensions;/.test(x)
+      && /add constraint pinbank_vinculos_ec_uma_empresa_excl\s+exclude using gist \(codigo_cliente with =, org_id with <>\)\s+where \(excluido_em is null and codigo_cliente is not null\);/.test(x)
+      // O CICLO é da plataforma: reativar nunca, excluir só com a marca do desvincular, apagar só sem a empresa.
+      && /security definer/.test(ciclo)
+      && /if old\.excluido_em is not null and new\.excluido_em is null then\s+raise exception 'A4P-PINBANK: vínculo desvinculado não volta/.test(ciclo)
+      && /if old\.excluido_em is null and new\.excluido_em is not null\s+and current_setting\('a4p\.pinbank_desvincular', true\) is distinct from old\.id::text then\s+raise exception/.test(ciclo)
+      && /if tg_op = 'DELETE' then\s+if exists \(select 1 from public\.organizations o where o\.id = old\.org_id\) then\s+raise exception/.test(ciclo)
+      && /before update of excluido_em or delete on public\.pinbank_vinculos\s+for each row execute function public\.pinbank_vinculo_ciclo_da_plataforma\(\);/.test(x)
+      && /perform set_config\('a4p\.pinbank_desvincular', p_vinculo::text, true\);\s+update public\.pinbank_vinculos/.test(desv)
+      && /perform set_config\('a4p\.pinbank_desvincular', '', true\);/.test(desv)
+      // A lixeira da EMPRESA não lista o vínculo da plataforma (e-mail e motivo da plataforma, "Restaurar" morto).
+      && /v_da_plataforma constant text\[\] := array\['pinbank_vinculos'\];/.test(lixeira) && /and c\.relname <> all \(v_da_plataforma\)/.test(lixeira)
+      // O acervo é conferido ANTES — recusa pela CLASSE e pela contagem (o log do CI é público: nem o EC nem
+      // a empresa), nunca limpeza calada.
+      && /having count\(distinct v\.org_id\) > 1/.test(acervo) && /select count\(\*\) into v_repetidos/.test(acervo)
+      && /select count\(\*\) into v_invalidos/.test(acervo) && !/string_agg|format\(|org_id::text|v\.id\b/.test(acervo)
+      && !/\bdelete\s+from\s+public\.pinbank_vinculos/i.test(x);
+  };
+  ok("conferencia-pinbank: a última definição do painel devolve o EC (com o portão), o rastro do vincular e do desvincular guarda o EC, a RESTRIÇÃO de exclusão trava o EC vivo em OUTRA empresa (o gatilho dá a frase, com a trava pela chave do EC antes de conferir), o ciclo do vínculo é da plataforma, a lixeira da empresa não o lista, e o acervo recusa sem escrever EC nem empresa",
+     ecAuditadoC(migEcTxtC));
+  ok("conferencia-pinbank: (defeito plantado) o painel sem o EC é ACUSADO",
+     negativo(planta(migEcTxtC, "               'codigo_cliente', v.codigo_cliente,\n", ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o rastro do vincular sem o EC é ACUSADO",
+     negativo(planta(migEcTxtC, ",\n                             'codigo_cliente', p_codigo_cliente));", "));"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o gatilho que não olha OUTRA empresa é ACUSADO",
+     negativo(planta(migEcTxtC, "and v.org_id <> new.org_id", "and v.org_id = new.org_id"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o gatilho sem a trava pelo EC (duas gravações ao mesmo tempo passam) é ACUSADO",
+     negativo(planta(migEcTxtC, /  perform pg_advisory_xact_lock\([^\n]*\n/, ""), ecAuditadoC));
+  const TRAVA_EC_C = "  perform pg_advisory_xact_lock(hashtext('a4p.pinbank_vinculos.codigo_cliente'), hashint8(new.codigo_cliente));\n";
+  ok("conferencia-pinbank: (defeito plantado) a trava do EC DEPOIS de conferir (o `if exists` antes dela) é ACUSADA",
+     negativo(((t) => t && planta(t, "  return new;\nend;\n$$;\n\nrevoke all on function public.pinbank_vinculo_ec_uma_empresa()",
+       TRAVA_EC_C + "  return new;\nend;\n$$;\n\nrevoke all on function public.pinbank_vinculo_ec_uma_empresa()"))(planta(migEcTxtC, TRAVA_EC_C, "")), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a trava pela LINHA (hashtext(new.id::text)) em vez do EC é ACUSADA",
+     negativo(planta(migEcTxtC, "hashint8(new.codigo_cliente));\n  if exists (", "hashtext(new.id::text));\n  if exists ("), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a trava pela EMPRESA e pelo EC (duas empresas não esperam uma pela outra) é ACUSADA",
+     negativo(planta(migEcTxtC, "pg_advisory_xact_lock(hashtext('a4p.pinbank_vinculos.codigo_cliente'), hashint8(new.codigo_cliente))",
+       "pg_advisory_xact_lock(hashtext(new.org_id::text), hashint8(new.codigo_cliente))"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) sem a RESTRIÇÃO de exclusão (a trava só no gatilho, que REPEATABLE READ atravessa) é ACUSADO",
+     negativo(planta(migEcTxtC, /alter table public\.pinbank_vinculos\n  add constraint pinbank_vinculos_ec_uma_empresa_excl[\s\S]*?codigo_cliente is not null\);\n/, ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a btree_gist em `public` (as funções dela no inventário de objetos) é ACUSADA",
+     negativo(planta(migEcTxtC, "create extension if not exists btree_gist with schema extensions;", "create extension if not exists btree_gist;"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o gatilho só na RPC (sem disparar no UPDATE da empresa ou da exclusão) é ACUSADO",
+     negativo(planta(migEcTxtC, "before insert or update of codigo_cliente, org_id, excluido_em on", "before insert on"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a reativação do vínculo desvinculado aceita (a lixeira da empresa desfaz o desvínculo da plataforma) é ACUSADA",
+     negativo(planta(migEcTxtC, "  if old.excluido_em is not null and new.excluido_em is null then", "  if false then"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o desvincular sem a marca (a plataforma não desligaria mais a loja) é ACUSADO",
+     negativo(planta(migEcTxtC, "  perform set_config('a4p.pinbank_desvincular', p_vinculo::text, true);\n", ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o ciclo sem o DELETE (o titular apaga de vez o registro da plataforma) é ACUSADO",
+     negativo(planta(migEcTxtC, "before update of excluido_em or delete on public.pinbank_vinculos", "before update of excluido_em on public.pinbank_vinculos"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a lixeira da empresa listando o vínculo da plataforma é ACUSADA",
+     negativo(planta(migEcTxtC, "       and c.relname <> all (v_da_plataforma)\n", ""), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) o acervo que escreve os ECs e as empresas no log PÚBLICO do CI é ACUSADO",
+     negativo(planta(migEcTxtC, "  select count(*) into v_repetidos\n    from (select v.codigo_cliente\n",
+       "  select string_agg(format('EC %s', x.codigo_cliente), '; ') into v_repetidos\n    from (select v.codigo_cliente\n"), ecAuditadoC));
+  ok("conferencia-pinbank: (defeito plantado) a migration que APAGA o vínculo repetido em vez de recusar é ACUSADA",
+     negativo(planta(migEcTxtC, "do $acervo$", "delete from public.pinbank_vinculos where false;\ndo $acervo$"), ecAuditadoC));
+
+  // A tela da plataforma: o EC ao lado de cada vínculo, e a frase do banco na recusa.
+  const ADMIN_VIEW_C = "src/components/admin/AdminView.tsx";
+  const adminViewTxtC = lerC(ADMIN_VIEW_C);
+  const adminTxtC = lerC(ADMIN_C);
+  const ecNaTelaC = (lib: string, view: string) => {
+    const l = semComC(lib);
+    const v = semComC(view);
+    const lista = /\(q\.data\?\.vinculos \?\? \[\]\)\.map\(\(v, i\) => \([\s\S]*?\)\)\}/.exec(v)?.[0] ?? "";
+    // TRÊS estados: o EC, "—" (o painel disse que não há) e "não informado pelo servidor" (o painel antigo,
+    // sem o campo): a chave ausente lida como "não cadastrado" poria "EC —" em vínculos que TÊM EC.
+    return /codigoCliente:\s*number\s*\|\s*null\s*\|\s*undefined;/.test(/export interface PinbankVinculoAdmin \{([\s\S]*?)\n\}/.exec(l)?.[1] ?? "")
+      && /codigoCliente: !\("codigo_cliente" in r\) \? undefined : r\.codigo_cliente == null \? null : Number\(r\.codigo_cliente\)/.test(l)
+      && /\{v\.codigoCliente === undefined \? "EC não informado pelo servidor" : <>EC \{v\.codigoCliente \?\? "—"\}<\/>\}/.test(lista)
+      && /if \(error\) throw new Error\(motivoDaRecusa\(error\)\);/.test(/export async function vincularPinbank\([\s\S]*?\n\}\n/.exec(l)?.[0] ?? "")
+      && /await vincularPinbank\([\s\S]*?catch \(e\) \{ toast\(\(e as Error\)\.message\); \}/.test(v);
+  };
+  ok("conferencia-pinbank: o /admin mostra o EC ao lado de cada vínculo (\"—\" quando não há, \"não informado pelo servidor\" quando o painel não o devolve) e a recusa do banco chega à tela com a frase dele",
+     ecNaTelaC(adminTxtC, adminViewTxtC));
+  ok("conferencia-pinbank: (defeito plantado) a lista de vínculos sem o EC é ACUSADA",
+     negativo(planta(adminViewTxtC, /\s*<span className="text-muted tabular-nums" title="Código do estabelecimento no extrato da Pinbank">[\s\S]*?<\/span>/, ""),
+       (x) => ecNaTelaC(adminTxtC, x)));
+  ok("conferencia-pinbank: (defeito plantado) o EC lido do painel e jogado fora (sem o mapeamento) é ACUSADO",
+     negativo(planta(adminTxtC, /\n\s*codigoCliente: !\("codigo_cliente" in r\)[^\n]*/, ""), (x) => ecNaTelaC(x, adminViewTxtC)));
+  ok("conferencia-pinbank: (defeito plantado) a chave AUSENTE lida como \"não cadastrado\" (o painel antigo vira \"EC —\" em todo vínculo) é ACUSADA",
+     negativo(planta(adminTxtC, '!("codigo_cliente" in r) ? undefined : ', ""), (x) => ecNaTelaC(x, adminViewTxtC)));
+  ok("conferencia-pinbank: (defeito plantado) a tela que não distingue o EC não informado do não cadastrado é ACUSADA",
+     negativo(planta(adminViewTxtC, '{v.codigoCliente === undefined ? "EC não informado pelo servidor" : <>EC {v.codigoCliente ?? "—"}</>}', 'EC {v.codigoCliente ?? "—"}'),
+       (x) => ecNaTelaC(adminTxtC, x)));
+  ok("conferencia-pinbank: (defeito plantado) a recusa do banco trocada por uma frase genérica é ACUSADA",
+     negativo(planta(adminTxtC, /(rpc\("admin_pinbank_vincular"[\s\S]*?)if \(error\) throw new Error\(motivoDaRecusa\(error\)\);/,
+       '$1if (error) throw new Error("Não foi possível vincular.");'), (x) => ecNaTelaC(x, adminViewTxtC)));
+
+  /* ── 14. a espera por EMPRESA, DURÁVEL no BANCO (D4), antes da Pinbank ─── */
+  // O comportamento da FUNÇÃO (a recusa que não carimba, por empresa, o papel, o vínculo excluído, a
+  // concorrência) é provado em `scripts/pinbank-limite-ec.sql`; a leitura da resposta, em
+  // `npm run pinbank-conferencia`. Aqui, LENDO a rota: que ela pede a reserva ao banco no ponto certo
+  // (depois da permissão, da liberação, do vínculo com EC e da janela; logo antes da Pinbank), pelo
+  // VÍNCULO, e FALHA FECHADA — e que o mapa por instância saiu (uma autoridade só).
+  const CHAMADA_RESERVA_C = "await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id })";
+  const esperaC = (t: string) => {
+    const x = semComC(t);
+    const marcos = ['rpc("tem_permissao"', "conferenciaPinbankLiberada(", '"sem_codigo_extrato"', "await lerTitulosDaJanela(s, v.org_id,",
+      CHAMADA_RESERVA_C, "lerReservaConferencia(reservaDoBanco, eR)", "consultarExtratoPos(filtro"].map((m) => x.indexOf(m));
+    return marcos.every((v, k) => v > 0 && (k === 0 || v > marcos[k - 1]))
+      && (x.match(/s\.rpc\(RPC_RESERVA_CONFERENCIA/g) ?? []).length === 1
+      && x.includes('if (reserva.codigo === "aguarde") return resposta(429, { ok: false, codigo: "aguarde", motivo: fraseDeEspera(reserva.restanteMs), restanteMs: reserva.restanteMs });')
+      && /if \(!reserva\.ok\) \{[\s\S]*?return resposta\(503, \{ ok: false, codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL \}\);\s*\}/.test(x)
+      && !/new Map\b|CONFERENCIAS_RECENTES|reservarConferencia|Date\.now\(\)/.test(x);
+  };
+  ok("conferencia-pinbank: a espera por empresa é a do BANCO (s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id })), depois da janela e ANTES da Pinbank; recusa → 429 com a frase E o número do banco, sem a resposta → 503 limite_indisponivel; nenhum mapa por instância",
+     esperaC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) o 429 só com a frase (sem o número do banco, o botão espera 60 s ao lado de \"Espere 23 segundos\") é ACUSADO",
+     negativo(planta(rotaC, ", restanteMs: reserva.restanteMs });", " });"), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pedida DEPOIS da chamada à Pinbank é ACUSADA",
+     negativo(((t) => t && planta(t,
+       "  const ok = extratoServeParaConferir(extrato.resposta);\n",
+       "  const ok = extratoServeParaConferir(extrato.resposta);\n  const { data: reservaDoBanco, error: eR } = await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id });\n"))(
+       planta(rotaC, "  const { data: reservaDoBanco, error: eR } = await s.rpc(RPC_RESERVA_CONFERENCIA, { p_vinculo: v.id });\n", "")), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pela empresa (p_org) em vez do VÍNCULO é ACUSADA",
+     negativo(planta(rotaC, "{ p_vinculo: v.id }", "{ p_org: v.org_id }"), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva que FALHA ABERTA (sem a resposta do banco, segue para a Pinbank) é ACUSADA",
+     negativo(planta(rotaC, '    return resposta(503, { ok: false, codigo: "limite_indisponivel", motivo: FRASE_LIMITE_INDISPONIVEL });\n', ""), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) o mapa por instância de volta ao lado do banco (duas autoridades para o mesmo prazo) é ACUSADO",
+     negativo(planta(rotaC, "export async function POST(", "const CONFERENCIAS_RECENTES = new Map<string, number>();\n\nexport async function POST("), esperaC));
+  ok("conferencia-pinbank: (defeito plantado) a recusa do banco respondida como 200 (o 429 some) é ACUSADA",
+     negativo(planta(rotaC, 'return resposta(429, { ok: false, codigo: "aguarde"', 'return resposta(200, { ok: false, codigo: "aguarde"'), esperaC));
+  // Uma autoridade só: a espera em memória não existe em lugar nenhum do código.
+  const semMapaC = (portoes: string) => !/export function reservarConferencia|new Map<string, number>/.test(semComC(portoes));
+  ok("conferencia-pinbank: a espera em memória (reservarConferencia, o Map por instância) saiu dos portões", semMapaC(lerC("src/core/pinbank/conferencia-portoes.ts")));
+  ok("conferencia-pinbank: (defeito plantado) a reservarConferencia de volta aos portões é ACUSADA",
+     !semMapaC(lerC("src/core/pinbank/conferencia-portoes.ts") + "\nexport function reservarConferencia(mapa: Map<string, number>, org: string) { return mapa.get(org); }\n"));
+
+  /* ── 14b. a migration do limite e o código dizem a MESMA coisa ─────────── */
+  // O banco recusa por 60 s, e o botão espera ESPERA_CONFERENCIA_MS; o banco exige 'administrar', e a rota
+  // pergunta ACAO_CONFERENCIA. Duas pontas com o mesmo número: se uma mudar sozinha, o botão oferece o que
+  // o banco recusa (ou o banco libera quem a rota não deixaria passar).
+  const PORT_C = await import("@/core/pinbank/conferencia-portoes");
+  const MIG_LIMITE_C = "supabase/migrations/20261014120000_pinbank_conferencia_limite.sql";
+  const migLimiteTxtC = lerC(MIG_LIMITE_C);
+  const migLimiteC = (t: string) => {
+    const x = semComSql(t);
+    const corpo = /create or replace function public\.pinbank_conferencia_reservar\(p_vinculo uuid\)[\s\S]*?\n\$\$;/.exec(x)?.[0] ?? "";
+    const intervalos = [...corpo.matchAll(/interval '(\d+) seconds'/g)].map((m) => Number(m[1]));
+    const acoes = [...corpo.matchAll(/tem_permissao\('([a-z_]+)', v_org\)/g)].map((m) => m[1]);
+    return corpo.length > 0
+      && intervalos.length === 1 && intervalos[0] * 1000 === PORT_C.ESPERA_CONFERENCIA_MS
+      && acoes.length === 1 && acoes[0] === CONF.ACAO_CONFERENCIA
+      && /security definer/.test(corpo) && /set search_path to 'public'/.test(corpo)
+      // As MESMAS pré-condições da rota, de novo no banco: vivo, ativo e com o EC (sem elas, uma chamada direta
+      // à função carimbaria a espera da empresa com uma maquininha que nunca chegaria à Pinbank).
+      && /from public\.pinbank_vinculos v\s+where v\.id = p_vinculo and v\.excluido_em is null and v\.ativo and v\.codigo_cliente > 0;/.test(corpo)
+      // Por EMPRESA, e só por ela: a condição do carimbo é SÓ o prazo (um `or` a mais — "quem não foi o
+      // último passa" — viraria espera por pessoa), e a única saída que libera é a do `insert … on conflict`
+      // (um atalho antes dele, ou um segundo `update` da tabela, liberaria outra pessoa da empresa na hora).
+      && /on conflict \(org_id\) do update\s+set ultima_em = excluded\.ultima_em, por = excluded\.por, vinculo_id = excluded\.vinculo_id\s+where l\.ultima_em <= excluded\.ultima_em - v_espera\s+returning l\.ultima_em into v_ultima;/.test(corpo)
+      && (corpo.match(/jsonb_build_object\('ok', true\)/g) ?? []).length === 1
+      && corpo.indexOf("jsonb_build_object('ok', true)") > corpo.indexOf("on conflict (org_id)")
+      && !/update public\.pinbank_conferencia_limite/.test(corpo)
+      && /revoke all on public\.pinbank_conferencia_limite from public, anon, authenticated, service_role;/.test(x)
+      && !/grant [a-z, ]+ on (table )?public\.pinbank_conferencia_limite/.test(x)
+      && !/create policy[^;]* on public\.pinbank_conferencia_limite/.test(x)
+      && /revoke all on function public\.pinbank_conferencia_reservar\(uuid\) from public, anon, service_role;/.test(x)
+      && /grant execute on function public\.pinbank_conferencia_reservar\(uuid\) to authenticated;/.test(x)
+      && PORT_C.RPC_RESERVA_CONFERENCIA === "pinbank_conferencia_reservar";
+  };
+  ok("conferencia-pinbank: a migration do limite recusa por 60 s (== ESPERA_CONFERENCIA_MS / 1000), exige ACAO_CONFERENCIA na empresa do vínculo VIVO, ATIVO e COM o EC, confere e carimba numa instrução, e a tabela não tem concessão nem política",
+     migLimiteC(migLimiteTxtC));
+  ok("conferencia-pinbank: (defeito plantado) o banco recusando por 30 s enquanto o botão espera 60 é ACUSADO",
+     negativo(planta(migLimiteTxtC, "interval '60 seconds'", "interval '30 seconds'"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) o banco exigindo 'ler' em vez da ação da rota é ACUSADO",
+     negativo(planta(migLimiteTxtC, "tem_permissao('administrar', v_org)", "tem_permissao('ler', v_org)"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pelo vínculo EXCLUÍDO é ACUSADA",
+     negativo(planta(migLimiteTxtC, " where v.id = p_vinculo and v.excluido_em is null and v.ativo", " where v.id = p_vinculo and v.ativo"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pelo vínculo INATIVO é ACUSADA",
+     negativo(planta(migLimiteTxtC, " and v.excluido_em is null and v.ativo and v.codigo_cliente > 0;", " and v.excluido_em is null and v.codigo_cliente > 0;"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a reserva pelo vínculo SEM o EC é ACUSADA",
+     negativo(planta(migLimiteTxtC, " and v.excluido_em is null and v.ativo and v.codigo_cliente > 0;", " and v.excluido_em is null and v.ativo;"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a tabela do limite com SELECT para authenticated (bastaria ler e cronometrar a outra empresa) é ACUSADA",
+     negativo(planta(migLimiteTxtC, "revoke all on public.pinbank_conferencia_limite from public, anon, authenticated, service_role;",
+       "revoke all on public.pinbank_conferencia_limite from public, anon, authenticated, service_role;\ngrant select on public.pinbank_conferencia_limite to authenticated;"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) conferir e carimbar em dois passos (sem o where do on conflict) é ACUSADO",
+     negativo(planta(migLimiteTxtC, "   where l.ultima_em <= excluded.ultima_em - v_espera\n", ""), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) a espera por PESSOA no carimbo (\"or l.por is distinct from excluded.por\") é ACUSADA",
+     negativo(planta(migLimiteTxtC, "   where l.ultima_em <= excluded.ultima_em - v_espera\n",
+       "   where l.ultima_em <= excluded.ultima_em - v_espera or l.por is distinct from excluded.por\n"), migLimiteC));
+  ok("conferencia-pinbank: (defeito plantado) o atalho que libera outra pessoa da empresa antes do carimbo (retorno antecipado) é ACUSADO",
+     negativo(planta(migLimiteTxtC, "  insert into public.pinbank_conferencia_limite as l (org_id, ultima_em, por, vinculo_id)",
+       "  if exists (select 1 from public.pinbank_conferencia_limite x where x.org_id = v_org and x.por is distinct from v_uid) then\n"
+       + "    update public.pinbank_conferencia_limite set ultima_em = now(), por = v_uid where org_id = v_org;\n"
+       + "    return jsonb_build_object('ok', true);\n  end if;\n"
+       + "  insert into public.pinbank_conferencia_limite as l (org_id, ultima_em, por, vinculo_id)"), migLimiteC));
+  // A reserva tem trilha (o gatilho `zz_auditar_*`, cobrado por `trilha-completa.sql`); a tela de Logs a
+  // rotula como Segurança (acesso a dado de fora, não dinheiro), nunca como "Lançamento". ⚠️ Ela prova a
+  // RESERVA, não a chamada à Pinbank: uma chamada direta à função também reserva, e membros da empresa
+  // inserem na trilha — o rastro da CHAMADA é o log do servidor. O texto não pode prometer o contrário.
+  const instTxtC = lerC("src/lib/institutional.ts");
+  const rastroSegurancaC = (t: string) =>
+    /if \(k\.startsWith\("pinbank_conferencia_limite\."\)\) \{[^}]*?return \{ entityType: "security"/.test(semComC(t));
+  ok("conferencia-pinbank: a reserva da conferência aparece na trilha como Segurança (a reserva da espera, acesso a dado de fora), nunca como Lançamento",
+     rastroSegurancaC(instTxtC));
+  // O texto da migration e o do rótulo dizem o que o evento PROVA (a reserva), nunca "quem chamou a Pinbank".
+  const provaReservaC = (mig: string, inst: string) =>
+    /O EVENTO PROVA A RESERVA, NÃO A CHAMADA À PINBANK/.test(mig) && /prova a RESERVA, não a\s+\/\/\s*chamada/.test(inst)
+      && !/rastro durável de "quem chamou a Pinbank/.test(mig) && !/rastro de QUEM usou a credencial/.test(inst);
+  ok("conferencia-pinbank: a migration e a trilha dizem que o evento prova a RESERVA, não a chamada à Pinbank (membros da empresa inserem na trilha; o rastro da chamada é o log do servidor)",
+     provaReservaC(migLimiteTxtC, instTxtC));
+  ok("conferencia-pinbank: (defeito plantado) a migration voltando a chamar o evento de \"rastro durável de quem chamou a Pinbank\" é ACUSADA",
+     negativo(planta(migLimiteTxtC, "-- ⚠️ **O EVENTO PROVA A RESERVA, NÃO A CHAMADA À PINBANK.**",
+       "-- É o rastro durável de \"quem chamou a Pinbank com a credencial da plataforma\"."), (x) => provaReservaC(x, instTxtC)));
+  ok("conferencia-pinbank: (defeito plantado) a reserva rotulada como Lançamento (o ramo de segurança some) é ACUSADA",
+     negativo(planta(instTxtC, 'if (k.startsWith("pinbank_conferencia_limite.")) {', 'if (false) {'), rastroSegurancaC));
+
+  /* ── 15. sem venda em comum, só as contagens ────────────────────────────── */
+  const contagensC = (t: string) => {
+    const x = semComC(t);
+    return /const relatorio = relatorioParaEmpresa\(conferirExtratoPinbank\(\{/.test(x)
+      && /resposta\(200, \{ ok: true, relatorio, consultadoEm:/.test(x)
+      && (x.match(/conferirExtratoPinbank\(/g) ?? []).length === 1;
+  };
+  ok("conferencia-pinbank: o relatório sai por relatorioParaEmpresa (sem venda em comum, só as contagens — o EC pode ser de outra loja)", contagensC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) o relatório do motor devolvido inteiro é REPROVADO",
+     !contagensC(rotaC.replace("const relatorio = relatorioParaEmpresa(conferirExtratoPinbank({", "const relatorio = (conferirExtratoPinbank({")));
+
+  /* ── 15b. a rota é a composição que a guarda espelha ───────────────────── */
+  // `npm run pinbank-conferencia` (o caso do oráculo antes do portão) prova a resposta IDÊNTICA com o NSU
+  // forjado dentro ou fora do extrato alheio sobre um ESPELHO da composição da rota — não sobre a rota
+  // importada. Aqui se fixa, no texto da rota, que ela é ESSA composição: a leitura pelo NSU com as NSUs
+  // separadas por lado (`nsusParaDetalhar`, nunca a união), depois da janela, e o motor com os títulos da
+  // janela ∪ os lidos pelo NSU, os avisos e as transações da leitura. Sem isto, a rota podia se afastar do
+  // espelho e a guarda continuaria verde provando outra coisa.
+  const composicaoC = (t: string) => {
+    const x = semComC(t);
+    const leitura = "lerDetalhesPorNsu(s, v.org_id, nsusParaDetalhar(janela.dados, extrato.resposta.linhas, ec))";
+    return x.includes(leitura)
+      && (x.match(/lerDetalhesPorNsu\(/g) ?? []).length === 1 && (x.match(/nsusParaDetalhar\(/g) ?? []).length === 1
+      && x.indexOf("await lerTitulosDaJanela(s, v.org_id,") > 0 && x.indexOf("await lerTitulosDaJanela(s, v.org_id,") < x.indexOf(leitura)
+      && x.includes("titulos: [...janela.dados, ...detalhes.dados.titulos],")
+      && x.includes("eventos: detalhes.dados.eventos,") && x.includes("transacoes: detalhes.dados.transacoes,")
+      && x.includes("extrato: extrato.resposta.linhas,");
+  };
+  ok("conferencia-pinbank: a rota é a composição que a guarda espelha — lerDetalhesPorNsu(s, v.org_id, nsusParaDetalhar(janela.dados, extrato.resposta.linhas, ec)) depois da janela, e o motor com os títulos da janela ∪ os lidos pelo NSU",
+     composicaoC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) a leitura pelo NSU sem as NSUs do extrato (o título da venda de fora da janela some) é ACUSADA",
+     negativo(planta(rotaC, "nsusParaDetalhar(janela.dados, extrato.resposta.linhas, ec)", "nsusParaDetalhar(janela.dados, [], ec)"), composicaoC));
+  ok("conferencia-pinbank: (defeito plantado) o motor só com os títulos da janela (os lidos pelo NSU de fora) é ACUSADO",
+     negativo(planta(rotaC, "titulos: [...janela.dados, ...detalhes.dados.titulos],", "titulos: janela.dados,"), composicaoC));
+  ok("conferencia-pinbank: (defeito plantado) a leitura pelo NSU pelas NSUs da UNIÃO, sem o nsusParaDetalhar (o teto da união é o oráculo), é ACUSADA",
+     negativo(planta(rotaC, "lerDetalhesPorNsu(s, v.org_id, nsusParaDetalhar(janela.dados, extrato.resposta.linhas, ec))",
+       "lerDetalhesPorNsu(s, v.org_id, { janela: [...new Set([...janela.dados.map((t) => t.nsu ?? \"\"), ...extrato.resposta.linhas.map((l) => String(l.nsu))])], extrato: [] })"), composicaoC));
+
+  /* ── 16. toda leitura fixa a empresa DO VÍNCULO ─────────────────────────── */
+  const empresaFixaC = (rota: string, leit: string) => {
+    const x = semComC(leit);
+    const fs = [...x.matchAll(/\.from\("([a-z_]+)"\)/g)];
+    const r = semComC(rota);
+    return fs.length >= 5
+      && fs.every((m) => x.slice(m.index ?? 0).split("\n")[0].includes('.eq("org_id", orgId)'))
+      && ["export async function lerTitulosDaJanela(s: SupabaseClient, orgId: string,",
+        "export async function lerDetalhesPorNsu(s: SupabaseClient, orgId: string,",
+        "export async function lerVinculosDaEmpresa(s: SupabaseClient, orgId: string)"].every((a) => x.includes(a))
+      && /lerTitulosDaJanela\(s, v\.org_id, /.test(r) && /lerDetalhesPorNsu\(s, v\.org_id, /.test(r) && /lerVinculosDaEmpresa\(s, v\.org_id\)/.test(r);
+  };
+  ok("conferencia-pinbank: toda leitura da conferência fixa a empresa do vínculo (.eq(\"org_id\", orgId)), e a rota passa v.org_id", empresaFixaC(rotaC, leitC));
+  // A planta tem de ACONTECER (`planta` devolve null quando o texto mudou de forma — e o negativo reprova).
+  ok("conferencia-pinbank: (defeito plantado) os avisos lidos sem fixar a empresa (a da aba trocada no meio) é ACUSADO",
+     negativo(planta(leitC, 'autorizacao:payload->>codAutorizAdquirente", { count: "exact" }).eq("org_id", orgId)', 'autorizacao:payload->>codAutorizAdquirente", { count: "exact" })'),
+       (x) => empresaFixaC(rotaC, x)));
+  ok("conferencia-pinbank: (defeito plantado) a rota passando outra empresa à leitura é ACUSADA",
+     !empresaFixaC(rotaC.replace("lerVinculosDaEmpresa(s, v.org_id)", "lerVinculosDaEmpresa(s, orgAberta)"), leitC));
+
+  /* ── 17. UM rastro por chamada à Pinbank, sem valor ─────────────────────── */
+  const rastroC = (t: string) => {
+    const x = semComC(t);
+    const logs = [...x.matchAll(/console\.(error|info)\(([^;]*)\);/g)].map((m) => m[2]);
+    const pinIdx = x.indexOf("consultarExtratoPos(filtro");
+    const depois = [...x.matchAll(/console\.(error|info)\(/g)].filter((m) => (m.index ?? 0) > pinIdx).length;
+    return x.includes("const rastro = { user: auth.user.id, org: v.org_id, vinculo: v.id, ec, de, ate };")
+      && x.includes("const chamada = { ...rastro, linhas: extrato.resposta.linhas.length, codigo: extrato.resposta.codigo };")
+      && logs.some((l) => /\.\.\.rastro, resultado: "pinbank_falhou"/.test(l))
+      && logs.some((l) => /\.\.\.chamada, resultado: "extrato_recusado"/.test(l))
+      && logs.some((l) => /^"\[pinbank·conferencia\]", JSON\.stringify\(\{ \.\.\.chamada, resultado: "ok" \}\)$/.test(l))
+      && depois === 3
+      && logs.every((l) => !/relatorio|\bbruto|\bvalor|amount|linhas(?!\.length)\b(?!:)|janela\.dados|detalhes\.dados/.test(l.replace(/extrato\.resposta\.linhas\.length/g, "")));
+  };
+  ok("conferencia-pinbank: toda chamada à Pinbank deixa UM registro (quem, empresa, vínculo, EC, período, linhas, código) — sucesso e falha, sem valor", rastroC(rotaC));
+  ok("conferencia-pinbank: (defeito plantado) a chamada que deu certo sem registro é ACUSADA",
+     !rastroC(rotaC.replace('console.info("[pinbank·conferencia]", JSON.stringify({ ...chamada, resultado: "ok" }));', "")));
+  ok("conferencia-pinbank: (defeito plantado) o registro levando as linhas do extrato é ACUSADO",
+     !rastroC(rotaC.replace('JSON.stringify({ ...chamada, resultado: "ok" })', 'JSON.stringify({ ...chamada, resultado: "ok", vendas: extrato.resposta.linhas })')));
+  ok("conferencia-pinbank: (defeito plantado) a falha da Pinbank sem dizer quem pediu é ACUSADA",
+     !rastroC(rotaC.replace('JSON.stringify({ ...rastro, resultado: "pinbank_falhou", etapa: d.etapa })', 'JSON.stringify({ resultado: "pinbank_falhou", etapa: d.etapa })')));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

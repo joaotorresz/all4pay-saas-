@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cadastro · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+.t-linha{transition:background-color .15s ease;cursor:pointer}
+.t-linha:hover{background-color:var(--hover) !important}
+</style>
+</helmet>
+<div style="width: 1280px; height: 760px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px">
+    <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">Clientes</h1>
+    <div style="display: flex; gap: 10px">
+      <button type="button" style="height: 42px; min-width: 104px; padding: 0 36px; border: 1px solid rgba(59,67,50,0.28); border-radius: 999px; background: transparent; color: #3B4332; font: inherit; font-weight: 500; cursor: pointer">Exportar XLSX</button>
+      <button type="button" style="height: 42px; min-width: 104px; padding: 0 36px; border: 0; border-radius: 999px; background: #ECFD52; color: #3B4332; font: inherit; font-weight: 500; cursor: pointer">Novo cliente</button>
+    </div>
+  </div>
+
+  <div style="background: #f6f6f6; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap">
+      <label style="display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; background: #ffffff; border-radius: 999px; font-size: 14px; color: #6B7060; flex: 1; max-width: 360px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" placeholder="Buscar por nome ou CNPJ" aria-label="Buscar cliente" style="border: 0; outline: 0; background: transparent; font: inherit; color: #3B4332; width: 100%">
+      </label>
+      <label style="display: flex; align-items: center; height: 42px; padding: 0 16px; background: #ffffff; border-radius: 999px; font-size: 14px; color: #3B4332; gap: 8px">Cidade
+        <select aria-label="Filtrar por cidade" style="border: 0; background: transparent; font: inherit; color: #3B4332"><option>Todas</option><option>São Paulo</option><option>Curitiba</option></select>
+      </label>
+    </div>
+
+    <div style="background: #ffffff; border-radius: {{raio}}px; overflow: hidden">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+        <thead>
+          <tr>
+            <th style="width: 44px; padding: 14px 0 14px 20px"><input type="checkbox" aria-label="Selecionar todos"></th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Cliente</th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">CNPJ / CPF</th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Cidade</th>
+            <th style="text-align: right; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">A receber</th>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">ID</th>
+            <th style="width: 56px"><span style="position: absolute; left: -9999px">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{linhas}}" as="l" hint-placeholder-count="7">
+            <tr class="t-linha" style="background-color: {{l.fundo}}; border-top: {{espessuraDivisoria}}px solid {{divisoria}}">
+              <td style="padding: {{altura}}px 0 {{altura}}px 20px; box-shadow: {{l.marca}}"><input type="checkbox" aria-label="Selecionar {{l.nome}}"></td>
+              <td style="padding: {{altura}}px 20px">
+                <div style="display: flex; align-items: center; gap: 12px">
+                  <span style="width: 32px; height: 32px; border-radius: 999px; background: #f6f6f6; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500">{{l.ini}}</span>
+                  <div style="display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-weight: 500">{{l.nome}}</span>
+                    <span style="font-size: 12px; color: #6B7060">{{l.email}}</span>
+                  </div>
+                </div>
+              </td>
+              <td style="padding: {{altura}}px 20px; color: #6B7060; font-variant-numeric: tabular-nums">{{l.doc}}</td>
+              <td style="padding: {{altura}}px 20px; color: #6B7060">{{l.cidade}}</td>
+              <td style="padding: {{altura}}px 20px; text-align: right; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{l.i}}<span style="font-size: 11px; color: #6B7060">{{l.c}}</span></td>
+              <td style="padding: {{altura}}px 20px"><button type="button" aria-label="Copiar ID" style="border: 0; background: #f6f6f6; border-radius: 8px; padding: 4px 8px; font: inherit; font-size: 12px; color: #6B7060; cursor: pointer; font-variant-numeric: tabular-nums">{{l.id}}</button></td>
+              <td style="padding: {{altura}}px 12px; text-align: center"><button type="button" aria-label="Mais ações" style="width: 32px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: #6B7060; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg></button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #6B7060">
+      <span>Mostrando 1–7 de 48 clientes</span>
+      <div style="display: flex; gap: 6px">
+        <sc-for list="{{paginas}}" as="pg" hint-placeholder-count="4">
+          <button type="button" style="min-width: 36px; height: 36px; border: 0; border-radius: 999px; background: {{pg.fundo}}; color: #3B4332; font: inherit; font-size: 13px; cursor: pointer">{{pg.n}}</button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"zebra":{"editor":"boolean","default":false,"section":"Linhas"},"altura":{"editor":"range","default":12,"min":6,"max":22,"step":1,"unit":"px","section":"Linhas"},"divisoria":{"editor":"color","default":"#f4f4f4","section":"Linhas"},"paginaAtiva":{"editor":"color","default":"#ECFD52","section":"Paginação"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Forma"},"espessuraDivisoria": {"editor": "range", "default": 1, "min": 0, "max": 3, "step": 0.5, "unit": "px", "section": "Linhas"}, "corHover": {"editor": "color", "default": "#fafafa", "section": "Interação"}, "linhaSelecionada": {"editor": "select", "default": "4", "options": ["Nenhuma", "1", "2", "3", "4", "5", "6", "7"], "section": "Interação"}, "corSelecao": {"editor": "color", "default": "#f6f6f6", "section": "Interação"}, "marcaSelecao": {"editor": "color", "default": "#ECFD52", "section": "Interação"}, "espessuraMarca": {"editor": "range", "default": 3, "min": 0, "max": 8, "step": 1, "unit": "px", "section": "Interação"},"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const fmt = (v) => {
+      const [i, c] = v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
+      return { i: 'R$' + i, c: ',' + c };
+    };
+    const dados = [
+      ['Construtora Mar', 'financeiro@construtoramar.com.br', '12.345.678/0001-95', 'São Paulo', 22000, 'c8a1'],
+      ['Clínica Vida', 'contas@clinicavida.com.br', '23.456.789/0001-10', 'Curitiba', 6900, '4f20'],
+      ['Loja Centro', 'loja@centro.com.br', '34.567.890/0001-44', 'São Paulo', 8420.5, '9b37'],
+      ['Escola Horizonte', 'adm@horizonte.edu.br', '45.678.901/0001-02', 'Campinas', 13250, '1e6d'],
+      ['Mariana Costa', 'mariana.costa@email.com', '123.456.789-09', 'Santos', 1850, '7a02'],
+      ['Agro Serra', 'compras@agroserra.com.br', '56.789.012/0001-63', 'Ribeirão Preto', 31400.8, 'd513'],
+      ['Studio Aurora', 'oi@studioaurora.com.br', '67.890.123/0001-21', 'São Paulo', 0, '3c88'],
+    ];
+    const selLinha = String(p.linhaSelecionada ?? '4');
+    const marcaSel = 'inset ' + (p.espessuraMarca ?? 3) + 'px 0 0 ' + (p.marcaSelecao ?? '#ECFD52');
+    const fundoSel = p.corSelecao ?? '#f6f6f6';
+    const zebra = p.zebra ?? false;
+    const ativa = p.paginaAtiva ?? '#ECFD52';
+    return {
+      linhas: dados.map(([nome, email, doc, cidade, v, id], k) => ({
+        nome, email, doc, cidade, id, ini: nome.slice(0, 1), ...fmt(v),
+        fundo: String(k + 1) === selLinha ? fundoSel : (zebra && k % 2 ? '#fafafa' : '#ffffff'),
+        marca: String(k + 1) === selLinha ? marcaSel : 'none',
+      })),
+      paginas: ['1', '2', '3', '…', '7'].map((n, k) => ({ n, fundo: k === 0 ? ativa : '#ffffff' })),
+      altura: p.altura ?? 12,
+      divisoria: p.divisoria ?? '#f4f4f4',
+      raio: p.raio ?? 16,
+      espessuraDivisoria: p.espessuraDivisoria ?? 1,
+      corHover: p.corHover ?? '#fafafa',
+    };
+  }
+}
+</script>
+</body>
+</html>

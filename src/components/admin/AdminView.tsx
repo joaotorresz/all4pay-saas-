@@ -15,7 +15,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus } from "@/components/ui";
+import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus, DicaGrafico } from "@/components/ui";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
@@ -28,6 +28,7 @@ import {
   getPinbankAdmin, vincularPinbank, desvincularPinbank, type PinbankVinculoAdmin, type PinbankQuarentena,
   type SubStatus, type AdminPlan, type UserDetalhe, type AdminOrg,
 } from "@/lib/admin";
+import { RAIO_TOPO } from "@/lib/grafico";
 
 /*
  * ⚠️ **"Sem assinatura" precisou de linha PRÓPRIA.** A lista não tinha o estado
@@ -421,13 +422,15 @@ function GrowthCard() {
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
             <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
             <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
-              <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-                <div className="font-medium text-ink mb-1">{label}</div>
-                <div className="text-muted tabular-nums">novos: {payload.find((x: any) => x.dataKey === "novas")?.value ?? 0}</div>
-                <div className="text-muted tabular-nums">base: {payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0}</div>
-              </div>
+              <DicaGrafico
+                rotulo={label}
+                linhas={[
+                  { cor: "var(--color-lime)", nome: "Novos", valor: String(payload.find((x: any) => x.dataKey === "novas")?.value ?? 0) },
+                  { cor: "var(--color-ink)", nome: "Base", valor: String(payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0) },
+                ]}
+              />
             ) : null} />
-            <Bar dataKey="novas" radius={[3, 3, 0, 0]} fill="var(--color-lime)" />
+            <Bar dataKey="novas" radius={RAIO_TOPO} fill="var(--color-lime)" />
             <Line dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={1.6} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -459,10 +462,7 @@ function MrrCard() {
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
             <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => formatBRLCompact(Number(v))} />
             <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
-              <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-                <div className="font-medium text-ink mb-1">{label}</div>
-                <div className="text-muted tabular-nums">MRR {formatBRL(Number(payload[0].value))}</div>
-              </div>
+              <DicaGrafico rotulo={`${label} · MRR`} valor={Number(payload[0].value)} />
             ) : null} />
             <Line dataKey="mrr" stroke="var(--color-lime)" strokeWidth={1.8} dot={false} />
           </ComposedChart>
@@ -488,6 +488,7 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
   const [estab, setEstab] = React.useState("");
   const [chave, setChave] = React.useState("");
   const [nome, setNome] = React.useState("");
+  const [ecExtrato, setEcExtrato] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const recarregar = () => qc.invalidateQueries({ queryKey: ["admin-pinbank"] });
@@ -496,10 +497,12 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
     if (!org) { toast("Escolha a empresa."); return; }
     if (id == null && !chave.trim()) { toast("Informe o código do estabelecimento ou a chave do gateway."); return; }
     if (id != null && (!Number.isInteger(id) || id <= 0)) { toast("O código do estabelecimento é um número inteiro."); return; }
+    const ec = ecExtrato.trim() ? Number(ecExtrato.trim()) : null;
+    if (ec != null && (!Number.isSafeInteger(ec) || ec <= 0)) { toast("O código do estabelecimento no extrato (EC) é um número inteiro maior que zero."); return; }
     setBusy(true);
     try {
-      await vincularPinbank({ orgId: org, estabelecimentoId: id, chaveGateway: chave.trim() || null, nome: nome.trim() || null });
-      setEstab(""); setChave(""); setNome("");
+      await vincularPinbank({ orgId: org, estabelecimentoId: id, chaveGateway: chave.trim() || null, nome: nome.trim() || null, codigoCliente: ec });
+      setEstab(""); setChave(""); setNome(""); setEcExtrato("");
       toast("Vinculado. A empresa ativa em Integrações.");
       await recarregar();
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
@@ -519,13 +522,21 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
     <Card padded={false} info={{ titulo: "Maquininha Pinbank", oQue: "Liga o estabelecimento da Pinbank à empresa cliente. Sem o vínculo, as vendas da maquininha ficam na quarentena.", comoCalcula: "A quarentena agrupa os eventos recebidos de estabelecimentos sem vínculo. Vincular os entrega à empresa, que ativa em Integrações." }}>
       <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Maquininha Pinbank · vínculos e quarentena</div>
       <div className="p-5 flex flex-col gap-5">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
           <Select label="Empresa" value={org} onChange={setOrg} placeholder="Escolha" options={orgOpts} />
           <Input label="Código do estabelecimento" inputMode="numeric" className="tabular-nums" value={estab} onChange={(e) => setEstab(e.target.value)} />
           <Input label="Chave do gateway" value={chave} onChange={(e) => setChave(e.target.value)} />
           <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+          <Input label="Código do estabelecimento no extrato (EC)" inputMode="numeric" className="tabular-nums"
+            placeholder="ex.: 3510" value={ecExtrato} onChange={(e) => setEcExtrato(e.target.value)} />
           <Button variant="primary" disabled={busy} onClick={vincular}>Vincular</Button>
         </div>
+        <span className="text-caption text-muted max-w-[90ch]">
+          É o número que a Pinbank usa no extrato de vendas (ex.: 3510). Confira-o no extrato antes de vincular: ele pode
+          não ser o código da loja que aparece na quarentena. Sem ele, a empresa não consegue conferir as vendas com o
+          extrato. O mesmo EC não pode estar vinculado a duas empresas ao mesmo tempo; para corrigir um EC, desvincule e
+          vincule de novo.
+        </span>
 
         {q.isLoading ? <Skeleton className="h-16 w-full" /> : q.error ? (
           <span className="text-caption text-negative">Não foi possível ler: {(q.error as Error).message}</span>
@@ -538,6 +549,11 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
                   <div key={v.id} className={`flex flex-wrap items-center gap-3 py-2 text-caption ${i ? "border-t border-border-soft" : ""}`}>
                     <span className="text-ink font-medium min-w-[180px]">{v.nome ?? "—"}</span>
                     <span className="text-muted tabular-nums">{v.estabelecimentoId ?? v.chaveGateway}</span>
+                    {/* O EC que a conferência manda à Pinbank: à vista, para um dígito trocado não passar calado (D10).
+                        "—" é "não cadastrado"; o painel que não informa o EC não vira "—" (seria afirmar a ausência). */}
+                    <span className="text-muted tabular-nums" title="Código do estabelecimento no extrato da Pinbank">
+                      {v.codigoCliente === undefined ? "EC não informado pelo servidor" : <>EC {v.codigoCliente ?? "—"}</>}
+                    </span>
                     <span className="text-muted flex-1">{v.empresa}</span>
                     <StatusBadge tone={v.ativo ? "positive" : "warning"}>{v.ativo ? "Ativa" : "Aguardando a empresa"}</StatusBadge>
                     <button className="text-muted hover:text-ink underline" onClick={() => desvincular(v)}>Desvincular</button>

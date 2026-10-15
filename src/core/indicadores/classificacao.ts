@@ -66,6 +66,42 @@ export function ehTaxaAdquirencia(cat: string | null | undefined): boolean {
   return /\bmdr\b/.test(c) || (/adquiren/.test(c) && /tarifa|taxa/.test(c));
 }
 
+/**
+ * ⚠️ **ANTECIPAR RECEBÍVEL É CUSTO DE DINHEIRO, não de vender** (decisão do dono,
+ * 15/10/2026). A adquirente adianta o repasse do crédito e cobra pelo tempo —
+ * é juro, e vai ao Resultado Financeiro, abaixo do EBITDA. A taxa da
+ * maquininha (MDR) e a tarifa fixa por venda seguem custo de vender.
+ *
+ * Eram DUAS regras: o DRE jogava tudo que dizia "antecipa" na despesa
+ * variável, e a importação do extrato (`core/ingestao/taxonomia`) mandava a
+ * antecipação para o financeiro. Esta é a única, usada pelos dois
+ * classificadores do resultado. Medido antes de trocar (14/10/2026): nenhum
+ * lançamento nem categoria de produção dizia "antecipação" — nada já exibido
+ * se move.
+ *
+ * Exige a palavra inteira ("antecipação"): "despesa antecipada" é despesa paga
+ * adiantado (amortização), não recebível adiantado.
+ *
+ * ⚠️ **E exige o CONTEXTO do recebível** (recebível, cartão, adquirência,
+ * maquininha, crédito, repasse, ou a cobrança: taxa, custo, juros, deságio).
+ * "Antecipação" sozinha é palavra de muita coisa — de salário, de 13º, a
+ * fornecedor, de cliente, de lucros, de IRPJ —, e a primeira versão desta regra
+ * levava todas ao Resultado Financeiro (achado da revisão adversarial: o
+ * adiantamento de salário saía da folha e o EBITDA subia por ele; a
+ * antecipação mensal do IRPJ saía do imposto sobre o lucro). Sem o contexto, a
+ * categoria segue o caminho que já tinha. E a antecipação TRIBUTÁRIA ("ICMS
+ * antecipação", "IRPJ - antecipação mensal", DIFAL) é imposto mesmo com "custo"
+ * ou "taxa" no nome. ⚠️ O DAS do Simples NÃO entra na recusa: "das" é também a
+ * preposição ("Taxa de antecipação das vendas no cartão") e a recusaria — e o
+ * DAS antecipado não tem o contexto do recebível para casar de qualquer jeito.
+ */
+export function ehAntecipacaoDeRecebiveis(cat: string | null | undefined): boolean {
+  const c = chaveCategoria(cat);
+  return /\bantecipac(ao|oes)\b/.test(c)
+    && /\b(receb\w*|cart(ao|oes)|adquir\w*|maquin\w*|credito|repasses?|taxas?|custos?|juros?|desagio)\b/.test(c)
+    && !/\b(icms|impostos?|tribut\w*|iss|pis|cofins|ipi|st|irpj|csll|inss|difal|simples|fgts|salarios?|ferias|13o?|decimo|lucros?|clientes?|fornecedor(es)?)\b/.test(c);
+}
+
 /** A palavra que diz que o dinheiro VOLTOU: estorno, devolução, reembolso, reversão, restituição, ressarcimento. */
 const DEVOLUCAO = /estorno|devolu|reembols|revers|restitu|ressarc/;
 
@@ -119,6 +155,9 @@ export function ehLancamentoDeTaxaAdquirencia(texto: string | null | undefined, 
 export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {
   const c = (cat ?? "").toLowerCase();
   if (/imposto|tribut|\bdas\b|irpj|iss|icms|pis|cofins/.test(c)) return "impostos";
+  // A antecipação ANTES de folha e cmv: "Custo de antecipação" casaria "custo"
+  // (cmv) e é juro — a regra única em `ehAntecipacaoDeRecebiveis`.
+  if (ehAntecipacaoDeRecebiveis(c)) return "financeiro";
   // folha ANTES de cmv: "Custo de pessoal" casa "custo" (cmv) mas é folha; as
   // palavras de cmv (mercadoria/fornecedor/insumo/combust) não casam folha.
   if (/folha|sal[aá]r|pessoal|encargo|pró-labore|pro-labore/.test(c)) return "folha";

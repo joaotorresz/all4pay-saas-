@@ -3637,14 +3637,33 @@ const AGOSTO = janelaMes(2026, 7);
  */
 {
   const COR_POR_SINAL = /(?:>=|<=|>|<)\s*0(?:\.0+)?\s*\?\s*[^:;]{0,50}?(?:var\(--color-(?:positive|negative)\)|\btext-(?:positive|negative)\b)/;
+  // ⚠️ A ÚNICA exceção, declarada com motivo: a PÍLULA DE VARIAÇÃO da Home
+  // ("+2,4% em 30 dias"), que o dono desenhou no canvas "Quattro ERP ·
+  // Protótipo" (prancheta "Home · proposta snapshot", 14/10/2026) verde ao
+  // subir e vermelha ao cair. O NÚMERO ao lado continua na tinta. A exceção é
+  // por ARQUIVO e por FUNÇÃO (`Pilula`): uma segunda cor por sinal no mesmo
+  // arquivo, fora dela, continua reprovando.
+  // ⚠️ A SEGUNDA, também do dono: a pílula de variação das DICAS dos gráficos
+  // (`VariacaoPill`, canvas "Gráficos e tabelas", prancheta Biblioteca,
+  // 14/10/2026). Mesmo desenho e mesma regra — só a pílula pinta, o número
+  // da dica fica na tinta.
+  const EXCECOES_COR: Record<string, string> = {
+    [join("src", "components", "visao-geral", "HomeSnapshot.tsx")]: "function Pilula(",
+    [join("src", "components", "ui", "Grafico.tsx")]: "export function VariacaoPill(",
+  };
   const achados: string[] = [];
   const varrer = (dir: string) => {
     for (const nome of readdirSync(dir)) {
       const caminho = join(dir, nome);
       if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
       if (!/\.(ts|tsx)$/.test(nome)) continue;
-      readFileSync(caminho, "utf8").split("\n").forEach((linha, i) => {
+      const linhas = readFileSync(caminho, "utf8").split("\n");
+      const marco = EXCECOES_COR[caminho];
+      const ini = marco ? linhas.findIndex((l) => l.includes(marco)) : -1;
+      const fim = ini >= 0 ? linhas.findIndex((l, k) => k > ini && /^}/.test(l)) : -1;
+      linhas.forEach((linha, i) => {
         if (/^\s*(\/\/|\*)/.test(linha)) return; // comentário explica, não pinta
+        if (ini >= 0 && i > ini && i < fim) return; // a pílula declarada
         if (COR_POR_SINAL.test(linha)) achados.push(`${caminho}:${i + 1}`);
       });
     }
@@ -3652,6 +3671,9 @@ const AGOSTO = janelaMes(2026, 7);
   varrer("src");
   ok("cor: teto ZERO de número colorido pelo sinal (verde positivo / vermelho negativo)",
      achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("cor: a exceção da pílula existe e só cobre a função declarada",
+     Object.entries(EXCECOES_COR).every(([arq, marco]) => existsSync(arq) && readFileSync(arq, "utf8").includes(marco))
+     && Object.keys(EXCECOES_COR).length === 2);
   ok("cor: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
      COR_POR_SINAL.test('style={{ color: v >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}')
      && COR_POR_SINAL.test('className={x < 0 ? "text-negative" : "text-ink"}')
@@ -4353,8 +4375,48 @@ const AGOSTO = janelaMes(2026, 7);
      * filtro sem a revisão perceber.
      */
     const consultaTxt = ler("src/lib/supabase/consulta.ts");
+    const filtrosTxt = ler("src/lib/supabase/filtros.ts");
     ok("amostra: a saída do filtro é explícita e pesquisável",
-       /"incluir-amostra"/.test(consultaTxt) && /export function semAmostra/.test(consultaTxt));
+       /"incluir-amostra"/.test(filtrosTxt) && /export function semAmostra/.test(filtrosTxt));
+
+    /**
+     * ⚠️ **O FILTRO MORA NUM MÓDULO SEM `"use client"`.** Em `consulta.ts` (que é
+     * `"use client"`) todo export vira, para um route handler, uma referência
+     * de cliente — um proxy: `semAmostra()` LANÇA e `TETO_LINHAS` é uma função.
+     * Medido em `.next/server/app/api/recorrencias/run/route.js`. Typecheck,
+     * lint e as varreduras de texto passam assim mesmo; esta é a asserção que
+     * pega a diretiva voltando.
+     */
+    const temUseClient = (t: string) => /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(t);
+    ok("amostra: o módulo do filtro (lib/supabase/filtros.ts) NÃO é \"use client\" — o servidor o alcança",
+       filtrosTxt.length > 0 && !temUseClient(filtrosTxt));
+    ok("amostra: (defeito plantado) \"use client\" no topo de filtros.ts é ACUSADO",
+       temUseClient(`"use client";\n\n${filtrosTxt}`));
+    const segundaImplementacao = (t: string) =>
+      /function semAmostra\b/.test(t) || /function comTeto\b/.test(t) || /TETO_LINHAS\s*=/.test(t);
+    ok("amostra: consulta.ts não tem uma SEGUNDA implementação (semAmostra, comTeto, TETO_LINHAS =)",
+       consultaTxt.length > 0 && !segundaImplementacao(consultaTxt));
+    // Os três braços, um a um: cada cópia de volta em consulta.ts tem de ser acusada.
+    ok("amostra: (defeito plantado) uma segunda semAmostra em consulta.ts é ACUSADA",
+       segundaImplementacao(`${consultaTxt}\nexport function semAmostra(q) { return q; }`));
+    ok("amostra: (defeito plantado) um segundo comTeto em consulta.ts é ACUSADO",
+       segundaImplementacao(`${consultaTxt}\nexport function comTeto(q) { return q; }`));
+    ok("amostra: (defeito plantado) um segundo TETO_LINHAS = em consulta.ts é ACUSADO",
+       segundaImplementacao(`${consultaTxt}\nexport const TETO_LINHAS = 5000;`));
+    const reexportaSemAmostra = (t: string) =>
+      /export\s*\{[^}]*\bsemAmostra\b[^}]*\}\s*from\s*["']\.\/filtros["']/.test(t);
+    ok("amostra: consulta.ts reexporta semAmostra de ./filtros (com nome — export * não atravessa a fronteira de cliente)",
+       reexportaSemAmostra(consultaTxt));
+    {
+      // O negativo exige que a linha do reexport EXISTA e saia — senão ele passaria sobre o vazio.
+      const linhaDoReexport = /^export\s*\{[^}]*\}\s*from\s*["']\.\/filtros["'];?[ \t]*\n/m;
+      const semReexport = consultaTxt.replace(linhaDoReexport, "");
+      const comAsterisco = consultaTxt.replace(linhaDoReexport, 'export * from "./filtros";\n');
+      ok("amostra: (defeito plantado) consulta.ts sem o reexport de ./filtros é ACUSADO",
+         semReexport !== consultaTxt && !reexportaSemAmostra(semReexport));
+      ok("amostra: (defeito plantado) o reexport trocado por export * (que não atravessa a fronteira de cliente) é ACUSADO",
+         comAsterisco !== consultaTxt && !reexportaSemAmostra(comAsterisco));
+    }
 
     /**
      * ⚠️ **A assinatura da amostra tem de bater com a amostra.** A migration
@@ -4460,9 +4522,16 @@ const AGOSTO = janelaMes(2026, 7);
     ok("amostra: o banner diz o que fica, não só o que sai",
        /purgaveis/.test(bannerTxt) && /preservadas/.test(bannerTxt)
        && /ficam/.test(bannerTxt));
-    ok("amostra: o banner não tem como ser dispensado",
+    /*
+     * ⚠️ INVERTIDA, não apagada (decisão do dono, 14/10/2026): o banner agora
+     * FECHA — mas só pela sessão. A guarda passa a provar que o fechamento não
+     * é para sempre: a marca mora no sessionStorage e nunca no localStorage.
+     */
+    const fecharTxt = semComentario(ler("src/components/app/FecharAviso.tsx"));
+    ok("amostra: o banner fecha só pela sessão (volta na próxima)",
        /Esta organização contém dados de demonstração/.test(bannerTxt)
-       && !/dispensar|setFechado|onClose|onDismiss/i.test(semComentario(bannerTxt)));
+       && /useFechadoNaSessao/.test(bannerTxt)
+       && /sessionStorage/.test(fecharTxt) && !/localStorage/.test(fecharTxt));
 
     ok("escritor: nenhuma gravação cai só no dataset de demonstração",
        cegos.length === 0, cegos.join(" | "));

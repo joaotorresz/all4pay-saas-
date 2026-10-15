@@ -6,7 +6,10 @@
  * o mesmo caminho da produção (a porta `requisicaoPinbank`), sem rede e sem a
  * credencial de verdade. A "Pinbank" daqui abre o pedido com uma implementação
  * PRÓPRIA da cifra (node:crypto direto), confere os cabeçalhos e o `Data`, e
- * responde cifrado nos formatos que a doc permite ler.
+ * responde cifrado nos formatos que a doc permite ler. Como a Pinbank real
+ * (provado pelo A/B no dev em 13/10), ela só aceita a cifra do pedido INTEIRO,
+ * `{"Data":{…}}`: cifrado só o conteúdo do `Data`, responde aberto "Erro de
+ * Sistema.".
  *
  * A cifra também é conferida contra vetores do `openssl enc` (literais, gerados
  * fora deste código): duas implementações independentes, para a guarda não
@@ -111,7 +114,7 @@ const linha = (parcela: number) => ({
   ...PESSOAIS,
 });
 
-type FormatoSrv = "envelope-cifrado" | "data-cifrado" | "aberto-erro" | "chave-errada" | "ecoa-senha" | "ecoa-senha-longa" | "erro-500" | "sem-lista" | "gigante";
+type FormatoSrv = "envelope-cifrado" | "data-cifrado" | "aberto-erro" | "chave-errada" | "ecoa-senha" | "ecoa-senha-longa" | "erro-500" | "sem-lista" | "gigante" | "recusa-lista-vazia";
 const srv = {
   formato: "envelope-cifrado" as FormatoSrv,
   /** A "Pinbank" exige o RequestOrigin? (a doc diz que sim; a credencial veio sem ele) */
@@ -121,6 +124,8 @@ const srv = {
   hitsToken: 0,
   hitsMetodo: 0,
   ultimoPedido: null as null | Record<string, unknown>,
+  /** O texto que a "Pinbank" abriu da cifra, inteiro (para conferir o envelope). */
+  ultimoTexto: "",
   ultimoCaminho: "",
   cabecalhos: [] as Record<string, string | string[] | undefined>[],
   corposMetodo: [] as string[],
@@ -133,6 +138,7 @@ const resetSrv = (formato: FormatoSrv = "envelope-cifrado") => {
   srv.hitsToken = 0;
   srv.hitsMetodo = 0;
   srv.ultimoPedido = null;
+  srv.ultimoTexto = "";
   srv.ultimoCaminho = "";
   srv.cabecalhos = [];
   srv.corposMetodo = [];
@@ -175,16 +181,25 @@ const pinbank = https.createServer(
           || req.headers["content-type"] !== "application/json") {
           return json(401, { Message: "Authorization has been denied for this request." });
         }
-        let dados: Record<string, unknown>;
+        let aberto: unknown;
         try {
-          dados = JSON.parse(decifrar(JSON.parse(corpo).Data.Json)) as Record<string, unknown>;
+          srv.ultimoTexto = decifrar(JSON.parse(corpo).Data.Json);
+          aberto = JSON.parse(srv.ultimoTexto);
         } catch {
           return json(400, { Message: "Json inválido." });
         }
-        srv.ultimoPedido = dados;
+        // A Pinbank desserializa o texto aberto no pedido INTEIRO ({ Data }): sem
+        // o Data, o servidor quebra e responde aberto, sem nomear campo (13/10).
+        const dados = aberto && typeof aberto === "object" ? (aberto as { Data?: unknown }).Data : null;
+        if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+          return json(200, { Data: null, ResultCode: 2, Message: "Erro de Sistema.", ValidationData: { Errors: [] } });
+        }
+        srv.ultimoPedido = dados as Record<string, unknown>;
         const linhas = [linha(1), linha(2), linha(3)];
         if (srv.formato === "erro-500") return json(500, { Message: "Falha interna." });
         if (srv.formato === "sem-lista") return json(200, { Data: null, ResultCode: 2, Message: "Cliente sem permissão no canal." });
+        // A RECUSA com a lista VAZIA: o código de fora (4) e o Data cifrado com "[]" — a leitura junta os dois.
+        if (srv.formato === "recusa-lista-vazia") return json(200, { Data: { Json: cifrar("[]") }, ResultCode: 4, Message: "Autorização negada." });
         if (srv.formato === "gigante") return json(200, { Data: { Json: cifrar(JSON.stringify({ Data: linhas, ResultCode: 0, Message: "x".repeat(1_500_000) })) } });
         if (srv.formato === "aberto-erro") {
           return json(200, { Data: null, ResultCode: 1, Message: "Erro de validação.", ValidationData: { ResultCode: 1, Message: "Erro", Errors: [{ FieldName: "DataInicial", ErrorMessage: "Data inicial inválida." }] } });
@@ -268,8 +283,9 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   saidas.push(JSON.stringify(res));
   caso("(a1) consulta: 3 parcelas, formato cifrado, pela saída fixa",
     res.resumo.linhas === 3 && res.formato === "cifrado" && res.via === `127.0.0.1:${PP}`, JSON.stringify({ l: res.resumo.linhas, f: res.formato, v: res.via }));
-  caso("(a2) valores em CENTAVOS exatos (33,33 → 3333; 32,17 × 3 = 9651; taxa 1,16 × 3 = 348)",
-    res.resposta.linhas[0].brutoParcelaCentavos === 3333 && res.resumo.liquidoRepasseCentavos === 9651 && res.resumo.taxaAdmCentavos === 348,
+  caso("(a2) valores em CENTAVOS exatos (33,33 → 3333; 32,17 × 3 = 9651) e a taxa como MDR em PERCENTUAL (1,16 → 116 pontos-base, listada, nunca somada)",
+    res.resposta.linhas[0]?.brutoParcelaCentavos === 3333 && res.resumo.liquidoRepasseCentavos === 9651
+    && res.resposta.linhas.every((l) => l.mdrBp === 116) && JSON.stringify(res.resumo.mdrDistintosBp) === "[116]",
     JSON.stringify(res.resumo));
   caso("(a3) a data do repasse e a taxa chegam em todas as parcelas; a data VAZIA do .NET (0001-01-01) vira ausente",
     res.resumo.comDataDoRepasse === 3 && res.resumo.comTaxa === 3 && res.resposta.linhas.every((l) => l.dataCancelamento === null)
@@ -280,6 +296,12 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
     ped.CodigoCanal === CANAL && ped.CodigoCliente === 3510 && ped.DataInicial === "2026-10-01T00:00:00-03:00"
     && ped.DataFinal === "2026-10-08T23:59:59-03:00" && ped.Status === "Todos" && ped.MeioCaptura === "Todos" && ped.QuantidadeLinhasRetorno === 0,
     JSON.stringify(ped));
+  let textoAberto: unknown = null;
+  try { textoAberto = JSON.parse(srv.ultimoTexto); } catch { /* fica null */ }
+  caso("(z1) o que vai DENTRO da cifra é o pedido INTEIRO, {\"Data\":{…}}, e só ele (o conteúdo solto deu \"Erro de Sistema.\" em 13/10)",
+    !!textoAberto && typeof textoAberto === "object" && Object.keys(textoAberto).join() === "Data"
+    && (textoAberto as { Data: Record<string, unknown> }).Data.CodigoCliente === 3510 && res.envelope === "completo" && res.datas === "fuso",
+    srv.ultimoTexto.slice(0, 120));
   const cabMetodo = srv.cabecalhos[srv.cabecalhos.length - 1] ?? {};
   caso("(a5) cabeçalhos do método: Authorization = token_type + access_token; UserName; RequestOrigin; JSON",
     cabMetodo.authorization === "bearer tok-1" && cabMetodo.username === USUARIO && cabMetodo.requestorigin === ORIGEM
@@ -293,6 +315,11 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(a7) a chave só vai no corpo do TOKEN: nenhum cabeçalho e nenhum corpo de método a carrega (nem em base64)",
     srv.cabecalhos.every((h) => !JSON.stringify(h).includes(CHAVE) && !JSON.stringify(h).includes(Buffer.from(CHAVE).toString("base64")))
     && srv.corposMetodo.every((c) => !c.includes(CHAVE)), "");
+
+  caso("(y1) a resposta diz QUAL credencial respondeu: ambiente, canal e só o FIM da API Key (nunca ela inteira)",
+    res.identificacao?.ambiente === "dev" && res.identificacao?.canal === CANAL && res.identificacao?.usuarioFinal === `…${USUARIO.slice(-4)}`
+    && !JSON.stringify(res.identificacao).includes(USUARIO) && !JSON.stringify(res.identificacao).includes(CHAVE),
+    JSON.stringify(res.identificacao));
 
   /* (d) o token é reaproveitado */
   res = await m.api.consultarExtratoPos(filtro, o);
@@ -389,6 +416,20 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   caso("(s) resposta sem a lista Data (recusa sem Errors) sai com listaRecebida = false, código e mensagem",
     res.resposta.listaRecebida === false && res.resposta.linhas.length === 0 && res.resposta.codigo === 2 && /permissão/.test(res.resposta.mensagem ?? ""), JSON.stringify(res.resposta));
 
+  /* (s2) a RECUSA com a lista vazia: a conferência não a toma por "período sem vendas" */
+  resetSrv("recusa-lista-vazia");
+  res = await m.api.consultarExtratoPos(filtro, o);
+  saidas.push(JSON.stringify(res));
+  caso("(s2) recusa com ResultCode 4 e a lista VAZIA (Data cifrado \"[]\") chega com a lista e o código — e NÃO serve para conferir",
+    res.resposta.listaRecebida === true && res.resposta.linhas.length === 0 && res.resposta.codigo === 4 && res.resposta.erros.length === 0
+    && m.api.extratoServeParaConferir(res.resposta) === false, JSON.stringify(res.resposta));
+  const serve = (aberto: unknown) => m.api.extratoServeParaConferir(m.core.lerRespostaExtratoPos(aberto));
+  caso("(s3) serve para conferir só com a lista, sem erro e com ResultCode 0 (ou nenhum): {ResultCode 4, Data []} e {ResultCode 2, Data [linha]} são recusados; sem a lista ou com erro de validação, também",
+    serve({ ResultCode: 0, Message: "Sucesso.", Data: [] }) && serve({ Data: [linha(1)] }) && serve([]) && serve({ ResultCode: 0, Data: [linha(1)] })
+    && !serve({ ResultCode: 4, Message: "Autorização negada.", Data: [] }) && !serve({ ResultCode: 2, Message: "Erro de Sistema.", Data: [linha(1)] })
+    && !serve({ ResultCode: 0, Data: null }) && !serve({ ResultCode: 0 })
+    && !serve({ ResultCode: 0, Data: [], ValidationData: { Errors: [{ FieldName: "DataInicial", ErrorMessage: "Data inicial inválida." }] } }));
+
   /* (t) extrato maior que o teto: a leitura diz o que fazer */
   m.api.esquecerTokensPinbank();
   resetSrv("gigante");
@@ -432,6 +473,84 @@ async function casos(m: Mods, rotulo: string): Promise<Map<string, boolean>> {
   const cabSem = srv.cabecalhos[srv.cabecalhos.length - 1] ?? {};
   caso("(x2) sem RequestOrigin e a Pinbank não exigindo: a consulta passa, e o cabeçalho NÃO vai (nem vazio)",
     !e && !("requestorigin" in cabSem) && srv.hitsMetodo === 1, `${e?.message} cab=${JSON.stringify(cabSem)}`);
+
+  /* (y) o ambiente e o canal do LINK: a mesma credencial em outra base, nunca uma URL livre */
+  const emProd = m.api.credencialNoAmbiente(cred, "producao");
+  let eAmb: Error | null = null;
+  try { m.api.credencialNoAmbiente(cred, "https://evil.example"); } catch (x) { eAmb = x as Error; saidas.push(eAmb.message); }
+  caso("(y2) o ambiente do link troca SÓ a base, pela tabela fixa; vazio mantém a credencial; o que não é dev/producao é recusado",
+    emProd.base === "https://pinbank.com.br/services" && emProd.ambiente === "producao" && emProd.usuario === cred.usuario
+    && emProd.chave === cred.chave && emProd.canal === cred.canal && emProd.origem === cred.origem
+    && m.api.credencialNoAmbiente(cred, null) === cred && m.api.credencialNoAmbiente(cred, "  ") === cred
+    && !!eAmb && (eAmb as Error & { etapa?: string }).etapa === "configuracao" && !eAmb.message.includes("evil"),
+    eAmb?.message ?? JSON.stringify({ base: emProd.base, ambiente: emProd.ambiente }));
+  resetSrv();
+  e = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, ambiente: "producao" }));
+  const idErr = e ? m.api.descreverErroApi(e).identificacao : undefined;
+  caso("(y3) com ambiente=producao no link a chamada vai à base de PRODUÇÃO (não à da credencial), e a falha diz qual credencial e qual ambiente",
+    !!e && srv.hitsToken === 0 && srv.hitsMetodo === 0 && idErr?.ambiente === "producao" && idErr?.usuarioFinal === `…${USUARIO.slice(-4)}`,
+    `${e?.message} ${JSON.stringify(idErr)} token=${srv.hitsToken}`);
+  resetSrv();
+  m.api.esquecerTokensPinbank();
+  // Protegido: uma planta anterior (o mapa de métodos mutável) deixa esta chamada lançar.
+  let resY: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    resY = await m.api.consultarExtratoPos({ ...filtro, codigoCanal: 47 }, o);
+    saidas.push(JSON.stringify(resY));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  caso("(y4) o canal do link vai no pedido que a Pinbank abre E na identificação",
+    !!resY && srv.ultimoPedido?.CodigoCanal === 47 && resY.identificacao.canal === 47, JSON.stringify({ ped: srv.ultimoPedido?.CodigoCanal, id: resY?.identificacao }));
+
+  /* (z) as chaves do teste pelo link: envelope, datas e token */
+  resetSrv();
+  m.api.esquecerTokensPinbank();
+  let resZ: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    resZ = await m.api.consultarExtratoPos(filtro, { ...o, envelope: "interno" });
+    saidas.push(JSON.stringify(resZ));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  let soConteudo: unknown = null;
+  try { soConteudo = JSON.parse(srv.ultimoTexto); } catch { /* fica null */ }
+  caso("(z2) envelope=interno cifra só o conteúdo do Data (a comparação A/B), e a Pinbank que exige o envelope responde \"Erro de Sistema.\" sem lista",
+    !!resZ && resZ.envelope === "interno" && !!soConteudo && typeof soConteudo === "object" && !("Data" in soConteudo)
+    && (soConteudo as Record<string, unknown>).CodigoCliente === 3510
+    && resZ.resposta.codigo === 2 && resZ.resposta.mensagem === "Erro de Sistema." && !resZ.resposta.listaRecebida,
+    JSON.stringify({ env: resZ?.envelope, texto: srv.ultimoTexto.slice(0, 80), cod: resZ?.resposta.codigo }));
+  resetSrv();
+  m.api.esquecerTokensPinbank();
+  let resT: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    await m.api.consultarExtratoPos(filtro, o);
+    resT = await m.api.consultarExtratoPos(filtro, { ...o, tokenNovo: true });
+    saidas.push(JSON.stringify(resT));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  caso("(z3) token=novo pede um token NOVO mesmo com um válido guardado (prova que a senha atual ainda gera token)",
+    !!resT && srv.hitsToken === 2 && srv.hitsMetodo === 2 && resT.etapas[0]?.novo === true && resT.resumo.linhas === 3,
+    `token=${srv.hitsToken} metodo=${srv.hitsMetodo} etapa=${JSON.stringify(resT?.etapas[0])}`);
+  resetSrv();
+  let resU: Awaited<ReturnType<ModApi["consultarExtratoPos"]>> | null = null;
+  try {
+    resU = await m.api.consultarExtratoPos({ ...filtro, datas: "utc" }, o);
+    saidas.push(JSON.stringify(resU));
+  } catch (x) {
+    saidas.push(String((x as Error).message));
+  }
+  caso("(z4) datas=utc escreve o MESMO dia inteiro de Brasília em UTC, com milissegundos (a notação do exemplo da doc)",
+    !!resU && resU.datas === "utc" && srv.ultimoPedido?.DataInicial === "2026-10-01T03:00:00.000Z"
+    && srv.ultimoPedido?.DataFinal === "2026-10-09T02:59:59.000Z",
+    JSON.stringify({ de: srv.ultimoPedido?.DataInicial, ate: srv.ultimoPedido?.DataFinal }));
+  resetSrv();
+  const eEnv = await erro(() => m.api.consultarExtratoPos(filtro, { ...o, envelope: "tudo" }));
+  const eDat = await erro(() => m.api.consultarExtratoPos({ ...filtro, datas: "local" as "utc" }, o));
+  caso("(z5) envelope ou formato de data fora da lista é recusado ('pedido') ANTES da rede",
+    eEnv?.etapa === "pedido" && eDat?.etapa === "pedido" && srv.hitsToken === 0 && srv.hitsMetodo === 0,
+    `${eEnv?.message} | ${eDat?.message} | token=${srv.hitsToken}`);
 
   /* (o) sem a saída fixa, não sai */
   resetSrv();
@@ -481,13 +600,44 @@ const casosCore = (core: ModCore) => {
   const r = new Map<string, boolean>();
   const t = JSON.stringify(core.lerRespostaExtratoPos({ Data: [linha(1)] }));
   r.set("(núcleo) a leitura por lista de permitidos não deixa passar dado pessoal", VALORES_PESSOAIS.every((v) => !t.includes(v)) && !t.includes("444.555"));
+  // A conferência acha o PAR PROVÁVEL por estes dois números da TRANSAÇÃO (não
+  // de pessoa) quando o NSU do webhook e o do extrato não forem o mesmo número.
+  const comCodigos = core.lerRespostaExtratoPos({ Data: [linha(1)] }).linhas[0] as unknown as Record<string, unknown>;
+  r.set("(núcleo) o código de autorização e o NSU da loja passam (são da transação); os dados pessoais continuam fora",
+    comCodigos.codAutorizacao === "A1B2C3" && comCodigos.nsuLoja === "L-77"
+    && VALORES_PESSOAIS.every((v) => !JSON.stringify(comCodigos).includes(v)));
   const iso = "2026-11-04T00:00:00.1234567-03:00";
   const lida = core.lerRespostaExtratoPos({ Data: [{ ...linha(1), DataFuturaPagamento: iso, DataTransacao: "2026-10-05T14:22:10Z" }] }).linhas[0];
   r.set("(núcleo) data ISO com fração de segundo e fuso chega INTEIRA; texto que não é data vira ausente",
     lida.dataFuturaPagamento === iso && lida.dataTransacao === "2026-10-05T14:22:10Z"
     && core.lerRespostaExtratoPos({ Data: [{ ...linha(1), DataFuturaPagamento: "2026-11-04 e lixo" }] }).linhas[0].dataFuturaPagamento === null);
+  const base = { codigoCanal: 47, codigoCliente: 3510, de: "2025-07-30", ate: "2025-07-31", status: "Todos" as const, meio: "Todos" as const };
+  const fuso = core.pedidoExtratoPos(base);
+  const utc = core.pedidoExtratoPos({ ...base, datas: "utc" });
+  r.set("(núcleo) datas=utc é o MESMO instante em UTC; o padrão segue com -03:00",
+    fuso.DataInicial === "2025-07-30T00:00:00-03:00" && fuso.DataFinal === "2025-07-31T23:59:59-03:00"
+    && utc.DataInicial === "2025-07-30T03:00:00.000Z" && utc.DataFinal === "2025-08-01T02:59:59.000Z"
+    && Date.parse(String(utc.DataFinal)) === Date.parse(String(fuso.DataFinal))
+    && core.problemasDoFiltroExtratoPos({ ...base, datas: "local" as "utc" }).length === 1);
+  r.set("(núcleo) terminal ausente não vai no pedido; terminal VAZIO vai como \"\" (como o cliente PHP); terminal inválido é recusado",
+    !("IdTerminalPos" in fuso) && core.pedidoExtratoPos({ ...base, idTerminalPos: "" }).IdTerminalPos === ""
+    && core.problemasDoFiltroExtratoPos({ ...base, idTerminalPos: "" }).length === 0
+    && core.problemasDoFiltroExtratoPos({ ...base, idTerminalPos: "a b" }).length === 1);
   r.set("(núcleo) sem a lista Data, listaRecebida = false; com a lista vazia, true",
     core.lerRespostaExtratoPos({ Data: null, ResultCode: 2 }).listaRecebida === false && core.lerRespostaExtratoPos({ Data: [] }).listaRecebida === true);
+  // A Pinbank, 13/10/2026: "Taxa ADM seria o MDR, são todas em percentual". As âncoras são LITERAIS.
+  const mdr = (v: unknown) => core.linhaDoExtratoPos({ ...linha(1), ValorTaxaAdm: v }).mdrBp;
+  const semTaxa = { ...linha(1) } as Record<string, unknown>;
+  delete semTaxa.ValorTaxaAdm;
+  r.set("(núcleo) ValorTaxaAdm é o MDR em PERCENTUAL, em pontos-base: 2,65 → 265, 1,16 → 116, \"2.65\" → 265, 0 → 0, 100 → 10000; negativo, acima de 100% (150) e texto viram ausente — leitura em reais aceitaria todos",
+    mdr(2.65) === 265 && mdr(1.16) === 116 && mdr("2.65") === 265 && mdr(0) === 0 && mdr(100) === 10000
+    && mdr(-0.5) === null && mdr(150) === null && mdr(100.01) === null && mdr("x") === null
+    && core.linhaDoExtratoPos(semTaxa).mdrBp === null
+    && core.linhaDoExtratoPos({ ...linha(1), ValorTaxaMes: 1.5 }).taxaMesBp === 150);
+  const res = core.resumirExtratoPos([2.65, 2.65, 1.99, 2.65].map((v, i) => core.linhaDoExtratoPos({ ...linha(1), NsuOperacao: i + 1, ValorTaxaAdm: v })));
+  r.set("(núcleo) o resumo NUNCA soma a taxa (percentual não se soma): lista os MDR distintos [199, 265] e conta 4 parcelas com taxa",
+    JSON.stringify(res.mdrDistintosBp) === "[199,265]" && res.comTaxa === 4
+    && !Object.keys(res).some((k) => /taxa.*(centavos|reais)/i.test(k)));
   return r;
 };
 for (const [nome, okc] of casosCore(reais.core)) {
@@ -534,6 +684,51 @@ const PLANTAS: Planta[] = [
   { nome: "o ambiente vira URL livre", arquivo: "api",
     caso: "(l3) ambiente que não é dev/producao (ex.: uma URL) é recusado; canal não numérico também",
     de: 'if (ambiente !== "dev" && ambiente !== "producao") {', para: "if (false) {" },
+  { nome: "o ambiente do link vira URL livre", arquivo: "api",
+    caso: "(y2) o ambiente do link troca SÓ a base, pela tabela fixa; vazio mantém a credencial; o que não é dev/producao é recusado",
+    de: 'if (a !== "dev" && a !== "producao") {', para: "if (false) {" },
+  { nome: "o ambiente do link é ignorado (o teste roda onde a Vercel manda)", arquivo: "api",
+    caso: "(y3) com ambiente=producao no link a chamada vai à base de PRODUÇÃO (não à da credencial), e a falha diz qual credencial e qual ambiente",
+    de: "const cred = credencialNoAmbiente(o.credencial ?? lerCredencialPinbank(), o.ambiente);", para: "const cred = o.credencial ?? lerCredencialPinbank();" },
+  { nome: "a falha não diz qual credencial respondeu", arquivo: "api",
+    caso: "(y3) com ambiente=producao no link a chamada vai à base de PRODUÇÃO (não à da credencial), e a falha diz qual credencial e qual ambiente",
+    de: "if (e && typeof e === \"object\") Object.assign(e, { identificacao });", para: "" },
+  { nome: "a identificação mostra a API Key inteira", arquivo: "api",
+    caso: "(y1) a resposta diz QUAL credencial respondeu: ambiente, canal e só o FIM da API Key (nunca ela inteira)",
+    de: "usuarioFinal: `…${cred.usuario.slice(-4)}`", para: "usuarioFinal: cred.usuario" },
+  { nome: "a identificação mostra o canal da credencial, não o do pedido", arquivo: "api",
+    caso: "(y4) o canal do link vai no pedido que a Pinbank abre E na identificação",
+    de: "const identificacao = identificar(cred, f.codigoCanal);", para: "const identificacao = identificar(cred, cred.canal);" },
+  { nome: "cifra só o conteúdo do Data (o pedido que deu \"Erro de Sistema.\" em 13/10)", arquivo: "api",
+    caso: "(z1) o que vai DENTRO da cifra é o pedido INTEIRO, {\"Data\":{…}}, e só ele (o conteúdo solto deu \"Erro de Sistema.\" em 13/10)",
+    de: 'JSON.stringify(envelope === "interno" ? dados : { Data: dados })', para: "JSON.stringify(dados)" },
+  { nome: "envelope=interno do link é ignorado (a comparação A/B não compara nada)", arquivo: "api",
+    caso: "(z2) envelope=interno cifra só o conteúdo do Data (a comparação A/B), e a Pinbank que exige o envelope responde \"Erro de Sistema.\" sem lista",
+    de: 'JSON.stringify(envelope === "interno" ? dados : { Data: dados })', para: "JSON.stringify({ Data: dados })" },
+  { nome: "token=novo é ignorado (o token do cache esconde a senha trocada)", arquivo: "api",
+    caso: "(z3) token=novo pede um token NOVO mesmo com um válido guardado (prova que a senha atual ainda gera token)",
+    de: "tentativa > 0 || o.tokenNovo === true", para: "tentativa > 0" },
+  { nome: "a conferência aceita a recusa com a lista vazia (não olha o ResultCode)", arquivo: "api",
+    caso: "(s2) recusa com ResultCode 4 e a lista VAZIA (Data cifrado \"[]\") chega com a lista e o código — e NÃO serve para conferir",
+    de: "return r.erros.length === 0 && r.listaRecebida && (r.codigo == null || r.codigo === 0);", para: "return r.erros.length === 0 && r.listaRecebida;" },
+  { nome: "a conferência aceita a resposta SEM a lista", arquivo: "api",
+    caso: "(s3) serve para conferir só com a lista, sem erro e com ResultCode 0 (ou nenhum): {ResultCode 4, Data []} e {ResultCode 2, Data [linha]} são recusados; sem a lista ou com erro de validação, também",
+    de: "return r.erros.length === 0 && r.listaRecebida && (r.codigo == null || r.codigo === 0);", para: "return r.erros.length === 0 && (r.codigo == null || r.codigo === 0);" },
+  { nome: "a conferência aceita só o código 0 e recusa a lista solta (sem código)", arquivo: "api",
+    caso: "(s3) serve para conferir só com a lista, sem erro e com ResultCode 0 (ou nenhum): {ResultCode 4, Data []} e {ResultCode 2, Data [linha]} são recusados; sem a lista ou com erro de validação, também",
+    de: "return r.erros.length === 0 && r.listaRecebida && (r.codigo == null || r.codigo === 0);", para: "return r.erros.length === 0 && r.listaRecebida && r.codigo === 0;" },
+  { nome: "envelope fora da lista vira o padrão em silêncio", arquivo: "api",
+    caso: "(z5) envelope ou formato de data fora da lista é recusado ('pedido') ANTES da rede",
+    de: 'if (e !== "completo" && e !== "interno") {', para: "if (false) {" },
+  { nome: "datas=utc é ignorado (a notação não muda)", arquivo: "core",
+    caso: "(núcleo) datas=utc é o MESMO instante em UTC; o padrão segue com -03:00",
+    de: 'f.datas === "utc" ? new Date(s).toISOString() : s', para: "s" },
+  { nome: "datas=utc muda o INSTANTE (meia-noite UTC, não de Brasília)", arquivo: "core",
+    caso: "(núcleo) datas=utc é o MESMO instante em UTC; o padrão segue com -03:00",
+    de: 'f.datas === "utc" ? new Date(s).toISOString() : s', para: 'f.datas === "utc" ? s.replace("-03:00", ".000Z") : s' },
+  { nome: "terminal vazio some do pedido", arquivo: "core",
+    caso: "(núcleo) terminal ausente não vai no pedido; terminal VAZIO vai como \"\" (como o cliente PHP); terminal inválido é recusado",
+    de: "...(f.idTerminalPos != null ? { IdTerminalPos: f.idTerminalPos } : {}),", para: "...(f.idTerminalPos ? { IdTerminalPos: f.idTerminalPos } : {})," },
   { nome: "IV aleatório (a Pinbank não abriria)", arquivo: "cifra",
     caso: "(c1) a cifra bate com os vetores do openssl (AES-128-CBC, IV zero, PKCS#7, base64) e volta",
     de: "const IV_ZERO = Buffer.alloc(16, 0);", para: "const IV_ZERO = Buffer.from(Array.from({ length: 16 }, (_, i) => i));" },
@@ -569,6 +764,15 @@ const PLANTAS: Planta[] = [
   { nome: "a lista ausente vira lista vazia", arquivo: "core",
     caso: "(núcleo) sem a lista Data, listaRecebida = false; com a lista vazia, true",
     de: "listaRecebida: Array.isArray(env.Data),", para: "listaRecebida: true," },
+  { nome: "a taxa volta a ser lida como REAIS (centavos, sem o limite de percentual)", arquivo: "core",
+    caso: "(núcleo) ValorTaxaAdm é o MDR em PERCENTUAL, em pontos-base: 2,65 → 265, 1,16 → 116, \"2.65\" → 265, 0 → 0, 100 → 10000; negativo, acima de 100% (150) e texto viram ausente — leitura em reais aceitaria todos",
+    de: "mdrBp: pontosBase(l.ValorTaxaAdm),", para: "mdrBp: centavos(l.ValorTaxaAdm)," },
+  { nome: "o percentual sem tirar a dízima (1,16 × 100 = 115,99999999999999)", arquivo: "core",
+    caso: "(núcleo) ValorTaxaAdm é o MDR em PERCENTUAL, em pontos-base: 2,65 → 265, 1,16 → 116, \"2.65\" → 265, 0 → 0, 100 → 10000; negativo, acima de 100% (150) e texto viram ausente — leitura em reais aceitaria todos",
+    de: "const bp = Math.round(Number((n * 100).toFixed(6)));", para: "const bp = Math.trunc(n * 100);" },
+  { nome: "o resumo volta a SOMAR a taxa como se fosse dinheiro", arquivo: "core",
+    caso: "(núcleo) o resumo NUNCA soma a taxa (percentual não se soma): lista os MDR distintos [199, 265] e conta 4 parcelas com taxa",
+    de: "    mdrDistintosBp: mdrs.slice(0, 20),", para: "    mdrDistintosBp: mdrs.slice(0, 20),\n    taxaAdmCentavos: soma((l) => l.mdrBp)," },
   { nome: "a leitura copia a linha inteira (lista de proibidos)", arquivo: "core",
     caso: "(núcleo) a leitura por lista de permitidos não deixa passar dado pessoal",
     de: "export function linhaDoExtratoPos(l: Record<string, unknown>): LinhaExtratoPos {\n  return {",

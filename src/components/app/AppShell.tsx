@@ -2,7 +2,7 @@ import * as React from "react";
 import { ShellGate } from "@/components/app/shell-nesting";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
-import { AssistantWidget } from "@/components/app/AssistantWidget";
+import { ChatGlobal } from "@/components/ia/ChatGlobal";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { TituloDaAba } from "@/components/app/TituloDaAba";
@@ -28,6 +28,7 @@ export function AppShell({
   children,
   scopeClassName = "ds-visor",
   stickyHeader = true,
+  semCabecalho = false,
 }: {
   title: React.ReactNode;
   /**
@@ -43,6 +44,11 @@ export function AppShell({
   scopeClassName?: string;
   /** Header fixo no topo (padrão). `false` → rola junto com o conteúdo. */
   stickyHeader?: boolean;
+  /**
+   * Sem o cabeçalho da tela (título e ações). A Home do canvas abre direto na
+   * caixa da Quattro AI; o título continua indo para a ABA do navegador.
+   */
+  semCabecalho?: boolean;
 }) {
   const header = (
     <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
@@ -66,16 +72,15 @@ export function AppShell({
               `style` porque precisa sobreviver a qualquer fonte que o
               Laboratório injete — inclusive uma mais alta que a Roobert. */}
           <h1
-            className="m-0 text-[23px] text-ink truncate"
+            className="m-0 text-[30px] text-ink truncate"
             style={{
-              // PROPOSTA "Quattro · Home" (out/2026): título de tela em Roobert
-              // Black 23px, caixa de frase, tracking −0.01em — escolhido no
-              // canvas. Substitui o Centra em CAIXA ALTA.
-              fontFamily: '"Roobert", sans-serif',
-              fontWeight: 900,
-              letterSpacing: "-0.01em",
+              // TEMA ERP (canvas "Quattro ERP · Protótipo", 13/10/2026): título
+              // de tela em Centra No2 500, CAIXA ALTA, espaçamento 0, 30px.
+              fontFamily: "var(--font-display)",
+              fontWeight: 500,
+              letterSpacing: 0,
               lineHeight: 1.1,
-              textTransform: "none",
+              textTransform: "uppercase",
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",
             }}
@@ -104,7 +109,7 @@ export function AppShell({
           apontam para o mesmo caminho). `useSearchParams` exige a fronteira de
           Suspense — a mesma que o `PageGuide` já usa logo abaixo. */}
       <React.Suspense fallback={null}><Sidebar /></React.Suspense>
-      <main className={`a4p-app-card flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`} style={{ background: "var(--color-white)" }}>
+      <main className={`a4p-app-card flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`} style={{ background: "var(--a4p-app-bg)" }}>
         {/* ⚠️ ACIMA do cabeçalho e FORA da área que rola: o aviso de dado de
             demonstração precisa valer para toda tela e não pode sair de vista
             quando a pessoa rola o DRE — que é exatamente onde a contaminação
@@ -114,7 +119,7 @@ export function AppShell({
         {/* ⚠️ Abaixo do de amostra e acima do cabeçalho, fora da área que rola:
             os dois falam do ESTADO da conta, não do conteúdo da tela. */}
         <BannerAssinatura />
-        {stickyHeader && header}
+        {stickyHeader && !semCabecalho && header}
         {/*
           ⚠️ **A FOLGA DE BAIXO É O TAMANHO DO FAB, e era menor que ele.**
 
@@ -131,7 +136,7 @@ export function AppShell({
         */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-24">
           {/* Header rola junto com o conteúdo quando stickyHeader=false. */}
-          {!stickyHeader && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
+          {!stickyHeader && !semCabecalho && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
           {children}
         </div>
       </main>
@@ -155,7 +160,7 @@ export function AppShell({
       )}
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
-      <AssistantWidget />
+      <ChatGlobal />
       <ContatoDrawer />
       <NovaTransacao />
       <CriarNovo />

@@ -162,6 +162,25 @@ export function anteciparParaDiaUtil(data: string): string {
   return d;
 }
 
+/**
+ * O PRÓXIMO dia útil a partir de `data` (ela mesma, quando já é útil) — a
+ * contraparte de `anteciparParaDiaUtil`.
+ *
+ * Existe para o REPASSE da maquininha: a adquirente não paga em sábado,
+ * domingo ou feriado; o repasse que cairia ali sai no dia útil SEGUINTE. A
+ * folha antecipa (pagar depois do prazo é atraso); a adquirente posterga.
+ * Usa os feriados do ano da data E do seguinte: 31/12 de um sábado cai em
+ * janeiro.
+ */
+export function postergarParaDiaUtil(data: string): string {
+  const ano = Number(data.slice(0, 4));
+  const feriados = new Set([...feriadosNacionais(ano), ...feriadosNacionais(ano + 1)]);
+  let d = data;
+  // 10 tentativas cobrem qualquer emenda de feriado que exista.
+  for (let i = 0; i < 10 && !ehDiaUtil(d, feriados); i++) d = somar(d, 1);
+  return d;
+}
+
 /** O mês seguinte a uma competência "YYYY-MM". */
 export const mesSeguinte = (competencia: string): string => {
   const [a, m] = competencia.split("-").map(Number);

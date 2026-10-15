@@ -19,6 +19,7 @@ import { formatBRL, formatBRLCompact } from "@/lib/format";
 import {
   fonteMetrica, fonteSerie, fonteCategoria, type Widget, type EntradaFontes,
 } from "@/core/dashboards";
+import { RAIO_TOPO } from "@/lib/grafico";
 
 /** A rampa categórica do sistema (mesma do donut da Home). Vem dos tokens
  *  (`--a4p-cat-*`, feitos com `color-mix` sobre o acento e os neutros), não de
@@ -124,7 +125,7 @@ function Serie({ w, i }: { w: Extract<Widget, { tipo: "serie" }>; i: EntradaFont
                   tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
                   tickFormatter={(v: number) => formatBRLCompact(v)} />
                 <Tooltip formatter={(v: number) => formatBRL(v)} cursor={{ fill: "var(--color-surface-2)" }} contentStyle={tooltipStyle} />
-                <Bar dataKey="valor" radius={[4, 4, 0, 0]} {...chartAnim()}>
+                <Bar dataKey="valor" radius={RAIO_TOPO} {...chartAnim()}>
                   {dados.map((p, k) => (
                     // Número não tem cor por sinal (decisão de 30/09/2026): positivo em
                     // ink, negativo em areia — o eixo e o tooltip dizem a direção.

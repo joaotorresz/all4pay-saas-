@@ -136,6 +136,14 @@ tela mostra variação). Gráficos de entrada × saída: entradas em
 - **Cartão com alerta** (`MetricCard`/`HojeStat` do cockpit): o número fica
   em tinta; o alerta vira um PONTO ao lado do rótulo, e só quando é atenção ou
   crítico — "está tudo bem" não ganha marca.
+- ⚠️ **UMA exceção declarada (14/10/2026): a PÍLULA DE VARIAÇÃO da Home**
+  ("+2,4% em 30 dias"), verde ao subir e vermelha ao cair, desenhada pelo
+  dono no canvas. Só a função `Pilula` de `visao-geral/HomeSnapshot.tsx`;
+  o número ao lado segue em tinta e a guarda `cor:` reprova qualquer outra.
+- ⚠️ **SEGUNDA exceção declarada (14/10/2026): a PÍLULA DE VARIAÇÃO das dicas
+  dos gráficos** (`VariacaoPill` em `ui/Grafico.tsx`), desenhada pelo dono na
+  prancheta "Biblioteca de gráficos". Mesma regra: só a pílula pinta; o número
+  da dica fica em tinta. A guarda `cor:` conhece as duas e só as duas.
 - ⚠️ **A guarda antiga do DRE ("todo cartão recebe a cor de prejuízo") foi
   INVERTIDA, não apagada:** agora ela prova que a cor não voltou. E há
   **teto ZERO** no sistema inteiro (`cor:` em `npm run consistencia`) para cor
@@ -158,6 +166,57 @@ gente). Sem `cascade`: uma dependência inesperada falha nomeada, não some
 junto. Provada em `begin … rollback`: recusa com dado, apaga tudo vazia,
 reaplica sem erro, tira só o job da OWN do cron. As menções históricas a
 `own_*` nas seções abaixo ficam como registro.
+
+## ⚠️ O CANVAS "QUATTRO ERP · PROTÓTIPO" É A REGRA DE TUDO (decisão do dono, 13/10/2026)
+
+O quadro **Tema** e as telas do protótipo do canvas
+https://claude.ai/artifact/LGeYrJZoQqXG8gQCdpn1rD são a regra visual de
+**todo item do sistema** — cada tela, card, componente, botão, tabela, número
+e ícone, presente e futuro. A cópia versionada mora em
+**`docs/design/canvas-quattro-erp/`** (`tokens.json` + as pranchetas
+`.dc.html` + `README.md` com o como aplicar).
+
+- Tela nova ou alterada: abrir a prancheta equivalente e seguir a estrutura
+  dela; sem prancheta, montar com as MESMAS peças (Tema, Moldura, Valor R$,
+  Ícones). Nenhum valor fora de `tokens.json`.
+- Mudança visual nasce no CANVAS: o dono ajusta lá, e o PR que leva ao código
+  atualiza também a pasta. Pasta e canvas discordando → vale o canvas.
+- Esta seção vence todas as de identidade abaixo, inclusive as que dizem
+  "vence todas": elas descrevem estados anteriores.
+
+## ⚠️ TEMA ERP (13/10/2026) — vence TODA seção de identidade abaixo
+
+O dono fechou o design system no canvas **"Quattro ERP · Protótipo"** (quadro
+Tema, tokens `--erp-*`) e mandou para o sistema no ar **com os valores como
+estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
+
+| Papel | Valor |
+| --- | --- |
+| Fundo de página / área / moldura | `#FFFFFF` (`--color-surface-1/2`, `--a4p-chrome`, `--a4p-app-bg`) |
+| Cartão e menu | `#F6F6F6` (`--color-white`, `--erp-menu-fundo`) |
+| Borda | `#E2E2E2` · espessura **0** no card · linha do menu `#F4F4F4` |
+| Texto · texto 2 | `#3B4332` · `#6B7060` (inalterados) |
+| Primária / item ativo do menu / gráfico | lime `#ECFD52` |
+| Sucesso · alerta · perigo | `#35C759` · `#F2A519` · `#E5484D` |
+| Sombra | nenhuma · raio do card **20px** |
+| Botão | 42px de altura, padding 36px, mínimo 104px, pílula |
+| Título de tela | Centra No2 **500**, CAIXA ALTA, 30px, espaçamento **0** |
+| Número | Roobert 500, espaçamento 0, cor `#000000` (`--erp-num-cor`) |
+| Número PRINCIPAL da tela (`.a4p-heroi`) | Centra No2 500 |
+| R$ | mesmo corpo e cor do número · centavos a **50%** em `#6B7060` |
+| Logo | uma cor (`--erp-logo-cor` #3B4332), 92px, por máscara (`.a4p-logo-mono`) |
+| Menu | linha fina entre os grupos, 15px entre ícone e texto; Visão geral com o ícone de casa (a ilustração saiu em 14/10/2026) |
+
+- ⚠️ **O preto puro voltou, e só para o número** (`--erp-num-cor`,
+  `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
+  aceita `#000000` apenas nessas duas linhas de declaração. Sobre fundo escuro
+  ou lime o número herda a cor da superfície.
+- **Ícones: o sistema VOLTOU ao Hugeicons** (decisão do dono, 13/10/2026). O
+  conjunto duotônico (`icones-quattro.ts`) saiu do código; o `Icon` usa de novo
+  `CUSTOM_ICONS` + o set gerado em `solar-icons.ts`, com as mesmas chaves. A
+  prancheta "Ícones (61)" do canvas fica como registro do desenho, não como
+  regra.
+- O dark mode ficou como estava (o canvas não desenhou o tema escuro).
 
 ## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo
 
@@ -203,7 +262,202 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
-## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home")
+## ⚠️ GRÁFICOS E TABELAS (14/10/2026, canvas "Quattro ERP · Gráficos e tabelas")
+
+Canvas https://claude.ai/artifact/4rYK8bAPxeZsitQFAqozJU (cópia em
+`docs/design/canvas-quattro-erp/graficos/`). Levado ao sistema por PAPEL, não
+gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
+(só tema claro):
+
+- **Linha** em verde-base (`--color-chart-line` vira `--erp-graf-serie-1` no
+  `.ds-visor` claro), 1,6px; **área** lime; **comparação** (período anterior)
+  em areia tracejada 5/5 (`COMPARACAO`/`--erp-graf-comparacao`).
+- **Grade** `#E2E2E2` tracejada 3/4, por CSS sobre `.recharts-cartesian-grid`.
+- **Barra** com raio 6: `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` de
+  `lib/grafico.ts` (o Recharts só aceita raio por prop).
+- **Séries 1–5**: verde-base, areia, lime, cinza 2, cinza médio (`SERIES`).
+- **Tabela**: cabeçalho em micro-rótulo (11px, 500, caixa alta, 0,08em),
+  divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.
+- **Situação** (`StatusBadge`): PÍLULA com ponto — fundo da cor a 14%, texto
+  sempre verde-base. Isto inverte a regra antiga "nunca pílula preenchida".
+- **Biblioteca de gráficos (14/10/2026)** — prancheta que reúne os 24 modelos
+  (os 20 do print de referência + Linha, Barras, Velas e Rosca) num painel só.
+  Levada ao sistema por PAPEL:
+  - **Linha 1px, ponto 2px com borda 1px, selecionado 5px; grade CHEIA**
+    (deixou de ser tracejada); **comparação** areia 0,6px tracejada 2/2
+    (`COMPARACAO`).
+  - **Área em DEGRADÊ** lime de 50% a 5% — `DegradeArea` (`ui/Grafico.tsx`)
+    no `<defs>`; os seis degradês próprios das telas saíram.
+  - **UMA dica ao passar o mouse**: `DicaGrafico` / `DicaRecharts`
+    (`ui/Grafico.tsx`, tokens `--erp-dica-*`): branco, raio 16, padding 14/15,
+    sombra, rótulo 10px, valor 15px, 7px entre os dois. A dica padrão do
+    Recharts (`formatter`/`contentStyle`) ganha o mesmo desenho por CSS. ⚠️
+    Dica nova de gráfico nasce destas peças, nunca de um `div` próprio — eram
+    trinta desenhos diferentes.
+  - **Pílula de variação** (`VariacaoPill`): proporcional ao número (0,5),
+    texto centrado, frase dentro ("+4,1% sobre setembro"); sem base diz "sem
+    base de comparação", nunca "0,0%". Nos comparativos do fluxo de caixa ela
+    sai de (atual − anterior) ÷ |anterior|.
+  - Os 20 modelos novos (mapa de calor, radar, rosca de anéis, blocos, poupado
+    em líquido…) ficam como REFERÊNCIA na pasta do canvas: viram componente
+    quando uma tela os usar, com as mesmas peças.
+
+## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
+
+Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
+`HomeSnapshot.tsx` (sem o cabeçalho de tela: `AppShell semCabecalho`):
+
+- **Caixa da Quattro AI** em degradê lime × verde-base que ondula
+  (`.a4p-ondas-ia`, só tokens, para em `prefers-reduced-motion`); barra branca,
+  "+" cinza, enviar preto com ícone branco. Perguntar leva a `/quattro-ai?q=`,
+  que pergunta uma vez e limpa o endereço.
+- **"Seu painel"**: caixa consolidado e ARR com curva de 7 meses; burn,
+  runway, a pagar e a receber (próximos 30 dias). Todos com a variação de 30
+  dias. ⚠️ Os números saem de `core/home/snapshot` (só camada canônica): o
+  "há 30 dias" é a MESMA função sobre o estado reconstruído naquela data
+  (`estadoEm`: `saldoEm` + `hoje` recuado). Sem base, a pílula diz "sem base".
+- **Três colunas**: Precisa de ação (conciliação, NFs a emitir, compras a
+  aprovar, aprovações, boletos), Fechamento do mês (`close_tasks`) e
+  Relatórios fixados. ⚠️ "Seu dashboard" do canvas saiu "Seu painel" (guarda
+  de vocabulário da ONDA 11); "Contratos a aprovar" virou "Compras a aprovar"
+  (não há fila de aprovação de contrato).
+- `BRL compacto` ("R$312 mil") entrou no DS para os cards pequenos.
+- **Sugestões da caixa da IA são ADAPTATIVAS** (`core/home/sugestoes`, etapa 1):
+  até SEIS perguntas, escolhidas de um catálogo (41 de empresa + 6 de pessoa
+  física) por regras sobre o perfil do onboarding e os sinais da Home (runway,
+  burn, vencidos, pendências, dia do mês). No máximo duas por tema; o motivo vai
+  no `title` do chip. ⚠️ Sinal `null` não dispara regra. A IA, quando entrar,
+  só REORDENA ids deste catálogo. Guarda: `npm run home-sugestoes`.
+  As DUAS primeiras são fixas (`BASICAS`: saúde financeira e fechar o mês;
+  na PF, gastos e orçamento). No primeiro acesso só elas aparecem, com a
+  pergunta "O que é mais importante no seu dia a dia?" (`INTERESSES`); a
+  resposta e os cliques (preferência LOCAL de quem usa, `a4p_home_interesses`
+  e `a4p_home_cliques`) completam as outras quatro.
+- **Etapa 2 (14/10/2026): a Quattro AI ESCOLHE as outras quatro.** A Home manda
+  a `POST /api/ai/sugestoes` os sinais (`contextoParaIA`: ausente vai como
+  `null`, sem lançamento nem nome) e até 14 candidatas que as REGRAS deixaram de
+  pé (`candidatasParaIA`, sem as básicas); a IA devolve ids na ordem. ⚠️ A
+  ordem é DADO DE FORA, validada duas vezes (na rota, contra as candidatas; no
+  cliente, por `recomendarSugestoes(s, 6, preferidas)`): id inventado, de outro
+  público, básico, repetido ou desligado por sinal ausente não entra, e o teto
+  de dois por tema vale para ela. Sem chave, sem sessão (o `/api` é público e a
+  rota exige usuário fora da demonstração) ou com erro, vale a ordem das regras,
+  sem aviso na tela. Só pergunta depois do primeiro acesso; cache de 1 h no
+  React Query, por dia e por conjunto de candidatas.
+- **Etapa 3 (14/10/2026): a DESCRIÇÃO LIVRE do onboarding.** "Conte com suas
+  palavras" no passo Perfil (empresa) e em Gastos (PF), editável depois em
+  Configurações (`components/onboarding/DescricaoLivre.tsx`, `perfil.descricao`,
+  até 500 letras). Ela pesa de dois jeitos: pelas REGRAS (palavras ancoradas,
+  sem acento, por público → as mesmas `INTERESSES`, peso 1 contra 1,5 da
+  prioridade marcada, e não soma duas vezes com ela) e pela IA. ⚠️ Sai para a
+  IA só por `descricaoParaIA` (segredos cobertos pelo detector da Central de
+  Ajuda, espaços colapsados, teto, vazio = `null`) — no cliente E de novo na
+  rota, que a declara INFORMAÇÃO, nunca instrução. Guarda: `npm run home-sugestoes`.
+- **Etapa 4 (14/10/2026): prioridades e cliques no SERVIDOR.** Moram em
+  `org_state` (`a4p_home_preferencias`, mapa `usuário → preferências`, mesma
+  forma do histórico da IA) e seguem a pessoa entre computadores. Regras puras
+  em `core/home/preferencias`, servidor em `lib/home-preferencias`. ⚠️ O mapa é
+  regravado INTEIRO: só se envia depois de o servidor RESPONDER
+  (`hidratarComStatus`) e com o usuário conhecido — sem isso, gravar apagaria
+  os colegas. ⚠️ Os cliques sobem ADIADOS (30 s e na saída da página): cada
+  gravação vira evento na trilha. A cópia do dispositivo (`a4p_home_interesses`/
+  `a4p_home_cliques`) continua: é a reserva de quem não pode escrever
+  (`org_state` exige o papel de lançar) e o que a primeira conferência sobe.
+  Mescla: o servidor vence nas prioridades; cliques pelo MAIOR de cada lado.
+- **Etapa 5 (14/10/2026): o que a pessoa IGNORA desce.** Cada sugestão (menos
+  as básicas) guarda por quantos DIAS apareceu sem clique (`exibidas` em
+  `a4p_home_preferencias`, cópia em `a4p_home_exibidas`) — uma vez por dia,
+  só com a lista PARADA 8 s na tela. Três dias são de graça; depois −0,4 por
+  dia até o teto de 2 (com 1,2 nada mudava na tela: medido no navegador,
+  a ignorada seguia na frente). O clique zera. ⚠️ O
+  dia de HOJE só conta amanhã (senão os chips trocariam de lugar diante de
+  quem olha); 14 dias sem aparecer devolvem a chance; o desconto REORDENA,
+  nunca ressuscita o que um sinal desligou; regra de URGÊNCIA (peso ≥ 2,5:
+  caixa negativo, primeiro uso) não desce — medido: sem isso "Cobrir o
+  caixa" ignorada perdia a vaga do tema para "Fluxo 13 semanas". A IA recebe
+  as `ignoradas` e não traz de volta a que chegou ao teto (`cansada`).
+- **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
+  chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
+  com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a
+  pergunta: logo no alto, "Fechar chat" (e Esc), a pergunta num balão à
+  direita, a resposta solta com os números em CARTÕES (`BolhaResposta
+  variante="aberta"`) e "Veja tudo o que eu faço" com até 12 sugestões. É a
+  MESMA IA (`useChatIA`) e a conversa entra no histórico de `/quattro-ai`.
+  ⚠️ O chip mostra o RÓTULO CURTO com ícone (`ROTULOS`: "Fechar o mês"); a
+  pergunta inteira vai para a conversa, para o nome acessível e para o
+  `title`. A guarda exige rótulo e ícone EXISTENTE para cada pergunta. ⚠️ A
+  conversa sobe a ÚLTIMA PERGUNTA para o alto, nunca rola até o fim: o fim é
+  o "Veja tudo", e rolar até ele escondia a resposta que acabou de chegar.
+- ⚠️ **A IA MORA NUM LUGAR SÓ (decisão do dono, 14/10/2026):** o botão
+  flutuante "4" (`AssistantWidget`) e o painel lateral SAÍRAM, e a aba
+  "Conversa" de `/quattro-ai` também (`IAView` apagado). O chat em tela cheia
+  abre por cima de QUALQUER tela por `abrirChat()` (`ia/ChatGlobal.tsx`,
+  evento `a4p:open-ia`, montado no `AppShell`): o item "Quattro AI" do menu
+  (clique comum abre o chat; com Ctrl/⌘ segue o endereço), o ⌘K, a caixa da
+  Home e `/quattro-ai` (que abre o chat sozinho e guarda `?q=`). O histórico
+  veio para DENTRO do chat ("Conversas"). Os motores (Quant, Decisão, Risco,
+  Sugestões) seguem como abas de `/quattro-ai`. ⚠️ Pedido de abertura feito
+  antes de o anfitrião montar fica na fila (`pendente`): os efeitos do React
+  rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
+- **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
+  foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
+  ou setas do teclado; só a alça inicia, porque o card é link), dentro do
+  grupo, guardados no ARRANJO da pessoa (bullet abaixo; a ordem antiga de
+  `a4p_home_painel_ordem` é lida uma vez e migrada); a busca saiu da
+  barra de cima E do ⋮ (o ⌘K continua abrindo a paleta); a barra de cima e o
+  menu lateral não têm borda. Os avisos do topo (amostra e assinatura)
+  ganharam "x" que fecha SÓ NESTA SESSÃO (`FecharAviso.tsx`, sessionStorage):
+  voltam na próxima enquanto a causa existir — a guarda `amostra:` foi
+  invertida para provar isso.
+
+- **AJUSTAR PRIORIDADES PELA CONVERSA (14/10/2026, pedido do dono).** A Home
+  é montada por um CATÁLOGO de itens (`core/home/itens`: os seis números do
+  painel e os três blocos) e pelo ARRANJO de cada pessoa (ordem + escondidos),
+  que mora em `a4p_home_preferencias` (`layout`, servidor vence; cópia em
+  `a4p_home_layout`) e sobe na hora. "Ajustar prioridades" abre o chat de tela
+  cheia no modo AJUSTE (`ChatTelaCheia ajuste`, sem histórico) com "O que você
+  gostaria de ver primeiro quando abre o Quattro?"; o que a pessoa DIGITA vira
+  ações (primeiro · último · mostrar · esconder · restaurar) por
+  `POST /api/ai/home-layout` (pedido saneado por `descricaoParaIA`, tratado
+  como informação; ações validadas na rota E no cliente por `normalizarAcoes`)
+  ou, sem chave/sessão/erro, pelas regras de `interpretarPedido`. O chat só
+  anuncia o que DE FATO mudou (`descreverMudancas`/`respostaDoAjuste`) e
+  oferece Desfazer (arranjo E prioridades de antes). O texto também alimenta as
+  prioridades das sugestões (`interessesDaDescricao`). ⚠️ "Fluxo de caixa" é o
+  RELATÓRIO, não o caixa: o sinônimo mais longo casa primeiro. ⚠️ Item
+  escondido volta PELA CONVERSA ("traz o ARR de volta", "volta ao padrão"): a
+  linha "N itens escondidos · Mostrar de novo" SAIU da Home a pedido do dono
+  (14/10/2026), e a guarda prova que ela não voltou; item que
+  falta num arranjo guardado volta no lugar padrão DO SEU GRUPO, nunca some.
+  A seção do primeiro item visível vem primeiro ("o que precisa de ação
+  primeiro" sobe os blocos). Guardas: `npm run home-sugestoes` e a jornada
+  `npm run e2e -- home-ajuste`.
+- **BIBLIOTECA DE CARDS (14/10/2026, pedido do dono).** Os cards prontos do
+  cockpit (`core/home/biblioteca`, 92 — os 4 que repetem o painel ficam de fora
+  por `EQUIVALENTES_AO_PAINEL`) ficam OCULTOS e entram na Home pela conversa
+  ("coloca a inadimplência e o EBITDA", "bota os custos fixos em cima")
+  PRIMEIRO na página, DENTRO de "Seu painel", acima dos números fixos — não há
+  seção "Seus cards" (decisão do dono, 14/10/2026) —, com id `card:<id do cockpit>` no MESMO arranjo. Saem pelo
+  pedido ("tira…", "só…", "volta ao padrão") ou pelo X do card — card que sai
+  deixa a ordem, nunca vai para `ocultos`. "O que mais dá para colocar?" (ou
+  "quais de cobrança?") lista por tema o que ainda não está na Home, sem mudar
+  nada. O desenho é o do cockpit (`CATALOG_BY_ID` + `useCockpitCtx`, montado SÓ
+  com card na Home: os motores são pesados). ⚠️ Teto de 12 cards
+  (`TETO_CARDS`), dito no chat. ⚠️ Nenhum sinônimo aponta para dois itens
+  (o mais longo vence e o empate fica com o fixo: "contas bancárias" saiu do
+  caixa para o card alcançar) — a guarda também prova que TODO card do cockpit
+  tem casa e que todo card é alcançável pelo próprio sinônimo.
+  ⚠️ **Texto livre** (14/10/2026: "coloque as movimentações do meu mês" não
+  era entendido): sem sinônimo exato, `itemAproximado` casa por RAIZ (5
+  letras, sem palavras vazias nem verbos de pedido) e só devolve item quando
+  TODAS as raízes do pedido são dele e o candidato é único — saudação e
+  palavra solta ("mês") não escolhem item ao acaso. O NOME de um tema
+  ("Resumo executivo") lista os cards dele. ⚠️ Em produção o chat (Home e
+  ajuste) vem respondendo pelas REGRAS, não pelo Claude (14/10/2026: o
+  `ai_actions` só tem a resposta determinística) — conferir
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` na Vercel por `GET /api/inbox/ocr`.
+
+## ⚠️ HOME E MOLDURA DA PROPOSTA (07/10/2026, canvas "Quattro · Home") — a Home (`HomeProposta.tsx`) foi APAGADA em 14/10; a moldura fica
 
 O dono desenhou a Home no canvas de design e aprovou a prancheta "Proposta —
 nova Home". Ela foi levada ao código com a MOLDURA do app junto:
@@ -239,9 +493,27 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   Mesmo desenho e categorias da venda de maquininha (`core/vendas/pos`).
 - ⚠️ **Data e taxa do repasse são as do CONTRATO** (o webhook não as traz);
   taxa em branco = venda sem custo, com aviso. A conferência pelo `ExtratoPos`
-  é a próxima fase: o CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
+  existe SÓ DE LEITURA, e desligada (bullet abaixo); levar a data e a taxa do
+  extrato aos títulos é a PRÓXIMA fase (D5 de `docs/rodada-10/conferencia.md`,
+  com migration própria). O CLIENTE DA API existe (08/10/2026, `lib/pinbank/api.ts`
   + `cifra.ts`: token OAuth2, AES-128-CBC com IV zero, pela saída fixa) e é
-  testado por `GET /api/admin/pinbank-extrato`; falta a credencial de dev.
+  testado por `GET /api/admin/pinbank-extrato` (`&ambiente=dev|producao` e
+  `&canal=` no LINK, sem trocar variável nem refazer deploy; a resposta diz
+  QUAL credencial respondeu — `identificacao`). ⚠️ **O que se cifra é o
+  pedido INTEIRO, `{"Data":{…}}`** — PROVADO pelo A/B em 13/10/2026: com o
+  envelope, "Sucesso." e 18 parcelas no dev; só o conteúdo, "Erro de
+  Sistema." sem nomear campo. `&envelope=interno`, `&datas=utc`, `&token=novo`
+  e `&terminal=vazio` no link isolam cada hipótese sem deploy. ⚠️ **O
+  `ValorTaxaAdm` é o MDR em PERCENTUAL** (a Pinbank, 13/10/2026: "Taxa ADM
+  seria o MDR, são todas em percentual"; os 2,65 do dev são valores de teste):
+  é lido em PONTOS-BASE inteiros (`mdrBp`, 2,65% = 265; negativo ou acima de
+  100% = ausente) e o resumo do extrato LISTA os MDR distintos, nunca os soma.
+  A taxa do extrato NÃO substitui a do contrato no título (só é comparada).
+  O `ValorTaxaMes` é a ANTECIPAÇÃO ao mês (medido em produção em 14/10/2026:
+  zero no débito, 1,55% no crédito antecipado). ⚠️ São DUAS credenciais
+  (BaaS, canal 1919, de PRODUÇÃO, com ExtratoPos desde 14/10/2026 × "ERP
+  Integration Produção", canal 47, que é a de DEV), com senhas diferentes —
+  ver `docs/rodada-10/pinbank.md`.
   ⚠️ **Só LEITURA** (`METODOS_LEITURA`, teto ZERO no bloco `extrato-pos:`): a
   credencial emitida também paga, transfere e faz Pix. ⚠️ A linha do extrato é
   lida por LISTA DE PERMITIDOS — CPF/CNPJ, comprador e cartão nunca passam.
@@ -267,6 +539,171 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `core/indicadores/classificacao`, exceções por trecho (bloco
   `adq-extrato:`). Open Finance pende de decisão (ler a descrição contraria
   "traduzir não é classificar").
+- ⚠️ **TARIFA FIXA E ANTECIPAÇÃO** (14/10/2026, medidas no extrato de
+  PRODUÇÃO — `docs/rodada-10/pinbank.md`). A Pinbank tira uma tarifa FIXA por
+  VENDA (R$ 1,00) antes da taxa da forma, que é cobrada sobre o que sobra, e,
+  com o repasse antecipado, a antecipação do crédito ao mês pela regra do
+  simulador (`fracaoDeAntecipacao` em `core/vendas/pos`, UMA para o simulador
+  e o planejador). O vínculo guarda `tarifa_fixa` (em REAIS, até R$ 100 — a
+  única chave do `taxas` que não é fração) e `antecipacao_mes` (fração, de 0
+  a 10% ao mês: o "15,5" digitado no lugar de "1,55" levaria 137% da venda),
+  e o banco recusa a faixa errada, a chave fora do contrato e a taxa em texto
+  (migration `20261015120000`). O planejador (`custosDaVenda`, a MESMA conta
+  da conferência) lança por parcela a receita, a taxa (`:t`), a tarifa (`:f`,
+  na categoria da taxa) e a antecipação (`:a`, "Antecipação de recebíveis",
+  só antecipado E crédito; sem a cadastrada, a venda entra sem ela e AVISA) —
+  as três vendas reais fecham ao centavo no depositado (R$ 8,91, R$ 8,69 e
+  R$ 4,28 + R$ 4,28). ⚠️ **Da revisão adversarial:** a tarifa só no CARTÃO
+  (débito, crédito à vista e parcelado — as formas medidas; Pix, voucher e a
+  forma desconhecida entram sem ela, com aviso); a antecipação nunca passa do
+  que sobra depois da taxa (o líquido para em zero, com aviso); e o CUSTO se
+  reparte por `dividirCusto` — a divisão de `dividir` quando a última parte
+  fica de pé (a que bateu com o 2x da Pinbank, 0,11 + 0,10), e centavos
+  inteiros com o resto na última quando ela sairia NEGATIVA (R$ 1,00 de
+  tarifa em 18x lançava 17 × 0,06 = R$ 1,02). A venda da maquininha PRÓPRIA
+  (`titulosDaVendaPos`) segue em `dividir`: a mesma classe, anterior,
+  declarada, tarefa separada. ⚠️ **No DRE, a tarifa é Despesa Variável (com
+  o MDR) e a ANTECIPAÇÃO DE RECEBÍVEL é Resultado Financeiro** (decisão do
+  dono): regra única `ehAntecipacaoDeRecebiveis`, que exige o CONTEXTO do
+  recebível (recebível, cartão, adquirente, maquininha, crédito, repasse,
+  taxa, custo, juros, deságio) e recusa tributo, salário, 13º, lucros,
+  cliente e fornecedor — "antecipação" sozinha também é o adiantamento de
+  salário e o IRPJ mensal, e nenhum dos dois é juro; o que a regra não pega
+  segue a linha que já tinha. Guardas: bloco `pinbank (real)` do
+  `engine-audit` e `scripts/pinbank.sql` (caso 5c, 9 defeitos plantados).
+- ⚠️ **CONFERÊNCIA EXTRATO × SISTEMA** (13/10/2026, `docs/rodada-10/conferencia.md`):
+  o botão "Conferir com o extrato" no cartão da maquininha (só quem ADMINISTRA)
+  chama `POST /api/pinbank/conferencia`, que casa cada parcela do ExtratoPos com
+  o título `pinbank:<nsu>:<k>:r` (motor puro `core/pinbank/conferencia`) e
+  compara a DATA do repasse (por dia; fim de semana pago no dia útil seguinte é
+  conferido), o BRUTO da parcela (estimado por `dividir`, a regra do sistema) e
+  o cancelamento — esses decidem o STATUS. ⚠️ **A TAXA é comparada num eixo
+  SEPARADO** (`compararTaxa`): o MDR do extrato (pontos-base) × a taxa que a
+  empresa cadastrou no vínculo para o tipo (`DEBITO`→débito, `A VISTA`→crédito
+  à vista, `PARCEL…`→parcelado SÓ com mais de 1 parcela — em 1x é crédito à
+  vista, como `formaDaTransacao` lança —, pela mesma `taxaDaForma` do
+  planejador; o resto é "tipo desconhecido" e não se compara). Diferença de 1
+  ponto-base OU MAIS contra a taxa contratada EXATA (sem arredondar: 1,99%
+  contratado × 2,00% no extrato é diferente; 1,995% × 1,99% é igual) é
+  DIVERGÊNCIA (vista de divergências via `itemComDivergencia`
+  e `resumo.taxa.porResultado`) SEM mudar o status — data certa com taxa errada
+  aparece como as duas coisas; sem taxa cadastrada é "sem contrato", nunca
+  divergente; sem NSU em comum a taxa também fica sem conclusão (o extrato
+  pode nem ser desta maquininha); a da venda CANCELADA e a da venda com
+  ESTORNO PARCIAL (`estorno_parcial`) não são comparadas; com OUTRA maquininha
+  viva no mesmo EC, só a venda cujo aviso veio DESTA é comparada com as taxas
+  desta (`outra_maquininha` — cada irmã tem as suas); MDR cobrado com a
+  taxa cadastrada, a regra do sistema lançando taxa POSITIVA na parcela e SEM
+  o título de taxa no sistema é o sinal `taxa_sem_titulo_no_sistema` (vai à
+  vista de divergências — o MDR falta no resultado); cada título de taxa soma
+  UMA vez no resumo. A MESMA venda dividida em números de parcelas DIFERENTES
+  nos dois lados: a parcela sem par fica sem conclusão
+  (`parcelas_diferentes_no_extrato` — o valor dela pode estar nas parcelas do
+  outro lado; nunca "só no sistema"/"só no extrato", MESMO com o total
+  diferente — o atalho tem defeito plantado), a divergência fica nas parcelas
+  com par, e o total bruto da venda é comparado (a parcela que falta no
+  sistema conta ZERO, não anula a comparação). ⚠️ **O TOTAL DIFERENTE É
+  DIVERGÊNCIA**: `total_da_venda_diferente` leva TODAS as parcelas da venda à
+  vista de divergências, sem mudar o status, com a frase em toda situação —
+  o número de parcelas do sistema é DEDUZIDO da maior chave, e o título da
+  última parcela que some parecia "o sistema dividiu em menos". Com o MESMO
+  número de parcelas, a parcela que falta NOS DOIS lados (título perdido e
+  linha ausente) também dá o sinal às que conferem — e só ela: a parcela de
+  valor diferente não espalha o total. ⚠️ **A ANTECIPAÇÃO e o LÍQUIDO**
+  (1.6.0, 14/10/2026; 1.7.0 com a revisão adversarial): o `ValorTaxaMes` é
+  comparado com a antecipação cadastrada no crédito e com ZERO no débito,
+  como a taxa (eixo separado, as mesmas portas; sem repasse antecipado no
+  vínculo, `nao_antecipado`, nunca comparado); o crédito que nem a Pinbank
+  antecipou (zero no extrato) nem o sistema (sem título `:a` da venda) é
+  `venda_nao_antecipada` — a venda de ANTES de ligar o repasse antecipado não
+  é "diferente" do contrato de hoje —, e a tela diz o MOTIVO de não haver
+  número esperado (`esperada`: tipo de venda não identificado · repasse não
+  antecipado · não cadastrada). O líquido do extrato é o DEPÓSITO e é
+  comparado POR VENDA (a Pinbank reparte o líquido da venda: 428 + 428, não
+  428 + 429) — só a venda INTEIRA nos dois lados, contra receita − taxa −
+  tarifa − antecipação lançadas, com folga de 1 centavo POR PARCELA
+  (`toleranciaDoLiquido`: cada parcela arredonda os seus títulos, e a folga
+  fixa por venda acusaria o 12x que confere). Os dois diferentes vão à vista de divergências,
+  sem mudar o status; os títulos `:f` e `:a` são lidos cada um no SEU papel
+  (somados à taxa, o MDR lançado sairia errado). Nenhum valor em
+  reais sai do percentual. Nada do dinheiro é gravado (só o carimbo do limite). O EC sai
+  do VÍNCULO lido como a pessoa, nunca do pedido; sem NSU em comum, ou com o
+  extrato sem nenhuma parcela legível deste EC (`extrato_vazio`), nada é afirmado (só
+  o par provável); linha cancelada sem título nunca é "só no extrato"; a venda
+  que a Pinbank cancelou noutra parcela nunca deixa as parcelas que o extrato
+  não traz "só no sistema"; a desfeita no sistema e viva no extrato é
+  "cancelada só no sistema"; a linha ilegível SEM número protege as vendas do
+  mesmo dia OU do vizinho, e a linha SEM o código do estabelecimento protege
+  como ela (`linha_sem_estabelecimento` — os valores dela nunca entram num
+  item). Portões: `tem_permissao('administrar', org do vínculo)`,
+  `PINBANK_CONFERENCIA=ligado` E `PINBANK_API_AMBIENTE=producao` (lidos só em
+  `lib/pinbank/api.ts`). Muda quem pode chamar o quê: o PR esperou o OK do
+  dono. ⚠️ **Os portões da rota** (`core/pinbank/conferencia-portoes`): ResultCode
+  ≠ 0 é recusa mesmo com a lista vazia (`extratoServeParaConferir`); sem NENHUMA
+  venda em comum ATESTADA pelo aviso da Pinbank NO DIA DA VENDA
+  (`nsusEmComumAtestados`, `avisoNoDiaDaVenda`: o aviso só a plataforma grava;
+  o título a empresa também — um título forjado com o NSU alheio não atesta, e
+  o aviso de outro dia também não) a resposta leva só as CONTAGENS DE CADA LADO
+  (`relatorioParaEmpresa` → `RelatorioSoContagens`: sem situação, soma do
+  extrato, taxa ou aviso que cruze os lados — variar o que a empresa grava e
+  ler a contagem seria um oráculo sobre a loja alheia; o EC é digitado pela
+  plataforma, e um EC errado é o extrato de outra loja; a maquininha TROCADA
+  tem código e frase próprios, `maquininha_excluida`); as leituras ANTES do
+  portão também não são oráculo: um teto de NSUs POR LADO (nunca o da união),
+  primeiro os avisos e as transações, depois os títulos só da janela e das NSUs
+  do extrato com aviso desta empresa no dia da venda; a espera
+  de 60 s por empresa (429) é do BANCO (D4, `pinbank_conferencia_reservar`,
+  migration `20261014120000`: confere e carimba numa instrução, pela empresa do
+  vínculo vivo, ATIVO e com EC, com `administrar`; a recusa não carimba; o 429
+  leva o número e o botão espera ESSE tempo) e a rota FALHA FECHADA sem ele
+  (503 `limite_indisponivel`) — o `Map` por instância saiu. ⚠️ O evento da
+  trilha prova a RESERVA, não a chamada à Pinbank (membros da empresa inserem
+  em `audit_log`): o rastro da chamada é o log do servidor. O EC é visível
+  (três estados: o número, "—" e "não informado pelo servidor") e auditado no
+  `/admin`, e o banco recusa o EC vivo em DUAS empresas por RESTRIÇÃO DE
+  EXCLUSÃO (D10, `btree_gist` em `extensions`; vale em qualquer nível de
+  isolamento — o gatilho, sozinho, REPEATABLE READ atravessava; ele fica para
+  a frase), migration `20261014120100`; a mesma empresa com várias maquininhas
+  no EC pode; editar o EC é desvincular e vincular. ⚠️ **O ciclo do vínculo é
+  da PLATAFORMA** (gatilho `pinbank_vinculos_ciclo_da_plataforma`): o
+  desvinculado não volta, só `admin_pinbank_desvincular` exclui (marca local
+  à transação) e ele só se apaga junto com a empresa — a lixeira genérica
+  deixava o LANÇADOR desfazer o desvínculo da plataforma —, e `lixeira_listar`
+  não o lista. ⚠️ **O merge aplica as duas** (job `migrar` com segredo —
+  medido); a de D10 se recusa pela classe e pela contagem (o log do CI é
+  público) se produção já tiver o EC repetido, e aí TRAVA toda migration
+  seguinte até alguém resolver: rodar as consultas do doc (D2) no SQL Editor
+  ANTES do merge. Guarda `scripts/pinbank-limite-ec.sql` (CI, 27 defeitos
+  plantados). O interruptor segue desligado até D2 (a)/(d); toda leitura fixa o `org_id` do vínculo; o teto pede uma linha a
+  mais (o lote cheio de 100 vendas não é estouro) e as leituras que podem
+  passar do `max_rows` do PostgREST pedem `count: "exact"` (o corte do servidor
+  é volume alto, nunca conferência sobre o pedaço — conferir o `max_rows` de
+  produção antes de ligar); um registro no log por
+  chamada à Pinbank, sem valor. ⚠️ Código de servidor importa `semAmostra`/`TETO_LINHAS` de
+  `lib/supabase/filtros` — de `consulta.ts` (`"use client"`) eles são PROXIES
+  que lançam no route handler (medido no build; as rotas de cron que ainda
+  importam de lá são tarefa separada, com prova de carga). Guardas:
+  `npm run pinbank-conferencia` (125 casos, 160 defeitos plantados: 124 no
+  motor, 36 nos portões e na leitura — servidor de mentira com o `max_rows`
+  padrão de 1.000, e a COMPOSIÇÃO da rota num espelho que o `engine-audit` fixa
+  no texto dela) e o bloco `conferencia-pinbank:` do `engine-audit`. Uma
+  varredura aleatória (~220 mil cenários contra a verdade do gerador, fora do
+  `npm test`) achou o total escondido, a linha sem código e o dia vizinho; o
+  que ela ainda acha cai nos resíduos DECLARADOS no doc (NSU diferente nos
+  dois lados, linhas que discordam no número de parcelas). ⚠️ **A tela** mostra a taxa em
+  percentual com DUAS casas (0,01 ponto percentual a mais já é "taxa
+  diferente"; com uma casa, 1,99% e 2,00% sairiam iguais ao lado dela), o
+  motivo VERDADEIRO no lugar do valor ausente ("ausente do extrato" ≠ "não
+  informado pela Pinbank"), e — sem venda em comum atestada — o bloco "Só as
+  quantidades" (a legenda POR CAUSA: "outra loja" só sem venda em comum,
+  nunca na maquininha trocada), com o "i" do que cada lado conta ("linha(s) do extrato" ×
+  "parcela(s) válida(s) lançada(s)": só as vivas, de vendas não desfeitas), a
+  frase com as duas causas e o caminho do suporte, e a numeração das vendas
+  explicada (nunca "chave"). O relatório inteiro é sempre "conferido": os
+  estados "numeração não confirmada" e "extrato sem vendas" chegam à empresa
+  como "Só as quantidades", e a tela não tem selo para eles. E a falha sem a frase da rota (o
+  504 da plataforma) por `falhaDaConferenciaSemCorpo` — o número do status
+  fica no código, nunca na frase.
 - **Dado sensível** (BIN, PAN, assinatura) sai na rota e o banco recusa.
   `pinbank_eventos` fica fora da trilha genérica (registro bruto; evento sem
   vínculo não tem empresa) — declarado em `scripts/trilha-completa.sql`.
@@ -4101,6 +4538,13 @@ ele já tem.
   bloqueadas — trancá-las deixaria sem caminho para comprar.
 - Guarda na matriz: as rotas `pro: true` do `nav-data` e `ROTAS_PRO` têm de
   coincidir nos dois sentidos. Divergir = a cortina de volta.
+- ⚠️ **O ENTERPRISE LIBERA O PRO** (09/10/2026, migration `20261009120000`).
+  `meu_plano()` decidia por `ilike '%pro%'` no nome e o Enterprise — o plano
+  mais caro, o da única empresa pagante — não abria nenhuma tela Pro. Medido
+  no mesmo dia: NENHUMA empresa em produção tinha `pro = true`. Teste grátis
+  SEM plano continua Simples (decisão de produto); para liberar o Pro a uma
+  empresa, o caminho é o `/admin` (plano Pro ou Enterprise, status ativo).
+  Guarda `scripts/plano-pro.sql` no CI, com a regra antiga plantada dentro.
 
 ### ⚠️ Duas telas de "a receber" — POSIÇÃO × FLUXO
 
@@ -4250,7 +4694,12 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 
 ### Quattro AI — assistente flutuante (global) + ficha de contato
 
-A IA tem **duas portas para o MESMO cérebro**:
+> ⚠️ **HISTÓRICO.** Desde 14/10/2026 o FAB, o painel lateral e o `IAView` não
+> existem: a conversa é só o chat em tela cheia (ver "A IA MORA NUM LUGAR SÓ",
+> na seção da Home). O que segue sobre o cérebro (`useChatIA`, `chat-kit`,
+> `ia-conversas`) continua valendo; o que fala do FAB e do painel é registro.
+
+A IA tinha **duas portas para o MESMO cérebro**:
 
 1. **FAB flutuante** (`src/components/app/AssistantWidget.tsx`, montado no
    `AppShell`) — painel à direita, disponível em toda tela. Some em

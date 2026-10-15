@@ -18,6 +18,7 @@ import type { FDIPReport } from "@/core/fdip/types";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { reportar } from "@/lib/erros";
 import { OnboardingPessoal } from "./OnboardingPessoal";
+import { DescricaoLivre } from "./DescricaoLivre";
 
 const PASSOS = ["Dados básicos", "Perfil empresarial", "Governança", "Estrutura financeira", "Onboarding inteligente", "Análise IA", "Ambiente criado"];
 
@@ -413,6 +414,7 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
       <Campo label="Bancos utilizados"><ChipMulti options={BANCOS} value={perfil.bancos} onChange={(v) => set("bancos", v)} /></Campo>
       <Campo label="Meios de recebimento"><ChipMulti options={MEIOS} value={perfil.meiosRecebimento} onChange={(v) => set("meiosRecebimento", v)} /></Campo>
       <Campo label="Principais despesas"><ChipMulti options={DESPESAS} value={perfil.despesas} onChange={(v) => set("despesas", v)} /></Campo>
+      <DescricaoLivre value={perfil.descricao ?? ""} onChange={(v) => set("descricao", v)} />
     </>
   );
 }

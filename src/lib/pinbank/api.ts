@@ -6,9 +6,11 @@ import {
   problemasDoFiltroExtratoPos,
   resumirExtratoPos,
   type FiltroExtratoPos,
+  type FormatoDatasExtratoPos,
   type RespostaExtratoPos,
   type ResumoExtratoPos,
 } from "@/core/pinbank/extrato-pos";
+import type { MotivoConferenciaIndisponivel } from "@/core/pinbank/conferencia";
 
 /**
  * O CLIENTE DA API DA PINBANK (token OAuth2 + métodos `…Encrypted`). SERVER-ONLY.
@@ -36,6 +38,16 @@ import {
  * extrato não move nada) e porque o primeiro pedido terminou com resposta, não
  * no meio do caminho (`requisicaoPinbank` continua sem repetir pedido que saiu).
  * Com o token recém-gerado, 401 é recusa da credencial, e sobe como erro.
+ *
+ * ⚠️ **O que vai DENTRO da cifra é o pedido INTEIRO, `{"Data":{…}}`** — e o
+ * corpo é `{"Data":{"Json":"<cifra>"}}`. A doc mostra os dois exemplos lado a
+ * lado e não diz o que se cifra; até 13/10 cifrávamos só o conteúdo do `Data`, e
+ * a Pinbank respondeu "Erro de Sistema." assim que a permissão passou: o
+ * servidor abre a cifra, procura o `Data` e não acha. PROVADO pelo A/B no dev
+ * em 13/10 — com o envelope, "Sucesso." e 18 parcelas; sem ele, "Erro de
+ * Sistema.". Os clientes públicos da Pinbank (Node, PHP, Odoo) já cifravam o
+ * envelope. `envelope: "interno"` refaz o jeito antigo, só para a comparação
+ * pelo link.
  */
 
 export const VARIAVEIS_API_PINBANK = [
@@ -99,9 +111,14 @@ export class ErroApiPinbank extends Error {
 
 type Ambiente = Record<string, string | undefined>;
 
+/** As variáveis obrigatórias que FALTAM — os nomes, nunca os valores. */
+export function variaveisFaltando(env: Ambiente = process.env): string[] {
+  return VARIAVEIS_OBRIGATORIAS.filter((n) => !env[n]?.trim());
+}
+
 /** Lê a credencial das variáveis. O erro nomeia as VARIÁVEIS, nunca os valores. */
 export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPinbank {
-  const faltam = VARIAVEIS_OBRIGATORIAS.filter((n) => !env[n]?.trim());
+  const faltam = variaveisFaltando(env);
   if (faltam.length) {
     throw new ErroApiPinbank("configuracao", `Faltam na Vercel (Production): ${faltam.join(", ")}.`);
   }
@@ -128,6 +145,27 @@ export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPin
   };
 }
 
+/**
+ * A CONFERÊNCIA extrato × sistema pode rodar? Três perguntas, nesta ordem:
+ *
+ *   1. `PINBANK_CONFERENCIA=ligado` — a Quattro liberou (nasce DESLIGADA);
+ *   2. a credencial está configurada (`variaveisFaltando`, a MESMA conta da
+ *      leitura da credencial);
+ *   3. `PINBANK_API_AMBIENTE=producao` — com a credencial de TESTE a conferência
+ *      compararia as vendas reais da empresa com as vendas de uma loja de teste,
+ *      e acusaria todas como ausentes.
+ *
+ * ⚠️ É o ÚNICO lugar que lê `PINBANK_CONFERENCIA` (guarda no `engine-audit`). A
+ * resposta é um CÓDIGO: nunca devolve nem registra o valor de variável nenhuma.
+ */
+export function conferenciaPinbankLiberada(env: Ambiente = process.env):
+  { liberada: true } | { liberada: false; codigo: MotivoConferenciaIndisponivel } {
+  if (env.PINBANK_CONFERENCIA !== "ligado") return { liberada: false, codigo: "desligada" };
+  if (variaveisFaltando(env).length) return { liberada: false, codigo: "sem_configuracao" };
+  if ((env.PINBANK_API_AMBIENTE ?? "").trim() !== "producao") return { liberada: false, codigo: "ambiente_teste" };
+  return { liberada: true };
+}
+
 export interface OpcoesApi {
   /** Padrão: lerCredencialPinbank(). */
   credencial?: CredencialPinbank;
@@ -139,6 +177,65 @@ export interface OpcoesApi {
   agora?: () => number;
   /** Teto da resposta do MÉTODO. Padrão 32 MB (um mês de extrato de muitas maquininhas). */
   maxBytesResposta?: number;
+  /**
+   * Só a rota de teste: troca a BASE (`dev` | `producao`) mantendo a credencial.
+   * Sem isso, testar a mesma credencial nos dois ambientes era trocar uma
+   * variável e refazer o deploy a cada rodada — e um deploy esquecido fazia o
+   * teste rodar no ambiente errado sem nada dizer. Fora da lista, é recusado
+   * (`credencialNoAmbiente`): nunca uma URL livre.
+   */
+  ambiente?: string | null;
+  /**
+   * Só a rota de teste: o que vai DENTRO da cifra. `completo` (padrão) cifra o
+   * pedido inteiro; `interno`, só o conteúdo do `Data` — o jeito anterior, para
+   * a comparação A/B. Fora da lista, recusado antes da rede.
+   */
+  envelope?: string | null;
+  /**
+   * Só a rota de teste: pede um token NOVO mesmo com um válido guardado. O
+   * token é a única chamada que prova a SENHA atual — com o do cache, uma senha
+   * trocada pela Pinbank só apareceria como cifra que ela não abre.
+   */
+  tokenNovo?: boolean;
+}
+
+/** O que vai dentro da cifra: o pedido inteiro (`completo`) ou só o conteúdo do `Data` (`interno`). */
+export type EnvelopeCifra = "completo" | "interno";
+
+/** O envelope pedido pelo link: vazio = `completo`; fora da lista, recusado. */
+export function envelopeDaCifra(v?: string | null): EnvelopeCifra {
+  const e = (v ?? "").trim();
+  if (!e) return "completo";
+  if (e !== "completo" && e !== "interno") {
+    throw new ErroApiPinbank("pedido", "O envelope do teste deve ser completo ou interno.");
+  }
+  return e;
+}
+
+/**
+ * O que a tela pode mostrar para dizer QUAL credencial respondeu: o ambiente, o
+ * canal e os 4 últimos caracteres da API Key (o `UserName` é identificador, não
+ * segredo — a senha nunca entra aqui). Medido: sem isso, duas credenciais da
+ * mesma empresa davam respostas iguais e ninguém sabia qual estava na Vercel.
+ */
+export interface IdentificacaoPinbank {
+  ambiente: AmbienteApi;
+  canal: number;
+  usuarioFinal: string;
+}
+
+/** A mesma credencial em outro ambiente — só `dev` ou `producao`, pela base FIXA da porta. */
+export function credencialNoAmbiente(cred: CredencialPinbank, ambiente?: string | null): CredencialPinbank {
+  const a = (ambiente ?? "").trim();
+  if (!a) return cred;
+  if (a !== "dev" && a !== "producao") {
+    throw new ErroApiPinbank("configuracao", "O ambiente do teste deve ser dev ou producao.");
+  }
+  return { ...cred, ambiente: a, base: BASES_API_PINBANK[a] };
+}
+
+function identificar(cred: CredencialPinbank, canal: number): IdentificacaoPinbank {
+  return { ambiente: cred.ambiente, canal, usuarioFinal: `…${cred.usuario.slice(-4)}` };
 }
 
 /* ─────────────────────────────── o token ─────────────────────────────── */
@@ -234,6 +331,8 @@ export interface LeituraPinbank {
   campos: string[];
   via: string;
   etapas: { etapa: "token" | "metodo"; ms: number; status?: number; novo?: boolean }[];
+  /** O que foi cifrado (o pedido inteiro ou só o conteúdo do `Data`). */
+  envelope: EnvelopeCifra;
 }
 
 /** Abre o corpo: `{ Data: { Json: "<cifrado>" } }` vira o envelope aberto; o resto passa como veio. */
@@ -271,11 +370,12 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
   if (!CAMINHOS_LEITURA.includes(caminho)) {
     throw new ErroApiPinbank("pedido", `Caminho fora da lista de leitura: ${caminho}.`);
   }
+  const envelope = envelopeDaCifra(o.envelope);
   const cred = o.credencial ?? lerCredencialPinbank();
   const url = `${cred.base}/api/${caminho}Encrypted`;
   let cifrado: string;
   try {
-    cifrado = cifrarPinbank(JSON.stringify(dados), cred.chave);
+    cifrado = cifrarPinbank(JSON.stringify(envelope === "interno" ? dados : { Data: dados }), cred.chave);
   } catch (e) {
     // A cifra diz o TAMANHO da chave errada — é o diagnóstico; não pode virar "falha inesperada".
     throw new ErroApiPinbank("configuracao", semSegredo((e as Error).message, cred));
@@ -284,7 +384,7 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
   const etapas: LeituraPinbank["etapas"] = [];
 
   for (let tentativa = 0; tentativa < 2; tentativa++) {
-    const t = await obterToken(cred, o, tentativa > 0);
+    const t = await obterToken(cred, o, tentativa > 0 || o.tokenNovo === true);
     etapas.push({ etapa: "token", ms: t.ms, novo: t.novo });
     const inicio = Date.now();
     let r: RespostaPinbank;
@@ -329,7 +429,7 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
     }
     try {
       const { aberto, formato, campos } = abrirCorpoPinbank(r.corpo.toString("utf8"), cred.chave);
-      return { aberto, formato, campos, via: r.via, etapas };
+      return { aberto, formato, campos, via: r.via, etapas, envelope };
     } catch (e) {
       throw new ErroApiPinbank("resposta", semSegredo((e as Error).message, cred), r.status);
     }
@@ -342,6 +442,8 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
 
 export interface ExtratoPosConsultado {
   ambiente: AmbienteApi;
+  /** Qual credencial respondeu (ambiente, canal, fim da API Key) — sem segredo. */
+  identificacao: IdentificacaoPinbank;
   /** O pedido saiu sem o RequestOrigin (a credencial ainda não o tem). */
   semRequestOrigin: boolean;
   resposta: RespostaExtratoPos;
@@ -350,20 +452,33 @@ export interface ExtratoPosConsultado {
   campos: string[];
   via: string;
   etapas: LeituraPinbank["etapas"];
+  /** Como o pedido saiu: o que foi cifrado e como as datas foram escritas. */
+  envelope: EnvelopeCifra;
+  datas: FormatoDatasExtratoPos;
 }
 
 /** O filtro sem o canal: o canal vem da credencial (`PINBANK_CODIGO_CANAL`). */
 export type FiltroExtratoPosSemCanal = Omit<FiltroExtratoPos, "codigoCanal"> & { codigoCanal?: number };
 
 export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: OpcoesApi = {}): Promise<ExtratoPosConsultado> {
-  const cred = o.credencial ?? lerCredencialPinbank();
+  const cred = credencialNoAmbiente(o.credencial ?? lerCredencialPinbank(), o.ambiente);
   const f: FiltroExtratoPos = { ...filtro, codigoCanal: filtro.codigoCanal ?? cred.canal };
-  const problemas = problemasDoFiltroExtratoPos(f);
-  if (problemas.length) throw new ErroApiPinbank("pedido", problemas.join(" "));
-  const leitura = await chamarLeituraPinbank("ExtratoPos", pedidoExtratoPos(f), { ...o, credencial: cred });
+  const identificacao = identificar(cred, f.codigoCanal);
+  let leitura: LeituraPinbank;
+  try {
+    const problemas = problemasDoFiltroExtratoPos(f);
+    if (problemas.length) throw new ErroApiPinbank("pedido", problemas.join(" "));
+    leitura = await chamarLeituraPinbank("ExtratoPos", pedidoExtratoPos(f), { ...o, credencial: cred });
+  } catch (e) {
+    // A falha também diz QUAL credencial e QUAL ambiente: um erro de token no
+    // dev e um no ambiente errado eram indistinguíveis de fora.
+    if (e && typeof e === "object") Object.assign(e, { identificacao });
+    throw e;
+  }
   const resposta = lerRespostaExtratoPos(leitura.aberto);
   return {
     ambiente: cred.ambiente,
+    identificacao,
     semRequestOrigin: !cred.origem,
     resposta,
     resumo: resumirExtratoPos(resposta.linhas),
@@ -371,15 +486,34 @@ export async function consultarExtratoPos(filtro: FiltroExtratoPosSemCanal, o: O
     campos: leitura.campos,
     via: leitura.via,
     etapas: leitura.etapas,
+    envelope: leitura.envelope,
+    datas: f.datas ?? "fuso",
   };
 }
 
+/**
+ * A resposta do extrato SERVE para CONFERIR? As três coisas juntas: nenhum erro
+ * de validação, a LISTA veio, e o `ResultCode` é o de sucesso (0) — ou não veio
+ * código nenhum (a lista solta, que a leitura também aceita).
+ *
+ * ⚠️ A recusa da Pinbank pode trazer a lista VAZIA: o `ResultCode` de fora
+ * (4, "Autorização negada"; 2, "Erro de Sistema.") se junta ao `Data` cifrado
+ * com `[]` (`abrirCorpoPinbank`). Sem olhar o código, isso passaria como "o
+ * período não teve vendas" — e a conferência deixaria toda venda do sistema sem
+ * par. É a credencial sem o método liberado, o caso mais provável hoje.
+ */
+export function extratoServeParaConferir(r: RespostaExtratoPos): boolean {
+  return r.erros.length === 0 && r.listaRecebida && (r.codigo == null || r.codigo === 0);
+}
+
 /** Para a rota: o erro em palavras, com a fase de rede quando for da saída fixa. */
-export function descreverErroApi(e: unknown): { etapa: string; motivo: string; status?: number } {
-  if (e instanceof ErroApiPinbank) return { etapa: e.etapa, motivo: e.message, status: e.status };
+export function descreverErroApi(e: unknown): { etapa: string; motivo: string; status?: number; identificacao?: IdentificacaoPinbank } {
+  const identificacao = e && typeof e === "object" ? (e as { identificacao?: IdentificacaoPinbank }).identificacao : undefined;
+  const ident = identificacao ? { identificacao } : {};
+  if (e instanceof ErroApiPinbank) return { etapa: e.etapa, motivo: e.message, status: e.status, ...ident };
   if (e instanceof ErroSaida) {
     // A mensagem da porta traz só "IP:porta" e o motivo — nunca a credencial.
-    return { etapa: `saida_${e.fase}`, motivo: e.message };
+    return { etapa: `saida_${e.fase}`, motivo: e.message, ...ident };
   }
   return { etapa: "desconhecida", motivo: "Falha inesperada ao falar com a Pinbank." };
 }

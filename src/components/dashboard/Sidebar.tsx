@@ -132,7 +132,7 @@ export function Sidebar() {
       <aside
         style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "a4p-sidebar relative bg-white border border-border flex flex-col p-4 z-50 rounded-[20px]",
+          "a4p-sidebar relative bg-white flex flex-col p-4 z-50 rounded-[20px]",
           "fixed inset-y-3 left-3 w-sidebar transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-[110%]",
           "lg:static lg:translate-x-0 lg:shrink-0 lg:self-start lg:max-h-full",
@@ -189,12 +189,14 @@ export function Sidebar() {
         </div>
 
         <nav aria-label="Seções do sistema" className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
-          {sections.map((s) => {
+          {sections.map((s, indice) => {
             const marcado = ativo?.id === s.id;
             const abertoAqui = !col && aberto === s.id && s.items.length > 0;
             const href = destinoDoGrupo(s);
             const conteudo = (
               <>
+                {/* Visão geral usa o ícone de casa como os outros grupos (pedido do
+                    dono, 14/10/2026): a ilustração da marca saiu do menu. */}
                 <Icon name={s.icon ?? "layers"} size={18} color="currentColor" className="shrink-0" />
                 {!col && <span className="flex-1 min-w-0 text-left truncate">{s.label}</span>}
                 {!col && marcado && s.items.length === 0 && (
@@ -207,12 +209,13 @@ export function Sidebar() {
               </>
             );
             const classe = cn(
-              "flex items-center gap-[10px] min-h-[44px] rounded-[12px] text-[14px] text-ink transition-colors",
+              "flex items-center gap-[15px] min-h-[44px] rounded-[12px] text-[14px] text-ink transition-colors",
               col ? "justify-center px-0" : "px-3",
-              marcado ? "bg-surface-1 font-medium" : "hover:bg-surface-2/60",
+              marcado ? "bg-lime text-on-lime font-medium" : "hover:bg-surface-2/60",
             );
             return (
               <div key={s.id} className="flex flex-col">
+                {indice > 0 && <span aria-hidden className="a4p-menu-linha mb-1" />}
                 {s.items.length === 0 && href ? (
                   <Link href={href} title={s.label} aria-current={marcado ? "page" : undefined} className={classe}>{conteudo}</Link>
                 ) : (
@@ -275,7 +278,16 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
         if (it.soon || !it.href) {
           return <span key={it.label} aria-disabled="true" className={cn(classe, "opacity-45 cursor-not-allowed")}>{rotulo}</span>;
         }
-        return <Link key={it.href} href={it.href} title={it.desc ?? it.label} aria-current={on ? "page" : undefined} className={classe}>{rotulo}</Link>;
+        // Com evento E endereço (a Quattro AI): o clique simples abre por cima da
+        // tela atual; Ctrl/⌘/Shift/meio seguem o endereço numa aba nova.
+        const porEvento = it.event
+          ? (e: React.MouseEvent) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              window.dispatchEvent(new Event(it.event!));
+            }
+          : undefined;
+        return <Link key={it.href} href={it.href} onClick={porEvento} title={it.desc ?? it.label} aria-current={on ? "page" : undefined} className={classe}>{rotulo}</Link>;
       })}
     </div>
   );

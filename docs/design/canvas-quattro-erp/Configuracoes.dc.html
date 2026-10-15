@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Configurações · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<dc-import name="Shell" modo="{{modo}}" ativo="configuracoes" titulo="Configurações" sub="Empresa, usuários e integrações" acao="Salvar alterações" acao2="Descartar" hint-size="100%,1000px">
+  <div style="{{g2}}">
+    <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+      <h2 style="margin: 0; font-size: var(--erp-titulo-secao); font-weight: 500">Dados da empresa</h2>
+      <div style="{{gform}}">
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; grid-column: 1 / -1">
+          Razão social
+          <input type="text" value="Comercial Andrade Materiais de Construção Ltda" style="{{campo}}">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+          CNPJ
+          <input type="text" value="12.345.678/0001-90" style="{{campo}}">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+          Inscrição estadual
+          <input type="text" value="90.123.456-78" style="{{campo}}">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+          Regime tributário
+          <select style="{{campo}}"><option>Simples Nacional · Anexo I</option><option>Lucro Presumido</option><option>Lucro Real</option></select>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">
+          Início das atividades
+          <input type="text" value="14/03/2011" style="{{campo}}">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; grid-column: 1 / -1">
+          Endereço
+          <input type="text" value="Rua Mateus Leme, 2.140 · São Francisco · Curitiba/PR · 80530-010" style="{{campo}}">
+        </label>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <section style="background: var(--erp-destaque); color: var(--erp-cartao); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 13px; opacity: 0.85">Certificado digital A1</span>
+        <span style="font-size: calc(var(--erp-numeros) * 0.8); font-weight: 500; letter-spacing: -0.02em; line-height: 1.1">Vence em 28/10/2026</span>
+        <span style="font-size: 13px; opacity: 0.85">Titular: Comercial Andrade Ltda · emitido pela Certisign</span>
+        <button type="button" style="align-self: flex-start; height: max(44px, var(--erp-botao-altura)); padding: 0 var(--erp-botao-padding); border-radius: var(--erp-botao-raio); border: 0; background: var(--erp-primaria); color: var(--erp-sobre-primaria); font-family: var(--erp-fonte-texto); font-size: var(--erp-tamanho-base); font-weight: 500; cursor: pointer">Enviar novo certificado</button>
+      </section>
+
+      <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0 0 8px; font-size: var(--erp-titulo-secao); font-weight: 500">Integrações</h2>
+        <sc-for list="{{integracoes}}" as="i" hint-placeholder-count="4">
+          <label style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda); cursor: pointer">
+            <span style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+              <span style="font-size: 14px; font-weight: 500">{{i.nome}}</span>
+              <span style="font-size: 12px; color: var(--erp-texto-2)">{{i.desc}}</span>
+            </span>
+            <input type="checkbox" role="switch" checked="{{i.on}}" onChange="{{i.alternar}}" style="position: absolute; opacity: 0; width: 1px; height: 1px">
+            <span aria-hidden="true" style="{{i.trilho}}"><span style="{{i.bola}}"></span></span>
+          </label>
+        </sc-for>
+      </section>
+    </div>
+  </div>
+
+  <section style="background: var(--erp-cartao); border: var(--erp-borda-espessura) solid var(--erp-borda); border-radius: var(--erp-raio-card); box-shadow: var(--erp-sombra); padding: 22px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+    <div style="display: flex; align-items: center; padding-bottom: 8px">
+      <h2 style="margin: 0; font-size: var(--erp-titulo-secao); font-weight: 500">Usuários</h2>
+      <button type="button" style="margin-left: auto; height: 44px; padding: 0 18px; border-radius: var(--erp-botao-raio); border: var(--erp-borda-espessura) solid var(--erp-controle-borda); background: transparent; color: var(--erp-texto); font-family: var(--erp-fonte-texto); font-size: 14px; font-weight: 500; cursor: pointer">Convidar usuário</button>
+    </div>
+    <sc-for list="{{usuarios}}" as="u" hint-placeholder-count="5">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; border-top: var(--erp-borda-espessura) solid var(--erp-borda)">
+        <span style="width: 36px; height: 36px; border-radius: 999px; background: var(--erp-cartao-2); border: var(--erp-borda-espessura) solid var(--erp-borda); display: grid; place-items: center; font-size: 13px; font-weight: 500; flex: none">{{u.ini}}</span>
+        <span style="display: flex; flex-direction: column; flex: 1 1 180px; min-width: 0">
+          <span style="font-size: 14px; font-weight: 500">{{u.nome}}</span>
+          <span style="font-size: 12px; color: var(--erp-texto-2)">{{u.email}}</span>
+        </span>
+        <span style="font-size: 13px; color: var(--erp-texto-2); width: 140px">{{u.papel}}</span>
+        <span style="{{u.etq}}">{{u.status}}</span>
+      </div>
+    </sc-for>
+  </section>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"modo":{"editor":"enum","default":"desktop","options":["desktop","mobile"]},"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const modo = this.props.modo ?? 'desktop';
+    const mob = modo === 'mobile';
+    const st = this.state || {};
+    const etq = (tom) => {
+      const m = { sucesso: ['--erp-sucesso-fundo', '--erp-sucesso'], alerta: ['--erp-alerta-fundo', '--erp-alerta'], perigo: ['--erp-perigo-fundo', '--erp-perigo'], neutro: ['--erp-cartao-2', '--erp-texto-2'] }[tom];
+      return 'display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:var(--erp-raio-etiqueta);white-space:nowrap;background:var(' + m[0] + ');color:var(' + m[1] + ');';
+    };
+    const base = { banco: true, sefaz: true, whatsapp: false, contador: true };
+    const ligado = { ...base, ...(st.ligado || {}) };
+    const integracoes = [
+      ['banco', 'Open Finance · Itaú e Inter', 'Extratos importados a cada 2 horas'],
+      ['sefaz', 'SEFAZ-PR', 'Emissão e consulta de NF-e'],
+      ['whatsapp', 'Cobrança por WhatsApp', 'Lembrete automático 3 dias antes do vencimento'],
+      ['contador', 'Escritório contábil', 'Envio mensal dos XMLs no dia 1º']
+    ].map(([k, nome, desc]) => {
+      const on = !!ligado[k];
+      return {
+        nome, desc, on,
+        alternar: () => this.setState({ ligado: { ...ligado, [k]: !on } }),
+        trilho: 'width:44px;height:26px;border-radius:999px;flex:none;position:relative;display:inline-block;background:' + (on ? 'var(--erp-destaque)' : 'var(--erp-borda)') + ';',
+        bola: 'position:absolute;top:3px;left:' + (on ? 21 : 3) + 'px;width:20px;height:20px;border-radius:999px;background:var(--erp-cartao);'
+      };
+    });
+    const usuarios = [
+      ['MA', 'Marina Andrade', 'marina.andrade@comercialandrade.com.br', 'Titular', 'Ativo', 'sucesso'],
+      ['PR', 'Paulo Reis', 'paulo.reis@comercialandrade.com.br', 'Compras', 'Ativo', 'sucesso'],
+      ['AS', 'Ana Souza', 'ana.souza@comercialandrade.com.br', 'Vendas', 'Ativo', 'sucesso'],
+      ['CM', 'Carlos Mota', 'carlos.mota@comercialandrade.com.br', 'Vendas', 'Convite pendente', 'alerta'],
+      ['LF', 'Luciana Ferraz (contadora)', 'luciana@ferrazcontabil.com.br', 'Contador externo', 'Somente leitura', 'neutro']
+    ].map(([ini, nome, email, papel, status, tom]) => ({ ini, nome, email, papel, status, etq: etq(tom) }));
+    return {
+      modo, integracoes, usuarios,
+      g2: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;',
+      gform: mob ? 'display:grid;grid-template-columns:minmax(0,1fr);gap:12px;' : 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;',
+      campo: 'height:' + (mob ? '48px' : '44px') + ';padding:0 12px;border:1.5px solid var(--erp-borda);border-radius:14px;background:var(--erp-cartao);color:var(--erp-texto);font-family:var(--erp-fonte-texto);font-size:' + (mob ? '16px' : '14px') + ';font-weight:400;min-width:0;'
+    };
+  }
+}
+</script>
+</body>
+</html>

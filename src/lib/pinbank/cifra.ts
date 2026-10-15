@@ -5,7 +5,8 @@ import { createCipheriv, createDecipheriv } from "node:crypto";
  *
  * A doc ("4 - Consumindo uma API"): AES 128-CBC, chave = os bytes do `KeyValue`
  * da credencial, IV = `new byte[16]` (dezesseis zeros). O corpo vai como
- * `{"Data":{"Json":"<base64>"}}` e a resposta volta cifrada do mesmo jeito.
+ * `{"Data":{"Json":"<base64>"}}` — e o que se cifra é o pedido INTEIRO,
+ * `{"Data":{…}}` (ver `lib/pinbank/api.ts`). A resposta volta cifrada do mesmo jeito.
  * Preenchimento PKCS#7 (o padrão do .NET e do Node) e base64 — a doc não os
  * nomeia; o exemplo da doc é base64, e o teste em dev confirma o resto.
  *

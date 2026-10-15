@@ -6,6 +6,14 @@
  * até aqui as duas saem do contrato (estimadas). O ExtratoPos traz, por
  * parcela, `DataFuturaPagamento`, `ValorLiquidoRepasse` e `ValorTaxaAdm`.
  *
+ * ⚠️ **`ValorTaxaAdm` É O MDR, EM PERCENTUAL — nunca reais** (resposta da
+ * Pinbank em 13/10/2026: "Taxa ADM seria o MDR, são todas em percentual").
+ * 2,65 quer dizer 2,65%, e é lido em PONTOS-BASE inteiros (centésimos de ponto
+ * percentual: 2,65% = 265). Lido como reais, ele virava "R$ 2,65 de taxa" por
+ * parcela e o resumo SOMAVA percentuais — um número sem sentido com cara de
+ * dinheiro. O `ValorTaxaMes` também é percentual ("são todas"), mas o que ele
+ * mede ainda não foi dito: entra em pontos-base e não é comparado com nada.
+ *
  * Este arquivo só monta o pedido e LÊ a resposta. Quem cifra, autentica e
  * chama é `lib/pinbank/api.ts`, pela porta única `lib/pinbank/saida.ts`.
  *
@@ -19,6 +27,13 @@
 
 export type StatusExtratoPos = "Todos" | "Pago" | "Pendente";
 export type MeioCapturaExtratoPos = "Todos" | "Ecommerce" | "Terminal";
+/**
+ * Como as datas são ESCRITAS no pedido — o instante é o mesmo nos dois.
+ * `fuso` (padrão): `2025-07-30T00:00:00-03:00`. `utc`: `2025-07-30T03:00:00.000Z`,
+ * a notação do exemplo da doc. Existe para o teste pelo link isolar a notação
+ * quando a Pinbank recusa sem dizer o campo ("Erro de Sistema.").
+ */
+export type FormatoDatasExtratoPos = "fuso" | "utc";
 
 export interface FiltroExtratoPos {
   codigoCanal: number;
@@ -29,9 +44,12 @@ export interface FiltroExtratoPos {
   ate: string;
   status: StatusExtratoPos;
   meio: MeioCapturaExtratoPos;
+  /** Ausente = o campo não vai; `""` = vai VAZIO (como o cliente PHP público manda). */
   idTerminalPos?: string;
   /** 0 = todas (o padrão da Pinbank). */
   limite?: number;
+  /** Padrão `fuso`. */
+  datas?: FormatoDatasExtratoPos;
 }
 
 /**
@@ -50,40 +68,59 @@ const diasEntre = (de: string, ate: string) =>
   Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
 const inteiroPositivo = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n > 0 && n <= 2_147_483_647;
 
+/**
+ * Os problemas do PERÍODO (dias válidos, início ≤ fim, no máximo
+ * `MAX_DIAS_EXTRATO_POS` dias contando os dois). Vazio = ok.
+ *
+ * ⚠️ É a regra ÚNICA dos 31 dias: o filtro do extrato, a rota da conferência e
+ * a tela que valida antes do clique chamam esta função. Três cópias da conta
+ * divergiriam no primeiro ajuste — e a tela deixaria pedir o que a rota recusa.
+ */
+export function problemasDoPeriodoExtratoPos(de: string, ate: string): string[] {
+  const p: string[] = [];
+  if (!diaValido(de)) p.push("Data inicial inválida (AAAA-MM-DD).");
+  if (!diaValido(ate)) p.push("Data final inválida (AAAA-MM-DD).");
+  if (diaValido(de) && diaValido(ate)) {
+    const n = diasEntre(de, ate);
+    if (n < 0) p.push("A data inicial é depois da final.");
+    else if (n + 1 > MAX_DIAS_EXTRATO_POS) p.push(`O intervalo passa de ${MAX_DIAS_EXTRATO_POS} dias; peça um mês por vez.`);
+  }
+  return p;
+}
+
 /** Os problemas do filtro, em português, ANTES de qualquer chamada. Vazio = ok. */
 export function problemasDoFiltroExtratoPos(f: FiltroExtratoPos): string[] {
   const p: string[] = [];
   if (!inteiroPositivo(f.codigoCanal)) p.push("Código do canal inválido (inteiro positivo).");
   if (!inteiroPositivo(f.codigoCliente)) p.push("Código do cliente inválido (inteiro positivo).");
-  if (!diaValido(f.de)) p.push("Data inicial inválida (AAAA-MM-DD).");
-  if (!diaValido(f.ate)) p.push("Data final inválida (AAAA-MM-DD).");
-  if (diaValido(f.de) && diaValido(f.ate)) {
-    const n = diasEntre(f.de, f.ate);
-    if (n < 0) p.push("A data inicial é depois da final.");
-    else if (n + 1 > MAX_DIAS_EXTRATO_POS) p.push(`O intervalo passa de ${MAX_DIAS_EXTRATO_POS} dias; peça um mês por vez.`);
-  }
+  p.push(...problemasDoPeriodoExtratoPos(f.de, f.ate));
   if (!["Todos", "Pago", "Pendente"].includes(f.status)) p.push("Status deve ser Todos, Pago ou Pendente.");
   if (!["Todos", "Ecommerce", "Terminal"].includes(f.meio)) p.push("Meio de captura deve ser Todos, Ecommerce ou Terminal.");
-  if (f.idTerminalPos != null && !/^[A-Za-z0-9_-]{1,40}$/.test(f.idTerminalPos)) p.push("Terminal inválido.");
+  if (f.idTerminalPos != null && !/^[A-Za-z0-9_-]{0,40}$/.test(f.idTerminalPos)) p.push("Terminal inválido.");
   if (f.limite != null && !(Number.isInteger(f.limite) && f.limite >= 0 && f.limite <= 10_000)) p.push("Limite de linhas inválido (0 a 10000).");
+  if (f.datas != null && !["fuso", "utc"].includes(f.datas)) p.push("O formato das datas deve ser fuso ou utc.");
   return p;
 }
 
 /**
- * O `Data` do pedido, ABERTO (quem cifra é a API). As datas levam o fuso de
- * Brasília (`-03:00`, sem horário de verão desde 2019): "o dia 08/10" é o dia
- * de quem vende, e um instante sem fuso ficaria à mercê do relógio do servidor
- * da Pinbank.
+ * O CONTEÚDO do `Data` do pedido, ABERTO (quem embrulha em `{"Data":…}` e cifra
+ * é a API). As datas levam o fuso de Brasília (`-03:00`, sem horário de verão
+ * desde 2019): "o dia 08/10" é o dia de quem vende, e um instante sem fuso
+ * ficaria à mercê do relógio do servidor da Pinbank.
  */
 export function pedidoExtratoPos(f: FiltroExtratoPos): Record<string, unknown> {
+  const inicio = `${f.de}T00:00:00-03:00`;
+  const fim = `${f.ate}T23:59:59-03:00`;
+  // `utc` reescreve o MESMO instante (o dia inteiro em Brasília), só muda a notação.
+  const escrever = (s: string) => (f.datas === "utc" ? new Date(s).toISOString() : s);
   return {
     CodigoCanal: f.codigoCanal,
     CodigoCliente: f.codigoCliente,
-    DataInicial: `${f.de}T00:00:00-03:00`,
-    DataFinal: `${f.ate}T23:59:59-03:00`,
+    DataInicial: escrever(inicio),
+    DataFinal: escrever(fim),
     Status: f.status,
     MeioCaptura: f.meio,
-    ...(f.idTerminalPos ? { IdTerminalPos: f.idTerminalPos } : {}),
+    ...(f.idTerminalPos != null ? { IdTerminalPos: f.idTerminalPos } : {}),
     QuantidadeLinhasRetorno: f.limite ?? 0,
   };
 }
@@ -104,10 +141,25 @@ export interface LinhaExtratoPos {
   brutoParcelaCentavos: number | null;
   liquidoRepasseCentavos: number | null;
   splitCentavos: number | null;
-  taxaAdmCentavos: number | null;
-  taxaMesCentavos: number | null;
+  /**
+   * O MDR da parcela (`ValorTaxaAdm`), em PONTOS-BASE: 2,65% = 265. `null`
+   * quando não veio, não é número, é negativo ou passa de 100% (10000).
+   */
+  mdrBp: number | null;
+  /** `ValorTaxaMes`, também percentual (em pontos-base); o sentido ainda não foi confirmado. */
+  taxaMesBp: number | null;
   status: string | null;
   statusPagamento: string | null;
+  /**
+   * O código de autorização da adquirente (`CodAutorizAdquirente`) e o NSU da
+   * operação na loja (`NsuOperacaoLoja`). Não identificam pessoa: são números
+   * da TRANSAÇÃO, e existem aqui para a conferência achar o par provável
+   * quando o NSU do webhook e o do extrato não forem o mesmo número (pergunta
+   * em aberto com a Pinbank). A tela nunca os mostra — só diz por qual deles o
+   * par foi achado.
+   */
+  codAutorizacao: string | null;
+  nsuLoja: string | null;
 }
 
 /**
@@ -139,6 +191,21 @@ const centavos = (v: unknown): number | null => {
   const n = typeof v === "string" && v.trim() ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) ? Math.round(n * 100) : null;
 };
+/** O teto de um percentual em pontos-base: 100% = 10000. */
+export const MAX_PONTOS_BASE = 10_000;
+/**
+ * PERCENTUAL da Pinbank (2,65 = 2,65%) → pontos-base inteiros (265). O
+ * `toFixed` tira a dízima antes do arredondamento (2,65 × 100 = 265,00000000000006).
+ * Negativo ou acima de 100% não é taxa: vira ausente, nunca um número — e é
+ * esse limite que separa a leitura em percentual da antiga, em reais, que
+ * aceitava qualquer valor.
+ */
+const pontosBase = (v: unknown): number | null => {
+  const n = typeof v === "string" && v.trim() ? Number(v) : v;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return null;
+  const bp = Math.round(Number((n * 100).toFixed(6)));
+  return bp <= MAX_PONTOS_BASE ? bp : null;
+};
 /**
  * Data ISO INTEIRA, ou nada. Cortar por tamanho mutilaria o fuso quando há
  * fração de segundo (o .NET manda até 7 casas): "…00.1234567-03:00" cortado
@@ -169,10 +236,12 @@ export function linhaDoExtratoPos(l: Record<string, unknown>): LinhaExtratoPos {
     brutoParcelaCentavos: centavos(l.ValorBrutoParcela),
     liquidoRepasseCentavos: centavos(l.ValorLiquidoRepasse),
     splitCentavos: centavos(l.ValorSplit),
-    taxaAdmCentavos: centavos(l.ValorTaxaAdm),
-    taxaMesCentavos: centavos(l.ValorTaxaMes),
+    mdrBp: pontosBase(l.ValorTaxaAdm),
+    taxaMesBp: pontosBase(l.ValorTaxaMes),
     status: texto(l.DescricaoStatus),
     statusPagamento: texto(l.DescricaoStatusPagamento),
+    codAutorizacao: texto(l.CodAutorizAdquirente, 40),
+    nsuLoja: texto(l.NsuOperacaoLoja, 40),
   };
 }
 
@@ -216,10 +285,15 @@ export interface ResumoExtratoPos {
   linhas: number;
   brutoParcelasCentavos: number;
   liquidoRepasseCentavos: number;
-  taxaAdmCentavos: number;
   /** Quantas parcelas trazem a data futura do repasse e a taxa — o que o ERP vai conferir. */
   comDataDoRepasse: number;
   comTaxa: number;
+  /**
+   * Os MDR DISTINTOS do extrato, em pontos-base, em ordem (no máximo 20). ⚠️
+   * Percentual não se SOMA: a soma de 2,65% de dezoito parcelas não é taxa de
+   * nada. O que se lê de um extrato é QUAIS taxas ele cobrou.
+   */
+  mdrDistintosBp: number[];
   porStatus: Record<string, number>;
   primeiroRepasse: string | null;
   ultimoRepasse: string | null;
@@ -230,13 +304,14 @@ export function resumirExtratoPos(linhas: LinhaExtratoPos[]): ResumoExtratoPos {
   const datas = linhas.map((l) => l.dataFuturaPagamento?.slice(0, 10)).filter((d): d is string => !!d).sort();
   const porStatus: Record<string, number> = {};
   for (const l of linhas) porStatus[l.status ?? "(sem status)"] = (porStatus[l.status ?? "(sem status)"] ?? 0) + 1;
+  const mdrs = Array.from(new Set(linhas.map((l) => l.mdrBp).filter((b): b is number => b != null))).sort((a, b) => a - b);
   return {
     linhas: linhas.length,
     brutoParcelasCentavos: soma((l) => l.brutoParcelaCentavos),
     liquidoRepasseCentavos: soma((l) => l.liquidoRepasseCentavos),
-    taxaAdmCentavos: soma((l) => l.taxaAdmCentavos),
     comDataDoRepasse: linhas.filter((l) => !!l.dataFuturaPagamento).length,
-    comTaxa: linhas.filter((l) => l.taxaAdmCentavos != null).length,
+    comTaxa: linhas.filter((l) => l.mdrBp != null).length,
+    mdrDistintosBp: mdrs.slice(0, 20),
     porStatus,
     primeiroRepasse: datas[0] ?? null,
     ultimoRepasse: datas[datas.length - 1] ?? null,

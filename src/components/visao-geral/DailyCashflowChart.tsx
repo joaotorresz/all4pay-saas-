@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton } from "@/components/ui";
+import { BRL, Card, Skeleton, DicaGrafico } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
@@ -30,17 +30,20 @@ const INK = "var(--color-ink)";
 const LINE = "var(--color-text-quaternary)";
 const FAINT = "var(--color-text-tertiary)";
 import { chartAnim } from "@/lib/chart-anim";
+import { RAIO_BASE, RAIO_TOPO } from "@/lib/grafico";
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const p = payload[0]?.payload as DailyCashflowPoint;
   return (
-    <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
-      <div className="font-medium text-ink mb-[6px]">{label}</div>
-      <Row color={ENTRADA} k="Entradas" v={<BRL value={p.inflow} />} />
-      <Row color={SAIDA} k="Saídas" v={<BRL value={Math.abs(p.outflow)} />} />
-      <Row color={LINE} k="Saldo" v={<BRL value={p.balance} />} />
-    </div>
+    <DicaGrafico
+      rotulo={label}
+      linhas={[
+        { cor: ENTRADA, nome: "Entradas", valor: p.inflow },
+        { cor: SAIDA, nome: "Saídas", valor: Math.abs(p.outflow) },
+        { cor: LINE, nome: "Saldo", valor: p.balance },
+      ]}
+    />
   );
 }
 
@@ -78,18 +81,6 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
  * ruído; o traço acompanha a altura da linha e lê como a série que ele
  * representa — que é o motivo de a referência usar essa variante.
  */
-function Row({ color, k, v }: { color: string; k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-4 tabular-nums">
-      <span className="inline-flex items-center gap-[8px] text-muted">
-        <span className="w-[3px] h-[12px] rounded-pill shrink-0" style={{ background: color }} />
-        {k}
-      </span>
-      <span className="text-ink">{v}</span>
-    </div>
-  );
-}
-
 export function DailyCashflowChart() {
   const period = usePeriod();
   const { data, isLoading, isError } = useDailyCashflowRange(period.from, period.to);
@@ -165,12 +156,12 @@ export function DailyCashflowChart() {
                   dois realces para o mesmo dia. */}
               <Tooltip content={<CashflowTooltip />} cursor={false} />
               {filtro !== "saida" && (
-                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={[4, 4, 0, 0]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={RAIO_TOPO} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
                   {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
               {filtro !== "entrada" && (
-                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={[0, 0, 4, 4]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={RAIO_BASE} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
                   {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}

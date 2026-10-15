@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon, InfoHint } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint, DicaGrafico, DegradeArea } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useDecisao } from "@/components/visao-geral/hooks";
 import {
@@ -238,11 +238,7 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
       <ResponsiveContainer width="100%" height={150}>
         <LineChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: -12 }}>
           <defs>
-            <linearGradient id="decisaoGlow" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.26} />
-              <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.05} />
-              <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
-            </linearGradient>
+            <DegradeArea id="decisaoGlow" />
           </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
           <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
@@ -252,9 +248,7 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
             cursor={{ stroke: "var(--color-border)" }}
             content={({ active, payload }: any) =>
               active && payload?.length ? (
-                <div className="bg-white rounded-card border border-border shadow-popover px-3 py-2 text-caption tabular-nums">
-                  <div className="text-muted">p50 {formatBRL(payload.find((p: any) => p.dataKey === "p50")?.value ?? 0)}</div>
-                </div>
+                <DicaGrafico rotulo="Cenário central (p50)" valor={Number(payload.find((p: any) => p.dataKey === "p50")?.value ?? 0)} />
               ) : null
             }
           />

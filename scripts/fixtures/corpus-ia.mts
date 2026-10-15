@@ -29,7 +29,7 @@ export const input: RiskInput = {
   movements: movs,
 } as RiskInput;
 
-// ctx como em produção (AssistantWidget passa intel.context) — cobre os intents
+// ctx como em produção (o chat passa intel.context) — cobre os intents
 // gateados por ctx (score/saúde, burn).
 export const ctx = { saldoAtual: 45000, runwayMeses: 8, burnRate: 6000, inadimplencia: 0.08, scoreFinanceiro: 72, probRuptura: 0.12, receitaMensal: 18000, despesaMensal: 12000 } as unknown as ExecutiveContext;
 

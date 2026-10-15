@@ -22,7 +22,7 @@
 import * as React from "react";
 import { ResponsiveContainer, ComposedChart, LineChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { AppShell } from "@/components/app/AppShell";
-import { Card, Skeleton, Icon, InfoHint, BRL, type InfoConteudo } from "@/components/ui";
+import { Card, Skeleton, Icon, InfoHint, BRL, type InfoConteudo, DicaGrafico, DegradeArea } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { dataDe } from "@/core/indicadores";
@@ -283,10 +283,7 @@ export function VendasDashboardView() {
               <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={calc.serieRME} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                   <defs>
-                    <linearGradient id="recGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-ink)" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="var(--color-ink)" stopOpacity={0} />
-                    </linearGradient>
+                    <DegradeArea id="recGlow" />
                   </defs>
                   <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
@@ -361,25 +358,15 @@ function ChartCard({ titulo, onClose, children, info }: { titulo: string; onClos
 
 function DiaTip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white rounded-card border border-border px-3 py-[10px] text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.12)" }}>
-      <div className="font-medium text-ink mb-1">{label}</div>
-      <div className="text-muted tabular-nums">{formatBRL(Number(payload[0].value))}</div>
-    </div>
-  );
+  return <DicaGrafico rotulo={label} valor={Number(payload[0].value)} />;
 }
 
 function RmeTip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
-      <div className="text-[15px] font-semibold text-ink mb-2">{label}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} className="flex items-center justify-between gap-6 tabular-nums py-[2px]">
-          <span className="inline-flex items-center gap-[6px] text-muted"><span className="w-2 h-2 rounded-pill" style={{ background: p.color }} />{p.name}</span>
-          <span className="text-ink font-medium">{formatBRL(Number(p.value))}</span>
-        </div>
-      ))}
-    </div>
+    <DicaGrafico
+      rotulo={label}
+      linhas={payload.map((p: any) => ({ cor: p.color, nome: String(p.name), valor: Number(p.value) }))}
+    />
   );
 }

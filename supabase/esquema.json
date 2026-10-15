@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-08",
+  "gerado_em": "2026-10-15",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 78,
-    "funcoes": 128,
+    "tabelas": 79,
+    "funcoes": 131,
     "politicas": 152,
-    "gatilhos": 96,
-    "indices": 244,
+    "gatilhos": 99,
+    "indices": 246,
     "enums": 12,
-    "colunas": 838,
-    "restricoes": 270
+    "colunas": 842,
+    "restricoes": 274
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -143,7 +143,11 @@
     "20261001150000_caixa_entrada_email",
     "20261002120000_papel_nas_tabelas_de_dinheiro",
     "20261002130000_lancamento_aponta_para_categoria",
-    "20261005120000_pinbank_maquininha"
+    "20261005120000_pinbank_maquininha",
+    "20261009120000_enterprise_libera_pro",
+    "20261014120000_pinbank_conferencia_limite",
+    "20261014120100_pinbank_ec_auditado",
+    "20261015120000_pinbank_tarifa_antecipacao"
   ],
   "divergencias_conhecidas": {
     "_regra": [

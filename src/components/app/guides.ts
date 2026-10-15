@@ -226,13 +226,13 @@ export const GUIDES: Record<string, Guide> = {
   // Central de Ajuda escolher um deles por ordem de arquivo.
   "/quattro-ai": {
     titulo: "Quattro AI",
-    intro: "A superfície ÚNICA de IA: a aba Conversa responde sobre os seus números, e as abas Quant, Decisão, Risco e Autônomo são os motores — score de saúde, Monte Carlo, runway e plano supervisionado. É a mesma IA do botão flutuante; aqui cabe a conversa longa, o gráfico grande e o histórico do lado.",
-    comoUsar: "Pergunte em português normal (“quanto gastei esse mês?”, “estou crescendo?”). A resposta passa pelas etapas de análise e vem com os números, as fontes do cálculo e, quando ajuda, um gráfico. As conversas ficam salvas à esquerda, agrupadas por data.",
+    intro: "A superfície ÚNICA de IA é o chat em tela cheia: ele abre por cima de qualquer tela, pelo item Quattro AI do menu, pelo ⌘K e pela caixa da Home, e responde sobre os seus números. As abas Quant, Decisão, Risco e Sugestões são os motores — score de saúde, Monte Carlo, runway e plano supervisionado.",
+    comoUsar: "Pergunte em português normal (“quanto gastei esse mês?”, “estou crescendo?”). A resposta passa pelas etapas de análise e vem com os números, as fontes do cálculo e, quando ajuda, um gráfico. As conversas ficam salvas em “Conversas”, no alto do chat, agrupadas por data.",
     exemplo: "“Quais meus maiores gastos?” → o total do mês, as três maiores categorias com percentual e um gráfico de barras. Depois: “e no mês passado?” — ela lembra do contexto.",
     secoes: [
       acoes([
-        { nome: "Perguntar", desc: "Conceitos (“o que é runway?”), números reais (saldo, margem, inadimplência) e simulações (financiamento, Simples, precificação).", match: "Envie uma mensagem" },
-        { nome: "Retomar uma conversa", desc: "Clique no histórico à esquerda — Hoje, Últimos 7 dias, Últimos 30 dias.", match: "Nova conversa" },
+        { nome: "Perguntar", desc: "Conceitos (“o que é runway?”), números reais (saldo, margem, inadimplência) e simulações (financiamento, Simples, precificação).", match: "Abrir conversa" },
+        { nome: "Retomar uma conversa", desc: "No chat, abra “Conversas” — Hoje, Últimos 7 dias, Últimos 30 dias." },
         { nome: "Conferir a fonte", desc: "Cada resposta mostra os motores usados; o polegar para cima ou para baixo ensina a IA a priorizar suas perguntas." },
       ]),
     ],

@@ -204,11 +204,11 @@
      é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
      frame #2C251E (o Black quente rebaixado) e área #F1F3F6. O card fica
      branco puro para separar da área por CONTRASTE, agora que não há borda. */
-  --color-white: #ffffff; /* superfície de card */
-  --color-surface-1: #f3f1ee; /* área de trabalho (dentro do cartão do app) */
-  --color-surface-2: #f3f1ee; /* chips / seções / hover */
+  --color-white: #f6f6f6; /* superfície de card */
+  --color-surface-1: #ffffff; /* área de trabalho (dentro do cartão do app) */
+  --color-surface-2: #ffffff; /* chips / seções / hover */
   --color-surface-3: #d6d8ca; /* Cinza médio — desabilitado / teclado / sheet */
-  --color-border: #d6d8ca; /* Cinza médio — borda de card e divisória */
+  --color-border: #e2e2e2; /* Cinza médio — borda de card e divisória */
   /* Areia — borda de campo e separador em fundo claro. */
   --color-areia: #b5b594;
   /* ⚠️ O DIVISOR É CINZA, NÃO BEGE. Era Beige (#EEEDDB), e as superfícies de
@@ -221,7 +221,7 @@
   /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
-  --a4p-hairline: #d6d8ca;
+  --a4p-hairline: #e2e2e2;
 
   /* ============================================================
      MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
@@ -234,14 +234,14 @@
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
      ============================================================ */
-  --a4p-chrome: #3b4332;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
+  --a4p-chrome: #ffffff;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
   --a4p-chrome-ink: #f3f1ee;    /* Cinza claro sobre a moldura */
   --a4p-chrome-mut: #b5b594;    /* Areia — secundário sobre a moldura */
   --a4p-chrome-field: #2b3125;  /* busca e botões de ícone sobre a moldura */
   --a4p-chrome-field-hover: #6b7060;
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #f3f1ee;
+  --a4p-app-bg: #ffffff;
   --a4p-app-radius: 28px;
 
   --color-text-secondary: #6b7060; /* Texto secundário */
@@ -264,7 +264,7 @@
   /* Hover do primário: escurece levemente, sem sair do matiz. */
   --color-lime-hover: color-mix(in srgb, #ecfd52 88%, #3b4332);
   --color-on-lime: #3b4332;
-  --color-chart-line: #3b4332;
+  --color-chart-line: #ecfd52;
   /* Borda do botão secundário (guia: rgba(59,67,50,0.28)). */
   --a4p-borda-controle: rgba(59, 67, 50, 0.28);
 
@@ -290,9 +290,9 @@
      estavam — decisão anterior, tomada com o contraste medido, registrada
      abaixo no bloco `.ds-visor` — e são as ÚNICAS exceções sancionadas.
      A guarda `npm run paleta` conhece as três e reprova qualquer outra. */
-  --color-warning: #f45900;
-  --color-positive: #2cd662;
-  --color-negative: #b3261e; /* Erro — o ÚNICO vermelho da marca */
+  --color-warning: #f2a519;
+  --color-positive: #35c759;
+  --color-negative: #e5484d; /* Erro — o ÚNICO vermelho da marca */
   /* O verde-lima de estado positivo citado no guia. É cor de MARCA, então
      entra como marca/preenchimento pontual (ponto, barra, realce) — nunca
      como texto: 1,69:1 sobre o branco quente. */
@@ -316,7 +316,7 @@
   --a4p-cat-8: var(--color-ink);
 
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 26px;
+  --radius-card: 20px;
   --radius-md: 14px; /* campo de formulário */
   --radius-modal: 24px;
   --radius-bloco: 32px;
@@ -334,7 +334,7 @@
   --glass-blur: 20px;
   /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
   /* A única sombra do guia Quattro: longa e quase invisível. */
-  --shadow-card: 0 10px 40px -24px rgba(43, 49, 37, 0.35);
+  --shadow-card: none;
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
     0 24px 64px -16px rgba(43, 49, 37, 0.24);
@@ -532,6 +532,10 @@ button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+/* A caixa da Quattro AI na Home: o campo some dentro da barra branca, e o
+   anel escuro de foco desenhava uma segunda caixa por dentro dela (dono,
+   14/10/2026). O foco continua visível — o cursor piscando na barra. */
+.a4p-ia-campo:focus, .a4p-ia-campo:focus-visible { outline: none; box-shadow: none; }
 /* Campos — transição suave no foco */
 input, select, textarea { transition: border-color 0.18s ease, box-shadow 0.2s var(--ease-smooth), background-color 0.18s ease; }
 
@@ -576,9 +580,9 @@ h1, h2, h3,
    ============================================================ */
 .ds-visor {
   /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #f3f1ee;          /* bg/base — área de trabalho */
-  --a4p-box-bg: #ffffff;      /* cards SÓLIDOS */
-  --a4p-box-radius: 26px;     /* card Quattro: 26px */
+  --a4p-bg: #ffffff;          /* bg/base — área de trabalho */
+  --a4p-box-bg: #f6f6f6;      /* cards SÓLIDOS */
+  --a4p-box-radius: 20px;     /* card Quattro: 26px */
   --a4p-box-padding: 28px;    /* card Quattro: 28px */
   --a4p-box-border: var(--color-border); /* card com borda 1px Cinza médio */
   /* ========================================================================= */
@@ -594,10 +598,10 @@ html:not(.dark) .ds-visor {
   /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
      escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
-  --color-surface-1: #f3f1ee;      /* área de trabalho */
-  --color-surface-2: #f3f1ee;      /* chips / seções */
+  --color-surface-1: #ffffff;      /* área de trabalho */
+  --color-surface-2: #ffffff;      /* chips / seções */
   --color-surface-3: #d6d8ca;      /* Cinza médio */
-  --color-white: #ffffff;          /* superfície de card */
+  --color-white: #f6f6f6;          /* superfície de card */
   --color-ink: #3b4332;            /* Verde-base — NUNCA preto */
   --color-ink-soft: #2b3125;
   --color-text-secondary: #6b7060;
@@ -607,7 +611,7 @@ html:not(.dark) .ds-visor {
      Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
      (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12. */
   --color-text-quaternary: #a9ad9e;/* Placeholder */
-  --color-border: #d6d8ca;         /* Cinza médio */
+  --color-border: #e2e2e2;         /* Cinza médio */
   /* Espelha o `:root`: divisor e grade de gráfico em CINZA, derivado da borda.
      Ver o porquê na declaração de cima — divergir aqui repintaria o app com
      um valor que ninguém escolheu, que é o defeito das semânticas neon. */
@@ -616,7 +620,7 @@ html:not(.dark) .ds-visor {
   --color-lime: #ecfd52;
   --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
   --color-on-lime: #3b4332;
-  --color-chart-line: #3b4332;
+  --color-chart-line: #ecfd52;
   /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
      Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
      neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
@@ -642,9 +646,9 @@ html:not(.dark) .ds-visor {
      lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
      claro. Se um dia isto voltar à família dessaturada, o valor anterior era
      positive #367b4e · negative #be463c. */
-  --color-positive: #2cd662;
-  --color-warning: #a45c15;
-  --color-negative: #b3261e;
+  --color-positive: #35c759;
+  --color-warning: #f2a519;
+  --color-negative: #e5484d;
 }
 /* ============================================================
    TRÊS FAMÍLIAS, TRÊS PAPÉIS — e nenhum deles se sobrepõe.
@@ -945,52 +949,53 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
-   QUATTRO AI — tipografia e movimento do assistente.
-
-   O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do
-   `<main>.ds-visor` (são irmãos dele no AppShell), então nenhuma
-   regra `.ds-visor …` os alcança — inclusive as do Laboratório.
-   Por isso a tipografia do chat é declarada aqui, no próprio
-   escopo, e o Lab ganhou `.a4p-ia`/`.a4p-ia-fab` como raízes.
-
-   Tipografia: Roobert Variable 400, tracking −0.5px em TODOS os
-   itens. Os números fogem da regra (`.a4p-num`/`.tabular-nums`
-   seguem em mono, como no resto do sistema).
+   CAIXA DA QUATTRO AI NA HOME (canvas "Home · proposta snapshot",
+   14/10/2026) — o lime e o verde-base da marca em camadas que
+   ondulam devagar atrás da barra de pergunta. Só tokens; só o
+   `background-position` anima. Para em `prefers-reduced-motion`.
    ============================================================ */
-.a4p-ia,
-.a4p-ia *,
-.a4p-ia-fab,
-.a4p-ia-fab * {
-  font-family: "Roobert Variable", "Roobert", sans-serif;
-  font-weight: 400;
-  letter-spacing: -0.5px;
+.a4p-ondas-ia {
+  background-color: var(--color-lime);
+  background-image:
+    radial-gradient(60% 90% at 20% 30%, color-mix(in srgb, var(--color-ink) 55%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 80% at 80% 70%, color-mix(in srgb, var(--color-ink) 35%, transparent) 0%, transparent 70%),
+    radial-gradient(45% 70% at 55% 40%, color-mix(in srgb, var(--color-lime) 90%, var(--color-surface-1)) 0%, transparent 70%),
+    linear-gradient(115deg, var(--color-lime) 0%, color-mix(in srgb, var(--color-lime) 60%, var(--color-ink)) 50%, var(--color-lime) 100%);
+  background-size: 220% 220%, 240% 240%, 200% 200%, 300% 300%;
+  animation: a4p-ondas-ia 12s ease-in-out infinite;
 }
-.a4p-ia .tabular-nums,
-.a4p-ia .a4p-num,
-.a4p-ia .a4p-num * {
-  font-family: "Roobert Mono", "Roobert Semi Mono", ui-monospace, monospace;
-  letter-spacing: 0;
+@keyframes a4p-ondas-ia {
+  0%, 100% { background-position: 0% 50%, 100% 0%, 50% 100%, 0% 0%; }
+  50% { background-position: 100% 60%, 0% 100%, 20% 0%, 100% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a4p-ondas-ia { animation: none; }
 }
 
-/* Abertura do painel: entra deslizando da direita COM leve escala e
-   desfoque que se dissolvem — a "mola" é o cubic-bezier (overshoot
-   suave). `transform`+`opacity`+`filter` são composited. */
-.a4p-ia {
-  transition:
-    transform 420ms cubic-bezier(0.22, 1.2, 0.36, 1),
-    opacity 260ms ease-out,
-    filter 300ms ease-out;
+/* ============================================================
+   CHAT EM TELA CHEIA da Quattro AI (`ia/ChatTelaCheia`): a conversa sobe da caixa
+   — aparece, sobe 24px e desfoca de volta ao nítido; sai no sentido inverso
+   (260ms, o `SAIDA_MS` do componente). Para em `prefers-reduced-motion`.
+   ============================================================ */
+.a4p-chat-tela { animation: a4p-chat-entra 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.a4p-chat-tela[data-saindo] { animation: a4p-chat-sai 260ms ease-in both; }
+@keyframes a4p-chat-entra {
+  from { opacity: 0; transform: translateY(24px) scale(0.985); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
 }
-.a4p-ia[data-aberto="0"] {
-  transform: translateX(100%) scale(0.97);
-  opacity: 0;
-  filter: blur(6px);
+@keyframes a4p-chat-sai {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(16px) scale(0.99); }
 }
-.a4p-ia[data-aberto="1"] {
-  transform: translateX(0) scale(1);
-  opacity: 1;
-  filter: blur(0);
+@media (prefers-reduced-motion: reduce) {
+  .a4p-chat-tela, .a4p-chat-tela[data-saindo] { animation: none; }
 }
+
+/* ============================================================
+   QUATTRO AI — movimento do chat (`ia/ChatTelaCheia`, `ia/chat-kit`).
+   O botão flutuante (`.a4p-ia-fab`) e o painel lateral (`.a4p-ia`) SAÍRAM
+   em 14/10/2026: a IA mora só no chat em tela cheia (`.a4p-chat-tela`).
+   ============================================================ */
 
 /* Entrada dos itens: sobem e revelam. O atraso é dado inline
    (`--a4p-atraso`) para escalonar a lista. */
@@ -1021,8 +1026,6 @@ html:not(.dark) .ds-visor {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .a4p-ia { transition: transform 120ms linear, opacity 120ms linear; }
-  .a4p-ia[data-aberto="0"] { filter: none; transform: translateX(100%); }
   .a4p-entra { animation: none; }
   .a4p-pulso, .a4p-varre { animation: none; }
 }
@@ -1199,7 +1202,8 @@ html.dark .a4p-canvas {
    não separa nada — e separar é a função dele. */
 .a4p-sidebar {
   background: var(--color-white);
-  border-color: var(--a4p-hairline);
+  /* Sem borda (dono, 14/10/2026): o contraste com a moldura já recorta. */
+  border: 0;
 }
 /* ⚠️ A TopBar SAIU do material do cartão. Ela era branca com o mesmo hairline
    dos boxes; agora é a moldura escura, e por isso não herda mais nada daqui —
@@ -1211,7 +1215,7 @@ html.dark .a4p-canvas {
      branco com a borda dos cards — logo Quattro à esquerda, ações à direita,
      sobre a moldura verde-base. */
   background: var(--color-white);
-  border-color: var(--color-border);
+  border: 0;
   color: var(--color-ink);
 }
 @media (prefers-reduced-transparency: reduce) {
@@ -1474,8 +1478,7 @@ html.dark .a4p-canvas {
   .a4p-topbar,
   nav[aria-label="Seções do sistema"],
   .a4p-sidebar,
-  .a4p-ia-fab,
-  .a4p-ia,
+  .a4p-chat-tela,
   [data-nao-imprime] { display: none !important; }
 
   /* ── 4. O CORTE ──────────────────────────────────────────────────────
@@ -1532,3 +1535,244 @@ html.dark .a4p-canvas {
   font-family: var(--font-sans);
   font-weight: 500;
 }
+
+/* ============================================================
+   TEMA ERP — o design system do canvas "Quattro ERP · Protótipo"
+   (quadro Tema, 13/10/2026), aplicado ao sistema no ar.
+
+   ⚠️ Vence TODA seção de identidade acima onde discordar. Os valores de
+   cor moram nos tokens do `:root` e do `.ds-visor` (trocados na origem,
+   para o espelho da guarda continuar batendo); aqui ficam os PAPÉIS que o
+   canvas decidiu: card sem borda e sem sombra, título em Centra 500, número
+   em Roobert 500 com o número PRINCIPAL da tela em Centra, R$ do mesmo corpo
+   e cor do número, centavos à metade em cinza, menu com linha entre itens.
+   ============================================================ */
+:root {
+  --erp-num-cor: #000000;      /* cor do número (decisão do dono no canvas) */
+  --erp-moeda-cor: #000000;    /* R$ na mesma cor do número */
+  --erp-centavos-cor: #6b7060; /* só os centavos diferem */
+  --erp-menu-fundo: #f6f6f6;
+  --erp-menu-borda: #f4f4f4;
+  --erp-menu-ativo: #ecfd52;
+  --erp-logo-cor: #3b4332;
+}
+/* Card: sem borda, sem sombra, raio 20. */
+.ds-visor [data-card="1"],
+.ds-visor [data-card="1"]:hover {
+  border-width: 0;
+  box-shadow: none;
+}
+.ds-visor [data-card="1"] { border-radius: var(--a4p-box-radius); }
+/* Títulos: Centra No2 500, caixa alta, espaçamento 0. */
+.ds-visor h1,
+.ds-visor .text-h1,
+.ds-visor .text-display {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* Números: Roobert 500, espaçamento 0, na cor do número. */
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .text-value-lg {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
+/* Sobre fundo escuro ou lime o número segue a cor do texto da superfície. */
+html:not(.dark) .ds-visor :is(.bg-ink, .bg-lime, .text-white, .text-on-lime, [style*="background: var(--color-ink)"], [style*="background:var(--color-ink)"]) .a4p-num {
+  color: inherit;
+}
+/* Centavos: metade do corpo, cinza. Nos cards escuros, esmaecidos. */
+.ds-visor .a4p-num [data-cents] {
+  font-size: 0.5em !important;
+  color: var(--erp-centavos-cor);
+}
+html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--color-ink)"], [style*="background:var(--color-ink)"]) .a4p-num [data-cents] {
+  color: inherit;
+  opacity: 0.75;
+}
+/* O NÚMERO PRINCIPAL da tela (o herói): Centra No2 500, sem caixa alta. */
+.ds-visor .a4p-heroi,
+.ds-visor .a4p-heroi .a4p-num,
+.ds-visor .a4p-heroi .a4p-num *,
+.ds-visor .a4p-home .a4p-heroi,
+.ds-visor .a4p-home .a4p-heroi .a4p-num,
+.ds-visor .a4p-home .a4p-heroi .a4p-num * {
+  font-family: var(--font-display) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none;
+}
+/* Menu lateral: fundo e linha do canvas. */
+.a4p-sidebar { background: var(--erp-menu-fundo); }
+.a4p-menu-linha {
+  display: block;
+  height: 1px;
+  margin: 0 12px;
+  background: var(--erp-menu-borda);
+}
+/* Logo em uma cor (o arquivo vira máscara, a cor sai do token). */
+.a4p-logo-mono {
+  display: inline-block;
+  background: var(--erp-logo-cor);
+  -webkit-mask: url(/quattro-logo.webp) left center / contain no-repeat;
+  mask: url(/quattro-logo.webp) left center / contain no-repeat;
+}
+
+/* ============================================================
+   GRÁFICOS E TABELAS — o canvas "Quattro ERP · Gráficos e tabelas"
+   (14/10/2026), aplicado ao sistema no ar pelos PAPÉIS, não gráfico a
+   gráfico: a grade, a espessura da linha e a tabela são regras globais,
+   então o gráfico que nascer amanhã já nasce no padrão. Só o tema claro —
+   o canvas não desenhou o escuro.
+   Linha em verde-base com área lime a 55% · comparação em areia tracejada ·
+   grade #E2E2E2 tracejada 3/4 · barra com raio 6 (`RAIO_BARRA` em
+   `lib/grafico.ts`) · séries 1–5 = verde-base, areia, lime, cinza 2, cinza
+   médio · tabela com cabeçalho em micro-rótulo, linha #F4F4F4 e situação em
+   pílula com ponto.
+   ============================================================ */
+:root {
+  --erp-graf-grade: var(--color-border);
+  --erp-graf-linha: 1px;
+  --erp-graf-area: var(--color-lime);
+  --erp-graf-area-opacidade: 0.5;
+  /* Biblioteca (14/10/2026): a área é DEGRADÊ — forte no alto, quase nada embaixo. */
+  --erp-graf-area-topo: 0.5;
+  --erp-graf-area-base: 0.05;
+  --erp-graf-comparacao: var(--color-areia);
+  --erp-graf-comparacao-espessura: 0.6px;
+  --erp-graf-comparacao-traco: 2 2;
+  --erp-graf-ponto-raio: 2px;
+  --erp-graf-ponto-espessura: 1px;
+  --erp-graf-ponto-selecionado: 5px;
+  /* A dica ao passar o mouse e a pílula de variação (prancheta Biblioteca). */
+  --erp-dica-fundo: var(--color-surface-1);
+  --erp-dica-raio: 16px;
+  --erp-dica-padding-y: 14px;
+  --erp-dica-padding-x: 15px;
+  --erp-dica-sombra: var(--shadow-popover);
+  --erp-dica-valor: 15px;
+  --erp-dica-rotulo: 10px;
+  --erp-dica-espaco-rotulo: 7px;
+  --erp-dica-cor-rotulo: var(--color-text-secondary);
+  --erp-dica-cor-valor: var(--color-text-secondary);
+  --erp-pilula-proporcao: 0.5;
+  --erp-pilula-intensidade: 14%;
+  --erp-pilula-espaco-frase: 5px;
+  --erp-pilula-espaco-valor: 2px;
+  --erp-graf-serie-1: var(--color-ink);
+  --erp-graf-serie-2: var(--color-areia);
+  --erp-graf-serie-3: var(--color-lime);
+  --erp-graf-serie-4: var(--color-text-secondary);
+  --erp-graf-serie-5: var(--color-surface-3);
+  --erp-tabela-linha: var(--erp-menu-borda);
+}
+html:not(.dark) .ds-visor {
+  /* A série temporal é verde-base; o lime vira a ÁREA sob ela. */
+  --color-chart-line: var(--erp-graf-serie-1);
+}
+html:not(.dark) .ds-visor .recharts-cartesian-grid line {
+  stroke: var(--erp-graf-grade);
+  stroke-dasharray: none;
+}
+html:not(.dark) .ds-visor .recharts-line-dots .recharts-dot {
+  r: var(--erp-graf-ponto-raio);
+  stroke-width: var(--erp-graf-ponto-espessura);
+}
+html:not(.dark) .ds-visor .recharts-active-dot circle {
+  r: var(--erp-graf-ponto-selecionado);
+}
+html:not(.dark) .ds-visor :is(.recharts-line-curve, .recharts-area-curve) {
+  stroke-width: var(--erp-graf-linha);
+}
+/* A DICA ao passar o mouse — uma peça só (`ui/Grafico.tsx`). A dica padrão
+   do Recharts (`formatter`/`contentStyle`) ganha o mesmo desenho por aqui,
+   com !important porque `contentStyle` chega como estilo inline. */
+.a4p-dica,
+html:not(.dark) .ds-visor .recharts-default-tooltip {
+  background: var(--erp-dica-fundo) !important;
+  border: 0 !important;
+  border-radius: var(--erp-dica-raio) !important;
+  padding: var(--erp-dica-padding-y) var(--erp-dica-padding-x) !important;
+  box-shadow: var(--erp-dica-sombra) !important;
+}
+.a4p-dica {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 140px;
+  white-space: nowrap;
+  font-style: normal;
+  color: var(--color-ink);
+}
+html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-label {
+  font-size: var(--erp-dica-rotulo);
+  color: var(--erp-dica-cor-rotulo);
+  margin-bottom: var(--erp-dica-espaco-rotulo) !important;
+}
+html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-item {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 0 !important;
+}
+.a4p-dica-rotulo {
+  font-size: var(--erp-dica-rotulo);
+  line-height: 1.1;
+  color: var(--erp-dica-cor-rotulo);
+  margin-bottom: var(--erp-dica-espaco-rotulo);
+}
+.a4p-dica-valor {
+  font-size: var(--erp-dica-valor);
+  line-height: 1.1;
+  font-weight: 500;
+  color: var(--erp-dica-cor-valor);
+}
+.a4p-dica-variacao {
+  margin-top: var(--erp-pilula-espaco-valor);
+  font-size: calc(var(--erp-pilula-proporcao) * var(--erp-dica-valor));
+}
+.a4p-dica-linhas { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.a4p-dica-valor + .a4p-dica-linhas,
+.a4p-dica-variacao + .a4p-dica-linhas { margin-top: 8px; }
+.a4p-dica-linha { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.a4p-dica-marca { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+.a4p-dica-nome { flex: 1; color: var(--erp-dica-cor-rotulo); }
+.a4p-dica-num { font-weight: 500; color: var(--color-ink); }
+.a4p-dica-rodape {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--erp-tabela-linha);
+  font-size: 12px;
+  color: var(--erp-dica-cor-rotulo);
+}
+/* A pílula de variação: proporcional ao número ao lado, texto centrado. */
+.a4p-pilula-var {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--erp-pilula-espaco-frase);
+  padding: 0.35em 0.7em;
+  border-radius: 999px;
+  line-height: 1;
+  font-size: max(10px, 1em);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.a4p-pilula-var[data-sem-base] { color: var(--color-text-secondary); background: var(--color-surface-2); }
+.a4p-pilula-frase { font-weight: 400; }
+/* Tabela: cabeçalho em micro-rótulo, divisória fina, rodapé com fio. */
+html:not(.dark) .ds-visor thead th {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+  box-shadow: inset 0 -1px 0 var(--erp-tabela-linha);
+}
+html:not(.dark) .ds-visor tbody tr + tr { border-top-color: var(--erp-tabela-linha); }
+html:not(.dark) .ds-visor tbody tr { border-color: var(--erp-tabela-linha); }
+html:not(.dark) .ds-visor tbody td { border-color: var(--erp-tabela-linha); }
+html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade); }

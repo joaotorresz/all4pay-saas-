@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>DRE em cascata · Quattro ERP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: Roobert; src: url("/_blob/9f45d3fc9b401434c55da31af89c636e") format("opentype"); font-weight: 100 440; font-style: normal; font-display: swap; }
+@font-face { font-family: Roobert; src: url("/_blob/0dbe723517e6d3cad136f101b60123dd") format("opentype"); font-weight: 450 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Centra No2"; src: url("/_blob/517919385a831578a4774030d0be82d0") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
+body{margin:0}
+*{box-sizing:border-box}
+.t-linha{transition:background-color .15s ease;cursor:pointer}
+.t-linha:hover{background-color:var(--hover) !important}
+</style>
+</helmet>
+<div style="width: 1280px; height: 820px; background: #ffffff; padding: 48px; font-family: Roobert, -apple-system, sans-serif; color: #3B4332; display: flex; flex-direction: column; gap: 24px; --hover: {{corHover}}">
+  <h1 style="margin: 0; font-family: 'Centra No2', Roobert, sans-serif; font-weight: 500; font-size: 30px; text-transform: uppercase; letter-spacing: 0">DRE em cascata</h1>
+
+  <div style="background: #f6f6f6; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 500">Demonstração do resultado</h2>
+        <span style="font-size: 13px; color: #6B7060">Competência · julho a outubro de 2026</span>
+      </div>
+      <button type="button" style="height: 42px; min-width: 104px; padding: 0 36px; border: 1px solid rgba(59,67,50,0.28); border-radius: 999px; background: transparent; color: #3B4332; font: inherit; font-weight: 500; cursor: pointer">Exportar XLSX</button>
+    </div>
+
+    <div style="background: #ffffff; border-radius: {{raio}}px; overflow: hidden">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Linha</th>
+            <sc-for list="{{meses}}" as="m" hint-placeholder-count="4">
+              <th style="text-align: right; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">{{m}}</th>
+            </sc-for>
+            <th style="text-align: right; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">Total</th>
+            <th style="text-align: right; padding: 14px 20px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7060">AV</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{linhas}}" as="l" hint-placeholder-count="9">
+            <tr class="t-linha" style="background-color: {{l.fundo}}; border-top: {{espessuraDivisoria}}px solid {{divisoria}}">
+              <td style="padding: {{altura}}px 20px; font-weight: {{l.peso}}; box-shadow: {{l.marca}}"><span style="display: inline-block; width: 28px; color: #6B7060; font-variant-numeric: tabular-nums">{{l.sinal}}</span>{{l.nome}}</td>
+              <sc-for list="{{l.vals}}" as="v" hint-placeholder-count="4">
+                <td style="padding: {{altura}}px 20px; text-align: right; font-weight: {{l.peso}}; color: #000000; font-variant-numeric: tabular-nums">{{v.i}}<span style="font-size: 11px; color: #6B7060">{{v.c}}</span></td>
+              </sc-for>
+              <td style="padding: {{altura}}px 20px; text-align: right; font-weight: 500; color: #000000; font-variant-numeric: tabular-nums">{{l.tot.i}}<span style="font-size: 11px; color: #6B7060">{{l.tot.c}}</span></td>
+              <td style="padding: {{altura}}px 20px; text-align: right; color: #6B7060; font-variant-numeric: tabular-nums">{{l.av}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <span style="font-size: 12px; color: #6B7060">Linhas de total (=) saem da conta sobre as de cima. Clicar num valor abre os lançamentos que o formam.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"fundoTotal":{"editor":"color","default":"#f6f6f6","section":"Totais"},"pesoTotal":{"editor":"select","default":"500","options":["400","500"],"section":"Totais"},"altura":{"editor":"range","default":12,"min":6,"max":22,"step":1,"unit":"px","section":"Linhas"},"divisoria":{"editor":"color","default":"#f4f4f4","section":"Linhas"},"raio":{"editor":"range","default":16,"min":0,"max":24,"step":1,"unit":"px","section":"Forma"},"espessuraDivisoria": {"editor": "range", "default": 1, "min": 0, "max": 3, "step": 0.5, "unit": "px", "section": "Linhas"}, "corHover": {"editor": "color", "default": "#fafafa", "section": "Interação"}, "linhaSelecionada": {"editor": "select", "default": "Nenhuma", "options": ["Nenhuma", "1", "2", "3", "4", "5", "6", "7", "8", "9"], "section": "Interação"}, "corSelecao": {"editor": "color", "default": "#f6f6f6", "section": "Interação"}, "marcaSelecao": {"editor": "color", "default": "#ECFD52", "section": "Interação"}, "espessuraMarca": {"editor": "range", "default": 3, "min": 0, "max": 8, "step": 1, "unit": "px", "section": "Interação"},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const fmt = (v) => {
+      const neg = v < 0;
+      const [i, c] = Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split(',');
+      return { i: (neg ? '−' : '') + 'R$' + i, c: ',' + c };
+    };
+    const rb = [182400, 195300, 201800, 210500];
+    const ded = rb.map((v) => -v * 0.0865);
+    const rl = rb.map((v, k) => v + ded[k]);
+    const cv = [-48200.4, -51390.1, -53120.75, -55870.2];
+    const lb = rl.map((v, k) => v + cv[k]);
+    const op = [-71250, -72980.3, -74110.6, -76340.9];
+    const eb = lb.map((v, k) => v + op[k]);
+    const fin = [-1293.65, -1180.2, -990.4, -1410.85];
+    const res = eb.map((v, k) => v + fin[k]);
+    const soma = (a) => a.reduce((s, x) => s + x, 0);
+    const totRb = soma(rb);
+    const def = [
+      ['+', 'Receita bruta', rb, false],
+      ['−', 'Deduções', ded, false],
+      ['=', 'Receita líquida', rl, true],
+      ['−', 'Custos variáveis', cv, false],
+      ['=', 'Lucro bruto', lb, true],
+      ['−', 'Despesas operacionais', op, false],
+      ['=', 'EBITDA', eb, true],
+      ['±', 'Resultado financeiro', fin, false],
+      ['=', 'Resultado líquido', res, true],
+    ];
+    const selLinha = String(p.linhaSelecionada ?? 'Nenhuma');
+    const marcaSel = 'inset ' + (p.espessuraMarca ?? 3) + 'px 0 0 ' + (p.marcaSelecao ?? '#ECFD52');
+    const fundoSel = p.corSelecao ?? '#f6f6f6';
+    const fundoTotal = p.fundoTotal ?? '#f6f6f6';
+    const pesoTotal = p.pesoTotal ?? '500';
+    return {
+      meses: ['Jul', 'Ago', 'Set', 'Out'],
+      linhas: def.map(([sinal, nome, vals, total], i) => ({
+        sinal, nome,
+        vals: vals.map(fmt),
+        tot: fmt(soma(vals)),
+        av: (soma(vals) / totRb * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).replace('-', '−') + '%',
+        fundo: String(i + 1) === selLinha ? fundoSel : (total ? fundoTotal : '#ffffff'),
+        marca: String(i + 1) === selLinha ? marcaSel : 'none',
+        peso: total ? pesoTotal : '400',
+      })),
+      altura: p.altura ?? 12,
+      divisoria: p.divisoria ?? '#f4f4f4',
+      raio: p.raio ?? 16,
+      espessuraDivisoria: p.espessuraDivisoria ?? 1,
+      corHover: p.corHover ?? '#fafafa',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -41,6 +41,7 @@ import { loadCompany } from "@/lib/company";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro, type RegimeConfigurado } from "@/core/tax/duplicidade";
 import { CabecalhoImpressao } from "./CabecalhoImpressao";
 import { DeclararPalpite } from "./DeclararPalpite";
+import { RAIO_TOPO } from "@/lib/grafico";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
  * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
@@ -435,7 +436,7 @@ function GraficoResultado({
               tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))} />
             <Tooltip formatter={(v: number) => brl0(v)} cursor={{ fill: "var(--color-surface-2)" }}
               contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--color-white)", fontSize: 13 }} />
-            <Bar dataKey="base" name={tipo === "dre" ? "Receita bruta" : "Entradas"} radius={[4, 4, 0, 0]} {...chartAnim()}>
+            <Bar dataKey="base" name={tipo === "dre" ? "Receita bruta" : "Entradas"} radius={RAIO_TOPO} {...chartAnim()}>
               {dados.map((_, k) => <Cell key={k} fill={`color-mix(in srgb, ${t.base} 55%, transparent)`} />)}
             </Bar>
             {/* Número não tem cor por sinal (decisão de 30/09/2026): a linha

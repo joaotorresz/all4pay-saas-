@@ -30,6 +30,11 @@ export type Item = {
   desc?: string;
   href?: string;
   icon: string;
+  /**
+   * Evento que o item dispara no lugar de navegar. Com `href` junto, o clique
+   * simples dispara o evento e o clique com modificador (nova aba) segue o
+   * endereço — é assim que "Quattro AI" abre o chat por cima da tela atual.
+   */
   event?: string;
   soon?: boolean;
   /**
@@ -83,7 +88,7 @@ export type Section = {
  * navegação aceita estas e só estas, e cobra a porta declarada.
  */
 export const ACOES_GLOBAIS: { rota: string; onde: string }[] = [
-  { rota: "/quattro-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
+  { rota: "/quattro-ai", onde: "chat em tela cheia, aberto pelo menu, pelo ⌘K e pela caixa da Home" },
   { rota: "/dashboard/help", onde: "menu ⋮ da barra superior" },
   { rota: "/comece", onde: "aba Primeiros passos na Central de ajuda + menu ⋮ da barra superior" },
   { rota: "/configuracoes", onde: "menu ⋮ da barra superior (Meu perfil)" },
@@ -241,13 +246,12 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
-    // ⚠️ A IA passou a ter LINHA DE MENU, e isso reverte uma decisão anterior
-    // (ela vivia só no botão flutuante + ⌘K, para não repetir as seis portas
-    // que já foram removidas). Com um grupo próprio, os quatro motores param
-    // de ser abas invisíveis de um chat — mas o preço é uma segunda porta para
-    // a conversa. Se voltar a incomodar, o que sai é a LINHA, não o botão.
+    // ⚠️ A linha "Quattro AI" NÃO navega: ela abre o chat em tela cheia por
+    // cima da tela atual (evento `a4p:open-ia`). Desde 14/10/2026 o botão
+    // flutuante saiu e a conversa mora num lugar só; esta linha, o ⌘K e a
+    // caixa da Home são portas para o MESMO chat. Os motores seguem como abas.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
-      { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles" },
+      { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles", event: "a4p:open-ia" },
       { label: "Risco de caixa", desc: "A chance de o caixa ficar negativo", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
       { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/quattro-ai?aba=decisao", icon: "target", pro: true },
       { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/quattro-ai?aba=autonomo", icon: "activity", pro: true },

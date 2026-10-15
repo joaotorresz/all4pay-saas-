@@ -6,7 +6,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
-import { reportar } from "@/lib/erros";
+import { motivoDaRecusa, reportar } from "@/lib/erros";
 
 export interface AdminOverview {
   orgs: number; orgs_ativas: number; trials: number; inadimplentes: number;
@@ -285,6 +285,19 @@ export async function getAdminUserDetail(userId: string): Promise<UserDetalhe> {
 export interface PinbankVinculoAdmin {
   id: string; orgId: string; empresa: string; estabelecimentoId: number | null;
   chaveGateway: string | null; nome: string | null; ativo: boolean; criadoEm: string;
+  /**
+   * O código do estabelecimento no EXTRATO (o EC) — o que a conferência manda à
+   * Pinbank. ⚠️ Mostrado ao lado de cada vínculo: um dígito trocado é o extrato
+   * de OUTRA loja, e escondido ninguém o veria (D10).
+   *
+   * ⚠️ TRÊS estados, não dois: número = o EC; `null` = o painel disse que NÃO
+   * há EC cadastrado; `undefined` = o painel NÃO INFORMOU (o servidor de antes
+   * da migration do EC não devolve o campo). Ler a chave ausente como "não
+   * cadastrado" poria "EC —" ao lado de vínculos que TÊM EC — justamente na
+   * janela em que a plataforma precisa ver os ECs (ONDA 4: ausência de medida
+   * não é medida de ausência).
+   */
+  codigoCliente: number | null | undefined;
 }
 export interface PinbankQuarentena {
   estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null; eventos: number; ultimo: string;
@@ -301,6 +314,7 @@ export async function getPinbankAdmin(): Promise<{ vinculos: PinbankVinculoAdmin
       estabelecimentoId: r.estabelecimento_id == null ? null : Number(r.estabelecimento_id),
       chaveGateway: r.chave_gateway ? String(r.chave_gateway) : null, nome: r.nome ? String(r.nome) : null,
       ativo: !!r.ativo, criadoEm: String(r.criado_em ?? ""),
+      codigoCliente: !("codigo_cliente" in r) ? undefined : r.codigo_cliente == null ? null : Number(r.codigo_cliente),
     })),
     quarentena: (d.quarentena ?? []).map((r) => ({
       estabelecimentoId: r.estabelecimento_id == null ? null : Number(r.estabelecimento_id),
@@ -310,14 +324,28 @@ export async function getPinbankAdmin(): Promise<{ vinculos: PinbankVinculoAdmin
   };
 }
 
-export async function vincularPinbank(p: { orgId: string; estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null }): Promise<void> {
+/**
+ * ⚠️ `codigoCliente` é OBRIGATÓRIO no tipo (pode ser `null`): é o código do
+ * estabelecimento no EXTRATO (o EC), e é dele que a conferência extrato ×
+ * sistema lê. Opcional, a próxima tela de vínculo compilaria sem perguntar por
+ * ele — e a conferência daquela maquininha nasceria sem saber de quem é o
+ * extrato (a lição do A4P-085).
+ */
+export async function vincularPinbank(p: {
+  orgId: string; estabelecimentoId: number | null; chaveGateway: string | null; nome: string | null; codigoCliente: number | null;
+}): Promise<void> {
   const { error } = await createClient().rpc("admin_pinbank_vincular", {
     p_org: p.orgId, p_estabelecimento_id: p.estabelecimentoId, p_chave_gateway: p.chaveGateway, p_nome: p.nome,
+    p_codigo_cliente: p.codigoCliente,
   });
-  if (error) throw error;
+  // ⚠️ A FRASE DO BANCO chega à tela, com a dica: o EC vivo em outra empresa e o EC
+  // que não é positivo são recusados pelo gatilho de `pinbank_vinculos` (D10), e
+  // a frase diz o que fazer. (Numa corrida fora de READ COMMITTED, quem recusa é a
+  // restrição de exclusão — e a frase é a dela, com o EC e as duas empresas.)
+  if (error) throw new Error(motivoDaRecusa(error));
 }
 
 export async function desvincularPinbank(vinculoId: string, motivo: string): Promise<void> {
   const { error } = await createClient().rpc("admin_pinbank_desvincular", { p_vinculo: vinculoId, p_motivo: motivo });
-  if (error) throw error;
+  if (error) throw new Error(motivoDaRecusa(error));
 }

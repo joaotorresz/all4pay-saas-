@@ -40,6 +40,13 @@ const PALETA = new Map<string, string>([
   ["#6b7060", "Texto secundário"],
   ["#a9ad9e", "Placeholder"],
   ["#b3261e", "Erro — o único vermelho"],
+  // TEMA ERP (canvas "Quattro ERP · Protótipo", 13/10/2026) — decisão do dono.
+  ["#f6f6f6", "Tema ERP: cartão e menu"],
+  ["#e2e2e2", "Tema ERP: borda"],
+  ["#f4f4f4", "Tema ERP: linha do menu"],
+  ["#35c759", "Tema ERP: sucesso"],
+  ["#f2a519", "Tema ERP: alerta"],
+  ["#e5484d", "Tema ERP: perigo"],
 ]);
 
 /*
@@ -153,7 +160,7 @@ for (const arquivo of arquivos) {
          * a parte da regra que carrega o valor.
          */
         const ehTokenDeclarado = declara
-          && /black-pure|hero-from|hero-glow|--color-white|cardBg|boxBg|--a4p-box-bg/.test(linha);
+          && /black-pure|hero-from|hero-glow|--color-white|cardBg|boxBg|--a4p-box-bg|--color-surface-[12]|--a4p-chrome:|--a4p-app-bg|--a4p-bg:|--erp-num-cor|--erp-moeda-cor/.test(linha);
         if (!ehTokenDeclarado) brancoPreto.push({ arquivo: rel, linha: i + 1, hex, trecho });
         continue;
       }

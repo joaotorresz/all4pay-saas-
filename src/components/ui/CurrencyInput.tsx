@@ -20,6 +20,8 @@ export interface CurrencyInputProps {
   placeholder?: string;
   id?: string;
   containerClassName?: string;
+  /** Só leitura para quem não pode editar — o mesmo `disabled` do `Input`. */
+  disabled?: boolean;
 }
 
 export function CurrencyInput({
@@ -31,6 +33,7 @@ export function CurrencyInput({
   placeholder = "0,00",
   id,
   containerClassName,
+  disabled,
 }: CurrencyInputProps) {
   const inputId =
     id ||
@@ -68,6 +71,7 @@ export function CurrencyInput({
           inputMode="numeric"
           value={display}
           placeholder={placeholder}
+          disabled={disabled}
           onChange={(e) => handle(e.target.value)}
           className="flex-1 min-w-0 border-none outline-none bg-transparent text-body text-ink tabular-nums placeholder:text-placeholder"
         />
