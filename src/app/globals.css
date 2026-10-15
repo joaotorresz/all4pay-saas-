@@ -1218,6 +1218,14 @@ html.dark .a4p-canvas {
   border: 0;
   color: var(--color-ink);
 }
+/* O topo da tela que GRUDA ao rolar (avisos + título, `AppShell`).
+   ⚠️ Sem retângulo sólido (dono, 15/10/2026): um bloco branco com borda reta
+   descia junto com a página. O fundo é a cor da área até o fim do título e se
+   dissolve nos 18px de baixo — o título fica legível e o conteúdo some sob ele
+   em vez de bater num corte. Só tokens: a cor é a da própria área. */
+.a4p-topo-tela {
+  background: linear-gradient(to bottom, var(--a4p-app-bg) calc(100% - 18px), transparent);
+}
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
   .a4p-glass,
@@ -1451,6 +1459,10 @@ html.dark .a4p-canvas {
     border: 0 !important;
   }
   .ds-visor, .a4p-app-card > main { display: block !important; min-height: 0 !important; }
+  /* A barra flutuante não sai no papel, então a folga que a contorna também
+     não; e o topo que gruda volta ao fluxo, sem o degradê. */
+  [data-folga-barra] { display: none !important; }
+  .a4p-topo-tela { position: static !important; background: none !important; }
   /* A área que rola: sem isto ela imprime só a primeira dobra. O seletor pega
      qualquer contêiner de rolagem dentro do cartão do app — a regra é sobre a
      PROPRIEDADE, não sobre uma coordenada de DOM. */
