@@ -188,6 +188,8 @@ do arquivo; tabela, formas e o print em `docs/design/referencia-jota/`.
   (`--color-text-secondary`) · meta `#9A9A9A` (`--color-text-tertiary`).
 - **Pílula** (`.a4p-pilula`): branca `#FFFFFF`, texto e ícone `#1A1A1A`, raio
   cheio, sem borda — chips de sugestão da IA e da Home, "Fechar chat".
+- **Barra "Pergunte à Quattro AI" da Home**: o mesmo branco `#FFFFFF` da
+  pílula (`--a4p-pilula-fundo`), com o "+" em cinza `#F2F2F2`.
 - Fonte, ícones (Lucide 1,75px), lime como acento e dark mode: inalterados.
 
 ## ⚠️ O CANVAS "QUATTRO ERP · PROTÓTIPO" É A REGRA DE TUDO (decisão do dono, 13/10/2026)
