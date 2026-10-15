@@ -38,3 +38,4 @@ export { MarcaProcedencia, InfoProcedencia, LinhaProcedencia, textoDeOrigem } fr
 export { ValorIndicador, SemDados, PainelOrigem, type FormatoValor } from "./ValorIndicador";
 export { NotaCancelados } from "./NotaCancelados";
 export { DicaGrafico, DicaRecharts, VariacaoPill, DegradeArea, type DicaGraficoProps, type LinhaDica, type VariacaoDica } from "./Grafico";
+export { CartaoBiblioteca, BarrasEntradaSaida, LinhaEntradaSaida, BarrasDestaque, LinhasSuaves, AreaComparada, MapaCalorGrade, AneisConcentricos, COR_ENTRADA, COR_SAIDA, type PontoEntradaSaida, type PontoDestaque, type SerieSuave, type PontoArea, type CelulaCalor, type Anel } from "./GraficosBiblioteca";

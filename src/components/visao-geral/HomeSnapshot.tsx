@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BRL, Icon, SemDados } from "@/components/ui";
+import { BRL, Icon, SemDados, BarrasEntradaSaida, AreaComparada } from "@/components/ui";
 import { useRiscoInput, useUnreconciled } from "./hooks";
 import { montarHomeSnapshot, type CurvaHome, type NumeroHome } from "@/core/home/snapshot";
 import { isoLocal, temValor } from "@/core/indicadores";
@@ -521,6 +521,25 @@ function Curva({ id, curva }: { id: string; curva: CurvaHome }) {
   );
 }
 
+/**
+ * O gráfico de cada card grande, trocado no canvas "Gráficos e tabelas"
+ * (pranchetas de TROCAS, 15/10/2026): o caixa consolidado virou o modelo
+ * "Entradas" (o que entrou e saiu em cada mês) e o ARR virou "Estatística de
+ * saldo 1" (linha + área). Sem a série de entradas/saídas, fica a curva.
+ */
+function GraficoDoCard({ id, curva }: { id: string; curva: CurvaHome }) {
+  const meses = curva.meses;
+  if (id === "caixa" && curva.entradas && curva.saidas) {
+    const dados = meses.map((m, i) => ({ label: m, entrada: curva.entradas?.[i] ?? 0, saida: curva.saidas?.[i] ?? 0 }));
+    return <BarrasEntradaSaida dados={dados} altura={180} ariaLabel={`Entradas e saídas de ${meses[0]} a ${meses[meses.length - 1]}`} />;
+  }
+  if (id === "arr") {
+    const dados = meses.map((m, i) => ({ label: m, valor: curva.pontos[i] ?? 0 }));
+    return <AreaComparada id="home-arr" dados={dados} altura={180} ariaLabel={`ARR de ${meses[0]} a ${meses[meses.length - 1]}`} />;
+  }
+  return <Curva id={id} curva={curva} />;
+}
+
 function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; carimbo: string }) {
   return (
     <Link
@@ -534,7 +553,7 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
         <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><Valor n={n} /></span>
         <Pilula v={n.variacao} />
       </div>
-      <Curva id={n.id} curva={curva} />
+      <GraficoDoCard id={n.id} curva={curva} />
       <div className="flex justify-between text-[12px] text-muted pt-3 border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
         <span>{carimbo}</span>
         <span className="text-[13px]">vs. o mesmo dia do mês passado</span>

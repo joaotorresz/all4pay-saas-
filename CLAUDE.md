@@ -332,6 +332,36 @@ gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
     em líquido…) ficam como REFERÊNCIA na pasta do canvas: viram componente
     quando uma tela os usar, com as mesmas peças.
 
+## ⚠️ TROCAS DO CANVAS LEVADAS AO SISTEMA (15/10/2026)
+
+O dono escolheu, nas pranchetas "Trocas · …" do canvas "Gráficos e tabelas",
+o modelo da Biblioteca de 9 gráficos. As peças moram em
+`components/ui/GraficosBiblioteca.tsx`, com o NOME do modelo no canvas
+(`CartaoBiblioteca`, `BarrasEntradaSaida` = "Entradas", `LinhaEntradaSaida` =
+"Análises 3", `BarrasDestaque` = "Receita 2", `LinhasSuaves` = "Análises 2",
+`AreaComparada` = "Estatística de saldo 1", `MapaCalorGrade` = "Atividade por
+horário", `AneisConcentricos` = "Histórico de transferências 3").
+
+| Item | Modelo |
+| --- | --- |
+| Fluxo de caixa · Resultado líquido | Análises 3 |
+| Fluxo de caixa · Gastos | Entradas |
+| Fluxo de caixa · Receitas | Receita 2 |
+| Fluxo de caixa · Projeção do caixa | Análises 2 |
+| Fluxo de caixa · DRE da receita ao fluxo livre | Estatística de saldo 1 |
+| Fluxo de caixa · Mapa de calor | Atividade por horário |
+| Contas a receber · Distribuição por status | Histórico de transferências 3 (`variante="aneis"`; pagar segue na rosca) |
+| Home · Caixa consolidado | Entradas (entradas e saídas do mês, `CurvaHome.entradas/saidas`) |
+| Home · ARR | Estatística de saldo 1 |
+
+- ⚠️ **TERCEIRA exceção declarada à "cor por sinal": a cor da SÉRIE de
+  entrada e saída** (`--erp-graf-entrada` → positive, `--erp-graf-saida` →
+  negative) nesses modelos, porque o dono ligou "Positivo e negativo" neles no
+  canvas. A cor vem da série, NUNCA de comparar o valor com zero — a guarda
+  `cor:` continua com teto zero e não precisou mudar. O número segue na tinta.
+- Novas trocas: o canvas liga cada troca à prancheta individual
+  (`Bib<NN>…dc.html`, por `dc-import`); o código acompanha pelo nome do modelo.
+
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 
 Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
