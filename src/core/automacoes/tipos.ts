@@ -14,6 +14,14 @@ export type TipoAutomacao =
   | "fechamento_pendente"
   | "regua_cobranca";
 
+/**
+ * O que vai no registro de envios: as seis automações fixas e os FLUXOS que o
+ * cliente monta (`./fluxo`). O fluxo não é um tipo de automação — não tem
+ * configuração em `automacoes` nem prévia no catálogo —, mas o envio dele passa
+ * pela MESMA trava (reservar → enviar → concluir) e mora na mesma tabela.
+ */
+export type TipoEnvio = TipoAutomacao | "fluxo";
+
 export const TIPOS_AUTOMACAO: TipoAutomacao[] = [
   "resumo_diario", "resumo_semanal", "lembrete_pagar", "alerta_caixa", "fechamento_pendente", "regua_cobranca",
 ];
@@ -136,7 +144,8 @@ export interface ContextoAutomacao {
 /** O template aprovado que cada finalidade usa no WhatsApp. */
 export type FinalidadeTemplate =
   | "cobranca_lembrete" | "cobranca_atraso" | "cobranca_formal"
-  | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente";
+  | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente"
+  | "fluxo_agendado";
 
 /** O conteúdo, antes de ter destino. É o que a PRÉVIA mostra. */
 export interface Conteudo {
@@ -166,7 +175,7 @@ export interface SemEnvio {
 }
 
 export interface MensagemAutomacao {
-  tipo: TipoAutomacao;
+  tipo: TipoEnvio;
   canal: CanalEnvio;
   destino: string;
   destinoMascarado: string;

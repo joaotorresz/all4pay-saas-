@@ -51,7 +51,7 @@ import {
 } from "./tempo";
 import {
   AUTOMACOES_VERSION, TIPOS_AUTOMACAO, contaComoAvisado,
-  type TipoAutomacao, type CanalEnvio, type ConfigAutomacao, type ContextoAutomacao,
+  type TipoAutomacao, type TipoEnvio, type CanalEnvio, type ConfigAutomacao, type ContextoAutomacao,
   type Conteudo, type SemEnvio, type MensagemAutomacao, type ResultadoAutomacao,
   type EnvioHistorico, type FinalidadeTemplate, type ParametrosAutomacao, type StatusEnvio,
 } from "./tipos";
@@ -133,7 +133,7 @@ export function mascarar(canal: CanalEnvio | "manual", destino: string): string 
   return dg ? `••••-${dg.slice(-4)}` : "—";
 }
 
-const normalizarDestino = (canal: CanalEnvio, d: string) =>
+export const normalizarDestino = (canal: CanalEnvio, d: string) =>
   canal === "email" ? d.trim().toLowerCase() : soDigitos(d);
 
 const semEnvio = (tipo: TipoAutomacao, s: SemEnvio): ResultadoAutomacao =>
@@ -758,7 +758,7 @@ export function previa(cfg: ConfigAutomacao, ctx: ContextoAutomacao): Conteudo |
 /* O DESPACHO — grava ANTES de enviar                                          */
 /* ========================================================================== */
 
-export interface ChaveEnvio { orgId: string; tipo: TipoAutomacao; chave: string; canal: CanalEnvio }
+export interface ChaveEnvio { orgId: string; tipo: TipoEnvio; chave: string; canal: CanalEnvio }
 
 /**
  * O registro dos envios. `reservar` grava a linha ANTES do provedor e devolve
@@ -783,7 +783,7 @@ export interface RelatorioDespacho {
   simulados: number;
   falhas: number;
   jaRegistrados: number;
-  itens: { tipo: TipoAutomacao; canal: CanalEnvio; destino: string; resultado: "sairia" | "enviado" | "simulado" | "falhou" | "ja_registrado"; erro?: string }[];
+  itens: { tipo: TipoEnvio; canal: CanalEnvio; destino: string; resultado: "sairia" | "enviado" | "simulado" | "falhou" | "ja_registrado"; erro?: string }[];
 }
 
 export function relatorioVazio(): RelatorioDespacho {

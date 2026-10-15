@@ -22,6 +22,10 @@ import {
   faltaNaProposta, respostaDaProposta, lerHora, lerDias, PROPOSTA_VAZIA,
 } from "../src/core/automacoes/pedido.ts";
 import { CORPUS } from "./fixtures/corpus-ia.mts";
+import {
+  fluxosDoServidor, devidosAgora, disparosDaEmpresa, mensagensDoFluxo, vendasDaRpc, secoesDoTexto, fontesNecessarias,
+} from "../src/core/automacoes/disparo.ts";
+import { despachar, registroEmMemoria, type LinhaEnvio } from "../src/core/automacoes/index.ts";
 
 let falhas = 0;
 const ok = (nome: string, cond: boolean, extra?: unknown) => {
@@ -201,6 +205,76 @@ ok("executar: o fluxo da maquininha escreve a mesma mensagem da fonte", ehMensag
   ok("porta: pergunta sobre o que vence na segunda NÃO é automação", !ehPedidoDeAutomacao("quanto vou pagar na segunda?") && !ehPedidoDeAutomacao("o que vence essa semana?"));
   const roubadas = CORPUS.map(([q]) => q).filter((q) => ehPedidoDeAutomacao(q));
   ok(`porta: nenhuma das ${CORPUS.length} perguntas do corpus da IA vira automação`, roubadas.length === 0, roubadas);
+}
+
+/* ---------- o disparo (etapa 4): o executor de 15 em 15 minutos ---------- */
+{
+  const segunda8h05 = new Date("2026-10-19T11:05:00Z");
+  const pagarLigado: Fluxo = { ...clone(mPagar), id: "fp", ativo: true };
+  const maqLigado19h: Fluxo = { ...clone(mMaq), id: "fm", ativo: true };
+  // Ida e volta pelo banco (jsonb): a forma sobrevive.
+  const doBanco = fluxosDoServidor(JSON.parse(JSON.stringify([pagarLigado, maqLigado19h])));
+  ok("disparo: o fluxo volta do banco com a mesma forma", JSON.stringify(doBanco[0]) === JSON.stringify(pagarLigado), doBanco[0]);
+  ok("disparo: lixo do banco não vira fluxo", fluxosDoServidor([null, 3, "x", { id: "a" }, { id: "b", nos: [{ id: "n", tipo: "apagar" }] }]).length === 0);
+  ok("disparo: não-array vira lista vazia", fluxosDoServidor({ id: "x" }).length === 0);
+
+  const dev = devidosAgora(doBanco, segunda8h05);
+  ok("disparo: segunda 08:05 BRT vence SÓ o de segunda às 8h", dev.length === 1 && dev[0].fluxo.id === "fp" && dev[0].chave === "fluxo:fp:2026-10-19", dev);
+  ok("disparo: só lê a fonte que vai usar", JSON.stringify([...fontesNecessarias(dev)]) === '["contas_pagar_semana"]');
+  ok("disparo: desligado não vence", devidosAgora([{ ...pagarLigado, ativo: false }], segunda8h05).length === 0);
+  {
+    const quebrado = clone(pagarLigado); quebrado.ligacoes = [];
+    ok("disparo: ligado COM problema não roda (validarFluxo decide)", devidosAgora([quebrado], segunda8h05).length === 0);
+  }
+  ok("disparo: 19:10 BRT vence o da maquininha", devidosAgora(doBanco, new Date("2026-10-19T22:10:00Z")).map((d) => d.fluxo.id).join() === "fm");
+
+  const dadosD = { input, vendasMaquininha: vendas, temMaquininha: true };
+  const [res] = disparosDaEmpresa(dev, dadosD, { salvoPorAdministra: true, appUrl: "https://app.exemplo" });
+  ok("disparo: uma mensagem por destino, tipo fluxo, chave com o destino",
+    res.mensagens.length === 1 && res.mensagens[0].tipo === "fluxo" && /^fluxo:fp:2026-10-19:[0-9a-f]{8}$/.test(res.mensagens[0].chave), res);
+  ok("disparo: o texto é o da prévia (mesma função)", res.mensagens[0]?.texto === (ms as { texto: string }).texto);
+  ok("disparo: destino mascarado, template com título e resumo",
+    res.mensagens[0]?.destinoMascarado === "••••-7777" && res.mensagens[0]?.finalidade === "fluxo_agendado" && !!res.mensagens[0]?.variaveis["2"]);
+  {
+    const dois = clone(pagarLigado);
+    const envio = dois.nos.find((n) => n.tipo === "envio")!;
+    if (envio.tipo === "envio") envio.destinos = [...envio.destinos, { endereco: "(11) 98888-7777" }, { endereco: "21 99999-0000" }];
+    const m = mensagensDoFluxo({ fluxo: dois, chave: "fluxo:fp:2026-10-19", dia: "2026-10-19" }, dadosD).mensagens;
+    ok("disparo: o mesmo número escrito de dois jeitos recebe UMA vez", m.length === 2 && new Set(m.map((x) => x.chave)).size === 2, m.map((x) => x.chave));
+  }
+  {
+    const [neg] = disparosDaEmpresa(dev, dadosD, { salvoPorAdministra: false });
+    ok("disparo: salvo por quem não administra NÃO envia, e diz por quê", neg.mensagens.length === 0 && neg.semEnvio?.codigo === "nao_autorizado");
+  }
+  {
+    const [sem] = disparosDaEmpresa(dev, { ...dadosD, input: { ...input, movements: [] } }, { salvoPorAdministra: true });
+    ok("disparo: sem dados, nenhuma mensagem e o motivo", sem.mensagens.length === 0 && sem.semEnvio?.codigo === "sem_dados");
+  }
+  ok("disparo: o e-mail vira seções (Quarta com Energia SA)",
+    secoesDoTexto((ms as { texto: string }).texto).some((s) => /Quarta/.test(s.titulo) && s.linhas.some((l) => l.rotulo === "Energia SA")));
+
+  // A trava: o cron roda de 15 em 15 minutos DENTRO da tolerância — a segunda
+  // janela não pode mandar de novo.
+  const linhas: LinhaEnvio[] = [];
+  const enviados: string[] = [];
+  const provedor = { ativo: () => true, async enviar(m: { chave: string }) { enviados.push(m.chave); return { ok: true, id: "x" }; } };
+  const dep = { registro: registroEmMemoria(linhas), provedor };
+  await despachar("org-a", res.mensagens, dep);
+  const dev2 = devidosAgora(doBanco, new Date("2026-10-19T11:20:00Z"));
+  const [res2] = disparosDaEmpresa(dev2, dadosD, { salvoPorAdministra: true });
+  const r2 = await despachar("org-a", res2.mensagens, dep);
+  ok("disparo: a janela das 08:20 bate na trava e NÃO manda de novo", enviados.length === 1 && r2.jaRegistrados === 1, { enviados, r2 });
+
+  // As vendas como a RPC as devolve (números podem vir como texto do jsonb).
+  const rpc = vendasDaRpc({ temMaquininha: true, vendas: [
+    { nsu: 1, status: "Aprovada", valor: "300.00", ocorridoEm: "2026-10-19T15:00:00Z", formaPagamento: "PARCELADO_LOJA", numeroParcelas: "3", bandeira: "Mastercard", ehPix: false, liquido: "285.40" },
+    { nsu: 2, status: "Aprovada", valor: 20, ocorridoEm: "2026-10-19T16:00:00Z", formaPagamento: null, numeroParcelas: null, bandeira: null, ehPix: true, liquido: null },
+    { nsu: 3, status: "Inventado", valor: 5, ocorridoEm: "2026-10-19T16:00:00Z" },
+  ] });
+  ok("rpc: parcelado em 3x, Pix, líquido nulo continua nulo, status estranho sai",
+    rpc.temMaquininha && rpc.vendas.length === 2 && rpc.vendas[0].forma === "parcelado" && rpc.vendas[0].parcelas === 3
+    && rpc.vendas[0].liquido === 285.4 && rpc.vendas[1].forma === "pix" && rpc.vendas[1].liquido === null, rpc);
+  ok("rpc: resposta vazia = sem maquininha, sem vendas", !vendasDaRpc(null).temMaquininha && vendasDaRpc(undefined).vendas.length === 0);
 }
 
 console.log(falhas ? `\n✗ ${falhas} falha(s)` : "\n✓ fluxos: tudo certo");

@@ -3981,6 +3981,7 @@ const AGOSTO = janelaMes(2026, 7);
     // `CRON_SECRET` por conta própria.
     const rotas = [
       "src/app/api/financial-os/run/route.ts",
+      "src/app/api/automacoes/fluxos/run/route.ts",
       "src/app/api/recorrencias/run/route.ts",
       "src/app/api/openfinance/sync/route.ts",
       "src/app/api/notificacoes/teste/route.ts",
