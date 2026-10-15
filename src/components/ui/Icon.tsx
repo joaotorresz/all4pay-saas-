@@ -1,102 +1,49 @@
 import * as React from "react";
-import { SOLAR_ICONS, type SolarIcon } from "./solar-icons";
-
-/** Espessura de traço NATIVA do set Hugeicons Rounded (a que vem no glifo). */
-const STROKE_PADRAO = 1.5;
-/** Espessura que a marca Quattro pede para ícone (guia: traço 1,7px). */
-const STROKE_MARCA = 1.7;
+import { LUCIDE_ICONS, iconeExiste, type LucideIconKey } from "./lucide-icons";
 
 /**
- * Ícones custom (fora do set gerado) — sobrepõem o SOLAR_ICONS por nome.
- * `inicio`: pentágono arredondado (silhueta do "Visão Geral" do Visor), agora
- * TRAÇADO para casar com o Hugeicons. Usado no item Início/Resumo da Sidebar.
+ * Espessura do traço do sistema: **1,75px** (decisão do dono, 15/10/2026).
+ * O Lucide nasce com 2; o padrão do DS é este, e ele vale para TODO ícone
+ * porque mora aqui, no único componente que desenha ícone.
  */
-const CUSTOM_ICONS: Record<string, SolarIcon> = {
-  inicio: { b: '<path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" d="M12 3.5 20.6 9.7 17.3 19.8 6.7 19.8 3.4 9.7Z"/>', w: 24, h: 24 },
-  // Sino e "mais" (⋮) da barra superior — o set gerado não traz os dois, e a
-  // barra precisa deles. Desenhados no MESMO padrão (traço 1.5, cantos
-  // arredondados, viewBox 24) para não destoarem dos vizinhos.
-  bell: {
-    b: '<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
-      + '<path d="M12 4.2c-3.1 0-5.6 2.5-5.6 5.6v2.05c0 .62-.21 1.22-.6 1.7l-.83 1.03c-.62.78-.07 1.92.92 1.92h12.22c.99 0 1.54-1.14.92-1.92l-.83-1.03a2.72 2.72 0 0 1-.6-1.7V9.8c0-3.1-2.5-5.6-5.6-5.6Z"/>'
-      + '<path d="M9.6 19.1a2.55 2.55 0 0 0 4.8 0"/>'
-      + '<path d="M12 4.2V2.6"/></g>',
-    w: 24, h: 24,
-  },
-  "more-vertical": {
-    b: '<g fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></g>',
-    w: 24, h: 24,
-  },
-  /**
-   * O painel — quatro áreas de tamanhos diferentes, como um dashboard real.
-   *
-   * ⚠️ Entra aqui porque o set gerado NÃO traz este glifo, e inventar um fora
-   * do padrão seria sair do conjunto que o DS fixa. Desenhado com as mesmas
-   * regras dos vizinhos: traço 1.5, cantos arredondados (`rx`), viewBox 24.
-   * Quatro retângulos DESIGUAIS de propósito — quatro iguais leem como grade
-   * ou tabela, não como painel.
-   */
-  "layout-dashboard": {
-    b: '<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">'
-      + '<rect x="3.2" y="3.2" width="7.6" height="9.2" rx="1.6"/>'
-      + '<rect x="13.2" y="3.2" width="7.6" height="5.6" rx="1.6"/>'
-      + '<rect x="13.2" y="11.6" width="7.6" height="9.2" rx="1.6"/>'
-      + '<rect x="3.2" y="15.2" width="7.6" height="5.6" rx="1.6"/></g>',
-    w: 24, h: 24,
-  },
-};
+export const STROKE_ICONE = 1.75;
 
 /**
  * Quattro DS — Icon
- * Conjunto **Hugeicons (Stroke Rounded)** (Iconify) — glifos TRAÇADOS, leves e
- * com cantos arredondados. Monocromáticos via `currentColor`: a prop `color`
- * carrega a identidade visual da Quattro (ink · muted · faint · lime · on-lime)
- * e `strokeWidth` ajusta a espessura (padrão 1.5 do próprio set). Renderiza o
- * SVG inline (sem fetch em runtime; viewBox 24).
+ * Conjunto **Lucide** (`lucide-react`) — glifos traçados, monocromáticos via
+ * `currentColor`: a prop `color` carrega a identidade (ink · muted · faint ·
+ * lime · on-lime) e `strokeWidth` só muda a espessura na exceção.
  *
- * Ids internos (alguns glifos usam <defs>/<mask>/<use>) são renomeados por
- * instância (useId) para nunca colidirem quando o mesmo ícone aparece N vezes.
+ * ⚠️ `absoluteStrokeWidth`: o traço fica em 1,75px NA TELA em qualquer
+ * tamanho. Sem ele o Lucide escala o traço junto com o ícone (um ícone de
+ * 12px sairia com 0,9px e um de 32px com 2,3px) e "1,75" deixaria de ser
+ * uma medida.
  *
- * Para trocar/estender o set: rode `scratchpad/gen-hugeicons.mjs`.
+ * As chaves (`house`, `trash-2`…) moram em `lucide-icons.ts`.
  */
-export type IconName = keyof typeof SOLAR_ICONS;
+export type IconName = LucideIconKey;
 
 export interface IconProps {
   name: IconName | string;
   size?: number;
   color?: string;
-  /** Espessura do traço (Hugeicons é traçado). Padrão: 1.7, do guia Quattro. */
+  /** Espessura do traço em px. Padrão: 1,75 (o do sistema). */
   strokeWidth?: number;
   className?: string;
 }
 
-export function Icon({ name, size = 18, color = "currentColor", strokeWidth = STROKE_MARCA, className }: IconProps) {
-  const ic = CUSTOM_ICONS[name as string] ?? SOLAR_ICONS[name as string];
-  const rawId = React.useId();
-  const html = React.useMemo(() => {
-    let b = ic?.b ?? "";
-    // Espessura customizada: o set traz stroke-width fixo em cada glifo.
-    if (strokeWidth && strokeWidth !== STROKE_PADRAO) {
-      b = b.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
-    }
-    if (!b.includes("id=")) return b; // fast path: glifo sem ids internos
-    const uid = "a4p" + rawId.replace(/[^a-zA-Z0-9]/g, "");
-    return b
-      .replace(/id="([^"]+)"/g, (_m, id) => `id="${uid}-${id}"`)
-      .replace(/href="#([^"]+)"/g, (_m, id) => `href="#${uid}-${id}"`)
-      .replace(/url\(#([^)]+)\)/g, (_m, id) => `url(#${uid}-${id})`);
-  }, [ic, rawId, strokeWidth]);
-  if (!ic) return null;
+export function Icon({ name, size = 18, color = "currentColor", strokeWidth = STROKE_ICONE, className }: IconProps) {
+  if (!iconeExiste(name)) return null;
+  const Glifo = LUCIDE_ICONS[name];
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${ic.w} ${ic.h}`}
+    <Glifo
+      size={size}
+      strokeWidth={strokeWidth}
+      absoluteStrokeWidth
       className={["a4p-icon", className].filter(Boolean).join(" ")}
       style={{ color, display: "inline-block", flexShrink: 0, verticalAlign: "middle" }}
       aria-hidden="true"
       focusable="false"
-      dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }

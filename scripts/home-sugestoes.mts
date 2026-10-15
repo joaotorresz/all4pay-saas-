@@ -54,7 +54,7 @@ import {
   type AcaoHome, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
 import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/home/biblioteca";
-import { SOLAR_ICONS } from "@/components/ui/solar-icons";
+import { iconeExiste } from "@/components/ui/lucide-icons";
 import { readFileSync } from "node:fs";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -168,8 +168,6 @@ ok("ia: o contexto não leva lançamento nem nome", !("movements" in ctx) && !JS
 // O chip do modelo do dono (14/10/2026): rótulo CURTO + ícone. Toda pergunta
 // tem os dois, o ícone existe no DS (ícone desconhecido some sem erro, e o
 // chip fica só com texto) e o rótulo é de fato curto e distinto.
-const ICONES_CUSTOM = readFileSync(new URL("../src/components/ui/Icon.tsx", import.meta.url), "utf8");
-const iconeExiste = (n: string) => n in SOLAR_ICONS || new RegExp(`^\\s*"?${n}"?:\\s*\\{`, "m").test(ICONES_CUSTOM);
 ok("rótulo: toda pergunta do catálogo tem rótulo curto", CATALOGO_SUGESTOES.every((c) => ROTULOS[c.id]), CATALOGO_SUGESTOES.filter((c) => !ROTULOS[c.id]).map((c) => c.id).join(","));
 ok("rótulo: nenhum rótulo sobra sem pergunta", Object.keys(ROTULOS).every((id) => CATALOGO_SUGESTOES.some((c) => c.id === id)));
 ok("rótulo: curto de verdade (até 24 letras) e menor que a pergunta", CATALOGO_SUGESTOES.every((c) => ROTULOS[c.id] && ROTULOS[c.id].curto.length <= 24 && ROTULOS[c.id].curto.length < c.texto.length));

@@ -179,11 +179,14 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
   `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
   aceita `#000000` apenas nessas duas linhas de declaração. Sobre fundo escuro
   ou lime o número herda a cor da superfície.
-- **Ícones: o sistema VOLTOU ao Hugeicons** (decisão do dono, 13/10/2026). O
-  conjunto duotônico (`icones-quattro.ts`) saiu do código; o `Icon` usa de novo
-  `CUSTOM_ICONS` + o set gerado em `solar-icons.ts`, com as mesmas chaves. A
-  prancheta "Ícones (61)" do canvas fica como registro do desenho, não como
-  regra.
+- ⚠️ **Ícones: LUCIDE, traço 1,75px** (decisão do dono, 15/10/2026 — vence
+  toda menção a Hugeicons abaixo, que é histórico). O `Icon` desenha pelo
+  `lucide-react`; o mapa chave do sistema → glifo mora em
+  `ui/lucide-icons.ts` (as chaves `house`, `trash-2`… não mudaram, e nenhuma
+  tela importa `lucide-react` direto). Traço `STROKE_ICONE = 1.75` com
+  `absoluteStrokeWidth` (1,75px na tela em qualquer tamanho). Guarda no
+  `engine-audit` (bloco `icone:`): toda chave pedida pelas telas existe.
+  `solar-icons.ts` e `CUSTOM_ICONS` saíram.
 - O dark mode ficou como estava (o canvas não desenhou o tema escuro).
 
 ## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo
