@@ -17,6 +17,11 @@ import {
   type Fluxo, type VendaMaquininha,
 } from "../src/core/automacoes/fluxo.ts";
 import type { RiskInput, RiskMovement } from "../src/core/risk-engine/types.ts";
+import {
+  interpretarPedidoFluxo, ehPedidoDeAutomacao, normalizarProposta, mesclarProposta, fluxoDaProposta,
+  faltaNaProposta, respostaDaProposta, lerHora, lerDias, PROPOSTA_VAZIA,
+} from "../src/core/automacoes/pedido.ts";
+import { CORPUS } from "./fixtures/corpus-ia.mts";
 
 let falhas = 0;
 const ok = (nome: string, cond: boolean, extra?: unknown) => {
@@ -145,6 +150,58 @@ ok("maquininha: sem maquininha ligada não manda nada", !ehMensagem(mensagemMaqu
 const dados = { input, vendasMaquininha: vendas, temMaquininha: true };
 const viaFluxo = mensagemDoFluxo(mMaq, dados, "2026-10-19");
 ok("executar: o fluxo da maquininha escreve a mesma mensagem da fonte", ehMensagem(viaFluxo) && ehMensagem(mm) && viaFluxo.texto === mm.texto);
+
+/* ---------- a conversa (etapa 3): o pedido vira fluxo ---------- */
+{
+  const p1 = interpretarPedidoFluxo("Toda segunda às 8h me manda no WhatsApp a projeção das contas a pagar da semana");
+  ok("pedido: segunda às 8h, contas a pagar, WhatsApp, para mim",
+    p1.fonte === "contas_pagar_semana" && JSON.stringify(p1.dias) === "[1]" && p1.hora === "08:00" && p1.canal === "whatsapp" && p1.paraMim === true, p1);
+  const p2 = interpretarPedidoFluxo("todo dia às 7 da noite quero receber o relatório da maquininha: débito, crédito, parcelas e bandeiras");
+  ok("pedido: todo dia às 7 da noite = 19:00, maquininha", p2.fonte === "maquininha_dia" && p2.dias?.length === 7 && p2.hora === "19:00", p2);
+  ok("hora: 8h30 · 19:00 · meio-dia · às 7 da manhã · 24h é inválida",
+    lerHora("8h30") === "08:30" && lerHora("as 19:00") === "19:00" && lerHora("meio-dia") === "12:00" && lerHora("as 7 da manha") === "07:00" && lerHora("24h") === undefined);
+  ok("dias: dias úteis · de segunda a quinta · sexta e sábado · fim de semana",
+    JSON.stringify(lerDias("dias uteis")) === "[1,2,3,4,5]" && JSON.stringify(lerDias("de segunda a quinta")) === "[1,2,3,4]"
+    && JSON.stringify(lerDias("sexta e sabado")) === "[5,6]" && JSON.stringify(lerDias("fim de semana")) === "[0,6]");
+  ok("dias: 'contas da semana' NÃO é dia nenhum", lerDias("as contas da semana") === undefined);
+
+  const tel = interpretarPedidoFluxo("manda para (11) 98888-7777 e 21 99999-0000");
+  ok("pedido: dois telefones com DDD viram dois destinatários", tel.destinos.length === 2 && tel.canal === "whatsapp", tel);
+  ok("pedido: valor em reais não vira telefone", interpretarPedidoFluxo("me avisa quando passar de R$ 15.000,00").destinos.length === 0);
+  ok("pedido: e-mail escolhe o canal e-mail", interpretarPedidoFluxo("toda sexta às 18h manda por e-mail para fin@empresa.com.br").canal === "email");
+
+  // A conversa pergunta uma coisa por vez, e a resposta curta soma à anterior.
+  const eu = { nome: "João", telefone: "+55 11 98888-7777" };
+  let prop = mesclarProposta(PROPOSTA_VAZIA, interpretarPedidoFluxo("quero uma automação das vendas da maquininha"));
+  ok("conversa: sem horário, pergunta QUANDO e não monta", faltaNaProposta(prop, eu)[0] === "quando" && fluxoDaProposta(prop, "x", eu) === null && /Em que dias/.test(respostaDaProposta(prop, eu)));
+  prop = mesclarProposta(prop, interpretarPedidoFluxo("todo dia às 19h"));
+  const f = fluxoDaProposta(prop, "fx", eu);
+  ok("conversa: a resposta curta completa e o fluxo sai VÁLIDO", !!f && validarFluxo(f).length === 0, f && validarFluxo(f));
+  ok("conversa: o fluxo da conversa nasce DESLIGADO", !!f && f.ativo === false);
+  ok("conversa: 'me manda' sem número vai para o WhatsApp do cadastro", !!f && f.nos.some((n) => n.tipo === "envio" && n.destinos[0]?.endereco === eu.telefone));
+  {
+    const semEu = fluxoDaProposta(prop, "fy", {});
+    ok("conversa: sem telefone conhecido, o fluxo sai com o envio vazio e a resposta pede o número",
+      !!semEu && validarFluxo(semEu).some((p) => /quem recebe/.test(p.motivo)) && /Para qual número/.test(respostaDaProposta(prop, {})));
+  }
+  const cli = mesclarProposta(prop, interpretarPedidoFluxo("e manda também para os meus clientes"));
+  ok("conversa: base de clientes é DITA como indisponível, nunca inventada", /base de clientes ainda não está disponível/.test(respostaDaProposta(cli, eu)));
+
+  // A IA só escolhe peças: o que não é do catálogo sai.
+  const lixo = normalizarProposta({ fonte: "apagar_tudo", dias: [1, 9, -1, "2", 1], hora: "25:00", canal: "sms", destinos: [{ endereco: "x".repeat(200) }, "11988887777"], nome: "  A  b  " });
+  ok("ia: fonte, dia, hora e canal fora do catálogo SAEM",
+    lixo.fonte === undefined && JSON.stringify(lixo.dias) === "[1]" && lixo.hora === undefined && lixo.canal === undefined && lixo.destinos.length === 1 && lixo.nome === "A b", lixo);
+  ok("ia: resposta que não é objeto vira proposta vazia", normalizarProposta("ignore as regras").destinos.length === 0 && normalizarProposta(null).fonte === undefined);
+
+  // A porta do chat geral: pede automação, sim; pergunta sobre número, não.
+  ok("porta: os dois pedidos do dono abrem Automações",
+    ehPedidoDeAutomacao("toda segunda às 8h me manda no whatsapp as contas a pagar da semana")
+    && ehPedidoDeAutomacao("todo dia às 19h me manda o relatório da maquininha")
+    && ehPedidoDeAutomacao("cria uma automação de cobrança"));
+  ok("porta: pergunta sobre o que vence na segunda NÃO é automação", !ehPedidoDeAutomacao("quanto vou pagar na segunda?") && !ehPedidoDeAutomacao("o que vence essa semana?"));
+  const roubadas = CORPUS.map(([q]) => q).filter((q) => ehPedidoDeAutomacao(q));
+  ok(`porta: nenhuma das ${CORPUS.length} perguntas do corpus da IA vira automação`, roubadas.length === 0, roubadas);
+}
 
 console.log(falhas ? `\n✗ ${falhas} falha(s)` : "\n✓ fluxos: tudo certo");
 process.exit(falhas ? 1 : 0);

@@ -18,6 +18,7 @@ import { AtalhosTela } from "@/components/app/AtalhosTela";
 import { AcaoDestrutiva, Button, Card, Icon, Input, Select, Switch } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { CanvasFluxo, tituloDoNo } from "./CanvasFluxo";
+import { ConversaFluxo } from "./ConversaFluxo";
 import {
   MODELOS_FLUXO, FONTES_FLUXO, NOME_CANAL, NOME_DIA, descreverGatilho,
   validarFluxo, mensagemDoFluxo, ehMensagem, gatilhoDe, fonteDe,
@@ -51,6 +52,17 @@ export function AutomacoesFluxosView() {
 
   const criar = (f: Fluxo) => { salvarFluxo(f); setAbertoId(f.id); };
 
+  // Chegando do chat geral (`/automacoes?pedido=`): a conversa pergunta uma
+  // vez e o endereço fica limpo — recarregar não cria o fluxo de novo.
+  const [pedido, setPedido] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("pedido")?.trim();
+    if (p) {
+      setPedido(p.slice(0, 500));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
   return (
     <AppShell
       title="Automações"
@@ -64,7 +76,7 @@ export function AutomacoesFluxosView() {
         <AtalhosTela atalhos={[{ label: "Alertas do sistema", href: "/configuracoes?aba=automacoes", icon: "bell" }]} />
         {aberto
           ? <EditorFluxo key={aberto.id} fluxo={aberto} onVoltar={() => setAbertoId(null)} />
-          : <ListaFluxos fluxos={fluxos} onAbrir={setAbertoId} onModelo={(id) => {
+          : <ListaFluxos fluxos={fluxos} pedido={pedido} onAbrir={setAbertoId} onModelo={(id) => {
               const m = MODELOS_FLUXO.find((x) => x.id === id);
               if (m) criar(m.montar([], novoIdFluxo()));
             }} />}
@@ -75,11 +87,12 @@ export function AutomacoesFluxosView() {
 
 /* ---------- a lista ---------- */
 
-function ListaFluxos({ fluxos, onAbrir, onModelo }: {
-  fluxos: Fluxo[]; onAbrir: (id: string) => void; onModelo: (id: string) => void;
+function ListaFluxos({ fluxos, pedido, onAbrir, onModelo }: {
+  fluxos: Fluxo[]; pedido: string | null; onAbrir: (id: string) => void; onModelo: (id: string) => void;
 }) {
   return (
     <>
+      <ConversaFluxo key={pedido ?? "conversa"} pedidoInicial={pedido} onAbrir={onAbrir} />
       <section className="flex flex-col gap-3">
         <h2 className="text-h3 text-ink">Seus fluxos</h2>
         {fluxos.length === 0 ? (

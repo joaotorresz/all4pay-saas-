@@ -16,6 +16,7 @@ import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { responderLocal } from "@/core/assistant/engine";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
+import { ehPedidoDeAutomacao } from "@/core/automacoes/pedido";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
 import { ETAPAS, RITMO, espera, CURADAS, copiarTexto, type Turno, type EstadoCopia } from "./chat-kit";
@@ -106,6 +107,20 @@ export function useChatIA({ inicial = [], onMudou }: {
 
     // A pergunta entra na conversa na hora; a resposta vem depois das etapas.
     setPergunta(q);
+
+    // 0) Pedido de AUTOMAÇÃO ("toda segunda às 8h me manda…") → a tela de
+    // Automações monta o fluxo com o mesmo pedido. A conversa geral não grava
+    // fluxo: um caminho de criação só, o da tela que o edita.
+    if (ehPedidoDeAutomacao(q)) {
+      const resposta = "Isso é uma automação. Em Automações eu monto o fluxo com este pedido, em cards ligados, e ele nasce desligado para você revisar a mensagem antes de ligar.";
+      const turno: Turno = { id, q, resposta, fontes: ["Automações"], fonte: "kb", rota: `/automacoes?pedido=${encodeURIComponent(q.slice(0, 500))}`, rotaLabel: "Automações" };
+      await analisar(null);
+      setPergunta(null);
+      registrar(turno);
+      void logAcaoIA({ kind: "chat", titulo: q, detalhe: resposta, status: "lida" });
+      force();
+      return;
+    }
 
     // 1) Conceitual → base de conhecimento (sem chave)
     const kb = buscarKB(q);
