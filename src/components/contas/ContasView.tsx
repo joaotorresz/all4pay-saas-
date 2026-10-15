@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo, PontoStatus } from "@/components/ui";
+import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo, PontoStatus, BancoLogo } from "@/components/ui";
 import { getAccountsList, getRiscoInput, getBankAccounts, setBankAccountSource, linkBankAccount } from "@/lib/data";
 import { treasuryCore } from "@/core/treasury";
 import { useToast } from "@/components/listas/ListChrome";
@@ -89,6 +89,7 @@ export function ContasView() {
           <div className="flex flex-col gap-2">
             {t.bancos.map((b) => (
               <div key={b.banco} className="flex items-center gap-3">
+                <BancoLogo banco={b.banco} nome={labelBanco(b.banco)} size={22} />
                 <span className="text-caption text-ink w-[120px] truncate">{labelBanco(b.banco)}</span>
                 <div className="flex-1 h-[8px] rounded-pill bg-surface-2 overflow-hidden">
                   <div className="h-full rounded-pill bg-ink" style={{ width: `${Math.max(2, b.share * 100)}%` }} />
@@ -115,6 +116,7 @@ export function ContasView() {
             <span className="text-caption text-faint px-5 py-4">Nenhuma conta. Cadastre uma conta ou conecte um banco (Open Finance).</span>
           ) : unificadas.map((c) => (
             <div key={c.key} className="flex items-center gap-3 px-5 py-3 border-t border-border-soft first:border-t-0">
+              <BancoLogo banco={c.banco} nome={labelBanco(c.banco)} size={36} />
               <div className="flex-1 min-w-0">
                 <span className="text-[15px] text-ink truncate inline-flex items-center gap-2">
                   {c.nome}

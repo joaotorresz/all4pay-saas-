@@ -9,6 +9,7 @@ export { InfoHint, type InfoConteudo } from "./InfoHint";
 export { Badge, type BadgeProps } from "./Badge";
 export { Pill, type PillProps } from "./Pill";
 export { Avatar, type AvatarProps } from "./Avatar";
+export { BancoLogo, type BancoLogoProps } from "./BancoLogo";
 export { Input, type InputProps } from "./Input";
 export { CampoCodigo } from "./CampoCodigo";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
