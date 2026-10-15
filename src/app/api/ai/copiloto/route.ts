@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 
 /**
  * Copiloto financeiro "Ember-style" (Campfire) — SERVER-ONLY. Recebe o CONTEXTO
@@ -11,7 +12,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = MODELO_CLAUDE;
 
 export function GET() {
   return NextResponse.json({ configured: !!process.env.ANTHROPIC_API_KEY, model: MODEL });
@@ -82,7 +83,7 @@ As mensagens anteriores da conversa (se houver) aparecem como texto simples; use
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1000, system, messages }),
+      body: JSON.stringify({ model: MODEL, ...SAIDA_CLAUDE, system, messages }),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => "");

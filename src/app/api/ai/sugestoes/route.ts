@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isDemo } from "@/lib/demo";
 import { descricaoParaIA } from "@/core/home/sugestoes";
+import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 
 /**
  * A ordem das sugestões da caixa da Quattro AI na Home (etapa 2) — SERVER-ONLY.
@@ -17,7 +18,7 @@ import { descricaoParaIA } from "@/core/home/sugestoes";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = MODELO_CLAUDE;
 const QUANTAS = 4;
 const TETO_CANDIDATAS = 20;
 
@@ -76,7 +77,7 @@ ${JSON.stringify(candidatas)}`;
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 200,
+        ...SAIDA_CLAUDE,
         system,
         messages: [{ role: "user", content: "Quais quatro perguntas, em ordem?" }],
       }),
