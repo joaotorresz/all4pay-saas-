@@ -610,7 +610,7 @@ function PrecisaDeAcao({ p }: { p: Pendencias }) {
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
-      <span className="text-[15px] text-muted">Precisa de ação</span>
+      <span className="a4p-titulo-secao text-[15px] text-muted">Precisa de ação</span>
       {itens.map((a) => (
         <Link key={a.nome} href={a.href} className="flex justify-between items-center py-[11px] border-t text-ink" style={{ borderColor: "var(--color-border)" }}>
           <span>{a.nome}</span>
@@ -642,7 +642,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
   const abertas = (tarefas ?? []).filter((t) => t.status !== "done").slice(0, 3);
   return (
     <Link href="/dashboard/reports/monthly-closing" className={`${COLUNA} gap-3`} style={colunaStyle}>
-      <span className="text-[15px] text-muted">Fechamento de {MESES_LONGOS[Number(mes.slice(5, 7)) - 1]}</span>
+      <span className="a4p-titulo-secao text-[15px] text-muted">Fechamento de {MESES_LONGOS[Number(mes.slice(5, 7)) - 1]}</span>
       <div className="flex items-baseline justify-between">
         <span className="a4p-num tabular-nums" style={{ fontSize: 30, lineHeight: 1 }}>{tarefas ? pct(fracao, 0) : "—"}</span>
         <span className="text-[13px] text-muted tabular-nums">{feitas} / {total} concluídas</span>
@@ -665,7 +665,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
 function RelatoriosFixados() {
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
-      <span className="text-[15px] text-muted">Relatórios fixados</span>
+      <span className="a4p-titulo-secao text-[15px] text-muted">Relatórios fixados</span>
       {RELATORIOS.map((r) => (
         <Link key={r.nome} href={r.href} className="flex justify-between items-center py-[11px] border-t text-ink" style={{ borderColor: "var(--color-border)" }}>
           <span>{r.nome}</span>

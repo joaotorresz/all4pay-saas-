@@ -299,7 +299,7 @@ export function ChatTelaCheia({
               </React.Fragment>
             ))}
             {chat.pergunta && <Pergunta texto={chat.pergunta} />}
-            {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start w-full max-w-[420px]" />}
+            {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start" />}
 
             {chips.length > 0 && (
               <section className="flex flex-col gap-4 pt-6">

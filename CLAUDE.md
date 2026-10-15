@@ -206,6 +206,7 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
 | Sombra | nenhuma · raio do card **20px** |
 | Botão | 42px de altura, padding 36px, mínimo 104px, pílula |
 | Título de tela | Centra No2 **500**, CAIXA ALTA, 30px, espaçamento **0** |
+| Título de seção | Roobert: `h2` em **500**; título de coluna da Home (`.a4p-titulo-secao`) em **600** (subiram um peso em 15/10/2026) |
 | Número | Roobert 500, espaçamento 0, cor `#000000` (`--erp-num-cor`) |
 | Número PRINCIPAL da tela (`.a4p-heroi`) | Centra No2 500 |
 | R$ | mesmo corpo e cor do número · centavos a **50%** em `#6B7060` |
@@ -216,12 +217,13 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
   `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
   aceita `#000000` apenas nessas duas linhas de declaração. Sobre fundo escuro
   ou lime o número herda a cor da superfície.
-- ⚠️ **Ícones: LUCIDE, traço 2px** (decisão do dono, 15/10/2026 — vence
+- ⚠️ **Ícones: LUCIDE, traço 1,75px** (decisão do dono, 15/10/2026 — vence
   toda menção a Hugeicons abaixo, que é histórico). O `Icon` desenha pelo
   `lucide-react`; o mapa chave do sistema → glifo mora em
   `ui/lucide-icons.ts` (as chaves `house`, `trash-2`… não mudaram, e nenhuma
-  tela importa `lucide-react` direto). Traço `STROKE_ICONE = 2` com
-  `absoluteStrokeWidth` (2px na tela em qualquer tamanho). Guarda no
+  tela importa `lucide-react` direto). Traço `STROKE_ICONE = 1.75` com
+  `absoluteStrokeWidth` (1,75px na tela em qualquer tamanho; os 2px do
+  primeiro corte ficaram pesados demais, o dono baixou no mesmo dia). Guarda no
   `engine-audit` (bloco `icone:`): toda chave pedida pelas telas existe.
   `solar-icons.ts` e `CUSTOM_ICONS` saíram.
 - O dark mode ficou como estava (o canvas não desenhou o tema escuro).
