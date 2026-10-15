@@ -47,6 +47,13 @@ const PALETA = new Map<string, string>([
   ["#35c759", "Tema ERP: sucesso"],
   ["#f2a519", "Tema ERP: alerta"],
   ["#e5484d", "Tema ERP: perigo"],
+  // REFERÊNCIA JOTA (15/10/2026) — medidas nos pixels do print, decisão do dono.
+  ["#f2f2f2", "Referência Jota: fundo de página"],
+  ["#fbfbfb", "Referência Jota: card"],
+  ["#eaeaea", "Referência Jota: balão da pergunta de quem usa"],
+  ["#1a1a1a", "Referência Jota: texto e número"],
+  ["#535353", "Referência Jota: rótulo"],
+  ["#9a9a9a", "Referência Jota: meta (texto secundário claro)"],
 ]);
 
 /*
@@ -160,7 +167,7 @@ for (const arquivo of arquivos) {
          * a parte da regra que carrega o valor.
          */
         const ehTokenDeclarado = declara
-          && /black-pure|hero-from|hero-glow|--color-white|cardBg|boxBg|--a4p-box-bg|--color-surface-[12]|--a4p-chrome:|--a4p-app-bg|--a4p-bg:|--erp-num-cor|--erp-moeda-cor/.test(linha);
+          && /black-pure|hero-from|hero-glow|--color-white|cardBg|boxBg|--a4p-box-bg|--color-surface-[12]|--a4p-chrome:|--a4p-app-bg|--a4p-bg:|--erp-num-cor|--erp-moeda-cor|--a4p-pilula-fundo/.test(linha);
         if (!ehTokenDeclarado) brancoPreto.push({ arquivo: rel, linha: i + 1, hex, trecho });
         continue;
       }
@@ -188,7 +195,7 @@ for (const token of ["--color-ink", "--color-white", "--color-surface-1", "--col
   if (a && b && a !== b) espelho.push(`${token}: :root=${a} × .ds-visor=${b}`);
 }
 // O Lab tem de conhecer o ink e o acento reais, senão repinta o app.
-for (const [token, esperado] of [["ink", "#3b4332"], ["lime", "#ecfd52"]] as const) {
+for (const [token, esperado] of [["ink", "#1a1a1a"], ["lime", "#ecfd52"]] as const) {
   const m = lab.match(new RegExp(`${token}\\s*:\\s*"(#[0-9a-fA-F]{6})"`));
   if (m && m[1].toLowerCase() !== esperado) {
     espelho.push(`DesignLab DEFAULT_CORES.${token}=${m[1]} × paleta=${esperado}`);
