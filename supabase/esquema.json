@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-14",
+  "gerado_em": "2026-10-15",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 78,
-    "funcoes": 128,
+    "tabelas": 79,
+    "funcoes": 131,
     "politicas": 152,
-    "gatilhos": 96,
-    "indices": 244,
+    "gatilhos": 99,
+    "indices": 246,
     "enums": 12,
-    "colunas": 838,
-    "restricoes": 270
+    "colunas": 842,
+    "restricoes": 274
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -146,7 +146,8 @@
     "20261005120000_pinbank_maquininha",
     "20261009120000_enterprise_libera_pro",
     "20261014120000_pinbank_conferencia_limite",
-    "20261014120100_pinbank_ec_auditado"
+    "20261014120100_pinbank_ec_auditado",
+    "20261015120000_pinbank_tarifa_antecipacao"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -160,17 +161,7 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [
-      {
-        "nome": "20261015120000_pinbank_tarifa_antecipacao",
-        "objetos_ausentes": [
-          "pinbank_configurar_vinculo(uuid,uuid,jsonb,jsonb,boolean,boolean) — o objeto existe; muda o corpo: aceita tarifa_fixa (em reais, de 0 a R$ 100, em centavos) e antecipacao_mes (fração ao mês) e passa a recusar, nomeados, chave fora do contrato, taxa em texto e taxas em lista. Assinatura, SECURITY DEFINER e concessões iguais (provado por SELECT em begin…rollback)"
-        ],
-        "impacto": "Até ser aplicada, a empresa não grava a tarifa fixa nem a antecipação no vínculo da maquininha (o banco recusa as duas chaves como 'fora de 0 a 1'), e a venda continua entrando sem esses custos — o líquido do sistema fica acima do que a Pinbank deposita (R$ 9,90 contra R$ 8,91 no débito medido em 14/10/2026). Nenhum vínculo existe em produção (medido em 14/10/2026), então nada gravado muda.",
-        "resolver_ate": "2026-10-22",
-        "origem": "sessão Claude de 14/10/2026 (tarifa fixa e antecipação da Pinbank) — o job migrar do CI aplica no merge"
-      }
-    ],
+    "arquivo_sem_aplicacao": [],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
