@@ -12651,7 +12651,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("icone: toda chave pedida pelas telas existe no conjunto Lucide", faltando.size === 0, [...faltando].join(", "));
   ok("icone: (defeito plantado) uma chave inexistente é ACUSADA", pedidos('<Icon name="nao-existe" />').some((n) => !iconeExisteLucide(n)));
   const icon = readFileSync("src/components/ui/Icon.tsx", "utf8");
-  ok("icone: o traço padrão do sistema é 2px", /STROKE_ICONE = 2;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
+  ok("icone: o traço padrão do sistema é 1,75px", /STROKE_ICONE = 1\.75;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
   ok("icone: o traço é absoluto (2px em qualquer tamanho)", /absoluteStrokeWidth/.test(icon));
   ok("icone: nenhuma tela importa o lucide-react por fora do Icon", arquivos.filter((f) => !f.endsWith("ui/lucide-icons.ts") && /from "lucide-react"/.test(readFileSync(f, "utf8"))).length === 0);
 }

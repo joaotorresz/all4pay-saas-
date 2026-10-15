@@ -198,35 +198,22 @@ export const RITMO = [560, 640, 540, 400];
 
 export const espera = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/**
+ * O "digitando" da IA: três pontos que pulam em sequência enquanto a análise
+ * roda (decisão do dono, 15/10/2026 — saiu a lista de etapas com barra). O
+ * ritmo de `RITMO` continua valendo; só a encenação mudou. `etapa` segue no
+ * rótulo acessível, para quem usa leitor de tela saber o que está acontecendo.
+ */
 export function EtapasAnalise({ etapa, className = "" }: { etapa: number; className?: string }) {
   return (
-    <div className={`a4p-entra rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-[10px] ${className}`}>
-      <div className="flex items-center gap-2">
-        <MarcaIA size={20} radius={6} />
-        <span className="a4p-pulso text-[13px] text-muted">{ETAPAS[etapa]}…</span>
-      </div>
-      <div className="flex flex-col gap-[6px]">
-        {ETAPAS.map((e, i) => (
-          <div key={e} className="flex items-center gap-2 text-[12px]">
-            <span
-              className={`w-[6px] h-[6px] rounded-pill shrink-0 ${i === etapa ? "a4p-pulso" : ""}`}
-              style={{ background: i < etapa ? "var(--color-positive)" : i === etapa ? "var(--color-lime)" : "var(--color-border)" }}
-            />
-            <span className={i <= etapa ? "text-muted" : "text-faint"}>{e}</span>
-            {i < etapa && <Icon name="check" size={11} color="var(--color-positive)" />}
-          </div>
-        ))}
-      </div>
-      {/* Barra varrida: progresso real (etapa) + brilho em movimento. */}
-      <div className="h-[3px] rounded-pill bg-surface-2 overflow-hidden">
-        <div
-          className="a4p-varre h-full rounded-pill transition-[width] duration-500"
-          style={{
-            width: `${((etapa + 1) / ETAPAS.length) * 100}%`,
-            backgroundImage: "linear-gradient(90deg,var(--color-lime),var(--a4p-cat-3),var(--color-lime))",
-          }}
-        />
-      </div>
+    <div
+      role="status"
+      aria-label={`${ETAPAS[etapa] ?? "Analisando"}…`}
+      className={`a4p-entra a4p-digitando inline-flex w-fit items-center gap-[6px] rounded-card rounded-bl-sm bg-surface-1 px-4 py-[14px] ${className}`}
+    >
+      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
+      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
+      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
     </div>
   );
 }

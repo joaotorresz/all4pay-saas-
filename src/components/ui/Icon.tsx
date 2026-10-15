@@ -2,11 +2,12 @@ import * as React from "react";
 import { LUCIDE_ICONS, iconeExiste, type LucideIconKey } from "./lucide-icons";
 
 /**
- * Espessura do traço do sistema: **2px** (decisão do dono, 15/10/2026).
+ * Espessura do traço do sistema: **1,75px** (decisão do dono, 15/10/2026:
+ * os 2px do primeiro corte do Lucide ficaram pesados demais).
  * Vale para TODO ícone
  * porque mora aqui, no único componente que desenha ícone.
  */
-export const STROKE_ICONE = 2;
+export const STROKE_ICONE = 1.75;
 
 /**
  * Quattro DS — Icon
@@ -14,9 +15,9 @@ export const STROKE_ICONE = 2;
  * `currentColor`: a prop `color` carrega a identidade (ink · muted · faint ·
  * lime · on-lime) e `strokeWidth` só muda a espessura na exceção.
  *
- * ⚠️ `absoluteStrokeWidth`: o traço fica em 2px NA TELA em qualquer
+ * ⚠️ `absoluteStrokeWidth`: o traço fica em 1,75px NA TELA em qualquer
  * tamanho. Sem ele o Lucide escala o traço junto com o ícone (um ícone de
- * 12px sairia com 1px e um de 32px com 2,7px) e "2px" deixaria de ser
+ * 12px sairia com 1px e um de 32px com 2,7px) e "1,75px" deixaria de ser
  * uma medida.
  *
  * As chaves (`house`, `trash-2`…) moram em `lucide-icons.ts`.
@@ -27,7 +28,7 @@ export interface IconProps {
   name: IconName | string;
   size?: number;
   color?: string;
-  /** Espessura do traço em px. Padrão: 2 (o do sistema). */
+  /** Espessura do traço em px. Padrão: 1,75 (o do sistema). */
   strokeWidth?: number;
   className?: string;
 }
