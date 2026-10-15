@@ -6,6 +6,9 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
+import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
+import { BANCOS_CONTA } from "@/core/registros/hierarquia";
 import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFinalR8, mesAnterior as mesAnteriorR8, competenciaDoMesAnterior as competenciaDoMesAnteriorR8, comCompetencias as comCompetenciasR8 } from "@/core/importacao/competencia";
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
@@ -64,7 +67,7 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { execSync as execSyncIcone } from "node:child_process";
 import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
@@ -11848,6 +11851,106 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }
 
+// ── area-admin: o painel da plataforma no seu próprio endereço ───────────────
+{
+  const A = await import("@/core/area-admin");
+  const { origemDoApp, SECOES_ADMIN, secaoAtiva } = A;
+  const H = "admin.quattro.finance";
+  const d = (host: string, pathname: string, hostAdmin: string | null = H) => A.decidirPorHost({ host, pathname, hostAdmin });
+  ok("area-admin: sem ADMIN_HOST nada muda (/admin segue no próprio endereço)",
+     d("app.quattro.finance", "/admin", null).tipo === "seguir" && d("localhost:3000", "/api/admin/impersonate", null).tipo === "seguir");
+  const raiz = d("admin.quattro.finance", "/");
+  ok("area-admin: no endereço da plataforma, / serve /admin", raiz.tipo === "reescrever" && raiz.caminho === "/admin");
+  const cli = d("ADMIN.quattro.finance:443", "/clientes");
+  ok("area-admin: endereço limpo (/clientes → /admin/clientes), com host em caixa alta e porta", cli.tipo === "reescrever" && cli.caminho === "/admin/clientes");
+  const tela = d(H, "/fluxo-caixa");
+  ok("area-admin: tela do cliente no endereço da plataforma cai em /admin/* (404), nunca é servida",
+     tela.tipo === "reescrever" && tela.caminho.startsWith("/admin/"));
+  ok("area-admin: a porta de entrada responde no endereço da plataforma",
+     ["/login", "/segundo-fator", "/configuracoes/seguranca", "/redefinir-senha"].every((c) => d(H, c).tipo === "seguir"));
+  ok("area-admin: API do cliente não existe no endereço da plataforma; a da área e a do login, sim",
+     d(H, "/api/cobranca/whatsapp").tipo === "inexistente" && d(H, "/api/admin/impersonate").tipo === "seguir" && d(H, "/api/auth/recuperar").tipo === "seguir");
+  const red = d("app.quattro.finance", "/admin/cobranca");
+  ok("area-admin: /admin no endereço do cliente vai para o da plataforma, com o caminho limpo",
+     red.tipo === "redirecionar" && red.host === H && red.caminho === "/cobranca");
+  const red0 = d("all4pay-saas.vercel.app", "/admin");
+  ok("area-admin: /admin sozinho vai para a raiz da plataforma", red0.tipo === "redirecionar" && red0.caminho === "/");
+  ok("area-admin: /api/admin fora do endereço da plataforma não existe (uma segunda porta é a que ninguém vigia)",
+     d("app.quattro.finance", "/api/admin/impersonate").tipo === "inexistente");
+  ok("area-admin: /administracao não é confundido com /admin",
+     d("app.quattro.finance", "/administracao").tipo === "seguir");
+  ok("area-admin: o app dos clientes segue intacto", d("app.quattro.finance", "/fluxo-caixa").tipo === "seguir");
+  // ⚠️ Quem chama de FORA não sabe que o painel mudou de endereço: a Pinbank
+  // manda o webhook ao app, e o pg_cron do Open Finance e a guarda `no-ar`
+  // chamam o `all4pay-saas.vercel.app`. Ligar o ADMIN_HOST não pode tocar
+  // nesses caminhos — um 404 aqui seria venda da maquininha que não entra.
+  const deFora = [
+    ["app.quattro.finance", "/api/pinbank/webhook"], ["all4pay-saas.vercel.app", "/api/pinbank/webhook"],
+    ["app.quattro.finance", "/api/pinbank/reprocessar"], ["app.quattro.finance", "/api/pinbank/conferencia"],
+    ["all4pay-saas.vercel.app", "/api/recorrencias/run"], ["all4pay-saas.vercel.app", "/api/financial-os/run"],
+    ["all4pay-saas.vercel.app", "/api/versao"],
+  ] as const;
+  const travados = deFora.filter(([h, p]) => d(h, p).tipo !== "seguir").map(([h, p]) => `${h}${p}`);
+  ok("area-admin: com ADMIN_HOST ligado, webhook da Pinbank, rotas da maquininha e crons seguem no app e no vercel.app",
+     travados.length === 0, travados.join(", "));
+  ok("area-admin: o webhook da Pinbank não responde no endereço da plataforma (só o app o recebe)",
+     d(H, "/api/pinbank/webhook").tipo === "inexistente");
+  // O middleware tem de julgar o caminho EFETIVO: com o digitado, `/clientes`
+  // passaria pelo perímetro da plataforma sem a pergunta "é o dono?".
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  const julgaEfetivo = (t: string) => /const pathname = decisao\.tipo === "reescrever" \? decisao\.caminho : pedido;/.test(t) && /const areaDaPlataforma = pathname === "\/admin"/.test(t);
+  ok("area-admin: o middleware julga o caminho efetivo (reescrito)", julgaEfetivo(mw));
+  ok("area-admin: (defeito plantado) o perímetro olhando o caminho digitado é REPROVADO",
+     !julgaEfetivo(mw.replace('decisao.caminho : pedido;', 'pedido : pedido;')));
+  // ── o segundo fator OBRIGATÓRIO na área da plataforma ──
+  ok("area-admin: sem aplicativo, o dono não entra — cadastra",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: false, nivelAtual: "aal1" }) === "cadastrar_aplicativo"
+     && A.portaSegundoFatorAdmin({ temFatorVerificado: false, nivelAtual: "aal2" }) === "cadastrar_aplicativo");
+  ok("area-admin: com aplicativo e só a senha, o código; nível ilegível também pede (falha fechada)",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: "aal1" }) === "digitar_codigo"
+     && A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: null }) === "digitar_codigo");
+  ok("area-admin: aplicativo + código (aal2) entra",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: "aal2" }) === "entrar");
+  // A ordem no perímetro: o fator ANTES de "é o dono?" — o veredito do banco
+  // nega o dono em aal1, e a pergunta na ordem inversa daria a frase errada.
+  const iArea = mw.indexOf("if (areaDaPlataforma && supabase)");
+  const fatorAntes = (t: string) => {
+    const i = t.indexOf("if (areaDaPlataforma && supabase)");
+    const a = t.indexOf("portaDoAdmin(supabase, user)", i), b = t.indexOf("ehDonoDaPlataforma(supabase)", i);
+    return i >= 0 && a > i && b > a;
+  };
+  ok("area-admin: o perímetro pede o segundo fator antes de perguntar se é o dono", iArea >= 0 && fatorAntes(mw));
+  ok("area-admin: (defeito plantado) o perímetro sem a porta do fator é REPROVADO",
+     !fatorAntes(mw.replace("portaDoAdmin(supabase, user)", "Promise.resolve(\"entrar\")")));
+  const pagina = readFileSync("src/app/admin/layout.tsx", "utf8");
+  ok("area-admin: o layout do painel confere o segundo fator no servidor (o segundo cadeado)",
+     /portaDoAdmin\(supabase, user\)/.test(pagina) && /redirect\(ROTA_SEGURANCA_CONTA\)/.test(pagina) && /redirect\(ROTA_CODIGO\)/.test(pagina));
+
+  // ── "Logar como" abre a sessão do cliente no APP, nunca na plataforma.
+  ok("area-admin: na plataforma, o link mágico aponta para o app (admin. → app.)",
+     origemDoApp({ origem: "https://admin.quattro.finance/api/admin/impersonate", hostAdmin: "admin.quattro.finance" }) === "https://app.quattro.finance");
+  ok("area-admin: APP_HOST manda quando existe",
+     origemDoApp({ origem: "https://admin.quattro.finance/x", hostAdmin: "admin.quattro.finance", hostApp: "painel.quattro.finance" }) === "https://painel.quattro.finance");
+  ok("area-admin: fora da plataforma (ou sem ADMIN_HOST) a origem não muda",
+     origemDoApp({ origem: "https://all4pay-saas.vercel.app/api/admin/impersonate", hostAdmin: "admin.quattro.finance" }) === "https://all4pay-saas.vercel.app"
+     && origemDoApp({ origem: "http://localhost:3000/x", hostAdmin: undefined }) === "http://localhost:3000");
+  ok("area-admin: a rota de \"logar como\" usa a origem do app",
+     /origemDoApp\(/.test(readFileSync("src/app/api/admin/impersonate/route.ts", "utf8")));
+
+  // ── As seções: uma página por item do menu, e o menu acha a seção nos dois endereços.
+  const semPagina = SECOES_ADMIN.filter((s) => !existsSync(`src/app${s.href}/page.tsx`));
+  ok("area-admin: toda seção do menu tem página (menu que leva a 404 não é menu)", semPagina.length === 0, semPagina.map((s) => s.href).join(", "));
+  ok("area-admin: seção ativa pelo endereço limpo e pelo longo",
+     secaoAtiva("/cobranca").id === "cobranca" && secaoAtiva("/admin/cobranca").id === "cobranca"
+     && secaoAtiva("/admin").id === "visao-geral" && secaoAtiva("/").id === "visao-geral"
+     && secaoAtiva("/clientes/123").id === "clientes");
+  ok("area-admin: (defeito plantado) prefixo parecido não acende a seção errada",
+     secaoAtiva("/acessosx").id === "visao-geral");
+  ok("area-admin: o painel não usa a moldura do cliente",
+     !/AppShell/.test(readFileSync("src/components/admin/AdminView.tsx", "utf8"))
+     && !/AppShell/.test(readFileSync("src/components/admin/AdminShell.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")));
+}
+
 // ═══ CONFERÊNCIA EXTRATO × SISTEMA — a empresa pede, a plataforma chama ════════
 // O COMPORTAMENTO do motor (pares, datas, centavos, o que é afirmado e o que
 // fica sem conclusão) é provado em `npm run pinbank-conferencia`. Aqui, o que
@@ -12533,6 +12636,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("icone: o traço padrão do sistema é 2px", /STROKE_ICONE = 2;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
   ok("icone: o traço é absoluto (2px em qualquer tamanho)", /absoluteStrokeWidth/.test(icon));
   ok("icone: nenhuma tela importa o lucide-react por fora do Icon", arquivos.filter((f) => !f.endsWith("ui/lucide-icons.ts") && /from "lucide-react"/.test(readFileSync(f, "utf8"))).length === 0);
+}
+
+/* ===================== bancos: o logo certo, ou nenhum ===================== */
+{
+  const casos: [string, string | null][] = [
+    ["itau", "itau"], ["Itaú Unibanco", "itau"], ["Itaú BBA", "itau"], ["bb", "banco-brasil"],
+    ["Banco do Brasil", "banco-brasil"], ["Banco do Nordeste", "banco-nordeste"],
+    ["Banco de Brasília", "banco-brasilia"], ["Caixa Econômica", "caixa"], ["Bancoob", "sicoob"],
+    ["Inter", "inter"], ["Intermedium Corretora", null], ["C6 Bank", null], ["BTG Pactual", null],
+    ["Mercado Pago", null], ["Stone", null], ["", null], ["outro", null],
+  ];
+  for (const [entrada, esperado] of casos)
+    ok(`bancos: "${entrada}" → ${esperado ?? "sem logo"}`, glifoDoBanco(entrada) === esperado, String(glifoDoBanco(entrada)));
+  ok("bancos: toda chave de conta com logo aponta para um glifo que EXISTE",
+     BANCOS_CONTA.every((b) => { const g = glifoDoBanco(b.id); return g === null || typeof BANCO_GLIFOS[g] === "string"; }));
+  ok("bancos: banco sem logo mostra iniciais, nunca vazio", iniciaisDoBanco("C6 Bank") === "C6" && iniciaisDoBanco("Mercado Pago") === "MP" && iniciaisDoBanco("") === "·");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

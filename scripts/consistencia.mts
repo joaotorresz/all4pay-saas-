@@ -3438,8 +3438,10 @@ const AGOSTO = janelaMes(2026, 7);
      /status: 403/.test(mw),
      "um redirect esconde a recusa e sugere que outra sessão resolveria");
 
-  const pag = ler("src/app/admin/page.tsx");
-  ok("plataforma: a página de /admin confere no SERVIDOR",
+  // O cadeado de servidor mora no LAYOUT de /admin: cobre as cinco seções e a
+  // próxima que nascer, sem depender de alguém lembrar de repeti-lo.
+  const pag = ler("src/app/admin/layout.tsx");
+  ok("plataforma: o layout de /admin confere no SERVIDOR",
      !/^"use client"/m.test(pag) && /is_platform_admin/.test(pag),
      "a página era 'use client' e só o cliente decidia");
 

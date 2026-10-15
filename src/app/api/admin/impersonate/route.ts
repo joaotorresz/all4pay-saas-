@@ -1,3 +1,4 @@
+import { origemDoApp } from "@/core/area-admin";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdmin } from "@/lib/supabase/admin";
@@ -63,7 +64,8 @@ export async function POST(req: Request) {
   if (!email) return NextResponse.json({ ok: false, reason: "owner sem e-mail" }, { status: 404 });
 
   // 5) gera o magic link de login como o owner
-  const origin = new URL(req.url).origin;
+  // O link abre a sessão do CLIENTE no app, nunca no endereço da plataforma.
+  const origin = origemDoApp({ origem: req.url, hostAdmin: process.env.ADMIN_HOST, hostApp: process.env.APP_HOST });
   const { data: link, error } = await admin.auth.admin.generateLink({
     type: "magiclink", email, options: { redirectTo: `${origin}/` },
   });

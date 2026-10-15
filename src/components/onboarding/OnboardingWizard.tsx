@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Card, Input, Select, Switch, Button, Icon } from "@/components/ui";
+import { Card, Input, Select, Switch, Button, Icon, BancoLogo } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { formatBRL } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -331,14 +331,15 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
 }
 
 /* ---------- helpers ---------- */
-function ChipMulti({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+function ChipMulti({ options, value, onChange, comLogoDeBanco = false }: { options: string[]; value: string[]; onChange: (v: string[]) => void; comLogoDeBanco?: boolean }) {
   const toggle = (o: string) => onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o]);
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => {
         const on = value.includes(o);
         return (
-          <button key={o} onClick={() => toggle(o)} className={`text-caption font-medium rounded-pill px-3 py-1 border ${on ? "bg-surface-3 text-ink border-transparent font-semibold" : "bg-white text-muted border-border hover:text-ink"}`}>
+          <button key={o} onClick={() => toggle(o)} className={`inline-flex items-center gap-[6px] text-caption font-medium rounded-pill px-3 py-1 border ${comLogoDeBanco ? "pl-1" : ""} ${on ? "bg-surface-3 text-ink border-transparent font-semibold" : "bg-white text-muted border-border hover:text-ink"}`}>
+            {comLogoDeBanco && <BancoLogo banco={o} nome={o} size={20} className="rounded-pill" />}
             {o}
           </button>
         );
@@ -411,7 +412,7 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
         <Select label="Funcionários" value={perfil.funcionarios} onChange={(v) => set("funcionarios", v)} options={opt(FUNC)} placeholder="Selecione" />
         <Select label="Faturamento anual" value={perfil.faturamento} onChange={(v) => set("faturamento", v)} options={opt(FAT)} placeholder="Selecione" />
       </div>
-      <Campo label="Bancos utilizados"><ChipMulti options={BANCOS} value={perfil.bancos} onChange={(v) => set("bancos", v)} /></Campo>
+      <Campo label="Bancos utilizados"><ChipMulti options={BANCOS} value={perfil.bancos} onChange={(v) => set("bancos", v)} comLogoDeBanco /></Campo>
       <Campo label="Meios de recebimento"><ChipMulti options={MEIOS} value={perfil.meiosRecebimento} onChange={(v) => set("meiosRecebimento", v)} /></Campo>
       <Campo label="Principais despesas"><ChipMulti options={DESPESAS} value={perfil.despesas} onChange={(v) => set("despesas", v)} /></Campo>
       <DescricaoLivre value={perfil.descricao ?? ""} onChange={(v) => set("descricao", v)} />

@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Card, Button, Icon, Input, Select, DateField, Switch } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, DateField, Switch, BancoLogo } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   CATALOGO_INTEGRACOES, PLATAFORMAS_VENDAS, BANCOS_OPEN_FINANCE,
@@ -246,9 +246,11 @@ function PainelIntegracao({
 /* --------------------------------- blocos --------------------------------- */
 
 function Conectores({
-  titulo, nota, itens, estado, onMudar, toast,
+  titulo, nota, itens, estado, onMudar, toast, comLogoDeBanco = false,
 }: {
   titulo: string; nota: string; itens: string[];
+  /** Lista de BANCOS: cada item ganha o logo do banco (ou as iniciais). */
+  comLogoDeBanco?: boolean;
   estado: EstadoIntegracao; onMudar: (e: EstadoIntegracao) => void; toast: (s: string) => void;
 }) {
   const [busca, setBusca] = React.useState("");
@@ -284,7 +286,10 @@ function Conectores({
                   on ? "bg-surface-2" : "bg-surface-2/50 hover:bg-surface-2"
                 }`}
               >
-                <span className="text-label text-ink truncate">{nome}</span>
+                <span className="inline-flex items-center gap-3 min-w-0">
+                  {comLogoDeBanco && <BancoLogo banco={nome} nome={nome} size={28} className="bg-surface-1" />}
+                  <span className="text-label text-ink truncate">{nome}</span>
+                </span>
                 <span className="inline-flex items-center gap-[6px] text-caption text-muted shrink-0">
                   <span className="w-[7px] h-[7px] rounded-pill" style={{ background: on ? "var(--color-positive)" : "var(--color-placeholder)" }} />
                   {on ? "Ativa" : "Inativa"}
@@ -452,7 +457,7 @@ function OpenFinance({
       <Conectores
         titulo="Bancos homologados"
         nota="Só o que está homologado sincroniza. Conta em banco fora da lista continua entrando por importação de extrato."
-        itens={BANCOS_OPEN_FINANCE} estado={estado} onMudar={onMudar} toast={toast}
+        itens={BANCOS_OPEN_FINANCE} estado={estado} onMudar={onMudar} toast={toast} comLogoDeBanco
       />
       {conectados.length > 0 && !consent && (
         <Card>

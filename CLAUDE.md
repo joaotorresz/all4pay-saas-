@@ -88,6 +88,43 @@ decisão do dono e migration à parte. ⚠️ **Sem teto de tentativas do códig
 por conta**: o gancho do Auth que o daria é dos planos Teams/Enterprise, e o
 projeto é Free — só o limite por IP do Auth (15/min) separa a senha vazada do
 código; a tela diz que o aplicativo SOMA à senha, nunca que a substitui.
+⚠️ **O QR do cadastro (15/10/2026)**: o link do Supabase (~133 bytes) é QR
+versão 8, e `lib/qrcode` não gravava a informação de versão (obrigatória da 7
+em diante): nenhum aplicativo o lia, em tema nenhum. Corrigido no gerador;
+"Ampliar código" abre o QR grande por cima da tela. Guarda de ida e volta com
+leitor de verdade (jsQR) e o defeito plantado: `npm run qr`.
+
+## ⚠️ A ÁREA DA PLATAFORMA MORA NO PRÓPRIO ENDEREÇO (09/10/2026)
+
+O painel do dono da plataforma (`/admin`) saiu de dentro do sistema dos
+clientes: **mesmo código, servido em `admin.quattro.finance`**, com moldura
+própria e segundo fator obrigatório. Regras em `core/area-admin`.
+
+- **`ADMIN_HOST` é o interruptor.** Vazio = tudo como antes (`/admin` no
+  próprio endereço — prévias, máquina local). Ligado: no endereço da
+  plataforma o caminho é LIMPO (`/cobranca` → `/admin/cobranca` por
+  reescrita), só respondem o painel, a porta de entrada (login, código,
+  Segurança da conta, redefinir senha), `/api/admin/*` e `/api/auth/*` — o
+  resto é 404. Nos outros endereços `/admin/*` vai por 308 para lá e
+  `/api/admin/*` é 404 (segunda porta é porta que ninguém vigia). ⚠️ O cookie
+  de sessão é POR ENDEREÇO: entrar no app não entra na plataforma.
+- ⚠️ **Segundo fator OBRIGATÓRIO** (`portaSegundoFatorAdmin`): sem aplicativo →
+  Segurança da conta; com aplicativo e só a senha → o código; `/api/admin` leva
+  403 JSON. Perguntado ANTES de "é o dono?" — o `admin_veredito` do banco já
+  nega o dono em aal1, e na ordem inversa ele cairia no 403, nunca no código.
+  Os cadeados de servidor moram no `app/admin/layout.tsx` (cobrem toda seção
+  nova).
+- **Moldura própria** (`components/admin/AdminShell`), nunca o `AppShell`:
+  cinco seções em `SECOES_ADMIN` (Visão geral · Clientes e planos · Cobrança ·
+  Acessos · Suporte), uma página cada. A separação não acrescentou RPC: cada
+  seção monta os MESMOS cartões do painel antigo.
+- **"Logar como" abre a sessão do cliente no APP** (`origemDoApp`, `APP_HOST`
+  ou `admin.` → `app.`), e a sessão do dono continua de pé na plataforma.
+- **Para ligar (dono):** CNAME `admin` na Hostinger → alvo da Vercel; domínio
+  `admin.quattro.finance` no projeto da Vercel; `https://admin.quattro.finance/**`
+  nas Redirect URLs do Supabase Auth; o aplicativo autenticador cadastrado na
+  conta do dono; só então `ADMIN_HOST=admin.quattro.finance` em Production.
+- Guardas no `engine-audit` (bloco `area-admin:`), provadas plantando defeito.
 
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 
@@ -172,7 +209,7 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
 | Número | Roobert 500, espaçamento 0, cor `#000000` (`--erp-num-cor`) |
 | Número PRINCIPAL da tela (`.a4p-heroi`) | Centra No2 500 |
 | R$ | mesmo corpo e cor do número · centavos a **50%** em `#6B7060` |
-| Logo | uma cor (`--erp-logo-cor` #3B4332), 92px, por máscara (`.a4p-logo-mono`) |
+| Logo | "quattro ERP" (`public/quattro-erp-logo.png`, desde 15/10/2026), uma cor (`--erp-logo-cor` #3B4332), 125×24px, por máscara (`.a4p-logo-mono`; o "ERP" sai vazado) |
 | Menu | linha fina entre os grupos, 15px entre ícone e texto; Visão geral com o ícone de casa (a ilustração saiu em 14/10/2026) |
 
 - ⚠️ **O preto puro voltou, e só para o número** (`--erp-num-cor`,

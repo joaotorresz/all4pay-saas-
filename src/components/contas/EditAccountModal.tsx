@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Input, Select, CurrencyInput } from "@/components/ui";
+import { Input, Select, CurrencyInput, BancoLogo } from "@/components/ui";
 import { FormModal, SectionTitle } from "@/components/lancamentos/FormModal";
 import { updateAccount } from "@/lib/data";
 import type { FinancialAccount } from "@/lib/types";
@@ -48,7 +48,10 @@ export function EditAccountModal({
     <FormModal title="Editar conta" size="compact" onClose={onClose} onSave={salvar} saving={saving}>
       <SectionTitle>Dados da conta</SectionTitle>
       <Input label="Nome da conta" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Conta corrente" />
-      <Select label="Banco" value={bank} onChange={setBank} options={BANCOS} />
+      <div className="flex items-end gap-2">
+        <BancoLogo banco={bank} nome={BANCOS.find((b) => b.value === bank)?.label} size={40} />
+        <Select label="Banco" value={bank} onChange={setBank} options={BANCOS} containerClassName="flex-1 min-w-0" />
+      </div>
       <CurrencyInput label="Saldo atual" value={balance} onValueChange={setBalance} />
     </FormModal>
   );

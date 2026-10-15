@@ -10,6 +10,11 @@
  * URL de link de pagamento (até ~270 bytes). Acima disso a função avisa em vez
  * de gerar um código que o leitor recusaria.
  *
+ * ⚠️ A partir da versão 7 a norma exige a INFORMAÇÃO DE VERSÃO (dois blocos
+ * 6×3). Ela faltava até 15/10/2026, e o QR do segundo fator (link `otpauth://`
+ * de ~133 bytes, versão 8) não era lido por aplicativo nenhum. Guarda de ida e
+ * volta com leitor de verdade: `npm run qr`.
+ *
  * Puro (só faz contas), testável, sem I/O.
  */
 
@@ -85,6 +90,30 @@ const FORMATO_M = [
   0x5412, 0x5125, 0x5e7c, 0x5b4b, 0x45f9, 0x40ce, 0x4f97, 0x4aa0,
 ];
 
+/**
+ * Informação de versão (versões 7 em diante): 6 bits da versão + 12 de BCH
+ * (gerador 0x1F25), gravados em DOIS blocos 6×3 junto aos finders de cima à
+ * direita e de baixo à esquerda.
+ *
+ * ⚠️ Sem ela o QR de versão 7+ parece perfeito e NENHUM leitor o lê — foi o
+ * defeito do QR do segundo fator (o link `otpauth://` de 133 bytes cai na
+ * versão 8). O leitor usa estes bits para saber o tamanho da grade; sem eles,
+ * lê dados onde deveria ler a versão. Medido com OpenCV: versão 8 sem o bloco
+ * não decodificava nem em preto puro sobre branco.
+ */
+function bitsDeVersao(versao: number): number {
+  let r = versao << 12;
+  for (let i = 17; i >= 12; i--) if ((r >> i) & 1) r ^= 0x1f25 << (i - 12);
+  return (versao << 12) | r;
+}
+
+/** As 18 posições da informação de versão: [linha, coluna] da cópia de cima à direita (a outra é a transposta). */
+function posicoesDeVersao(n: number): [number, number, number][] {
+  const out: [number, number, number][] = [];
+  for (let i = 0; i < 18; i++) out.push([Math.floor(i / 3), n - 11 + (i % 3), i]);
+  return out;
+}
+
 /* ------------------------------- a matriz ------------------------------- */
 
 type Matriz = (0 | 1 | null)[][];
@@ -124,6 +153,7 @@ function funcoes(versao: number, n: number): boolean[][] {
     if ((y <= 8 && x <= 8) || (y <= 8 && x >= n - 9) || (y >= n - 9 && x <= 8)) continue;
     marcar(y - 2, x - 2, 5, 5);
   }
+  if (versao >= 7) { marcar(0, n - 11, 6, 3); marcar(n - 11, 0, 3, 6); }
   return f;
 }
 
@@ -144,6 +174,15 @@ function desenharBase(m: Matriz, versao: number): void {
     if ((y <= 8 && x <= 8) || (y <= 8 && x >= n - 9) || (y >= n - 9 && x <= 8)) continue;
     for (let r = -2; r <= 2; r++) for (let c = -2; c <= 2; c++) {
       m[y + r][x + c] = (Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0)) ? 1 : 0;
+    }
+  }
+  // Informação de versão (7+), nas duas cópias.
+  if (versao >= 7) {
+    const v = bitsDeVersao(versao);
+    for (const [y, x, i] of posicoesDeVersao(n)) {
+      const b = ((v >> i) & 1) as 0 | 1;
+      m[y][x] = b;
+      m[x][y] = b;
     }
   }
   // Módulo escuro fixo.
