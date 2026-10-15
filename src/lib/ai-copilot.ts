@@ -250,7 +250,7 @@ export async function dispararCobranca(collections: CollectionPlan[], parties: P
     const msg = !res.ok
       ? String(j?.motivo ?? "A cobrança foi recusada.")
       : real
-        ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.${jaHoje ? ` ${jaHoje} já tinha(m) sido cobrado(s) hoje e não recebeu(ram) de novo.` : ""}${Number(j?.recusados ?? 0) ? ` ${j.recusados} telefone(s) recusado(s): não são de contato cadastrado.` : ""}`
+        ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.${jaHoje ? ` ${jaHoje} já tinha(m) sido cobrado(s) hoje e não recebeu(ram) de novo.` : ""}${Number(j?.recusados ?? 0) ? ` ${j.recusados} telefone(s) recusado(s): não são de contato cadastrado.` : ""}${Number(j?.semAutorizacao ?? 0) ? ` ${j.semAutorizacao} sem autorização registrada para WhatsApp.` : ""}${Number(j?.pediramSaida ?? 0) ? ` ${j.pediramSaida} pediu(ram) para não receber WhatsApp.` : ""}`
         : `Simulação: ${alvos.length} cobrança(s) preparada(s), nenhuma enviada — o envio por WhatsApp não está configurado.`;
     await logAcaoIA({
       kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { provedorReal, statusNotificacoes } from "@/core/financial-os/notifications.server";
 import {
-  despachar, relatorioVazio, hojeEm, mascarar, chaveDoClienteNoDia, chaveDoTitulo,
+  despachar, relatorioVazio, hojeEm, mascarar, chaveDoClienteNoDia, chaveDoTitulo, RODAPE_SAIR,
   type MensagemAutomacao, type FinalidadeTemplate,
 } from "@/core/automacoes";
 import { registroSupabase } from "@/lib/automacoes-registro";
@@ -27,7 +27,10 @@ import { soDigitosFone } from "@/lib/telefone";
  *      na empresa de quem chama (a leitura passa pela RLS da sessão). É esta
  *      a trava que impede usar o número da empresa como megafone: mesmo um
  *      usuário legítimo não manda mensagem para um telefone que não é de
- *      cliente seu.
+ *      cliente seu;
+ *   4. AUTORIZAÇÃO — o cliente autorizou WhatsApp desta empresa
+ *      (`whatsapp_autorizacoes`) e não respondeu SAIR (decisão do dono,
+ *      15/10/2026). Sem isso a cobrança dele vai pelo e-mail da régua.
  * Em demonstração não há banco nem sessão: a rota responde SIMULADO, sem
  * chamar a Twilio — uma instância de demonstração com chave configurada não
  * pode virar porta de envio.
@@ -115,19 +118,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, motivo: "Seu papel nesta empresa não envia cobranças a clientes." }, { status: 403 });
   }
 
-  // 3) só telefones de contatos da própria empresa (a RLS recorta pela sessão)
-  const { data: partes, error } = await supabase.from("parties").select("phone").not("phone", "is", null).limit(5000);
-  if (error) return NextResponse.json({ ok: false, motivo: error.message }, { status: 500 });
-  const conhecidos = new Set(((partes ?? []) as { phone: string | null }[]).map((p) => soDigitosFone(p.phone ?? "")).filter(Boolean));
-  const alvos = candidatos.filter((a) => conhecidos.has(soDigitosFone(a.telefone)));
-  const recusados = candidatos.length - alvos.length;
+  // 3) só telefones de contatos da própria empresa, e 4) só quem AUTORIZOU e
+  // não pediu para sair. A situação vem do banco, recortada pela empresa
+  // ativa da sessão; sem ela, nada sai (falha fechada).
+  const { data: situacao, error } = await supabase.rpc("whatsapp_situacao_contatos");
+  if (error) return NextResponse.json({ ok: false, motivo: `Não foi possível conferir a autorização de WhatsApp dos clientes: ${error.message}` }, { status: 500 });
+  const porTelefone = new Map<string, { autorizado: boolean; saiu: boolean }>();
+  for (const l of (situacao ?? []) as { telefone: string | null; autorizado: boolean; saiu: boolean }[]) {
+    if (!l.telefone) continue;
+    const atual = porTelefone.get(l.telefone);
+    porTelefone.set(l.telefone, { autorizado: !!l.autorizado || !!atual?.autorizado, saiu: !!l.saiu || !!atual?.saiu });
+  }
+  let recusados = 0, semAutorizacao = 0, pediramSaida = 0;
+  const alvos = candidatos.filter((a) => {
+    const s = porTelefone.get(soDigitosFone(a.telefone));
+    if (!s) { recusados++; return false; }
+    if (s.saiu) { pediramSaida++; return false; }
+    if (!s.autorizado) { semAutorizacao++; return false; }
+    return true;
+  });
 
   // O mesmo despacho do runner: reservar → enviar → concluir.
   const hoje = hojeEm(new Date());
   const mensagens: MensagemAutomacao[] = alvos.map((a) => ({
     tipo: "regua_cobranca", canal: "whatsapp", destino: a.telefone, destinoMascarado: mascarar("whatsapp", a.telefone),
     chave: chaveDoClienteNoDia(a.clienteChave, hoje),
-    assunto: `Cobrança — ${a.cliente}`, texto: a.mensagem, html: "",
+    assunto: `Cobrança — ${a.cliente}`, texto: `${a.mensagem}\n\n${RODAPE_SAIR}`, html: "",
     finalidade: a.finalidade ?? "cobranca_lembrete", variaveis: a.variaveis ?? {},
     chavesExtras: a.titulos.map((t) => chaveDoTitulo(t.movimentoId, t.etapaId)),
   }));
@@ -146,6 +162,8 @@ export async function POST(req: Request) {
     jaCobradosHoje: rel.jaRegistrados,
     simulados: rel.simulados,
     recusados,
+    semAutorizacao,
+    pediramSaida,
     enviados,
   });
 }

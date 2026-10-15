@@ -9,6 +9,7 @@ import {
 import type { DadosDoFluxo } from "@/core/automacoes/fluxo";
 import { contextoDaRpc, type ContextoBruto } from "@/lib/automacoes-contexto";
 import { registroSupabase } from "@/lib/automacoes-registro";
+import { saidasPara } from "@/lib/whatsapp-saidas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,7 +88,9 @@ export async function GET(req: Request) {
 
     const antes = { ...rel };
     const resultados = disparosDaEmpresa(devidos, dados, { salvoPorAdministra: l.salvo_por_administra, appUrl });
-    for (const r of resultados) await despachar(orgId, r.mensagens, { registro, provedor, dryRun }, rel);
+    // Quem respondeu SAIR não recebe WhatsApp de nenhuma automação.
+    const saidas = await saidasPara(admin, resultados.flatMap((r) => r.mensagens));
+    for (const r of resultados) await despachar(orgId, r.mensagens, { registro, provedor, dryRun, saidas }, rel);
     empresas.push({
       orgId,
       fluxos: resultados.map((r) => ({
@@ -106,7 +109,7 @@ export async function GET(req: Request) {
         antes: null,
         depois: {
           dia, enviados: rel.enviados - antes.enviados, simulados: rel.simulados - antes.simulados,
-          falhas: rel.falhas - antes.falhas, ja_registrados: rel.jaRegistrados - antes.jaRegistrados,
+          falhas: rel.falhas - antes.falhas, ja_registrados: rel.jaRegistrados - antes.jaRegistrados, bloqueados: rel.bloqueados - antes.bloqueados,
           fluxos: resultados.map((r) => ({ id: r.fluxoId, sem_envio: r.semEnvio?.codigo ?? null })),
         },
       });
@@ -119,7 +122,7 @@ export async function GET(req: Request) {
     agora: agora.toISOString(),
     dryRun,
     empresasComFluxo: (linhas ?? []).length,
-    totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados },
+    totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },
     porEmpresa: empresas,
     provedores: statusNotificacoes(),
   });

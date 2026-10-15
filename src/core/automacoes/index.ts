@@ -136,6 +136,20 @@ export function mascarar(canal: CanalEnvio | "manual", destino: string): string 
 export const normalizarDestino = (canal: CanalEnvio, d: string) =>
   canal === "email" ? d.trim().toLowerCase() : soDigitos(d);
 
+/**
+ * O destino como o ENVIO o enxerga: "+55 11 98888-7777" e "(11) 98888-7777"
+ * são o mesmo telefone — sem tirar o DDI, a mesma pessoa receberia duas vezes
+ * e cada uma passaria pela trava com chave própria. ⚠️ Espelho de
+ * `telefone_canonico` no banco: é por ela que a saída (SAIR) alcança o envio.
+ */
+export function destinoCanonico(canal: CanalEnvio, endereco: string): string {
+  const n = normalizarDestino(canal, endereco);
+  return canal === "whatsapp" && n.length >= 12 && n.startsWith("55") ? n.slice(2) : n;
+}
+
+/** A linha que toda mensagem de WhatsApp a CLIENTE leva no fim. */
+export const RODAPE_SAIR = "Para não receber mais mensagens por aqui, responda SAIR.";
+
 const semEnvio = (tipo: TipoAutomacao, s: SemEnvio): ResultadoAutomacao =>
   ({ tipo, mensagens: [], conteudos: [], semEnvio: s, pulados: [] });
 
@@ -687,7 +701,10 @@ function envelope(tipo: TipoAutomacao, c: Conteudo, canal: CanalEnvio, destino: 
     // automações da empresa leva o DESTINO, porque dois administradores
     // recebem o mesmo resumo e cada um é um envio.
     chave: tipo === "regua_cobranca" ? c.chaveBase : `${c.chaveBase}:${hashCurto(normal)}`,
-    assunto: c.assunto, texto: c.texto, html: c.html, finalidade: c.finalidade, variaveis: c.variaveis,
+    assunto: c.assunto,
+    // A cobrança pelo WhatsApp sempre diz como parar de receber.
+    texto: tipo === "regua_cobranca" && canal === "whatsapp" ? `${c.texto}\n\n${RODAPE_SAIR}` : c.texto,
+    html: c.html, finalidade: c.finalidade, variaveis: c.variaveis,
     chavesExtras: c.chavesExtras,
   };
 }
@@ -711,15 +728,27 @@ export function gerarMensagens(cfg: ConfigAutomacao, ctx: ContextoAutomacao): Re
     for (const g of grupos) {
       const c = redigirCobranca(ctx, g, cfg.parametros);
       const contato = g.partyId ? ctx.contatos[g.partyId] : undefined;
-      const tem = { whatsapp: ehTelefone(contato?.telefone) && cfg.canais.includes("whatsapp"), email: ehEmail(contato?.email) && cfg.canais.includes("email") };
+      // ⚠️ WhatsApp a cliente só com autorização registrada, e nunca a quem
+      // respondeu SAIR. Sem ela, a cobrança segue pelo e-mail.
+      const situacao = contato?.whatsapp ?? "sem_autorizacao";
+      const temTelefone = ehTelefone(contato?.telefone) && cfg.canais.includes("whatsapp");
+      const tem = { whatsapp: temTelefone && situacao === "autorizado", email: ehEmail(contato?.email) && cfg.canais.includes("email") };
       // O canal da etapa; sem o contato dele, o outro canal ligado.
       const canal: CanalEnvio | null = tem[c.canalPreferido ?? "whatsapp"] ? (c.canalPreferido ?? "whatsapp")
         : tem.whatsapp ? "whatsapp" : tem.email ? "email" : null;
-      if (!canal) { pulados.push({ alvo: g.cliente, motivo: "sem telefone nem e-mail no cadastro do contato" }); continue; }
+      if (!canal) {
+        pulados.push({
+          alvo: g.cliente,
+          motivo: temTelefone && situacao === "saiu" ? "pediu para não receber WhatsApp e não tem e-mail no cadastro"
+            : temTelefone ? "sem autorização registrada para WhatsApp e sem e-mail no cadastro"
+            : "sem telefone nem e-mail no cadastro do contato",
+        });
+        continue;
+      }
       conteudos.push(c);
       mensagens.push(envelope(cfg.tipo, c, canal, canal === "email" ? contato!.email! : contato!.telefone!));
     }
-    return { tipo: cfg.tipo, mensagens, conteudos, pulados, ...(mensagens.length ? {} : { semEnvio: { codigo: "sem_contato" as const, motivo: "Os clientes da fila de hoje não têm telefone nem e-mail cadastrado." } }) };
+    return { tipo: cfg.tipo, mensagens, conteudos, pulados, ...(mensagens.length ? {} : { semEnvio: { codigo: "sem_contato" as const, motivo: "Nenhum cliente da fila de hoje tem como receber: falta e-mail, ou autorização para WhatsApp." } }) };
   }
 
   const c = redigir(cfg, ctx);
@@ -783,12 +812,21 @@ export interface RelatorioDespacho {
   simulados: number;
   falhas: number;
   jaRegistrados: number;
-  itens: { tipo: TipoEnvio; canal: CanalEnvio; destino: string; resultado: "sairia" | "enviado" | "simulado" | "falhou" | "ja_registrado"; erro?: string }[];
+  /** WhatsApp para quem respondeu SAIR: não sai, nem é registrado. */
+  bloqueados: number;
+  itens: { tipo: TipoEnvio; canal: CanalEnvio; destino: string; resultado: "sairia" | "enviado" | "simulado" | "falhou" | "ja_registrado" | "bloqueado"; erro?: string }[];
 }
 
 export function relatorioVazio(): RelatorioDespacho {
-  return { sairiam: 0, enviados: 0, simulados: 0, falhas: 0, jaRegistrados: 0, itens: [] };
+  return { sairiam: 0, enviados: 0, simulados: 0, falhas: 0, jaRegistrados: 0, bloqueados: 0, itens: [] };
 }
+
+/**
+ * Os telefones de WhatsApp de uma leva, como o banco os compara — o que o
+ * executor pergunta a `whatsapp_saidas_entre` antes de despachar.
+ */
+export const telefonesDeWhatsapp = (mensagens: MensagemAutomacao[]): string[] =>
+  Array.from(new Set(mensagens.filter((m) => m.canal === "whatsapp").map((m) => destinoCanonico("whatsapp", m.destino)).filter(Boolean)));
 
 /**
  * Despacha as mensagens de UMA empresa.
@@ -804,11 +842,25 @@ export function relatorioVazio(): RelatorioDespacho {
  */
 export async function despachar(
   orgId: string, mensagens: MensagemAutomacao[],
-  dep: { registro: RegistroEnvios; provedor: ProvedorEnvio; dryRun?: boolean },
+  dep: {
+    registro: RegistroEnvios; provedor: ProvedorEnvio; dryRun?: boolean;
+    /**
+     * Quem respondeu SAIR (telefones canônicos). ⚠️ `"todos"` = a consulta
+     * falhou: sem saber quem saiu, nenhum WhatsApp sai (falha fechada) — o
+     * e-mail segue.
+     */
+    saidas?: Set<string> | "todos";
+  },
   rel: RelatorioDespacho = relatorioVazio(),
 ): Promise<RelatorioDespacho> {
   for (const m of mensagens) {
     const base = { tipo: m.tipo, canal: m.canal, destino: m.destinoMascarado };
+    if (m.canal === "whatsapp" && dep.saidas
+        && (dep.saidas === "todos" || dep.saidas.has(destinoCanonico("whatsapp", m.destino)))) {
+      rel.bloqueados++;
+      rel.itens.push({ ...base, resultado: "bloqueado", erro: dep.saidas === "todos" ? "não foi possível conferir quem pediu para sair" : "pediu para não receber WhatsApp" });
+      continue;
+    }
     if (dep.dryRun) { rel.sairiam++; rel.itens.push({ ...base, resultado: "sairia" }); continue; }
     const k: ChaveEnvio = { orgId, tipo: m.tipo, chave: m.chave, canal: m.canal };
     let reserva: "reservado" | "ja_existe";

@@ -89,11 +89,20 @@ export interface ConfigAutomacao {
 }
 
 /** Um contato (cliente/fornecedor) — o destino da régua. */
+/**
+ * O WhatsApp do CLIENTE (decisão do dono, 15/10/2026): só com autorização
+ * registrada; quem respondeu SAIR não recebe nada. ⚠️ Ausente = sem
+ * autorização — um contexto antigo, sem a informação, não manda WhatsApp a
+ * cliente nenhum (falha fechada).
+ */
+export type SituacaoWhatsapp = "autorizado" | "sem_autorizacao" | "saiu";
+
 export interface Contato {
   id: string;
   nome: string;
   telefone?: string | null;
   email?: string | null;
+  whatsapp?: SituacaoWhatsapp;
 }
 
 /** Titular/admin ATUAL da empresa. O e-mail vem daqui, nunca da configuração. */

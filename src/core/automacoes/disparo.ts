@@ -24,7 +24,7 @@ import {
   type Fluxo, type NoFluxo, type DadosDoFluxo, type DiaSemana, type FonteFluxo, type VendaMaquininha,
 } from "./fluxo";
 import { formaDaTransacao, type StatusPinbank } from "@/core/pinbank/evento";
-import { hashCurto, mascarar, normalizarDestino } from "./index";
+import { hashCurto, mascarar, destinoCanonico } from "./index";
 import { montarHtml, type SecaoEmail } from "./email";
 import type { CanalEnvio, MensagemAutomacao } from "./tipos";
 
@@ -116,15 +116,7 @@ export interface ResultadoDisparo {
   semEnvio?: { codigo: string; motivo: string };
 }
 
-/**
- * O destino como o ENVIO o enxerga: "+55 11 98888-7777" e "(11) 98888-7777"
- * são o mesmo telefone — sem tirar o DDI, a mesma pessoa receberia duas vezes
- * e cada uma passaria pela trava com chave própria.
- */
-export function destinoCanonico(canal: CanalEnvio, endereco: string): string {
-  const n = normalizarDestino(canal, endereco);
-  return canal === "whatsapp" && n.length >= 12 && n.startsWith("55") ? n.slice(2) : n;
-}
+export { destinoCanonico };
 
 /**
  * O texto do WhatsApp em seções de e-mail: cada bloco (separado por linha em

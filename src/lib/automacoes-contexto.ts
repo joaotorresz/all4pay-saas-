@@ -22,7 +22,7 @@ export interface ContextoBruto {
   contas?: { id: string; nome?: string | null; saldo?: number | string | null }[] | null;
   movimentos?: LinhaMovimento[] | null;
   truncado?: boolean | null;
-  partes?: { id: string; nome?: string | null; telefone?: string | null; email?: string | null }[] | null;
+  partes?: { id: string; nome?: string | null; telefone?: string | null; email?: string | null; whatsapp?: string | null }[] | null;
   membros?: { userId: string; papel: string; nome?: string | null; email?: string | null }[] | null;
   aprovacoesPendentes?: number | string | null;
   mesesTravados?: string[] | null;
@@ -50,7 +50,14 @@ export function contextoDaRpc(orgId: string, bruto: ContextoBruto, hoje: string,
     partes: (bruto.partes ?? []).map((p) => ({ id: p.id, nome: p.nome })),
   });
   const contatos: Record<string, Contato> = {};
-  for (const p of bruto.partes ?? []) contatos[String(p.id)] = { id: String(p.id), nome: p.nome ?? "", telefone: p.telefone ?? null, email: p.email ?? null };
+  for (const p of bruto.partes ?? []) {
+    contatos[String(p.id)] = {
+      id: String(p.id), nome: p.nome ?? "", telefone: p.telefone ?? null, email: p.email ?? null,
+      // ⚠️ Só os dois valores que LIBERAM ou BLOQUEIAM; qualquer outra coisa
+      // (inclusive a chave ausente, de um banco sem a migration) é sem autorização.
+      whatsapp: p.whatsapp === "autorizado" || p.whatsapp === "saiu" ? p.whatsapp : "sem_autorizacao",
+    };
+  }
   return {
     orgId,
     hoje,
