@@ -838,8 +838,8 @@ não for cumprido.
      where v.excluido_em is null and v.codigo_cliente is not null and v.codigo_cliente <= 0;
     ```
 
-    Com linha em qualquer uma: desvincular no `/admin` o vínculo errado (com
-    motivo) ANTES do merge.
+    Com linha em qualquer uma: desvincular no painel da plataforma
+    (Maquininhas) o vínculo errado (com motivo) ANTES do merge.
   - ⚠️ **O `migrar` só espera o `verify`.** O job `isolamento` — onde rodam a
     guarda `pinbank-limite-ec.sql` e as outras de banco — é portão do PR,
     não da aplicação no `main`: a prova das migrations é o CI verde do PR.

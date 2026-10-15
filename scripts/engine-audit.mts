@@ -11946,6 +11946,24 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      && secaoAtiva("/clientes/123").id === "clientes");
   ok("area-admin: (defeito plantado) prefixo parecido não acende a seção errada",
      secaoAtiva("/acessosx").id === "visao-geral");
+  // ⚠️ O vínculo do EC morava no fim de Suporte, abaixo da lista de TODAS as
+  // empresas, e o dono não o achava. Credenciar maquininha tem item próprio, e
+  // o cartão mora numa seção SÓ — sem isto, ele volta a ser empilhado onde
+  // sobrar espaço.
+  const maq = d(H, "/maquininhas");
+  ok("area-admin: Maquininhas é item do menu, com endereço limpo na plataforma",
+     SECOES_ADMIN.some((s) => s.id === "maquininhas" && s.href === "/admin/maquininhas")
+     && secaoAtiva("/maquininhas").id === "maquininhas" && secaoAtiva("/admin/maquininhas").id === "maquininhas"
+     && maq.tipo === "reescrever" && maq.caminho === "/admin/maquininhas");
+  {
+    const view = readFileSync("src/components/admin/AdminView.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const montagens = (view.match(/<PinbankAdminCard\b/g) ?? []).length;
+    const comCartao = [...view.matchAll(/^function (Secao\w+)\(\)[\s\S]*?^}/gm)]
+      .filter((m) => /<PinbankAdminCard\b/.test(m[0])).map((m) => m[1]);
+    ok("area-admin: o vínculo da maquininha mora em Maquininhas, e só lá",
+       montagens === 1 && comCartao.length === 1 && comCartao[0] === "SecaoMaquininhas",
+       `${montagens} montagem(ns): ${comCartao.join(", ") || "fora de qualquer seção"}`);
+  }
   ok("area-admin: o painel não usa a moldura do cliente",
      !/AppShell/.test(readFileSync("src/components/admin/AdminView.tsx", "utf8"))
      && !/AppShell/.test(readFileSync("src/components/admin/AdminShell.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")));

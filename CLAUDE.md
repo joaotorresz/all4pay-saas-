@@ -115,9 +115,12 @@ própria e segundo fator obrigatório. Regras em `core/area-admin`.
   Os cadeados de servidor moram no `app/admin/layout.tsx` (cobrem toda seção
   nova).
 - **Moldura própria** (`components/admin/AdminShell`), nunca o `AppShell`:
-  cinco seções em `SECOES_ADMIN` (Visão geral · Clientes e planos · Cobrança ·
-  Acessos · Suporte), uma página cada. A separação não acrescentou RPC: cada
-  seção monta os MESMOS cartões do painel antigo.
+  seis seções em `SECOES_ADMIN` (Visão geral · Clientes e planos ·
+  Maquininhas · Cobrança · Acessos · Suporte), uma página cada. A separação não
+  acrescentou RPC: cada seção monta os MESMOS cartões do painel antigo.
+  ⚠️ **O vínculo do EC da Pinbank (e a quarentena) mora em Maquininhas, e só
+  lá** (15/10/2026): no fim de Suporte, abaixo da lista de todas as empresas,
+  o dono não o achava. Guarda no bloco `area-admin:` do `engine-audit`.
 - **"Logar como" abre a sessão do cliente no APP** (`origemDoApp`, `APP_HOST`
   ou `admin.` → `app.`), e a sessão do dono continua de pé na plataforma.
 - **Para ligar (dono):** CNAME `admin` na Hostinger → alvo da Vercel; domínio
