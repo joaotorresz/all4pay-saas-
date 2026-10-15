@@ -12517,7 +12517,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !rastroC(rotaC.replace('JSON.stringify({ ...rastro, resultado: "pinbank_falhou", etapa: d.etapa })', 'JSON.stringify({ resultado: "pinbank_falhou", etapa: d.etapa })')));
 }
 
-// ── ícone: Lucide, traço 1,75, e nenhuma chave pedida sem glifo ──
+// ── ícone: Lucide, traço 2px, e nenhuma chave pedida sem glifo ──
 // Chave que não está no mapa renderiza NADA — e um botão sem ícone não quebra
 // teste nenhum. Na troca para o Lucide (15/10/2026) a varredura achou cinco
 // chaves que já não desenhavam com o set anterior (user, download, chevron-up,
@@ -12530,8 +12530,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("icone: toda chave pedida pelas telas existe no conjunto Lucide", faltando.size === 0, [...faltando].join(", "));
   ok("icone: (defeito plantado) uma chave inexistente é ACUSADA", pedidos('<Icon name="nao-existe" />').some((n) => !iconeExisteLucide(n)));
   const icon = readFileSync("src/components/ui/Icon.tsx", "utf8");
-  ok("icone: o traço padrão do sistema é 1,75", /STROKE_ICONE = 1\.75;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
-  ok("icone: o traço é absoluto (1,75px em qualquer tamanho)", /absoluteStrokeWidth/.test(icon));
+  ok("icone: o traço padrão do sistema é 2px", /STROKE_ICONE = 2;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
+  ok("icone: o traço é absoluto (2px em qualquer tamanho)", /absoluteStrokeWidth/.test(icon));
   ok("icone: nenhuma tela importa o lucide-react por fora do Icon", arquivos.filter((f) => !f.endsWith("ui/lucide-icons.ts") && /from "lucide-react"/.test(readFileSync(f, "utf8"))).length === 0);
 }
 
