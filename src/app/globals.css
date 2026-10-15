@@ -1617,8 +1617,8 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
 .a4p-logo-mono {
   display: inline-block;
   background: var(--erp-logo-cor);
-  -webkit-mask: url(/quattro-logo.webp) left center / contain no-repeat;
-  mask: url(/quattro-logo.webp) left center / contain no-repeat;
+  -webkit-mask: url(/quattro-erp-logo.png) left center / contain no-repeat;
+  mask: url(/quattro-erp-logo.png) left center / contain no-repeat;
 }
 
 /* ============================================================

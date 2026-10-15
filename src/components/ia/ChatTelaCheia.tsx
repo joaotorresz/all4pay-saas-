@@ -189,7 +189,7 @@ export function ChatTelaCheia({
       style={{ background: "var(--color-surface-1)" }}
     >
       <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
-        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[92px] h-[25px]" />
+        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
         <div className="flex items-center gap-2">
           {!ajuste && <button
             type="button"
