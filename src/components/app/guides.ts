@@ -554,6 +554,18 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Relatório ao investidor ----------------------------- */
+  "/automacoes": {
+    titulo: "Automações",
+    intro: "Fluxos que mandam uma mensagem no horário que você escolher: quando roda, o que conta e para quem vai, desenhados como cards ligados.",
+    comoUsar: "Comece por um modelo ou em 'Novo fluxo'. Clique em cada card para editar: os dias e a hora, a fonte dos números e quem recebe. Confira a prévia da mensagem e ligue o fluxo.",
+    exemplo: "Toda segunda às 08:00, a projeção das contas a pagar da semana chega no WhatsApp do financeiro, dia a dia e com o nome de quem recebe.",
+    secoes: [
+      blocos([
+        { nome: "Seus fluxos", desc: "O que está montado, ligado ou desligado.", match: "Seus fluxos" },
+        { nome: "Começar por um modelo", desc: "Os fluxos prontos, que nascem desligados.", match: "Começar por um modelo" },
+      ]),
+    ],
+  },
   "/investidores": {
     titulo: "Relatório ao investidor",
     intro: "O relatório mensal para investidores, gerado dos seus números reais: caixa, burn, runway, receita, crescimento, MRR, margem e score — mais destaques e riscos automáticos, num texto pronto para colar no e-mail.",

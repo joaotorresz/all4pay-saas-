@@ -44,6 +44,7 @@ const ROUTES: RouteItem[] = [
   // A Quattro AI tem UMA superfície: o chat em tela cheia, por cima da tela
   // atual, com o histórico de conversas dentro dele.
   { label: "Perguntar à Quattro AI", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat Quattro perguntar abrir tela cheia historico conversas" },
+  { label: "Automações", href: "/automacoes", icon: "workflow", kw: "automacao fluxo whatsapp mensagem agendar agenda envio relatorio maquininha contas a pagar n8n" },
   { label: "Relatório ao investidor", href: "/investidores", icon: "mail", kw: "investor update investidor relatorio mensal mrr arr burn runway captacao board email" },
   { label: "Plano de contratações", href: "/contratacoes", icon: "users", kw: "headcount contratacao contratar vaga equipe folha salario encargos runway plano time hiring" },
   { label: "Razão contábil", href: "/contabilidade?aba=razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },

@@ -256,6 +256,7 @@ export const SECTIONS: Section[] = [
       { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/quattro-ai?aba=decisao", icon: "target", pro: true },
       { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/quattro-ai?aba=autonomo", icon: "activity", pro: true },
       { label: "Plano de contratações", desc: "O impacto de contratar", href: "/contratacoes", icon: "users", pro: true },
+      { label: "Automações", desc: "Mensagens no WhatsApp no horário que você escolher", href: "/automacoes", icon: "workflow" },
     ],
   },
 ];
