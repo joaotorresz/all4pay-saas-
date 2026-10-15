@@ -13,7 +13,7 @@
  *
  * O MATERIAL é o mesmo (DS Quattro): moldura verde-base (`.a4p-canvas`),
  * barra e menu em cartões brancos, área de trabalho branca, título em Roobert
- * Black 23px. O que muda é o conteúdo: cinco seções (`SECOES_ADMIN`) e a
+ * Black 23px. O que muda é o conteúdo: seis seções (`SECOES_ADMIN`) e a
  * etiqueta "Administração" ao lado da marca, para nunca restar dúvida de onde
  * se está.
  */

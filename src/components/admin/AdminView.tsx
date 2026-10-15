@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Área da plataforma (dono do SaaS) — cinco seções, uma página cada
- * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Cobrança · Acessos ·
- * Suporte. Moldura própria (`AdminShell`), nunca a do cliente.
+ * Área da plataforma (dono do SaaS) — seis seções, uma página cada
+ * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Maquininhas · Cobrança ·
+ * Acessos · Suporte. Moldura própria (`AdminShell`), nunca a do cliente.
  *
  * ⚠️ O painel era UMA página de 682 linhas com tudo empilhado. A separação
  * não reescreveu nenhum cartão nem acrescentou consulta: cada seção monta os
@@ -176,7 +176,7 @@ function FerramentasInternas() {
 }
 
 
-export type SecaoPainel = "visao-geral" | "clientes" | "cobranca" | "acessos" | "suporte";
+export type SecaoPainel = "visao-geral" | "clientes" | "maquininhas" | "cobranca" | "acessos" | "suporte";
 
 /**
  * A porta do cliente: confirma o papel antes de montar qualquer seção.
@@ -203,6 +203,7 @@ export function AdminView({ secao = "visao-geral" }: { secao?: SecaoPainel }) {
       <div className="flex flex-col gap-6 pb-4">
         {secao === "visao-geral" && <SecaoVisaoGeral />}
         {secao === "clientes" && <SecaoClientes />}
+        {secao === "maquininhas" && <SecaoMaquininhas />}
         {secao === "cobranca" && <SecaoCobranca />}
         {secao === "acessos" && <SecaoAcessos />}
         {secao === "suporte" && <SecaoSuporte />}
@@ -371,7 +372,6 @@ function SecaoAcessos() {
 /* ── Suporte ─────────────────────────────────────────────────────────────── */
 
 function SecaoSuporte() {
-  const { show, node } = useToast();
   const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
   const [busca, setBusca] = React.useState("");
   const [verOrg, setVerOrg] = React.useState<{ id: string; nome: string } | null>(null);
@@ -400,10 +400,8 @@ function SecaoSuporte() {
           ))
         )}
       </Card>
-      <PinbankAdminCard orgs={orgs.data ?? []} toast={show} />
       <FerramentasInternas />
       {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
-      {node}
     </>
   );
 }
@@ -470,6 +468,24 @@ function MrrCard() {
       )}
       <span className="text-caption text-faint">Receita recorrente mensal. Meses sem snapshot são derivados das assinaturas ativas (o histórico real acumula a cada captura).</span>
     </Card>
+  );
+}
+
+/* ---------- Maquininhas: o credenciamento do EC numa seção própria ---------- */
+
+/**
+ * ⚠️ O vínculo ficava no fim de Suporte, abaixo da lista de TODAS as empresas:
+ * com a base real, o dono rolava e não achava. O cartão é o mesmo — só mudou
+ * de casa —, e mora numa seção SÓ (guarda `area-admin:` no `engine-audit`).
+ */
+function SecaoMaquininhas() {
+  const { show, node } = useToast();
+  const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
+  return (
+    <>
+      <PinbankAdminCard orgs={orgs.data ?? []} toast={show} />
+      {node}
+    </>
   );
 }
 

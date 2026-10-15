@@ -161,9 +161,13 @@ export interface SecaoAdmin { id: string; rotulo: string; href: string; icone: s
 export const SECOES_ADMIN: readonly SecaoAdmin[] = [
   { id: "visao-geral", rotulo: "Visão geral", href: "/admin", icone: "house", resumo: "Receita recorrente, base de clientes e crescimento." },
   { id: "clientes", rotulo: "Clientes e planos", href: "/admin/clientes", icone: "building", resumo: "Plano e status de cobrança de cada empresa, e os planos oferecidos." },
+  // ⚠️ O vínculo do EC morava no fim de Suporte, abaixo da lista de TODAS as
+  // empresas — o dono procurou e não achou. Credenciar maquininha é tarefa
+  // própria, e tarefa própria tem item no menu.
+  { id: "maquininhas", rotulo: "Maquininhas", href: "/admin/maquininhas", icone: "smartphone", resumo: "Vincular o estabelecimento (EC) da maquininha à empresa, e as vendas que esperam vínculo." },
   { id: "cobranca", rotulo: "Cobrança", href: "/admin/cobranca", icone: "credit-card", resumo: "Quem paga × quem usa, e a receita mês a mês." },
   { id: "acessos", rotulo: "Acessos", href: "/admin/acessos", icone: "shield-check", resumo: "Contas da plataforma e a trilha das ações do administrador." },
-  { id: "suporte", rotulo: "Suporte", href: "/admin/suporte", icone: "help-circle", resumo: "Ver e entrar como o cliente, integrações e ferramentas internas." },
+  { id: "suporte", rotulo: "Suporte", href: "/admin/suporte", icone: "help-circle", resumo: "Ver e entrar como o cliente, e ferramentas internas." },
 ];
 
 /** A seção ativa para um caminho, aceitando o endereço limpo (`/clientes`) e o longo (`/admin/clientes`). */

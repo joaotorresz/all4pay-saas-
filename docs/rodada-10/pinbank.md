@@ -177,8 +177,9 @@ Pinbank ──POST──▶ /api/pinbank/webhook
    chave pública — só ela — volta ao caminho direto se os dois servidores da
    saída fixa estiverem fora.
 4. `PINBANK_WEBHOOK=ligado`.
-5. No `/admin`, vincular cada estabelecimento (o código aparece na quarentena
-   assim que a primeira venda chega); a empresa ativa em Integrações.
+5. No painel da plataforma, em **Maquininhas**, vincular cada estabelecimento
+   (o código aparece na quarentena assim que a primeira venda chega); a
+   empresa ativa em Integrações.
 
 ## Pendências declaradas
 
