@@ -1,0 +1,112 @@
+[
+  {
+    "tema": "claro",
+    "caso": "corrigido · tela",
+    "jsqr": "LIDO",
+    "opencv": "LIDO",
+    "css": {
+      "svg": {
+        "fill": "rgb(0, 0, 0)",
+        "stroke": "none",
+        "strokeWidth": "1px",
+        "filter": "none",
+        "opacity": "1",
+        "mix": "normal"
+      },
+      "path": {
+        "fill": "rgb(59, 67, 50)",
+        "stroke": "none",
+        "strokeWidth": "1px",
+        "filter": "none",
+        "opacity": "1",
+        "mix": "normal"
+      },
+      "rect": {
+        "fill": "rgb(243, 241, 238)",
+        "stroke": "none",
+        "strokeWidth": "1px",
+        "filter": "none",
+        "opacity": "1",
+        "mix": "normal"
+      },
+      "ancestrais": [
+        "DIV.bg-white rounded-card text-ink shadow-card p-6 flex flex filter=none opacity=0"
+      ],
+      "px": "228x228",
+      "dark": false
+    }
+  },
+  {
+    "tema": "claro",
+    "caso": "antigo · tela",
+    "jsqr": "NÃO LIDO",
+    "opencv": "NÃO LIDO"
+  },
+  {
+    "tema": "claro",
+    "caso": "corrigido · ampliado",
+    "jsqr": "LIDO",
+    "opencv": "LIDO",
+    "ladoPx": 630,
+    "focoAoAbrir": "Fechar",
+    "fechouEsc": true,
+    "focoVolta": "Ampliar código",
+    "fechouFora": true,
+    "copiarVisivel": true
+  },
+  {
+    "tema": "escuro",
+    "caso": "corrigido · tela",
+    "jsqr": "LIDO",
+    "opencv": "LIDO",
+    "css": {
+      "svg": {
+        "fill": "rgb(0, 0, 0)",
+        "stroke": "none",
+        "strokeWidth": "1px",
+        "filter": "none",
+        "opacity": "1",
+        "mix": "normal"
+      },
+      "path": {
+        "fill": "rgb(59, 67, 50)",
+        "stroke": "none",
+        "strokeWidth": "1px",
+        "filter": "none",
+        "opacity": "1",
+        "mix": "normal"
+      },
+      "rect": {
+        "fill": "rgb(243, 241, 238)",
+        "stroke": "none",
+        "strokeWidth": "1px",
+        "filter": "none",
+        "opacity": "1",
+        "mix": "normal"
+      },
+      "ancestrais": [
+        "DIV.bg-white rounded-card text-ink shadow-card p-6 flex flex filter=none opacity=0"
+      ],
+      "px": "228x228",
+      "dark": true
+    }
+  },
+  {
+    "tema": "escuro",
+    "caso": "antigo · tela",
+    "jsqr": "NÃO LIDO",
+    "opencv": "NÃO LIDO"
+  },
+  {
+    "tema": "escuro",
+    "caso": "corrigido · ampliado",
+    "jsqr": "LIDO",
+    "opencv": "LIDO",
+    "ladoPx": 630,
+    "focoAoAbrir": "Fechar",
+    "fechouEsc": true,
+    "focoVolta": "Ampliar código",
+    "fechouFora": true,
+    "copiarVisivel": true
+  }
+]

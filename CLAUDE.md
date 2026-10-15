@@ -88,6 +88,11 @@ decisão do dono e migration à parte. ⚠️ **Sem teto de tentativas do códig
 por conta**: o gancho do Auth que o daria é dos planos Teams/Enterprise, e o
 projeto é Free — só o limite por IP do Auth (15/min) separa a senha vazada do
 código; a tela diz que o aplicativo SOMA à senha, nunca que a substitui.
+⚠️ **O QR do cadastro (15/10/2026)**: o link do Supabase (~133 bytes) é QR
+versão 8, e `lib/qrcode` não gravava a informação de versão (obrigatória da 7
+em diante): nenhum aplicativo o lia, em tema nenhum. Corrigido no gerador;
+"Ampliar código" abre o QR grande por cima da tela. Guarda de ida e volta com
+leitor de verdade (jsQR) e o defeito plantado: `npm run qr`.
 
 ## ⚠️ A ÁREA DA PLATAFORMA MORA NO PRÓPRIO ENDEREÇO (09/10/2026)
 

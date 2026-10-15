@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { AcaoDestrutiva, Button, CampoCodigo, Card, Icon, StatusBadge } from "@/components/ui";
 import { copiarTexto } from "@/components/ia/chat-kit";
 import {
@@ -258,14 +259,22 @@ function PainelCadastro({
 }) {
   // O QR é desenhado aqui, nas cores da paleta. Endereço longo demais para o
   // QR (e-mail muito comprido) devolve vazio, e a tela fica com a chave manual.
-  const svg = React.useMemo(() => {
+  // ⚠️ Módulo de 4px na tela e de 10px no ampliado: inteiro, para cada módulo
+  // cair em pixels inteiros (meio pixel vira borda cinza e confunde o leitor).
+  const { svg, svgGrande } = React.useMemo(() => {
     try {
       const qr = gerarQR(cadastro.uri);
-      return qrParaSVG(qr, (qr.tamanho + 8) * 4, undefined, "Código QR para cadastrar o aplicativo autenticador");
+      const lado = qr.tamanho + 8; // + 4 módulos de margem clara de cada lado
+      return {
+        svg: qrParaSVG(qr, lado * 4, undefined, ROTULO_QR),
+        svgGrande: qrParaSVG(qr, lado * 10, undefined, ROTULO_QR),
+      };
     } catch {
-      return "";
+      return { svg: "", svgGrande: "" };
     }
   }, [cadastro.uri]);
+  const [ampliado, setAmpliado] = React.useState(false);
+  const botaoAmpliar = React.useRef<HTMLButtonElement>(null);
 
   // O botão que abriu o painel some da árvore; sem levar o foco ao passo 1,
   // ele cai no BODY e quem usa teclado ou leitor de tela não sabe onde está.
@@ -286,7 +295,12 @@ function PainelCadastro({
       <div className="flex flex-col sm:flex-row gap-5 sm:items-start">
         {/* No telefone o link vem primeiro: o QR não se lê com o próprio aparelho. */}
         {svg ? (
-          <div className="order-last sm:order-none rounded-card bg-white p-2 self-start" dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="order-last sm:order-none flex flex-col items-start gap-2 self-start">
+            <div data-qr="normal" className="overflow-hidden rounded-md leading-none" dangerouslySetInnerHTML={{ __html: svg }} />
+            <Button ref={botaoAmpliar} variant="ghost" size="sm" onClick={() => setAmpliado(true)} leftIcon={<Icon name="scan-line" size={15} />}>
+              Ampliar código
+            </Button>
+          </div>
         ) : (
           <p className="order-last sm:order-none m-0 text-caption text-faint max-w-[36ch]">
             O endereço desta conta é longo demais para caber num código QR. Use a chave ao lado.
@@ -325,6 +339,55 @@ function PainelCadastro({
           <Button variant="secondary" disabled={busy} onClick={aoCancelar}>Cancelar</Button>
         </div>
       </div>
+      {ampliado && svgGrande && (
+        <QRAmpliado
+          svg={svgGrande}
+          aoFechar={() => { setAmpliado(false); botaoAmpliar.current?.focus(); }}
+        />
+      )}
     </Card>
+  );
+}
+
+const ROTULO_QR = "Código QR para cadastrar o aplicativo autenticador";
+
+/**
+ * O QR grande, por cima da tela, para o celular ler da tela do computador.
+ *
+ * ⚠️ Portal no `<body>`: o `Card` do DS tem `transform`, e um ancestral
+ * transformado vira o bloco de contenção de qualquer `position: fixed`.
+ * Esc e clique fora fecham; o foco entra no "Fechar" e volta ao "Ampliar
+ * código" ao sair. A chave NÃO entra aqui (a alternativa continua no painel,
+ * ao lado do "Copiar chave"): o ampliado existe para ser fotografado.
+ */
+function QRAmpliado({ svg, aoFechar }: { svg: string; aoFechar: () => void }) {
+  const fechar = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); aoFechar(); } };
+    window.addEventListener("keydown", esc);
+    const t = setTimeout(() => fechar.current?.focus(), 10);
+    return () => { window.removeEventListener("keydown", esc); clearTimeout(t); };
+  }, [aoFechar]);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4"
+      onClick={aoFechar}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Código QR ampliado"
+    >
+      <div className="bg-white rounded-card p-5 flex flex-col items-center gap-4 max-w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="flex w-full items-center justify-between gap-4">
+          <span className="text-h3 font-medium text-ink">Aponte a câmera do aplicativo</span>
+          <Button ref={fechar} variant="ghost" size="sm" onClick={aoFechar} leftIcon={<Icon name="x" size={15} />}>Fechar</Button>
+        </div>
+        {/* O lado acompanha a tela (até 80% da menor dimensão), sem sair dela. */}
+        <div data-qr="ampliado" className="overflow-hidden rounded-md leading-none [&>svg]:block [&>svg]:h-auto [&>svg]:w-[min(78vw,70vh)]" dangerouslySetInnerHTML={{ __html: svg }} />
+        <p className="m-0 text-caption text-muted">Esc ou um clique fora fecha.</p>
+      </div>
+    </div>,
+    document.body,
   );
 }
