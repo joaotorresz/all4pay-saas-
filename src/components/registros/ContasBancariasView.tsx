@@ -19,7 +19,7 @@
  * passou por ela continua no extrato, no DRE e no razão.
  */
 import * as React from "react";
-import { Button, Input, Select, DateField, CurrencyInput, BRL } from "@/components/ui";
+import { Button, Input, Select, DateField, CurrencyInput, BRL, BancoLogo } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import {
@@ -143,9 +143,12 @@ export function ContasBancariasView() {
           }
           colunas={[
             { chave: "nome", label: "Conta", render: (c) => (
-              <div className="flex flex-col">
-                <span className="text-ink">{c.nome}</span>
-                <span className="text-caption text-faint">{rotuloDoBanco(c.banco)}{c.agencia && ` · Ag. ${c.agencia}`}{c.numero && ` · C/C ${c.numero}`}</span>
+              <div className="flex items-center gap-3">
+                <BancoLogo banco={c.banco} nome={rotuloDoBanco(c.banco)} size={32} />
+                <div className="flex flex-col">
+                  <span className="text-ink">{c.nome}</span>
+                  <span className="text-caption text-faint">{rotuloDoBanco(c.banco)}{c.agencia && ` · Ag. ${c.agencia}`}{c.numero && ` · C/C ${c.numero}`}</span>
+                </div>
               </div>
             ) },
             { chave: "tipo", label: "Tipo", render: (c) => (
@@ -231,12 +234,16 @@ function FormularioConta({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Campo label="Banco" obrigatorio erro={erros.banco}>
-          <Select
-            value={f.banco}
-            onChange={(v) => set("banco", v)}
-            placeholder="Selecione o banco"
-            options={BANCOS_CONTA.map((b) => ({ value: b.id, label: b.label }))}
-          />
+          <div className="flex items-center gap-2">
+            <BancoLogo banco={f.banco} nome={f.banco ? rotuloDoBanco(f.banco) : ""} size={40} />
+            <Select
+              value={f.banco}
+              onChange={(v) => set("banco", v)}
+              placeholder="Selecione o banco"
+              options={BANCOS_CONTA.map((b) => ({ value: b.id, label: b.label }))}
+              containerClassName="flex-1 min-w-0"
+            />
+          </div>
         </Campo>
         <Campo label="Tipo de conta" obrigatorio erro={erros.tipo}>
           <Select

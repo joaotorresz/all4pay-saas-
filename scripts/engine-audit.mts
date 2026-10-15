@@ -6,6 +6,9 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
+import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
+import { BANCOS_CONTA } from "@/core/registros/hierarquia";
 import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFinalR8, mesAnterior as mesAnteriorR8, competenciaDoMesAnterior as competenciaDoMesAnteriorR8, comCompetencias as comCompetenciasR8 } from "@/core/importacao/competencia";
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
@@ -12513,6 +12516,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !rastroC(rotaC.replace('JSON.stringify({ ...chamada, resultado: "ok" })', 'JSON.stringify({ ...chamada, resultado: "ok", vendas: extrato.resposta.linhas })')));
   ok("conferencia-pinbank: (defeito plantado) a falha da Pinbank sem dizer quem pediu é ACUSADA",
      !rastroC(rotaC.replace('JSON.stringify({ ...rastro, resultado: "pinbank_falhou", etapa: d.etapa })', 'JSON.stringify({ resultado: "pinbank_falhou", etapa: d.etapa })')));
+}
+
+/* ===================== bancos: o logo certo, ou nenhum ===================== */
+{
+  const casos: [string, string | null][] = [
+    ["itau", "itau"], ["Itaú Unibanco", "itau"], ["Itaú BBA", "itau"], ["bb", "banco-brasil"],
+    ["Banco do Brasil", "banco-brasil"], ["Banco do Nordeste", "banco-nordeste"],
+    ["Banco de Brasília", "banco-brasilia"], ["Caixa Econômica", "caixa"], ["Bancoob", "sicoob"],
+    ["Inter", "inter"], ["Intermedium Corretora", null], ["C6 Bank", null], ["BTG Pactual", null],
+    ["Mercado Pago", null], ["Stone", null], ["", null], ["outro", null],
+  ];
+  for (const [entrada, esperado] of casos)
+    ok(`bancos: "${entrada}" → ${esperado ?? "sem logo"}`, glifoDoBanco(entrada) === esperado, String(glifoDoBanco(entrada)));
+  ok("bancos: toda chave de conta com logo aponta para um glifo que EXISTE",
+     BANCOS_CONTA.every((b) => { const g = glifoDoBanco(b.id); return g === null || typeof BANCO_GLIFOS[g] === "string"; }));
+  ok("bancos: banco sem logo mostra iniciais, nunca vazio", iniciaisDoBanco("C6 Bank") === "C6" && iniciaisDoBanco("Mercado Pago") === "MP" && iniciaisDoBanco("") === "·");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
