@@ -180,7 +180,7 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
 
 function formatBRLsafe(n: number): string {
   try { return formatBRL(n); }
-  catch { return `R$${n.toFixed(2)}`; }
+  catch { return `R$ ${n.toFixed(2)}`; }
 }
 
 /** Mapa ação → (tipo do movimento, já realizado?). Usado quando o usuário

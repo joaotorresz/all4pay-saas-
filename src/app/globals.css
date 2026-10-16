@@ -160,18 +160,6 @@
   font-display: swap;
 }
 
-/* CENTRA NO.2 BLACK — a fonte de TÍTULO da Quattro (caixa alta, −0.02em).
-   Só o corte Black (900) existe no arquivo; a faixa 100–900 faz qualquer peso
-   pedido pelo papel de display cair nele em vez de no fallback. Tem `tnum`
-   (medido com fontTools), então também carrega os VALORES alinhados. */
-@font-face {
-  font-family: "Centra No2";
-  src: url("/fonts/centra-no2-black.ttf") format("truetype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* ============================================================
    Quattro Design System — runtime CSS variables
    ------------------------------------------------------------
@@ -215,16 +203,16 @@
      branco puro para separar da área por CONTRASTE, agora que não há borda.
      superfície de card (referência Jota)
      superfície de card */
-  --color-white: #fbfbfb;
+  --color-white: #fefefd;
   /* fundo de página (referência Jota)
      ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
      escolheu — é o mesmo defeito que o Laboratório já causou uma vez.
      fundo de página */
-  --color-surface-1: #f2f2f2;
+  --color-surface-1: #f5f5f5;
   /* chips / seções / hover dentro do card (o círculo do ícone da referência)
      chips / seções */
-  --color-surface-2: #f2f2f2;
+  --color-surface-2: #f5f5f5;
   /* Cinza médio — desabilitado / teclado / sheet
      Cinza médio */
   --color-surface-3: #d6d8ca;
@@ -259,7 +247,7 @@
      que é exatamente o defeito que um token dedicado evita.
      ============================================================
      moldura escura = verde-base (fundo escuro nunca é preto) */
-  --a4p-chrome: #f2f2f2;
+  --a4p-chrome: #f5f5f5;
   /* Cinza claro sobre a moldura */
   --a4p-chrome-ink: #f3f1ee;
   /* Areia — secundário sobre a moldura */
@@ -269,7 +257,7 @@
   --a4p-chrome-field-hover: #6b7060;
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #f2f2f2;
+  --a4p-app-bg: #f5f5f5;
   --a4p-app-radius: 28px;
   /* Rótulo — cinza escuro da referência ("Dinheiro escapando") */
   --color-text-secondary: #535353;
@@ -288,7 +276,7 @@
      Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
      (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12.
      Placeholder */
-  --color-text-quaternary: #a9ad9e;
+  --color-text-quaternary: #9a9a9a;
   /* Lime #ECFD52 — a cor de AÇÃO (botão primário, destaque, número grande).
      ⚠️ Nunca leva texto branco: por cima dele o texto é sempre o verde-base.
      Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
@@ -384,9 +372,9 @@
      O vidro também é QUENTE: rgba do White #FEFDF0, não do branco puro — um
      vidro branco frio sobre canvas quente lê como uma folha de outro sistema
      por cima do app. E a sombra é do Black quente, não de um azul-cinza. */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-bg-strong: rgba(255, 255, 255, 0.84);
-  --glass-edge: rgba(255, 255, 255, 0.65);
+  --glass-bg: rgba(254, 254, 253, 0.72);
+  --glass-bg-strong: rgba(254, 254, 253, 0.84);
+  --glass-edge: rgba(254, 254, 253, 0.65);
   --glass-blur: 20px;
   /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta)
      A única sombra do guia Quattro: longa e quase invisível. */
@@ -403,7 +391,7 @@
   /* R$ na mesma cor do número */
   --erp-moeda-cor: #1a1a1a;
   /* só os centavos diferem */
-  --erp-centavos-cor: #535353;
+  --erp-centavos-cor: #1a1a1a;
   /* o menu é um card: o branco da referência */
   --erp-menu-fundo: var(--color-white);
   --erp-menu-borda: #f4f4f4;
@@ -449,7 +437,7 @@
   --erp-graf-saida: var(--color-negative);
   --erp-tabela-linha: var(--erp-menu-borda);
   --a4p-bolha-usuario: #eaeaea;
-  --a4p-pilula-fundo: #ffffff;
+  --a4p-pilula-fundo: #fefefd;
   --a4p-pilula-texto: var(--color-ink);
 }
 /* tema escuro */
@@ -508,16 +496,16 @@ html.dark {
   --radius-card: var(--a4p-box-radius);
   /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. ==
      bg/base — área de trabalho */
-  --a4p-bg: #ffffff;
+  --a4p-bg: #fefefd;
   /* cards SÓLIDOS */
-  --a4p-box-bg: #f6f6f6;
+  --a4p-box-bg: #f5f5f5;
   /* card Quattro: 26px */
   --a4p-box-radius: 20px;
   /* card Quattro: 28px */
   --a4p-box-padding: 28px;
   /* card com borda 1px Cinza médio */
   --a4p-box-border: var(--color-border);
-  --font-display: "Centra No2", "Archivo", "Roobert", sans-serif;
+  --font-display: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* ⚠️ O papel de RÓTULO pede `var(--font-mono)`, e a única monoespaçada da
      casa é a Roobert Mono — mesma família da UI, largura fixa de verdade.
@@ -530,15 +518,15 @@ html.dark {
 html:not(.dark) .ds-visor {
   --color-ink: #1a1a1a;
   --color-ink-soft: #535353;
-  --color-white: #fbfbfb;
-  --color-surface-1: #f2f2f2;
-  --color-surface-2: #f2f2f2;
+  --color-white: #fefefd;
+  --color-surface-1: #f5f5f5;
+  --color-surface-2: #f5f5f5;
   --color-surface-3: #d6d8ca;
   --color-border: #e2e2e2;
   --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
   --color-text-secondary: #535353;
   --color-text-tertiary: #9a9a9a;
-  --color-text-quaternary: #a9ad9e;
+  --color-text-quaternary: #9a9a9a;
   --color-lime: #ecfd52;
   --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
   --color-on-lime: #3b4332;
@@ -791,7 +779,7 @@ h1, h2, h3,
      entrelinha 1,03–1,1). Substitui a regra anterior de h1 em Roobert. */
   font-family: var(--font-display);
   font-weight: 900;
-  text-transform: uppercase;
+  text-transform: none;
   line-height: 1.05;
   color: var(--color-ink);
   letter-spacing: -0.02em;
@@ -800,7 +788,7 @@ h1, h2, h3,
 .ds-visor .a4p-heroi {
   font-family: var(--font-display);
   font-weight: 900;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--color-ink);
   letter-spacing: -0.02em;
 }
@@ -1832,7 +1820,7 @@ html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-item {
 html:not(.dark) .ds-visor thead th {
   font-size: 11px;
   font-weight: 500;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   color: var(--color-text-secondary);
   box-shadow: inset 0 -1px 0 var(--erp-tabela-linha);
@@ -1873,4 +1861,69 @@ html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade)
 .a4p-bolha-usuario {
   background: var(--a4p-bolha-usuario);
   color: var(--color-ink);
+}
+
+/* ============================================================
+   DESIGN SYSTEM 16/10/2026 (decisão do dono) — vence tudo acima.
+
+   · UMA família: Roobert. A Centra No2 saiu do sistema (`--font-display`
+     agora É Roobert, então todo papel que a pedia segue sem mudar de nome).
+   · Branco #FEFEFD (--color-white, --a4p-bg, pílula) · cinza #F5F5F5
+     (fundo de página, chips, seções).
+   · Texto #1A1A1A · cinza escuro #535353 · cinza claro #9A9A9A.
+   · NENHUM texto sobe ou desce de caixa: sempre "Aa", nunca "AA" nem "aa".
+     A regra é GLOBAL e com !important porque caixa alta voltava por classe
+     utilitária solta em tabela e rótulo — uma regra só alcança o código que
+     ainda não foi escrito.
+   · Número: Roobert SemiBold em #1A1A1A, "R$ 16.000,00", com a vírgula e os
+     centavos no MESMO corpo e cor do inteiro.
+   · Título de card em #535353.
+   ============================================================ */
+*, *::before, *::after { text-transform: none !important; }
+
+.ds-visor h1,
+.ds-visor .text-h1,
+.ds-visor .text-display,
+.ds-visor .a4p-heroi {
+  font-family: var(--font-sans);
+}
+
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .text-value-lg,
+.ds-visor .a4p-home .a4p-num,
+.ds-visor .a4p-home .a4p-num *,
+.ds-visor .a4p-heroi .a4p-num,
+.ds-visor .a4p-heroi .a4p-num *,
+.ds-visor .a4p-home .a4p-heroi .a4p-num,
+.ds-visor .a4p-home .a4p-heroi .a4p-num * {
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+}
+html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
+/* Vírgula e centavos: o mesmo corpo e a mesma cor do número. */
+.ds-visor .a4p-num [data-cents],
+.ds-visor .a4p-heroi .a4p-num > span:last-child[data-cents] {
+  font-size: 1em !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  margin-left: 0 !important;
+}
+/* O "R$" acompanha o número: mesmo corpo, peso e cor. */
+.ds-visor .a4p-heroi .a4p-num > span:first-child { font-family: var(--font-sans); font-weight: 600; }
+/* Valor em linha (lista, agenda): continua Roobert 500 ao lado do nome. */
+.ds-visor .tabular-nums.a4p-valor-texto,
+.ds-visor .a4p-num.a4p-valor-texto,
+.ds-visor .a4p-valor-texto .a4p-num,
+.ds-visor .a4p-valor-texto .a4p-num * {
+  font-weight: 500 !important;
+}
+
+/* Título de card em cinza escuro. */
+.ds-visor [data-card="1"] h2,
+.ds-visor [data-card="1"] h3,
+.ds-visor [data-card="1"] .text-h2,
+.ds-visor [data-card="1"] .text-h3 {
+  color: var(--color-text-secondary);
 }

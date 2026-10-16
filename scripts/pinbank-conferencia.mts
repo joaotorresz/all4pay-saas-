@@ -1001,7 +1001,7 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
       && i.extrato!.liquidoCentavos === 329
       && resumo(f0!.resumo.liquido) === resumo({ vendasComparadas: 1, vendasIguais: 0, vendasDiferentes: 1, centavosExtrato: 329, centavosSistema: 873 })
       && f0!.resumo.itensComDivergencia === 1 && f0!.resumo.grupos.divergencias === 0
-      && /R\$3,29/.test(i.frase) && /R\$8,73/.test(i.frase)
+      && /R\$ 3,29/.test(i.frase) && /R\$ 8,73/.test(i.frase)
       && i.extrato!.antecipacao.resultado === "nao_antecipado";
   }, () => resumo({ s: f0?.itens[0]?.sinais, l: f0?.itens[0]?.liquidoDaVenda, r: f0?.resumo.liquido, f: f0?.itens[0]?.frase, a: f0?.itens[0]?.extrato?.antecipacao }));
   const f0i = seguro(F0_TAXA(0.0265));
@@ -1625,7 +1625,7 @@ function casos(m: Mods, rotulo: string): Map<string, boolean> {
       && resumo(d.liquidoDaVenda) === resumo({ extratoCentavos: 891, sistemaCentavos: 990, parcelas: 1 })
       && resumo(itemReal(r, 41002)!.liquidoDaVenda) === resumo({ extratoCentavos: 869, sistemaCentavos: 981, parcelas: 1 })
       && resumo(itemReal(r, 41003, 2)!.liquidoDaVenda) === resumo({ extratoCentavos: 856, sistemaCentavos: 974, parcelas: 2 })
-      && /R\$8,91/.test(d.frase) && /R\$9,90/.test(d.frase) && /tarifa fixa/.test(d.frase)
+      && /R\$ 8,91/.test(d.frase) && /R\$ 9,90/.test(d.frase) && /tarifa fixa/.test(d.frase)
       && resumo(r.resumo.liquido) === resumo({ vendasComparadas: 3, vendasIguais: 0, vendasDiferentes: 3, centavosExtrato: 2616, centavosSistema: 2945 })
       && r.resumo.itensComDivergencia === 4 && r.resumo.grupos.divergencias === 0
       && d.sistema!.tarifaCentavos === null && d.sistema!.antecipacaoCentavos === null;

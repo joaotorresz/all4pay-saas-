@@ -44,8 +44,8 @@ import { DeclararPalpite } from "./DeclararPalpite";
 import { RAIO_TOPO } from "@/lib/grafico";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
- * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
- * O cartão "Custo fixo R$2, −64,2%" só fecha com o valor real: a variação é
+ * isso a Visão geral escrevia "R$ 2" onde o extrato e o DRE escreviam "R$ 1,54".
+ * O cartão "Custo fixo R$ 2, −64,2%" só fecha com o valor real: a variação é
  * calculada sobre 1,54 e exibida ao lado de um 2 — duas grandezas na mesma
  * frase, uma delas arredondada, e quem confere conclui que a conta está errada.
  *
@@ -543,8 +543,8 @@ function CartoesExecutivos({ input, filtro }: {
  * empresa cadastrada no Simples com lançamento na linha de imposto sobre o
  * lucro está, muito provavelmente, contando o mesmo tributo duas vezes.
  *
- * Medido em produção: R$5.200,00/mês de "Simples Nacional" convivendo com
- * "IRPJ / CSLL" (R$75.982,66 em 9 meses), na mesma competência.
+ * Medido em produção: R$ 5.200,00/mês de "Simples Nacional" convivendo com
+ * "IRPJ / CSLL" (R$ 75.982,66 em 9 meses), na mesma competência.
  *
  * ⚠️ Ele NÃO reclassifica e NÃO soma provisão: qual das duas pernas é a
  * indevida é decisão do dono com o contador, e o sistema não tem como saber.

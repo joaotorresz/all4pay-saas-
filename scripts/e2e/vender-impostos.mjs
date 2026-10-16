@@ -10,7 +10,7 @@
 import { novoUsuario, verificador, brl } from "./kit.mjs";
 
 const r2 = (n) => Math.round(n * 100) / 100;
-/** O texto da tela com o dinheiro remontado: "R$ 10.000 ,00" → "R$10.000,00". */
+/** O texto da tela com o dinheiro remontado: "R$ 10.000 ,00" → "R$ 10.000,00". */
 const norm = (t) => t.replace(/\s+/g, " ").replace(/R\$\s*/g, "R$").replace(/(\d)\s+,(\d\d)/g, "$1,$2");
 const fmt = (n) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

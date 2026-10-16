@@ -143,7 +143,7 @@ function ListaEnvios({ envios, carregando, erro }: { envios?: EnvioVisivel[]; ca
     <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Últimos envios">
       <table className="w-full text-left">
         <thead>
-          <tr className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+          <tr className="text-[11px] font-medium text-faint">
             <th className="px-5 py-2">Quando</th><th className="px-2 py-2">Automação</th><th className="px-2 py-2">Canal</th>
             <th className="px-2 py-2">Para</th><th className="px-5 py-2">Situação</th>
           </tr>

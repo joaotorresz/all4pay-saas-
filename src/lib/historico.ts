@@ -100,7 +100,7 @@ export const rotuloDoCampo = (c: string): string => ROTULO[c] ?? c;
  * Formata o valor de um campo para a trilha.
  *
  * ⚠️ Dinheiro sai com `formatBRL` e não cru. É o mesmo motivo pelo qual o
- * produto inteiro tem um `<Money>`: `1000.00` e `R$1.000,00` são o mesmo
+ * produto inteiro tem um `<Money>`: `1000.00` e `R$ 1.000,00` são o mesmo
  * número e não são a mesma leitura — e uma auditoria é exatamente o lugar onde
  * confundir 1000 com 10,00 custa caro.
  */

@@ -71,7 +71,7 @@ const ativoUsuario = (iso: string | null) => !!iso && Date.now() - Date.parse(is
  *
  * ⚠️ **O painel dizia MRR e contava assinaturas; nenhuma tela cruzava cobrança
  * com USO.** Medido em 18/08: 1.402 dos 1.415 lançamentos de produção (99,1%)
- * estavam em organizações que não pagavam nada, e a única que pagava R$990/mês
+ * estavam em organizações que não pagavam nada, e a única que pagava R$ 990/mês
  * tinha ZERO lançamentos. Os dois fatos estavam nos dados desde sempre, cada um
  * numa coluna diferente da mesma tabela, e ninguém os leu juntos.
  *

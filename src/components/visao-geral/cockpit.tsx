@@ -1335,7 +1335,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
           value={mPct(g.margemLiquida)}
           answer={mNum(g.margemLiquida) === null
             ? `Não houve receita líquida no período — sem receita não existe margem.`
-            : `De cada R$100 faturados, ${mNum(g.margemLiquida)! >= 0 ? `sobram R$${Math.round(mNum(g.margemLiquida)! * 100)}` : `faltam R$${Math.round(-mNum(g.margemLiquida)! * 100)}`} no fim.`}
+            : `De cada R$ 100 faturados, ${mNum(g.margemLiquida)! >= 0 ? `sobram R$ ${Math.round(mNum(g.margemLiquida)! * 100)}` : `faltam R$ ${Math.round(-mNum(g.margemLiquida)! * 100)}`} no fim.`}
           info={{ titulo: "Margem líquida", oQue: "A rentabilidade final do mês, depois de absolutamente tudo.", comoCalcula: "Lucro líquido ÷ receita bruta, no mês pela competência." }} />
       );
     },

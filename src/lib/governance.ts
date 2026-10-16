@@ -88,7 +88,7 @@ export async function saveMember(m: GovMember): Promise<void> {
     p_email: m.email || null,
     p_permissions: permsJson(m),
     // ⚠️ **DEPRECADA.** `organization_members.approval_limit` nunca teve leitor
-    // e era escrita errada (parseLimite fazia "R$50 mil" virar 50 e "Sem limite"
+    // e era escrita errada (parseLimite fazia "R$ 50 mil" virar 50 e "Sem limite"
     // virar 0). A alçada mora em `central_alcada`, por PAPEL. Mandamos `null` e
     // o SERVIDOR ignora o parâmetro — a migration
     // 20260819140000_alcada_morada_unica tirou a gravação de dentro da RPC, que

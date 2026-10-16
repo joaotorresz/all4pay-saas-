@@ -6,7 +6,7 @@
  * A peça central é **Valores e taxas**: cinco pares de taxa + fornecedor
  * (plataforma, antecipação, streaming, coprodutor, afiliado) e o **valor
  * líquido calculado**. Num negócio digital é ali que o dinheiro some — a venda
- * de R$1.000 na plataforma vira R$700 na conta, e o dono só descobre no fim
+ * de R$ 1.000 na plataforma vira R$ 700 na conta, e o dono só descobre no fim
  * do mês. Mostrar o líquido ao lado do bruto é o ponto da tela.
  */
 import * as React from "react";
@@ -162,7 +162,7 @@ export function VendaForm() {
 
       {/* ------------------------------ cliente ------------------------------ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        <Bloco titulo="DADOS DO CLIENTE">
+        <Bloco titulo="Dados do cliente">
           <Campo label="Cliente" obrigatorio erro={erros.clienteId}>
             <Select
               value={v.clienteId}
@@ -181,7 +181,7 @@ export function VendaForm() {
           )}
         </Bloco>
 
-        <Bloco titulo="DATAS">
+        <Bloco titulo="Datas">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Campo label="Data de competência" obrigatorio erro={erros.competencia}>
               <DateField value={v.competencia} onChange={(x) => set("competencia", x)} />
@@ -196,7 +196,7 @@ export function VendaForm() {
       {/* ------------------------------ produtos ------------------------------ */}
       <Card>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">PRODUTOS</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Produtos</span>
           {totalItens > 0 && (
             <span className="text-caption text-muted tabular-nums">
               Soma dos itens: <b className="text-ink"><BRL value={totalItens} /></b>
@@ -303,7 +303,7 @@ export function VendaForm() {
 
       {/* ---------------------------- dados gerais ---------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">DADOS GERAIS</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Dados gerais</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
             <Select value={v.contaId} onChange={(x) => set("contaId", x)} placeholder="Selecione a conta"
@@ -345,7 +345,7 @@ export function VendaForm() {
       {/* ------------------------- recebimento e nota ------------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <Card>
-          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">RECEBIMENTO</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Recebimento</span>
           <div className="mt-3">
             <Checkbox checked={v.pago} onChange={(e) => setV((s) => ({
               ...s, pago: e.target.checked,
@@ -367,7 +367,7 @@ export function VendaForm() {
         </Card>
 
         <Card>
-          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">NOTA FISCAL</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Nota fiscal</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
             <Campo label="Status da NF">
               <Select value={v.statusNF} onChange={(x) => set("statusNF", x as StatusNF)}
@@ -392,7 +392,7 @@ export function VendaForm() {
 
       {/* -------------------------- campos de texto -------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">CAMPOS DE TEXTO</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Campos de texto</span>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Descrição">
             <Textarea value={v.descricao} onChange={(e) => set("descricao", e.target.value)} rows={3} />

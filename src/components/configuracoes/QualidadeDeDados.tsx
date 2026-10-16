@@ -53,7 +53,7 @@ function Bloco({ a, aoCorrigir }: { a: Achado; aoCorrigir: (msg: string) => void
     <div className="flex flex-col gap-2 py-4 border-t border-border-soft first:border-t-0">
       <div className="flex items-baseline gap-3 flex-wrap">
         <span
-          className="text-[11px] font-medium uppercase tracking-[0.08em]"
+          className="text-[11px] font-medium"
           style={{ color: COR[a.gravidade] }}
         >
           {ROTULO_GRAVIDADE[a.gravidade]}

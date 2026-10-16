@@ -178,7 +178,7 @@ export function PinbankPainel({ toast }: { toast: (s: string) => void }) {
                   <thead>
                     <tr className="text-left">
                       {["Recebido", "Evento", "NSU", "Valor", "Situação", "Motivo"].map((h) => (
-                        <th key={h} className="py-2 pr-4 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{h}</th>
+                        <th key={h} className="py-2 pr-4 text-[11px] font-medium text-faint">{h}</th>
                       ))}
                     </tr>
                   </thead>

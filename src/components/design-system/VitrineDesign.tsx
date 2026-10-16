@@ -375,7 +375,7 @@ function AbaTabelas() {
             <thead>
               <tr className="text-left">
                 {["Data", "Contraparte", "Categoria", "Situação", "Valor"].map((h, i) => (
-                  <th key={h} className={`px-5 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${i === 4 ? "text-right" : ""}`}>{h}</th>
+                  <th key={h} className={`px-5 py-3 text-[11px] font-medium text-faint ${i === 4 ? "text-right" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>

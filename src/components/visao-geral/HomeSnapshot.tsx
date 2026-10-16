@@ -672,7 +672,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
       {abertas.map((t) => (
         <div key={t.id} className="flex justify-between items-center gap-2 py-[10px] border-t" style={{ borderColor: "var(--color-border)" }}>
           <span className="text-[14px] text-ink">{t.titulo}</span>
-          <span className="flex-none text-[10px] font-medium tracking-[.06em] uppercase px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
+          <span className="flex-none text-[10px] font-medium px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
             {ROTULO_STATUS[t.status]}
           </span>
         </div>

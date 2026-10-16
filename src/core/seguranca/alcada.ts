@@ -6,7 +6,7 @@
  * ⚠️ **O DEFEITO QUE ISTO SUBSTITUI.** `parseLimite` (lib/governance) tirava as
  * LETRAS da faixa antes de converter:
  *
- *     "R$50 mil"   → tira não-dígitos → "50"  → **50**       (mil vezes menor)
+ *     "R$ 50 mil"   → tira não-dígitos → "50"  → **50**       (mil vezes menor)
  *     "Sem limite" → tira tudo        → ""    → **0**        (a inversão exata)
  *
  * O segundo é o pior: quem escolheu "sem teto" ficava gravado como "não aprova
@@ -20,15 +20,18 @@ import type { Papel } from "./index";
 
 /** As faixas oferecidas na tela. ⚠️ `null` é SEM TETO, e não é zero. */
 export const FAIXAS_ALCADA: { rotulo: string; teto: number | null }[] = [
-  { rotulo: "R$10 mil", teto: 10_000 },
-  { rotulo: "R$50 mil", teto: 50_000 },
-  { rotulo: "R$500 mil", teto: 500_000 },
+  { rotulo: "R$ 10 mil", teto: 10_000 },
+  { rotulo: "R$ 50 mil", teto: 50_000 },
+  { rotulo: "R$ 500 mil", teto: 500_000 },
   { rotulo: "Sem limite", teto: null },
 ];
 
 /** Faixa → valor. Rótulo desconhecido devolve 0 (fechado), nunca "sem teto". */
 export function tetoDaFaixa(rotulo: string | undefined | null): number | null {
-  const achou = FAIXAS_ALCADA.find((f) => f.rotulo === rotulo);
+  // O rótulo antigo era colado ("R$10 mil") e pode estar guardado assim:
+  // compara sem os espaços, para a grafia nova não fechar quem já tinha teto.
+  const chave = (r: string) => r.replace(/\s+/g, "");
+  const achou = rotulo == null ? undefined : FAIXAS_ALCADA.find((f) => chave(f.rotulo) === chave(rotulo));
   // ⚠️ A ausência é FECHADA: um rótulo que não reconhecemos não pode virar
   // "sem limite" por descuido — seria dar teto infinito a quem ninguém liberou.
   return achou ? achou.teto : 0;

@@ -456,12 +456,12 @@ function MatrizIsolamento({
           <table className="w-full text-caption" style={{ borderCollapse: "collapse", minWidth: 560 }}>
             <thead>
               <tr>
-                <th className="text-left px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                <th className="text-left px-3 py-2 text-[11px] font-medium text-faint">
                   Tabela
                 </th>
                 {VERBOS.map((v) => (
                   <th key={v.id} title={v.oQue}
-                    className="text-left px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                    className="text-left px-3 py-2 text-[11px] font-medium text-faint">
                     {v.nome}
                   </th>
                 ))}

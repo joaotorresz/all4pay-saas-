@@ -64,7 +64,7 @@ export function JornadaCard() {
       <div className="rounded-md bg-surface-2 p-4 flex items-start gap-3">
         <span className="w-6 h-6 rounded-pill border-2 border-lime inline-flex items-center justify-center shrink-0 mt-[1px]" />
         <div className="min-w-0 flex-1">
-          <div className="text-caption font-medium text-faint tracking-wide">PRÓXIMO PASSO</div>
+          <div className="text-caption font-medium text-faint tracking-wide">Próximo passo</div>
           <div className="text-[16px] font-medium text-ink mt-[1px]">{proximo.titulo}</div>
           <p className="m-0 text-caption text-muted leading-[1.45] mt-1">{proximo.desc}</p>
         </div>

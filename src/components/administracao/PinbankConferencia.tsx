@@ -167,7 +167,7 @@ const TOM_DA_ANTECIPACAO: Record<ResultadoAntecipacao, "positive" | "warning" | 
   estorno_parcial: "neutral",
 };
 
-const TH = "py-2 pr-4 text-[11px] font-medium uppercase tracking-[0.08em] text-faint";
+const TH = "py-2 pr-4 text-[11px] font-medium text-faint";
 
 /** "+2 dias", "−1 dia" (o menos tipográfico), "mesmo dia" — sempre na tinta do texto. */
 const diferencaEmDias = (n: number | null) => {

@@ -5040,8 +5040,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // A4P-078 — Simples + IRPJ/CSLL no mesmo mês: ALERTA, nunca provisão
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Medido em produção: a org tem `Simples Nacional` R$5.200/mês e `IRPJ / CSLL`
-// (R$75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
+// Medido em produção: a org tem `Simples Nacional` R$ 5.200/mês e `IRPJ / CSLL`
+// (R$ 75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
 // estão dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal.
 //
 // ⚠️ A asserção que carrega a decisão é a ÚLTIMA: `provisaoEstimada === 0`
@@ -5275,8 +5275,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Medido: os três cards tinham o mesmo peso e "Total geral pago no período" era
-// o PRIMEIRO — na ordem de leitura, o destaque. Com R$1,54 pago ao lado de
-// R$38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
+// o PRIMEIRO — na ordem de leitura, o destaque. Com R$ 1,54 pago ao lado de
+// R$ 38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
 // O que já saiu não muda nada; vencidas e a vencer mudam.
 {
   const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
@@ -6348,7 +6348,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // MVP · A IA NÃO CHAMA FOLHA DE FORNECEDOR
 //
 // ⚠️ Medido numa organização real: "qual meu maior fornecedor" respondia
-// "Folha Funcionarios (R$65.441,24), Pro Labore Socios (R$18.000,00)". Não é
+// "Folha Funcionarios (R$ 65.441,24), Pro Labore Socios (R$ 18.000,00)". Não é
 // falso — o dinheiro sai mesmo para eles — mas para um dono de empresa
 // fornecedor é quem lhe VENDE, não quem trabalha nele. Uma resposta que soa
 // errada contamina as certas ao lado, e numa demo isso custa a reunião.
@@ -6556,7 +6556,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("variacao: a tarifa continua no drill-down mesmo sem ser manchete",
      fin?.motivos.some((x) => x.categoria === "Tarifa bancária" && Math.abs(x.delta + 20) < 0.01) === true);
   ok("variacao: o comentário cita a linha, o valor e quem explica",
-     !!opex && opex.comentario.includes(opex.label) && opex.comentario.includes("R$6.000,00") && opex.comentario.includes("Marketing") && opex.comentario.includes("Meta Ads"), opex?.comentario);
+     !!opex && opex.comentario.includes(opex.label) && opex.comentario.includes("R$ 6.000,00") && opex.comentario.includes("Marketing") && opex.comentario.includes("Meta Ads"), opex?.comentario);
   // Sem mês anterior com lançamento, a variação é AUSENTE — não "+100%".
   const semBase = analisarVariacao(inV, "2026-07");
   ok("variacao: sem base de comparação o motor diz o motivo (ONDA 4)",
@@ -6625,7 +6625,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("régua: título pago e título distante não entram", !regua.itens.some((i) => i.movimentoId === "r-pago" || i.movimentoId === "r-longe"));
   const msg = regua.itens.find((i) => i.movimentoId === "r-3")?.mensagem ?? "";
   ok("régua: a mensagem sai preenchida (cliente, valor, vencimento, dias)",
-     msg.includes("Beta") && msg.includes("R$900,00") && msg.includes("17/09/2026") && msg.includes("3 dias") && !msg.includes("{"), msg);
+     msg.includes("Beta") && msg.includes("R$ 900,00") && msg.includes("17/09/2026") && msg.includes("3 dias") && !msg.includes("{"), msg);
   // ⚠️ O que discrimina: o mesmo título NÃO recebe a mesma etapa duas vezes.
   const envio = { movimentoId: "r-3", etapaId: "d+3", em: "2026-09-20T10:00:00Z", canal: "whatsapp" as const };
   const r1 = registrarEnvio([], envio);
@@ -7325,7 +7325,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 }
 /* ── AUT ── */
 /* AUTOMAÇÕES DE E-MAIL E WHATSAPP (30/09/2026) — cada asserção prova o que a
- * regra PROÍBE: reenviar ao reexecutar, simulado virando avisado, "R$0,00" de
+ * regra PROÍBE: reenviar ao reexecutar, simulado virando avisado, "R$ 0,00" de
  * empresa vazia, régua sem opt-in ou no degrau de 60 dias, mensagem sem credor
  * ou com valor cru. Os casos negativos plantam o defeito e exigem que a
  * asserção o enxergue (senão ela seria decoração). */
@@ -7454,14 +7454,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const r = A.gerarMensagens(cfg(t), vazio);
     ok(`aut: empresa sem lançamentos não recebe ${t}`, r.mensagens.length === 0 && r.semEnvio?.codigo === "sem_dados", r.semEnvio?.codigo ?? "saiu mensagem");
   }
-  // Com dados, mas NADA vencendo hoje: a soma vazia vira frase, nunca "R$0,00".
+  // Com dados, mas NADA vencendo hoje: a soma vazia vira frase, nunca "R$ 0,00".
   const semHoje = ctxBase({ input: { ...ctx.input, movements: movs.filter((m) => m.due_date !== HOJE) } });
   const rd0 = A.redigirResumoDiario(semHoje);
   const zeroFormatado = formatBRL(0);
-  ok("aut: resumo sem vencimento hoje diz 'nada vence hoje' e NÃO imprime R$0,00",
+  ok("aut: resumo sem vencimento hoje diz 'nada vence hoje' e NÃO imprime R$ 0,00",
      !A.ehSemEnvio(rd0) && rd0.texto.includes("nada vence hoje") && !rd0.texto.includes(zeroFormatado) && !rd0.html.includes(zeroFormatado),
      A.ehSemEnvio(rd0) ? rd0.motivo : rd0.texto);
-  ok("aut: (defeito plantado) o detector enxerga R$0,00 quando ele aparece", `A receber hoje: ${formatBRL(0)}`.includes(zeroFormatado));
+  ok("aut: (defeito plantado) o detector enxerga R$ 0,00 quando ele aparece", `A receber hoje: ${formatBRL(0)}`.includes(zeroFormatado));
   const rdc = A.redigirResumoDiario(ctx);
   ok("aut: o resumo do dia RECEBEU valor (saldo, hoje, vencidos, aprovações)",
      !A.ehSemEnvio(rdc) && rdc.texto.includes(formatBRL(10_000)) && rdc.texto.includes(formatBRL(1_500)) && rdc.texto.includes(formatBRL(300)) && rdc.texto.includes("Aprovações pendentes"),
@@ -8175,7 +8175,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia: a margem da IA é a margem líquida do DRE (64,0%), não a de caixa (50,0%)",
      rMarg.includes(`é ${mEsperada}`) && !/\b50(,0)?%/.test(rMarg), rMarg.slice(0, 140));
   const rLucro = resp("qual meu lucro esse mês?");
-  ok("ia: \"lucro\" é o resultado líquido do DRE (R$12.800,00), com o caixa (R$5.000,00) dito como caixa",
+  ok("ia: \"lucro\" é o resultado líquido do DRE (R$ 12.800,00), com o caixa (R$ 5.000,00) dito como caixa",
      /resultado líquido de R\$\s?12\.800,00/.test(rLucro) && /por competência/.test(rLucro) && /Pelo caixa.*R\$\s?5\.000,00/.test(rLucro), rLucro.slice(0, 220));
 
   /* origem: a linha "=" do DRE não tem lançamento próprio — a frase soma as linhas que a formam */
@@ -8190,17 +8190,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const rGasto = resp("posso gastar 20 mil?");
   ok("ia: \"posso gastar 20 mil?\" usa a reserva do simulador (3 meses de DESPESA média)",
      rGasto.includes(reservaIA), `esperava ${reservaIA} — ${rGasto.slice(0, 200)}`);
-  ok("ia: …e não a reserva inventada de 15% do saldo × 3 (R$45.000,00)", !/45\.000,00/.test(rGasto), rGasto.slice(0, 200));
+  ok("ia: …e não a reserva inventada de 15% do saldo × 3 (R$ 45.000,00)", !/45\.000,00/.test(rGasto), rGasto.slice(0, 200));
   ok("ia: …com o MESMO veredito da tela \"Posso comprar?\"", rGasto.startsWith(VEREDITO_LABEL[simIA.veredito]), `${VEREDITO_LABEL[simIA.veredito]} × ${rGasto.slice(0, 40)}`);
 
   /* a semana: segunda a domingo, como os painéis de contas a pagar/receber */
   const rSem = resp("o que vence esta semana?");
-  ok("ia: \"esta semana\" vai de segunda a domingo — o título do DOMINGO 19/07 entra (R$1.500,00)",
+  ok("ia: \"esta semana\" vai de segunda a domingo — o título do DOMINGO 19/07 entra (R$ 1.500,00)",
      /R\$\s?1\.500,00 a pagar/.test(rSem), rSem.slice(0, 160));
   ok("ia: …e o do domingo ANTERIOR (12/07) não entra", !/R\$\s?2\.200,00|R\$\s?700,00 a pagar/.test(rSem), rSem.slice(0, 160));
   // sem período na pergunta, o padrão é a semana corrente — pela MESMA função
   const rVenc = resp("quais os próximos vencimentos?");
-  ok("ia: sem período dito, os vencimentos são os da semana seg–dom (R$1.500,00)",
+  ok("ia: sem período dito, os vencimentos são os da semana seg–dom (R$ 1.500,00)",
      /R\$\s?1\.500,00 a pagar/.test(rVenc) && /nesta semana/i.test(rVenc), rVenc.slice(0, 160));
 
   /* pontualidade: pagar no dia é "no dia do vencimento", não "0 dia(s) no do vencimento" */
@@ -8342,13 +8342,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia-rev: âncora — a carteira do painel de Contas a receber é R$ 5.000,00 (sem empréstimo nem transferência)",
      Math.abs(painel.carteira.emAberto - 5000) < 0.005, String(painel.carteira.emAberto));
   const rRec = responderLocal("quanto tenho a receber?", inpR)?.resposta ?? "";
-  ok("ia-rev: \"quanto tenho a receber?\" é a carteira do painel (R$5.000,00), não R$32.000,00",
+  ok("ia-rev: \"quanto tenho a receber?\" é a carteira do painel (R$ 5.000,00), não R$ 32.000,00",
      /Há R\$\s?5\.000,00 a receber em 2 título/.test(rRec), rRec.slice(0, 140));
   const rDev = responderLocal("quem está me devendo?", inpR)?.resposta ?? "";
-  ok("ia-rev: a lista de devedores não cobra a transferência que a empresa fez para si mesma (vencido R$2.000,00)",
+  ok("ia-rev: a lista de devedores não cobra a transferência que a empresa fez para si mesma (vencido R$ 2.000,00)",
      /R\$\s?2\.000,00 vencidos/.test(rDev) && !/9\.000,00|7\.000,00/.test(rDev), rDev.slice(0, 140));
   const rSem = responderLocal("o que vence esta semana?", inpR)?.resposta ?? "";
-  ok("ia-rev: o \"a receber\" da semana não inclui o empréstimo a creditar (R$3.000,00)",
+  ok("ia-rev: o \"a receber\" da semana não inclui o empréstimo a creditar (R$ 3.000,00)",
      /R\$\s?3\.000,00 a receber/.test(rSem), rSem.slice(0, 140));
 
   /* receita ≠ toda entrada; gasto ≠ toda saída */
@@ -8360,9 +8360,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     mvR({ type: "saida", amount: 2500, category: "Transferência entre contas", paid_date: H, status: "pago" }),
   ] } as RiskInput;
   const rFat = responderLocal("quanto faturei esse mês?", inpF)?.resposta ?? "";
-  ok("ia-rev: \"quanto faturei?\" é a receita (R$10.000,00), não o empréstimo somado (R$33.000,00)",
+  ok("ia-rev: \"quanto faturei?\" é a receita (R$ 10.000,00), não o empréstimo somado (R$ 33.000,00)",
      /receita recebida em julho soma R\$\s?10\.000,00/.test(rFat) && !/Principal origem: Empréstimo/.test(rFat), rFat.slice(0, 160));
-  ok("ia-rev: …e o que entrou sem ser faturamento é DITO, não some (R$23.000,00)", /R\$\s?23\.000,00 que não são faturamento/.test(rFat), rFat.slice(0, 220));
+  ok("ia-rev: …e o que entrou sem ser faturamento é DITO, não some (R$ 23.000,00)", /R\$\s?23\.000,00 que não são faturamento/.test(rFat), rFat.slice(0, 220));
   const rEnt = responderLocal("quanto entrou esse mês?", inpF)?.resposta ?? "";
   ok("ia-rev: \"quanto entrou?\" (caixa) cita o total das entradas E a parte que é receita",
      /Entraram R\$\s?33\.000,00/.test(rEnt) && /R\$\s?10\.000,00 de receita/.test(rEnt), rEnt.slice(0, 160));
@@ -8371,7 +8371,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const rOri = responderLocal("de onde vem minha receita?", inpF)?.resposta ?? "";
   ok("ia-rev: \"de onde vem a receita\" não lista empréstimo como fonte de receita", !/concentra-se em:[^.]*Empréstimo/.test(rOri), rOri.slice(0, 200));
   const rGas = responderLocal("quanto gastei esse mês?", inpF)?.resposta ?? "";
-  ok("ia-rev: \"quanto gastei?\" não conta a transferência entre contas próprias como gasto (R$4.000,00)",
+  ok("ia-rev: \"quanto gastei?\" não conta a transferência entre contas próprias como gasto (R$ 4.000,00)",
      /gastos pagos em julho somam R\$\s?4\.000,00/.test(rGas), rGas.slice(0, 160));
 }
 
@@ -10223,9 +10223,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("wa: remetente e pedido chegam ao MESMO número",
      telefoneDoRemetente("whatsapp:+5511999998888") === telefoneParaPedido("11 99999 8888"));
 
-  const msg = mensagemDoPedido({ descricao: "Aluguel", valorFormatado: "R$1.000,00", vencimento: "15/10/2026", codigo: "ABC234" });
+  const msg = mensagemDoPedido({ descricao: "Aluguel", valorFormatado: "R$ 1.000,00", vencimento: "15/10/2026", codigo: "ABC234" });
   ok("wa: a mensagem diz como aprovar, como recusar e a validade",
-     msg.includes("SIM ABC234") && msg.includes("NÃO ABC234") && msg.includes("24 horas") && msg.includes("R$1.000,00"));
+     msg.includes("SIM ABC234") && msg.includes("NÃO ABC234") && msg.includes("24 horas") && msg.includes("R$ 1.000,00"));
   ok("wa: o que a mensagem manda digitar é o que a leitura aceita",
      igual(lerResposta("SIM ABC234"), { decisao: "sim", codigo: "ABC234" }) && igual(lerResposta("NÃO ABC234")?.decisao, "nao"));
 

@@ -58,7 +58,7 @@ export function CurrencyInput({
       )}
       <div
         className={cn(
-          // Sem `gap`: a moeda encosta no número também no campo (`R$1.234,56`),
+          // Sem `gap`: a moeda encosta no número também no campo (`R$ 1.234,56`),
           // como em todo valor exibido. Um respiro só aqui faria o mesmo
           // dinheiro ter duas grafias conforme estivesse sendo lido ou digitado.
           "flex items-center bg-white rounded-md px-4 h-11 border-campo focus-within:border-ink",

@@ -109,8 +109,8 @@ ok("semana: janela vai até o domingo", JSON.stringify(janelaDaSemana("2026-10-2
 const ms = mensagemContasPagarSemana(input, "2026-10-19");
 ok("semana: gera mensagem", ehMensagem(ms));
 if (ehMensagem(ms)) {
-  ok("semana: total = 3.650,50 (só as a vencer da semana)", ms.texto.includes("R$3.650,50"), ms.texto);
-  ok("semana: agrupa por dia (Quarta com 2 contas · 650,50)", /\*Quarta \(21\/10\)\* · 2 contas · R\$650,50/.test(ms.texto), ms.texto);
+  ok("semana: total = 3.650,50 (só as a vencer da semana)", ms.texto.includes("R$ 3.650,50"), ms.texto);
+  ok("semana: agrupa por dia (Quarta com 2 contas · 650,50)", /\*Quarta \(21\/10\)\* · 2 contas · R\$ 650,50/.test(ms.texto), ms.texto);
   ok("semana: vence hoje é 'Hoje', não atraso", ms.texto.includes("*Hoje (19/10)*"));
   ok("semana: vencida vai em 'Já venceram'", /Já venceram[\s\S]*Atrasado Ltda/.test(ms.texto));
   ok("semana: semana que vem, a receber, pago e cancelado FORA", !/7\.000|5\.000|800,00|300,00/.test(ms.texto), ms.texto);
@@ -140,14 +140,14 @@ ok("maquininha: Visa 150 em 2 vendas", r.porBandeira.find((b) => b.bandeira === 
 ok("maquininha: bandeira ausente vira 'Não informada'", r.porBandeira.some((b) => b.bandeira === "Não informada"));
 ok("maquininha: cancelada dita à parte", r.estornadas.quantidade === 1 && r.estornadas.valor === 70);
 const mm = mensagemMaquininhaDia(vendas, "2026-10-19", true);
-ok("maquininha: mensagem cita débito, parcelado e o líquido", ehMensagem(mm) && /Débito/.test(mm.texto) && /3x/.test(mm.texto) && mm.texto.includes("R$451,70"), ehMensagem(mm) ? mm.texto : mm);
+ok("maquininha: mensagem cita débito, parcelado e o líquido", ehMensagem(mm) && /Débito/.test(mm.texto) && /3x/.test(mm.texto) && mm.texto.includes("R$ 451,70"), ehMensagem(mm) ? mm.texto : mm);
 {
   const semLiq = vendas.map((x) => (x.nsu === 2 ? { ...x, liquido: null } : x));
   const m2 = mensagemMaquininhaDia(semLiq, "2026-10-19", true);
   ok("maquininha: líquido desconhecido NÃO vira o bruto (diz quantas faltam)", ehMensagem(m2) && /ainda não tem o valor líquido/.test(m2.texto), ehMensagem(m2) ? m2.texto : m2);
 }
 const vazio = mensagemMaquininhaDia([], "2026-10-19", true);
-ok("maquininha: dia sem venda é FRASE, não R$0,00", ehMensagem(vazio) && /Nenhuma venda/.test(vazio.texto) && !/R\$0,00/.test(vazio.texto));
+ok("maquininha: dia sem venda é FRASE, não R$ 0,00", ehMensagem(vazio) && /Nenhuma venda/.test(vazio.texto) && !/R\$ 0,00/.test(vazio.texto));
 ok("maquininha: sem maquininha ligada não manda nada", !ehMensagem(mensagemMaquininhaDia([], "2026-10-19", false)));
 
 /* ---------- a mesma função para prévia e disparo ---------- */

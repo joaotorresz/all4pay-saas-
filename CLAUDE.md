@@ -35,6 +35,26 @@ from its tokens and its components.
    amarronzado (`#28211B`).** Nunca `#FFFFFF`, nunca `#000000` no app — o par
    puro só existe no token de marketing que o nomeia.
 
+### ⚠️ DESIGN SYSTEM DE 16/10/2026 (decisão do dono) — vence toda seção de identidade abaixo
+
+- **Uma família só: Roobert.** A Centra No2 saiu do sistema (arquivo e
+  `@font-face` apagados); `--font-display` e o `display` do Tailwind agora são
+  Roobert, então os papéis que pediam display seguem com o mesmo nome.
+- **Branco `#FEFEFD`** (`--color-white`, `--a4p-bg`, pílula) · **cinza
+  `#F5F5F5`** (fundo de página, moldura, chips, seções).
+- **Texto `#1A1A1A`** · cinza escuro **`#535353`** (rótulo e título de card) ·
+  cinza claro **`#9A9A9A`** (meta e placeholder).
+- **Nenhum texto em "AA" ou "aa": sempre "Aa".** Regra GLOBAL no fim do
+  `globals.css` (`text-transform: none !important` em tudo) e nenhuma classe
+  `uppercase` no código; texto escrito em caixa alta também saiu (siglas
+  como DRE e EBITDA ficam).
+- **Número:** Roobert SemiBold (600) em `#1A1A1A`, grafia **`R$ 16.000,00`**:
+  um espaço entre a moeda e o número (não separável no `Money`/`BRL` e nos
+  eixos de gráfico; o comum nas strings de `formatBRL`) e a **vírgula e os
+  centavos no MESMO corpo e cor** do inteiro. Isto inverte o "a moeda encosta"
+  e o "centavos à metade em cinza" das seções abaixo, que viraram histórico.
+  Valor em linha (`.a4p-valor-texto`) continua Roobert 500.
+
 ### ⚠️ OS VALORES TÊM UMA FONTE SÓ: `src/design/tokens.json` (16/10/2026)
 
 Toda variável de tema (cor, raio, sombra, fonte, gráfico, tabela, dica,

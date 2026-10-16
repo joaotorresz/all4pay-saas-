@@ -92,7 +92,7 @@ export function simulado(label: string, valor: string): NumeroResposta {
   return { label, valor, simulacao: true };
 }
 
-/** O valor "R$1.234,56" / "-R$10,00" / "−R$10,00" em número; `null` se não for dinheiro. */
+/** O valor "R$ 1.234,56" / "-R$ 10,00" / "−R$ 10,00" em número; `null` se não for dinheiro. */
 export function valorDoTexto(valor: string): number | null {
   const t = valor.trim();
   const m = /^([−-])?R\$\s?([\d.]+(?:,\d+)?)$/.exec(t.replace(/ /g, " "));

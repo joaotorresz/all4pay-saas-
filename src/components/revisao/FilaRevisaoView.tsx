@@ -96,7 +96,7 @@ function ItemFila({
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1 min-w-[240px] flex-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+            <span className="text-[11px] font-medium text-faint">
               {ROTULO_MOTIVO[a.motivo]} · {a.origem === "recorrencia" ? "regra recorrente" : "lançamento"}
             </span>
             <span className="text-h3 font-medium text-ink">{a.descricao || "(sem descrição)"}</span>
@@ -166,7 +166,7 @@ function ItemFila({
 function Fonte({ rotulo, valor }: { rotulo: string; valor: string | null }) {
   return (
     <div className="flex flex-col gap-[2px]">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotulo}</span>
+      <span className="text-[11px] font-medium text-faint">{rotulo}</span>
       <span className={valor ? "text-label text-ink" : "text-label text-placeholder"}>
         {valor || "— vazio"}
       </span>

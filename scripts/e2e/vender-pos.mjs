@@ -51,7 +51,7 @@ export default async function venderPos(navegador) {
   await u.ir("/contas-a-receber/titulos");
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
-  v.ok(norm(await u.texto()).includes("R$730,00"), "a parcela de R$ 730,00 aparece em Títulos a receber");
+  v.ok(norm(await u.texto()).includes("R$ 730,00"), "a parcela de R$ 730,00 aparece em Títulos a receber");
   await u.ir("/contas-a-pagar/titulos");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const taxaParcela = saidas[0]?.valor ?? NaN;

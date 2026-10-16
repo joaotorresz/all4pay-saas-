@@ -35,7 +35,7 @@ export default async function venderNota(navegador) {
   await u.ir("/dashboard/reports/dre");
   const dreAntes = norm(await u.texto());
   await u.ir("/contas-a-receber/titulos");
-  const titAntes = (norm(await u.texto()).match(/R\$12\.345,00/g) || []).length;
+  const titAntes = (norm(await u.texto()).match(/R\$ 12\.345,00/g) || []).length;
 
   await u.ir("/dashboard/sales-invoices");
   await u.page.getByRole("button", { name: "Emitir NF" }).first().click();
@@ -59,7 +59,7 @@ export default async function venderNota(navegador) {
   v.ok(!!numeroNF && e1.includes(numeroNF), "a nota aparece no emissor de NFS-e com o número", numeroNF);
 
   await u.ir("/contas-a-receber/titulos");
-  const titDepois = (norm(await u.texto()).match(/R\$12\.345,00/g) || []).length;
+  const titDepois = (norm(await u.texto()).match(/R\$ 12\.345,00/g) || []).length;
   v.ok(titAntes >= 1 && titDepois === titAntes, "o título a receber da venda continua UM (a nota não lança a receita de novo)", `${titAntes} → ${titDepois}`);
   await u.ir("/dashboard/reports/dre");
   v.ok(norm(await u.texto()) === dreAntes, "o DRE não se move ao emitir a nota");
