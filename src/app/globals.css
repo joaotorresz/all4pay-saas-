@@ -1076,10 +1076,10 @@ h1, h2, h3,
 /* Três pontos da IA "digitando": pulam em sequência até a resposta chegar.
    Só tokens; para em `prefers-reduced-motion` (os pontos ficam parados). */
 .a4p-digitando span {
-  animation: a4p-digitando 1.2s ease-in-out infinite;
+  animation: a4p-digitando 1.6s ease-in-out infinite;
 }
-.a4p-digitando span:nth-child(2) { animation-delay: 0.15s; }
-.a4p-digitando span:nth-child(3) { animation-delay: 0.3s; }
+.a4p-digitando span:nth-child(2) { animation-delay: 0.2s; }
+.a4p-digitando span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes a4p-digitando {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-5px); opacity: 1; }
@@ -1102,9 +1102,38 @@ h1, h2, h3,
   to { background-position: -200% 50%; }
 }
 
+/* A resposta da IA SURGE palavra por palavra, saindo do desfoque, como nas IAs
+   que escrevem ao vivo (`ia/conversa` `TextoRevelado`). O atraso de cada palavra
+   vem inline (`--a4p-atraso`). `inline-block` porque `transform` não age em
+   elemento inline; os espaços ficam FORA das palavras, então a linha quebra igual. */
+.a4p-palavra {
+  display: inline-block;
+  animation: a4p-palavra 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--a4p-atraso, 0ms);
+}
+@keyframes a4p-palavra {
+  from { opacity: 0; filter: blur(5px); transform: translateY(3px); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+
+/* "Pensando": um brilho passa pelo rótulo, da cor de meta à da tinta. */
+.a4p-brilho-texto {
+  background-image: linear-gradient(90deg, var(--color-text-tertiary) 0%, var(--color-text-tertiary) 35%, var(--color-ink) 50%, var(--color-text-tertiary) 65%, var(--color-text-tertiary) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: a4p-brilho-texto 2.6s linear infinite;
+}
+@keyframes a4p-brilho-texto {
+  from { background-position: 100% 50%; }
+  to { background-position: -150% 50%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .a4p-entra { animation: none; }
-  .a4p-pulso, .a4p-varre, .a4p-digitando span { animation: none; }
+  .a4p-entra, .a4p-palavra { animation: none; }
+  .a4p-pulso, .a4p-varre, .a4p-digitando span, .a4p-brilho-texto { animation: none; }
+  .a4p-brilho-texto { color: var(--color-text-secondary); background-image: none; }
 }
 
 /* ============================================================
