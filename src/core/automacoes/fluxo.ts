@@ -365,7 +365,7 @@ export function mensagemMaquininhaDia(vendas: VendaMaquininha[], dia: string, te
   }
   const r = resumirMaquininha(vendas, dia);
   const titulo = `Maquininha · ${dataBRcurta(dia)}`;
-  // Dia sem venda É notícia (a loja abriu?) — sai a frase, não "R$0,00".
+  // Dia sem venda É notícia (a loja abriu?) — sai a frase, não "R$ 0,00".
   if (r.aprovadas === 0) {
     const texto = `*${titulo}*\n\nNenhuma venda aprovada hoje na maquininha.${r.estornadas.quantidade ? `\n${plural(r.estornadas.quantidade, "venda foi cancelada", "vendas foram canceladas")} (${BRL(r.estornadas.valor)}).` : ""}`;
     return { titulo, texto, resumoCurto: `${dataBRcurta(dia)}: nenhuma venda aprovada na maquininha.` };

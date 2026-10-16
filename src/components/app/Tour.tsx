@@ -129,7 +129,7 @@ export function Tour({ steps, onClose }: { steps: GuideItem[]; onClose: () => vo
       {/* tooltip */}
       <div
         style={tipStyle}
-        className="z-[61] bg-white rounded-card border border-border shadow-popover p-4 flex flex-col gap-2"
+        className="z-[61] bg-white rounded-card shadow-popover p-4 flex flex-col gap-2"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

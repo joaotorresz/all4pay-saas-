@@ -203,7 +203,7 @@ export function FechamentoView() {
           </Card>
 
           {erro && (
-            <Card className="border border-negative/40" role="alert">
+            <Card role="alert">
               <p className="m-0 text-body text-negative">{erro}</p>
             </Card>
           )}
@@ -336,7 +336,6 @@ export function FechamentoView() {
                 </div>
               ))}
               {provMsg && <span className="text-caption text-ink">{provMsg}</span>}
-              <span className="text-caption text-faint">Provisões são sugestões da IA pela média histórica — “Lançar” cria o lançamento no razão (despesa × provisões a pagar) no último dia do mês e o estorno no dia 1º do mês seguinte, para a despesa não ser contada duas vezes quando a conta real chegar.</span>
             </Card>
           )}
         </div>

@@ -25,7 +25,12 @@ import { cn } from "@/lib/utils";
  * grupo — recolher não pode custar o acesso.
  */
 
-const STORAGE_KEY = "a4p_sidebar_collapsed";
+/**
+ * O menu SEMPRE abre recolhido (pedido do dono, 16/10/2026). A escolha de
+ * expandir vale só nesta SESSÃO do navegador (sessionStorage): trocar de tela
+ * não fecha o que a pessoa abriu, e a próxima visita começa recolhida.
+ */
+const STORAGE_KEY = "a4p_sidebar_expandida";
 const LARGURA_KEY = "a4p_sidebar_width";
 const LARGURA_PADRAO = 260;
 const LARGURA_MIN = 200;
@@ -45,7 +50,7 @@ export function Sidebar() {
   const { sections, pessoal } = useNavSections();
   const { pro, set: setPro, temDireito } = useModo();
 
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isDesktop, setIsDesktop] = React.useState(true);
   const [largura, setLargura] = React.useState(LARGURA_PADRAO);
@@ -57,7 +62,7 @@ export function Sidebar() {
 
   React.useEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+      setCollapsed(sessionStorage.getItem(STORAGE_KEY) !== "1");
       const salva = Number(localStorage.getItem(LARGURA_KEY));
       if (Number.isFinite(salva) && salva >= LARGURA_MIN && salva <= LARGURA_MAX) setLargura(salva);
     } catch { /* preferência local: sem ela, vale o padrão */ }
@@ -81,7 +86,7 @@ export function Sidebar() {
 
   const definirRecolhida = React.useCallback((v: boolean) => {
     setCollapsed(v);
-    try { localStorage.setItem(STORAGE_KEY, v ? "1" : "0"); } catch { /* ignore */ }
+    try { sessionStorage.setItem(STORAGE_KEY, v ? "0" : "1"); } catch { /* ignore */ }
   }, []);
   const aplicarLargura = React.useCallback((px: number) => {
     setLargura(px);
@@ -209,9 +214,9 @@ export function Sidebar() {
               </>
             );
             const classe = cn(
-              "flex items-center gap-[15px] min-h-[44px] rounded-[12px] text-[14px] text-ink transition-colors",
+              "flex items-center gap-[15px] min-h-[44px] rounded-[12px] text-[15px] font-semibold text-ink transition-colors",
               col ? "justify-center px-0" : "px-3",
-              marcado ? "bg-lime text-on-lime font-medium" : "hover:bg-surface-2/60",
+              marcado ? "bg-lime text-on-lime" : "hover:bg-surface-2/60",
             );
             return (
               <div key={s.id} className="flex flex-col">
@@ -238,13 +243,13 @@ export function Sidebar() {
               aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}${temDireito ? "" : " — não incluso no plano"}`}
               onClick={() => { if (!setPro(pro ? "simples" : "pro")) router.push("/planos?de=modo-pro"); }}
               title={!temDireito ? "Modo Pro — não incluso no plano desta empresa. Ver planos." : pro ? "Modo Pro ativo" : "Modo Pro"}
-              className={cn("flex items-center gap-[10px] min-h-[44px] rounded-[12px] text-[14px] text-ink hover:bg-surface-2/60", col ? "justify-center px-0" : "px-3")}
+              className={cn("flex items-center gap-[10px] min-h-[44px] rounded-[12px] text-[15px] font-semibold text-ink hover:bg-surface-2/60", col ? "justify-center px-0" : "px-3")}
             >
               <Icon name="sparkles" size={18} color="currentColor" className="shrink-0" />
               {!col && (
                 <>
                   <span className="flex-1 text-left">Modo Pro</span>
-                  <span className="text-[11px] text-muted">{!temDireito ? "plano" : pro ? "on" : "off"}</span>
+                  <span className="text-[12px] text-muted">{!temDireito ? "plano" : pro ? "on" : "off"}</span>
                 </>
               )}
             </button>
@@ -263,7 +268,7 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
       {itens.map((it, i) => {
         const on = i === iAtivo;
         const classe = cn(
-          "flex items-center gap-2 min-h-[36px] px-2 rounded-[10px] text-[13px] text-ink transition-colors",
+          "flex items-center gap-2 min-h-[36px] px-2 rounded-[10px] text-[14px] text-ink transition-colors",
           on ? "font-medium bg-surface-1" : "hover:bg-surface-2/60",
         );
         const rotulo = (

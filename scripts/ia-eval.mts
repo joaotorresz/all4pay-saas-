@@ -19,7 +19,8 @@
  * Determinístico: a fixture compartilhada, sem rede e sem relógio.
  */
 import { INPUT, INPUT_QUEIMANDO, HOJE } from "./fixture.mts";
-import { responderLocal } from "@/core/assistant/engine";
+import { responderLocal, graficoDoCatalogo, GRAFICOS_DA_IA } from "@/core/assistant/engine";
+import { numerosInventados } from "@/core/assistant/redacao";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
   janelaHoje, janelaMes, janelaUltimosDias,
@@ -165,7 +166,23 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
   }
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6;
+// ── 7. A REDAÇÃO pela IA não troca número (16/10/2026) ───────────────────
+// O motor calcula, o Claude reescreve no tom curto com negrito. A trava tem
+// de aceitar o mesmo número em outra moldura e RECUSAR o abreviado e o novo.
+{
+  const base = ["A despesa de julho soma R$ 38.420,50, 12,4% acima de junho.", "Marketing R$ 9.800"];
+  ok("redação: mesmos números com negrito passam",
+     numerosInventados("Você gastou **R$ 38.420,50** em julho, **12,4%** a mais. Marketing: **R$ 9.800**.", base).length === 0);
+  ok("redação: número abreviado (\"38 mil\") é recusado",
+     numerosInventados("Você gastou **R$ 38 mil**.", base).length > 0);
+  ok("redação: número que o motor não calculou é recusado",
+     numerosInventados("A despesa subiu **15%**.", base).length > 0);
+  ok("gráfico da IA: id fora do catálogo não vira gráfico", graficoDoCatalogo("inventado", INPUT) === undefined);
+  ok("gráfico da IA: todo id do catálogo devolve dados do sistema",
+     Object.keys(GRAFICOS_DA_IA).every((id) => { const g = graficoDoCatalogo(id, INPUT); return !g || g.dados.length >= 2; }));
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);

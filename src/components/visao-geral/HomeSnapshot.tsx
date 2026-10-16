@@ -25,10 +25,10 @@ import {
 } from "@/lib/home-preferencias";
 import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
 import {
-  EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, cardsRecusados, descreverMudancas, faixasDoPainel, idDoCockpit,
-  interpretarPedido, itemHome, layoutDasOrdensAntigas, mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes,
-  pedeCatalogo, respostaDoAjuste, respostaDoCatalogo, visiveis,
-  type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LayoutHome,
+  EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, cardsRecusados, definirLargura, descreverMudancas, faixasDoPainel,
+  idDoCockpit, interpretarPedido, itemHome, larguraDe, larguraMaisPerto, larguraVizinha, layoutDasOrdensAntigas,
+  mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes, pedeCatalogo, respostaDoAjuste, respostaDoCatalogo, visiveis,
+  type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LarguraHome, type LayoutHome,
 } from "@/core/home/itens";
 import { CATALOG_BY_ID, useCockpitCtx } from "./cockpit";
 import { loadCompany } from "@/lib/company";
@@ -227,10 +227,10 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
               type="button"
               aria-pressed={on}
               onClick={() => alternar(o.id)}
-              className="px-3 py-[6px] rounded-pill text-[13px] border"
+              className="px-3 py-[6px] rounded-pill text-[13px]"
               style={on
-                ? { background: "var(--color-ink)", color: "var(--color-surface-1)", borderColor: "var(--color-ink)" }
-                : { background: "var(--color-white)", color: "var(--color-ink)", borderColor: "var(--color-border)" }}
+                ? { background: "var(--color-ink)", color: "var(--color-surface-1)" }
+                : { background: "var(--color-white)", color: "var(--color-ink)" }}
             >
               {o.rotulo}
             </button>
@@ -256,13 +256,11 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
 /** Quantas perguntas o "Veja tudo o que eu faço" do chat mostra. */
 const TODAS_NO_CHAT = 12;
 
-function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
+function CaixaIA({ sugestoes, extras, prefs }: {
   sugestoes: SugestaoEscolhida[] | null;
   /** As candidatas seguintes, para completar o "Veja tudo o que eu faço". */
   extras: CandidataIA[];
   prefs: PreferenciasIA;
-  /** "Ajustar prioridades": abre a conversa que arruma a Home. */
-  aoAjustar: () => void;
 }) {
   const [texto, setTexto] = React.useState("");
   const todas = React.useMemo(() => {
@@ -340,13 +338,7 @@ function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
           </button>
         ))}
       </div>
-      {perguntando ? (
-        <PerguntaPrioridades prefs={prefs} aoFechar={() => {}} />
-      ) : prefs.interesses !== undefined && (
-        <button type="button" onClick={aoAjustar} className="text-[12px] text-ink opacity-70 hover:opacity-100">
-          Ajustar prioridades
-        </button>
-      )}
+      {perguntando && <PerguntaPrioridades prefs={prefs} aoFechar={() => {}} />}
     </section>
   );
 }
@@ -384,6 +376,9 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
   const [rascunho, setRascunho] = React.useState<LayoutHome | null>(null);
   const [arrastando, setArrastando] = React.useState<IdHome | null>(null);
   const [armado, setArmado] = React.useState<IdHome | null>(null);
+  // O rascunho da largura também num ref: o "soltar" do arraste da borda foi
+  // criado no início do gesto e leria o estado de então.
+  const rascunhoRef = React.useRef<LayoutHome | null>(null);
   const atual = rascunho ?? layout;
   const mesmoGrupo = (a: IdHome, b: IdHome) => itemHome(a).grupo === itemHome(b).grupo;
   const soltar = () => {
@@ -402,6 +397,23 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
     onDrop: (e: React.DragEvent) => e.preventDefault(),
     onDragEnd: soltar,
   });
+  // A LARGURA (pedido do dono, 16/10/2026): a borda direita do card arrasta.
+  // Durante o gesto só a tela muda; o arranjo é gravado ao soltar.
+  const borda = (id: IdHome) => ({
+    largura: larguraDe(atual, id),
+    aoArrastar: (l: LarguraHome) => {
+      const novo = definirLargura(rascunhoRef.current ?? layout, id, l);
+      rascunhoRef.current = novo;
+      setRascunho(novo);
+    },
+    aoSoltar: () => {
+      const r = rascunhoRef.current;
+      rascunhoRef.current = null;
+      if (r && !mesmoLayout(r, layout)) salvar(r);
+      setRascunho(null);
+    },
+    aoPasso: (passo: -1 | 1) => salvar(definirLargura(atual, id, larguraVizinha(larguraDe(atual, id), passo))),
+  });
   const alca = (id: IdHome) => ({
     onArmar: () => setArmado(id),
     onDesarmar: () => { if (!arrastando) setArmado(null); },
@@ -411,21 +423,97 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
       if (alvo) salvar(moverItem(atual, id, alvo));
     },
   });
-  return { layout: atual, props, alca };
+  return { layout: atual, props, alca, borda };
 }
 
-function ItemArrastavel({ id, arraste, children, className = "", lugarDaAlca = "right-4 top-4" }: {
+/** A classe de cada largura (o Tailwind só gera classes escritas por inteiro). */
+const SPAN: Record<LarguraHome, string> = {
+  3: "lg:col-span-3", 4: "lg:col-span-4", 6: "lg:col-span-6", 8: "lg:col-span-8", 9: "lg:col-span-9", 12: "lg:col-span-12",
+};
+/** A grade de cada seção da Home: doze colunas, o menor card ocupa três (quatro por linha). */
+const GRADE = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4";
+const NOME_LARGURA: Record<LarguraHome, string> = { 3: "um quarto", 4: "um terço", 6: "metade", 8: "dois terços", 9: "três quartos", 12: "a linha inteira" };
+
+function ItemArrastavel({ id, arraste, children, largura, lugarDaAlca = "right-4 top-4" }: {
   id: IdHome;
   arraste: ReturnType<typeof useArraste>;
   children: React.ReactNode;
-  className?: string;
+  /** A largura na linha; sem ela, a do arranjo. */
+  largura?: LarguraHome;
   /** Onde a alça fica: o card da biblioteca já tem o "i" no canto. */
   lugarDaAlca?: string;
 }) {
+  const borda = arraste.borda(id);
+  const l = largura ?? borda.largura;
   return (
-    <div className={`relative transition-opacity ${className}`} data-item-home={id} {...arraste.props(id)}>
+    <div
+      className={`group/item relative min-w-0 transition-opacity ${l === 12 ? "md:col-span-2" : ""} ${SPAN[l]}`}
+      data-item-home={id}
+      data-largura={l}
+      {...arraste.props(id)}
+    >
       {children}
       <Alca {...arraste.alca(id)} lugar={lugarDaAlca} />
+      <Borda {...borda} largura={l} nome={itemHome(id).nome} />
+    </div>
+  );
+}
+
+/**
+ * A borda direita do card, que arrasta a LARGURA. A largura sai da posição do
+ * ponteiro dentro da linha (a grade de doze colunas) e encaixa na mais perto
+ * de `LARGURAS_HOME`: um quarto é o mínimo, então cabem no máximo quatro por
+ * linha. Pelo teclado, as setas trocam para a largura vizinha.
+ */
+function Borda({ largura, aoArrastar, aoSoltar, aoPasso, nome }: {
+  largura: LarguraHome;
+  aoArrastar: (l: LarguraHome) => void;
+  aoSoltar: () => void;
+  aoPasso: (passo: -1 | 1) => void;
+  nome: string;
+}) {
+  const [ativa, setAtiva] = React.useState(false);
+  const iniciar = (e: React.PointerEvent<HTMLDivElement>) => {
+    const item = e.currentTarget.parentElement;
+    const grade = item?.parentElement;
+    if (!item || !grade) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setAtiva(true);
+    const linha = grade.getBoundingClientRect();
+    const inicio = item.getBoundingClientRect().left;
+    const mover = (ev: PointerEvent) => aoArrastar(larguraMaisPerto((ev.clientX - inicio) / linha.width));
+    const soltar = () => {
+      setAtiva(false);
+      aoSoltar();
+      document.removeEventListener("pointermove", mover);
+      document.removeEventListener("pointerup", soltar);
+      document.body.style.removeProperty("user-select");
+      document.body.style.removeProperty("cursor");
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("pointermove", mover);
+    document.addEventListener("pointerup", soltar);
+  };
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Largura de ${nome}: ${NOME_LARGURA[largura]}. Setas para mudar.`}
+      aria-valuemin={3}
+      aria-valuemax={12}
+      aria-valuenow={largura}
+      tabIndex={0}
+      title="Arraste para mudar a largura"
+      onPointerDown={iniciar}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") { e.preventDefault(); aoPasso(-1); }
+        if (e.key === "ArrowRight") { e.preventDefault(); aoPasso(1); }
+      }}
+      className={`hidden lg:flex absolute top-0 bottom-0 -right-[9px] w-[14px] items-center justify-center cursor-col-resize z-10 transition-opacity ${ativa ? "opacity-100" : "opacity-0 group-hover/item:opacity-100 focus-visible:opacity-100"}`}
+    >
+      <span className="w-[4px] h-12 rounded-pill" style={{ background: "var(--color-text-tertiary)" }} />
     </div>
   );
 }
@@ -545,8 +633,8 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
     <Link
       href={n.href}
       draggable={false}
-      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6 border"
-      style={{ background: "var(--color-surface-1)", borderColor: "var(--color-border)", borderRadius: "var(--a4p-box-radius)" }}
+      className="relative h-full min-w-0 flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6"
+      style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
     >
       <span className="text-[15px] text-ink">{n.rotulo}</span>
       <div className="flex items-center gap-[13.8px] flex-wrap">
@@ -554,7 +642,7 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
         <Pilula v={n.variacao} />
       </div>
       <GraficoDoCard id={n.id} curva={curva} />
-      <div className="flex justify-between text-[12px] text-muted pt-3 border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
+      <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12px] text-muted pt-3 border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
         <span>{carimbo}</span>
         <span className="text-[13px]">vs. o mesmo dia do mês passado</span>
       </div>
@@ -567,7 +655,7 @@ function CardPequeno({ n, carimbo }: { n: NumeroHome; carimbo: string }) {
     <Link
       href={n.href}
       draggable={false}
-      className="relative h-full flex flex-col gap-3 px-7 py-[22px]"
+      className="relative h-full min-w-0 flex flex-col gap-3 px-7 py-[22px]"
       style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
     >
       <span className="text-[15px] text-muted">{n.rotulo}</span>
@@ -672,7 +760,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
       {abertas.map((t) => (
         <div key={t.id} className="flex justify-between items-center gap-2 py-[10px] border-t" style={{ borderColor: "var(--color-border)" }}>
           <span className="text-[14px] text-ink">{t.titulo}</span>
-          <span className="flex-none text-[10px] font-medium tracking-[.06em] uppercase px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
+          <span className="flex-none text-[10px] font-medium px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
             {ROTULO_STATUS[t.status]}
           </span>
         </div>
@@ -761,7 +849,7 @@ function useAjusteDaHome(prefs: PreferenciasIA, tipo: "empresa" | "pessoal") {
 
 /* ------------------------------ a tela ------------------------------ */
 
-const COLUNAS_BLOCOS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3" };
+const LARGURA_DOS_BLOCOS: Record<number, LarguraHome> = { 1: 12, 2: 6, 3: 4 };
 
 /**
  * Os cards da BIBLIOTECA que a pessoa pôs na Home pela conversa. O desenho é o
@@ -776,7 +864,7 @@ function CardsDaBiblioteca({ ids, arraste, aoTirar }: {
 }) {
   const ctx = useCockpitCtx();
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-home="cards">
+    <div className={GRADE} data-home="cards">
       {ids.map((id) => {
         const w = CATALOG_BY_ID.get(idDoCockpit(id));
         if (!w) return null;
@@ -846,7 +934,16 @@ export function HomeSnapshot() {
   const cardsVisiveis = visiveis(layout, "card") as IdCard[];
   const painel = visiveis(layout, "painel").length === 0 && cardsVisiveis.length === 0 ? null : (
     <section key="painel" className="flex flex-col gap-4">
-      <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
+      {/* "Ajustar prioridades" ao lado do título (pedido do dono, 16/10/2026). */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <h2 className="m-0 text-[22px] font-medium text-ink" style={{ fontFamily: "var(--font-sans)", textTransform: "none" }}>Seu painel</h2>
+        {prefs.interesses !== undefined && prefs.interesses !== null && (
+          <button type="button" onClick={ajustar} className="inline-flex items-center gap-2 h-9 px-4 rounded-pill text-[13px] a4p-pilula">
+            <Icon name="sliders-horizontal" size={15} strokeWidth={1.5} />
+            Ajustar prioridades
+          </button>
+        )}
+      </div>
       {cardsVisiveis.length > 0 && (
         <CardsDaBiblioteca ids={cardsVisiveis} arraste={arraste} aoTirar={(id) => prefs.salvarLayout(aplicarAcoes(layout, [{ tipo: "esconder", id }]))} />
       )}
@@ -858,16 +955,17 @@ export function HomeSnapshot() {
         // Os grandes (com curva) e os pequenos em FAIXAS do mesmo tamanho, na
         // ordem da pessoa: um grande e um pequeno na mesma linha esticariam um ao outro.
         faixasDoPainel(layout).map((f) => (
-          <div key={f.ids.join("|")} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div key={f.ids.join("|")} className={GRADE}>
             {f.ids.map((id, i) => {
               const n = numero(id);
               if (!n) return null;
               // O último de uma faixa ímpar ocupa a linha inteira: sozinho em
               // meia linha, ele deixava um buraco ao lado (um pequeno subindo
-              // sozinho para o topo ficava com meia tela vazia).
-              const sozinho = f.ids.length % 2 === 1 && i === f.ids.length - 1;
+              // sozinho para o topo ficava com meia tela vazia). Só enquanto a
+              // pessoa não deu largura a ele: a largura dada vale.
+              const sozinho = f.ids.length % 2 === 1 && i === f.ids.length - 1 && !layout.larguras?.[id];
               return (
-                <ItemArrastavel key={id} id={id} arraste={arraste} className={sozinho ? "md:col-span-2" : ""}>
+                <ItemArrastavel key={id} id={id} arraste={arraste} largura={sozinho ? 12 : undefined}>
                   {f.tamanho === "grande" && n.curva ? <CardGrande n={n} curva={n.curva} carimbo={carimbo} /> : <CardPequeno n={n} carimbo={carimbo} />}
                 </ItemArrastavel>
               );
@@ -879,14 +977,19 @@ export function HomeSnapshot() {
   );
   const blocosVisiveis = visiveis(layout, "bloco");
   const blocos = blocosVisiveis.length === 0 ? null : (
-    <section key="bloco" className={`grid grid-cols-1 ${COLUNAS_BLOCOS[blocosVisiveis.length] ?? "lg:grid-cols-3"} gap-4`}>
-      {blocosVisiveis.map((id) => <ItemArrastavel key={id} id={id} arraste={arraste}>{bloco(id as IdItemHome)}</ItemArrastavel>)}
+    <section key="bloco" className={GRADE}>
+      {blocosVisiveis.map((id) => (
+        // Sem largura dada, os blocos dividem a linha por igual (como antes).
+        <ItemArrastavel key={id} id={id} arraste={arraste} largura={layout.larguras?.[id] ? undefined : LARGURA_DOS_BLOCOS[blocosVisiveis.length] ?? 4}>
+          {bloco(id as IdItemHome)}
+        </ItemArrastavel>
+      ))}
     </section>
   );
 
   return (
     <div className="a4p-home flex flex-col gap-8 pt-7">
-      <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} aoAjustar={ajustar} />
+      <CaixaIA sugestoes={sugestoes} extras={candidatas} prefs={prefs} />
       <div className="flex flex-col gap-8 mt-7">
         {ordemDasSecoes(layout).map((g) => (g === "painel" ? painel : blocos))}
       </div>

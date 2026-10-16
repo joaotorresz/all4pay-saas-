@@ -68,9 +68,9 @@ const fmt = (v: number): string => {
   const inteiro = String(Math.trunc(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const dec = String(cents % 100).padStart(2, "0");
   // O sinal vem ANTES do "R$" e é o hífen ASCII — medido na grafia do produto
-  // (`-R$1.000,00`), não suposto. O "−" tipográfico é regra de PERCENTUAL, e
+  // (`-R$ 1.000,00`), não suposto. O "−" tipográfico é regra de PERCENTUAL, e
   // trocar um pelo outro aqui produziria uma divergência que não existe.
-  return `${neg ? "-" : ""}R$${inteiro},${dec}`;
+  return `${neg ? "-" : ""}R$ ${inteiro},${dec}`;
 };
 
 /**
@@ -79,13 +79,13 @@ const fmt = (v: number): string => {
  * decimal, estas linhas continuam cobrando dois dígitos.
  */
 const ANCORAS: [number, string][] = [
-  [3988.8, "R$3.988,80"],   // o DAS que o formatador de 0 casas dizia ser R$3.989
-  [1000, "R$1.000,00"],
-  [7000, "R$7.000,00"],
-  [0.5, "R$0,50"],
-  [1234567.89, "R$1.234.567,89"],
-  [-1000, "-R$1.000,00"],      // o sinal fica ANTES do R$, com hífen ASCII
-  [-0.5, "-R$0,50"],
+  [3988.8, "R$ 3.988,80"],   // o DAS que o formatador de 0 casas dizia ser R$ 3.989
+  [1000, "R$ 1.000,00"],
+  [7000, "R$ 7.000,00"],
+  [0.5, "R$ 0,50"],
+  [1234567.89, "R$ 1.234.567,89"],
+  [-1000, "-R$ 1.000,00"],      // o sinal fica ANTES do R$, com hífen ASCII
+  [-0.5, "-R$ 0,50"],
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════ */

@@ -33,6 +33,11 @@ export function duracaoRevelar(texto: string): number {
   return Math.min(palavras * PASSO_MS, TETO_MS) + PALAVRA_MS;
 }
 
+/** Quando a palavra de ordem `n` começa a surgir (ms). */
+export function atrasoDaPalavra(n: number): number {
+  return Math.min(n * PASSO_MS, TETO_MS);
+}
+
 export function TextoRevelado({
   texto, animar = true, atrasoMs = 0,
 }: {
@@ -49,7 +54,7 @@ export function TextoRevelado({
     <>
       {pedacos.map((p, i) => {
         if (!p || /^\s+$/.test(p)) return p;
-        const atraso = atrasoMs + Math.min(n++ * PASSO_MS, TETO_MS);
+        const atraso = atrasoMs + atrasoDaPalavra(n++);
         return (
           <span key={i} className="a4p-palavra" style={{ "--a4p-atraso": `${atraso}ms` } as React.CSSProperties}>
             {p}

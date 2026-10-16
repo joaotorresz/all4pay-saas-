@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isDemo } from "@/lib/demo";
 import { descricaoParaIA } from "@/core/home/sugestoes";
 import { catalogoParaIA, normalizarAcoes, normalizarLayout, LAYOUT_PADRAO, TETO_CARDS } from "@/core/home/itens";
+import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 
 /**
  * "Ajustar prioridades" pela conversa (etapa 3, 14/10/2026) — SERVER-ONLY.
@@ -24,7 +25,7 @@ import { catalogoParaIA, normalizarAcoes, normalizarLayout, LAYOUT_PADRAO, TETO_
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = MODELO_CLAUDE;
 
 export async function POST(req: Request) {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -81,7 +82,7 @@ ${JSON.stringify(pedido)}`;
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 800,
+        ...SAIDA_CLAUDE,
         system,
         messages: [{ role: "user", content: "Quais ações, em ordem?" }],
       }),

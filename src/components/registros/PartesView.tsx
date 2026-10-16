@@ -40,16 +40,14 @@ type Lado = "cliente" | "fornecedor";
 const TEXTO = {
   cliente: {
     titulo: "clientes", singular: "cliente", nomeCampo: "Nome / Razão Social",
-    subtitulo: "Gerencie seus clientes.", novo: "Novo cliente",
+    novo: "Novo cliente",
     categoria: "Categoria padrão de receita",
-    ajudaCategoria: "Pré-preenche a categoria ao lançar uma conta a receber deste cliente.",
     natureza: "receita" as const,
   },
   fornecedor: {
     titulo: "fornecedores", singular: "fornecedor", nomeCampo: "Razão Social",
-    subtitulo: "Gerencie seus fornecedores.", novo: "Novo fornecedor",
+    novo: "Novo fornecedor",
     categoria: "Categoria padrão de despesa",
-    ajudaCategoria: "Pré-preenche a categoria ao lançar uma conta a pagar deste fornecedor.",
     natureza: "despesa" as const,
   },
 };
@@ -118,7 +116,6 @@ export function PartesView({ lado }: { lado: Lado }) {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo={t.subtitulo}
         acaoNova={{ label: t.novo, onClick: () => setNovo(true) }}
         exportar={{ nomeArquivo: t.titulo, aba: t.titulo, linhas }}
       />
@@ -154,10 +151,7 @@ export function PartesView({ lado }: { lado: Lado }) {
           />
 
           {ehCliente && (
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-label text-muted">
-                Cliente sem autorização registrada não recebe cobrança por WhatsApp; ela segue por e-mail.
-              </span>
+            <div className="flex items-center justify-end gap-3 flex-wrap">
               <BotaoAutorizarWhatsapp
                 onClick={() => setAutorizando([])}
                 pendentes={doLado.filter((p) => p.ativo && p.phone && !situacaoWa?.[p.id]?.autorizado && !situacaoWa?.[p.id]?.saiu).length}
@@ -173,7 +167,7 @@ export function PartesView({ lado }: { lado: Lado }) {
               vazio={
                 <VazioRegistro
                   texto={doLado.length === 0
-                    ? `Nenhum ${t.singular} cadastrado. Cadastre o primeiro para lançar contas a ${lado === "cliente" ? "receber" : "pagar"}.`
+                    ? `Nenhum ${t.singular} cadastrado.`
                     : `Nenhum ${t.singular} encontrado com esses filtros.`}
                   acao={doLado.length === 0 ? <Button variant="primary" onClick={() => setNovo(true)}>{t.novo}</Button> : undefined}
                 />
@@ -493,7 +487,7 @@ function FormParte({
         <Campo label="E-mail">
           <Input type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="contato@empresa.com.br" />
         </Campo>
-        <Campo label="Telefone" ajuda={lado === "cliente" ? "Sem telefone não há cobrança automática por WhatsApp." : undefined}>
+        <Campo label="Telefone">
           <Input value={f.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="(11) 90000-0000" />
         </Campo>
       </div>
@@ -504,7 +498,8 @@ function FormParte({
         </Campo>
       )}
 
-      <Campo label={t.categoria} ajuda={t.ajudaCategoria}>
+      <Campo label={t.categoria}>
+
         <Select
           value={f.categoriaPadrao}
           onChange={(v) => set({ categoriaPadrao: v })}

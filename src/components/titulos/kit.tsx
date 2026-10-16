@@ -189,7 +189,7 @@ export function CardExpansivel({
    * ⚠️ **HIERARQUIA POR MÉTRICA ACIONÁVEL — A4P-034.** Os três cards tinham o
    * mesmo peso e "Total geral pago no período" vinha PRIMEIRO, que na ordem de
    * leitura é o destaque. O que já foi pago não pede ação nenhuma; vencidas e a
-   * vencer pedem. Com R$1,54 pago e R$38.626,59 vencidos, a tela dava o lugar
+   * vencer pedem. Com R$ 1,54 pago e R$ 38.626,59 vencidos, a tela dava o lugar
    * nobre ao número que não muda nada.
    *
    * `secundario` não esconde: reduz o corpo do valor. Esconder trocaria um

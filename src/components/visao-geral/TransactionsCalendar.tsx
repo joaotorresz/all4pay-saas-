@@ -244,7 +244,7 @@ export function TransactionsCalendar() {
             }
             const rotulo = ehFuturo ? "Saldo esperado" : "Saldo total";
             return (
-              <div className={["flex flex-col gap-2 rounded-md border p-3", ruptura ? "border-negative" : "border-border-soft"].join(" ")}>
+              <div className={"flex flex-col gap-2 rounded-md p-3 bg-surface-2"}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-caption font-medium text-muted">{diaSel.split("-").reverse().join("/")}</span>
                   {valor != null && (

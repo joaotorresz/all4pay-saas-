@@ -280,12 +280,6 @@ export function FiltrosRelatorio({
                 { value: "receita_bruta", label: "Receita Bruta" },
               ]}
             />
-            <span className="text-caption text-faint max-w-[46ch]">
-              Sobre qual linha cada percentual é calculado. Mês com base
-              insignificante (abaixo de 1% da média do período) aparece como
-              “—”, em vez de um percentual de três dígitos que só mede o quanto
-              a base encolheu.
-            </span>
           </div>
         )}
         <div className="flex flex-col gap-[6px]">

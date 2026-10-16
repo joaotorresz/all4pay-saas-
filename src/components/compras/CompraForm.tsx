@@ -164,7 +164,6 @@ export function CompraForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="m-0 text-label text-muted">Criar um novo pedido de compra</p>
 
       <Card>
         <div className="flex flex-col gap-5">
@@ -203,9 +202,7 @@ export function CompraForm() {
                   value={String(parcelas)}
                   onChange={(e) => setParcelas(Math.max(2, Number(e.target.value) || 2))}
                 />
-                {erros.parcelas
-                  ? <span className="text-caption text-negative">{erros.parcelas}</span>
-                  : <span className="text-caption text-faint">Uma parcela por mês, a partir do vencimento.</span>}
+                {erros.parcelas && <span className="text-caption text-negative">{erros.parcelas}</span>}
               </div>
             )}
             <div className="flex flex-col gap-[6px]">
@@ -213,14 +210,14 @@ export function CompraForm() {
                 label="Data de vencimento" required invalid={!!erros.vencimento}
                 value={vencimento} onChange={setVencimento}
               />
-              <span className="text-caption text-faint">Quando o dinheiro sai — é o que define o aging.</span>
+
             </div>
             <div className="flex flex-col gap-[6px]">
               <DateField
                 label="Data de competência" required invalid={!!erros.competencia}
                 value={competencia} onChange={setCompetencia}
               />
-              <span className="text-caption text-faint">De que mês é a despesa no resultado (DRE).</span>
+
             </div>
             <div className="flex flex-col gap-[6px]">
               <CurrencyInput
@@ -239,7 +236,7 @@ export function CompraForm() {
                 placeholder="Selecione a espécie"
                 options={ESPECIES.map((e) => ({ value: e.id, label: e.label }))}
               />
-              <span className="text-caption text-faint">NF-e para produtos · NFS-e para serviços</span>
+
             </div>
           </div>
 
@@ -255,9 +252,7 @@ export function CompraForm() {
                   </span>
                 ))}
               </div>
-              <p className="m-0 mt-2 text-caption text-faint">
-                O resto dos centavos vai na última parcela — a soma bate com o valor da compra.
-              </p>
+
             </div>
           )}
         </div>
@@ -276,10 +271,7 @@ export function CompraForm() {
                 />
                 {erros.dataPagamento && <span className="text-caption text-negative">{erros.dataPagamento}</span>}
               </div>
-              <p className="m-0 self-end text-caption text-faint max-w-[46ch]">
-                Uma compra já paga entra APROVADA: o dinheiro saiu da conta, então ela não
-                pode ficar aguardando autorização — as duas telas discordariam.
-              </p>
+
             </div>
           )}
         </div>

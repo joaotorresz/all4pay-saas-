@@ -337,7 +337,7 @@
       "rotulo": "MEI",
       "tributos": null,
       "cargaTotal": 0,
-      "observacao": "No MEI o DAS é um valor FIXO mensal (cerca de R$76,90), não um percentual sobre a receita. Projetar percentual aqui daria um número que não existe."
+      "observacao": "No MEI o DAS é um valor FIXO mensal (cerca de R$ 76,90), não um percentual sobre a receita. Projetar percentual aqui daria um número que não existe."
     }
   ],
   "carga": [

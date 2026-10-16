@@ -23,9 +23,9 @@ export interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
   size?: MoneySize | number;
   showDecimals?: boolean;
   color?: string;
-  integerWeight?: 400 | 500;
+  integerWeight?: 400 | 500 | 600;
   prefixSize?: number;
-  prefixWeight?: 400 | 500;
+  prefixWeight?: 400 | 500 | 600;
   /** Cor do prefixo "R$". Sem valor, segue o cinza `placeholder` do DS. */
   prefixColor?: string;
   decimalSep?: string;
@@ -40,7 +40,7 @@ export function Money({
   size = "lg",
   showDecimals = true,
   color = "var(--color-ink)",
-  integerWeight = 400,
+  integerWeight = 600,
   prefixSize,
   prefixWeight,
   prefixColor,
@@ -69,24 +69,19 @@ export function Money({
       style={{ letterSpacing: "-0.01em", ...style }}
       {...rest}
     >
-      {/* ⚠️ SEM ESPAÇO entre a moeda e o número: `R$333,00`, uma peça só.
-          Era `mr-[5px]`, e o respiro fazia o prefixo ler como um rótulo ao
-          lado do valor em vez de fazer parte dele — a mesma razão pela qual
-          ele já tinha voltado ao mesmo corpo, peso e cor do inteiro. */}
+      {/* `R$ 16.000,00` (design system de 16/10/2026): um espaço não separável
+          entre a moeda e o número, e a vírgula com os centavos no MESMO corpo,
+          peso e cor do inteiro — o número é uma peça só, não inteiro + nota. */}
       <span
         style={{ fontSize: curPx, fontWeight: prefixWeight ?? integerWeight, color: prefixColor ?? color }}
       >
-        {currency}
+        {currency}{"\u00A0"}
       </span>
       <span style={{ fontSize: px, color, fontWeight: integerWeight }}>
         {integer}
       </span>
       {showDecimals && (
-        <span
-          data-cents=""
-          className="text-faint ml-px font-regular"
-          style={{ fontSize: Math.round(px * 0.4) }}
-        >
+        <span data-cents="" style={{ fontSize: px, color, fontWeight: integerWeight }}>
           {decimalSep}
           {decimals}
         </span>

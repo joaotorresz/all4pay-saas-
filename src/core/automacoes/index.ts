@@ -18,7 +18,7 @@
  *
  * ⚠️ **Empresa sem dados NÃO recebe "R$ 0"** (ONDA 4). Sem lançamentos, o
  * resumo não sai — e dentro dele, uma soma vazia vira frase ("nada vence
- * hoje"), nunca "R$0,00": zero da ausência lê como zero do negócio.
+ * hoje"), nunca "R$ 0,00": zero da ausência lê como zero do negócio.
  *
  * ⚠️ **Tudo no condicional quando é projeção.** "O caixa FICARIA negativo em
  * 12/10, no ritmo agendado" — nunca "o caixa fica negativo". E o alerta de

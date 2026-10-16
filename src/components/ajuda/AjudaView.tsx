@@ -54,10 +54,6 @@ export function AjudaView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="m-0 text-label text-muted max-w-[80ch]">
-        Aprenda com tours guiados, tire dúvidas na base de ajuda ou registre um chamado.
-      </p>
-
       <div className="flex items-center gap-1 border-b border-border-soft overflow-x-auto">
         {([
           ["chat", "Chat online", "help-circle"],
@@ -228,9 +224,6 @@ function ChatAjuda() {
             <div className="flex flex-col items-center gap-2 py-6 text-center">
               <Icon name="sparkles" size={24} color="var(--color-text-tertiary)" />
               <span className="text-h3 font-semibold text-ink">Olá! Em que posso ajudar?</span>
-              <span className="text-label text-muted max-w-[60ch]">
-                Pergunte sobre como usar o sistema. Se for um bug ou sugestão, abra um chamado.
-              </span>
             </div>
           ) : (
             <div className="flex flex-col gap-3 max-h-[440px] overflow-y-auto">
@@ -308,10 +301,6 @@ function ChatAjuda() {
                 Enviar
               </Button>
             </div>
-            <span className="text-caption text-faint">
-              Não compartilhe senhas, tokens ou dados sensíveis no chat — o sistema remove o que
-              reconhecer antes de gravar, mas o cuidado é seu.
-            </span>
           </div>
         </div>
       </Card>
@@ -319,17 +308,7 @@ function ChatAjuda() {
       <Card>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="flex flex-col gap-1">
-              <span className="text-h3 font-semibold text-ink">Registrar um chamado</span>
-              {/* ⚠️ A frase antiga dizia que "alguém do suporte olha o caso". Não
-                  existe canal que leve o chamado até o suporte da Quattro: ele
-                  fica no estado da empresa. Prometer um atendimento que não
-                  acontece é pior que dizer onde o registro fica. */}
-              <span className="text-caption text-faint max-w-[70ch]">
-                O chamado fica registrado nesta empresa, com os dados sensíveis já removidos. O envio
-                automático ao suporte da Quattro ainda não está ligado.
-              </span>
-            </span>
+            <span className="text-h3 font-semibold text-ink">Registrar um chamado</span>
             <Button variant="ghost" onClick={() => setAbrindo((v) => !v)}>
               {abrindo ? "Cancelar" : "Novo chamado"}
             </Button>
@@ -390,9 +369,7 @@ function FormChamado({
         <label className="text-label font-medium text-muted">O que aconteceu</label>
         <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={4}
           placeholder="Descreva o passo a passo, o que você esperava e o que apareceu." />
-        {erros.descricao
-          ? <span className="text-caption text-negative">{erros.descricao}</span>
-          : <span className="text-caption text-faint">Quanto mais concreto, menos ida e volta.</span>}
+        {erros.descricao && <span className="text-caption text-negative">{erros.descricao}</span>}
       </div>
       {achados.length > 0 && (
         <span className="text-caption text-warning">
@@ -464,13 +441,7 @@ function ToursGuiados() {
             ))}
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap pt-3 border-t border-border-soft">
-            <span className="flex flex-col">
-              <span className="text-label text-ink">Convidar para o tour ao abrir uma tela nova</span>
-              <span className="text-caption text-faint max-w-[76ch]">
-                Aparece uma vez por tela e no máximo um por sessão — um tour que reaparece deixa de
-                ser ajuda e vira obstáculo. É um convite discreto, não um modal por cima do seu clique.
-              </span>
-            </span>
+            <span className="text-label text-ink">Convidar para o tour ao abrir uma tela nova</span>
             <div className="flex items-center gap-2 shrink-0">
               <Switch checked={auto} onChange={(v) => { setAuto(v); setAutoTour(v); }} label="" />
               <Button variant="ghost" onClick={() => { setProgresso(reiniciarTours()); toast("Progresso dos tours reiniciado."); }}>
@@ -614,11 +585,6 @@ function Glossario() {
     <div className="flex flex-col gap-4 max-w-[860px]">
       <Card className="flex flex-col gap-2">
         <span className="text-h3 text-ink">Como chamamos cada coisa</span>
-        <p className="m-0 text-caption text-faint max-w-[70ch]">
-          Uma palavra por coisa, e a mesma palavra em todas as telas. Quando existir outro
-          nome comum para o mesmo conceito, ele está na coluna da direita — é o mesmo objeto,
-          com o nome que usamos e o que você talvez conheça de outro sistema.
-        </p>
       </Card>
       <Card padded={false}>
         {termos.map((t, i) => (
@@ -663,11 +629,6 @@ function Glossario() {
 function MetodologiaDosNumeros() {
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-label text-muted max-w-[80ch]">
-        Score e probabilidade são saídas de MODELO, não medições. Aqui está o que entra
-        em cada um, com que peso, sobre qual janela — e o que cada um deixa de fora.
-      </p>
-
       {METODOLOGIAS.map((m) => (
         <Card key={m.id} className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3 flex-wrap">

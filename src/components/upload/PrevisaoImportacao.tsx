@@ -146,11 +146,12 @@ export function PrevisaoImportacao({
         >
           {aplicando ? "Gravando…" : `Confirmar e gravar ${aGravar.length.toLocaleString("pt-BR")} lançamentos`}
         </Button>
-        <span className="text-caption text-faint max-w-[52ch]">
-          {r.duplicatasBase + r.duplicatasArquivo > 0
-            ? `${(r.duplicatasBase + r.duplicatasArquivo).toLocaleString("pt-BR")} linhas ficam de fora por já existirem. Nada é sobrescrito.`
-            : "Nada será sobrescrito — só entram lançamentos que ainda não existem."}
-        </span>
+        {r.duplicatasBase + r.duplicatasArquivo > 0 && (
+          <span className="text-caption text-faint">
+            {`${(r.duplicatasBase + r.duplicatasArquivo).toLocaleString("pt-BR")} linhas ficam de fora por já existirem.`}
+          </span>
+        )}
+
       </div>
     </div>
   );

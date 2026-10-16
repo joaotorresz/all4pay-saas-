@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 
 /**
  * Conciliação assistida por IA (Claude) — SERVER-ONLY. Recebe os pares AMBÍGUOS
@@ -10,7 +11,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = MODELO_CLAUDE;
 
 interface Par {
   ofId: string; ofDesc: string; ofData: string;
@@ -46,7 +47,7 @@ Responda APENAS JSON, sem markdown:
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1600, messages: [{ role: "user", content: [{ type: "text", text: prompt }] }] }),
+      body: JSON.stringify({ model: MODEL, ...SAIDA_CLAUDE, messages: [{ role: "user", content: [{ type: "text", text: prompt }] }] }),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => "");

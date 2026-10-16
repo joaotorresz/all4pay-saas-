@@ -52,7 +52,8 @@ function AnomaliasCard({ anomalias }: { anomalias: Anomalia[] }) {
         <span className="text-label font-medium text-muted">Anomalias para revisar</span>
       </div>
       {anomalias.length === 0 ? (
-        <span className="text-caption text-faint">Nenhuma anomalia detectada — despesas e pagamentos dentro do padrão histórico.</span>
+        <span className="text-caption text-faint">Nenhuma anomalia detectada.</span>
+
       ) : (
         anomalias.map((a) => {
           const onde = ONDE_CONFERIR[a.classe] ?? ONDE_CONFERIR.despesa;

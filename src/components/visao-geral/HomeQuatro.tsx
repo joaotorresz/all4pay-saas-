@@ -70,7 +70,7 @@ function tresMeses(input: RiskInput): Mes[] {
     // documentado assim — todos os outros chamadores passam `getMonth()`.
     // Com `mm + 1` cada barra mostrava o mês SEGUINTE: agosto caía em
     // setembro, que ainda não aconteceu, e a terceira coluna saía vazia ao
-    // lado de um "entradas do mês" de R$607 mil. O gráfico não parecia
+    // lado de um "entradas do mês" de R$ 607 mil. O gráfico não parecia
     // quebrado — parecia um mês fraco, que é o pior tipo de erro num número.
     const j = janelaMes(a, mm);
     out.push({
@@ -164,7 +164,6 @@ export function Resumo({ input, titulo = "Resumo", className = "" }: { input: Ri
             ? <SemDados motivo={saldoInd.indisponivel.motivo} codigo={saldoInd.indisponivel.codigo} />
             : <BRL value={saldoAtual} />}
         </div>
-        <span className="text-caption text-faint">Posição das contas, não o resultado do mês</span>
         <div className="mt-5 flex flex-col">
           {/* ⚠️ "CONSOLIDADO" NÃO É ENFEITE NO RÓTULO — é o que estes números
               já são. `entradas`/`saidas`/`resultado` rodam no regime de CAIXA,
@@ -428,7 +427,7 @@ function Dicas({ input }: { input: RiskInput }) {
       : r.dicas.map((d) => ({
           contexto: d.titulo,
           mensagem: d.base
-            // A base no MESMO formato do valor da frase: "R$721.084 … (base: R$260.905)",
+            // A base no MESMO formato do valor da frase: "R$ 721.084 … (base: R$ 260.905)",
             // não metade arredondada e metade com centavos.
             ? `${d.texto} (base: ${d.base.rotulo}, ${fmtRealDica(d.base.valor)})`
             : d.texto,

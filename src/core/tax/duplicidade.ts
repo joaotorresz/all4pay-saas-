@@ -11,8 +11,8 @@
  * DARF.
  *
  * Medido em produção (17/08), org `joaov.yoshimi`, 9 meses (10/2025 a 06/2026):
- * `Simples Nacional` R$5.200,00/mês (R$46.800,00) convivendo com `IRPJ / CSLL`
- * (R$75.982,66). Os dois na mesma competência, mês a mês, sem falha.
+ * `Simples Nacional` R$ 5.200,00/mês (R$ 46.800,00) convivendo com `IRPJ / CSLL`
+ * (R$ 75.982,66). Os dois na mesma competência, mês a mês, sem falha.
  *
  * ⚠️ **ESTE MÓDULO NÃO CORRIGE O DADO, E ISSO É A DECISÃO.** Reclassificar
  * lançamento de imposto é decisão do dono com o contador — o sistema não sabe
@@ -23,7 +23,7 @@
  * ⚠️ **E NUNCA SOMA PROVISÃO ESTIMADA ONDE JÁ EXISTE LANÇAMENTO REAL.** A
  * primeira versão deste item pedia "provisão parametrizada por regime" na linha
  * de imposto sobre o lucro. Medida a base, a linha **não** estava zerada: tinha
- * R$75.982,66 de lançamento real. Provisionar por cima teria contado o imposto
+ * R$ 75.982,66 de lançamento real. Provisionar por cima teria contado o imposto
  * uma terceira vez — o conserto criando o defeito que ia consertar.
  */
 import type { RegimeTributario } from "@/core/administracao";

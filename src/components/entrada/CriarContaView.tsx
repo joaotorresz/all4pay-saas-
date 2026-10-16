@@ -355,9 +355,6 @@ export function CriarContaView() {
           </button>
         </form>
       )}
-      <p className="flex-none m-0 mb-4 mt-2 text-center text-[12px] text-muted">
-        {etapa === "senha" ? "A senha não aparece na conversa." : "O resto do cadastro fica para depois, quando você já tiver visto o sistema com os seus números."}
-      </p>
     </div>
   );
 }

@@ -78,11 +78,6 @@ export function CaixaEntradaView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted max-w-[70ch]">
-        O que <b className="text-ink">chegou</b> e ainda não virou conta: documentos lidos no upload, boletos do DDA, notas
-        fiscais recebidas e e-mails enviados ao endereço da empresa. Cada um vira conta a pagar (pelo formulário de sempre, já preenchido) ou é descartado com o motivo escrito.
-      </p>
-
       <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Filtro da caixa de entrada">
         {FILTROS.map((f) => {
           const on = filtro === f.id;

@@ -192,7 +192,7 @@ export function ProdutoServicoForm({
             </button>
             <div className="flex flex-col gap-1">
               <span className="text-label text-ink">Imagem do produto</span>
-              <span className="text-caption text-faint">Aparece no cardápio em Produtos.</span>
+
               {imagem && <button type="button" onClick={() => setImagem(null)} className="text-caption text-negative text-left">Remover imagem</button>}
             </div>
             <input ref={imgRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/*" onChange={(e) => escolherImagem(e.target.files?.[0])} />

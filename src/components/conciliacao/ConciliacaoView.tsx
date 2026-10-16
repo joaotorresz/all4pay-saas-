@@ -89,18 +89,13 @@ export function ConciliacaoView() {
         <Resumo label="Sem par" valor={pendentesSemMatch + ofSemMatch} contagem info={{ titulo: "Sem par", oQue: "Itens que ainda não casaram, de um lado ou do outro, e precisam de atenção.", comoCalcula: "Soma os títulos pendentes sem par com as transações do banco sem par." }} />
       </div>
 
-      {isDemo && (
-        <span className="text-caption text-faint inline-flex items-center gap-2">
-          <Icon name="sparkles" size={14} color="var(--color-lime)" /> Amostra de demonstração — em live, os pares vêm das transações reais do Open Finance.
-        </span>
-      )}
 
       {matches.length === 0 ? (
         <Card><EmptyState icon="check" title="Nada a conciliar" hint="Sem transações do Open Finance casando com títulos pendentes no momento." /></Card>
       ) : (
         <Card padded={false}>
           <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft flex-wrap">
-            <span className="text-label font-medium text-muted inline-flex items-center gap-1">Pares para conciliar — revise a confiança e confirme<InfoHint align="left" titulo="Pares para conciliar" oQue="Cada par mostra um título previsto e a transação do banco que casou, com o nível de confiança para você confirmar a baixa." comoCalcula="A confiança vem do quanto valor, data e descrição batem; alta concilia direto, média ou baixa pede revisão." /></span>
+            <span className="text-label font-medium text-muted inline-flex items-center gap-1">Pares para conciliar<InfoHint align="left" titulo="Pares para conciliar" oQue="Cada par mostra um título previsto e a transação do banco que casou, com o nível de confiança para você confirmar a baixa." comoCalcula="A confiança vem do quanto valor, data e descrição batem; alta concilia direto, média ou baixa pede revisão." /></span>
             <div className="flex items-center gap-2">
               {iaConc && matches.some((m) => m.confianca < AUTO) && (
                 <Button size="sm" variant="secondary" disabled={iaBusy} onClick={() => analisarIA(matches)} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>
@@ -163,9 +158,7 @@ export function ConciliacaoView() {
         </Card>
       )}
 
-      <span className="text-caption text-faint">
-        Ao conciliar, o título previsto recebe baixa (vai para a Lixeira, recuperável) e a transação do banco assume a classificação dele — o dinheiro conta uma vez só.
-      </span>
+
       {node}
     </div>
   );

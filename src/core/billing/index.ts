@@ -14,7 +14,7 @@
  * que o DRE não lia.
  *
  * O efeito prático, medido: **1.402 dos 1.415 lançamentos (99,1%) estão em
- * organizações que não pagam nada**, e a única que paga (R$990/mês) tem ZERO
+ * organizações que não pagam nada**, e a única que paga (R$ 990/mês) tem ZERO
  * lançamentos. O produto não estava perdendo cobrança — ele não tinha cobrança.
  *
  * ⚠️ **BLOQUEIO SUAVE, NUNCA APAGAR NEM ESCONDER.** Vencido é quem parou de

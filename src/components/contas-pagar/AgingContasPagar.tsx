@@ -99,10 +99,10 @@ export function AgingContasPagar({ input }: { input: RiskInput }) {
             <table className="w-full text-caption tabular-nums">
               <thead>
                 <tr className="text-faint">
-                  <th className="text-left font-medium py-2 pr-3 uppercase tracking-[0.08em] text-[11px]">{dim === "fornecedor" ? "Fornecedor" : "Categoria"}</th>
-                  <th colSpan={4} className="text-center font-medium py-2 uppercase tracking-[0.08em] text-[11px]">Vencido há (dias)</th>
-                  <th colSpan={4} className="text-center font-medium py-2 uppercase tracking-[0.08em] text-[11px]">Vence em (dias)</th>
-                  <th className="text-right font-medium py-2 pl-3 uppercase tracking-[0.08em] text-[11px]">Total</th>
+                  <th className="text-left font-medium py-2 pr-3 text-[11px]">{dim === "fornecedor" ? "Fornecedor" : "Categoria"}</th>
+                  <th colSpan={4} className="text-center font-medium py-2 text-[11px]">Vencido há (dias)</th>
+                  <th colSpan={4} className="text-center font-medium py-2 text-[11px]">Vence em (dias)</th>
+                  <th className="text-right font-medium py-2 pl-3 text-[11px]">Total</th>
                 </tr>
                 <tr className="text-faint">
                   <th />

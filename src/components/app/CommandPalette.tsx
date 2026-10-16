@@ -268,7 +268,7 @@ export function CommandPalette() {
     >
       <div
         role="dialog" aria-modal="true" aria-label="Busca global"
-        className="w-full max-w-xl bg-white rounded-card shadow-popover border border-border overflow-hidden"
+        className="w-full max-w-xl bg-white rounded-card shadow-popover overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-4 border-b border-border-soft">

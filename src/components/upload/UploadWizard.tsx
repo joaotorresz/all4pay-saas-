@@ -180,14 +180,11 @@ export function UploadWizard() {
                   onDragLeave={() => setDrag(false)}
                   onDrop={onDrop}
                   onClick={() => inputRef.current?.click()}
-                  className={`rounded-card border border-dashed p-8 text-center cursor-pointer transition-colors ${drag ? "border-lime bg-lime-tint" : "border-border hover:border-ink/30"}`}
+                  className={`rounded-card p-8 text-center cursor-pointer transition-colors ${drag ? "bg-lime-tint" : "bg-surface-2 hover:bg-surface-3"}`}
                 >
                   <Icon name="upload" size={26} color="var(--color-text-secondary)" />
                   <p className="m-0 mt-3 text-body text-ink">Arraste o documento aqui ou clique para enviar</p>
-                  <p className="m-0 mt-1 text-caption text-faint leading-[1.5]">
-                    Boletos, comprovantes, notas, faturas (PNG · JPG · PDF) — a IA lê valor, vencimento,
-                    beneficiário e a ação. Extratos OFX/CSV entram em lote.
-                  </p>
+                  <p className="m-0 mt-1 text-caption text-faint leading-[1.5]">PNG · JPG · PDF · OFX · CSV</p>
                   <input ref={inputRef} type="file" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.ofx,.csv,.txt,image/*" onChange={(e) => e.target.files?.[0] && ingerir(e.target.files[0])} />
                 </div>
                 <div className="flex items-start gap-2 rounded-md p-3" style={{ background: "var(--color-surface-2)" }}>
@@ -357,7 +354,7 @@ function LeituraInteligente({ a, modo }: { a: AnaliseDocumento; modo: "ia" | "lo
       {a.sugerirCadastro && (
         <div className="flex items-center gap-2 rounded-md p-3 border border-dashed border-border">
           <Icon name="plus" size={15} color="var(--color-text-secondary)" />
-          <span className="text-caption text-muted flex-1"><b className="text-ink font-medium">{a.contraparte}</b> ainda não está em Contatos. Você poderá cadastrar na próxima etapa.</span>
+          <span className="text-caption text-muted flex-1"><b className="text-ink font-medium">{a.contraparte}</b> ainda não está em Contatos.</span>
         </div>
       )}
 
@@ -443,14 +440,10 @@ function Confirmacao({
       {baixaValida && (
         <div className="flex items-start gap-2 rounded-md p-3 border-l-4" style={{ borderLeftColor: "var(--color-positive)", background: "var(--color-surface-2)" }}>
           <Icon name="check" size={15} color="var(--color-positive)" className="mt-[2px]" />
-          <span className="text-caption text-muted">Em vez de criar um novo lançamento, vamos <b className="text-ink font-medium">dar baixa</b> no agendamento correspondente (evita duplicar).</span>
+          <span className="text-caption text-muted">Em vez de criar um novo lançamento, vamos <b className="text-ink font-medium">dar baixa</b> no agendamento correspondente.</span>
         </div>
       )}
 
-      <span className="text-caption text-faint leading-[1.5]">
-        Ao confirmar, o lançamento entra no sistema e passa a aparecer no dashboard, no fluxo de caixa, na DRE,
-        no risco e na página Upload de dados — com o cross-check já feito.
-      </span>
     </div>
   );
 }
@@ -469,10 +462,7 @@ function BulkResumo({ report }: { report: FDIPReport }) {
         <Mini n={plano.categorias.length} label="categorias" />
         <Mini n={plano.centrosCusto.length} label="centros" />
       </div>
-      <span className="text-caption text-faint leading-[1.5]">
-        Inserir cria clientes/fornecedores, categorias e os lançamentos — alimentando todo o sistema.
-        Para revisar lançamento a lançamento, use a página Upload de dados.
-      </span>
+
     </div>
   );
 }

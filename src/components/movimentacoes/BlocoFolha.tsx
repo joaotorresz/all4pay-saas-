@@ -180,7 +180,7 @@ export function BlocoFolha({
         {clt && (
           <p className="m-0 mt-3 text-caption text-muted">
             Apurado no regime <b className="text-ink">{ROTULO_REGIME[regime]}</b>
-            {anexo ? ` · Anexo ${anexo}` : ""} — {calculo?.encargos.porque}
+            {anexo ? ` · Anexo ${anexo}` : ""}
             {regime === "nao_declarado" && (
               <> <b className="text-warning">Declare o regime em Configurações para o custo sair certo.</b></>
             )}
@@ -204,10 +204,10 @@ export function BlocoFolha({
             </Campo>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Campo label="Primeira competência" ajuda="O mês em que ele começa a custar.">
+            <Campo label="Primeira competência">
               <Input type="month" value={dados.desde} onChange={(e) => set("desde", e.target.value)} />
             </Campo>
-            <Campo label="Quantos meses gerar" ajuda="Os títulos podem ser estendidos depois.">
+            <Campo label="Quantos meses gerar">
               <Input
                 type="number" min={1} max={36}
                 value={String(dados.competencias)}
@@ -222,15 +222,9 @@ export function BlocoFolha({
       {clt ? (
         <Card>
           <span className="text-h3 text-ink">Descontos do funcionário</span>
-          {/* ⚠️ Estes valores SAEM do salário — não são custo a mais da empresa.
-              Somá-los ao custo é o engano que faz um vale-transporte de R$ 200
-              parecer R$ 200 de despesa nova. */}
-          <p className="m-0 mt-1 text-caption text-muted">
-            Saem do salário bruto. Não aumentam o custo da empresa.
-          </p>
           <div className="flex flex-col gap-4 mt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Campo label="Dependentes" ajuda="Reduzem a base do IRRF.">
+              <Campo label="Dependentes">
                 <Input
                   type="number" min={0} max={20}
                   value={String(dados.dependentes)}
@@ -250,7 +244,7 @@ export function BlocoFolha({
               </Campo>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Campo label="Pensão alimentícia" ajuda="Também deduz da base do IRRF.">
+              <Campo label="Pensão alimentícia">
                 <CurrencyInput value={dados.pensao} onValueChange={(v) => set("pensao", v)} />
               </Campo>
               <Campo label="Outros descontos">
@@ -262,14 +256,10 @@ export function BlocoFolha({
       ) : (
         <Card>
           <span className="text-h3 text-ink">Retenções</span>
-          <p className="m-0 mt-1 text-caption text-muted">
-            Calculadas sobre o valor da nota. Saem do que o prestador recebe, não do que a empresa gasta —
-            e a empresa as recolhe por DARF, que entra como título próprio.
-          </p>
           {/* ⚠️ A PERGUNTA QUE FALTAVA. Sem ela a memória afirmava "prestador do
               Simples Nacional" para todo PJ, e a retenção nunca era calculada. */}
           <div className="mt-3">
-            <Campo label="O prestador é optante do Simples Nacional?" ajuda="Está escrito na nota. Optante do Simples não sofre retenção de IRRF nem de PIS/COFINS/CSLL.">
+            <Campo label="O prestador é optante do Simples Nacional?">
               <Select
                 value={dados.prestadorSimples}
                 onChange={(v) => set("prestadorSimples", v as DadosFolha["prestadorSimples"])}

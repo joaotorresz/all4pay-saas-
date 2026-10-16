@@ -9,7 +9,6 @@ import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/gov
 import { QualidadeDeDados } from "./QualidadeDeDados";
 import { AlcadaCard } from "./AlcadaCard";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
-import { isDemo } from "@/lib/demo";
 import { ErroWidget } from "@/components/visao-geral/shared";
 import type { Participante } from "@/core/onboarding";
 import { DescricaoLivre } from "@/components/onboarding/DescricaoLivre";
@@ -140,10 +139,6 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
       {semDados ? (
         <Card className="flex flex-col items-start gap-3">
           <span className="text-h3 font-medium text-ink">Complete o cadastro da empresa</span>
-          <p className="m-0 text-muted max-w-[60ch]">
-            Ainda não há um perfil de empresa salvo neste dispositivo. Use o fluxo guiado
-            para informar dados jurídicos, perfil, governança e estrutura financeira.
-          </p>
           <Button variant="primary" leftIcon={<Icon name="sparkles" size={15} />} onClick={() => router.push("/comecar")}>
             Configurar empresa
           </Button>
@@ -240,7 +235,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
             {erroMembros ? (
               <ErroWidget titulo="Não foi possível carregar os participantes" erro={erroMembros} onTentarNovamente={() => { recarregarMembros(); }} />
             ) : membros.length === 0 ? (
-              <span className="text-caption text-faint py-2">Nenhum usuário ainda. Adicione participantes e defina o que cada um pode visualizar, editar e aprovar.</span>
+              <span className="text-caption text-faint py-2">Nenhum usuário ainda.</span>
             ) : membros.map((p) => (
               <div key={p.id} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
                 <div className="flex-1 min-w-0">
@@ -265,11 +260,6 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
                 </div>
               </div>
             ))}
-            <span className="text-caption text-faint">
-              {isDemo
-                ? "O administrador tem controle total. Em demo, papéis e permissões ficam salvos neste navegador."
-                : "Para adicionar alguém, informe o e-mail da conta dele (a pessoa precisa ter criado a conta antes); papéis, permissões e limite de aprovação são salvos na organização (organization_members)."}
-            </span>
           </Card>
 
           {/* Estrutura financeira */}
@@ -290,9 +280,6 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                 <Linha label="Fluxo de caixa" value={estrutura.fluxoCaixa || "—"} />
               </div>
-              <span className="text-caption text-faint">
-                Contas, centros e unidades foram criados no seu cadastro ao concluir o onboarding.
-              </span>
             </Card>
           )}
         </>

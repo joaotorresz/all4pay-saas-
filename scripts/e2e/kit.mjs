@@ -52,5 +52,5 @@ export function verificador(jornada) {
   return { ok, falhas: () => falhas };
 }
 
-/** "R$24.691,34" → 24691.34 (aceita o texto quebrado em partes pelo <BRL>). */
+/** "R$ 24.691,34" → 24691.34 (aceita o texto quebrado em partes pelo <BRL>). */
 export const brl = (s) => Number(String(s).replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));

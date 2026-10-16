@@ -96,8 +96,7 @@ export function TransferenciasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Movimentações entre as suas próprias contas bancárias.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="primary" onClick={() => setNova(true)}>
             <Icon name="plus" size={15} color="currentColor" />
@@ -165,7 +164,7 @@ export function TransferenciasView() {
             </span>
             <p className="m-0 text-label text-muted max-w-[44ch]">
               {(lista ?? []).length === 0
-                ? "Nenhuma transferência registrada. Ela move o saldo entre as suas contas sem virar receita nem despesa."
+                ? "Nenhuma transferência registrada."
                 : "Nenhuma transferência encontrada com esses filtros."}
             </p>
             <Button variant="primary" onClick={() => setNova(true)}>Nova transferência</Button>
@@ -284,8 +283,6 @@ function FormTransferencia({
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted">Realize uma transferência entre contas bancárias.</p>
-
       <Card>
         <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Conta bancária de origem</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">

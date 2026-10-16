@@ -185,7 +185,7 @@ function PoliticaRow({ p }: { p: PoliticaAutonoma }) {
       <span className="w-2 h-2 rounded-pill mt-[5px] shrink-0" style={{ background: p.disparou ? "var(--color-positive)" : "var(--color-text-tertiary)" }} />
       <div className="min-w-0">
         <div className="text-[16px] text-ink">
-          <span className="text-faint">SE</span> {p.se} <span className="text-faint">ENTÃO</span> {p.entao}
+          <span className="text-faint">SE</span> {p.se} <span className="text-faint">Então</span> {p.entao}
         </div>
         <span className="text-caption text-faint">
           {p.disparou ? `disparou · ${p.decisoes} decisão(ões)` : "não acionada"}
@@ -280,9 +280,7 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
           ))}
         </div>
       )}
-      <span className="text-caption text-faint">
-        Este card só PLANEJA: canal, horário e tom por cliente. Enviar é na seção Executar, acima, que confirma quem recebe antes de mandar. Adicione o telefone aqui (ou em Contatos) para o cliente poder ser cobrado por WhatsApp.
-      </span>
+
       {status._erro && <span className="text-caption text-negative">{status._erro}</span>}
     </Card>
   );

@@ -143,7 +143,7 @@ export function NfseView() {
         </div>
         <div className="flex flex-col max-h-[540px] overflow-y-auto">
           {lista.length === 0 ? (
-            <p className="text-caption text-faint text-center py-8">Nenhuma nota. Emita ao lado — a receita entra no DRE e em Títulos a receber.</p>
+            <p className="text-caption text-faint text-center py-8">Nenhuma nota emitida.</p>
           ) : lista.map((n) => (
             <div key={n.id} className="grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0">
               <span className="min-w-0">
@@ -168,9 +168,7 @@ export function NfseView() {
             </div>
           ))}
         </div>
-        <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Nota autorizada já fica ligada ao recebimento: a receita bruta entra no DRE sem conferência manual. O ISS fica calculado na nota — a conta a pagar do imposto sai do provisionamento de impostos das vendas.</span>
-        </div>
+
       </Card>
       {node}
     </div>

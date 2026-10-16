@@ -33,7 +33,6 @@ export function RelatoriosRazaoView() {
         <Card className="flex flex-wrap items-end gap-x-3 gap-y-2">
           <DatePicker label="De" value={de} onChange={setDe} max={ate} containerClassName="min-w-[150px]" />
           <DatePicker label="Até" value={ate} onChange={setAte} min={de} containerClassName="min-w-[150px]" />
-          <span className="text-caption text-faint self-center ml-auto">Fonte: razão de dupla entrada</span>
         </Card>
 
         {entries === null ? (
@@ -41,7 +40,7 @@ export function RelatoriosRazaoView() {
         ) : entries.length === 0 ? (
           <Card className="flex flex-col items-start gap-2">
             <span className="text-h3 font-medium text-ink">Razão vazio</span>
-            <span className="text-caption text-muted">Lance um movimento ou importe dados — o razão projeta automaticamente e os relatórios são calculados a partir dele.</span>
+            <span className="text-caption text-muted">Lance um movimento ou importe dados.</span>
             <Link href="/contabilidade?aba=razao" className="text-label font-medium text-ink underline">Ir para o Razão →</Link>
           </Card>
         ) : (
@@ -61,7 +60,6 @@ export function RelatoriosRazaoView() {
             <Card className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex flex-col">
                 <span className="text-label font-medium text-muted inline-flex items-center gap-1">Orçado × Realizado<InfoHint align="left" titulo="Orçado × Realizado" oQue="Compara o que foi planejado no orçamento com o que de fato aconteceu." comoCalcula="A análise de variação por linha vive na tela de orçamento; aqui é o atalho para abri-la." /></span>
-                <span className="text-caption text-faint">Análise de variação com flux (orçamento mensal por linha + drill-down).</span>
               </div>
               <Link href="/orcamento" className="text-label font-medium text-ink underline">Abrir orçamento →</Link>
             </Card>

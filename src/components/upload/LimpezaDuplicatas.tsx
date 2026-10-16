@@ -139,10 +139,7 @@ export function LimpezaDuplicatas() {
         <Button variant="primary" onClick={limpar} disabled={aplicando} leftIcon={<Icon name="trash-2" size={15} />}>
           {aplicando ? "Removendo…" : `Remover ${rel.remover.length.toLocaleString("pt-BR")} cópias`}
         </Button>
-        <span className="text-caption text-faint max-w-[52ch]">
-          O primeiro lançamento de cada grupo é mantido. Depois de remover, todos os
-          derivados (saldo, DRE, fluxo, risco, painéis) são recalculados.
-        </span>
+
       </div>
     </Card>
   );

@@ -94,7 +94,6 @@ export function OrcamentoVarianciaView() {
             <Card className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <span className="text-label font-medium text-muted inline-flex items-center gap-1">Orçamento mensal por linha<InfoHint align="left" titulo="Orçamento mensal" oQue="Onde você define a meta mensal de cada linha do resultado, base da comparação contra o realizado." comoCalcula="Valor que você digita por linha; em branco usa o baseline automático (média da janela anterior)." /></span>
-                <span className="text-caption text-faint">Em branco = baseline automático (média da janela anterior).</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {LINHAS_EDIT.map((l) => (

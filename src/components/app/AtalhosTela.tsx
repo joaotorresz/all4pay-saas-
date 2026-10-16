@@ -24,7 +24,7 @@ export function AtalhosTela({ atalhos, rotulo = "Também aqui" }: { atalhos: Ata
         <Link
           key={a.href}
           href={a.href}
-          className="inline-flex items-center gap-1.5 rounded-pill border border-border px-3 py-1.5 text-caption text-muted hover:text-ink hover:bg-surface-2 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-pill bg-white px-3 py-1.5 text-caption text-muted hover:text-ink hover:bg-surface-2 transition-colors"
         >
           <Icon name={a.icon} size={13} color="currentColor" />
           {a.label}

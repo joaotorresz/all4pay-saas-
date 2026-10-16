@@ -53,7 +53,6 @@ export function HomeCustomizeDrawer({
   visiveis,
   ordem,
   auto,
-  setor,
   onToggle,
   onReorder,
   onAuto,
@@ -64,7 +63,6 @@ export function HomeCustomizeDrawer({
   visiveis: Record<string, boolean>;
   ordem: string[];
   auto: boolean;
-  setor: string | null;
   onToggle: (id: string) => void;
   onReorder: (next: string[]) => void;
   onAuto: (v: boolean) => void;
@@ -106,17 +104,7 @@ export function HomeCustomizeDrawer({
               </span>
               <Switch checked={auto} onChange={() => onAuto(!auto)} />
             </label>
-            <span className="text-caption text-faint leading-[1.45]">
-              {auto
-                ? "O bloco mais crítico (caixa em risco, pendências, anomalias) sobe ao topo automaticamente."
-                : "Ordem dos blocos fixa pelo seu setor / arraste manual."}
-              {setor ? ` Painel base para o setor ${setor}.` : ""}
-            </span>
           </div>
-          <p className="m-0 text-caption text-muted leading-[1.5]">
-            Ligue/desligue os blocos e <b className="text-ink font-medium">arraste pela alça</b> para reordenar
-            dentro de cada bloco. Suas preferências ficam salvas neste dispositivo.
-          </p>
           {BLOCK_ORDER.map((g) => (
             <div key={g} className="flex flex-col gap-1">
               <span className="text-[13px] font-medium text-faint tracking-wide mb-1">{g}</span>

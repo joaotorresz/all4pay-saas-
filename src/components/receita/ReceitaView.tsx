@@ -77,7 +77,6 @@ export function ReceitaReconhecimentoView() {
       ) : report.contratos.length === 0 ? (
         <Card className="flex flex-col items-start gap-3">
           <span className="text-h3 font-medium text-ink">Sem contratos de recorrência</span>
-          <span className="text-caption text-muted">O reconhecimento de receita usa os contratos de assinatura. Crie uma recorrência para ver MRR, ARR, receita diferida e o waterfall.</span>
           <Link href="/dashboard/sales-invoices/subscriptions" className="text-label font-medium text-ink underline">Ir para Assinaturas e recorrência →</Link>
         </Card>
       ) : (
@@ -113,7 +112,6 @@ export function ReceitaReconhecimentoView() {
                 </div>
               ))}
             </div>
-            <span className="text-caption text-faint">Barras = MRR ao fim de cada mês (contratos ativos iniciados até o mês). Novos contratos elevam a barra.</span>
           </Card>
 
           {/* Reconhecimento por contrato + diferida */}
@@ -146,9 +144,6 @@ export function ReceitaReconhecimentoView() {
                 </span>
               </div>
             ))}
-            <div className="px-5 py-3 border-t border-border-soft text-caption text-faint">
-              Receita reconhecida ao longo da obrigação (1/ciclo por mês). A parte faturada e ainda não reconhecida é a <b className="text-muted font-medium">receita diferida</b> (passivo).
-            </div>
           </Card>
         </div>
       )}

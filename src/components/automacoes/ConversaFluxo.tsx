@@ -109,7 +109,7 @@ export function ConversaFluxo({ pedidoInicial, onAbrir }: { pedidoInicial?: stri
           <MarcaIA size={28} />
           <div>
             <p className="text-label font-medium text-ink">Criar pela conversa</p>
-            <p className="text-caption text-muted">Diga quando, o que e para quem. A Quattro AI monta o fluxo.</p>
+
           </div>
         </div>
         {falas.length > 0 && (
@@ -144,7 +144,8 @@ export function ConversaFluxo({ pedidoInicial, onAbrir }: { pedidoInicial?: stri
           <div className="flex flex-wrap items-center gap-3">
             <Button size="sm" onClick={() => onAbrir(fluxo.id)}>Abrir e revisar</Button>
             <span className="text-caption text-muted">
-              {problemas.length ? problemas[0].motivo : "Pronto para ligar. A mensagem só sai depois que você ligar o fluxo."}
+              {problemas.length ? problemas[0].motivo : "Pronto para ligar."
+}
             </span>
           </div>
         </div>

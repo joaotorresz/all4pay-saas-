@@ -86,10 +86,6 @@ export function EstruturaCadastrosView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted max-w-[720px]">
-        Os cadastros na ordem em que um depende do outro. Cada tela fica no grupo do menu onde é usada;
-        aqui está a sequência para começar a lançar e o que ainda falta.
-      </p>
 
       <Card data-checklist="1">
         <div className="flex flex-col gap-3">
@@ -104,7 +100,7 @@ export function EstruturaCadastrosView() {
             </span>
           </div>
           {pendencias.length === 0 ? (
-            <p className="m-0 text-label text-ink">A estrutura está pronta: há conta ativa, categorias de receita e de despesa com linha do DRE, e contrapartes cadastradas.</p>
+            <p className="m-0 text-label text-ink">A estrutura está pronta.</p>
           ) : (
             <ul className="m-0 p-0 list-none flex flex-col">
               {pendencias.map((p) => (
@@ -139,7 +135,7 @@ export function EstruturaCadastrosView() {
                   <span className="a4p-label text-muted tabular-nums">Nível {n.nivel}</span>
                   <span className="text-h3 font-semibold text-ink">{n.titulo}</span>
                 </div>
-                <p className="m-0 text-caption text-muted">{n.porque}</p>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {n.itens.map((it) => (
                     <Link
@@ -148,10 +144,8 @@ export function EstruturaCadastrosView() {
                       data-item-estrutura={it.rotulo}
                       className="flex items-center justify-between gap-3 rounded-md bg-surface-1 px-4 py-3 hover:bg-surface-2"
                     >
-                      <span className="flex flex-col">
-                        <span className="text-label text-ink">{it.rotulo}</span>
-                        <span className="text-caption text-muted">{it.resumo}</span>
-                      </span>
+                      <span className="text-label text-ink">{it.rotulo}</span>
+
                       <span className="flex items-center gap-2 shrink-0">
                         {it.quantidade !== null && (
                           <span className="text-h3 text-ink tabular-nums" data-quantidade={it.quantidade}>{it.quantidade}</span>

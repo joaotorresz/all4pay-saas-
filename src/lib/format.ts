@@ -21,32 +21,35 @@ const brlCompact = new Intl.NumberFormat("pt-BR", {
 const groupedInt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 /*
- * ⚠️ SEM ESPAÇO entre a moeda e o número: `R$1.284.900,00`.
+ * `R$ 1.284.900,00` — UM espaço NÃO SEPARÁVEL (U+00A0) entre a moeda e o
+ * número (design system de 16/10/2026). Era colado (`R$ 1.284.900,00`).
  *
- * O `Intl` do pt-BR insere um espaço NÃO SEPARÁVEL (U+00A0) depois do `R$` —
- * não é o espaço do teclado, então procurar por `"R$ "` no código não acha
- * nada e a diferença atravessa a revisão. Foi assim que `Money`/`BRL` ficaram
- * colados enquanto a frase da dica ao lado seguia com respiro: o mesmo valor
- * sai por dois caminhos, e só um tinha sido corrigido.
+ * O `Intl` do pt-BR já põe o U+00A0; a função existe para que QUALQUER
+ * separador que venha (nenhum, o espaço do teclado, o fino) saia sempre o
+ * mesmo, porque o mesmo dinheiro sai por quatro caminhos (`Money`/`BRL`, o
+ * herói, este formatador e as strings montadas à mão) e uma grafia só.
+ * Não separável: "R$" no fim de uma linha e o número na outra não é valor.
  *
  * Vale para o texto que a IA escreve, o rótulo de leitor de tela, o tooltip e
  * a planilha exportada — é o mesmo dinheiro, e uma grafia só.
  */
+export const ESPACO_MOEDA = " ";
 function semRespiro(s: string): string {
-  // Só o separador que vem LOGO APÓS a moeda: `\s` alcança o U+00A0, e ancorar
-  // na moeda preserva o espaço do formato compacto ("R$1,3 mi") — colar ali
-  // produziria "R$1,3mi", que é outra coisa.
-  return s.replace(/R\$\s+/g, "R$");
+  // Só o separador que vem LOGO APÓS a moeda; o espaço do formato compacto
+  // ("R$ 1,3 mi") fica como está.
+  return s.replace(/R\$\s*/g, "R$" + ESPACO_MOEDA);
 }
 
-/** "R$1.284.900,00" — full BRL string (for tooltips, sr-only, axes). */
+/** "R$ 1.284.900,00" — full BRL string (for tooltips, sr-only, axes). */
 export function formatBRL(value: number): string {
   return semRespiro(brl.format(value));
 }
 
-/** "R$1,3 mi" — compact BRL (for tight chart axes). */
+/** "R$ 1,3 mi" — compact BRL (for tight chart axes). Os espaços saem NÃO
+ *  separáveis: o eixo do gráfico quebra a linha no espaço comum e o rótulo
+ *  virava "R$" numa linha e o número na outra. */
 export function formatBRLCompact(value: number): string {
-  return semRespiro(brlCompact.format(value));
+  return semRespiro(brlCompact.format(value)).replace(/ /g, "\u00A0");
 }
 
 /**
@@ -95,7 +98,7 @@ export function pct(fracao: number, casas = 1): string {
  * O `toFixed` devolve o hífen do teclado e era ele que saía na tela ("-12,4%"),
  * desalinhando a coluna ao lado de um "−3,1%" montado à mão. E o arredondamento
  * que chega a zero não carrega sinal: "−0,0%" afirma uma queda que não existe.
- * (A grafia do DINHEIRO negativo, `-R$1.000,00`, é outra âncora — não muda aqui.)
+ * (A grafia do DINHEIRO negativo, `-R$ 1.000,00`, é outra âncora — não muda aqui.)
  */
 export function pctDeInteiro(pontos: number, casas = 1): string {
   if (!Number.isFinite(pontos)) return "—";

@@ -57,10 +57,7 @@ export function DashboardsCustomView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[60ch]">
-          Crie e organize painéis com os widgets e dados que importam para você.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" onClick={abrirTemplate}>
             <Icon name="sparkles" size={15} color="currentColor" />
@@ -193,9 +190,7 @@ function Editor({
               />
               <div className="min-w-0">
                 <div className="text-label text-ink">Visível em todas as minhas empresas</div>
-                <div className="text-caption text-faint">
-                  Os widgets carregam os dados da empresa selecionada no momento.
-                </div>
+
               </div>
             </div>
 
@@ -281,9 +276,7 @@ function Editor({
         <Card>
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <p className="m-0 text-h3 font-semibold text-ink">Nenhum widget ainda</p>
-            <p className="m-0 text-caption text-muted max-w-[46ch]">
-              Use “Adicionar widget” para escolher do catálogo. Reordene com as setas de cada card.
-            </p>
+
           </div>
         </Card>
       ) : (

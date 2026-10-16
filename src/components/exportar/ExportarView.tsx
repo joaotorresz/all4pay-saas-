@@ -243,7 +243,7 @@ export function ExportarView() {
             * NÃO soma — a coluna "No DRE" diz "Não" e o motivo vem escrito.
             */}
           <Checkbox
-            label="Listar também os lançamentos cancelados (marcados, e sem somar no resultado)"
+            label="Listar também os lançamentos cancelados"
             checked={incluiCancelados}
             onChange={(e) => setIncluiCancelados(e.target.checked)}
           />
@@ -261,8 +261,7 @@ export function ExportarView() {
         <Card>
           <StatusBadge tone="warning">Intervalo invertido</StatusBadge>
           <p className="mt-2 text-body text-muted">
-            A data inicial é posterior à final. Um intervalo que não existe devolveria
-            um arquivo vazio, e vazio se lê como &ldquo;não houve movimento&rdquo;.
+            A data inicial é posterior à final.
           </p>
         </Card>
       )}
@@ -276,14 +275,12 @@ export function ExportarView() {
             <Numero
               rotulo="Fora do DRE"
               valor={String(exportacao.resumo.movimentosForaDoDre)}
-              nota="listados, com o motivo, e sem somar"
             />
             <Numero rotulo="Resultado líquido" valor={<BRL value={exportacao.resumo.resultado} />} />
           </div>
           {exportacao.resumo.movimentos === 0 && (
             <p className="mt-4 text-body text-muted">
-              Nenhum lançamento neste período. Um arquivo vazio não é erro — mas
-              confira o recorte antes de enviá-lo ao contador.
+              Nenhum lançamento neste período.
             </p>
           )}
         </Card>
@@ -293,9 +290,7 @@ export function ExportarView() {
         <Card>
           <StatusBadge tone="warning">O razão não fecha com o DRE</StatusBadge>
           <p className="mt-2 text-body text-muted">
-            O download está bloqueado. Somar o razão por linha tem de reproduzir o
-            consolidado — é a primeira conta que o contador faz, e ele não pode ser
-            o primeiro a ver a diferença.
+            O download está bloqueado.
           </p>
           <ul className="mt-3 flex flex-col gap-1">
             {divergencias.map((d) => (
@@ -310,9 +305,6 @@ export function ExportarView() {
 
       <Card>
         <h2 className="text-h2">Baixar</h2>
-        <p className="mt-1 text-caption text-muted">
-          O XLSX traz as duas abas (Razão e DRE). O CSV sai um arquivo por vez.
-        </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button onClick={() => baixar("xlsx")} disabled={!pronto || !!baixando}>
             <Icon name="download" className="mr-2" />
@@ -326,22 +318,16 @@ export function ExportarView() {
           </Button>
         </div>
         {erro && <p className="mt-3 text-caption text-negative">{erro}</p>}
-        <p className="mt-4 text-caption text-faint">
-          Os dois arquivos abrem com o cabeçalho da empresa, o período, o regime e a
-          data de geração — o contador precisa saber sob que premissa os números
-          foram montados.
-        </p>
       </Card>
     </div>
   );
 }
 
-function Numero({ rotulo, valor, nota }: { rotulo: string; valor: React.ReactNode; nota?: string }) {
+function Numero({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="a4p-label text-muted">{rotulo}</span>
       <span className="text-h2 text-ink tabular-nums">{valor}</span>
-      {nota && <span className="text-caption text-faint">{nota}</span>}
     </div>
   );
 }

@@ -108,7 +108,7 @@ const CASES: [string, RegExp, string][] = [
   // Simples Nacional Anexo III 500k RBT12 (faixa 3): efetiva (500000·0.135−17640)/500000 = 9.972% ≈ 10%
   ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /EFETIVA é 10%/, "(500000·0.135−17640)/500000 = 9.972%"],
   // DAS = 40000 · 0.09972 = 3988.80 ≈ R$ 3.989
-  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /DAS fica em R\$.?3\.988,80/, "40000 · 9.972% = 3988,80 — o formatador de 0 casas dizia R$3.989 e sumia com 20 centavos de imposto"],
+  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /DAS fica em R\$.?3\.988,80/, "40000 · 9.972% = 3988,80 — o formatador de 0 casas dizia R$ 3.989 e sumia com 20 centavos de imposto"],
   // Anexo I faixa 1 (≤180k): efetiva = nominal 4%
   ["qual meu DAS no anexo I com faturamento de 100 mil anual e 15 mil no mês?", /EFETIVA é 4%/, "faixa 1 → nominal = efetiva 4%"],
   // teto: 5 milhões estoura 4,8M

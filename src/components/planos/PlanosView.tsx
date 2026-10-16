@@ -21,7 +21,6 @@ import { dataBR } from "@/lib/format";
 import { Card, Button, Icon, StatusBadge } from "@/components/ui";
 import { BENEFICIOS_PRO } from "@/core/planos";
 import { usePlano } from "@/lib/plano";
-import { isDemo } from "@/lib/demo";
 
 /** Rótulo humano da rota pedida — ninguém lê caminho de URL. */
 const NOME_DA_ROTA: Record<string, string> = {
@@ -72,10 +71,6 @@ export function PlanosView() {
               <Icon name="shield-check" size={18} color="var(--color-warning)" />
               <span className="text-h3 text-ink">{pedido} faz parte do Pro</span>
             </div>
-            <p className="m-0 text-label text-muted max-w-[62ch]">
-              Você pediu uma tela que o seu plano atual não inclui. Nada foi perdido —
-              volte quando quiser, ou faça o upgrade e siga direto para lá.
-            </p>
             <div className="flex items-center gap-2 pt-1">
               <Button onClick={() => router.push("/dashboard/administration/subscription")}>
                 Ver assinatura
@@ -92,12 +87,6 @@ export function PlanosView() {
               {estado.aberto ? "Demonstração — tudo liberado" : estado.nome}
             </StatusBadge>
           </div>
-          {isDemo && (
-            <p className="m-0 text-caption text-faint max-w-[62ch]">
-              Em demonstração o gating fica desligado: todas as telas abrem para você
-              conhecer o produto inteiro. Em produção, o bloqueio acontece no servidor.
-            </p>
-          )}
           {assinatura && (assinatura.emTeste || assinatura.bloqueado) && (
             <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
               <div className="flex items-baseline gap-2 flex-wrap pt-3">
@@ -118,12 +107,6 @@ export function PlanosView() {
                 </span>
               )}
               <p className="m-0 text-caption text-muted max-w-[62ch]">{assinatura.aviso}</p>
-              {assinatura.bloqueado && (
-                <p className="m-0 text-caption text-faint max-w-[62ch]">
-                  Consultar, filtrar, imprimir e exportar continuam liberados. O que está
-                  suspenso é registrar coisa nova.
-                </p>
-              )}
             </div>
           )}
         </Card>

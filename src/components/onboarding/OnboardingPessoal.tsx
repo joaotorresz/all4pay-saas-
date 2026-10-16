@@ -161,12 +161,6 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
               <span className="text-h3 font-medium text-ink">Criar conta pessoal</span>
               <span className="text-label font-medium tabular-nums text-ink">{progress}%</span>
             </div>
-          {/* O aviso de beta é parte do plano de lançamento: declarar o que
-              ainda não faz é o que faz um beta ser levado a sério. */}
-          <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
-            Beta gratuito. Seus dados são reais e ficam salvos; algumas integrações ainda
-            estão chegando. <a href="/privacidade" className="underline hover:text-ink">Como tratamos seus dados</a>.
-          </p>
             <div className="h-2 rounded-pill bg-surface-2 overflow-hidden mt-2">
               <div className="h-full rounded-pill bg-ink transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
@@ -177,14 +171,12 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
                 </span>
               ))}
             </div>
-            <p className="m-0 text-caption text-muted mt-2">Controle seus gastos do dia a dia, sem complicação.</p>
           </div>
         </div>
 
         <Card className="flex flex-col gap-4">
           {step === 0 && (
             <>
-              <p className="m-0 text-caption text-muted">Comece com o básico. Leva menos de 2 minutos.</p>
               <Input label="Como podemos te chamar?" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" />
               {configured && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -197,7 +189,6 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
 
           {step === 1 && (
             <>
-              <p className="m-0 text-caption text-muted">Onde seu dinheiro fica e quanto entra por mês.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <CurrencyInput label="Renda mensal" value={rendaMensal} onValueChange={setRendaMensal} />
                 <CurrencyInput label="Saldo atual (opcional)" value={saldoInicial} onValueChange={setSaldoInicial} />
@@ -210,7 +201,6 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
 
           {step === 2 && (
             <>
-              <p className="m-0 text-caption text-muted">No que você costuma gastar? Escolha as categorias do seu dia a dia.</p>
               <Campo label="Categorias de gasto">
                 <Chips options={CATEGORIAS} value={categorias} onChange={setCategorias} />
               </Campo>
@@ -229,9 +219,6 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
                   </span>
                 ))}
               </div>
-              <p className="m-0 text-caption text-faint">
-                Você pode importar o extrato do banco depois em Contas &amp; carteiras — categorizamos seus gastos automaticamente.
-              </p>
               {erro && <p className="m-0 text-caption text-negative">{erro}</p>}
             </div>
           )}
@@ -245,7 +232,6 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
             <Button variant="primary" onClick={finalizar} disabled={aplicando}>{aplicando ? "Entrando…" : "Concluir e entrar"}</Button>
           )}
         </div>
-        <p className="text-center text-caption text-faint">Pode avançar com campos em branco — dá para ajustar tudo depois.</p>
       </div>
       </div>
     </MolduraPublica>

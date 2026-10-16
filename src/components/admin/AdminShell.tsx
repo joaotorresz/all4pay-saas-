@@ -46,7 +46,7 @@ export function AdminShell({ actions, children }: { actions?: React.ReactNode; c
 
   return (
     <div className="a4p-canvas fixed inset-0 flex flex-col overflow-hidden">
-      <header className="shrink-0 flex items-center gap-3 h-[60px] px-5 mx-3 mt-3 a4p-topbar bg-white border border-border rounded-[20px]">
+      <header className="shrink-0 flex items-center gap-3 h-[60px] px-5 mx-3 mt-3 a4p-topbar bg-white rounded-[20px]">
         <Link href="/admin" className="flex items-center gap-3 min-w-0" aria-label="Administração da plataforma">
           <Image src="/quattro-logo.webp" alt="Quattro" width={120} height={33} className="h-[24px] w-auto" priority />
           <span className="a4p-label text-muted whitespace-nowrap">Administração</span>
@@ -75,7 +75,7 @@ export function AdminShell({ actions, children }: { actions?: React.ReactNode; c
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 gap-3 p-3">
         <nav
           aria-label="Seções da administração"
-          className="a4p-sidebar shrink-0 bg-white border border-border rounded-[20px] p-2 lg:p-4 lg:w-[232px] flex lg:flex-col gap-1 overflow-x-auto"
+          className="a4p-sidebar shrink-0 bg-white rounded-[20px] p-2 lg:p-4 lg:w-[232px] flex lg:flex-col gap-1 overflow-x-auto"
         >
           {SECOES_ADMIN.map((s) => {
             const on = s.id === ativa.id;
@@ -103,7 +103,6 @@ export function AdminShell({ actions, children }: { actions?: React.ReactNode; c
               >
                 {ativa.rotulo}
               </h1>
-              <p className="m-0 mt-1 text-caption text-muted">{ativa.resumo}</p>
             </div>
             {actions && <div className="flex items-center gap-[10px] flex-wrap justify-end">{actions}</div>}
           </header>

@@ -16,7 +16,7 @@ import { Card, Button, Icon, Input, Select, DateField, Switch, BancoLogo } from 
 import { useToast } from "@/components/listas/ListChrome";
 import {
   CATALOGO_INTEGRACOES, PLATAFORMAS_VENDAS, BANCOS_OPEN_FINANCE,
-  CONSENTIMENTO_MESES, consentimentoOpenFinance, certificadoValido, mascararSegredo,
+  consentimentoOpenFinance, certificadoValido, mascararSegredo,
   type CartaoIntegracao,
 } from "@/core/administracao";
 import { PinbankPainel } from "@/components/administracao/PinbankPainel";
@@ -88,9 +88,6 @@ export function IntegracoesView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="m-0 text-label text-muted max-w-[80ch]">
-        Conecte a Quattro às plataformas externas que automatizam entrada de dados e emissão fiscal.
-      </p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {CATALOGO_INTEGRACOES.map((c) => {
           const e = estados[c.id];
@@ -142,7 +139,6 @@ function PainelIntegracao({
           </span>
           <div className="flex flex-col gap-1 min-w-0">
             <span className="text-h2 font-semibold text-ink">{cartao.titulo}</span>
-            <span className="text-label text-muted max-w-[80ch]">{cartao.descricao}</span>
             {estado.atualizadoEm && (
               <span className="text-caption text-faint">Atualizado em {fmtDia(estado.atualizadoEm)}</span>
             )}
@@ -153,7 +149,6 @@ function PainelIntegracao({
       {cartao.id === "plataformas" && (
         <Conectores
           titulo="Conectores disponíveis"
-          nota="Cada plataforma pede credenciais próprias, um webhook e um prazo de baixa — os três precisam bater com o painel do gateway, senão a venda entra sem o recebimento."
           itens={PLATAFORMAS_VENDAS} estado={estado} onMudar={onMudar} toast={toast}
         />
       )}
@@ -161,14 +156,12 @@ function PainelIntegracao({
       {cartao.id === "emissao-nf" && (
         <Certificado
           estado={estado} onMudar={onMudar} toast={toast} hoje={hoje}
-          nota="A emissão exige certificado digital válido. Vencido, a plataforma não assina a nota — e a venda fica sem documento fiscal."
         />
       )}
 
       {cartao.id === "receber-nf" && (
         <Certificado
           estado={estado} onMudar={onMudar} toast={toast} hoje={hoje}
-          nota="A consulta à SEFAZ roda de madrugada com o certificado A1 (.pfx/.p12) e a senha dele. Sem certificado válido a captura simplesmente para — e ninguém percebe, porque a tela de NFs recebidas continua abrindo."
         />
       )}
 
@@ -176,11 +169,6 @@ function PainelIntegracao({
         <Card>
           <div className="flex flex-col gap-4">
             <span className="text-h3 font-semibold text-ink">Envios automáticos</span>
-            <p className="m-0 text-caption text-faint max-w-[84ch]">
-              Os dois interruptores são <strong>independentes</strong>: há escritório que quer os
-              XMLs mas lança o extrato à mão, e o contrário também acontece. Um interruptor só
-              obrigaria a mandar o que ninguém pediu.
-            </p>
             <Chave
               rotulo="Enviar NFs emitidas e recebidas" chave="nfs" estado={estado}
               onMudar={onMudar} toast={toast}
@@ -189,10 +177,7 @@ function PainelIntegracao({
               rotulo="Enviar extratos bancários" chave="extratos" estado={estado}
               onMudar={onMudar} toast={toast}
             />
-            <div className="pt-3 border-t border-border-soft flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-caption text-muted">
-                Geração manual por período fica em Contabilidade › TXT Domínio.
-              </span>
+            <div className="pt-3 border-t border-border-soft flex items-center justify-end gap-3 flex-wrap">
               <Button variant="ghost" onClick={() => { window.location.href = "/dashboard/accounting/dominio-export"; }}>
                 Abrir gerador ↗
               </Button>
@@ -205,10 +190,6 @@ function PainelIntegracao({
         <Card>
           <div className="flex flex-col gap-4">
             <span className="text-h3 font-semibold text-ink">Termo de adesão</span>
-            <p className="m-0 text-caption text-muted max-w-[84ch]">
-              O DDA entrega à plataforma todo boleto emitido contra o seu CNPJ na CIP. A adesão é
-              um ato do titular — por isso ela exige aceite explícito, e não um interruptor.
-            </p>
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox" checked={estado.ativa}
@@ -223,9 +204,6 @@ function PainelIntegracao({
                 boletos emitidos contra o CNPJ desta empresa.
               </span>
             </label>
-            <span className="text-caption text-faint">
-              Os boletos capturados aparecem em Compras › Boletos recebidos.
-            </span>
           </div>
         </Card>
       )}
@@ -246,9 +224,9 @@ function PainelIntegracao({
 /* --------------------------------- blocos --------------------------------- */
 
 function Conectores({
-  titulo, nota, itens, estado, onMudar, toast, comLogoDeBanco = false,
+  titulo, itens, estado, onMudar, toast, comLogoDeBanco = false,
 }: {
-  titulo: string; nota: string; itens: string[];
+  titulo: string; itens: string[];
   /** Lista de BANCOS: cada item ganha o logo do banco (ou as iniciais). */
   comLogoDeBanco?: boolean;
   estado: EstadoIntegracao; onMudar: (e: EstadoIntegracao) => void; toast: (s: string) => void;
@@ -274,7 +252,6 @@ function Conectores({
             {conectados.length} de {itens.length} conectadas
           </span>
         </div>
-        <p className="m-0 text-caption text-faint max-w-[84ch]">{nota}</p>
         <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar conector…" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {lista.map((nome) => {
@@ -304,10 +281,10 @@ function Conectores({
 }
 
 function Certificado({
-  estado, onMudar, toast, hoje, nota,
+  estado, onMudar, toast, hoje,
 }: {
   estado: EstadoIntegracao; onMudar: (e: EstadoIntegracao) => void;
-  toast: (s: string) => void; hoje: string; nota: string;
+  toast: (s: string) => void; hoje: string;
 }) {
   const [senha, setSenha] = React.useState("");
   const [validade, setValidade] = React.useState(estado.certificadoValidade ?? "");
@@ -317,7 +294,6 @@ function Certificado({
     <Card>
       <div className="flex flex-col gap-4">
         <span className="text-h3 font-semibold text-ink">Certificado digital</span>
-        <p className="m-0 text-caption text-faint max-w-[84ch]">{nota}</p>
 
         {estado.certificadoValidade && (
           <div className="rounded-md bg-surface-2 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -414,11 +390,6 @@ function OpenFinance({
       <Card>
         <div className="flex flex-col gap-4">
           <span className="text-h3 font-semibold text-ink">Consentimento</span>
-          <p className="m-0 text-caption text-faint max-w-[84ch]">
-            O consentimento do Open Finance vale <strong>{CONSENTIMENTO_MESES} meses</strong> — é
-            regra do Banco Central, não escolha da plataforma. Quando ele vence, a sincronização
-            de extrato e saldo PARA, e o saldo da tela congela no último dia que entrou.
-          </p>
           {consent ? (
             <div className="rounded-md bg-surface-2 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
               <span className="flex flex-col">
@@ -456,7 +427,6 @@ function OpenFinance({
 
       <Conectores
         titulo="Bancos homologados"
-        nota="Só o que está homologado sincroniza. Conta em banco fora da lista continua entrando por importação de extrato."
         itens={BANCOS_OPEN_FINANCE} estado={estado} onMudar={onMudar} toast={toast} comLogoDeBanco
       />
       {conectados.length > 0 && !consent && (
@@ -500,11 +470,6 @@ function APIs({
       <Card>
         <div className="flex flex-col gap-4">
           <span className="text-h3 font-semibold text-ink">Chave de API</span>
-          <p className="m-0 text-caption text-faint max-w-[84ch]">
-            A autenticação é por header <code className="tabular-nums">X-API-Key</code>. A chave
-            aparece <strong>uma única vez</strong>, no momento em que é gerada: reexibi-la depois
-            transformaria qualquer print ou sessão aberta num vazamento silencioso.
-          </p>
 
           {novaChave ? (
             <div className="rounded-md bg-lime-tint px-4 py-3 flex flex-col gap-2">
@@ -544,22 +509,12 @@ function APIs({
               {estado.credencialMascarada ? "Gerar nova chave" : "Gerar chave"}
             </Button>
           </div>
-          {estado.credencialMascarada && (
-            <span className="text-caption text-faint">
-              Gerar uma nova invalida a anterior — integrações que ainda usam a antiga param na hora.
-            </span>
-          )}
         </div>
       </Card>
 
       <Card>
         <div className="flex flex-col gap-4">
           <span className="text-h3 font-semibold text-ink">Webhook de vendas</span>
-          <p className="m-0 text-caption text-faint max-w-[84ch]">
-            A URL que recebe cada venda sincronizada. Precisa aceitar POST e responder 2xx — uma
-            resposta de erro faz a plataforma reenviar, e o reenvio sem idempotência do seu lado
-            duplica a venda.
-          </p>
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3">
             <Input value={webhook} onChange={(e) => setWebhook(e.target.value)} placeholder="https://seu-sistema.com.br/webhooks/vendas" />
             <Button
@@ -604,11 +559,6 @@ function MCP({
     <Card>
       <div className="flex flex-col gap-4">
         <span className="text-h3 font-semibold text-ink">Acesso de IAs</span>
-        <p className="m-0 text-caption text-faint max-w-[84ch]">
-          O MCP dá a uma IA acesso direto aos dados financeiros da empresa. O escopo é a única
-          barreira — conceder escrita para uma pergunta de leitura é dar à IA a capacidade de
-          criar lançamento que ninguém pediu.
-        </p>
         <Select
           label="Forma de autenticação" value={modo} onChange={(v) => setModo(v as "bearer" | "oauth")}
           options={[
