@@ -448,7 +448,7 @@ function BotaoIcone({
     <button
       onClick={onClick}
       aria-label={label}
-      className={`p-1 rounded-md bg-white/90 text-muted hover:bg-surface-2 ${perigo ? "hover:text-negative" : "hover:text-ink"}`}
+      className={`p-1 rounded-md bg-white text-muted hover:bg-surface-2 ${perigo ? "hover:text-negative" : "hover:text-ink"}`}
     >
       <Icon name={icone} size={14} color="currentColor" />
     </button>

@@ -163,7 +163,7 @@ function EmitirModal({ mov, contas, busy, onClose, onConfirm, nome }: {
   const [instrucoes, setInstrucoes] = React.useState("");
   const [conta, setConta] = React.useState(mov.account_id || (contas[0]?.id ?? ""));
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-[2px] flex items-start justify-center z-[80] p-6 overflow-y-auto" onClick={() => !busy && onClose()}>
+    <div className="fixed inset-0 bg-black/30 flex items-start justify-center z-[80] p-6 overflow-y-auto" onClick={() => !busy && onClose()}>
       <div className="w-[460px] max-w-full my-auto" onClick={(e) => e.stopPropagation()}>
         <Card className="flex flex-col gap-3">
           <span className="text-h3 font-medium text-ink">Emitir boleto</span>

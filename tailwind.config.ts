@@ -75,11 +75,6 @@ const config: Config = {
         // barra, realce), nunca texto: 1,69:1 sobre o branco quente.
         "positive-spot": "var(--color-positive-spot)",
 
-        // ---- Aurora glass (superfícies translúcidas; blur via CSS) ----
-        glass: {
-          DEFAULT: "var(--glass-bg)", // vidro dos cards
-          strong: "var(--glass-bg-strong)", // vidro dos overlays (popover/sidebar)
-        },
       },
       fontFamily: {
         // ⚠️ TRÊS FAMÍLIAS, TRÊS PAPÉIS (guia vigente):
@@ -150,8 +145,8 @@ const config: Config = {
       borderRadius: escalas.borderRadius,
       borderWidth: escalas.borderWidth, // borda do campo de formulário (guia Quattro)
       boxShadow: {
-        // Aurora glass — sombras var-backed (globals.css define claro/escuro):
-        // fio luminoso 1px (inset) + ambiente suave. hero-glow é marketing.
+        // Sombras var-backed (globals.css define claro/escuro). Sem vidro:
+        // nenhum fio luminoso nem desfoque (16/10/2026). hero-glow é marketing.
         card: "var(--shadow-card)",
         popover: "var(--shadow-popover)",
         pill: "var(--shadow-pill)",

@@ -104,7 +104,7 @@ export function PageGuide() {
       </button>
 
       {conviteTour && !convite && (
-        <div className="a4p-glass fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
+        <div className="a4p-sobreposto fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
           <div className="flex items-start gap-2">
             <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0">
               <Icon name="help-circle" size={14} color="var(--color-on-lime)" />
@@ -136,7 +136,7 @@ export function PageGuide() {
       )}
 
       {convite && (
-        <div className="a4p-glass fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
+        <div className="a4p-sobreposto fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
           <div className="flex items-start gap-2">
             <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0">
               <Icon name="help-circle" size={14} color="var(--color-on-lime)" />
