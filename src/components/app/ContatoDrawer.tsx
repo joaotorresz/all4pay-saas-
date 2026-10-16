@@ -9,7 +9,7 @@
  * últimos lançamentos. Montado uma vez no AppShell. Demo/live idêntico.
  */
 import * as React from "react";
-import { Icon, InfoHint, BRL } from "@/components/ui";
+import { Icon, InfoHint, BRL, BarrasDestaque } from "@/components/ui";
 import { formatBRL, pct } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
@@ -70,7 +70,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
     <>
       <div onClick={onClose} className={`fixed inset-0 z-[78] bg-black/30 transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} aria-hidden />
       <aside role="dialog" aria-label="Ficha do contato"
-        className={`a4p-glass fixed top-0 right-0 z-[80] h-full w-full sm:w-[440px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`a4p-sobreposto fixed top-0 right-0 z-[80] h-full w-full sm:w-[440px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ boxShadow: "-12px 0 40px rgba(14,19,30,0.12)" }}>
         <header className="flex items-center gap-3 px-5 h-[64px] border-b border-border-soft shrink-0">
           <span className="w-9 h-9 rounded-pill bg-surface-2 inline-flex items-center justify-center shrink-0">
@@ -115,7 +115,8 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                     Recebido por mês
                     <InfoHint align="left" oQue="Quanto este contato pagou a você mês a mês, nos últimos 6 meses." comoCalcula="Soma das entradas pagas do contato, agrupadas pelo mês de caixa (paid_date)." />
                   </div>
-                  <Sparkline data={resumo.historico} />
+                  <BarrasDestaque tom="claro" altura={140} rotuloSerie="Recebido" ariaLabel="Recebido por mês, últimos 6 meses"
+                    dados={resumo.historico.map((h) => ({ label: h.mes, valor: h.valor }))} />
                 </section>
               )}
 
@@ -175,24 +176,6 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
         </div>
       </aside>
     </>
-  );
-}
-
-/** Mini-histórico em barras (CSS, responsivo) — recebido por mês. */
-function Sparkline({ data }: { data: { mes: string; valor: number }[] }) {
-  const max = Math.max(1, ...data.map((d) => d.valor));
-  return (
-    <div>
-      <div className="flex items-end gap-1.5 h-12">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 rounded-sm transition-all" title={`${d.mes}: ${formatBRL(d.valor)}`}
-            style={{ height: `${Math.max(3, (d.valor / max) * 100)}%`, background: d.valor > 0 ? "var(--color-ink)" : "var(--color-surface-2)" }} />
-        ))}
-      </div>
-      <div className="flex gap-1.5 mt-1">
-        {data.map((d, i) => <span key={i} className="flex-1 text-center text-[10px] text-faint capitalize">{d.mes}</span>)}
-      </div>
-    </div>
   );
 }
 

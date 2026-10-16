@@ -30,6 +30,7 @@ import {
   mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes, pedeCatalogo, respostaDoAjuste, respostaDoCatalogo, visiveis,
   type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LarguraHome, type LayoutHome,
 } from "@/core/home/itens";
+import { MaquininhaRecentes } from "./MaquininhaRecentes";
 import { CATALOG_BY_ID, useCockpitCtx } from "./cockpit";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -957,15 +958,26 @@ export function HomeSnapshot() {
         faixasDoPainel(layout).map((f) => (
           <div key={f.ids.join("|")} className={GRADE}>
             {f.ids.map((id, i) => {
-              const n = numero(id);
-              if (!n) return null;
+              // Três grandes (a maquininha, o caixa e o ARR) dividem a linha em
+              // terços: sem isso o terceiro caía sozinho na linha de baixo.
+              const tres = f.tamanho === "grande" && f.ids.length === 3 && !layout.larguras?.[id];
               // O último de uma faixa ímpar ocupa a linha inteira: sozinho em
               // meia linha, ele deixava um buraco ao lado (um pequeno subindo
               // sozinho para o topo ficava com meia tela vazia). Só enquanto a
               // pessoa não deu largura a ele: a largura dada vale.
-              const sozinho = f.ids.length % 2 === 1 && i === f.ids.length - 1 && !layout.larguras?.[id];
+              const sozinho = !tres && f.ids.length % 2 === 1 && i === f.ids.length - 1 && !layout.larguras?.[id];
+              const largura: LarguraHome | undefined = tres ? 4 : sozinho ? 12 : undefined;
+              if (id === "maquininha") {
+                return (
+                  <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>
+                    <MaquininhaRecentes />
+                  </ItemArrastavel>
+                );
+              }
+              const n = numero(id);
+              if (!n) return null;
               return (
-                <ItemArrastavel key={id} id={id} arraste={arraste} largura={sozinho ? 12 : undefined}>
+                <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>
                   {f.tamanho === "grande" && n.curva ? <CardGrande n={n} curva={n.curva} carimbo={carimbo} /> : <CardPequeno n={n} carimbo={carimbo} />}
                 </ItemArrastavel>
               );

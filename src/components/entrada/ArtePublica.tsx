@@ -17,11 +17,12 @@ export function ArtPanel({ pessoal }: { pessoal: boolean }) {
       style={{ background: "linear-gradient(135deg, var(--color-lime) 0%, var(--color-ink) 78%)" }}
       aria-hidden
     >
-      {/* camadas/quadrados arredondados sobrepostos */}
-      <div className="absolute rounded-card" style={{ width: 360, height: 360, top: "12%", left: "18%", background: "rgba(255,255,255,0.10)", transform: "rotate(14deg)" }} />
-      <div className="absolute rounded-card" style={{ width: 280, height: 280, top: "34%", left: "40%", background: "var(--color-lime-tint)", opacity: 0.18, transform: "rotate(-10deg)" }} />
-      <div className="absolute rounded-card" style={{ width: 220, height: 220, top: "52%", left: "20%", background: "rgba(0,0,0,0.18)", transform: "rotate(8deg)" }} />
-      <div className="absolute rounded-pill" style={{ width: 520, height: 520, top: "-10%", right: "-12%", background: "rgba(200,217,48,0.18)", filter: "blur(2px)" }} />
+      {/* camadas/quadrados arredondados sobrepostos — SÓLIDOS (sem vidro,
+          16/10/2026): misturas opacas dos tokens, nada translúcido nem desfocado. */}
+      <div className="absolute rounded-card" style={{ width: 360, height: 360, top: "12%", left: "18%", background: "color-mix(in srgb, var(--color-lime) 46%, var(--color-ink))", transform: "rotate(14deg)" }} />
+      <div className="absolute rounded-card" style={{ width: 280, height: 280, top: "34%", left: "40%", background: "color-mix(in srgb, var(--color-lime) 30%, var(--color-ink))", transform: "rotate(-10deg)" }} />
+      <div className="absolute rounded-card" style={{ width: 220, height: 220, top: "52%", left: "20%", background: "color-mix(in srgb, var(--color-ink) 82%, var(--color-lime))", transform: "rotate(8deg)" }} />
+      <div className="absolute rounded-pill" style={{ width: 520, height: 520, top: "-10%", right: "-12%", background: "color-mix(in srgb, var(--color-lime) 78%, var(--color-ink))" }} />
       <div className="absolute inset-0 flex items-end p-12">
         <div className="max-w-[420px]">
           <p className="m-0 text-h3 font-medium leading-tight" style={{ color: "var(--color-white)" }}>

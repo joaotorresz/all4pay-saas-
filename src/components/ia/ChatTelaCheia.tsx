@@ -18,9 +18,15 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { BolhaResposta, EtapasAnalise, type Turno } from "./chat-kit";
 import { useChatIA } from "./useChatIA";
+import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
+
+/** O que vem depois de um texto que surge entra quando ele termina de surgir. */
+const depois = (texto: string, extra = 0) =>
+  ({ "--a4p-atraso": `${duracaoRevelar(texto) - 200 + extra}ms` } as React.CSSProperties);
 import {
   agruparPorRecencia, apagarConversa, getConversa, inscreverConversas, listarConversas, salvarConversa,
   type Conversa,
@@ -110,6 +116,16 @@ export function ChatTelaCheia({
     setConversas(listarConversas());
   }, []);
   const chat = useChatIA({ onMudou: aoMudar });
+  // Só a resposta que ACABOU de chegar surge palavra por palavra: uma conversa
+  // reaberta do histórico aparece inteira (ninguém espera o texto velho ser
+  // "escrito" de novo).
+  const [novoId, setNovoId] = React.useState<number | null>(null);
+  const esperandoRef = React.useRef(false);
+  React.useEffect(() => { if (chat.pergunta) esperandoRef.current = true; }, [chat.pergunta]);
+  React.useEffect(() => {
+    const ultimo = chat.turnos[chat.turnos.length - 1];
+    if (esperandoRef.current && ultimo) { setNovoId(ultimo.id); esperandoRef.current = false; }
+  }, [chat.turnos]);
   const [montado, setMontado] = React.useState(false);
   const [saindo, setSaindo] = React.useState(false);
   const rolagemRef = React.useRef<HTMLDivElement>(null);
@@ -261,7 +277,11 @@ export function ChatTelaCheia({
       style={{ background: "var(--color-surface-1)" }}
     >
       <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
-        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
+        {/* A logo leva à Home, como a da barra de cima: o chat cobre a tela
+            inteira, e sem isto a única saída era "Fechar chat". */}
+        <Link href="/" onClick={fechar} aria-label="Ir para a Home" title="Ir para a Home" className="inline-flex">
+          <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
+        </Link>
         <div className="flex items-center gap-2">
           {!ajuste && <button
             type="button"
@@ -360,6 +380,7 @@ export function ChatTelaCheia({
                   <BolhaResposta
                     t={t}
                     variante="aberta"
+                    animar={t.id === novoId}
                     copia={chat.copia?.id === t.id ? chat.copia.estado : undefined}
                     onCopiar={chat.copiar}
                     onFeedback={chat.darFeedback}
@@ -489,18 +510,18 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
             <React.Fragment key={t.id}>
               <Pergunta texto={t.q} />
               {t.r === null ? (
-                <span className="self-start text-[14px] text-muted" aria-live="polite">Arrumando a sua Home…</span>
+                <DigitandoIA rotulo="Arrumando a sua Home" className="self-start" />
               ) : (
                 <div className="a4p-entra self-start flex flex-col gap-3 max-w-[90%]" data-ajuste="resposta">
-                  <p className="m-0 text-[16px] text-ink">{t.desfeito ? "Desfeito: a Home voltou a como estava." : t.r.abertura}</p>
+                  <p className="m-0 text-[16px] text-ink"><TextoRevelado texto={t.desfeito ? "Desfeito: a Home voltou a como estava." : t.r.abertura} /></p>
                   {!t.desfeito && t.r.mudancas.length > 0 && (
-                    <ul className="m-0 pl-5 flex flex-col gap-1 text-[15px] text-ink">
+                    <ul className="a4p-entra m-0 pl-5 flex flex-col gap-1 text-[15px] text-ink" style={depois(t.r.abertura)}>
                       {t.r.mudancas.map((m) => <li key={m}>{m}</li>)}
                     </ul>
                   )}
-                  {!t.desfeito && <p className="m-0 text-[15px] text-muted">{t.r.fecho}</p>}
+                  {!t.desfeito && <p className="a4p-entra m-0 text-[15px] text-muted" style={depois(t.r.abertura, 120)}>{t.r.fecho}</p>}
                   {!t.desfeito && t.r.desfazer && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="a4p-entra flex flex-wrap gap-2" style={depois(t.r.abertura, 240)}>
                       <button
                         type="button"
                         onClick={aoVerHome}

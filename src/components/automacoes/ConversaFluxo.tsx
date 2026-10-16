@@ -20,6 +20,7 @@
 import * as React from "react";
 import { Button, Card, Icon } from "@/components/ui";
 import { MarcaIA } from "@/components/ia/chat-kit";
+import { DigitandoIA, TextoRevelado } from "@/components/ia/conversa";
 import { CanvasFluxo } from "./CanvasFluxo";
 import { validarFluxo, type Fluxo } from "@/core/automacoes/fluxo";
 import {
@@ -130,10 +131,10 @@ export function ConversaFluxo({ pedidoInicial, onAbrir }: { pedidoInicial?: stri
               }
               data-fala={f.de}
             >
-              {f.texto}
+              {f.de === "ia" ? <TextoRevelado texto={f.texto} /> : f.texto}
             </p>
           ))}
-          {pensando && <p className="self-start text-caption text-muted">Montando o fluxo…</p>}
+          {pensando && <DigitandoIA rotulo="Montando o fluxo" className="self-start" />}
         </div>
       )}
 

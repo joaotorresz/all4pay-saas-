@@ -39,7 +39,7 @@ import { RAIO_TOPO, RAIO_BASE, tickBRL } from "@/lib/grafico";
  * ao lado do título, porque o canto direito é da seta.
  */
 export function CartaoBiblioteca({
-  titulo, href, info, valor, pesoValor = 500, subtitulo, extra, children, className,
+  titulo, href, info, valor, pesoValor = 600, subtitulo, extra, children, className,
 }: {
   titulo: string;
   href?: string;
@@ -55,7 +55,7 @@ export function CartaoBiblioteca({
     <Card className={`flex flex-col gap-2 ${className ?? ""}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2 min-w-0">
-          <span className="text-[13px] font-medium truncate" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
+          <span className="text-[13.5px] font-medium truncate" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
           {info && <InfoHint align="left" titulo={titulo} oQue={info.oQue} comoCalcula={info.comoCalcula} />}
         </span>
         {href && (
@@ -69,7 +69,7 @@ export function CartaoBiblioteca({
         )}
       </div>
       {valor != null && (
-        <span className="text-[22px] leading-none tabular-nums text-ink" style={{ fontWeight: pesoValor }}>{valor}</span>
+        <span className="text-[24px] leading-none tabular-nums text-ink" style={{ fontWeight: pesoValor }}>{valor}</span>
       )}
       {subtitulo != null && <span className="text-[11px]" style={{ color: "var(--color-text-tertiary)" }}>{subtitulo}</span>}
       {extra}
@@ -209,7 +209,7 @@ export interface PontoDestaque { label: string; valor: number; futuro?: boolean 
  * realizado — o período corrente.
  */
 export function BarrasDestaque({
-  dados, altura = 240, destaque, formatar, ariaLabel, rotuloSerie = "Valor",
+  dados, altura = 240, destaque, formatar, ariaLabel, rotuloSerie = "Valor", eixo = tickBRL, tom = "medio",
 }: {
   dados: PontoDestaque[];
   altura?: number;
@@ -217,6 +217,10 @@ export function BarrasDestaque({
   formatar?: Formatar;
   ariaLabel: string;
   rotuloSerie?: string;
+  /** Rótulo do eixo Y (padrão: reais curtos). Contagem passa `String`. */
+  eixo?: (v: number) => string;
+  /** "medio" = "Receita 2" (barras no cinza do texto); "claro" = "Receita 1" (barras claras). */
+  tom?: "medio" | "claro";
 }) {
   const realizados = dados.map((d, i) => (d.futuro ? -1 : i)).filter((i) => i >= 0);
   const alvo = destaque ?? realizados[realizados.length - 1] ?? -1;
@@ -226,7 +230,7 @@ export function BarrasDestaque({
         <ComposedChart data={dados} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
           <CartesianGrid stroke={GRADE} vertical={false} />
           <XAxis dataKey="label" tick={EIXO} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-          <YAxis tick={EIXO} tickLine={false} axisLine={false} width={64} tickFormatter={tickBRL} />
+          <YAxis tick={EIXO} tickLine={false} axisLine={false} width={64} tickFormatter={eixo} allowDecimals={eixo !== tickBRL ? false : undefined} />
           <Tooltip
             cursor={CURSOR}
             content={({ active, payload, label }) => {
@@ -247,7 +251,8 @@ export function BarrasDestaque({
             {dados.map((d, i) => (
               <Cell
                 key={d.label + i}
-                fill={i === alvo ? "var(--erp-graf-serie-1)" : d.futuro ? "var(--erp-graf-serie-5)" : "var(--erp-graf-serie-4)"}
+                fill={i === alvo ? "var(--erp-graf-serie-1)" : d.futuro ? "var(--erp-graf-serie-5)" : tom === "claro" ? "var(--erp-graf-serie-5)" : "var(--erp-graf-serie-4)"}
+                fillOpacity={d.futuro && tom === "claro" ? 0.5 : 1}
               />
             ))}
           </Bar>
@@ -313,9 +318,13 @@ export interface PontoArea { label: string; valor: number; base?: number }
  * valor e a variação contra o ponto anterior.
  */
 export function AreaComparada({
-  dados, altura = 240, ariaLabel, id, rotuloBase = "Comparação", formatar, sufixoRotulo,
+  dados, altura = 240, ariaLabel, id, rotuloBase = "Comparação", formatar, sufixoRotulo, zero = false, marcaX,
 }: {
   dados: PontoArea[];
+  /** Linha do zero (gráfico de risco: a cor dela é sinal de alerta). */
+  zero?: boolean;
+  /** Rótulo do eixo X onde cai um evento (a ruptura do caixa), marcado por uma linha vertical. */
+  marcaX?: string | null;
   altura?: number;
   ariaLabel: string;
   id: string;
@@ -333,6 +342,8 @@ export function AreaComparada({
           <CartesianGrid stroke={GRADE} vertical={false} />
           <XAxis dataKey="label" tick={EIXO} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={EIXO} tickLine={false} axisLine={false} width={64} tickFormatter={tickBRL} />
+          {zero && <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="3 3" />}
+          {marcaX && <ReferenceLine x={marcaX} stroke="var(--color-negative)" strokeWidth={1} />}
           <Tooltip
             cursor={{ stroke: "var(--erp-graf-serie-2)", strokeWidth: 1 }}
             content={({ active, payload, label }) => {

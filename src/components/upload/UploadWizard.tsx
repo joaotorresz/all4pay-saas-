@@ -154,7 +154,7 @@ export function UploadWizard() {
   if (!aberto) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-[2px] flex items-start justify-center z-[80] p-6 overflow-y-auto" onClick={() => setAberto(false)}>
+    <div className="fixed inset-0 bg-black/30 flex items-start justify-center z-[80] p-6 overflow-y-auto" onClick={() => setAberto(false)}>
       <div className="w-[620px] max-w-full my-auto" onClick={(e) => e.stopPropagation()}>
         <Card padded={false} className="flex flex-col max-h-[90vh]">
           {/* Header + passos */}

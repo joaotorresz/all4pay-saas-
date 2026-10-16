@@ -32,6 +32,7 @@ import { criarContaEEntrar } from "@/lib/entrada";
 import { saveCompany } from "@/lib/company";
 import { MIN_SENHA } from "@/core/recuperacao";
 import { MARCA_IA } from "@/core/marca";
+import { DigitandoIA, TextoRevelado, duracaoRevelar } from "@/components/ia/conversa";
 
 type Passo = "empresa" | "email" | "senha";
 type Etapa = Passo | "criando" | "confirme" | "erro" | "pronto";
@@ -92,6 +93,9 @@ export function CriarContaView() {
       setDigitando(false);
       const ultima = i === textos.length - 1;
       setFalas((fs) => [...fs, novaFala({ de: "ia", texto: textos[i], ...(ultima ? extra : {}) })]);
+      // A frase surge palavra por palavra: a próxima só começa quando ela termina.
+      if (!semMovimento.current) await esperar(duracaoRevelar(textos[i]));
+      if (!vivoRef.current) return;
     }
   }, []);
 
@@ -143,11 +147,13 @@ export function CriarContaView() {
     saveCompany({ db: { razaoSocial: nomeEmpresa, tipoConta: "empresa" } });
     // ⚠️ Uma exceção aqui (cliente do Supabase sem configuração, rede caída)
     // não pode deixar a conversa parada em "criando": vira a resposta de erro.
+    setDigitando(true);
     const r = await criarContaEEntrar(email, senha, nomeEmpresa).catch(() => ({
       ok: false as const, confirmarEmail: false,
       motivo: "Não foi possível concluir agora.", comoResolver: "Tente de novo em alguns segundos.",
     }));
     if (!vivoRef.current) return;
+    setDigitando(false);
     if (r.ok) {
       setEtapa("pronto");
       await falar(["Pronto! A sua conta está criada. Já vou te levar para dentro."]);
@@ -264,9 +270,12 @@ export function CriarContaView() {
               </div>
             ) : (
               <div key={f.id} className="a4p-entra self-start flex flex-col gap-3 max-w-[90%]" data-conversa="ia">
-                <p role={f.alerta ? "alert" : undefined} className="m-0 text-[17px] leading-[1.5] text-ink">{f.texto}</p>
+                <p role={f.alerta ? "alert" : undefined} className="m-0 text-[17px] leading-[1.5] text-ink"><TextoRevelado texto={f.texto} /></p>
                 {f.acoes && (
-                  <div className="flex flex-wrap gap-2">
+                  <div
+                    className="a4p-entra flex flex-wrap gap-2"
+                    style={{ "--a4p-atraso": `${duracaoRevelar(f.texto) - 200}ms` } as React.CSSProperties}
+                  >
                     {f.acoes.map((a) =>
                       a.href ? (
                         <Link key={a.rotulo} href={a.href} className="inline-flex items-center gap-2 h-11 px-5 rounded-pill text-[15px] a4p-pilula">
@@ -291,17 +300,7 @@ export function CriarContaView() {
               </div>
             ),
           )}
-          {digitando && (
-            <span className="a4p-entra self-start inline-flex gap-1 py-2" aria-label={`${MARCA_IA} está escrevendo`}>
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className="w-2 h-2 rounded-pill animate-pulse"
-                  style={{ background: "var(--color-text-tertiary)", animationDelay: `${i * 150}ms` }}
-                />
-              ))}
-            </span>
-          )}
+          {digitando && <DigitandoIA rotulo={etapa === "criando" ? "Criando a sua conta" : "Digitando"} className="self-start" />}
           {erroEmpresa && (
             <p id="erro-empresa" role="alert" className="a4p-entra m-0 self-start text-[17px] text-ink">
               {erroEmpresa} É ele que aparece no seu painel e nos relatórios.

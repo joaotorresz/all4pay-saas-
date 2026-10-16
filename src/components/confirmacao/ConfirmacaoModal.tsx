@@ -42,7 +42,7 @@ export function ConfirmacaoModal({ itens, onClose }: { itens: PendingMovement[];
   if (!m) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-[2px] flex items-start justify-center z-[80] p-6 overflow-y-auto" onClick={() => fechar()}>
+    <div className="fixed inset-0 bg-black/30 flex items-start justify-center z-[80] p-6 overflow-y-auto" onClick={() => fechar()}>
       <div className="w-[480px] max-w-full my-auto" onClick={(e) => e.stopPropagation()}>
         <Card className="flex flex-col gap-4">
           <div className="flex items-center justify-between">

@@ -13,12 +13,10 @@ import * as React from "react";
 import Link from "next/link";
 import { valorDoTexto, type NumeroResposta } from "@/core/assistant/numero";
 import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Icon, DegradeArea } from "@/components/ui";
+import { Icon, AreaComparada, BarrasHorizontais } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
-import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
-import { RAIO_DIREITA } from "@/lib/grafico";
+import { DigitandoIA, atrasoDaPalavra, duracaoRevelar } from "./conversa";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -75,109 +73,31 @@ export interface Turno {
   redigida?: boolean;
 }
 
-/* ============================== MARCA ============================== */
-
-/**
- * O "4" da marca — o raio do wordmark Quattro, vetorizado do próprio
- * `public/all4pay-dark.png`; o mesmo path vive em `public/all4pay-4.svg`.
- */
-export const PATH_4 = "M39.3 0L64.32 0.29L34.06 53.95L61.56 54.61L74.5 31.49L98.95 31.97L60.99 99.81L36.06 100L53.38 68.98L1.05 68.6Z";
-
-export const GRAD_MARCA = "var(--gradient-marca)";
-/** Faixa larga do mesmo degradê + `a4p-onda` = a onda entre as cores. */
-export const GRAD_ONDA = "var(--gradient-marca-onda)";
-
-/** O "4" em degradê lime→verde (tile do FAB). Id único por instância. */
-export function Marca4({ size = 18 }: { size?: number }) {
-  const id = React.useId();
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden className="shrink-0">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--color-lime)" />
-          <stop offset="1" stopColor="var(--a4p-cat-3)" />
-        </linearGradient>
-      </defs>
-      <path fill={`url(#${id})`} d={PATH_4} />
-    </svg>
-  );
-}
-
-/**
- * A logo da IA — o MESMO "4" da marca girado 90°, em branco sobre o degradê
- * lima. É a marca que identifica o assistente (cabeçalho, estado vazio,
- * cada análise).
- */
-export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: number }) {
-  return (
-    <span
-      className="inline-flex items-center justify-center shrink-0"
-      style={{ width: size, height: size, borderRadius: radius, backgroundImage: GRAD_MARCA }}
-      aria-hidden
-    >
-      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 100 100">
-        <g transform="rotate(90 50 50)">
-          <path fill="var(--color-white)" d={PATH_4} />
-        </g>
-      </svg>
-    </span>
-  );
-}
+/* A marca da IA mora em `./marca` (sem Recharts: a abertura de conta também a usa). */
+export { PATH_4, GRAD_MARCA, GRAD_ONDA, Marca4, MarcaIA } from "./marca";
 
 /* ============================= GRÁFICO ============================= */
 
 /**
  * O gráfico da resposta. O motor devolve só os dados (`GraficoResposta`); a
- * escolha visual mora aqui, seguindo o DS: **linha na cor da marca** com glow
- * em degradê (séries temporais) e **barras neutras** (entrada em ink · saída
- * em areia), a 70%. Número não tem cor por sinal (decisão de 30/09/2026): a
- * entrada e a saída se distinguem por intensidade, não por verde × vermelho.
- * Entra animado via `chartAnim()`.
+ * escolha visual mora aqui, com as peças da Biblioteca do canvas: série no
+ * tempo → "Estatística de saldo 1" (`AreaComparada`); ranking por categoria →
+ * "Receita 3" (`BarrasHorizontais`). Número não tem cor por sinal (decisão de
+ * 30/09/2026): as barras ficam na tinta, qualquer que seja o lado.
  */
 export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
-  const id = React.useId();
-  const base = g.tom === "entrada" ? "var(--color-ink)" : g.tom === "saida" ? "var(--color-areia)" : "var(--color-lime)";
-  const cor = `color-mix(in srgb, ${base} 70%, transparent)`;
+  const id = React.useId().replace(/:/g, "");
   const resumo = g.dados.map((d) => `${d.nome}: ${formatBRL(d.valor)}`).join(", ");
   return (
-    <figure className="m-0 flex flex-col gap-1 pt-1" role="img" aria-label={`${g.titulo}. ${resumo}`}>
+    <figure className="m-0 flex flex-col gap-2 pt-1" aria-label={`${g.titulo}. ${resumo}`}>
       <figcaption className="text-[11px] text-faint">{g.titulo}</figcaption>
-      <div style={{ height: g.tipo === "linha" ? 108 : Math.max(72, g.dados.length * 26) }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {g.tipo === "linha" ? (
-            <AreaChart data={g.dados} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <defs>
-                <DegradeArea id={`${id}-glow`} />
-              </defs>
-              <XAxis dataKey="nome" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
-              <YAxis hide />
-              <Tooltip
-                cursor={{ stroke: "var(--color-border)" }}
-                contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}
-                formatter={(v: number | string) => formatBRL(Number(v))}
-              />
-              <Area type="monotone" dataKey="valor" stroke="var(--color-lime)" strokeWidth={1.4}
-                fill={`url(#${id}-glow)`} activeDot={{ r: 3 }} {...chartAnim()} />
-            </AreaChart>
-          ) : (
-            <BarChart data={g.dados} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
-              <XAxis type="number" hide />
-              {/* `interval={0}` é obrigatório: por padrão o Recharts OMITE ticks
-                  que julga colidir, e some com o rótulo do meio. Nomes longos
-                  são reticenciados aqui em vez de vazar da faixa. */}
-              <YAxis type="category" dataKey="nome" width={96} interval={0} tickLine={false} axisLine={false}
-                tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-                tickFormatter={(v: string) => (v.length > 13 ? `${v.slice(0, 12)}…` : v)} />
-              <Tooltip
-                cursor={{ fill: "var(--color-surface-2)" }}
-                contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}
-                formatter={(v: number | string) => formatBRL(Number(v))}
-              />
-              <Bar dataKey="valor" fill={cor} radius={RAIO_DIREITA} barSize={10} {...chartAnim()} />
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-      </div>
+      {g.tipo === "linha" ? (
+        <AreaComparada id={`ia-${id}`} altura={120} ariaLabel={`${g.titulo}. ${resumo}`}
+          dados={g.dados.map((d) => ({ label: d.nome, valor: d.valor }))} />
+      ) : (
+        <BarrasHorizontais ariaLabel={`${g.titulo}. ${resumo}`}
+          itens={g.dados.map((d, i) => ({ chave: d.nome + i, nome: d.nome, valor: d.valor }))} />
+      )}
     </figure>
   );
 }
@@ -201,23 +121,13 @@ export const RITMO = [560, 640, 540, 400];
 export const espera = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
- * O "digitando" da IA: três pontos que pulam em sequência enquanto a análise
- * roda (decisão do dono, 15/10/2026 — saiu a lista de etapas com barra). O
- * ritmo de `RITMO` continua valendo; só a encenação mudou. `etapa` segue no
- * rótulo acessível, para quem usa leitor de tela saber o que está acontecendo.
+ * O "digitando" da IA: a marca respira, três pontos pulam e o nome da etapa
+ * corrente passa com um brilho (`DigitandoIA`, a MESMA peça de toda conversa
+ * da Quattro AI). A lista de etapas com barra saiu em 15/10/2026; o ritmo de
+ * `RITMO` continua valendo.
  */
 export function EtapasAnalise({ etapa, className = "" }: { etapa: number; className?: string }) {
-  return (
-    <div
-      role="status"
-      aria-label={`${ETAPAS[etapa] ?? "Analisando"}…`}
-      className={`a4p-entra a4p-digitando inline-flex w-fit items-center gap-[6px] rounded-card rounded-bl-sm bg-surface-1 px-4 py-[14px] ${className}`}
-    >
-      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
-      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
-      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
-    </div>
-  );
+  return <DigitandoIA rotulo={ETAPAS[etapa] ?? "Analisando"} className={className} />;
 }
 
 /* =========================== BOLHA DE RESPOSTA =========================== */
@@ -229,9 +139,15 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
  * precisa fazer nada.
  */
 export function BolhaResposta({
-  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha",
+  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha", animar = false,
 }: {
   t: Turno;
+  /**
+   * Verdadeiro só na resposta que ACABOU de chegar: o texto surge palavra por
+   * palavra e o resto (gráfico, números, atalhos) entra depois dele. Uma
+   * conversa reaberta do histórico aparece inteira.
+   */
+  animar?: boolean;
   /**
    * "bolha" = o balão do painel e da página; "aberta" = o chat em tela cheia
    * da Home: texto solto na coluna e o gráfico e os números em CARTÕES, como
@@ -249,7 +165,11 @@ export function BolhaResposta({
     <div data-ia="resposta" className={aberta
       ? "self-stretch flex flex-col gap-4"
       : "self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2"}>
-      <TextoDaResposta texto={t.resposta ?? ""} className={aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"} />
+      <TextoDaResposta texto={t.resposta ?? ""} animar={animar} className={aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"} />
+      <div
+        className={`flex flex-col ${aberta ? "gap-4" : "gap-2"} ${animar ? "a4p-entra" : ""}`}
+        style={animar ? ({ "--a4p-atraso": `${duracaoRevelar(t.resposta ?? "") - 200}ms` } as React.CSSProperties) : undefined}
+      >
       {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}
@@ -308,6 +228,7 @@ export function BolhaResposta({
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -333,12 +254,22 @@ const ORIGEM: Record<Origem, { rotulo: string; dica: string }> = {
 };
 
 /** "**trecho**" vira negrito; sem nenhum, os valores em R$ e % ganham negrito sozinhos. */
-function emLinha(linha: string, auto: boolean): React.ReactNode[] {
+function emLinha(linha: string, auto: boolean, passo?: { n: number }): React.ReactNode[] {
   const marcado = auto ? linha.replace(/(-?R\$\s?[\d.]+(?:,\d+)?|\d+(?:,\d+)?\s?%)/g, "**$1**") : linha;
-  return marcado.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p, i) =>
-    p.startsWith("**") && p.endsWith("**")
-      ? <strong key={i} className="font-semibold text-ink tabular-nums">{p.slice(2, -2)}</strong>
-      : <React.Fragment key={i}>{p}</React.Fragment>);
+  // Animando, cada palavra surge na vez dela (a mesma conta de `TextoRevelado`),
+  // e o negrito surge inteiro, como uma palavra só.
+  const surge = (no: React.ReactNode, k: string) => {
+    if (!passo) return no;
+    const atraso = atrasoDaPalavra(passo.n++);
+    return <span key={k} className="a4p-palavra" style={{ "--a4p-atraso": `${atraso}ms` } as React.CSSProperties}>{no}</span>;
+  };
+  return marcado.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).flatMap((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) {
+      return [surge(<strong key={i} className="font-semibold text-ink tabular-nums">{p.slice(2, -2)}</strong>, `b${i}`)];
+    }
+    if (!passo) return [<React.Fragment key={i}>{p}</React.Fragment>];
+    return p.split(/(\s+)/).map((w, j) => (!w || /^\s+$/.test(w) ? w : surge(w, `${i}-${j}`)));
+  });
 }
 
 /**
@@ -346,15 +277,16 @@ function emLinha(linha: string, auto: boolean): React.ReactNode[] {
  * tópicos ("- ") e negrito. Nada de HTML vindo de fora: o texto só vira
  * elementos React, então um "<script>" na resposta aparece como texto.
  */
-export function TextoDaResposta({ texto, className = "" }: { texto: string; className?: string }) {
+export function TextoDaResposta({ texto, className = "", animar = false }: { texto: string; className?: string; animar?: boolean }) {
   const auto = !texto.includes("**");
+  const passo = animar ? { n: 0 } : undefined;
   const blocos: React.ReactNode[] = [];
   let itens: string[] = [];
   const fecharLista = () => {
     if (!itens.length) return;
     blocos.push(
       <ul key={`l${blocos.length}`} className="m-0 pl-5 list-disc flex flex-col gap-1 marker:text-faint">
-        {itens.map((it, i) => <li key={i}>{emLinha(it, auto)}</li>)}
+        {itens.map((it, i) => <li key={i}>{emLinha(it, auto, passo)}</li>)}
       </ul>);
     itens = [];
   };
@@ -363,7 +295,7 @@ export function TextoDaResposta({ texto, className = "" }: { texto: string; clas
     const item = linha.match(/^(?:[-•*]|\d+[.)])\s+(.*)$/);
     if (item) { itens.push(item[1]); continue; }
     fecharLista();
-    if (linha) blocos.push(<p key={`p${blocos.length}`} className="m-0">{emLinha(linha, auto)}</p>);
+    if (linha) blocos.push(<p key={`p${blocos.length}`} className="m-0">{emLinha(linha, auto, passo)}</p>);
   }
   fecharLista();
   return <div data-ia="texto" className={`text-ink flex flex-col gap-2 ${className}`}>{blocos}</div>;
