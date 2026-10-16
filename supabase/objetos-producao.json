@@ -12,9 +12,9 @@
   "É RETRATO, não consulta viva: um órfão criado hoje entraria no esperado de",
   "amanhã sem ninguém decidir. Toda divergência não declarada reprova."
  ],
- "gerado_em": "2026-10-15",
+ "gerado_em": "2026-10-16",
  "gerado_como": "catálogo de produção (byte-idêntico ao ci_leitor; o job esquema-prod revalida a paridade)",
- "total": 428,
+ "total": 440,
  "orfaos_declarados": {
   "tabela:maq_cnpj_cache": {
    "motivo": "Cache de consulta de CNPJ da maquininha. O achado original do A4P-076: viveu meses no banco sem migration. RLS ligada sem política.",
@@ -75,6 +75,8 @@
   "funcao:auditar_escrita()": "404fea3688b7a111c71d30a7d4bd9a4c",
   "funcao:auth_org_id()": "f3481f78e1cdb355b90851cd0e07e759",
   "funcao:automacao_contexto(p_org uuid)": "290e9bb7964fe2a0e9803833fd383f91",
+  "funcao:automacao_fluxos_ligados()": "290e9bb7964fe2a0e9803833fd383f91",
+  "funcao:automacao_vendas_maquininha(p_org uuid, p_dia date)": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:automacoes_inicial()": "404fea3688b7a111c71d30a7d4bd9a4c",
   "funcao:automacoes_padrao()": "4b7d05cc187bcbbf3e65e3afbc248459",
   "funcao:categoria_arvore_coerente()": "ed7628824793d3a6d972cbdcc4839c1f",
@@ -150,6 +152,7 @@
   "funcao:rls_auditoria()": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:seed_org(p_org uuid)": "404fea3688b7a111c71d30a7d4bd9a4c",
   "funcao:subscriptions_mrr_derivado()": "404fea3688b7a111c71d30a7d4bd9a4c",
+  "funcao:telefone_canonico(p text)": "4b7d05cc187bcbbf3e65e3afbc248459",
   "funcao:tem_permissao(p_acao text)": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:tem_permissao(p_acao text, p_org uuid)": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:teste_definer()": "9e4d78ccffd5462c6e1e13547350cd4e",
@@ -165,6 +168,11 @@
   "funcao:verificar_isolamento()": "9e4d78ccffd5462c6e1e13547350cd4e",
   "funcao:verificar_isolamento_completo()": "9e4d78ccffd5462c6e1e13547350cd4e",
   "funcao:vincular_categorias_por_nome(p_org uuid)": "9e4d78ccffd5462c6e1e13547350cd4e",
+  "funcao:whatsapp_autorizar(p_partes uuid[], p_evidencia text)": "404fea3688b7a111c71d30a7d4bd9a4c",
+  "funcao:whatsapp_registrar_saida(p_telefone text, p_acao text, p_origem text)": "404fea3688b7a111c71d30a7d4bd9a4c",
+  "funcao:whatsapp_revogar(p_partes uuid[])": "404fea3688b7a111c71d30a7d4bd9a4c",
+  "funcao:whatsapp_saidas_entre(p_telefones text[])": "290e9bb7964fe2a0e9803833fd383f91",
+  "funcao:whatsapp_situacao_contatos()": "290e9bb7964fe2a0e9803833fd383f91",
   "grant:accounting_periods.authenticated": "e3773534df1a8e8d2f932ceef8e2b0bc",
   "grant:ai_actions.authenticated": "a818f0f0725156fc832131ab392209ef",
   "grant:ai_learning.authenticated": "e3773534df1a8e8d2f932ceef8e2b0bc",
@@ -234,6 +242,7 @@
   "grant:services.authenticated": "e3773534df1a8e8d2f932ceef8e2b0bc",
   "grant:units.authenticated": "e3773534df1a8e8d2f932ceef8e2b0bc",
   "grant:user_active_org.authenticated": "63225f19fccb18e7c709f1fa11bc738e",
+  "grant:whatsapp_autorizacoes.authenticated": "63225f19fccb18e7c709f1fa11bc738e",
   "policy:accounting_periods.accounting_periods_esconde_excluido": "a872241edf36813c6b656e45c4dbe9fd",
   "policy:accounting_periods.accounting_periods_org": "a51ec52af9f2363e60927b2a2d98d7c9",
   "policy:admin_acessos.admin_acessos_sem_delete": "0ba3562ee981d35b26028a91cca46286",
@@ -383,6 +392,7 @@
   "policy:units.org rw units": "a51ec52af9f2363e60927b2a2d98d7c9",
   "policy:units.units_esconde_excluido": "a872241edf36813c6b656e45c4dbe9fd",
   "policy:user_active_org.user_active_org_dono": "12087e3209d6cbd5fd5a60f86b34a966",
+  "policy:whatsapp_autorizacoes.whatsapp_autorizacoes_org": "a70e0c11125e5cbf0822a1471fee45b5",
   "tabela:accounting_periods": "882c4178c86d4b023c5fc1bdf1b8a629",
   "tabela:admin_acessos": "a2664626a1aa503f4a45a01ddb4629e7",
   "tabela:admin_audit": "4a5ca4cc2ff68064a368f5aeb81c6eec",
@@ -461,7 +471,9 @@
   "tabela:services": "cbdcbae4ba3d2bff47ca81ee34edd2b5",
   "tabela:subscriptions": "e91aa290f2dda2e754847c985628d647",
   "tabela:units": "7f3c3d50301048179eb5bb4366fae981",
-  "tabela:user_active_org": "70ca079dea2fc67e3a835fae5462cbae"
+  "tabela:user_active_org": "70ca079dea2fc67e3a835fae5462cbae",
+  "tabela:whatsapp_autorizacoes": "f6ec43e5b419bd456ee7d9ebcb91d2a5",
+  "tabela:whatsapp_saidas": "4d7b7ef6a6a10d05cf073594953136ad"
  },
  "grants_service_role": {
   "grant:admin_audit.service_role": "450a87bc57b37f74c1247d54e93089af",
@@ -488,7 +500,8 @@
   "grant:movements.service_role": "0aa2355c17537e92f166cb050553c808",
   "grant:organization_members.service_role": "0aa2355c17537e92f166cb050553c808",
   "grant:pluggy_items.service_role": "0aa2355c17537e92f166cb050553c808",
-  "grant:recurrences.service_role": "0aa2355c17537e92f166cb050553c808"
+  "grant:recurrences.service_role": "0aa2355c17537e92f166cb050553c808",
+  "grant:whatsapp_autorizacoes.service_role": "63225f19fccb18e7c709f1fa11bc738e"
  },
  "_nota_service_role": "77 grants, DUAS assinaturas: audit_log, admin_audit e admin_acessos NÃO têm TRUNCATE (revogação da ONDA 9); as outras 74 têm. Se audit_log.service_role recuperar TRUNCATE, a trilha de auditoria vira apagável pela chave que ignora o RLS — é a mudança que esta linha de base existe para reprovar.",
  "pendentes_de_aplicacao": {}
