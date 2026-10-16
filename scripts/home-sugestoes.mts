@@ -50,7 +50,7 @@ import { montarHomeSnapshot } from "@/core/home/snapshot";
 import {
   ITENS_HOME, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itensCitados,
   layoutDasOrdensAntigas, moverItem, normalizarAcoes, normalizarLayout, ordemDasSecoes, itemAproximado, respostaDoAjuste, visiveis,
-  CARDS_HOME, TETO_CARDS, cardsNaHome, cardsRecusados, catalogoPorTema, ehCard, pedeCatalogo, respostaDoCatalogo,
+  CARDS_HOME, TETO_CARDS, cardsNaHome, LARGURAS_HOME, definirLargura, larguraDe, larguraMaisPerto, larguraVizinha, mesmoLayout, cardsRecusados, catalogoPorTema, ehCard, pedeCatalogo, respostaDoCatalogo,
   type AcaoHome, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
 import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/home/biblioteca";
@@ -410,7 +410,7 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("tela: sem a linha de escondidos na Home", !/Mostrar de novo/.test(TELA) && !/data-home="escondidos"/.test(TELA));
   const semBurn = aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn"));
   ok("chat: o escondido volta pela conversa", semBurn.ocultos.includes("burn") && aplicarAcoes(semBurn, interpretarPedido("traz o burn de volta", semBurn)).ocultos.length === 0);
-  ok("tela: \"Ajustar prioridades\" abre o chat no modo ajuste", /aoAjustar/.test(TELA) && /abrirChat\(\{\s*ajuste:/.test(TELA) && /O que você gostaria de ver primeiro quando abre o Quattro\?/.test(TELA));
+  ok("tela: \"Ajustar prioridades\" abre o chat no modo ajuste", /onClick=\{ajustar\}/.test(TELA) && /abrirChat\(\{\s*ajuste:/.test(TELA) && /O que você gostaria de ver primeiro quando abre o Quattro\?/.test(TELA));
   ok("tela: o desfazer volta o arranjo E as prioridades de antes", /desfazer: r\.mudou \? \(\) => prefs\.salvarAjuste\(antes, interessesAntes\)/.test(TELA));
 }
 
@@ -492,7 +492,26 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("tela: o card é desenhado pelo MESMO catálogo do cockpit", /CATALOG_BY_ID\.get\(idDoCockpit/.test(TELA_C) && /useCockpitCtx\(\)/.test(TELA_C));
   ok("tela: cada card tem como sair da Home", /Tirar \$\{[^}]+\} da Home/.test(TELA_C));
   ok("tela: o motor pesado só monta com card na Home", /cardsVisiveis\.length > 0 && \(\s*<CardsDaBiblioteca/.test(TELA_C));
-  ok("tela: os cards moram dentro de \"Seu painel\", sem seção \"Seus cards\"", !/Seus cards/.test(TELA_C) && /Seu painel<\/h2>\s*\{cardsVisiveis\.length > 0/.test(TELA_C));
+  ok("tela: os cards moram dentro de \"Seu painel\", sem seção \"Seus cards\"", !/Seus cards/.test(TELA_C) && /Seu painel<\/h2>[\s\S]{0,700}?\{cardsVisiveis\.length > 0/.test(TELA_C));
+  // "Ajustar prioridades" mora ao lado do título "Seu painel" (dono, 16/10/2026), não na caixa da IA.
+  ok("tela: \"Ajustar prioridades\" ao lado de \"Seu painel\"",
+    /Seu painel<\/h2>[\s\S]{0,400}?Ajustar prioridades/.test(TELA_C) && !/function CaixaIA[\s\S]*?Ajustar prioridades[\s\S]*?function MicIcon/.test(TELA_C));
+
+  // A LARGURA dos cards (dono, 16/10/2026): arrastar a borda; no máximo quatro por linha.
+  ok("largura: a menor é um quarto da linha (no máximo 4 por linha)", Math.min(...LARGURAS_HOME) === 3 && larguraMaisPerto(0.01) === 3);
+  ok("largura: encaixa na mais perto", larguraMaisPerto(0.5) === 6 && larguraMaisPerto(0.7) === 8 && larguraMaisPerto(1.4) === 12);
+  ok("largura: as setas param nas pontas", larguraVizinha(3, -1) === 3 && larguraVizinha(12, 1) === 12 && larguraVizinha(6, 1) === 8);
+  const largo = definirLargura(LAYOUT_PADRAO, "caixa", 9);
+  ok("largura: gravada no arranjo e conta como mudança", larguraDe(largo, "caixa") === 9 && !mesmoLayout(largo, LAYOUT_PADRAO));
+  ok("largura: a padrão não é guardada", definirLargura(largo, "caixa", larguraDe(LAYOUT_PADRAO, "caixa")).larguras === undefined);
+  const lido = normalizarLayout({ ...largo, larguras: { caixa: 9, arr: 5, inventado: 6 } });
+  ok("largura: o servidor só devolve larguras válidas de itens existentes", JSON.stringify(lido?.larguras) === JSON.stringify({ caixa: 9 }), JSON.stringify(lido?.larguras));
+  ok("largura: mover e esconder não perdem a largura; \"volta ao padrão\" desfaz",
+    larguraDe(moverItem(largo, "caixa", "arr"), "caixa") === 9
+      && larguraDe(aplicarAcoes(largo, [{ tipo: "esconder", id: "burn" }]), "caixa") === 9
+      && aplicarAcoes(largo, [{ tipo: "restaurar" }]).larguras === undefined);
+  ok("tela: a borda do card é um separador que arrasta e responde às setas",
+    /role="separator"/.test(TELA_C) && /larguraMaisPerto\(/.test(TELA_C) && /aoPasso\(-1\)/.test(TELA_C) && /lg:grid-cols-12/.test(TELA_C));
 
   // pedidos com outras palavras (14/10/2026: "coloque as movimentacoes do meu mes" não era entendido)
   ok("texto livre: \"coloque as movimentações do meu mês\" acha o card", interpretarPedido("coloque as movimentacoes do meu mes").some((a) => a.id === "card:movimentos-mes"), JSON.stringify(interpretarPedido("coloque as movimentacoes do meu mes")));

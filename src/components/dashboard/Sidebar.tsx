@@ -25,7 +25,12 @@ import { cn } from "@/lib/utils";
  * grupo — recolher não pode custar o acesso.
  */
 
-const STORAGE_KEY = "a4p_sidebar_collapsed";
+/**
+ * O menu SEMPRE abre recolhido (pedido do dono, 16/10/2026). A escolha de
+ * expandir vale só nesta SESSÃO do navegador (sessionStorage): trocar de tela
+ * não fecha o que a pessoa abriu, e a próxima visita começa recolhida.
+ */
+const STORAGE_KEY = "a4p_sidebar_expandida";
 const LARGURA_KEY = "a4p_sidebar_width";
 const LARGURA_PADRAO = 260;
 const LARGURA_MIN = 200;
@@ -45,7 +50,7 @@ export function Sidebar() {
   const { sections, pessoal } = useNavSections();
   const { pro, set: setPro, temDireito } = useModo();
 
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isDesktop, setIsDesktop] = React.useState(true);
   const [largura, setLargura] = React.useState(LARGURA_PADRAO);
@@ -57,7 +62,7 @@ export function Sidebar() {
 
   React.useEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+      setCollapsed(sessionStorage.getItem(STORAGE_KEY) !== "1");
       const salva = Number(localStorage.getItem(LARGURA_KEY));
       if (Number.isFinite(salva) && salva >= LARGURA_MIN && salva <= LARGURA_MAX) setLargura(salva);
     } catch { /* preferência local: sem ela, vale o padrão */ }
@@ -81,7 +86,7 @@ export function Sidebar() {
 
   const definirRecolhida = React.useCallback((v: boolean) => {
     setCollapsed(v);
-    try { localStorage.setItem(STORAGE_KEY, v ? "1" : "0"); } catch { /* ignore */ }
+    try { sessionStorage.setItem(STORAGE_KEY, v ? "0" : "1"); } catch { /* ignore */ }
   }, []);
   const aplicarLargura = React.useCallback((px: number) => {
     setLargura(px);
