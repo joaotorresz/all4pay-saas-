@@ -138,7 +138,7 @@ export function TopBar() {
         </button>
 
         {menu && (
-          <div data-topbar="menu" className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white border border-border-soft overflow-hidden">
+          <div data-topbar="menu" className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white shadow-popover overflow-hidden">
             <div className="px-4 py-3 border-b border-border-soft flex items-center gap-3">
               <Avatar name={nome} size={30} />
               <div className="min-w-0">

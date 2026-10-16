@@ -276,7 +276,7 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
               const valor = p.value ?? p.payload?.value ?? 0;
               const nome = p.name ?? "Fluxo";
               return (
-                <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[180px]">
+                <div className="bg-white rounded-card shadow-popover px-3 py-[10px] text-caption min-w-[180px]">
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-medium text-ink">{nome}</span>
                     <span className="text-ink tabular-nums"><BRL value={valor} /></span>

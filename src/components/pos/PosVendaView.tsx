@@ -117,7 +117,7 @@ export function PosVendaView() {
     <AppShell title="Simulador de venda" crumb="Central POS · maquininha">
       <div className="flex justify-center pb-6">
         {/* Device frame 9:16 (vertical) */}
-        <div className="w-full max-w-[420px] aspect-[9/16] max-h-[calc(100vh-7rem)] rounded-card border border-border bg-white shadow-popover overflow-hidden flex flex-col">
+        <div className="w-full max-w-[420px] aspect-[9/16] max-h-[calc(100vh-7rem)] rounded-card bg-white shadow-popover overflow-hidden flex flex-col">
           {/* ---- CATÁLOGO ---- */}
           {tela === "catalogo" && (
             <>

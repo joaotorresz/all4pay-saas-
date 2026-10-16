@@ -193,7 +193,7 @@ export function ModalTabelas({
           )}
 
           {editando && (
-            <div className="flex flex-col gap-4 rounded-card border border-border p-4">
+            <div className="flex flex-col gap-4 rounded-card bg-surface-2 p-4">
               <span className="text-label text-ink">Nova vigência do INSS</span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Input label="Vigência (AAAA-MM)" value={nova.desde}

@@ -545,8 +545,8 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
     <Link
       href={n.href}
       draggable={false}
-      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6 border"
-      style={{ background: "var(--color-surface-1)", borderColor: "var(--color-border)", borderRadius: "var(--a4p-box-radius)" }}
+      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6"
+      style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
     >
       <span className="text-[15px] text-ink">{n.rotulo}</span>
       <div className="flex items-center gap-[13.8px] flex-wrap">

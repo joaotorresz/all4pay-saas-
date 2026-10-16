@@ -137,7 +137,7 @@ export function ReembolsosView() {
           <span className="ml-auto"><InfoHint align="left" titulo="Reembolsos" oQue="Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar." comoCalcula="Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." /></span>
         </div>
         {falhas.length > 0 && (
-          <div role="alert" className="mx-5 mt-3 rounded-md border border-negative/40 px-3 py-2 flex flex-col gap-1">
+          <div role="alert" className="mx-5 mt-3 rounded-md bg-surface-2 px-3 py-2 flex flex-col gap-1">
             {falhas.map((f, k) => (
               <span key={k} className="text-caption text-negative">Aprovado, mas sem título a pagar — {f}</span>
             ))}

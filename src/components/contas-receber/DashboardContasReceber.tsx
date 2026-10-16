@@ -124,7 +124,7 @@ export function DashboardContasReceber() {
       />
 
       {invalido && (
-        <Card className="border border-warning/40">
+        <Card>
           <p className="m-0 text-body text-ink">
             A data inicial é posterior à final. Corrija o intervalo — nenhum
             período existe entre {dataBR(periodo!.de)} e {dataBR(periodo!.ate)}.

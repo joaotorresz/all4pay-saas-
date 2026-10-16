@@ -44,7 +44,7 @@ function ListaTitulos({
 }: { titulo: string; itens: { descricao: string; vencimento: string; valor: number }[]; vazio?: string }) {
   if (itens.length === 0 && !vazio) return null;
   return (
-    <div className="rounded-card border border-border-soft p-4 flex flex-col gap-2">
+    <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-2">
       <span className="text-label text-ink">{titulo}</span>
       {itens.length === 0 ? (
         <span className="text-caption text-muted">{vazio}</span>
@@ -127,7 +127,7 @@ function Memoria({ linhas }: { linhas: LinhaMemoria[] }) {
 function Problemas({ lista }: { lista: string[] }) {
   if (lista.length === 0) return null;
   return (
-    <div className="rounded-card border border-negative/40 p-4 flex flex-col gap-1">
+    <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-1">
       {lista.map((p, k) => (
         <span key={k} className="text-caption text-negative">{p}</span>
       ))}
@@ -138,7 +138,7 @@ function Problemas({ lista }: { lista: string[] }) {
 function Alertas({ lista }: { lista: string[] }) {
   if (lista.length === 0) return null;
   return (
-    <div className="rounded-card border border-warning/40 p-4 flex flex-col gap-2">
+    <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-2">
       {lista.map((a, k) => (
         <span key={k} className="flex items-start gap-2 text-caption text-muted">
           <Icon name="triangle-alert" size={13} color="var(--color-warning)" />

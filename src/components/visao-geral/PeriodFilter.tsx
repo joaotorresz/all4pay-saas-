@@ -150,7 +150,7 @@ export function PeriodFilter() {
       </div>
 
       {open && (
-        <div className="absolute right-0 mt-2 z-50 w-[320px] bg-white rounded-card p-4 flex flex-col gap-3 border border-border-soft">
+        <div className="absolute right-0 mt-2 z-50 w-[320px] bg-white rounded-card p-4 flex flex-col gap-3 shadow-popover">
           <div className="flex flex-col gap-2">
             <span className="text-caption text-faint">Duração</span>
             <div className="flex flex-wrap gap-2">
@@ -219,7 +219,7 @@ function MonthDropdown({ value, options, onChange }: { value: YM; options: YM[];
         <Icon name="chevron-down" size={15} color="var(--color-text-secondary)" className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 mt-1 z-50 max-h-[224px] overflow-y-auto bg-white rounded-card py-1 border border-border-soft">
+        <div className="absolute left-0 right-0 mt-1 z-50 max-h-[224px] overflow-y-auto bg-white rounded-card py-1 shadow-popover">
           {options.map((o) => {
             const on = encode(o) === encode(value);
             return (

@@ -841,7 +841,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       {/* --------------------------------- anexos --------------------------------- */}
       {modo !== "folha" && <Card>
         <span className="text-h3 font-semibold text-ink">Anexos</span>
-        <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
+        <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
           <span className="text-label text-muted">Arraste arquivos para cá ou clique para selecionar</span>
           <span className="text-caption text-faint">{EXT_OK.join(", ")} · até 10 MB</span>

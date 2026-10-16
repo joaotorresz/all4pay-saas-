@@ -726,7 +726,7 @@ function CardTitulo({
              vence), então o estado selecionado não desenhava NADA. A borda
              transparente no estado normal reserva o pixel — sem ela o card
              pula 1px ao ser escolhido. */
-          selecionado ? "border border-border" : "border border-transparent hover:bg-surface-2/40"
+          selecionado ? "" : "hover:bg-surface-2/40"
         }`}
       >
       <div className="flex items-center gap-4">
@@ -742,7 +742,8 @@ function CardTitulo({
           </text>
         </svg>
         <div className="min-w-0">
-          <div className="text-caption text-muted">
+          <div className="text-caption text-muted inline-flex items-center gap-[6px]">
+            {selecionado && <span aria-hidden className="inline-block w-[6px] h-[6px] rounded-pill bg-ink" />}
             {c.label} <span className="text-faint tabular-nums">({c.quantidade})</span>
           </div>
           {/* ⚠️ O número fica na TINTA do texto (decisão do dono, 30/09/2026):

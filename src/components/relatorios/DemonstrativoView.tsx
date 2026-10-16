@@ -565,7 +565,7 @@ function AvisoDuplicidadeImposto({ relatorio }: { relatorio: Relatorio }) {
 
   const total = (linha?.celulas ?? []).reduce((s, c) => s + c.valor, 0);
   return (
-    <Card className="border border-warning/40">
+    <Card>
       <div className="flex flex-col gap-2">
         <StatusBadge tone="warning">Possível duplicidade de imposto</StatusBadge>
         <p className="m-0 text-body text-ink max-w-[80ch]">{alerta.aviso}</p>

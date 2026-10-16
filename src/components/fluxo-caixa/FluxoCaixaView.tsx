@@ -797,7 +797,7 @@ function DigitalTwinView({ twin }: { twin: { feeds: { entradas: string[]; saidas
           <FeedCol titulo="Saídas" itens={twin.feeds.saidas} />
           <FeedCol titulo="Inteligência" itens={twin.feeds.inteligencia} />
         </div>
-        <div className="rounded-md p-3 border-l-2 border-lime" style={{ background: "var(--color-surface-1)" }}>
+        <div className="rounded-md p-3" style={{ background: "var(--color-surface-1)" }}>
           <span className="text-caption font-medium text-faint tracking-wide">A IA explica o porquê</span>
           <p className="m-0 mt-1 text-caption text-muted leading-[1.6]">{twin.explicacao}</p>
         </div>

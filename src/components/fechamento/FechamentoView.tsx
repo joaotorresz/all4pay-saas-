@@ -203,7 +203,7 @@ export function FechamentoView() {
           </Card>
 
           {erro && (
-            <Card className="border border-negative/40" role="alert">
+            <Card role="alert">
               <p className="m-0 text-body text-negative">{erro}</p>
             </Card>
           )}

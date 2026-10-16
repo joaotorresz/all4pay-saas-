@@ -180,7 +180,7 @@ export function UploadWizard() {
                   onDragLeave={() => setDrag(false)}
                   onDrop={onDrop}
                   onClick={() => inputRef.current?.click()}
-                  className={`rounded-card border border-dashed p-8 text-center cursor-pointer transition-colors ${drag ? "border-lime bg-lime-tint" : "border-border hover:border-ink/30"}`}
+                  className={`rounded-card p-8 text-center cursor-pointer transition-colors ${drag ? "bg-lime-tint" : "bg-surface-2 hover:bg-surface-3"}`}
                 >
                   <Icon name="upload" size={26} color="var(--color-text-secondary)" />
                   <p className="m-0 mt-3 text-body text-ink">Arraste o documento aqui ou clique para enviar</p>

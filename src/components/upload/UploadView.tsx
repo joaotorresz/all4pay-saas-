@@ -276,7 +276,7 @@ export function UploadView() {
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
-          className={`rounded-md border border-dashed p-6 text-center transition-colors ${drag ? "border-lime bg-lime-tint" : "border-border bg-surface-1"}`}
+          className={`rounded-md p-6 text-center transition-colors ${drag ? "bg-lime-tint" : "bg-surface-1"}`}
         >
           <Icon name="upload" size={22} color="var(--color-text-secondary)" />
           <div className="text-label font-medium text-ink mt-2">Arraste arquivos aqui</div>

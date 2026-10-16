@@ -215,7 +215,7 @@ export function FolhaSalarial() {
            entram ou não conforme ele, e a diferença é de 33 pontos sobre a
            mesma folha. Assumir um regime produziria um número com cara de
            certo — a mesma família de defeito da ONDA 6. */
-        <Card className="border border-warning/40">
+        <Card>
           <div className="flex items-start gap-3">
             <Icon name="triangle-alert" size={18} color="var(--color-warning)" />
             <div className="min-w-0">
@@ -234,7 +234,7 @@ export function FolhaSalarial() {
         </Card>
       )}
       {painel.tabelaDesatualizada && (
-        <Card className="border border-warning/40">
+        <Card>
           <div className="flex items-start gap-3">
             <Icon name="triangle-alert" size={18} color="var(--color-warning)" />
             <div className="min-w-0">
