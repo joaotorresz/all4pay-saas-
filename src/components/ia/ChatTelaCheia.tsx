@@ -34,6 +34,12 @@ import {
 import { isDemo } from "@/lib/demo";
 import { MARCA_IA } from "@/core/marca";
 import { loadCompany } from "@/lib/company";
+import { hojeLocal } from "@/lib/aggregations";
+import { gravarPreferenciasHome, inscreverPreferenciasHome, lerPreferenciasHome } from "@/lib/home-preferencias";
+import { useTipoConta } from "@/components/app/useTipoConta";
+import { girarPilulas, pilulaDaPergunta, temaDaPergunta } from "@/core/home/rodizio";
+import { CATALOGO_SUGESTOES, type TemaSugestao } from "@/core/home/sugestoes";
+import type { PreferenciasHome } from "@/core/home/preferencias";
 
 /** `texto` é a pergunta que vai para a conversa; `curto` + `icone`, o chip. */
 export interface SugestaoChat { id: string; texto: string; curto: string; icone: string; motivo?: string }
@@ -165,6 +171,8 @@ export function ChatTelaCheia({
 
   const abrirConversa = (c: Conversa) => {
     conversaRef.current = c.id; setAtiva(c.id);
+    // Turnos carregados não são perguntas novas: não giram nem somem pílulas.
+    ignorarRef.current = (getConversa(c.id)?.turnos.length ?? 0) > 0;
     carregar(getConversa(c.id)?.turnos ?? []);
     setHistorico(false);
   };
@@ -181,16 +189,80 @@ export function ChatTelaCheia({
   };
   const grupos = React.useMemo(() => agruparPorRecencia(conversas), [conversas]);
 
-  // Sem sugestões de quem abriu (menu, ⌘K), entram as aprendidas da IA.
-  const chips: SugestaoChat[] = sugestoes?.length
-    ? sugestoes
-    : chat.sugeridas.map((q) => ({ id: q, texto: q, curto: q, icone: "sparkles" }));
+  // "Veja tudo o que eu faço" é um RODÍZIO sobre o catálogo inteiro
+  // (`core/home/rodizio`): a pílula respondida some, a lista muda a cada
+  // resposta e aprende o assunto que a pessoa mais pergunta. As sugestões de
+  // quem abriu (a Home) entram como prioridade do contexto de hoje.
+  const { tipo } = useTipoConta();
+  const [hoje] = React.useState(hojeLocal);
+  const [prefs, setPrefs] = React.useState<PreferenciasHome | null>(null);
+  React.useEffect(() => {
+    const ler = () => setPrefs(lerPreferenciasHome());
+    ler();
+    return inscreverPreferenciasHome(ler);
+  }, []);
+  const [rodada, setRodada] = React.useState(0);
+  const [respondidasAgora, setRespondidasAgora] = React.useState<string[]>([]);
+  const [anteriores, setAnteriores] = React.useState<string[]>([]);
+  const [ultimoTema, setUltimoTema] = React.useState<TemaSugestao | null>(null);
+  const prioridade = React.useMemo(() => (sugestoes ?? []).map((s) => s.id), [sugestoes]);
+  const chips: SugestaoChat[] = React.useMemo(() => {
+    if (!prefs) return [];
+    return girarPilulas({
+      tipoConta: tipo, hoje, prioridade, rodada, ultimoTema, respondidasAgora, anteriores,
+      cliques: prefs.cliques, temas: prefs.temas, interesses: prefs.interesses, respondidas: prefs.respondidas,
+    });
+    // `prefs` muda a cada resposta gravada; o rodízio só redesenha na rodada,
+    // para a lista não trocar de lugar diante de quem está olhando.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs === null, tipo, hoje, prioridade, rodada]);
+  const chipsRef = React.useRef(chips);
+  chipsRef.current = chips;
+
+  // A pílula clicada fica pendente até a RESPOSTA chegar: só então ela some,
+  // vai para `respondidas` e o tema conta. Pergunta digitada que é igual à de
+  // uma pílula conta como ela; a que não é conta só o tema.
+  const clicadaRef = React.useRef<string | null>(null);
+  const vistosRef = React.useRef<Set<number>>(new Set());
+  const ignorarRef = React.useRef(false);
+  React.useEffect(() => {
+    const novos = chat.turnos.filter((t) => !vistosRef.current.has(t.id));
+    if (!novos.length) return;
+    for (const t of novos) vistosRef.current.add(t.id);
+    if (ignorarRef.current) { ignorarRef.current = false; return; }
+    const t = novos[novos.length - 1];
+    if (!t.resposta || t.fonte === "carregando") return;
+    const id = clicadaRef.current ?? pilulaDaPergunta(t.q, tipo);
+    clicadaRef.current = null;
+    const tema = (id && CATALOGO_SUGESTOES.find((c) => c.id === id)?.tema) || temaDaPergunta(t.q);
+    const atual = lerPreferenciasHome();
+    const novo: PreferenciasHome = {
+      ...atual,
+      temas: tema ? { ...atual.temas, [tema]: (atual.temas?.[tema] ?? 0) + 1 } : atual.temas,
+      respondidas: id ? { ...atual.respondidas, [id]: hoje } : atual.respondidas,
+    };
+    gravarPreferenciasHome(novo, { adiar: true });
+    setPrefs(novo);
+    if (id) setRespondidasAgora((r) => (r.includes(id) ? r : [...r, id]));
+    setUltimoTema(tema);
+    setAnteriores(chipsRef.current.map((c) => c.id));
+    setRodada((r) => r + 1);
+  }, [chat.turnos, tipo, hoje]);
 
   if (!montado) return null;
 
   const perguntar = (q: string, id?: string) => {
     if (!q.trim() || chat.pensando) return;
-    if (id && sugestoes?.some((s) => s.id === id)) aoClicarSugestao?.(id);
+    if (id) {
+      clicadaRef.current = id;
+      // A Home soma o clique com o mesmo peso do chip dela; aberto de outro
+      // lugar, o próprio chat soma.
+      if (aoClicarSugestao) aoClicarSugestao(id);
+      else {
+        const atual = lerPreferenciasHome();
+        gravarPreferenciasHome({ ...atual, cliques: { ...atual.cliques, [id]: (atual.cliques[id] ?? 0) + 1 } }, { adiar: true });
+      }
+    }
     void chat.responder(q);
   };
   const vazio = chat.turnos.length === 0 && !chat.pergunta && !chat.pensando;

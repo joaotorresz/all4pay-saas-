@@ -524,6 +524,54 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("rota: o prompt explica os cards da biblioteca e o teto", /card:/.test(ROTA_C) && /TETO_CARDS/.test(ROTA_C));
 }
 
+// ─── O RODÍZIO DAS PÍLULAS DO CHAT (16/10/2026) ───
+{
+  const R = await import("../src/core/home/rodizio.ts");
+  const { BANCO_EMPRESA, BANCO_PESSOAL } = await import("../src/core/home/banco-sugestoes.ts");
+  const HOJE = "2026-10-16";
+  const base = { tipoConta: "empresa" as const, hoje: HOJE, rodada: 0 };
+  const ids = (e: Parameters<typeof R.girarPilulas>[0]) => R.girarPilulas(e).map((p) => p.id);
+  const r0 = ids(base);
+  ok("rodízio: 100+ perguntas novas no banco", BANCO_EMPRESA.length + BANCO_PESSOAL.length >= 100, String(BANCO_EMPRESA.length + BANCO_PESSOAL.length));
+  ok("rodízio: o banco entra no catálogo com rótulo e ícone", [...BANCO_EMPRESA, ...BANCO_PESSOAL].every(([id]) => CATALOGO_SUGESTOES.some((c) => c.id === id) && !!ROTULOS[id]));
+  ok("rodízio: o banco não mexe na Home (sem base nem regra)", CATALOGO_SUGESTOES.filter((c) => BANCO_EMPRESA.some(([id]) => id === c.id)).every((c) => c.base === 0 && c.regras.length === 0));
+  ok("rodízio: doze pílulas, sem repetida", r0.length === R.PILULAS_NO_CHAT && new Set(r0).size === r0.length, String(r0.length));
+  ok("rodízio: determinístico na mesma rodada", JSON.stringify(r0) === JSON.stringify(ids(base)));
+  const temas0 = new Map<string, number>();
+  for (const p of R.girarPilulas(base)) temas0.set(p.tema, (temas0.get(p.tema) ?? 0) + 1);
+  ok("rodízio: no máximo três por tema", Math.max(...Array.from(temas0.values())) <= R.MAX_POR_TEMA_CHAT);
+  ok("rodízio: só o público certo", ids({ ...base, tipoConta: "pessoal" }).every((id) => CATALOGO_SUGESTOES.find((c) => c.id === id)?.publico === "pessoal"));
+  const r1 = ids({ ...base, rodada: 1, anteriores: r0 });
+  const iguais = r1.filter((id) => r0.includes(id)).length;
+  ok("rodízio: a lista MUDA depois de uma resposta", iguais <= 8, `${iguais} de 12 repetidas`);
+  const resp = r0[0];
+  ok("rodízio: a respondida nesta conversa some", !ids({ ...base, rodada: 1, respondidasAgora: [resp] }).includes(resp) && !ids({ ...base, respondidasAgora: [resp] }).includes(resp));
+  ok("rodízio: a respondida há pouco fica fora por alguns dias", !ids({ ...base, respondidas: { [resp]: "2026-10-15" } }).includes(resp));
+  const volta = Array.from({ length: 12 }, (_, i) => ids({ ...base, rodada: i, respondidas: { [resp]: "2026-10-01" } })).some((l) => l.includes(resp));
+  ok("rodízio: passados os dias, ela volta ao rodízio", volta && R.respondidaRecente("2026-10-15", HOJE) && !R.respondidaRecente("2026-10-13", HOJE) && !R.respondidaRecente("lixo", HOJE));
+  const fiscal = ids({ ...base, temas: { impostos: 9 } }).filter((id) => CATALOGO_SUGESTOES.find((c) => c.id === id)?.tema === "impostos").length;
+  const fiscal0 = r0.filter((id) => CATALOGO_SUGESTOES.find((c) => c.id === id)?.tema === "impostos").length;
+  ok("rodízio: APRENDE — quem pergunta de imposto vê mais imposto (até o teto)", fiscal === R.MAX_POR_TEMA_CHAT && fiscal > fiscal0, `${fiscal0} → ${fiscal}`);
+  const folhaCliq = CATALOGO_SUGESTOES.filter((c) => c.tema === "folha" && c.publico === "empresa").slice(0, 2).map((c) => c.id);
+  const comCliques = ids({ ...base, cliques: Object.fromEntries(folhaCliq.map((id) => [id, 4])) });
+  ok("rodízio: os cliques puxam o tema também", comCliques.filter((id) => CATALOGO_SUGESTOES.find((c) => c.id === id)?.tema === "folha").length === R.MAX_POR_TEMA_CHAT);
+  ok("rodízio: o último assunto puxa perguntas do mesmo tema", ids({ ...base, ultimoTema: "risco" }).filter((id) => CATALOGO_SUGESTOES.find((c) => c.id === id)?.tema === "risco").length >= 2);
+  const pri = ["quem-deve", "runway"];
+  ok("rodízio: a prioridade de hoje (Home) entra", pri.every((id) => ids({ ...base, prioridade: pri }).includes(id)));
+  ok("rodízio: o motivo diz por que a pílula apareceu", R.girarPilulas({ ...base, temas: { impostos: 9 } }).some((p) => /imposto/.test(p.motivo)));
+  ok("rodízio: a pergunta digitada acha o tema", R.temaDaPergunta("quanto pago de imposto este mês?") === "impostos" && R.temaDaPergunta("quanto custa contratar um CLT?") === "folha" && R.temaDaPergunta("qual meu saldo?") === "caixa" && R.temaDaPergunta("bom dia") === null);
+  const amostra = CATALOGO_SUGESTOES.find((c) => c.id === resp)!;
+  ok("rodízio: a pergunta igual à de uma pílula conta como ela", R.pilulaDaPergunta(amostra.texto.toUpperCase() + "  ", amostra.publico) === amostra.id && R.pilulaDaPergunta("outra coisa", "empresa") === null);
+  // defeito plantado: sem tirar as respondidas, a guarda tem de reprovar
+  const plantado = CATALOGO_SUGESTOES.filter((c) => c.publico === "empresa").slice(0, 12).map((c) => c.id);
+  ok("rodízio: (defeito plantado) uma lista que não tira a respondida reprova", plantado.includes(plantado[0]) && !ids({ ...base, respondidasAgora: [plantado[0]] }).includes(plantado[0]));
+  const CHAT = readFileSync(new URL("../src/components/ia/ChatTelaCheia.tsx", import.meta.url), "utf8");
+  ok("chat: as pílulas saem do rodízio, e a respondida some na RESPOSTA (não no clique)",
+    /girarPilulas\(/.test(CHAT) && /setRespondidasAgora/.test(CHAT) && /fonte === "carregando"/.test(CHAT) && /respondidas: id \?/.test(CHAT));
+  ok("prefs: temas e respondidas seguem a pessoa (servidor + dispositivo)",
+    /LOCAL_TEMAS/.test(LIB) && /LOCAL_RESPONDIDAS/.test(LIB) && /"a4p_home_temas"/.test(readFileSync(new URL("../src/lib/store-org.ts", import.meta.url), "utf8")));
+}
+
 // ── O card "Transações recentes na maquininha" (16/10/2026) ──
 {
   const V = (nsu: number, status: string, valor: number, ocorridoEm: string, extra: Record<string, unknown> = {}) => ({ nsu, status, valor, ocorridoEm, ...extra });

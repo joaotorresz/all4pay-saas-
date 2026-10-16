@@ -239,6 +239,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // O arranjo da Home (ordem e itens escondidos), mesma regra: a casa é
   // `a4p_home_preferencias`; esta é a cópia do dispositivo.
   "a4p_home_layout",
+  // O rodízio das pílulas do chat (16/10/2026), mesma regra: os temas que a
+  // pessoa mais pergunta e as pílulas já respondidas. A casa é o servidor.
+  "a4p_home_temas", "a4p_home_respondidas",
   // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
   "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
