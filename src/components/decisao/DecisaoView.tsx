@@ -1,18 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  LineChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  ResponsiveContainer,
-} from "recharts";
-import { BRL, Card, Skeleton, Icon, InfoHint, DicaGrafico, DegradeArea } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint, LinhasSuaves } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useDecisao } from "@/components/visao-geral/hooks";
 import {
@@ -22,7 +11,6 @@ import {
   type ModoExecucao,
   type AcaoAutonoma,
 } from "@/core/decision/types";
-import { chartAnim } from "@/lib/chart-anim";
 import { rotuloRunway } from "@/core/quant/score";
 
 const NIVEL_COR: Record<RiscoNivel, string> = {
@@ -234,30 +222,18 @@ function Feat({ label, value }: { label: string; value: React.ReactNode }) {
 function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: number; p90: number }[] }) {
   const data = bandas.filter((_, i) => i % 3 === 0);
   return (
-    <div role="img" aria-label="Projeção de caixa por Monte Carlo (bandas p10, p50, p90)">
-      <ResponsiveContainer width="100%" height={150}>
-        <LineChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: -12 }}>
-          <defs>
-            <DegradeArea id="decisaoGlow" />
-          </defs>
-          <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-          <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-          <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={42} tickFormatter={(v) => formatBRLCompact(v)} />
-          <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="4 3" />
-          <Tooltip
-            cursor={{ stroke: "var(--color-border)" }}
-            content={({ active, payload }: any) =>
-              active && payload?.length ? (
-                <DicaGrafico rotulo="Cenário central (p50)" valor={Number(payload.find((p: any) => p.dataKey === "p50")?.value ?? 0)} />
-              ) : null
-            }
-          />
-          <Area type="monotone" dataKey="p50" stroke="none" fill="url(#decisaoGlow)" {...chartAnim()} />
-          <Line type="monotone" dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} />
-          <Line type="monotone" dataKey="p50" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
-          <Line type="monotone" dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <LinhasSuaves
+      dados={data}
+      xKey="dia"
+      formatarX={(d) => `dia ${d}`}
+      zero
+      altura={170}
+      ariaLabel="Projeção de caixa por Monte Carlo (bandas p10, p50, p90)"
+      series={[
+        { chave: "p90", nome: "Otimista (p90)", cor: "var(--erp-graf-comparacao)", tracejada: true },
+        { chave: "p50", nome: "Central (p50)", cor: "var(--erp-graf-serie-1)" },
+        { chave: "p10", nome: "Pessimista (p10)", cor: "var(--erp-graf-serie-2)", tracejada: true },
+      ]}
+    />
   );
 }

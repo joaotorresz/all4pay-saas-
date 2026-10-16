@@ -14,10 +14,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus, DicaGrafico } from "@/components/ui";
+import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus, CartaoBiblioteca, BarrasDestaque, LinhaPontos } from "@/components/ui";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
+import { formatBRL, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -28,7 +27,6 @@ import {
   getPinbankAdmin, vincularPinbank, desvincularPinbank, type PinbankVinculoAdmin, type PinbankQuarentena,
   type SubStatus, type AdminPlan, type UserDetalhe, type AdminOrg,
 } from "@/lib/admin";
-import { RAIO_TOPO } from "@/lib/grafico";
 
 /*
  * ⚠️ **"Sem assinatura" precisou de linha PRÓPRIA.** A lista não tinha o estado
@@ -402,31 +400,21 @@ function SecaoSuporte() {
 function GrowthCard() {
   const g = useQuery({ queryKey: ["admin-growth"], queryFn: getAdminGrowth });
   const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
-  const data = (g.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
+  const data = (g.data ?? []).map((p) => ({ label: mesLabel(p.mes), valor: p.novas, acumulado: p.acumulado }));
+  const base = data.length ? data[data.length - 1].acumulado : 0;
   return (
-    <Card className="flex flex-col gap-3" info={{ titulo: "Crescimento", oQue: "Mostra o ritmo de aquisição de novos clientes e o tamanho da base ao longo do tempo.", comoCalcula: "As barras contam os clientes que entraram em cada mês; a linha acumula a base total de empresas." }}>
-      <span className="text-label font-medium text-muted">Crescimento · novos clientes e base acumulada</span>
+    <CartaoBiblioteca
+      titulo="Crescimento · novos clientes"
+      info={{ oQue: "Mostra o ritmo de aquisição de novos clientes e o tamanho da base ao longo do tempo.", comoCalcula: "Cada barra conta os clientes que entraram no mês; o número de cima é a base total de empresas hoje." }}
+      valor={g.isLoading ? undefined : <span className="tabular-nums">{base}</span>}
+      subtitulo={g.isLoading ? undefined : "empresas na base"}
+    >
       {g.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
-        <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
-            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
-            <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
-              <DicaGrafico
-                rotulo={label}
-                linhas={[
-                  { cor: "var(--color-lime)", nome: "Novos", valor: String(payload.find((x: any) => x.dataKey === "novas")?.value ?? 0) },
-                  { cor: "var(--color-ink)", nome: "Base", valor: String(payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0) },
-                ]}
-              />
-            ) : null} />
-            <Bar dataKey="novas" radius={RAIO_TOPO} fill="var(--color-lime)" />
-            <Line dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={1.6} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
+        <BarrasDestaque tom="claro" dados={data} altura={220} eixo={(v) => String(v)} rotuloSerie="Novos"
+          formatar={(v) => <span className="tabular-nums">{v} {v === 1 ? "cliente" : "clientes"}</span>}
+          ariaLabel="Novos clientes por mês" />
       )}
-    </Card>
+    </CartaoBiblioteca>
   );
 }
 
@@ -434,31 +422,22 @@ function GrowthCard() {
 function MrrCard() {
   const h = useQuery({ queryKey: ["admin-mrr"], queryFn: getMrrHistory });
   const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
-  const data = (h.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
-  const atual = data.length ? data[data.length - 1].mrr : 0;
-  const ant = data.length > 1 ? data[data.length - 2].mrr : 0;
+  const data = (h.data ?? []).map((p) => ({ label: mesLabel(p.mes), valor: p.mrr }));
+  const atual = data.length ? data[data.length - 1].valor : 0;
+  const ant = data.length > 1 ? data[data.length - 2].valor : 0;
   const delta = ant > 0 ? (atual - ant) / ant : 0;
   return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="inline-flex items-center gap-1 text-label font-medium text-muted">MRR mês a mês<InfoHint align="left" titulo="MRR mês a mês" oQue="Acompanha a receita recorrente mensal da plataforma e sua variação." comoCalcula="Usa o snapshot real do mês quando existe; senão deriva da soma das assinaturas ativas." /></span>
-        {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
-        {data.length > 1 && <span className="text-caption font-medium tabular-nums text-ink">{delta >= 0 ? "+" : "−"}{pct(Math.abs(delta))} × mês anterior</span>}
-      </div>
+    <CartaoBiblioteca
+      titulo="MRR mês a mês"
+      info={{ oQue: "Acompanha a receita recorrente mensal da plataforma e sua variação.", comoCalcula: "Usa o snapshot real do mês quando existe; senão deriva da soma das assinaturas ativas." }}
+      valor={h.isLoading ? undefined : <BRL value={atual} />}
+      /* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */
+      subtitulo={data.length > 1 ? <span className="tabular-nums">{delta >= 0 ? "+" : "−"}{pct(Math.abs(delta))} sobre o mês anterior</span> : undefined}
+    >
       {h.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
-        <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -2 }}>
-            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => formatBRLCompact(Number(v))} />
-            <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
-              <DicaGrafico rotulo={`${label} · MRR`} valor={Number(payload[0].value)} />
-            ) : null} />
-            <Line dataKey="mrr" stroke="var(--color-lime)" strokeWidth={1.8} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
+        <LinhaPontos id="admin-mrr" dados={data} altura={220} ariaLabel="MRR mês a mês" />
       )}
-    </Card>
+    </CartaoBiblioteca>
   );
 }
 

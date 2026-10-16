@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, BRL, StatusBadge, Icon, Skeleton, Button, InfoHint, type InfoConteudo } from "@/components/ui";
+import { Card, BRL, StatusBadge, Icon, Skeleton, Button, InfoHint, ColunasPreco, type InfoConteudo } from "@/components/ui";
 import { listRecorrencias, rolarRecorrencias, totalFatura, CICLOS } from "@/lib/recorrencias";
 import { postarLancamento } from "@/lib/ledger";
 import { analisarReceita, type ContratoReceita, type ReceitaReport } from "@/core/revenue";
@@ -64,7 +64,6 @@ export function ReceitaReconhecimentoView() {
     return () => { ativo = false; };
   }, []);
 
-  const maxMrr = report ? Math.max(1, ...report.waterfall.map((p) => p.mrrFim)) : 1;
 
   return (
     <AppShell title="Reconhecimento de receita" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
@@ -103,15 +102,9 @@ export function ReceitaReconhecimentoView() {
                 <span className="text-caption text-faint">MRR cancelado (churn atual): <span className="tabular-nums text-ink"><BRL value={report.resumo.churnMrr} /></span></span>
               )}
             </div>
-            <div className="flex items-end gap-3 h-[160px] pt-2" role="img" aria-label="Evolução do MRR nos últimos meses">
-              {report.waterfall.map((p) => (
-                <div key={p.mes} className="flex-1 flex flex-col items-center justify-end gap-2 min-w-0">
-                  <span className="text-[12px] tabular-nums text-faint truncate">{Math.round(p.mrrFim / 1000)}k</span>
-                  <div className="w-full rounded-t-sm bg-lime" style={{ height: `${Math.max(4, (p.mrrFim / maxMrr) * 120)}px` }} title={`MRR ${Math.round(p.mrrFim)}`} />
-                  <span className="text-[12px] text-faint truncate">{p.label}</span>
-                </div>
-              ))}
-            </div>
+            {/* "Análise de preço 1" da Biblioteca: o teto em coluna de fundo, a linha do MRR por cima. */}
+            <ColunasPreco ariaLabel="Evolução do MRR nos últimos meses" altura={200} rotulo="MRR"
+              dados={report.waterfall.map((p) => ({ label: p.label, valor: p.mrrFim }))} />
           </Card>
 
           {/* Reconhecimento por contrato + diferida */}

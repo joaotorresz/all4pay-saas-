@@ -17,14 +17,10 @@
  * os tipos de decisão oferecidos (`PRESETS` filtrados por perfil).
  */
 import * as React from "react";
-import {
-  ResponsiveContainer, ComposedChart, Line, XAxis, YAxis, Tooltip, ReferenceLine,
-} from "recharts";
-import { Card, BRL, Icon, CurrencyInput, Input, Select, Skeleton, InfoHint } from "@/components/ui";
+import { Card, BRL, Icon, CurrencyInput, Input, Select, Skeleton, InfoHint, LinhasSuaves } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { useTipoConta } from "@/components/app/useTipoConta";
-import { chartAnim } from "@/lib/chart-anim";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { formatBRL } from "@/lib/format";
 import {
   simularAquisicao, situacaoDe, presetPor, PRESETS, VEREDITO_LABEL,
   type TipoDecisao, type SituacaoAtual, type Veredito, type ResultadoSimulacao,
@@ -252,31 +248,18 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
             : <>o caixa não fica negativo · ponto mais baixo <BRL value={r.caixaMinimo} /></>}
         </p>
 
-        <div className="h-[260px] -ml-2" role="img" aria-label={`Projeção de caixa com e sem a compra ao longo de ${r.projecao.length - 1} meses`}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={r.projecao} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-              <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                interval="preserveStartEnd" tickFormatter={(m: number) => (m === 0 ? "hoje" : `${m}m`)} />
-              <YAxis tickLine={false} axisLine={false} width={62}
-                tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                tickFormatter={(v: number) => formatBRLCompact(v)} />
-              <ReferenceLine y={0} stroke="var(--color-border)" />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--color-white)", fontSize: 13 }}
-                labelFormatter={(m) => (m === 0 ? "Hoje" : `Mês ${m}`)}
-                formatter={(v: number, n: string) => [formatBRL(v), n === "comCompra" ? "Com a compra" : "Sem a compra"]}
-              />
-              <Line type="monotone" dataKey="semCompra" name="semCompra" stroke="var(--color-text-tertiary)"
-                strokeWidth={1.4} strokeDasharray="4 4" dot={false} {...chartAnim()} />
-              <Line type="monotone" dataKey="comCompra" name="comCompra" stroke="var(--color-lime)"
-                strokeWidth={2} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex items-center gap-4 mt-2 text-caption text-faint">
-          <span className="inline-flex items-center gap-[6px]"><span className="w-4 h-[2px] rounded-pill" style={{ background: "var(--color-lime)" }} /> com a compra</span>
-          <span className="inline-flex items-center gap-[6px]"><span className="w-4 border-t-2 border-dashed" style={{ borderColor: "var(--color-text-tertiary)" }} /> sem a compra</span>
-        </div>
+        <LinhasSuaves
+          dados={r.projecao as unknown as Record<string, string | number>[]}
+          xKey="mes"
+          formatarX={(m) => (m === "0" ? "hoje" : `${m}m`)}
+          zero
+          altura={260}
+          ariaLabel={`Projeção de caixa com e sem a compra ao longo de ${r.projecao.length - 1} meses`}
+          series={[
+            { chave: "comCompra", nome: "Com a compra", cor: "var(--erp-graf-serie-1)" },
+            { chave: "semCompra", nome: "Sem a compra", cor: "var(--erp-graf-comparacao)", tracejada: true },
+          ]}
+        />
       </Card>
 
       {/* fatores + alternativas */}

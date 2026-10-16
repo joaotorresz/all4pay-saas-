@@ -11,13 +11,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { formatBRL } from "@/lib/format";
-import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
-} from "recharts";
-import { BRL, Button, Card, Icon, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
+import { BRL, Button, Card, Icon, Select, Skeleton, StatusBadge, ValorIndicador, CartaoBiblioteca, BarrasPareadas, Velas, type FormatoValor } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
-import { chartAnim } from "@/lib/chart-anim";
 import {
   montarDRE, montarDFC, rotuloColuna, compararOrcamento, palpiteDoRelatorio,
   ESTRUTURA_DRE, ESTRUTURA_DFC, type Relatorio,
@@ -33,7 +29,7 @@ import { cascataDRE } from "@/core/relatorios/cascata";
 import type { RiskInput } from "@/core/risk-engine/types";
 import {
   FiltrosRelatorio, PainelLayout, TabelaRelatorio, GavetaTransacoes, BotoesExportar,
-  filtroPadrao, LAYOUT_PADRAO, temaPorId,
+  filtroPadrao, LAYOUT_PADRAO,
   type FiltrosRelatorioValor, type LayoutTabela, type CelulaClicada,
 } from "./kit";
 
@@ -41,7 +37,6 @@ import { loadCompany } from "@/lib/company";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro, type RegimeConfigurado } from "@/core/tax/duplicidade";
 import { CabecalhoImpressao } from "./CabecalhoImpressao";
 import { DeclararPalpite } from "./DeclararPalpite";
-import { RAIO_TOPO } from "@/lib/grafico";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
  * isso a Visão geral escrevia "R$ 2" onde o extrato e o DRE escreviam "R$ 1,54".
@@ -52,7 +47,6 @@ import { RAIO_TOPO } from "@/lib/grafico";
  * Abreviação (k, mi) continua permitida SÓ em eixo de gráfico, onde o rótulo
  * não cabe — e o tooltip mostra o valor cheio.
  */
-const brl0 = (n: number) => formatBRL(n);
 const fmtBRL = (n: number) => formatBRL(n);
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
@@ -357,55 +351,38 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
 
 /* -------------------------------- gráfico -------------------------------- */
 
-/** A leitura visual da cascata: a linha do resultado sobre as barras do mês. */
+/**
+ * A leitura visual da cascata, com os modelos da Biblioteca do canvas:
+ *   · DRE → "Análises 1" (`BarrasPareadas`): a receita bruta e o que saiu dela
+ *     até o resultado (receita bruta − resultado líquido) lado a lado; a dica
+ *     fecha no resultado líquido do mês.
+ *   · DFC → "Velas" (`Velas`): cada mês abre no saldo inicial e fecha no saldo
+ *     final. A vela de alta e a de baixa são SÉRIES (fechou acima ou abaixo de
+ *     onde abriu), nunca a cor de um número contra zero.
+ */
 function GraficoResultado({
-  relatorio, tipo, tema,
+  relatorio, tipo,
 }: { relatorio: Relatorio; tipo: "dre" | "dfc"; tema: string }) {
-  const t = temaPorId(tema);
-  const idBarra = tipo === "dre" ? "receita_bruta" : "entradas_operacionais";
-  const idLinha = tipo === "dre" ? "resultado_liquido" : "saldo_final";
-  const barra = relatorio.linhas.find((l) => l.id === idBarra);
-  const linha = relatorio.linhas.find((l) => l.id === idLinha);
-
-  const dados = relatorio.colunas.map((c, k) => ({
-    label: rotuloColuna(c),
-    base: barra?.celulas[k]?.valor ?? 0,
-    resultado: linha?.celulas[k]?.valor ?? 0,
-  }));
-
+  const valor = (id: string, k: number) => relatorio.linhas.find((l) => l.id === id)?.celulas[k]?.valor ?? 0;
+  const titulo = tipo === "dre" ? "Receita bruta e o que saiu dela" : "Saldo do começo ao fim de cada mês";
   return (
-    <Card>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <span className="text-h3 font-semibold text-ink">
-          {tipo === "dre" ? "Receita bruta e resultado líquido" : "Entradas e saldo final"}
-        </span>
-        <span className="text-caption text-faint">{relatorio.colunas.length} meses</span>
-      </div>
-      <div className="h-[260px] -ml-2" role="img" aria-label="Evolução do resultado no período">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={dados} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
-            <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd"
-              tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
-            <YAxis tickLine={false} axisLine={false} width={58}
-              tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-              tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))} />
-            <Tooltip formatter={(v: number) => brl0(v)} cursor={{ fill: "var(--color-surface-2)" }}
-              contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--color-white)", fontSize: 13 }} />
-            <Bar dataKey="base" name={tipo === "dre" ? "Receita bruta" : "Entradas"} radius={RAIO_TOPO} {...chartAnim()}>
-              {dados.map((_, k) => <Cell key={k} fill={`color-mix(in srgb, ${t.base} 55%, transparent)`} />)}
-            </Bar>
-            {/* Número não tem cor por sinal (decisão de 30/09/2026): a linha
-                não troca de cor quando o último ponto fica negativo — o eixo e o
-                valor no tooltip, com o sinal escrito, dizem a direção. */}
-            <Line
-              type="monotone" dataKey="resultado" name={tipo === "dre" ? "Resultado líquido" : "Saldo final"}
-              stroke="var(--color-lime)"
-              strokeWidth={1.6} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
+    <CartaoBiblioteca titulo={titulo} subtitulo={`${relatorio.colunas.length} meses`}>
+      {tipo === "dre" ? (
+        <BarrasPareadas altura={240} ariaLabel="Receita bruta e custos e despesas por mês"
+          rotuloEntrada="Receita bruta" rotuloSaida="Custos e despesas"
+          dados={relatorio.colunas.map((c, k) => {
+            const receita = valor("receita_bruta", k);
+            return { label: rotuloColuna(c), entrada: receita, saida: receita - valor("resultado_liquido", k) };
+          })} />
+      ) : (
+        <Velas altura={240} ariaLabel="Saldo inicial e final por mês" rotuloAlta="Fechou acima" rotuloBaixa="Fechou abaixo"
+          dados={relatorio.colunas.map((c, k) => {
+            const abertura = valor("saldo_inicial", k), fechamento = valor("saldo_final", k);
+            return { label: rotuloColuna(c), abertura, fechamento,
+              minima: Math.min(abertura, fechamento), maxima: Math.max(abertura, fechamento), alta: fechamento >= abertura };
+          })} />
+      )}
+    </CartaoBiblioteca>
   );
 }
 
