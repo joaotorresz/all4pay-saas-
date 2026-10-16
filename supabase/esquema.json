@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-15",
+  "gerado_em": "2026-10-16",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 79,
-    "funcoes": 131,
-    "politicas": 152,
-    "gatilhos": 99,
-    "indices": 246,
+    "tabelas": 81,
+    "funcoes": 139,
+    "politicas": 153,
+    "gatilhos": 100,
+    "indices": 250,
     "enums": 12,
-    "colunas": 842,
-    "restricoes": 274
+    "colunas": 857,
+    "restricoes": 283
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -147,7 +147,9 @@
     "20261009120000_enterprise_libera_pro",
     "20261014120000_pinbank_conferencia_limite",
     "20261014120100_pinbank_ec_auditado",
-    "20261015120000_pinbank_tarifa_antecipacao"
+    "20261015120000_pinbank_tarifa_antecipacao",
+    "20261016120000_automacao_fluxos_disparo",
+    "20261016130000_whatsapp_autorizacao_saida"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -161,37 +163,7 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [
-      {
-        "nome": "20261016120000_automacao_fluxos_disparo",
-        "objetos_ausentes": [
-          "constraint automacao_envios_tipo_check — recriada com o tipo 'fluxo' (as seis automações fixas seguem iguais)",
-          "função automacao_fluxos_ligados() — SECURITY DEFINER, execute só para service_role",
-          "função automacao_vendas_maquininha(uuid,date) — SECURITY DEFINER, execute só para service_role",
-          "agendamento pg_cron 'automacoes-fluxos' (*/15 * * * *) → GET /api/automacoes/fluxos/run com o cron_secret do Vault"
-        ],
-        "impacto": "Até ser aplicada, nenhum fluxo de automação dispara no horário: a rota do executor responde erro ao ler os fluxos (a função não existe) e nada é enviado. Os fluxos continuam sendo montados e salvos na tela e pela conversa, desligados por padrão. Nada que já existe muda.",
-        "resolver_ate": "2026-10-23",
-        "origem": "sessão Claude de 15/10/2026 (etapa 4 das automações por WhatsApp) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
-      },
-      {
-        "nome": "20261016130000_whatsapp_autorizacao_saida",
-        "objetos_ausentes": [
-          "função telefone_canonico(text) — imutável, espelho de destinoCanonico",
-          "tabela whatsapp_autorizacoes — por empresa, com gatilho zz_auditar_whatsapp_autorizacoes; authenticated só lê",
-          "tabela whatsapp_saidas — da plataforma, sem org_id, sem privilégio para ninguém fora das funções",
-          "função whatsapp_autorizar(uuid[],text) — SECURITY DEFINER, execute só para authenticated (exige lançar, baixar ou administrar)",
-          "função whatsapp_revogar(uuid[]) — SECURITY DEFINER, execute só para authenticated",
-          "função whatsapp_situacao_contatos() — SECURITY DEFINER, execute só para authenticated",
-          "função whatsapp_registrar_saida(text,text,text) — SECURITY DEFINER, execute só para service_role",
-          "função whatsapp_saidas_entre(text[]) — SECURITY DEFINER, execute só para service_role",
-          "função automacao_contexto recriada com a situação de WhatsApp de cada contato"
-        ],
-        "impacto": "Até ser aplicada, nenhum WhatsApp sai para cliente: o executor não consegue perguntar quem pediu para sair (falha fechada) e a régua trata todo contato como sem autorização, então a cobrança segue só por e-mail. O SAIR respondido pelo WhatsApp devolve 503 e a Twilio tenta de novo. Os avisos para a própria empresa por e-mail seguem iguais.",
-        "resolver_ate": "2026-10-23",
-        "origem": "sessão Claude de 15/10/2026 (etapa 5 das automações por WhatsApp) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
-      }
-    ],
+    "arquivo_sem_aplicacao": [],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
