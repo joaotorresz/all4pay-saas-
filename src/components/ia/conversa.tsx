@@ -5,8 +5,9 @@
  * a IA conversa (abertura de conta, chat em tela cheia, ajuste da Home,
  * automações pela conversa e Central de Ajuda).
  *
- *  · `DigitandoIA` — enquanto a IA pensa: a marca respira, três pontos pulam e
- *    o rótulo ("Pensando") tem um brilho que passa por ele.
+ *  · `DigitandoIA` — enquanto a IA pensa: três pontos pulam e o rótulo
+ *    ("Pensando") tem um brilho que passa por ele. Sem a marca na frente
+ *    (decisão do dono, 16/10/2026): a conversa já diz quem fala.
  *  · `TextoRevelado` — quando a resposta chega, as palavras surgem uma depois
  *    da outra, saindo do desfoque, como nas IAs que escrevem ao vivo.
  *
@@ -17,15 +18,14 @@
  */
 
 import * as React from "react";
-import { MarcaIA } from "./marca";
 import { MARCA_IA } from "@/core/marca";
 
 /** Intervalo entre uma palavra e a seguinte. */
-const PASSO_MS = 28;
+const PASSO_MS = 55;
 /** Teto do atraso: um texto longo não pode levar mais que isso para terminar de surgir. */
-const TETO_MS = 1400;
+const TETO_MS = 2800;
 /** Duração da animação de cada palavra (a mesma do `.a4p-palavra`). */
-const PALAVRA_MS = 460;
+const PALAVRA_MS = 800;
 
 /** Quanto tempo o texto leva para terminar de surgir (para encadear o que vem depois). */
 export function duracaoRevelar(texto: string): number {
@@ -68,9 +68,6 @@ export function DigitandoIA({ rotulo = "Pensando", className = "" }: { rotulo?: 
       data-ia="digitando"
       className={`a4p-entra inline-flex w-fit items-center gap-3 py-1 ${className}`}
     >
-      <span className="a4p-ia-respira inline-flex">
-        <MarcaIA size={24} radius={8} />
-      </span>
       <span className="a4p-digitando inline-flex items-center gap-[5px]" aria-hidden>
         <span className="block w-[6px] h-[6px] rounded-pill bg-muted" />
         <span className="block w-[6px] h-[6px] rounded-pill bg-muted" />
