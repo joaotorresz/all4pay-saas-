@@ -1698,6 +1698,11 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   --erp-graf-serie-3: var(--color-lime);
   --erp-graf-serie-4: var(--color-text-secondary);
   --erp-graf-serie-5: var(--color-surface-3);
+  /* Entradas e saídas nos modelos da Biblioteca escolhidos nas TROCAS
+     (15/10/2026): o dono ligou "Positivo e negativo" no canvas. A cor é da
+     SÉRIE, nunca do valor — ver CLAUDE.md, terceira exceção declarada. */
+  --erp-graf-entrada: var(--color-positive);
+  --erp-graf-saida: var(--color-negative);
   --erp-tabela-linha: var(--erp-menu-borda);
 }
 html:not(.dark) .ds-visor {

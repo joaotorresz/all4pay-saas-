@@ -178,6 +178,7 @@ export function DashboardContasReceber() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4 items-start">
             <DistribuicaoDonut
+              variante="aneis"
               titulo="Distribuição por status"
               vazioTexto="Nenhuma conta a receber no período selecionado."
               fatias={painel.distribuicao.map((d) => ({

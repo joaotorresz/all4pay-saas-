@@ -4,45 +4,31 @@
  * Cards comparativos do Fluxo de Caixa — Resultado líquido · Gastos · Receitas
  * — e o Sankey "Para onde foi", no modelo da referência enviada.
  *
- * Todos compartilham a MESMA anatomia (`CardComparativo`): micro-label +
- * "Ver mais ↗" · a janela em datas · o valor-herói · a pílula de variação
- * ("vs <valor> em <janela anterior>") · o gráfico, sempre com a **linha
- * tracejada do período anterior** por cima das barras.
+ * Os três primeiros cards seguem os modelos que o dono escolheu nas pranchetas
+ * de TROCAS do canvas "Quattro ERP · Gráficos e tabelas" (15/10/2026), sobre a
+ * moldura `CartaoBiblioteca`: Resultado líquido → "Análises 3", Gastos →
+ * "Entradas", Receitas → "Receita 2". O Sankey não foi trocado.
  *
- * Cor: número não tem cor por sinal (decisão de 30/09/2026) — o sinal escrito
- * diz a direção. Nos gráficos, entrada/positivo sai em `ink` e saída/negativo
- * em `areia`, em tons do MESMO matiz — o DS tem um acento só, então categorias
- * se distinguem por intensidade + legenda, não por matizes avulsos.
+ * Cor: o NÚMERO não tem cor por sinal (30/09/2026). Entradas e saídas nos
+ * gráficos levam a cor da SÉRIE (`--erp-graf-entrada`/`--erp-graf-saida`),
+ * porque o dono ligou "Positivo e negativo" nesses modelos; o Sankey segue em
+ * tons do mesmo matiz.
  */
 import * as React from "react";
-import Link from "next/link";
-import {
-  ResponsiveContainer, ComposedChart, Bar, Cell, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ReferenceLine, Sankey, Layer, Rectangle,
-} from "recharts";
-import { Card, Icon, BRL, Skeleton, DicaGrafico } from "@/components/ui";
+import { ResponsiveContainer, Tooltip, Sankey, Layer, Rectangle } from "recharts";
+import { Card, Icon, BRL, Skeleton, CartaoBiblioteca, BarrasEntradaSaida, LinhaEntradaSaida, BarrasDestaque, type PontoEntradaSaida } from "@/components/ui";
 import { formatBRL, pct } from "@/lib/format";
-import { chartAnim } from "@/lib/chart-anim";
 import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados, type SankeyLigacao } from "@/core/cashflow/comparativo";
 import { pctDeInteiro } from "@/lib/format";
 
 const ENTRADA = "var(--color-ink)";
 const SAIDA = "var(--color-areia)";
-const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
-const PREV = "var(--erp-graf-comparacao)"; // areia tracejada: o período anterior (canvas "Gráficos e tabelas")
 
 /** Tons do MESMO matiz para as categorias (o DS não tem paleta categórica). */
 const TONS = [100, 76, 56, 40, 28, 19, 13, 9];
 const tomDe = (cor: string, i: number) =>
   `color-mix(in srgb, ${cor} ${TONS[Math.min(i, TONS.length - 1)]}%, transparent)`;
-
-/** Eixo Y curto: R$6.000 · R$40k — sem estourar a largura do card. */
-function tickBRL(v: number): string {
-  const abs = Math.abs(v);
-  const s = abs >= 1000 ? `${(abs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: abs >= 10000 ? 0 : 1 })}k` : String(abs);
-  return `${v < 0 ? "−" : ""}R$${s}`;
-}
 
 /* ============================ pílula de variação ============================ */
 /** A direção vem do "+"/"−" e da seta, nunca da cor: a pílula é neutra. */
@@ -73,217 +59,79 @@ function PilulaVariacao({ s }: { s: SerieComparada }) {
   );
 }
 
-/* ============================ casca do card ============================ */
-function CardComparativo({
-  titulo, href, janela, valor, serie, info, children,
-}: {
-  titulo: string;
-  href: string;
-  janela: { de: string; ate: string };
-  valor: number;
-  serie: SerieComparada;
-  info: { oQue: string; comoCalcula: string };
-  children: React.ReactNode;
-}) {
+/* ===================== janela + pílula (subtítulo comum) ===================== */
+function Subtitulo({ c, s }: { c: ComparativoFluxo; s: SerieComparada }) {
   return (
-    <Card className="flex flex-col gap-3" info={{ titulo, ...info }}>
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium tracking-[0.06em] text-faint">{titulo}</span>
-        <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink shrink-0">
-          Ver mais ↗
-        </Link>
-      </div>
-
-      <span className="text-[13px] text-muted">
-        {rotuloData(janela.de)} – {rotuloData(janela.ate)}
-      </span>
-
-      <span className="a4p-heroi text-[32px] font-bold leading-none tabular-nums" style={{ color: "var(--color-ink)" }}>
-        {valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} />
-      </span>
-
-      <PilulaVariacao s={serie} />
-      <div className="mt-1">{children}</div>
-    </Card>
+    <span className="flex items-center gap-2 flex-wrap">
+      <span>{rotuloData(c.janela.de)} – {rotuloData(c.janela.ate)}</span>
+      <PilulaVariacao s={s} />
+    </span>
   );
 }
 
-/* ============================ tooltip comum ============================ */
-interface TipItem { nome: string; valor: number; cor: string }
-/**
- * A dica comum dos comparativos. Com o período anterior na mão, a pílula de
- * variação sai daqui: (atual − anterior) ÷ |anterior|. Anterior zero não tem
- * base — a pílula diz isso em vez de inventar um percentual infinito.
- */
-function TooltipBox({ titulo, itens, comparar }: { titulo: string; itens: TipItem[]; comparar?: { atual: number; anterior: number } }) {
-  const variacao = comparar
-    ? { v: comparar.anterior === 0 ? null : (comparar.atual - comparar.anterior) / Math.abs(comparar.anterior), frase: "sobre o período anterior" }
-    : undefined;
-  return (
-    <DicaGrafico
-      rotulo={titulo}
-      variacao={variacao}
-      linhas={itens.map((i) => ({ cor: i.cor, nome: i.nome, valor: i.valor }))}
-    />
-  );
+/** Entradas × saídas do mesmo balde, lado a lado (as duas séries já vêm alinhadas). */
+function entradasSaidas(c: ComparativoFluxo): PontoEntradaSaida[] {
+  return c.receitas.pontos.map((p, i) => ({ label: p.label, entrada: p.valor, saida: c.gastos.pontos[i]?.valor ?? 0 }));
 }
 
 /* ======================== 1) Resultado líquido ======================== */
+/** Troca do canvas (15/10/2026): "Análises 3" — entradas em linha reta com área, saídas tracejadas. */
 export function ResultadoLiquidoCard({ c }: { c: ComparativoFluxo }) {
   const s = c.resultado;
   return (
-    <CardComparativo
+    <CartaoBiblioteca
       titulo="Resultado líquido"
       href="/dashboard/reports/dre"
-      janela={c.janela}
-      valor={s.total}
-      serie={s}
+      valor={<>{s.total < 0 ? "−" : ""}<BRL value={Math.abs(s.total)} /></>}
+      subtitulo={<Subtitulo c={c} s={s} />}
       info={{
         oQue: "O que sobrou (ou faltou) no período: tudo que entrou menos tudo que saiu, comparado com o período anterior de mesmo tamanho.",
-        comoCalcula: "Soma entradas − saídas de cada mês da janela. A linha tracejada é o mesmo cálculo na janela imediatamente anterior; a variação compara os dois totais.",
+        comoCalcula: "O valor é entradas − saídas da janela. No gráfico, as entradas de cada balde em linha e as saídas tracejadas; a dica mostra a margem do balde, (entradas − saídas) ÷ entradas. A variação compara o total com a janela anterior.",
       }}
     >
-      <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={s.pontos} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-          <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: FAINT }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 11, fill: FAINT }} tickLine={false} axisLine={false} width={72} tickFormatter={tickBRL} />
-          <ReferenceLine y={0} stroke="var(--color-ink)" strokeWidth={1} />
-          <Tooltip
-            cursor={{ fill: "rgba(127,127,127,0.08)" }}
-            content={({ active, payload, label }) => {
-              if (!active || !payload?.length) return null;
-              const p = payload[0].payload as (typeof s.pontos)[number];
-              return <TooltipBox titulo={String(label)} itens={[
-                { nome: "Resultado", valor: p.valor, cor: p.valor < 0 ? SAIDA : ENTRADA },
-                { nome: "Período anterior", valor: p.anterior, cor: PREV },
-              ]} comparar={{ atual: p.valor, anterior: p.anterior }} />;
-            }}
-          />
-          <Bar dataKey="valor" radius={[6, 6, 6, 6]} maxBarSize={54} {...chartAnim()}>
-            {s.pontos.map((p) => <Cell key={p.key} fill={p.valor < 0 ? SAIDA : ENTRADA} />)}
-          </Bar>
-          <Line
-            type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
-            strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </CardComparativo>
+      <LinhaEntradaSaida id="resultado" dados={entradasSaidas(c)} altura={240} ariaLabel="Entradas e saídas de cada balde do período" />
+    </CartaoBiblioteca>
   );
 }
 
 /* ============================== 2) Gastos ============================== */
+/** Troca do canvas (15/10/2026): "Entradas" — entradas para cima, saídas para baixo. */
 export function GastosCard({ c }: { c: ComparativoFluxo }) {
   const s = c.gastos;
-  // Até 5 categorias empilhadas; o resto vira "Outras" (senão a legenda estoura).
-  const cats = c.categorias.slice(0, 5);
-  const temOutras = c.categorias.length > cats.length;
-  const dados = React.useMemo(
-    () => s.pontos.map((p) => {
-      const linha: Record<string, string | number> = { label: p.label, anterior: p.anterior, total: p.valor };
-      let somaCats = 0;
-      for (const cat of cats) { const v = p.porCategoria[cat] ?? 0; linha[cat] = v; somaCats += v; }
-      if (temOutras) linha["Outras"] = Math.max(0, p.valor - somaCats);
-      return linha;
-    }),
-    [s.pontos, cats, temOutras],
-  );
-  const pilha = temOutras ? [...cats, "Outras"] : cats;
-
   return (
-    <CardComparativo
+    <CartaoBiblioteca
       titulo="Gastos"
       href="/contas-a-pagar/titulos"
-      janela={c.janela}
-      valor={s.total}
-      serie={s}
+      valor={<BRL value={s.total} />}
+      pesoValor={600}
+      subtitulo={<Subtitulo c={c} s={s} />}
       info={{
-        oQue: "Tudo que saiu no período, quebrado pelas categorias que mais pesam, contra o período anterior.",
-        comoCalcula: "Soma as saídas de cada mês e empilha por categoria do lançamento (as 5 maiores; o resto vira “Outras”). A linha tracejada é o total de saídas da janela anterior.",
+        oQue: "Tudo que saiu no período, contra o que entrou no mesmo balde, e a variação contra o período anterior.",
+        comoCalcula: "O valor soma as saídas da janela. No gráfico, as entradas de cada balde sobem e as saídas descem; a variação compara o total de saídas com a janela anterior de mesmo tamanho.",
       }}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart data={dados} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-          <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: FAINT }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 11, fill: FAINT }} tickLine={false} axisLine={false} width={68} tickFormatter={tickBRL} />
-          <Tooltip
-            cursor={{ fill: "rgba(127,127,127,0.08)" }}
-            content={({ active, payload, label }) => {
-              if (!active || !payload?.length) return null;
-              const p = payload[0].payload as Record<string, number>;
-              return <TooltipBox titulo={String(label)} itens={[
-                ...pilha.map((cat, i) => ({ nome: cat, valor: Number(p[cat] ?? 0), cor: tomDe(SAIDA, i) })),
-                { nome: "Período anterior", valor: Number(p.anterior ?? 0), cor: PREV },
-              ]} />;
-            }}
-          />
-          {pilha.map((cat, i) => (
-            <Bar
-              key={cat} dataKey={cat} stackId="g" fill={tomDe(SAIDA, i)} maxBarSize={54}
-              radius={i === pilha.length - 1 ? [6, 6, 0, 0] : undefined}
-              {...chartAnim(i * 60)}
-            />
-          ))}
-          <Line
-            type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
-            strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(200)}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-
-      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2">
-        {pilha.map((cat, i) => (
-          <span key={cat} className="inline-flex items-center gap-[6px] text-[13px] text-muted">
-            <span className="w-[9px] h-[9px] rounded-sm" style={{ background: tomDe(SAIDA, i) }} />
-            {cat}
-          </span>
-        ))}
-      </div>
-    </CardComparativo>
+      <BarrasEntradaSaida dados={entradasSaidas(c)} altura={240} ariaLabel="Entradas e saídas de cada balde do período" />
+    </CartaoBiblioteca>
   );
 }
 
 /* ============================= 3) Receitas ============================= */
+/** Troca do canvas (15/10/2026): "Receita 2" — barras com o balde atual em destaque. */
 export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
   const s = c.receitas;
   return (
-    <CardComparativo
+    <CartaoBiblioteca
       titulo="Receitas"
       href="/contas-a-receber/titulos"
-      janela={c.janela}
-      valor={s.total}
-      serie={s}
+      valor={<BRL value={s.total} />}
+      subtitulo={<Subtitulo c={c} s={s} />}
       info={{
-        oQue: "Tudo que entrou no período, mês a mês, contra o período anterior de mesmo tamanho.",
-        comoCalcula: "Soma as entradas de cada mês da janela. A linha tracejada repete o cálculo na janela anterior; a variação compara os totais.",
+        oQue: "Tudo que entrou no período, balde a balde, contra o período anterior de mesmo tamanho.",
+        comoCalcula: "Soma as entradas de cada balde da janela; a barra escura é o balde mais recente. A variação compara o total com a janela anterior.",
       }}
     >
-      <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart data={s.pontos} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-          <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: FAINT }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 11, fill: FAINT }} tickLine={false} axisLine={false} width={72} tickFormatter={tickBRL} />
-          <Tooltip
-            cursor={{ fill: "rgba(127,127,127,0.08)" }}
-            content={({ active, payload, label }) => {
-              if (!active || !payload?.length) return null;
-              const p = payload[0].payload as (typeof s.pontos)[number];
-              return <TooltipBox titulo={String(label)} itens={[
-                { nome: "Receitas", valor: p.valor, cor: ENTRADA },
-                { nome: "Período anterior", valor: p.anterior, cor: PREV },
-              ]} comparar={{ atual: p.valor, anterior: p.anterior }} />;
-            }}
-          />
-          <Bar dataKey="valor" fill={ENTRADA} radius={[6, 6, 0, 0]} maxBarSize={54} {...chartAnim()} />
-          <Line
-            type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
-            strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </CardComparativo>
+      <BarrasDestaque dados={s.pontos.map((p) => ({ label: p.label, valor: p.valor }))} altura={240} rotuloSerie="Receitas" ariaLabel="Receitas de cada balde do período" />
+    </CartaoBiblioteca>
   );
 }
 

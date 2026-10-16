@@ -9,7 +9,7 @@
  */
 import type { RiskInput } from "@/core/risk-engine/types";
 import {
-  arr, burn, janela, janelaDoMesDe, janelaUltimosDias, JANELA_RITMO_DIAS, parseLocal, isoLocal,
+  arr, burn, entradas, saidas, janela, janelaDoMesDe, janelaUltimosDias, JANELA_RITMO_DIAS, parseLocal, isoLocal,
   previstoNaJanela, runwayMeses, saldo, saldoEm, temValor, type Indicador,
 } from "@/core/indicadores";
 
@@ -63,6 +63,13 @@ export interface NumeroHome {
 export interface CurvaHome {
   pontos: number[];
   meses: string[];
+  /**
+   * Entradas e saídas liquidadas de cada mês da curva (só no caixa): o modelo
+   * "Entradas" que o dono escolheu nas trocas (15/10/2026) desenha o que moveu
+   * o saldo mês a mês. Mesmas funções canônicas, regime de caixa.
+   */
+  entradas?: number[];
+  saidas?: number[];
 }
 
 export interface HomeSnapshot {
@@ -90,6 +97,14 @@ export function montarHomeSnapshot(input: RiskInput, pontos = 7): HomeSnapshot {
   const curvaCaixa: CurvaHome = {
     pontos: meses.map((m) => saldoEm(input, m.iso)),
     meses: meses.map((m) => m.rotulo),
+    entradas: meses.map((m) => {
+      const e = entradas(input, janela(janelaDoMesDe(m.iso).de, m.iso));
+      return temValor(e) ? e.valor : 0;
+    }),
+    saidas: meses.map((m) => {
+      const e = saidas(input, janela(janelaDoMesDe(m.iso).de, m.iso));
+      return temValor(e) ? e.valor : 0;
+    }),
   };
 
   const arrAgora = arr(input);

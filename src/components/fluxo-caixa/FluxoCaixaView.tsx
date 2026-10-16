@@ -2,11 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar, Cell, ReferenceLine,
-} from "recharts";
-import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo, DegradeArea } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo, LinhasSuaves, AreaComparada, MapaCalorGrade, COR_ENTRADA, COR_SAIDA, type CelulaCalor } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
@@ -25,7 +21,6 @@ import { janela as fazJanela, rotuloRunwayLido } from "@/core/indicadores";
 import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
 import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
-import { RAIO_TOPO } from "@/lib/grafico";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -533,33 +528,23 @@ function CrossCheckView({ checks }: { checks: CrossCheck[] }) {
 }
 
 /* ---------- 6. Projeção ML ---------- */
-const fmtAxis = (n: number) => (Math.abs(n) >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`);
 function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: ProjecaoHorizonte[] }) {
   return (
     <Card className="flex flex-col gap-4">
-      <div className="h-[260px]" role="img" aria-label="Projeção de caixa Monte Carlo com bandas p10/p50/p90">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={bandas} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <DegradeArea id="projGlow" />
-            </defs>
-            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-            <XAxis dataKey="data" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={(d: string) => d.slice(5)} minTickGap={28} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={fmtAxis} width={40} />
-            <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="3 3" />
-            <Tooltip
-              contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }}
-              formatter={(v: number, n: string) => [fmtBRL(v), n.toUpperCase()]}
-              labelFormatter={(d) => `Dia ${d}`}
-            />
-            <Area dataKey="p90" stroke="none" fill="url(#projGlow)" />
-            <Area dataKey="p10" stroke="none" fill="var(--color-white)" fillOpacity={0} />
-            <Line dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} strokeDasharray="3 3" />
-            <Line dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} strokeDasharray="3 3" />
-            <Line dataKey="p50" stroke="var(--color-chart-line)" strokeWidth={1.6} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Troca do canvas (15/10/2026): "Análises 2" — as três bandas em linhas curvas. */}
+      <LinhasSuaves
+        dados={bandas as unknown as Record<string, string | number>[]}
+        xKey="data"
+        formatarX={(d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`}
+        zero
+        altura={260}
+        ariaLabel="Projeção de caixa Monte Carlo com bandas p10/p50/p90"
+        series={[
+          { chave: "p90", nome: "Otimista (p90)", cor: COR_ENTRADA },
+          { chave: "p50", nome: "Provável (p50)", cor: "var(--erp-graf-serie-2)", espessura: 1.6 },
+          { chave: "p10", nome: "Pessimista (p10)", cor: COR_SAIDA, tracejada: true },
+        ]}
+      />
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {projecoes.map((p) => (
           <div key={p.dias} className="flex flex-col gap-[2px] border-l-2 pl-2" style={{ borderColor: p.probNegativo > 0.2 ? "var(--color-negative)" : "var(--color-border)" }}>
@@ -625,54 +610,59 @@ function CenariosView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: 
 }
 
 /* ---------- 7. Heat Map ---------- */
-const HEAT: Record<DiaHeat["nivel"], string> = { verde: "var(--color-positive)", amarelo: "var(--color-warning)", vermelho: "var(--color-negative)" };
+/**
+ * Troca do canvas (15/10/2026): "Atividade por horário" — a grade
+ * monocromática. Colunas são os dias da semana, linhas as semanas do período;
+ * a intensidade da tinta é o nível de risco do dia (confortável · atenção ·
+ * risco), dito também no título de cada célula.
+ */
+const NIVEL_HEAT: Record<DiaHeat["nivel"], CelulaCalor["nivel"]> = { verde: 0, amarelo: 2, vermelho: 4 };
+const NOME_HEAT: Record<DiaHeat["nivel"], string> = { verde: "confortável", amarelo: "atenção", vermelho: "risco" };
+const SEMANA_CURTA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 function HeatmapView({ dias }: { dias: DiaHeat[] }) {
   if (!dias.length) return <Card><span className="text-caption text-faint">Sem projeção diária no período.</span></Card>;
+  const linhas: string[] = [];
+  const celulas: (CelulaCalor | null)[][] = [];
+  for (const d of dias) {
+    const dow = new Date(d.date + "T00:00:00").getDay();
+    if (!celulas.length || dow === 0) {
+      linhas.push(`${d.date.slice(8, 10)}/${d.date.slice(5, 7)}`);
+      celulas.push(new Array(7).fill(null));
+    }
+    celulas[celulas.length - 1][dow] = { chave: d.date, nivel: NIVEL_HEAT[d.nivel], titulo: `${d.label}: ${fmtBRL(d.saldo)} · ${NOME_HEAT[d.nivel]}` };
+  }
   return (
     <Card className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-[5px]">
-        {dias.map((d) => (
-          <div key={d.date} title={`${d.label}: ${fmtBRL(d.saldo)}`}
-            className="w-[22px] h-[22px] rounded-sm" style={{ background: HEAT[d.nivel] }} />
-        ))}
-      </div>
-      <div className="flex items-center gap-4 text-caption text-faint">
-        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: HEAT.verde }} /> confortável</span>
-        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: HEAT.amarelo }} /> atenção</span>
-        <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: HEAT.vermelho }} /> risco</span>
-      </div>
+      <MapaCalorGrade
+        colunas={SEMANA_CURTA}
+        linhas={linhas}
+        celulas={celulas}
+        legendaMenos="Mais folga"
+        legendaMais="Mais risco"
+        ariaLabel="Mapa de calor do caixa: risco de cada dia do período, por semana"
+      />
     </Card>
   );
 }
 
 /* ---------- 8. Waterfall ---------- */
+/**
+ * Troca do canvas (15/10/2026): "Estatística de saldo 1". A linha percorre o
+ * ACUMULADO de cada passo (da receita bruta ao fluxo livre) e a área cinza
+ * atrás é a receita bruta — a distância entre as duas é o que foi saindo.
+ */
 function WaterfallView({ passos }: { passos: WaterfallPasso[] }) {
   if (!passos.length) return <Card><span className="text-caption text-faint">Sem dados para o waterfall.</span></Card>;
-  // Monta barras flutuantes: base invisível + delta visível.
-  const data = passos.map((p) => {
-    const ini = p.tipo === "deducao" ? p.acumulado - p.valor : 0; // valor é negativo na dedução
-    const lo = Math.min(p.tipo === "deducao" ? p.acumulado : 0, ini);
-    const hi = Math.max(p.tipo === "deducao" ? p.acumulado : p.acumulado, ini);
-    return { label: p.label, base: p.tipo === "deducao" ? lo : 0, valor: p.tipo === "deducao" ? hi - lo : p.acumulado, tipo: p.tipo };
-  });
+  const bruta = passos[0].acumulado;
   return (
     <Card>
-      <div className="h-[280px]" role="img" aria-label="Waterfall da receita ao fluxo livre">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} interval={0} angle={-18} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={fmtAxis} width={42} />
-            <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => fmtBRL(v)} />
-            <Bar dataKey="base" stackId="w" fill="transparent" />
-            <Bar dataKey="valor" stackId="w" radius={RAIO_TOPO}>
-              {data.map((d, i) => (
-                <Cell key={i} fill={d.tipo === "deducao" ? "var(--color-areia)" : d.tipo === "total" ? "var(--color-chart-line)" : "var(--color-ink)"} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <AreaComparada
+        id="waterfall"
+        dados={passos.map((p) => ({ label: p.label, valor: p.acumulado, base: bruta }))}
+        rotuloBase="Receita bruta"
+        altura={280}
+        ariaLabel="Da receita ao fluxo livre: o acumulado de cada passo contra a receita bruta"
+      />
     </Card>
   );
 }
