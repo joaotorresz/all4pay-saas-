@@ -30,89 +30,19 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import postcss from "postcss";
 
+import {
+  CONTEXTOS, INICIO, FIM, gerarBloco, valorEm, validarRascunho, aplicarRascunho, mudancasDoRascunho,
+  serializarTokens, type ArquivoTokens,
+} from "@/design/gerar";
+
 const RAIZ = process.cwd();
 const ARQ_TOKENS = join(RAIZ, "src/design/tokens.json");
 const ARQ_CSS = join(RAIZ, "src/app/globals.css");
 const ARQ_TAILWIND = join(RAIZ, "tailwind.config.ts");
-
-export const INICIO = "/* <tokens-gerados> */";
-export const FIM = "/* </tokens-gerados> */";
-
-/**
- * Os quatro contextos em que uma variável de tema pode ser declarada. A ordem
- * dos blocos no CSS não decide nada entre eles (são elementos ou
- * especificidades diferentes), mas fica fixa para o arquivo gerado ser estável.
- */
-export const CONTEXTOS = [
-  { chave: "claro", seletor: ":root", nome: "tema claro (fora e dentro do app)" },
-  { chave: "escuro", seletor: "html.dark", nome: "tema escuro" },
-  { chave: "app", seletor: ".ds-visor", nome: "dentro do app, nos dois temas" },
-  { chave: "appClaro", seletor: "html:not(.dark) .ds-visor", nome: "dentro do app, tema claro" },
-] as const;
-export type ChaveContexto = (typeof CONTEXTOS)[number]["chave"];
 const SELETORES = new Set<string>(CONTEXTOS.map((c) => c.seletor));
-
-export interface Token {
-  nome: string;
-  grupo: string;
-  tipo: "cor" | "medida" | "fonte" | "sombra" | "degrade" | "movimento" | "outro";
-  claro?: string;
-  escuro?: string;
-  app?: string;
-  appClaro?: string;
-  /**
-   * `true` = dentro do app, no tema claro, vale o MESMO valor de `claro`. É o
-   * espelho que a guarda da paleta exige; gerado daqui ele não tem como
-   * divergir, que é o defeito que o espelho escrito à mão já causou.
-   */
-  espelhoNoApp?: boolean;
-  /** Comentário que acompanha a declaração, por contexto. */
-  nota?: Partial<Record<ChaveContexto, string>>;
-}
-
-export interface ArquivoTokens {
-  $leia: string;
-  tokens: Token[];
-  /** Escalas que o Tailwind lê direto daqui (`tailwind.config.ts`). */
-  escalas: Record<string, unknown>;
-}
 
 export function lerTokens(): ArquivoTokens {
   return JSON.parse(readFileSync(ARQ_TOKENS, "utf8")) as ArquivoTokens;
-}
-
-/** Valor de um token num contexto, já resolvendo o espelho. */
-export function valorEm(t: Token, chave: ChaveContexto): string | undefined {
-  if (chave === "appClaro") return t.appClaro ?? (t.espelhoNoApp ? t.claro : undefined);
-  return t[chave];
-}
-
-function comentario(texto: string, recuo: string): string {
-  const linhas = texto.split("\n");
-  return `${recuo}/* ${linhas.join(`\n${recuo}   `)} */\n`;
-}
-
-/** O texto exato do bloco gerado, marcadores incluídos. */
-export function gerarBloco(arq: ArquivoTokens): string {
-  let s = `${INICIO}\n`;
-  s += `/* ⚠️ GERADO — NÃO EDITE À MÃO. A fonte é src/design/tokens.json; depois de
-   mudá-lo, rode \`npm run tokens\`. Uma edição aqui some na próxima geração e
-   reprova a guarda \`npm run tokens -- --conferir\` (dentro do \`npm test\`). */\n`;
-  for (const ctx of CONTEXTOS) {
-    const linhas = arq.tokens
-      .map((t) => ({ t, v: valorEm(t, ctx.chave) }))
-      .filter((x) => x.v !== undefined);
-    if (!linhas.length) continue;
-    s += `/* ${ctx.nome} */\n${ctx.seletor} {\n`;
-    for (const { t, v } of linhas) {
-      const nota = t.nota?.[ctx.chave];
-      if (nota) s += comentario(nota, "  ");
-      s += `  ${t.nome}: ${v};\n`;
-    }
-    s += `}\n`;
-  }
-  s += FIM;
-  return s;
 }
 
 export interface Achado {
@@ -191,6 +121,33 @@ function provar(css: string, tailwind: string, arq: ArquivoTokens): string[] {
   espera("Tailwind sem ler o JSON", conferir(css, tailwind.replace(/from\s+["']\.\/src\/design\/tokens\.json["']/, 'from "./outro.json"'), arq), "tailwind_nao_le");
   // 5) token repetido
   espera("token repetido", conferir(css, tailwind, { ...arq, tokens: [...arq.tokens, alvo] }), "token_invalido");
+
+  /*
+   * O RASCUNHO DO EDITOR (Administração › Design system). O que ele salva vira
+   * CSS do sistema inteiro, então a recusa é provada aqui, com o defeito
+   * plantado: um valor que fecha a regra, um token inventado, o "no app,
+   * claro" de um token espelhado (a segunda fonte de volta) e uma escala que
+   * não existe. E o caminho bom: aplicar e regerar sai idêntico ao que a
+   * guarda espera, e o arquivo escrito volta ao mesmo objeto.
+   */
+  const recusa = (nome: string, r: Parameters<typeof validarRascunho>[1], trecho: string) => {
+    const erros = validarRascunho(arq, r);
+    if (!erros.some((e) => e.includes(trecho)))
+      falhas.push(`prova do editor "${nome}": esperava recusa citando "${trecho}", veio [${erros.join(" | ") || "nada"}]`);
+  };
+  recusa("valor que fecha a regra", { tokens: { [alvo.nome]: { claro: "red;}body{display:none" } }, escalas: {} }, "tem ;");
+  recusa("comentário no valor", { tokens: { [alvo.nome]: { claro: "red /* x" } }, escalas: {} }, "comentário");
+  recusa("token inventado", { tokens: { "--nao-existe": { claro: "#123456" } }, escalas: {} }, "não existe");
+  const espelhado = arq.tokens.find((t) => t.espelhoNoApp && t.appClaro === undefined);
+  if (espelhado) recusa("espelho editado à parte", { tokens: { [espelhado.nome]: { appClaro: "#123456" } }, escalas: {} }, "não se edita");
+  recusa("escala inventada", { tokens: {}, escalas: { "borderRadius.nao-existe": "1px" } }, "não existe");
+  const bom = { tokens: { [alvo.nome]: { claro: "#123456" } }, escalas: { "borderRadius.card": "21.5px" } };
+  if (validarRascunho(arq, bom).length) falhas.push(`prova do editor: rascunho válido recusado: ${validarRascunho(arq, bom).join(" | ")}`);
+  const aplicado = aplicarRascunho(arq, bom);
+  if (mudancasDoRascunho(arq, bom).length !== 2) falhas.push("prova do editor: o rascunho com 2 valores não descreveu 2 mudanças");
+  if (!gerarBloco(aplicado).includes(`  ${alvo.nome}: #123456;`)) falhas.push("prova do editor: o bloco regerado não traz o valor novo");
+  if (JSON.stringify(JSON.parse(serializarTokens(aplicado))) !== JSON.stringify(aplicado)) falhas.push("prova do editor: o arquivo escrito não volta ao mesmo objeto");
+  if (alvo.claro === "#123456" || JSON.stringify(arq).includes('"21.5px"')) falhas.push("prova do editor: aplicar o rascunho mudou o arquivo de ENTRADA");
   return falhas;
 }
 
@@ -216,12 +173,17 @@ function principal() {
   }
 
   const achados = conferir(css, tailwind, arq);
+  // O editor reescreve o tokens.json por `serializarTokens`: o arquivo do
+  // repositório tem de estar NESSE formato, senão todo PR do editor viria com
+  // o arquivo inteiro reformatado e a mudança de verdade se perderia no diff.
+  if (serializarTokens(arq) !== readFileSync(ARQ_TOKENS, "utf8"))
+    achados.push({ codigo: "token_invalido", msg: "src/design/tokens.json fora do formato que o editor escreve (JSON com 2 espaços e quebra no fim)" });
   const prova = provar(css, tailwind, arq);
   for (const a of achados) console.error(`✗ ${a.msg}`);
   for (const p of prova) console.error(`✗ ${p}`);
   if (achados.length || prova.length) process.exit(1);
   const porCtx = CONTEXTOS.map((c) => `${arq.tokens.filter((t) => valorEm(t, c.chave) !== undefined).length} ${c.chave}`).join(" · ");
-  console.log(`✓ tokens: ${arq.tokens.length} valores numa fonte só (${porCtx}) · 5 defeitos plantados, 5 reprovados`);
+  console.log(`✓ tokens: ${arq.tokens.length} valores numa fonte só (${porCtx}) · 10 defeitos plantados, 10 reprovados (5 do editor)`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) principal();

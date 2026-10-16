@@ -19,7 +19,9 @@
  * aberto) — o mesmo que as telas recebem. O valor do arquivo aparece escrito
  * ao lado, por contexto, para o dono comparar os dois temas sem alternar.
  *
- * Nada aqui grava. A página é só leitura até a etapa 3.
+ * ⚠️ **Editar não grava.** Cada valor vira um campo (`./editor`): o que se
+ * digita entra num rascunho, aparece AO VIVO na própria vitrine, e só chega ao
+ * sistema por "Salvar no sistema", que abre um PR com o `tokens.json` novo.
  */
 import * as React from "react";
 import tokensJson from "@/design/tokens.json";
@@ -33,10 +35,10 @@ import {
   AreaComparada, MapaCalorGrade, AneisConcentricos,
   type CelulaCalor,
 } from "@/components/ui";
+import { EditorProvider, CamposToken, CampoEscala, useEscala, BarraEditor } from "./editor";
 
 /* ── O arquivo de valores ─────────────────────────────────────────────────── */
 
-type Contexto = "claro" | "escuro" | "app" | "appClaro";
 interface Token {
   nome: string; grupo: string; tipo: string;
   claro?: string; escuro?: string; app?: string; appClaro?: string;
@@ -44,13 +46,6 @@ interface Token {
 }
 const TOKENS = (tokensJson as { tokens: Token[] }).tokens;
 const ESCALAS = (tokensJson as unknown as { escalas: Record<string, Record<string, unknown>> }).escalas;
-
-const ROTULO_CTX: Record<Contexto, string> = { claro: "claro", escuro: "escuro", app: "app", appClaro: "app claro" };
-
-function valorEm(t: Token, c: Contexto): string | undefined {
-  if (c === "appClaro") return t.appClaro ?? (t.espelhoNoApp ? t.claro : undefined);
-  return t[c];
-}
 
 const doGrupo = (...grupos: string[]) => TOKENS.filter((t) => grupos.includes(t.grupo));
 
@@ -93,21 +88,12 @@ function Amostra({ t }: { t: Token }) {
 }
 
 function LinhaToken({ t }: { t: Token }) {
-  const ctxs = (["claro", "escuro", "app", "appClaro"] as const).filter((c) => valorEm(t, c) !== undefined);
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border-soft last:border-b-0">
       <Amostra t={t} />
       <div className="min-w-0 flex-1">
         <code className="text-[13px] text-ink break-all">{t.nome}</code>
-        <div className="mt-1 flex flex-col gap-[2px]">
-          {ctxs.map((c) => (
-            <span key={c} className="text-[12px] text-muted break-all">
-              <span className="a4p-label mr-2">{ROTULO_CTX[c]}</span>
-              <span className="tabular-nums">{valorEm(t, c)}</span>
-              {c === "appClaro" && !t.appClaro && t.espelhoNoApp && <span className="ml-1">(espelho do claro)</span>}
-            </span>
-          ))}
-        </div>
+        <CamposToken nome={t.nome} />
       </div>
     </div>
   );
@@ -165,37 +151,66 @@ function AbaTipografia() {
           <div><Rotulo>Legenda</Rotulo><p className="m-0 mt-1 text-caption text-muted">Atualizado há 3 minutos.</p></div>
         </Card>
       </Secao>
-      <Secao titulo="Escala de tamanhos" descricao="As classes text-* do Tailwind, lidas de tokens.json.">
-        <Card className="flex flex-col gap-3">
-          {Object.entries(escala).filter(([k]) => !k.startsWith("$")).map(([k, v]) => {
-            // ⚠️ Estilo em linha, não `text-${k}`: o Tailwind só gera a classe
-            // que aparece escrita no código, e uma classe montada não aparece.
-            const [px, extra] = Array.isArray(v) ? [String(v[0]), (v[1] ?? {}) as React.CSSProperties] : [String(v), {}];
-            return (
-              <div key={k} className="flex items-baseline gap-4 flex-wrap">
-                <code className="w-[120px] shrink-0 text-[12px] text-muted">text-{k} · {px}</code>
-                <span className="text-ink" style={{ fontSize: px, ...extra }}>Quattro</span>
-              </div>
-            );
-          })}
+      <Secao titulo="Escala de tamanhos" descricao="As classes text-* do Tailwind, lidas de tokens.json. A prévia aqui é fiel; nas outras telas o valor novo aparece depois de publicado.">
+        <Card className="flex flex-col gap-1">
+          {Object.keys(escala).filter((k) => !k.startsWith("$")).map((k) => <LinhaTamanho key={k} k={k} />)}
         </Card>
       </Secao>
     </div>
   );
 }
 
+/** Uma linha da escala de tipo: o desenho com o valor do rascunho + os campos. */
+function LinhaTamanho({ k }: { k: string }) {
+  // ⚠️ Estilo em linha, não `text-${k}`: o Tailwind só gera a classe que
+  // aparece escrita no código, e uma classe montada não aparece.
+  const tam = useEscala(`fontSize.${k}.0`);
+  const lh = useEscala(`fontSize.${k}.1.lineHeight`);
+  const ls = useEscala(`fontSize.${k}.1.letterSpacing`);
+  return (
+    <div className="flex items-start gap-6 flex-wrap py-3 border-b border-border-soft last:border-b-0">
+      <div className="min-w-[220px] flex-1">
+        <code className="text-[12px] text-muted">text-{k}</code>
+        <div className="text-ink" style={{ fontSize: tam, lineHeight: lh, letterSpacing: ls }}>Quattro</div>
+      </div>
+      <div className="w-full max-w-[360px] flex flex-col gap-1">
+        <CampoEscala caminho={`fontSize.${k}.0`} rotulo="Tamanho" />
+        <CampoEscala caminho={`fontSize.${k}.1.lineHeight`} rotulo="Entrelinha" />
+        <CampoEscala caminho={`fontSize.${k}.1.letterSpacing`} rotulo="Espaçamento" />
+      </div>
+    </div>
+  );
+}
+
+function AmostraRaio({ k }: { k: string }) {
+  const v = useEscala(`borderRadius.${k}`);
+  return (
+    <div className="flex flex-col gap-2 w-[220px]">
+      <span className="w-20 h-14 bg-surface-2 border border-border" style={{ borderRadius: v }} aria-hidden />
+      <code className="text-[12px] text-muted">rounded-{k}</code>
+      <CampoEscala caminho={`borderRadius.${k}`} rotulo="Raio" />
+    </div>
+  );
+}
+
 function AbaFormas() {
   const raios = (ESCALAS.borderRadius ?? {}) as Record<string, string>;
+  const outras = ["borderWidth", "minWidth", "spacingNomeado"].flatMap((e) =>
+    Object.keys((ESCALAS[e] ?? {}) as Record<string, unknown>).filter((k) => !k.startsWith("$")).map((k) => `${e}.${k}`));
+  const NOME: Record<string, string> = { borderWidth: "border", minWidth: "min-w", spacingNomeado: "espaço" };
   return (
     <div className="flex flex-col gap-8">
       <Secao titulo="Raios das classes rounded-*" descricao="Lidos de tokens.json pelo Tailwind.">
         <Card className="flex flex-wrap gap-6">
-          {Object.entries(raios).filter(([k]) => !k.startsWith("$")).map(([k, v]) => (
-            <div key={k} className="flex flex-col items-center gap-2">
-              <span className="w-20 h-14 bg-surface-2 border border-border" style={{ borderRadius: v }} aria-hidden />
-              <code className="text-[12px] text-muted">rounded-{k} · {v}</code>
-            </div>
-          ))}
+          {Object.keys(raios).filter((k) => !k.startsWith("$")).map((k) => <AmostraRaio key={k} k={k} />)}
+        </Card>
+      </Secao>
+      <Secao titulo="Outras medidas do Tailwind" descricao="Borda do campo, largura mínima do botão, espaços do botão e largura do menu.">
+        <Card className="flex flex-col gap-2 max-w-[520px]">
+          {outras.map((c) => {
+            const [e, k] = c.split(".");
+            return <CampoEscala key={c} caminho={c} rotulo={`${NOME[e]}-${k}`} />;
+          })}
         </Card>
       </Secao>
       <Secao titulo="Raios, caixas e medidas"><GradeTokens tokens={doGrupo("formas")} /></Secao>
@@ -429,17 +444,20 @@ const ABAS: AbaHub[] = [
 export function VitrineDesign() {
   const { dark, apply } = useTheme();
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="m-0 text-caption text-muted">
-          {TOKENS.length} valores de <code>src/design/tokens.json</code> e as peças reais do sistema. Só leitura por enquanto.
-        </p>
-        <div className="flex items-center gap-2" role="group" aria-label="Tema da vitrine">
-          <Pill variant={dark ? "ghost" : "surface"} aria-pressed={!dark} onClick={() => apply(false)}>Claro</Pill>
-          <Pill variant={dark ? "surface" : "ghost"} aria-pressed={dark} onClick={() => apply(true)}>Escuro</Pill>
+    <EditorProvider>
+      <div className="ds-previa flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="m-0 text-caption text-muted">
+            {TOKENS.length} valores de <code>src/design/tokens.json</code> e as peças reais do sistema. Mexa em qualquer valor: a página inteira mostra o resultado na hora.
+          </p>
+          <div className="flex items-center gap-2" role="group" aria-label="Tema da vitrine">
+            <Pill variant={dark ? "ghost" : "surface"} aria-pressed={!dark} onClick={() => apply(false)}>Claro</Pill>
+            <Pill variant={dark ? "surface" : "ghost"} aria-pressed={dark} onClick={() => apply(true)}>Escuro</Pill>
+          </div>
         </div>
+        <Card><BarraEditor /></Card>
+        <HubShell abas={ABAS} />
       </div>
-      <HubShell abas={ABAS} />
-    </div>
+    </EditorProvider>
   );
 }

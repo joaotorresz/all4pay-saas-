@@ -63,13 +63,12 @@
     "saida-pinbank": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/saida-pinbank.mts",
     "pinbank-api": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/pinbank-api.mts",
     "pinbank-conferencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/pinbank-conferencia.mts",
-    "tokens": "node --experimental-strip-types ./scripts/tokens.mts"
+    "tokens": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/tokens.mts"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
     "@fontsource-variable/schibsted-grotesk": "^5.2.8",
-    "@fontsource/boldonse": "^5.3.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-query": "^5.101.0",

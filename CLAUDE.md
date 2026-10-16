@@ -51,9 +51,37 @@ card valia 20px numa e 26px noutra.
 - Guarda `npm run tokens -- --conferir` (no `npm test`): bloco editado à mão,
   JSON sem gerar, variável de tema declarada fora do bloco, Tailwind sem ler o
   JSON e token repetido reprovam — os cinco provados plantando o defeito.
-- É a etapa 1 do editor do design system: a página que edita os valores
-  (etapas 2–4) escreve neste arquivo. `docs/design/canvas-quattro-erp/tokens.json`
-  é a CÓPIA do canvas, não esta fonte.
+- `docs/design/canvas-quattro-erp/tokens.json` é a CÓPIA do canvas, não esta
+  fonte.
+
+### ⚠️ O EDITOR DO DESIGN SYSTEM — Administração › Design system (16/10/2026)
+
+`/admin/design-system` (seção da plataforma, mesmo portão do `/admin`): cada
+valor do `tokens.json` e cada folha das escalas do Tailwind vira um campo, ao
+lado das peças REAIS do DS em oito abas (cores, tipografia, formas, botões e
+campos, cards e valores, gráficos, tabelas, menu e moldura), nos dois temas.
+
+- **Editar não grava.** O que se digita é um RASCUNHO (no navegador de quem
+  edita, `a4p_ds_rascunho`) com prévia AO VIVO: `aplicarRascunho` +
+  `gerarDeclaracoes` (`src/design/gerar.ts`, as MESMAS funções do
+  `npm run tokens`) num `<style>` no fim do `<head>`. Cada campo diz em
+  quantas regras de estilo o valor é lido.
+- **"Salvar no sistema" abre um PR** (`POST /api/admin/design-system/salvar`):
+  `admin_exigir_acesso` com a sessão de quem pede → o rascunho conferido
+  contra o `tokens.json` do `main` de agora (`validarRascunho`: token,
+  contexto e escala inventados, e valor com `; { } < >` ou comentário, são
+  recusados — o valor vira CSS do sistema inteiro) → um commit só com o JSON
+  e o bloco do `globals.css` refeito → PR. O CI confere; o merge publica.
+  Exige `GITHUB_TOKEN_DESIGN` (Contents + Pull requests: write neste repo);
+  sem ela a tela oferece "Baixar tokens.json".
+- ⚠️ **A paleta inclui todo hex do `tokens.json`** (`npm run paleta`): o diff
+  do arquivo É a decisão revisada. Hex solto em componente continua reprovando.
+- **O Laboratório de Design (`DesignLab`) e o Editor Visual SAÍRAM.** Eram
+  sandboxes que repintavam o app por CSS salvo no navegador, com espelho
+  próprio dos valores — a segunda fonte. As seções abaixo que os citam são
+  histórico.
+- Guardas: `npm run tokens -- --conferir` prova também o editor (5 defeitos
+  plantados no rascunho) e o formato que ele escreve.
 
 ---
 
