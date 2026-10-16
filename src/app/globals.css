@@ -662,13 +662,16 @@ a:hover .a4p-icon,
 .a4p-hoverable:hover .a4p-icon { transform: scale(1.12); }
 button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
 
-/* Cards (DS Visor) — elevação suave ao passar o mouse */
-.ds-visor [data-card="1"] {
-  transition: transform 0.28s var(--ease-smooth), box-shadow 0.28s var(--ease-smooth);
-}
-.ds-visor [data-card="1"]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 40px -24px rgba(43, 49, 37, 0.35); /* a única sombra do guia */
+/* Cards — PARADOS no hover e no clique (pedido do dono, 16/10/2026): o card
+   não sobe, não desce e não encolhe. Card que é link (Home) também não ganha o
+   "press" de escala dos botões: o retorno do clique é a navegação. */
+.ds-visor [data-card="1"],
+.ds-visor [data-card="1"]:hover,
+.ds-visor [data-card="1"]:active,
+.a4p-home [data-item-home] > a,
+.a4p-home [data-item-home] > a:active,
+.a4p-home [data-item-home] > div:active {
+  transform: none;
 }
 
 /* Foco visível — anel discreto que respeita o raio do elemento (acessível) */

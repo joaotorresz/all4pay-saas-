@@ -104,6 +104,47 @@ export interface LayoutHome {
   ordem: IdHome[];
   /** Os FIXOS que a pessoa escondeu (card da biblioteca não se esconde: sai da ordem). */
   ocultos: IdItemHome[];
+  /**
+   * A LARGURA que a pessoa deu a cada item, em doze avos da linha (pedido do
+   * dono, 16/10/2026: arrastar a borda do card). Só os valores de
+   * `LARGURAS_HOME`; o menor é um quarto, então nunca há mais de QUATRO cards
+   * por linha. Item sem largura guardada usa a padrão do tamanho dele.
+   */
+  larguras?: Partial<Record<IdHome, LarguraHome>>;
+}
+
+/** As larguras possíveis, em doze avos: ¼ · ⅓ · ½ · ⅔ · ¾ · inteira. */
+export const LARGURAS_HOME = [3, 4, 6, 8, 9, 12] as const;
+export type LarguraHome = (typeof LARGURAS_HOME)[number];
+const ehLargura = (v: unknown): v is LarguraHome => (LARGURAS_HOME as readonly unknown[]).includes(v);
+
+/** A largura de um item: a que a pessoa deu, ou a padrão do tamanho dele. */
+export function larguraDe(layout: LayoutHome, id: IdHome): LarguraHome {
+  const dada = layout.larguras?.[id];
+  if (dada) return dada;
+  if (ehCard(id)) return 4;
+  return itemHome(id).grupo === "bloco" ? 4 : 6;
+}
+
+/** A largura possível mais perto de uma fração da linha (o arraste da borda). */
+export function larguraMaisPerto(fracao: number): LarguraHome {
+  const alvo = fracao * 12;
+  return LARGURAS_HOME.reduce((m, v) => (Math.abs(v - alvo) < Math.abs(m - alvo) ? v : m), LARGURAS_HOME[0]);
+}
+
+/** A largura vizinha (as setas do teclado na borda). */
+export function larguraVizinha(atual: LarguraHome, passo: -1 | 1): LarguraHome {
+  const i = LARGURAS_HOME.indexOf(atual);
+  return LARGURAS_HOME[Math.min(LARGURAS_HOME.length - 1, Math.max(0, i + passo))];
+}
+
+/** Grava a largura de um item; a padrão não é guardada (o arranjo fica enxuto). */
+export function definirLargura(layout: LayoutHome, id: IdHome, largura: LarguraHome): LayoutHome {
+  const larguras = { ...(layout.larguras ?? {}) };
+  delete larguras[id];
+  if (larguraDe({ ...layout, larguras }, id) !== largura) larguras[id] = largura;
+  const { larguras: _antes, ...resto } = layout;
+  return Object.keys(larguras).length ? { ...resto, larguras } : resto;
 }
 
 export const LAYOUT_PADRAO: LayoutHome = { ordem: ITENS_HOME.map((i) => i.id), ocultos: [] };
@@ -133,12 +174,22 @@ export function normalizarLayout(bruto: unknown): LayoutHome | null {
     const primeiro = ordem.find((v) => itemHome(v).grupo === grupo);
     ordem.splice(antes ? ordem.indexOf(antes) + 1 : primeiro ? ordem.indexOf(primeiro) : ordem.length, 0, id);
   }
-  return { ordem, ocultos: unicos(b.ocultos, ehItemHome) };
+  const larguras: Partial<Record<IdHome, LarguraHome>> = {};
+  const brutas = (bruto as { larguras?: unknown }).larguras;
+  if (brutas && typeof brutas === "object" && !Array.isArray(brutas)) {
+    for (const [id, v] of Object.entries(brutas)) if (ordem.includes(id as IdHome) && ehLargura(v)) larguras[id as IdHome] = v;
+  }
+  const out: LayoutHome = { ordem, ocultos: unicos(b.ocultos, ehItemHome) };
+  return Object.keys(larguras).length ? { ...out, larguras } : out;
 }
+
+const assinaturaLarguras = (l: LayoutHome): string =>
+  Object.entries(l.larguras ?? {}).sort(([x], [y]) => x.localeCompare(y)).map(([k, v]) => `${k}=${v}`).join(",");
 
 export const mesmoLayout = (a: LayoutHome | null | undefined, b: LayoutHome | null | undefined): boolean => {
   if (!a || !b) return !a && !b;
-  return a.ordem.join(",") === b.ordem.join(",") && [...a.ocultos].sort().join(",") === [...b.ocultos].sort().join(",");
+  return a.ordem.join(",") === b.ordem.join(",") && [...a.ocultos].sort().join(",") === [...b.ocultos].sort().join(",")
+    && assinaturaLarguras(a) === assinaturaLarguras(b);
 };
 
 /**
@@ -267,7 +318,10 @@ export function aplicarAcoes(layout: LayoutHome, acoes: AcaoHome[]): LayoutHome 
     if (a.tipo === "ultimo") { tirar(topo, id); if (!fim.includes(id)) fim.push(id); }
   }
   ordem = [...topo, ...ordem.filter((id) => !topo.includes(id) && !fim.includes(id)), ...fim];
-  return { ordem, ocultos };
+  // As larguras ficam com quem continua na Home; "volta ao padrão" as desfaz.
+  const restaurou = normalizarAcoes(acoes).some((a) => a.tipo === "restaurar");
+  const larguras = Object.fromEntries(Object.entries(restaurou ? {} : layout.larguras ?? {}).filter(([id]) => ordem.includes(id as IdHome)));
+  return Object.keys(larguras).length ? { ordem, ocultos, larguras } : { ordem, ocultos };
 }
 
 /** Os cards que a pessoa pediu para pôr e não entraram por causa do teto. */
