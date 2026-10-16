@@ -227,10 +227,10 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
               type="button"
               aria-pressed={on}
               onClick={() => alternar(o.id)}
-              className="px-3 py-[6px] rounded-pill text-[13px] border"
+              className="px-3 py-[6px] rounded-pill text-[13px]"
               style={on
-                ? { background: "var(--color-ink)", color: "var(--color-surface-1)", borderColor: "var(--color-ink)" }
-                : { background: "var(--color-white)", color: "var(--color-ink)", borderColor: "var(--color-border)" }}
+                ? { background: "var(--color-ink)", color: "var(--color-surface-1)" }
+                : { background: "var(--color-white)", color: "var(--color-ink)" }}
             >
               {o.rotulo}
             </button>
