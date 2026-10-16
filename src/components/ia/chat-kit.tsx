@@ -134,13 +134,20 @@ export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: num
  * entrada e a saída se distinguem por intensidade, não por verde × vermelho.
  * Entra animado via `chartAnim()`.
  */
+/** Teto de letras do nome da categoria no eixo; acima disso, reticências. */
+const MAX_ROTULO = 28;
+
 export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
   const id = React.useId();
   const base = g.tom === "entrada" ? "var(--color-ink)" : g.tom === "saida" ? "var(--color-areia)" : "var(--color-lime)";
   const cor = `color-mix(in srgb, ${base} 70%, transparent)`;
   const resumo = g.dados.map((d) => `${d.nome}: ${formatBRL(d.valor)}`).join(", ");
+  // A coluna dos nomes cresce com o maior nome (até ~28 letras), para
+  // "Folha de pagamento" e "Serviços profissionais" caberem inteiros.
+  const maiorNome = Math.min(MAX_ROTULO, Math.max(0, ...g.dados.map((d) => d.nome.length)));
+  const larguraRotulo = Math.max(72, Math.round(maiorNome * 6.6) + 8);
   return (
-    <figure className="m-0 flex flex-col gap-1 pt-1" role="img" aria-label={`${g.titulo}. ${resumo}`}>
+    <figure className="a4p-ia-grafico m-0 flex flex-col gap-1 pt-1" role="img" aria-label={`${g.titulo}. ${resumo}`}>
       <figcaption className="text-[11px] text-faint">{g.titulo}</figcaption>
       <div style={{ height: g.tipo === "linha" ? 108 : Math.max(72, g.dados.length * 26) }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -165,9 +172,9 @@ export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
               {/* `interval={0}` é obrigatório: por padrão o Recharts OMITE ticks
                   que julga colidir, e some com o rótulo do meio. Nomes longos
                   são reticenciados aqui em vez de vazar da faixa. */}
-              <YAxis type="category" dataKey="nome" width={96} interval={0} tickLine={false} axisLine={false}
-                tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-                tickFormatter={(v: string) => (v.length > 13 ? `${v.slice(0, 12)}…` : v)} />
+              <YAxis type="category" dataKey="nome" width={larguraRotulo} interval={0} tickLine={false} axisLine={false}
+                tick={{ fontSize: 12, fill: "var(--color-text-secondary)" }}
+                tickFormatter={(v: string) => (v.length > MAX_ROTULO ? `${v.slice(0, MAX_ROTULO - 1)}…` : v)} />
               <Tooltip
                 cursor={{ fill: "var(--color-surface-2)" }}
                 contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}

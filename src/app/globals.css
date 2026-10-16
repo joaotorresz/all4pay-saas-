@@ -880,6 +880,15 @@ h1, h2, h3,
   font-size: 11px;
   letter-spacing: 0.44px;
 }
+/* No gráfico da resposta da Quattro AI o eixo traz NOMES (Folha de
+   pagamento, Aluguel), não números: nome é texto e fala Roobert, a família
+   única do DS de 16/10/2026. Vem depois da regra acima e empata em
+   especificidade, então vence pela ordem. */
+.a4p-ia-grafico .recharts-cartesian-axis-tick-value {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0;
+}
 /* ============================================================
    A CLASSE DE RÓTULO — a única caixa-alta sancionada do sistema.
    11px · 500 · 0,44px · uppercase · 1,35. Usada por eyebrow de seção, tag de
