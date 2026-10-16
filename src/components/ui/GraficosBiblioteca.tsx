@@ -39,7 +39,7 @@ import { RAIO_TOPO, RAIO_BASE, tickBRL } from "@/lib/grafico";
  * ao lado do título, porque o canto direito é da seta.
  */
 export function CartaoBiblioteca({
-  titulo, href, info, valor, pesoValor = 500, subtitulo, extra, children, className,
+  titulo, href, info, valor, pesoValor = 600, subtitulo, extra, children, className,
 }: {
   titulo: string;
   href?: string;
@@ -55,7 +55,7 @@ export function CartaoBiblioteca({
     <Card className={`flex flex-col gap-2 ${className ?? ""}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2 min-w-0">
-          <span className="text-[13px] font-medium truncate" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
+          <span className="text-[13.5px] font-medium truncate" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
           {info && <InfoHint align="left" titulo={titulo} oQue={info.oQue} comoCalcula={info.comoCalcula} />}
         </span>
         {href && (
@@ -69,7 +69,7 @@ export function CartaoBiblioteca({
         )}
       </div>
       {valor != null && (
-        <span className="text-[22px] leading-none tabular-nums text-ink" style={{ fontWeight: pesoValor }}>{valor}</span>
+        <span className="text-[24px] leading-none tabular-nums text-ink" style={{ fontWeight: pesoValor }}>{valor}</span>
       )}
       {subtitulo != null && <span className="text-[11px]" style={{ color: "var(--color-text-tertiary)" }}>{subtitulo}</span>}
       {extra}
