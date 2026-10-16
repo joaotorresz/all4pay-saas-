@@ -9,6 +9,7 @@ export { InfoHint, type InfoConteudo } from "./InfoHint";
 export { Badge, type BadgeProps } from "./Badge";
 export { Pill, type PillProps } from "./Pill";
 export { Avatar, type AvatarProps } from "./Avatar";
+export { BancoLogo, type BancoLogoProps } from "./BancoLogo";
 export { Input, type InputProps } from "./Input";
 export { CampoCodigo } from "./CampoCodigo";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
@@ -37,3 +38,4 @@ export { MarcaProcedencia, InfoProcedencia, LinhaProcedencia, textoDeOrigem } fr
 export { ValorIndicador, SemDados, PainelOrigem, type FormatoValor } from "./ValorIndicador";
 export { NotaCancelados } from "./NotaCancelados";
 export { DicaGrafico, DicaRecharts, VariacaoPill, DegradeArea, type DicaGraficoProps, type LinhaDica, type VariacaoDica } from "./Grafico";
+export { CartaoBiblioteca, BarrasEntradaSaida, LinhaEntradaSaida, BarrasDestaque, LinhasSuaves, AreaComparada, MapaCalorGrade, AneisConcentricos, COR_ENTRADA, COR_SAIDA, type PontoEntradaSaida, type PontoDestaque, type SerieSuave, type PontoArea, type CelulaCalor, type Anel } from "./GraficosBiblioteca";

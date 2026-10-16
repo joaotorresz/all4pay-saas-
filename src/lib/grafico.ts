@@ -20,3 +20,12 @@ export const COMPARACAO = { stroke: "var(--erp-graf-comparacao)", strokeDasharra
 export const ESPESSURA_LINHA = 1;
 /** As cinco séries do canvas, na ordem. */
 export const SERIES = [1, 2, 3, 4, 5].map((i) => `var(--erp-graf-serie-${i})`);
+/**
+ * Eixo Y curto em reais: R$ 6.000 · R$ 40k — sem estourar a largura do card.
+ * O sinal vai escrito (− U+2212), nunca em cor.
+ */
+export function tickBRL(v: number): string {
+  const abs = Math.abs(v);
+  const s = abs >= 1000 ? `${(abs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: abs >= 10000 ? 0 : 1 })}k` : String(Math.round(abs));
+  return `${v < 0 ? "\u2212" : ""}R$\u00A0${s}`; // não separável: o eixo do gráfico quebra no espaço comum
+}

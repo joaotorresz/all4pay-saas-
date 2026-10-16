@@ -101,13 +101,13 @@ export function CarrosselSazonalidade({
       <div className="relative">
         <button
           onClick={() => rolar(-1)} aria-label="Períodos anteriores"
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-pill bg-white border border-border inline-flex items-center justify-center text-muted hover:text-ink"
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-pill bg-white shadow-popover inline-flex items-center justify-center text-muted hover:text-ink"
         >
           <Icon name="chevron-left" size={16} color="currentColor" />
         </button>
         <button
           onClick={() => rolar(1)} aria-label="Próximos períodos"
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-pill bg-white border border-border inline-flex items-center justify-center text-muted hover:text-ink"
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-pill bg-white shadow-popover inline-flex items-center justify-center text-muted hover:text-ink"
         >
           <Icon name="chevron-right" size={16} color="currentColor" />
         </button>

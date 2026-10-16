@@ -35,6 +35,74 @@ from its tokens and its components.
    amarronzado (`#28211B`).** Nunca `#FFFFFF`, nunca `#000000` no app — o par
    puro só existe no token de marketing que o nomeia.
 
+### ⚠️ DESIGN SYSTEM DE 16/10/2026 (decisão do dono) — vence toda seção de identidade abaixo
+
+- **Uma família só: Roobert.** A Centra No2 saiu do sistema (arquivo e
+  `@font-face` apagados); `--font-display` e o `display` do Tailwind agora são
+  Roobert, então os papéis que pediam display seguem com o mesmo nome.
+- **Branco `#FEFEFD`** (`--color-white`, `--a4p-bg`, pílula) · **cinza
+  `#F5F5F5`** (fundo de página, moldura, chips, seções).
+- **Texto `#1A1A1A`** · cinza escuro **`#535353`** (rótulo e título de card) ·
+  cinza claro **`#9A9A9A`** (meta e placeholder).
+- **Nenhum texto em "AA" ou "aa": sempre "Aa".** Regra GLOBAL no fim do
+  `globals.css` (`text-transform: none !important` em tudo) e nenhuma classe
+  `uppercase` no código; texto escrito em caixa alta também saiu (siglas
+  como DRE e EBITDA ficam).
+- **Número:** Roobert SemiBold (600) em `#1A1A1A`, grafia **`R$ 16.000,00`**:
+  um espaço entre a moeda e o número (não separável no `Money`/`BRL` e nos
+  eixos de gráfico; o comum nas strings de `formatBRL`) e a **vírgula e os
+  centavos no MESMO corpo e cor** do inteiro. Isto inverte o "a moeda encosta"
+  e o "centavos à metade em cinza" das seções abaixo, que viraram histórico.
+  Valor em linha (`.a4p-valor-texto`) continua Roobert 500.
+
+### ⚠️ OS VALORES TÊM UMA FONTE SÓ: `src/design/tokens.json` (16/10/2026)
+
+Toda variável de tema (cor, raio, sombra, fonte, gráfico, tabela, dica,
+número) e as escalas nomeadas do Tailwind (tipo, raio, borda de campo, botão)
+moram em **`src/design/tokens.json`**. O `globals.css` tem um bloco
+`<tokens-gerados>` escrito por **`npm run tokens`**; o `tailwind.config.ts`
+lê as escalas do JSON. Era até quatro cópias do mesmo valor (`:root`,
+`html.dark`, o espelho `html:not(.dark) .ds-visor` e o Tailwind), e o raio do
+card valia 20px numa e 26px noutra.
+
+- Mudar um valor: edite o JSON → `npm run tokens`. Nunca o bloco gerado.
+- `espelhoNoApp: true` gera o espelho do tema claro dentro do app a partir do
+  `claro`: ele não tem mais como divergir.
+- Guarda `npm run tokens -- --conferir` (no `npm test`): bloco editado à mão,
+  JSON sem gerar, variável de tema declarada fora do bloco, Tailwind sem ler o
+  JSON e token repetido reprovam — os cinco provados plantando o defeito.
+- `docs/design/canvas-quattro-erp/tokens.json` é a CÓPIA do canvas, não esta
+  fonte.
+
+### ⚠️ O EDITOR DO DESIGN SYSTEM — Administração › Design system (16/10/2026)
+
+`/admin/design-system` (seção da plataforma, mesmo portão do `/admin`): cada
+valor do `tokens.json` e cada folha das escalas do Tailwind vira um campo, ao
+lado das peças REAIS do DS em oito abas (cores, tipografia, formas, botões e
+campos, cards e valores, gráficos, tabelas, menu e moldura), nos dois temas.
+
+- **Editar não grava.** O que se digita é um RASCUNHO (no navegador de quem
+  edita, `a4p_ds_rascunho`) com prévia AO VIVO: `aplicarRascunho` +
+  `gerarDeclaracoes` (`src/design/gerar.ts`, as MESMAS funções do
+  `npm run tokens`) num `<style>` no fim do `<head>`. Cada campo diz em
+  quantas regras de estilo o valor é lido.
+- **"Salvar no sistema" abre um PR** (`POST /api/admin/design-system/salvar`):
+  `admin_exigir_acesso` com a sessão de quem pede → o rascunho conferido
+  contra o `tokens.json` do `main` de agora (`validarRascunho`: token,
+  contexto e escala inventados, e valor com `; { } < >` ou comentário, são
+  recusados — o valor vira CSS do sistema inteiro) → um commit só com o JSON
+  e o bloco do `globals.css` refeito → PR. O CI confere; o merge publica.
+  Exige `GITHUB_TOKEN_DESIGN` (Contents + Pull requests: write neste repo);
+  sem ela a tela oferece "Baixar tokens.json".
+- ⚠️ **A paleta inclui todo hex do `tokens.json`** (`npm run paleta`): o diff
+  do arquivo É a decisão revisada. Hex solto em componente continua reprovando.
+- **O Laboratório de Design (`DesignLab`) e o Editor Visual SAÍRAM.** Eram
+  sandboxes que repintavam o app por CSS salvo no navegador, com espelho
+  próprio dos valores — a segunda fonte. As seções abaixo que os citam são
+  histórico.
+- Guardas: `npm run tokens -- --conferir` prova também o editor (5 defeitos
+  plantados no rascunho) e o formato que ele escreve.
+
 ---
 
 ## ⚠️ A MARCA É QUATTRO (desde 30/09/2026)
@@ -88,6 +156,46 @@ decisão do dono e migration à parte. ⚠️ **Sem teto de tentativas do códig
 por conta**: o gancho do Auth que o daria é dos planos Teams/Enterprise, e o
 projeto é Free — só o limite por IP do Auth (15/min) separa a senha vazada do
 código; a tela diz que o aplicativo SOMA à senha, nunca que a substitui.
+⚠️ **O QR do cadastro (15/10/2026)**: o link do Supabase (~133 bytes) é QR
+versão 8, e `lib/qrcode` não gravava a informação de versão (obrigatória da 7
+em diante): nenhum aplicativo o lia, em tema nenhum. Corrigido no gerador;
+"Ampliar código" abre o QR grande por cima da tela. Guarda de ida e volta com
+leitor de verdade (jsQR) e o defeito plantado: `npm run qr`.
+
+## ⚠️ A ÁREA DA PLATAFORMA MORA NO PRÓPRIO ENDEREÇO (09/10/2026)
+
+O painel do dono da plataforma (`/admin`) saiu de dentro do sistema dos
+clientes: **mesmo código, servido em `admin.quattro.finance`**, com moldura
+própria e segundo fator obrigatório. Regras em `core/area-admin`.
+
+- **`ADMIN_HOST` é o interruptor.** Vazio = tudo como antes (`/admin` no
+  próprio endereço — prévias, máquina local). Ligado: no endereço da
+  plataforma o caminho é LIMPO (`/cobranca` → `/admin/cobranca` por
+  reescrita), só respondem o painel, a porta de entrada (login, código,
+  Segurança da conta, redefinir senha), `/api/admin/*` e `/api/auth/*` — o
+  resto é 404. Nos outros endereços `/admin/*` vai por 308 para lá e
+  `/api/admin/*` é 404 (segunda porta é porta que ninguém vigia). ⚠️ O cookie
+  de sessão é POR ENDEREÇO: entrar no app não entra na plataforma.
+- ⚠️ **Segundo fator OBRIGATÓRIO** (`portaSegundoFatorAdmin`): sem aplicativo →
+  Segurança da conta; com aplicativo e só a senha → o código; `/api/admin` leva
+  403 JSON. Perguntado ANTES de "é o dono?" — o `admin_veredito` do banco já
+  nega o dono em aal1, e na ordem inversa ele cairia no 403, nunca no código.
+  Os cadeados de servidor moram no `app/admin/layout.tsx` (cobrem toda seção
+  nova).
+- **Moldura própria** (`components/admin/AdminShell`), nunca o `AppShell`:
+  seis seções em `SECOES_ADMIN` (Visão geral · Clientes e planos ·
+  Maquininhas · Cobrança · Acessos · Suporte), uma página cada. A separação não
+  acrescentou RPC: cada seção monta os MESMOS cartões do painel antigo.
+  ⚠️ **O vínculo do EC da Pinbank (e a quarentena) mora em Maquininhas, e só
+  lá** (15/10/2026): no fim de Suporte, abaixo da lista de todas as empresas,
+  o dono não o achava. Guarda no bloco `area-admin:` do `engine-audit`.
+- **"Logar como" abre a sessão do cliente no APP** (`origemDoApp`, `APP_HOST`
+  ou `admin.` → `app.`), e a sessão do dono continua de pé na plataforma.
+- **Para ligar (dono):** CNAME `admin` na Hostinger → alvo da Vercel; domínio
+  `admin.quattro.finance` no projeto da Vercel; `https://admin.quattro.finance/**`
+  nas Redirect URLs do Supabase Auth; o aplicativo autenticador cadastrado na
+  conta do dono; só então `ADMIN_HOST=admin.quattro.finance` em Production.
+- Guardas no `engine-audit` (bloco `area-admin:`), provadas plantando defeito.
 
 ## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
 
@@ -135,6 +243,23 @@ junto. Provada em `begin … rollback`: recusa com dado, apaga tudo vazia,
 reaplica sem erro, tira só o job da OWN do cron. As menções históricas a
 `own_*` nas seções abaixo ficam como registro.
 
+## ⚠️ REFERÊNCIA JOTA — PALETA MEDIDA NO PRINT (decisão do dono, 15/10/2026)
+
+O dono adotou o print do chat do Jota.ai como design system de cores. Vence o
+TEMA ERP e toda seção de identidade abaixo onde discordar (inclusive o
+"Verde-base no texto" e o "preto puro só no número"). Cores lidas nos PIXELS
+do arquivo; tabela, formas e o print em `docs/design/referencia-jota/`.
+
+- Fundo de página `#F2F2F2` · card `#FBFBFB` (sem borda, sem sombra) · dentro
+  do card `#F2F2F2` · balão da pergunta `#EAEAEA` (`.a4p-bolha-usuario`).
+- Texto e número `#1A1A1A` (`--color-ink`, `--erp-num-cor`) · rótulo `#535353`
+  (`--color-text-secondary`) · meta `#9A9A9A` (`--color-text-tertiary`).
+- **Pílula** (`.a4p-pilula`): branca `#FFFFFF`, texto e ícone `#1A1A1A`, raio
+  cheio, sem borda — chips de sugestão da IA e da Home, "Fechar chat".
+- **Barra "Pergunte à Quattro AI" da Home**: o mesmo branco `#FFFFFF` da
+  pílula (`--a4p-pilula-fundo`), com o "+" em cinza `#F2F2F2`.
+- Fonte, ícones (Lucide 1,75px), lime como acento e dark mode: inalterados.
+
 ## ⚠️ O CANVAS "QUATTRO ERP · PROTÓTIPO" É A REGRA DE TUDO (decisão do dono, 13/10/2026)
 
 O quadro **Tema** e as telas do protótipo do canvas
@@ -169,21 +294,26 @@ estão**. Onde discordar da identidade de 30/09 abaixo, esta vence.
 | Sombra | nenhuma · raio do card **20px** |
 | Botão | 42px de altura, padding 36px, mínimo 104px, pílula |
 | Título de tela | Centra No2 **500**, CAIXA ALTA, 30px, espaçamento **0** |
+| Título de seção | Roobert: `h2` em **500**; título de coluna da Home (`.a4p-titulo-secao`) em **600** (subiram um peso em 15/10/2026) |
 | Número | Roobert 500, espaçamento 0, cor `#000000` (`--erp-num-cor`) |
 | Número PRINCIPAL da tela (`.a4p-heroi`) | Centra No2 500 |
 | R$ | mesmo corpo e cor do número · centavos a **50%** em `#6B7060` |
-| Logo | uma cor (`--erp-logo-cor` #3B4332), 92px, por máscara (`.a4p-logo-mono`) |
+| Logo | "quattro ERP" (`public/quattro-erp-logo.png`, desde 15/10/2026), uma cor (`--erp-logo-cor` #3B4332), 125×24px, por máscara (`.a4p-logo-mono`; o "ERP" sai vazado) |
 | Menu | linha fina entre os grupos, 15px entre ícone e texto; Visão geral com o ícone de casa (a ilustração saiu em 14/10/2026) |
 
 - ⚠️ **O preto puro voltou, e só para o número** (`--erp-num-cor`,
   `--erp-moeda-cor`). Foi escolha explícita do dono; a guarda `npm run paleta`
   aceita `#000000` apenas nessas duas linhas de declaração. Sobre fundo escuro
   ou lime o número herda a cor da superfície.
-- **Ícones: o sistema VOLTOU ao Hugeicons** (decisão do dono, 13/10/2026). O
-  conjunto duotônico (`icones-quattro.ts`) saiu do código; o `Icon` usa de novo
-  `CUSTOM_ICONS` + o set gerado em `solar-icons.ts`, com as mesmas chaves. A
-  prancheta "Ícones (61)" do canvas fica como registro do desenho, não como
-  regra.
+- ⚠️ **Ícones: LUCIDE, traço 1,75px** (decisão do dono, 15/10/2026 — vence
+  toda menção a Hugeicons abaixo, que é histórico). O `Icon` desenha pelo
+  `lucide-react`; o mapa chave do sistema → glifo mora em
+  `ui/lucide-icons.ts` (as chaves `house`, `trash-2`… não mudaram, e nenhuma
+  tela importa `lucide-react` direto). Traço `STROKE_ICONE = 1.75` com
+  `absoluteStrokeWidth` (1,75px na tela em qualquer tamanho; os 2px do
+  primeiro corte ficaram pesados demais, o dono baixou no mesmo dia). Guarda no
+  `engine-audit` (bloco `icone:`): toda chave pedida pelas telas existe.
+  `solar-icons.ts` e `CUSTOM_ICONS` saíram.
 - O dark mode ficou como estava (o canvas não desenhou o tema escuro).
 
 ## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo
@@ -269,6 +399,36 @@ gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
   - Os 20 modelos novos (mapa de calor, radar, rosca de anéis, blocos, poupado
     em líquido…) ficam como REFERÊNCIA na pasta do canvas: viram componente
     quando uma tela os usar, com as mesmas peças.
+
+## ⚠️ TROCAS DO CANVAS LEVADAS AO SISTEMA (15/10/2026)
+
+O dono escolheu, nas pranchetas "Trocas · …" do canvas "Gráficos e tabelas",
+o modelo da Biblioteca de 9 gráficos. As peças moram em
+`components/ui/GraficosBiblioteca.tsx`, com o NOME do modelo no canvas
+(`CartaoBiblioteca`, `BarrasEntradaSaida` = "Entradas", `LinhaEntradaSaida` =
+"Análises 3", `BarrasDestaque` = "Receita 2", `LinhasSuaves` = "Análises 2",
+`AreaComparada` = "Estatística de saldo 1", `MapaCalorGrade` = "Atividade por
+horário", `AneisConcentricos` = "Histórico de transferências 3").
+
+| Item | Modelo |
+| --- | --- |
+| Fluxo de caixa · Resultado líquido | Análises 3 |
+| Fluxo de caixa · Gastos | Entradas |
+| Fluxo de caixa · Receitas | Receita 2 |
+| Fluxo de caixa · Projeção do caixa | Análises 2 |
+| Fluxo de caixa · DRE da receita ao fluxo livre | Estatística de saldo 1 |
+| Fluxo de caixa · Mapa de calor | Atividade por horário |
+| Contas a receber · Distribuição por status | Histórico de transferências 3 (`variante="aneis"`; pagar segue na rosca) |
+| Home · Caixa consolidado | Entradas (entradas e saídas do mês, `CurvaHome.entradas/saidas`) |
+| Home · ARR | Estatística de saldo 1 |
+
+- ⚠️ **TERCEIRA exceção declarada à "cor por sinal": a cor da SÉRIE de
+  entrada e saída** (`--erp-graf-entrada` → positive, `--erp-graf-saida` →
+  negative) nesses modelos, porque o dono ligou "Positivo e negativo" neles no
+  canvas. A cor vem da série, NUNCA de comparar o valor com zero — a guarda
+  `cor:` continua com teto zero e não precisou mudar. O número segue na tinta.
+- Novas trocas: o canvas liga cada troca à prancheta individual
+  (`Bib<NN>…dc.html`, por `dc-import`); o código acompanha pelo nome do modelo.
 
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 

@@ -66,9 +66,6 @@ export function BannerAssinatura() {
       <Icon name={parado ? "triangle-alert" : "calendar"} size={16} color={cor} />
       <span className="text-caption text-ink flex-1 min-w-[240px]">
         <strong className="font-medium">{data.aviso}</strong>
-        {!parado && data.emTeste && (
-          <span className="text-muted"> Você pode continuar usando tudo até lá.</span>
-        )}
         {parado && (
           /*
            * ⚠️ **O BLOQUEIO É SUAVE, e dizer isso é metade do trabalho.** Quem

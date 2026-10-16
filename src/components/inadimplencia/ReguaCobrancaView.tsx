@@ -87,6 +87,10 @@ export function ReguaCobrancaView() {
       // mostra antes de um protesto.
       if (!r.ok) {
         show(j?.motivo ?? "O envio foi recusado.");
+      } else if (j?.pediramSaida) {
+        show(`${i.cliente} pediu para não receber WhatsApp. Cobre por e-mail ou por telefone.`);
+      } else if (j?.semAutorizacao) {
+        show(`${i.cliente} não tem autorização registrada para WhatsApp. Registre a autorização no cadastro do contato ou cobre por e-mail.`);
       } else if (j?.provedores?.whatsapp === false) {
         show("O WhatsApp não está configurado neste ambiente: nada foi enviado ao cliente. Copie a mensagem e envie por fora.");
       } else if (j?.jaCobradosHoje) {
@@ -139,7 +143,7 @@ export function ReguaCobrancaView() {
         </div>
         {lista.length === 0 ? (
           <div className="px-5 py-6 text-caption text-muted">
-            {verTodos ? "Nenhum título a receber em aberto está na régua." : "Ninguém para avisar hoje. Os próximos contatos aparecem aqui no dia em que chegarem à etapa."}
+            {verTodos ? "Nenhum título a receber em aberto está na régua." : "Ninguém para avisar hoje."}
           </div>
         ) : lista.map((i, k) => (
           <div key={`${i.movimentoId}-${i.etapa.id}`} className={`flex flex-col gap-2 px-5 py-3 ${k ? "border-t border-border-soft" : ""}`}>

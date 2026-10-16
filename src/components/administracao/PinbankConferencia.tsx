@@ -167,7 +167,7 @@ const TOM_DA_ANTECIPACAO: Record<ResultadoAntecipacao, "positive" | "warning" | 
   estorno_parcial: "neutral",
 };
 
-const TH = "py-2 pr-4 text-[11px] font-medium uppercase tracking-[0.08em] text-faint";
+const TH = "py-2 pr-4 text-[11px] font-medium text-faint";
 
 /** "+2 dias", "−1 dia" (o menos tipográfico), "mesmo dia" — sempre na tinta do texto. */
 const diferencaEmDias = (n: number | null) => {
@@ -281,12 +281,7 @@ export function PinbankConferencia({ vinculo }: { vinculo: VinculoTela }) {
 
   return (
     <section className="flex flex-col gap-4 border-t border-border-soft pt-5" aria-label="Conferência com o extrato da Pinbank">
-      <div className="flex flex-col gap-1">
-        <span className="a4p-label text-muted">Conferência com o extrato da Pinbank</span>
-        <p className="m-0 text-label text-ink max-w-[80ch]">
-          Compara cada parcela do extrato da Pinbank com o que o sistema lançou: data do repasse, valor bruto, cancelamentos, a taxa e a antecipação cobradas, contra as cadastradas na maquininha, e o líquido de cada venda. Só lê — nada é alterado.
-        </p>
-      </div>
+      <span className="a4p-label text-muted">Conferência com o extrato da Pinbank</span>
 
       <div className="flex flex-wrap items-end gap-3">
         <DateField label="Início" value={de} onChange={setDe} invalid={problemas.length > 0} />
@@ -637,11 +632,6 @@ function Itens({ r }: { r: RelatorioCompleto }) {
           </button>
         ))}
       </div>
-      {aba === "divergencias" && r.resumo.itensComDivergencia > r.resumo.grupos.divergencias && (
-        <span className="text-caption text-muted max-w-[80ch]">
-          Inclui as parcelas com taxa ou antecipação diferente da cadastrada, ou com a taxa cobrada no extrato sem o título dela no sistema, e as parcelas de uma venda com o total bruto ou o líquido diferente nos dois lados, mesmo quando a data e o valor delas conferem — elas aparecem também no grupo da situação delas.
-        </span>
-      )}
 
       {daAba.length === 0 ? (
         <span className="text-label text-muted">Nenhuma parcela neste grupo.</span>

@@ -131,12 +131,7 @@ export function EnvioNFsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[72ch]">
-          {ENVIO_SIMULADO
-            ? "Envio mensal automático dos XMLs das NFs (entrada + saída) para os e-mails do contador (demonstração)."
-            : "O envio automático ao contador ainda não existe: nenhum pacote nem e-mail sai daqui. Hoje a relação das notas do mês se baixa à mão, e os e-mails cadastrados ficam guardados para quando o envio for ligado."}
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button
           variant="primary"
           disabled={!podeAdicionar(destinatarios)}
@@ -162,9 +157,7 @@ export function EnvioNFsView() {
                     style={{ background: status === "ativo" ? "var(--color-positive)" : "var(--color-placeholder)" }}
                   />
                   {status === "ativo" ? "Ativo" : "Inativo"}
-                  {status === "inativo" && (
-                    <span className="text-caption text-faint">(cadastre e verifique pelo menos 1 e-mail)</span>
-                  )}
+
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Campo rotulo="Próximo envio">
@@ -176,11 +169,7 @@ export function EnvioNFsView() {
                     </span>
                   </Campo>
                 </div>
-                <p className="m-0 text-caption text-faint max-w-[72ch]">
-                  O pacote sai no dia 1º, às 21h — depois do fechamento do mês. Uma nota emitida
-                  no dia 31 à noite ainda é daquela competência, e enviar no próprio dia entregaria
-                  um pacote incompleto.
-                </p>
+
               </>
             ) : (
               <>
@@ -188,11 +177,7 @@ export function EnvioNFsView() {
                   <span className="w-[7px] h-[7px] rounded-pill" style={{ background: "var(--color-placeholder)" }} />
                   Envio automático não ligado
                 </span>
-                <p className="m-0 text-caption text-faint max-w-[72ch]">
-                  Não há envio agendado e nenhum e-mail sai daqui — nem o pacote mensal, nem o link
-                  de confirmação. Para mandar as notas ao contador hoje, baixe a relação do mês ao
-                  lado e encaminhe-a junto com os XMLs do emissor de notas.
-                </p>
+
               </>
             )}
           </div>
@@ -213,18 +198,7 @@ export function EnvioNFsView() {
               <Icon name="arrow-down-to-line" size={15} color="currentColor" />
               Baixar relação do mês
             </Button>
-            {!ENVIO_SIMULADO && (
-              <p className="m-0 text-caption text-faint">
-                O sistema não retém os XMLs: a relação diz quais notas o contador deve receber; o
-                arquivo de cada uma vem do emissor (saída) e da SEFAZ (entrada).
-              </p>
-            )}
-            {ENVIO_SIMULADO && !desde && (
-              <p className="m-0 text-caption text-faint">
-                O arquivamento começa assim que houver um e-mail verificado — até lá o sistema
-                conta as notas, mas não retém XML para enviar.
-              </p>
-            )}
+
           </div>
         </Card>
       </div>
@@ -243,9 +217,8 @@ export function EnvioNFsView() {
 
           {destinatarios.length === 0 ? (
             <p className="m-0 py-8 text-center text-label text-muted">
-              {ENVIO_SIMULADO
-                ? "Nenhum e-mail cadastrado. Adicione o e-mail do contador para começar a receber os pacotes mensais."
-                : "Nenhum e-mail cadastrado."}
+              Nenhum e-mail cadastrado.
+
             </p>
           ) : (
             <ul className="m-0 p-0 list-none flex flex-col">
@@ -305,11 +278,6 @@ export function EnvioNFsView() {
             </ul>
           )}
 
-          <p className="m-0 text-caption text-faint max-w-[76ch]">
-            O limite de {LIMITE_DESTINATARIOS} não é técnico: o pacote carrega a escrituração
-            fiscal inteira da empresa, e uma lista aberta transforma um envio de rotina em
-            vazamento contínuo.
-          </p>
         </div>
       </Card>
 
@@ -328,8 +296,9 @@ export function EnvioNFsView() {
             </div>
             <p className="m-0 text-label text-muted">
               {ENVIO_SIMULADO
-                ? "Enviamos um link de confirmação para esse e-mail. O contador precisa clicar no link para começar a receber o pacote mensal de NFs — um endereço digitado errado entregaria os XMLs a um estranho."
-                : "O e-mail fica guardado para quando o envio existir. Hoje nenhum link de confirmação é enviado e nenhum XML sai daqui — quando o envio for ligado, o contador terá de confirmar o endereço antes de receber."}
+                ? "Enviamos um link de confirmação para esse e-mail."
+                : "Nenhum link de confirmação é enviado."}
+
             </p>
             <div className="flex flex-col gap-[6px]">
               <label className="text-label font-medium text-muted">E-mail</label>

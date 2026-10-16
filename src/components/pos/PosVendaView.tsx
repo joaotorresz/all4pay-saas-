@@ -117,7 +117,7 @@ export function PosVendaView() {
     <AppShell title="Simulador de venda" crumb="Central POS · maquininha">
       <div className="flex justify-center pb-6">
         {/* Device frame 9:16 (vertical) */}
-        <div className="w-full max-w-[420px] aspect-[9/16] max-h-[calc(100vh-7rem)] rounded-card border border-border bg-white shadow-popover overflow-hidden flex flex-col">
+        <div className="w-full max-w-[420px] aspect-[9/16] max-h-[calc(100vh-7rem)] rounded-card bg-white shadow-popover overflow-hidden flex flex-col">
           {/* ---- CATÁLOGO ---- */}
           {tela === "catalogo" && (
             <>
@@ -136,7 +136,7 @@ export function PosVendaView() {
                 ) : lista.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center gap-2 px-6">
                     <Icon name="scan-line" size={26} color="var(--color-text-tertiary)" />
-                    <p className="text-caption text-muted">Nenhum produto cadastrado. Cadastre itens em Produtos para vendê-los aqui.</p>
+                    <p className="text-caption text-muted">Nenhum produto cadastrado.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
@@ -323,7 +323,7 @@ export function PosVendaView() {
                 </div>
               </div>
               <div className="border-t border-border-soft p-3 shrink-0 flex flex-col gap-2">
-                <a href="/contas-a-receber/titulos" className="w-full h-11 rounded-md border border-border text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
+                <a href="/contas-a-receber/titulos" className="w-full h-11 rounded-md bg-white text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
                   Ver em Títulos a receber
                 </a>
                 <button onClick={reset} className="w-full h-11 rounded-md bg-surface-3 text-ink text-[17px] font-semibold active:scale-[0.99]">

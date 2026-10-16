@@ -72,9 +72,6 @@ export function RedefinirSenhaView() {
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
             <h1 className="m-0 text-h2 font-medium text-ink leading-none">Criar nova senha</h1>
-            <p className="m-0 text-label text-muted mt-2">
-              Escolha a nova senha da sua conta. Ela passa a valer assim que for salva, e as outras sessões abertas são encerradas.
-            </p>
           </div>
 
           {!configured && (

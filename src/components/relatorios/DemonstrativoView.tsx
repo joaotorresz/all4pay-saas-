@@ -14,7 +14,7 @@ import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { BRL, Button, Card, Icon, NotaCancelados, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
+import { BRL, Button, Card, Icon, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
 import { chartAnim } from "@/lib/chart-anim";
@@ -27,7 +27,7 @@ import { listarOrcamentos } from "@/lib/orcamentos";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { linhasDeclaradasDasCategorias } from "@/lib/data";
 import {
-  runwayMeses, saldo, canceladosNaJanela, coberturaCompetencia, janela as fazJanela,
+  runwayMeses, saldo, coberturaCompetencia, janela as fazJanela,
 } from "@/core/indicadores";
 import { cascataDRE } from "@/core/relatorios/cascata";
 import type { RiskInput } from "@/core/risk-engine/types";
@@ -44,8 +44,8 @@ import { DeclararPalpite } from "./DeclararPalpite";
 import { RAIO_TOPO } from "@/lib/grafico";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
- * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
- * O cartão "Custo fixo R$2, −64,2%" só fecha com o valor real: a variação é
+ * isso a Visão geral escrevia "R$ 2" onde o extrato e o DRE escreviam "R$ 1,54".
+ * O cartão "Custo fixo R$ 2, −64,2%" só fecha com o valor real: a variação é
  * calculada sobre 1,54 e exibida ao lado de um 2 — duas grandezas na mesma
  * frase, uma delas arredondada, e quem confere conclui que a conta está errada.
  *
@@ -176,11 +176,6 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
     [relatorio, inputDaVisao],
   );
 
-  const cancelados = React.useMemo(
-    () => (input ? canceladosNaJanela(input, fazJanela(aplicados.intervalo.de, aplicados.intervalo.ate)) : null),
-    [input, aplicados.intervalo.de, aplicados.intervalo.ate],
-  );
-
   return (
     <div className="flex flex-col gap-5 pb-4">
       {/* ⚠️ SÓ NO PAPEL. Na tela, empresa/período/regime já estão na interface;
@@ -193,12 +188,7 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         regime={tipo === "dre" ? "competencia" : "caixa"}
         recorte={visao === "com-previsto" ? "Confirmado e previsto" : "Só o confirmado"}
       />
-      <div className="flex items-start justify-between gap-4 flex-wrap" data-nao-imprime>
-        <p className="m-0 text-label text-muted">
-          {tipo === "dre"
-            ? "Demonstração do Resultado do Exercício. Clique em qualquer célula para ver as transações."
-            : "Demonstração do Fluxo de Caixa. Clique em qualquer célula para ver as transações."}
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap" data-nao-imprime>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="group" aria-label="O que entra no relatório">
             {([["com-previsto", "Com previsto"], ["confirmado", "Só confirmado"]] as const).map(([v, r]) => (
@@ -219,14 +209,10 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         </div>
       </div>
 
-      {/* ⚠️ O recorte é DITO, sempre. "Nunca misture sem dizer qual é qual" é a
-          regra inteira desta distinção: um relatório que soma previsto e
-          confirmado sem avisar afirma como firme um dinheiro que ninguém
-          autorizou. */}
-      <p className="m-0 text-caption text-faint max-w-[76ch]">
-        {visao === "com-previsto"
-          ? "Mostrando o confirmado E o previsto. O previsto ainda não foi autorizado por alguém com alçada — pode não acontecer."
-          : "Mostrando só o CONFIRMADO: títulos autorizados na Central. O previsto ficou de fora, então os totais são menores que os do relatório completo."}
+      {/* ⚠️ O recorte é DITO, sempre: somar previsto e confirmado sem avisar
+          afirma como firme um dinheiro que ninguém autorizou. */}
+      <p className="m-0 text-caption text-faint">
+        {visao === "com-previsto" ? "Mostrando o confirmado E o previsto." : "Mostrando só o CONFIRMADO."}
       </p>
 
       {/* ⚠️ **ORGANIZAÇÃO SEM UM LANÇAMENTO: a cascata inteira em R$ 0,00 é
@@ -242,16 +228,6 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           <span className="text-h3 text-ink">
             {tipo === "dre" ? "Ainda não há resultado para demonstrar" : "Ainda não há caixa para demonstrar"}
           </span>
-          <p className="m-0 text-body text-muted max-w-[68ch]">
-            {tipo === "dre"
-              ? "O DRE mostra quanto a empresa GANHOU e GASTOU em cada mês, linha a linha — receita, deduções, custos, despesas e o resultado no fim. Ele se monta sozinho a partir dos seus lançamentos; hoje não há nenhum."
-              : "O fluxo de caixa mostra quando o dinheiro ENTROU e SAIU da conta, mês a mês. Ele se monta sozinho a partir dos seus lançamentos; hoje não há nenhum."}
-          </p>
-          <p className="m-0 text-caption text-faint max-w-[68ch]">
-            {tipo === "dre"
-              ? "Importe um extrato e as linhas se preenchem: o sistema classifica cada lançamento na linha certa da demonstração."
-              : "Importe um extrato e os meses se preenchem pela data em que o dinheiro se moveu."}
-          </p>
           <div className="flex flex-wrap gap-2 pt-1">
             <Link href="/upload"><Button variant="primary">Importar extrato</Button></Link>
             <Link href="/metodologia"><Button variant="secondary">Como é calculado</Button></Link>
@@ -267,10 +243,6 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         />
         <Card>
           <span className="text-h3 font-semibold text-ink">Comparar com orçamento</span>
-          <p className="m-0 mt-2 text-caption text-muted">
-            Selecione um orçamento para comparar previsto vs realizado. Novas colunas
-            (Orçado / Diferença / %) aparecem ao lado de cada período.
-          </p>
           <div className="flex flex-col gap-[6px] mt-4">
             {/* O rótulo estava na tela e NÃO no campo: `label` sem `htmlFor` é
                 texto solto para quem usa leitor de tela. Passar pelo componente
@@ -324,13 +296,6 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           filtro={{ intervalo: aplicados.intervalo, conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro, linhaPorCategoria }}
         />
       )}
-      {tipo === "dfc" && relatorio && !relatorio.linhas.some((l) => l.id === "saldo_inicial") && (
-        <p className="m-0 text-caption text-faint max-w-[76ch]" role="note">
-          Sem linhas de saldo neste recorte: saldo é a posição de uma conta bancária, e{" "}
-          {aplicados.projeto || aplicados.centro ? "um projeto ou centro de custo não tem conta" : "o saldo desta conta não foi carregado"}.
-          O fluxo do período continua inteiro.
-        </p>
-      )}
 
       <PainelLayout layout={layout} onChange={setLayout} />
 
@@ -349,13 +314,6 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         <>
           {layout.mostrarGrafico && <GraficoResultado relatorio={relatorio} tipo={tipo} tema={layout.tema} />}
           <TabelaRelatorio relatorio={relatorio} layout={layout} onCelula={setCelula} orcamento={comparacao} />
-          {/* ⚠️ RODAPÉ, não linha: o cancelado fica FORA dos números acima (e
-              deve mesmo ficar — não é receita, não é despesa, não vai ao
-              caixa), mas até aqui ele saía calado. Um relatório sobre uma base
-              com centenas de cancelados tinha a mesma cara de um sobre base
-              limpa, e a diferença só aparecia para quem conferia o total
-              contra o extrato. */}
-          {cancelados && <NotaCancelados dados={cancelados} />}
           {/* ⚠️ O FALLBACK DA COMPETÊNCIA, DITO. O motor lê `competence_date`;
               faltando, usa o vencimento — e um DRE montado metade por uma data
               e metade por outra tem a mesma cara de um conferido. Só aparece no
@@ -365,10 +323,8 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
               <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
               <p className="m-0 text-caption text-muted leading-snug">
                 <b className="text-ink tabular-nums">{competencia.semCompetencia}</b> de{" "}
-                <b className="text-ink tabular-nums">{competencia.total}</b> lançamentos do período
-                não têm data de competência informada — esses entram pelo{" "}
-                <b className="text-ink">vencimento</b>. Enquanto houver lançamento sem competência,
-                o resultado mistura as duas datas.
+                <b className="text-ink tabular-nums">{competencia.total}</b> lançamentos sem competência
+                entram pelo <b className="text-ink">vencimento</b>.
               </p>
             </div>
           )}
@@ -377,9 +333,8 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
               <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
               <p className="m-0 text-caption text-muted leading-snug">
                 <b className="text-ink tabular-nums">{palpite.n}</b> lançamentos (<BRL value={palpite.valor} />)
-                foram classificados por <b className="text-ink">palpite</b> — pelo nome da categoria, porque
-                ela não tem linha do DRE declarada
-                {palpite.categorias.length > 0 && <> (as que mais pesam: {palpite.categorias.slice(0, 3).map((c) => c.nome).join(", ")})</>}.{" "}
+                classificados por <b className="text-ink">palpite</b>
+                {palpite.categorias.length > 0 && <> ({palpite.categorias.slice(0, 3).map((c) => c.nome).join(", ")})</>}.{" "}
                 <button type="button" className="text-ink underline" onClick={() => setDeclarando(true)}>Revisar e declarar</button>
                 {" "}· <Link href="/dashboard/registrations/chart-of-accounts" className="text-ink underline">abrir o plano de contas</Link>.
               </p>
@@ -543,8 +498,8 @@ function CartoesExecutivos({ input, filtro }: {
  * empresa cadastrada no Simples com lançamento na linha de imposto sobre o
  * lucro está, muito provavelmente, contando o mesmo tributo duas vezes.
  *
- * Medido em produção: R$5.200,00/mês de "Simples Nacional" convivendo com
- * "IRPJ / CSLL" (R$75.982,66 em 9 meses), na mesma competência.
+ * Medido em produção: R$ 5.200,00/mês de "Simples Nacional" convivendo com
+ * "IRPJ / CSLL" (R$ 75.982,66 em 9 meses), na mesma competência.
  *
  * ⚠️ Ele NÃO reclassifica e NÃO soma provisão: qual das duas pernas é a
  * indevida é decisão do dono com o contador, e o sistema não tem como saber.
@@ -565,14 +520,13 @@ function AvisoDuplicidadeImposto({ relatorio }: { relatorio: Relatorio }) {
 
   const total = (linha?.celulas ?? []).reduce((s, c) => s + c.valor, 0);
   return (
-    <Card className="border border-warning/40">
+    <Card>
       <div className="flex flex-col gap-2">
         <StatusBadge tone="warning">Possível duplicidade de imposto</StatusBadge>
         <p className="m-0 text-body text-ink max-w-[80ch]">{alerta.aviso}</p>
         <p className="m-0 text-caption text-muted">
           Na linha “Impostos sobre o Lucro” do período há {alerta.quantidade}{" "}
-          lançamento(s), somando <BRL value={Math.abs(total)} />. O sistema não
-          reclassifica nada sozinho.
+          lançamento(s), somando <BRL value={Math.abs(total)} />.
         </p>
       </div>
     </Card>

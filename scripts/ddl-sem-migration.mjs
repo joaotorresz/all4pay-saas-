@@ -105,9 +105,18 @@ try {
 }
 const objetos = bruto ? bruto.split("\n").map((s) => s.trim()).filter(Boolean) : [];
 
-/** `public.own_probe2` → `own_probe2` · `public.movements.col` → `movements` · `public.f()` → `f` */
+/**
+ * `public.own_probe2` → `own_probe2` · `public.movements.col` → `movements` · `public.f()` → `f`
+ * · `t_check on public.t` → `t_check`
+ *
+ * ⚠️ A identidade de CONSTRAINT (e de gatilho/política) vem como
+ * `<nome> on public.<tabela>`. Sem cortar o ` on …`, o núcleo virava
+ * `t_checkonpublic`, que migration nenhuma escreve — a guarda acusava um
+ * `comment on constraint` legítimo como DDL órfão (CI de 15/10/2026).
+ */
 function nucleoDoObjeto(id) {
-  let s = id.replace(/^public\./, "");
+  let s = id.replace(/\s+on\s+.*$/i, "");
+  s = s.replace(/^public\./, "");
   s = s.replace(/\(.*$/, "");   // tira a assinatura de função
   s = s.split(".")[0];          // tira a coluna: tabela.coluna → tabela
   return s.replace(/[^a-z0-9_]/gi, "").toLowerCase();

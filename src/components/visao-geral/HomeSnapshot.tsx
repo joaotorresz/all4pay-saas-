@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BRL, Icon, SemDados } from "@/components/ui";
+import { BRL, Icon, SemDados, BarrasEntradaSaida, AreaComparada } from "@/components/ui";
 import { useRiscoInput, useUnreconciled } from "./hooks";
 import { montarHomeSnapshot, type CurvaHome, type NumeroHome } from "@/core/home/snapshot";
 import { isoLocal, temValor } from "@/core/indicadores";
@@ -227,10 +227,10 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
               type="button"
               aria-pressed={on}
               onClick={() => alternar(o.id)}
-              className="px-3 py-[6px] rounded-pill text-[13px] border"
+              className="px-3 py-[6px] rounded-pill text-[13px]"
               style={on
-                ? { background: "var(--color-ink)", color: "var(--color-surface-1)", borderColor: "var(--color-ink)" }
-                : { background: "var(--color-white)", color: "var(--color-ink)", borderColor: "var(--color-border)" }}
+                ? { background: "var(--color-ink)", color: "var(--color-surface-1)" }
+                : { background: "var(--color-white)", color: "var(--color-ink)" }}
             >
               {o.rotulo}
             </button>
@@ -289,14 +289,15 @@ function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
       <form
         onSubmit={(e) => { e.preventDefault(); perguntar(texto); }}
         className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
-        style={{ background: "var(--color-surface-1)" }}
+        // Barra BRANCA (pedido do dono, 15/10/2026): o mesmo branco da pílula.
+        style={{ background: "var(--a4p-pilula-fundo)" }}
       >
         <button
           type="button"
           onClick={() => perguntar()}
           aria-label="Abrir a Quattro AI"
           className="w-9 h-9 flex-none rounded-pill flex items-center justify-center"
-          style={{ background: "var(--color-white)", color: "var(--color-ink)" }}
+          style={{ background: "var(--color-surface-1)", color: "var(--color-ink)" }}
         >
           <Icon name="plus" size={18} strokeWidth={1.5} />
         </button>
@@ -332,8 +333,7 @@ function CaixaIA({ sugestoes, extras, prefs, aoAjustar }: {
             title={`${c.texto} · sugerida porque ${c.motivo}`}
             aria-label={c.texto}
             data-sugestao={c.id}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] text-ink"
-            style={{ background: "var(--color-surface-1)" }}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula"
           >
             <Icon name={c.icone} size={16} strokeWidth={1.5} />
             {c.curto}
@@ -521,20 +521,39 @@ function Curva({ id, curva }: { id: string; curva: CurvaHome }) {
   );
 }
 
+/**
+ * O gráfico de cada card grande, trocado no canvas "Gráficos e tabelas"
+ * (pranchetas de TROCAS, 15/10/2026): o caixa consolidado virou o modelo
+ * "Entradas" (o que entrou e saiu em cada mês) e o ARR virou "Estatística de
+ * saldo 1" (linha + área). Sem a série de entradas/saídas, fica a curva.
+ */
+function GraficoDoCard({ id, curva }: { id: string; curva: CurvaHome }) {
+  const meses = curva.meses;
+  if (id === "caixa" && curva.entradas && curva.saidas) {
+    const dados = meses.map((m, i) => ({ label: m, entrada: curva.entradas?.[i] ?? 0, saida: curva.saidas?.[i] ?? 0 }));
+    return <BarrasEntradaSaida dados={dados} altura={180} ariaLabel={`Entradas e saídas de ${meses[0]} a ${meses[meses.length - 1]}`} />;
+  }
+  if (id === "arr") {
+    const dados = meses.map((m, i) => ({ label: m, valor: curva.pontos[i] ?? 0 }));
+    return <AreaComparada id="home-arr" dados={dados} altura={180} ariaLabel={`ARR de ${meses[0]} a ${meses[meses.length - 1]}`} />;
+  }
+  return <Curva id={id} curva={curva} />;
+}
+
 function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; carimbo: string }) {
   return (
     <Link
       href={n.href}
       draggable={false}
-      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6 border"
-      style={{ background: "var(--color-surface-1)", borderColor: "var(--color-border)", borderRadius: "var(--a4p-box-radius)" }}
+      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6"
+      style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
     >
       <span className="text-[15px] text-ink">{n.rotulo}</span>
       <div className="flex items-center gap-[13.8px] flex-wrap">
         <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><Valor n={n} /></span>
         <Pilula v={n.variacao} />
       </div>
-      <Curva id={n.id} curva={curva} />
+      <GraficoDoCard id={n.id} curva={curva} />
       <div className="flex justify-between text-[12px] text-muted pt-3 border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
         <span>{carimbo}</span>
         <span className="text-[13px]">vs. o mesmo dia do mês passado</span>
@@ -610,7 +629,7 @@ function PrecisaDeAcao({ p }: { p: Pendencias }) {
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
-      <span className="text-[15px] text-muted">Precisa de ação</span>
+      <span className="a4p-titulo-secao text-[15px] text-muted">Precisa de ação</span>
       {itens.map((a) => (
         <Link key={a.nome} href={a.href} className="flex justify-between items-center py-[11px] border-t text-ink" style={{ borderColor: "var(--color-border)" }}>
           <span>{a.nome}</span>
@@ -642,7 +661,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
   const abertas = (tarefas ?? []).filter((t) => t.status !== "done").slice(0, 3);
   return (
     <Link href="/dashboard/reports/monthly-closing" className={`${COLUNA} gap-3`} style={colunaStyle}>
-      <span className="text-[15px] text-muted">Fechamento de {MESES_LONGOS[Number(mes.slice(5, 7)) - 1]}</span>
+      <span className="a4p-titulo-secao text-[15px] text-muted">Fechamento de {MESES_LONGOS[Number(mes.slice(5, 7)) - 1]}</span>
       <div className="flex items-baseline justify-between">
         <span className="a4p-num tabular-nums" style={{ fontSize: 30, lineHeight: 1 }}>{tarefas ? pct(fracao, 0) : "—"}</span>
         <span className="text-[13px] text-muted tabular-nums">{feitas} / {total} concluídas</span>
@@ -653,7 +672,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
       {abertas.map((t) => (
         <div key={t.id} className="flex justify-between items-center gap-2 py-[10px] border-t" style={{ borderColor: "var(--color-border)" }}>
           <span className="text-[14px] text-ink">{t.titulo}</span>
-          <span className="flex-none text-[10px] font-medium tracking-[.06em] uppercase px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
+          <span className="flex-none text-[10px] font-medium px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
             {ROTULO_STATUS[t.status]}
           </span>
         </div>
@@ -665,7 +684,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
 function RelatoriosFixados() {
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
-      <span className="text-[15px] text-muted">Relatórios fixados</span>
+      <span className="a4p-titulo-secao text-[15px] text-muted">Relatórios fixados</span>
       {RELATORIOS.map((r) => (
         <Link key={r.nome} href={r.href} className="flex justify-between items-center py-[11px] border-t text-ink" style={{ borderColor: "var(--color-border)" }}>
           <span>{r.nome}</span>

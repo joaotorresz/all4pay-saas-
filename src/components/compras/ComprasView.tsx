@@ -138,8 +138,7 @@ export function ComprasView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Controle de compras e recebimentos</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="primary" onClick={() => router.push("/dashboard/purchases/new")}>
             <Icon name="plus" size={15} color="currentColor" />
@@ -177,12 +176,12 @@ export function ComprasView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Faixa
               titulo="Data de vencimento/pagamento"
-              ajuda="A janela do CAIXA: quando o dinheiro sai. Compra paga entra pela data do pagamento."
+
               de={vencDe} ate={vencAte} setDe={setVencDe} setAte={setVencAte}
             />
             <Faixa
               titulo="Data de competência"
-              ajuda="A janela do RESULTADO: de que mês é a despesa, independentemente de quando se paga."
+
               de={compDe} ate={compAte} setDe={setCompDe} setAte={setCompAte}
             />
           </div>
@@ -213,8 +212,8 @@ export function ComprasView() {
             </span>
             <p className="m-0 text-label text-muted max-w-[44ch]">
               {compras.length === 0
-                ? "Nenhuma compra registrada. Um pedido de compra só vira conta a pagar depois de aprovado."
-                : "Nenhuma compra no filtro. Amplie as datas ou limpe o status."}
+                ? "Nenhuma compra registrada."
+                : "Nenhuma compra no filtro."}
             </p>
             <Button variant="primary" onClick={() => router.push("/dashboard/purchases/new")}>
               <Icon name="plus" size={15} color="currentColor" />
@@ -312,12 +311,7 @@ export function ComprasView() {
                                 </span>
                               ))}
                             </div>
-                            {c.status !== "aprovada" && (
-                              <p className="m-0 mt-3 text-caption text-faint max-w-[68ch]">
-                                Estas parcelas ainda não existem no fluxo de caixa. Um pedido só vira
-                                conta a pagar quando aprovado.
-                              </p>
-                            )}
+
                           </td>
                         </tr>
                       )}
@@ -337,9 +331,9 @@ export function ComprasView() {
 /* --------------------------------- peças --------------------------------- */
 
 function Faixa({
-  titulo, ajuda, de, ate, setDe, setAte,
+  titulo, de, ate, setDe, setAte,
 }: {
-  titulo: string; ajuda: string;
+  titulo: string;
   de: string; ate: string; setDe: (v: string) => void; setAte: (v: string) => void;
 }) {
   return (
@@ -350,8 +344,8 @@ function Faixa({
         <Icon name="chevron-right" size={14} color="var(--color-text-tertiary)" />
         <DateField value={ate} onChange={setAte} containerClassName="flex-1" />
       </div>
-      <span className="text-caption text-faint">{ajuda}</span>
     </div>
+
   );
 }
 

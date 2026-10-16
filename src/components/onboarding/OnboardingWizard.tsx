@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Card, Input, Select, Switch, Button, Icon } from "@/components/ui";
+import { Card, Input, Select, Switch, Button, Icon, BancoLogo } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { formatBRL } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -28,7 +28,7 @@ const MODELOS = ["B2B", "B2C", "Marketplace", "Assinatura", "Projeto", "Recorrê
 const RECEITAS = ["Venda de produto", "Venda de serviço", "Mensalidade", "Aluguel", "Intermediação", "Taxa", "Comissão", "Juros", "Receita financeira"];
 const FREQ = ["Diária", "Semanal", "Mensal", "Sazonal", "Projeto"];
 const FUNC = ["1-10", "11-50", "51-100", "101-500", "500+"];
-const FAT = ["até R$360 mil", "R$360 mil – 4,8 mi", "R$4,8 – 20 mi", "R$20 – 50 mi", "R$50 mi+"];
+const FAT = ["até R$ 360 mil", "R$ 360 mil – 4,8 mi", "R$ 4,8 – 20 mi", "R$ 20 – 50 mi", "R$ 50 mi+"];
 const BANCOS = ["Itaú", "Bradesco", "Santander", "Banco do Brasil", "Caixa", "Nubank", "Inter", "C6", "BTG", "Sicoob", "Sicredi", "Mercado Pago"];
 const MEIOS = ["PIX", "Boleto", "Cartão", "TED", "Dinheiro", "Link de pagamento", "Marketplace", "Internacional"];
 const DESPESAS = ["Folha", "Impostos", "Aluguel", "Marketing", "Combustível", "Fornecedores", "Software", "Logística"];
@@ -37,7 +37,7 @@ const REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Outro"];
 const FUNCOES = ["Administrador", "CEO", "CFO", "Financeiro", "Tesouraria", "Controller", "Contador", "Jurídico", "Operador", "Auditor", "Conselheiro", "Investidor"];
 // ⚠️ As faixas vêm de `core/seguranca/alcada` — a MESMA lista que o conversor
 // usa. Um array local aqui divergiria do conversor no primeiro ajuste, e foi
-// exatamente isso que fez "R$50 mil" virar 50: o rótulo mudava, a limpeza de
+// exatamente isso que fez "R$ 50 mil" virar 50: o rótulo mudava, a limpeza de
 // string não sabia.
 const LIMITES = FAIXAS_ALCADA.map((f) => f.rotulo);
 const CENTROS = ["Comercial", "Operações", "Administrativo", "Financeiro", "Marketing", "Logística"];
@@ -58,7 +58,7 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
 
   const [db, setDb] = React.useState({ razaoSocial: "", fantasia: "", cnpj: "", ie: "", im: "", fundacao: "", natureza: "", porte: "", repNome: "", repCpf: "", repCargo: "", repEmail: "", repTelefone: "", cep: "", rua: "", numero: "", cidade: "", estado: "", pais: "Brasil", regime: "", contribuinteIcms: false, exportadora: false });
   const [perfil, setPerfil] = React.useState<PerfilEmpresa>({ setor: "", modelo: "", receitaPrincipal: "", frequencia: "", funcionarios: "", faturamento: "", bancos: [], meiosRecebimento: [], despesas: [] });
-  const [participantes, setParticipantes] = React.useState<Participante[]>([{ nome: "", funcao: "CFO", email: "", aprovaPagamentos: true, limite: "R$50 mil" }]);
+  const [participantes, setParticipantes] = React.useState<Participante[]>([{ nome: "", funcao: "CFO", email: "", aprovaPagamentos: true, limite: "R$ 50 mil" }]);
   const [estrutura, setEstrutura] = React.useState<Estrutura>({ contas: [], centrosCusto: [], unidades: [], dre: ["Gerencial", "Por centro de custo"], fluxoCaixa: "Híbrido" });
   const [contaTipos, setContaTipos] = React.useState<string[]>([]);
 
@@ -261,7 +261,6 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
           <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
               <button onClick={onTrocarTipo} className="text-caption text-muted hover:text-ink underline">Sou pessoa física</button>
-              <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
             </div>
           </div>
           <div>
@@ -279,15 +278,7 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
                 </span>
               ))}
             </div>
-            <p className="m-0 text-caption text-muted mt-2">Nossa IA configurará seu ambiente financeiro a partir destas informações.</p>
           </div>
-          {/* O aviso de beta é PARTE do plano de lançamento: um beta que declara
-              o que ainda não faz é levado a sério; um que esconde perde o
-              cliente no primeiro buraco. */}
-          <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
-            Beta gratuito. Seus dados são reais e ficam salvos; algumas integrações ainda
-            estão chegando. <a href="/privacidade" className="underline hover:text-ink">Como tratamos seus dados</a>.
-          </p>
           <div>
           </div>
         </div>
@@ -323,7 +314,6 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             sem e-mail e senha não há como entrar, porque o acesso anônimo está
             desligado. Texto de tela não fala de MVP, e não promete o que o
             sistema recusa. */}
-        <p className="text-center text-caption text-faint">Os campos opcionais podem ficar em branco e ser preenchidos depois, em Configurações.</p>
       </div>
       </div>
     </MolduraPublica>
@@ -331,14 +321,15 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
 }
 
 /* ---------- helpers ---------- */
-function ChipMulti({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+function ChipMulti({ options, value, onChange, comLogoDeBanco = false }: { options: string[]; value: string[]; onChange: (v: string[]) => void; comLogoDeBanco?: boolean }) {
   const toggle = (o: string) => onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o]);
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => {
         const on = value.includes(o);
         return (
-          <button key={o} onClick={() => toggle(o)} className={`text-caption font-medium rounded-pill px-3 py-1 border ${on ? "bg-surface-3 text-ink border-transparent font-semibold" : "bg-white text-muted border-border hover:text-ink"}`}>
+          <button key={o} onClick={() => toggle(o)} className={`inline-flex items-center gap-[6px] text-caption font-medium rounded-pill px-3 py-1 border ${comLogoDeBanco ? "pl-1" : ""} ${on ? "bg-surface-3 text-ink border-transparent font-semibold" : "bg-white text-muted border-border hover:text-ink"}`}>
+            {comLogoDeBanco && <BancoLogo banco={o} nome={o} size={20} className="rounded-pill" />}
             {o}
           </button>
         );
@@ -402,7 +393,6 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
   const set = (k: keyof PerfilEmpresa, v: any) => setPerfil((p) => ({ ...p, [k]: v }));
   return (
     <>
-      <p className="m-0 text-caption text-muted">Esta etapa é o que mais ajuda a IA a entender o seu negócio.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Setor" value={perfil.setor} onChange={(v) => set("setor", v)} options={opt(SETORES)} placeholder="Selecione" />
         <Select label="Modelo de negócio" value={perfil.modelo} onChange={(v) => set("modelo", v)} options={opt(MODELOS)} placeholder="Selecione" />
@@ -411,7 +401,7 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
         <Select label="Funcionários" value={perfil.funcionarios} onChange={(v) => set("funcionarios", v)} options={opt(FUNC)} placeholder="Selecione" />
         <Select label="Faturamento anual" value={perfil.faturamento} onChange={(v) => set("faturamento", v)} options={opt(FAT)} placeholder="Selecione" />
       </div>
-      <Campo label="Bancos utilizados"><ChipMulti options={BANCOS} value={perfil.bancos} onChange={(v) => set("bancos", v)} /></Campo>
+      <Campo label="Bancos utilizados"><ChipMulti options={BANCOS} value={perfil.bancos} onChange={(v) => set("bancos", v)} comLogoDeBanco /></Campo>
       <Campo label="Meios de recebimento"><ChipMulti options={MEIOS} value={perfil.meiosRecebimento} onChange={(v) => set("meiosRecebimento", v)} /></Campo>
       <Campo label="Principais despesas"><ChipMulti options={DESPESAS} value={perfil.despesas} onChange={(v) => set("despesas", v)} /></Campo>
       <DescricaoLivre value={perfil.descricao ?? ""} onChange={(v) => set("descricao", v)} />
@@ -421,11 +411,10 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
 
 function PassoGovernanca({ participantes, setParticipantes }: { participantes: Participante[]; setParticipantes: (f: Participante[] | ((p: Participante[]) => Participante[])) => void }) {
   const upd = (i: number, k: keyof Participante, v: any) => setParticipantes((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
-  const add = () => setParticipantes((ps) => [...ps, { nome: "", funcao: "Financeiro", email: "", aprovaPagamentos: false, limite: "R$10 mil" }]);
+  const add = () => setParticipantes((ps) => [...ps, { nome: "", funcao: "Financeiro", email: "", aprovaPagamentos: false, limite: "R$ 10 mil" }]);
   const rem = (i: number) => setParticipantes((ps) => ps.filter((_, j) => j !== i));
   return (
     <>
-      <p className="m-0 text-caption text-muted">Quem decide, quem opera, quem aprova — a IA usa isto para RBAC, aprovações e alertas.</p>
       {participantes.map((p, i) => (
         <div key={i} className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -453,7 +442,6 @@ function PassoEstrutura({ estrutura, setEstrutura, contaTipos, setContaTipos }: 
   const set = (k: keyof Estrutura, v: any) => setEstrutura((e: Estrutura) => ({ ...e, [k]: v }));
   return (
     <>
-      <p className="m-0 text-caption text-muted">Substitui dezenas de configurações manuais — a IA pode sugerir o resto.</p>
       <Campo label="Tipos de conta"><ChipMulti options={["Operacional", "Folha", "Reserva", "Investimento"]} value={contaTipos} onChange={setContaTipos} /></Campo>
       <Campo label="Centros de custo (ou deixe a IA sugerir)"><ChipMulti options={CENTROS} value={estrutura.centrosCusto} onChange={(v) => set("centrosCusto", v)} /></Campo>
       <Campo label="Unidades de negócio"><ChipMulti options={UNIDADES} value={estrutura.unidades} onChange={(v) => set("unidades", v)} /></Campo>
@@ -473,7 +461,6 @@ function PassoImport({ texto, setTexto, report, analisar, carregarAmostra }: any
   };
   return (
     <>
-      <p className="m-0 text-caption text-muted">Envie o extrato (CSV ou OFX) e o sistema descobre clientes, fornecedores, recorrências e categorias. Você pode pular e importar depois.</p>
       <textarea value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Cole um extrato (data;descrição;valor) ou carregue um arquivo / a amostra." className="w-full h-24 rounded-md border border-border bg-white p-3 text-caption text-ink font-mono outline-none focus:border-faint resize-y" />
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={() => analisar(texto)} disabled={!texto.trim()}>Analisar</Button>
@@ -499,20 +486,6 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="sparkles" size={14} color="var(--color-on-lime)" /></span>
         <span className="text-label font-medium text-muted">Análise da IA · DNA financeiro</span>
       </div>
-      {/*
-        * ⚠️ **O AVISO NÃO É DECORAÇÃO.** Estes números saem do extrato
-        * importado, sobre classificação que o próprio motor declara com
-        * confiança — não da cascata do DRE. Sem o aviso, o cliente novo lê uma
-        * estimativa de importação com a mesma cara de uma demonstração
-        * contábil, e é essa indistinguibilidade que faz o número errado
-        * atravessar. Ver `docs/auditoria.md`, #14.
-        */}
-      <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
-        <b className="text-ink font-medium">Estimativa da importação.</b>{" "}
-        Estes números vêm do extrato que você enviou e da classificação automática —
-        não são o resultado contábil. O DRE passa a existir depois que as categorias
-        forem confirmadas.
-      </p>
       {/* DNA */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-3">
         {dna.map((l) => (
@@ -562,7 +535,6 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
       {configured && (
         <div className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
           <span className="text-caption font-medium text-faint tracking-wide">Criar acesso</span>
-          <p className="m-0 text-caption text-muted">Defina o e-mail e a senha com que você vai entrar. Os dois são obrigatórios.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="E-mail" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="voce@empresa.com" />
             <Input label="Senha" type="password" value={senha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSenha(e.target.value)} placeholder="••••••••" />

@@ -84,14 +84,6 @@ export function AutomacoesView() {
           <ProvedorLinha nome="E-mail" ativo={emailAtivo} carregando={provedores.isLoading} />
           <ProvedorLinha nome="WhatsApp" ativo={whatsAtivo} carregando={provedores.isLoading} />
         </div>
-        <p className="m-0 text-caption text-muted max-w-[76ch]">
-          {isDemo
-            ? "Esta é uma demonstração: nada é enviado. Os envios e os testes ficam registrados como simulados."
-            : !emailAtivo || !whatsAtivo
-              ? "Canal sem provedor configurado continua rodando e registrando — como simulado, e simulado não conta como aviso. Para ligar o envio de verdade, peça a quem administra a instalação para configurar o provedor do canal."
-              : "Os dois canais estão ativos. \"Enviado\" quer dizer que o provedor aceitou a mensagem; a entrega em si é confirmada pelo provedor."}
-          {" "}A execução é diária, às 9h (horário de Brasília).
-        </p>
         {whatsAtivo && prov?.templates && Object.values(prov.templates).every((t) => !t) && (
           <p className="m-0 text-caption text-muted max-w-[76ch]">
             Nenhum modelo de mensagem do WhatsApp foi aprovado ainda: fora da janela de 24 horas da última conversa, o WhatsApp recusa mensagem livre.
@@ -143,7 +135,7 @@ function ListaEnvios({ envios, carregando, erro }: { envios?: EnvioVisivel[]; ca
     <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Últimos envios">
       <table className="w-full text-left">
         <thead>
-          <tr className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+          <tr className="text-[11px] font-medium text-faint">
             <th className="px-5 py-2">Quando</th><th className="px-2 py-2">Automação</th><th className="px-2 py-2">Canal</th>
             <th className="px-2 py-2">Para</th><th className="px-5 py-2">Situação</th>
           </tr>
@@ -235,7 +227,6 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
       <div className="flex items-start gap-3 flex-wrap">
         <div className="flex-1 min-w-[240px]">
           <div className="text-h3 font-medium text-ink">{desc.nome}</div>
-          <p className="m-0 text-caption text-muted max-w-[70ch]">{desc.resumo}</p>
           <p className="m-0 text-caption text-faint">{desc.quando}</p>
         </div>
         <Switch
@@ -304,8 +295,7 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
         <div className="flex flex-col gap-1">
           <span className="a4p-label text-faint">Quem recebe</span>
           <span className="text-caption text-muted">
-            Cada cliente, pelo telefone ou e-mail do cadastro de contatos. Cliente sem contato cadastrado fica de fora (e aparece na prévia).
-            {fila ? ` Hoje: ${fila.grupos.length} cliente(s) na fila automática${fila.pausados.length ? `, ${fila.pausados.length} título(s) pausado(s)` : ""}${fila.jaCobrados.length ? `, ${fila.jaCobrados.length} já cobrado(s) hoje` : ""}.` : ""}
+            {fila ? `Hoje: ${fila.grupos.length} cliente(s) na fila automática${fila.pausados.length ? `, ${fila.pausados.length} título(s) pausado(s)` : ""}${fila.jaCobrados.length ? `, ${fila.jaCobrados.length} já cobrado(s) hoje` : ""}.` : ""}
           </span>
         </div>
       )}
@@ -392,7 +382,6 @@ function Parametros({ cfg, setP, ctx }: {
           <Input label="Cidade do recebedor (PIX)" value={cfg.parametros.cidadePix ?? ""}
             onChange={(e) => setP({ cidadePix: e.target.value || null })} />
         </div>
-        <p className="m-0 text-caption text-faint">Multa e juros só entram quando preenchidos (teto de 2% de multa e 1% ao mês de juros, o limite do Código de Defesa do Consumidor).</p>
         <div className="flex flex-col gap-2">
           <span className="a4p-label text-faint">Pausas (acordo, contestação)</span>
           {pausas.length === 0 && <span className="text-caption text-muted">Nenhuma pausa.</span>}

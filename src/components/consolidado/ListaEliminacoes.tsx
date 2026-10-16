@@ -9,19 +9,15 @@
 import * as React from "react";
 import { BRL } from "@/components/ui";
 import { dataBR } from "@/lib/format";
-import { CRITERIO_ELIMINACAO } from "@/core/relatorios/posicao-consolidada";
 import type { Eliminacao } from "@/core/relatorios";
 
 export function ListaEliminacoes({ eliminacoes }: { eliminacoes: Eliminacao[] }) {
   const total = Math.round(eliminacoes.reduce((s, e) => s + e.valor, 0) * 100) / 100;
   return (
     <div className="flex flex-col gap-2" data-eliminacoes>
-      <p className="m-0 text-caption text-muted max-w-[80ch]">
-        <b className="text-ink">Critério conservador.</b> {CRITERIO_ELIMINACAO}
-      </p>
       {eliminacoes.length === 0 ? (
         <p className="m-0 text-caption text-muted">
-          Nenhuma operação entre as empresas do grupo foi reconhecida no período — nada foi eliminado, e o consolidado é a soma das partes.
+          Nenhuma operação entre as empresas do grupo no período.
         </p>
       ) : (
         <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Eliminações intercompany">
@@ -43,7 +39,7 @@ export function ListaEliminacoes({ eliminacoes }: { eliminacoes: Eliminacao[] })
               ))}
               <tr className="border-t border-border">
                 <td className="px-3 py-2 text-label font-medium text-ink" colSpan={2}>
-                  {eliminacoes.length} {eliminacoes.length === 1 ? "par eliminado" : "pares eliminados"} — sai da receita de uma empresa e da despesa da outra
+                  {eliminacoes.length} {eliminacoes.length === 1 ? "par eliminado" : "pares eliminados"}
                 </td>
                 <td className="px-3 py-2 text-right text-label font-medium text-ink tabular-nums"><BRL value={total} /></td>
               </tr>

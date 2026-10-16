@@ -173,7 +173,7 @@ function escritasDeAlcadaForaDaMorada(): string[] {
         }
 
         // ⚠️ **NÃO acusar estado de UI.** A primeira versão desta varredura
-        // reprovou `limite: ""` e `limite: "R$50 mil"` nos DEFAULTS das telas —
+        // reprovou `limite: ""` e `limite: "R$ 50 mil"` nos DEFAULTS das telas —
         // que é a PERGUNTA sendo feita, não a resposta sendo persistida. Uma
         // guarda que reprova o código certo é desligada na primeira semana, ou
         // "consertada" arrancando o campo da tela. O risco real é a resposta
@@ -2029,7 +2029,7 @@ const AGOSTO = janelaMes(2026, 7);
    *
    * ⚠️ Medido: havia 36 formatadores avulsos em 32 arquivos, 18 deles com
    * `maximumFractionDigits: 0`. Eles divergiam em DUAS coisas ao mesmo tempo —
-   * as casas decimais (o DAS de R$3.988,80 saía "R$3.989", sumindo com 20
+   * as casas decimais (o DAS de R$ 3.988,80 saía "R$ 3.989", sumindo com 20
    * centavos de imposto) e o espaço não separável que o `Intl` põe depois do
    * "R$", que `formatBRL` remove. O mesmo dinheiro saía com duas grafias
    * conforme o caminho.
@@ -2148,6 +2148,7 @@ const AGOSTO = janelaMes(2026, 7);
     [/all4pay\/estado-da-organizacao/, "formato de backup antigo: continua aceito na restauração"],
     [/\/all4pay-ai\b/, "endereço antigo da IA: responde 308 para /quattro-ai (favoritos)"],
     [/`all4pay`|`All4Pay`|`All 4 Pay`/, "registro, em core/marca, de qual era a marca anterior"],
+    [/joaotorresz\/all4pay-saas-/, "nome do repositório no GitHub: o editor do design system abre PR nele"],
   ];
   const restos: string[] = [];
   (function varrer(d: string) {
@@ -3438,8 +3439,10 @@ const AGOSTO = janelaMes(2026, 7);
      /status: 403/.test(mw),
      "um redirect esconde a recusa e sugere que outra sessão resolveria");
 
-  const pag = ler("src/app/admin/page.tsx");
-  ok("plataforma: a página de /admin confere no SERVIDOR",
+  // O cadeado de servidor mora no LAYOUT de /admin: cobre as cinco seções e a
+  // próxima que nascer, sem depender de alguém lembrar de repeti-lo.
+  const pag = ler("src/app/admin/layout.tsx");
+  ok("plataforma: o layout de /admin confere no SERVIDOR",
      !/^"use client"/m.test(pag) && /is_platform_admin/.test(pag),
      "a página era 'use client' e só o cliente decidia");
 
@@ -3610,13 +3613,18 @@ const AGOSTO = janelaMes(2026, 7);
   const rota = ler("src/app/api/cobranca/whatsapp/route.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   const iSessao = rota.indexOf("auth.getUser()");
   const iPermissao = rota.indexOf('rpc("tem_permissao"');
-  const iDestino = rota.indexOf('from("parties")');
+  // Desde a etapa 5 (15/10/2026) o destino conhecido E a autorização saem da
+  // MESMA leitura: `whatsapp_situacao_contatos`, recortada pela empresa ativa.
+  const iDestino = rota.indexOf('rpc("whatsapp_situacao_contatos")');
   // O envio passou a sair pelo despacho único (reservar → enviar → concluir),
   // o mesmo do runner de automações — é ali que o provedor é chamado.
   const iEnvio = rota.indexOf("despachar(");
   ok("cobranca-rota: exige sessão, permissão e destino conhecido ANTES de enviar",
      iSessao > 0 && iPermissao > iSessao && iDestino > iPermissao && iEnvio > iDestino,
      `sessão ${iSessao} · permissão ${iPermissao} · destino ${iDestino} · envio ${iEnvio}`);
+  ok("cobranca-rota: telefone desconhecido, sem autorização ou que pediu SAIR não segue para o envio",
+     /if \(!s\) \{ recusados\+\+; return false; \}/.test(rota) && /if \(s\.saiu\)/.test(rota) && /if \(!s\.autorizado\)/.test(rota)
+     && /if \(error\) return NextResponse\.json\([^\n]*status: 500/.test(rota));
   ok("cobranca-rota: sem sessão responde 401 (não segue para o envio)",
      /if \(!auth\?\.user\) return NextResponse\.json\([^)]*\{ status: 401 \}\)/.test(rota));
   ok("cobranca-rota: em demonstração não chama a Twilio",
@@ -3898,11 +3906,11 @@ const AGOSTO = janelaMes(2026, 7);
        fora.length === 0, fora.join(" | "));
 
     // A conversão de faixa que estava errada, fixada por VALOR — era ela que
-    // fazia "R$50 mil" virar 50 e "Sem limite" virar 0 (a inversão exata).
-    ok("alcada: R$50 mil vale 50.000, não 50", tetoDaFaixa("R$50 mil") === 50_000,
-       String(tetoDaFaixa("R$50 mil")));
-    ok("alcada: R$10 mil vale 10.000", tetoDaFaixa("R$10 mil") === 10_000);
-    ok("alcada: R$500 mil vale 500.000", tetoDaFaixa("R$500 mil") === 500_000);
+    // fazia "R$ 50 mil" virar 50 e "Sem limite" virar 0 (a inversão exata).
+    ok("alcada: R$ 50 mil vale 50.000, não 50", tetoDaFaixa("R$ 50 mil") === 50_000,
+       String(tetoDaFaixa("R$ 50 mil")));
+    ok("alcada: R$ 10 mil vale 10.000", tetoDaFaixa("R$ 10 mil") === 10_000);
+    ok("alcada: R$ 500 mil vale 500.000", tetoDaFaixa("R$ 500 mil") === 500_000);
     ok("alcada: 'Sem limite' é NULL (sem teto), nunca 0",
        tetoDaFaixa("Sem limite") === null, String(tetoDaFaixa("Sem limite")));
     // ⚠️ A ausência é FECHADA: rótulo desconhecido não pode virar "sem teto".
@@ -3916,8 +3924,8 @@ const AGOSTO = janelaMes(2026, 7);
 
     // O onboarding só define teto para QUEM APROVA.
     const so = alcadaDoOnboarding([
-      { aprovaPagamentos: false, limite: "R$500 mil" },
-      { aprovaPagamentos: true, limite: "R$10 mil" },
+      { aprovaPagamentos: false, limite: "R$ 500 mil" },
+      { aprovaPagamentos: true, limite: "R$ 10 mil" },
     ]);
     ok("alcada: limite de quem NÃO aprova é ignorado (não vira morada nova)",
        so.tetos.length === 1 && so.tetos[0].papel === "aprovador" && so.tetos[0].teto === 10_000,
@@ -3928,8 +3936,8 @@ const AGOSTO = janelaMes(2026, 7);
     // conflito é DEVOLVIDO — escolha silenciosa é a pessoa descobrindo o teto
     // no dia em que precisa aprovar.
     const dois = alcadaDoOnboarding([
-      { aprovaPagamentos: true, limite: "R$10 mil" },
-      { aprovaPagamentos: true, limite: "R$500 mil" },
+      { aprovaPagamentos: true, limite: "R$ 10 mil" },
+      { aprovaPagamentos: true, limite: "R$ 500 mil" },
     ]);
     ok("alcada: dois aprovadores → fica o MAIOR teto",
        dois.tetos[0]?.teto === 500_000, JSON.stringify(dois.tetos));
@@ -3937,7 +3945,7 @@ const AGOSTO = janelaMes(2026, 7);
        dois.conflitos.length === 1 && dois.conflitos[0].ignorados.length === 1,
        JSON.stringify(dois.conflitos));
     const semTeto = alcadaDoOnboarding([
-      { aprovaPagamentos: true, limite: "R$500 mil" },
+      { aprovaPagamentos: true, limite: "R$ 500 mil" },
       { aprovaPagamentos: true, limite: "Sem limite" },
     ]);
     ok("alcada: 'Sem limite' vence qualquer número",
@@ -3979,6 +3987,7 @@ const AGOSTO = janelaMes(2026, 7);
     // `CRON_SECRET` por conta própria.
     const rotas = [
       "src/app/api/financial-os/run/route.ts",
+      "src/app/api/automacoes/fluxos/run/route.ts",
       "src/app/api/recorrencias/run/route.ts",
       "src/app/api/openfinance/sync/route.ts",
       "src/app/api/notificacoes/teste/route.ts",
@@ -4276,15 +4285,9 @@ const AGOSTO = janelaMes(2026, 7);
     const orfas = Object.keys(CONSUMIDORES_DA_PROJECAO).filter((f) => !existe(f));
     ok("projecao: nenhum consumidor declarado aponta para arquivo inexistente",
        orfas.length === 0, orfas.join(" | "));
-    /**
-     * ⚠️ E as duas telas de título DIZEM o que contam. Sem a frase, quem abre
-     * as duas conclui que uma está errada — e é a pergunta "qual dos dois está
-     * certo" que a guarda existe para nunca mais deixar aparecer.
-     */
-    ok("projecao: a lista de títulos declara que conta só o já lançado",
-       /já lançados/.test(ler("src/components/movimentacoes/TitulosView.tsx")));
-    ok("projecao: o painel de contas a pagar declara o mesmo",
-       /já lançados/.test(ler("src/components/contas-pagar/DashboardContasPagar.tsx")));
+    // ⚠️ As frases "só entram os títulos já lançados" das duas telas de título
+    // SAÍRAM por decisão do dono (16/10/2026: nenhum texto de apoio nas telas).
+    // O que continua guardado é a regra: a projeção não entra nelas (acima).
 
     /**
      * ⚠️ **NENHUM ID DE CADASTRO LOCAL VAI PARA UMA COLUNA UUID.**

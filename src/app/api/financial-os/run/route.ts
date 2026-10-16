@@ -8,6 +8,7 @@ import {
 } from "@/core/automacoes";
 import { contextoDaRpc, configDaLinha, type ContextoBruto } from "@/lib/automacoes-contexto";
 import { registroSupabase } from "@/lib/automacoes-registro";
+import { saidasPara } from "@/lib/whatsapp-saidas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,7 +81,9 @@ export async function GET(req: Request) {
     const ctx = contextoDaRpc(orgId, (bruto ?? {}) as ContextoBruto, hoje, appUrl);
     const antes = { ...rel };
     const resultados = mensagensDoDia(cfgs, ctx);
-    for (const r of resultados) await despachar(orgId, r.mensagens, { registro, provedor, dryRun }, rel);
+    // Quem respondeu SAIR não recebe WhatsApp de nenhuma automação.
+    const saidas = await saidasPara(admin, resultados.flatMap((r) => r.mensagens));
+    for (const r of resultados) await despachar(orgId, r.mensagens, { registro, provedor, dryRun, saidas }, rel);
     empresas.push({
       orgId,
       automacoes: resultados.map((r) => ({
@@ -100,7 +103,7 @@ export async function GET(req: Request) {
         antes: null,
         depois: {
           hoje, enviados: rel.enviados - antes.enviados, simulados: rel.simulados - antes.simulados,
-          falhas: rel.falhas - antes.falhas, ja_registrados: rel.jaRegistrados - antes.jaRegistrados,
+          falhas: rel.falhas - antes.falhas, ja_registrados: rel.jaRegistrados - antes.jaRegistrados, bloqueados: rel.bloqueados - antes.bloqueados,
           automacoes: resultados.map((r) => r.tipo),
         },
       });
@@ -115,7 +118,7 @@ export async function GET(req: Request) {
     hoje,
     dryRun,
     empresas: porOrg.size,
-    totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados },
+    totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },
     porEmpresa: empresas,
     provedores: statusNotificacoes(),
   });

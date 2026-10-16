@@ -100,7 +100,6 @@ export function RangeSelector() {
               <Button variant="primary" size="sm" fullWidth onClick={aplicar}>Aplicar período</Button>
             </>
           )}
-          {!span && <span className="text-caption text-faint">Escolha a janela e depois o mês de começo e o de fim.</span>}
         </div>
       )}
     </div>

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  *   · PÍLULA sempre (999px), padding 15px 30px, peso 500 — nunca bold;
  *   · PRIMÁRIO = lime com texto em verde-base (lime nunca leva texto branco),
  *     hover escurece levemente;
- *   · SECUNDÁRIO = transparente com borda rgba(59,67,50,0.28), texto verde-base;
+ *   · SECUNDÁRIO = fundo branco, SEM borda (dono, 16/10/2026), texto na tinta;
  *   · GHOST = só texto, para ação terciária dentro de linha/popover.
  * O texto do botão é TEXTO (Roobert 500) — nunca caixa alta forçada.
  * As doutrinas anteriores ("nada parece botão", "cantos retos", "raio do
@@ -42,8 +42,8 @@ const sizeClasses: Record<ButtonSize, string> = {
  */
 const variantClasses: Record<ButtonVariant, string> = {
   primary: "bg-lime text-on-lime hover:bg-lime-hover",
-  secondary: "bg-transparent text-ink border border-[color:var(--a4p-borda-controle)] hover:bg-surface-2",
-  outline: "bg-transparent text-ink border border-[color:var(--a4p-borda-controle)] hover:bg-surface-2",
+  secondary: "bg-white text-ink hover:bg-surface-2",
+  outline: "bg-white text-ink hover:bg-surface-2",
   ghost: "bg-transparent text-ink hover:bg-surface-2",
   accent: "bg-lime text-on-lime hover:bg-lime-hover",
 };

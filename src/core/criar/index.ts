@@ -48,7 +48,7 @@ export interface Acao {
 export const ACOES_CADASTROS: Acao[] = [
   { label: "Novo cliente", icon: "users", rota: "/dashboard/registrations/clients?novo=1", forma: "modal", modal: "cliente" },
   { label: "Novo fornecedor", icon: "building", rota: "/dashboard/registrations/suppliers?novo=1", forma: "modal", modal: "fornecedor" },
-  { label: "Novo produto", icon: "b", rota: "/dashboard/registrations/products?novo=1", forma: "modal", modal: "produto" },
+  { label: "Novo produto", icon: "package", rota: "/dashboard/registrations/products?novo=1", forma: "modal", modal: "produto" },
   { label: "Nova conta bancária", icon: "credit-card", rota: "/dashboard/registrations/bank-accounts?novo=1", forma: "pagina" },
   { label: "Nova categoria", icon: "database", rota: "/dashboard/registrations/chart-of-accounts?novo=1", forma: "pagina" },
   { label: "Novo projeto", icon: "target", rota: "/dashboard/registrations/projects?novo=1", forma: "pagina" },

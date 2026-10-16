@@ -263,7 +263,7 @@ export function UploadView() {
       <Card className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Icon name="upload" size={16} color="var(--color-text-secondary)" />
-          <span className="text-label font-medium text-muted">Importar — extrato em lote (CSV/OFX) ou documento individual</span>
+          <span className="text-label font-medium text-muted">Importar</span>
           <InfoHint
             align="left"
             titulo="Importar dados"
@@ -276,11 +276,11 @@ export function UploadView() {
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
-          className={`rounded-md border border-dashed p-6 text-center transition-colors ${drag ? "border-lime bg-lime-tint" : "border-border bg-surface-1"}`}
+          className={`rounded-md p-6 text-center transition-colors ${drag ? "bg-lime-tint" : "bg-surface-1"}`}
         >
           <Icon name="upload" size={22} color="var(--color-text-secondary)" />
           <div className="text-label font-medium text-ink mt-2">Arraste arquivos aqui</div>
-          <div className="text-caption text-faint">CSV · OFX · TXT (extrato em lote) ou PNG · JPG · PDF (boleto, comprovante, nota — lidos por OCR)</div>
+          <div className="text-caption text-faint">CSV · OFX · TXT · PNG · JPG · PDF</div>
           <div className="flex items-center justify-center gap-2 flex-wrap mt-3">
             <label className="inline-block text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
               {lendo ? "Lendo…" : "Escolher arquivos"}
@@ -337,7 +337,7 @@ export function UploadView() {
       {importado && !report && (
         <Card className="flex items-center gap-3 border-l-4" style={{ borderLeftColor: "var(--color-lime)" }}>
           <Icon name="check" size={16} color="var(--color-positive)" />
-          <span className="text-caption text-ink flex-1">Dados importados ativos — alimentando painéis, DRE, risco, inteligência e todo o ERP.</span>
+          <span className="text-caption text-ink flex-1">Dados importados ativos.</span>
           <AcaoDestrutiva
             rotulo="Limpar dados importados"
             titulo="Limpar dados importados"
@@ -397,9 +397,7 @@ export function UploadView() {
           <span className="text-caption text-muted">
             Os demais entraram normalmente. Resposta do banco: {resultado.falha.mensagem}
           </span>
-          <span className="text-caption text-faint">
-            Reenviar o mesmo arquivo é seguro — o que já entrou não duplica.
-          </span>
+
         </div>
       )}
       {report && (resultado || importado) && (

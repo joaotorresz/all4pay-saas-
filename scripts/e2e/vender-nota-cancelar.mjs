@@ -18,7 +18,7 @@ const card = (t, rotulo) => {
   const m = t.match(new RegExp(`${rotulo} \\((\\d+)\\) R\\$([\\d.]+,\\d\\d)`));
   return m ? { n: Number(m[1]), valor: m[2] } : null;
 };
-const VALOR = "R$8.765,40";
+const VALOR = "R$ 8.765,40";
 
 /** Os títulos da venda no dataset da demonstração (o que o contas a receber lê). */
 const titulosDaVenda = (u) => u.page.evaluate(() => {

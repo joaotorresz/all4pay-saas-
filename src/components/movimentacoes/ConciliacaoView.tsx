@@ -46,10 +46,6 @@ export function ConciliacaoView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted">
-        Selecione uma conta para conciliar, ou acesse regras e fechamentos de período.
-      </p>
-
       <div className="flex items-center gap-1 border-b border-border-soft overflow-x-auto">
         {([
           ["quadros", "Quadros"],
@@ -257,11 +253,7 @@ function Regras() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[70ch]">
-          As regras casam transações do extrato (OFX) com lançamentos. A ordem da lista é a prioridade:
-          a primeira regra que casa vence.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="primary" onClick={() => setEditando(nova())}>
           <Icon name="plus" size={15} color="currentColor" />
           Nova regra
@@ -374,8 +366,6 @@ function FormRegra({
     onSalvo(r);
   };
 
-  const ajuda = FUNCOES_REGRA.find((f) => f.id === r.funcao)?.ajuda;
-
   return (
     <FormModal title={inicial.nome ? "Editar regra" : "Nova regra de conciliação"} size="medium" onClose={onClose} onSave={salvar}>
       <Campo label="Nome" obrigatorio erro={erros.nome}>
@@ -409,14 +399,13 @@ function FormRegra({
           options={TIPOS_OFX.map((t) => ({ value: t.id, label: t.label }))} />
       </Campo>
 
-      <Campo label="Função da regra" obrigatorio erro={erros.funcao} ajuda={ajuda}>
+      <Campo label="Função da regra" obrigatorio erro={erros.funcao}>
         <Select value={r.funcao} onChange={(v) => set("funcao", v as FuncaoRegra)}
           options={FUNCOES_REGRA.map((f) => ({ value: f.id, label: f.label }))} />
       </Campo>
 
       <Campo
         label="A descrição contém"
-        ajuda="Opcional — restringe a regra a um trecho do texto do extrato (ex.: “TARIFA”)."
       >
         <Input value={r.contem} onChange={(e) => set("contem", e.target.value)} />
       </Campo>
@@ -449,9 +438,6 @@ function Fechamentos() {
     <Card padded={false} className="overflow-hidden">
       <div className="px-6 py-4 border-b border-border-soft">
         <span className="text-h3 font-semibold text-ink">Fechamentos de conciliação</span>
-        <p className="m-0 mt-1 text-caption text-muted">
-          Até que data cada conta está batida com o extrato do banco.
-        </p>
       </div>
       {linhas.length === 0 ? (
         <p className="m-0 py-12 text-center text-label text-muted">Nenhuma conta bancária cadastrada.</p>

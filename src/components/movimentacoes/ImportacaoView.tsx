@@ -55,7 +55,7 @@ interface LinhaLida {
   competencia: string | null;
 }
 
-/** "1.234,56" · "1234.56" · "R$1.234,56" → 1234.56 */
+/** "1.234,56" · "1234.56" · "R$ 1.234,56" → 1234.56 */
 function paraNumero(s: string): number {
   const limpo = (s ?? "").replace(/[R$\s]/g, "");
   if (!limpo) return NaN;
@@ -212,10 +212,6 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted">
-        Baixe o modelo, preencha a planilha e suba o arquivo. Nada é gravado antes de você conferir.
-      </p>
-
       <Card>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Campo label="O que importar">
@@ -230,7 +226,7 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
             />
           </Campo>
           {tipo !== "transferencias" && (
-            <Campo label="Conta bancária de destino" ajuda="Usada quando a planilha não traz a conta.">
+            <Campo label="Conta bancária de destino">
               <Select
                 value={conta} onChange={setConta}
                 placeholder="Primeira conta cadastrada"
@@ -261,7 +257,7 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
           </label>
         </div>
         <p className="m-0 mt-3 text-caption text-faint">
-          Colunas esperadas: {modelo.colunas.join(" · ")}. A primeira linha é o cabeçalho.
+          Colunas: {modelo.colunas.join(" · ")}
         </p>
         {erroLeitura && <p className="m-0 mt-2 text-caption text-negative">{erroLeitura}</p>}
       </Card>
@@ -323,9 +319,8 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
             <Card>
               <p className="m-0 text-caption text-muted" data-aviso="competencia-vencimento">
                 <b className="text-ink tabular-nums">{semCompetencia}</b>{" "}
-                {semCompetencia === 1 ? "linha não diz" : "linhas não dizem"} a competência: no DRE, entram no mês do{" "}
-                <b className="text-ink">vencimento</b>. Se a conta é de outro mês (o aluguel de setembro pago em
-                outubro), preencha a coluna Competência com o mês — 09/2026.
+                {semCompetencia === 1 ? "linha sem competência" : "linhas sem competência"} · entram no mês do{" "}
+                <b className="text-ink">vencimento</b>
               </p>
             </Card>
           )}
@@ -335,8 +330,7 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
               <div className="flex items-start gap-3">
                 <Icon name="triangle-alert" size={16} color="var(--color-warning)" className="mt-[2px] shrink-0" />
                 <p className="m-0 text-caption text-muted">
-                  As {invalidas.length} linhas com erro são <b className="text-ink">ignoradas</b> na importação — as
-                  demais entram normalmente. Corrija a planilha e suba de novo só o que faltou.
+                  {invalidas.length} linhas com erro serão <b className="text-ink">ignoradas</b>.
                 </p>
               </div>
             </Card>

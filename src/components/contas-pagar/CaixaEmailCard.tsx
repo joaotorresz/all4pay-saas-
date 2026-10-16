@@ -64,19 +64,14 @@ export function CaixaEmailCard() {
         <span className="text-h3 font-medium text-ink">Receber contas por e-mail</span>
         {isDemo ? (
           <p className="m-0 text-caption text-muted max-w-[70ch]">
-            Na demonstração não há endereço de e-mail: a caixa recebe e-mail só numa empresa de verdade.
+            Indisponível na demonstração.
           </p>
         ) : !dominio ? (
           <p className="m-0 text-caption text-muted max-w-[70ch]" data-caixa-email-estado="desligada">
-            Desligada até a configuração do provedor de e-mail. O domínio de recebimento ainda não foi definido,
-            então não há endereço para mostrar — nenhum endereço é inventado aqui.
+            Desligada até a configuração do provedor de e-mail.
           </p>
         ) : (
           <>
-            <p className="m-0 text-caption text-muted max-w-[70ch]">
-              Peça aos fornecedores que mandem boletos e notas para este endereço. Cada e-mail entra nesta caixa esperando
-              decisão — nada vira conta sozinho. A recepção só funciona depois que o provedor de e-mail estiver configurado.
-            </p>
             {!lido ? (
               <span className="text-caption text-muted">Carregando…</span>
             ) : endereco ? (

@@ -160,18 +160,6 @@
   font-display: swap;
 }
 
-/* CENTRA NO.2 BLACK — a fonte de TÍTULO da Quattro (caixa alta, −0.02em).
-   Só o corte Black (900) existe no arquivo; a faixa 100–900 faz qualquer peso
-   pedido pelo papel de display cair nele em vez de no fallback. Tem `tnum`
-   (medido com fontTools), então também carrega os VALORES alinhados. */
-@font-face {
-  font-family: "Centra No2";
-  src: url("/fonts/centra-no2-black.ttf") format("truetype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* ============================================================
    Quattro Design System — runtime CSS variables
    ------------------------------------------------------------
@@ -195,20 +183,42 @@
    lime chapado para não quebrar quem os consome.
    A guarda `npm run paleta` reprova hex fora desta lista.
    ============================================================ */
+/* <tokens-gerados> */
+/* ⚠️ GERADO — NÃO EDITE À MÃO. A fonte é src/design/tokens.json; depois de
+   mudá-lo, rode `npm run tokens`. Uma edição aqui some na próxima geração e
+   reprova a guarda `npm run tokens -- --conferir` (dentro do `npm test`). */
+/* tema claro (fora e dentro do app) */
 :root {
-  --color-black-pure: #000000; /* marketing only — nunca no app */
-  --color-ink: #3b4332; /* Verde-base — texto e fundo escuro */
-  --color-ink-soft: #2b3125; /* Texto — o verde-base um passo abaixo (hover do escuro) */
+  /* marketing only — nunca no app */
+  --color-black-pure: #000000;
+  /* Preto da referência Jota — texto, número e fundo escuro
+     Preto da referência Jota */
+  --color-ink: #1a1a1a;
+  /* Cinza escuro da referência — hover do escuro */
+  --color-ink-soft: #535353;
   /* ⚠️ SUPERFÍCIES — ajuste vindo do Laboratório (ver CLAUDE.md). O par
      branco+bege da tabela de marca continua sendo a identidade; o que mudou
      é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
      frame #2C251E (o Black quente rebaixado) e área #F1F3F6. O card fica
-     branco puro para separar da área por CONTRASTE, agora que não há borda. */
-  --color-white: #f6f6f6; /* superfície de card */
-  --color-surface-1: #ffffff; /* área de trabalho (dentro do cartão do app) */
-  --color-surface-2: #ffffff; /* chips / seções / hover */
-  --color-surface-3: #d6d8ca; /* Cinza médio — desabilitado / teclado / sheet */
-  --color-border: #e2e2e2; /* Cinza médio — borda de card e divisória */
+     branco puro para separar da área por CONTRASTE, agora que não há borda.
+     superfície de card (referência Jota)
+     superfície de card */
+  --color-white: #fefefd;
+  /* fundo de página (referência Jota)
+     ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
+     app, então divergir aqui é repintar o produto com valores que ninguém
+     escolheu — é o mesmo defeito que o Laboratório já causou uma vez.
+     fundo de página */
+  --color-surface-1: #f5f5f5;
+  /* chips / seções / hover dentro do card (o círculo do ícone da referência)
+     chips / seções */
+  --color-surface-2: #f5f5f5;
+  /* Cinza médio — desabilitado / teclado / sheet
+     Cinza médio */
+  --color-surface-3: #d6d8ca;
+  /* Cinza médio — borda de card e divisória
+     Cinza médio */
+  --color-border: #e2e2e2;
   /* Areia — borda de campo e separador em fundo claro. */
   --color-areia: #b5b594;
   /* ⚠️ O DIVISOR É CINZA, NÃO BEGE. Era Beige (#EEEDDB), e as superfícies de
@@ -216,47 +226,60 @@
      como amarelada, e o sistema ganhava um segundo matiz que ninguém escolheu.
      Sai do PRÓPRIO token de borda, clareado — assim o divisor continua mais
      leve que a borda (que é o papel dele) sem inventar um décimo hex e sem
-     escurecer as ~330 linhas que já existem: muda o MATIZ, não o peso. */
+     escurecer as ~330 linhas que já existem: muda o MATIZ, não o peso.
+     Espelha o `:root`: divisor e grade de gráfico em CINZA, derivado da borda.
+     Ver o porquê na declaração de cima — divergir aqui repintaria o app com
+     um valor que ninguém escolheu, que é o defeito das semânticas neon. */
   --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
   /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
   --a4p-hairline: #e2e2e2;
-
   /* ============================================================
      MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
      superior e o respiro em volta — deixou de ser cartão branco e virou
      um fundo near-black; o app inteiro passou a morar num CARTÃO claro
      arredondado por cima dele.
-
+     
      ⚠️ Estes tokens existem porque o chrome agora tem uma paleta PRÓPRIA,
      independente do tema: a barra é escura no claro E no escuro. Usar
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
-     ============================================================ */
-  --a4p-chrome: #ffffff;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
-  --a4p-chrome-ink: #f3f1ee;    /* Cinza claro sobre a moldura */
-  --a4p-chrome-mut: #b5b594;    /* Areia — secundário sobre a moldura */
-  --a4p-chrome-field: #2b3125;  /* busca e botões de ícone sobre a moldura */
+     ============================================================
+     moldura escura = verde-base (fundo escuro nunca é preto) */
+  --a4p-chrome: #f5f5f5;
+  /* Cinza claro sobre a moldura */
+  --a4p-chrome-ink: #f3f1ee;
+  /* Areia — secundário sobre a moldura */
+  --a4p-chrome-mut: #b5b594;
+  /* busca e botões de ícone sobre a moldura */
+  --a4p-chrome-field: #2b3125;
   --a4p-chrome-field-hover: #6b7060;
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #ffffff;
+  --a4p-app-bg: #f5f5f5;
   --a4p-app-radius: 28px;
-
-  --color-text-secondary: #6b7060; /* Texto secundário */
+  /* Rótulo — cinza escuro da referência ("Dinheiro escapando") */
+  --color-text-secondary: #535353;
   /* ⚠️ `faint` pinta o prefixo "R$" e os CENTAVOS de todo valor, a 7pt. A
      paleta tem UM cinza de texto (Grey #534D41) e um Placeholder #A9A6A4 —
      e o Placeholder dá 2,36:1 sobre o branco quente, contra os 4,5:1 da
      norma. Foi exatamente esta a reprovação da ONDA 12, em 26 ocorrências.
      Então `faint` é o MESMO Grey (8,21:1): a hierarquia do tratamento do
      dinheiro vem do TAMANHO, que é como `Money`/`BRL` já a constroem, não de
-     um quarto cinza que a paleta não tem. */
-  --color-text-tertiary: #6b7060; /* Texto secundário (R$ e centavos) */
-  --color-text-quaternary: #a9ad9e; /* Placeholder — SÓ placeholder de campo */
-
+     um quarto cinza que a paleta não tem.
+     Meta — cinza claro da referência ("últimos 90 dias") */
+  --color-text-tertiary: #9a9a9a;
+  /* Placeholder — SÓ placeholder de campo
+     ⚠️ Placeholder #A9A6A4 dá 2,36:1 sobre o branco quente — serve para o
+     texto-fantasma de um campo vazio e para NADA que precise ser lido.
+     Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
+     (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12.
+     Placeholder */
+  --color-text-quaternary: #9a9a9a;
   /* Lime #ECFD52 — a cor de AÇÃO (botão primário, destaque, número grande).
-     ⚠️ Nunca leva texto branco: por cima dele o texto é sempre o verde-base. */
+     ⚠️ Nunca leva texto branco: por cima dele o texto é sempre o verde-base.
+     Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
   --color-lime: #ecfd52;
   --color-lime-alt: #ecfd52;
   /* "Se precisa de um segundo acento, use o próprio lime em opacidade menor." */
@@ -267,7 +290,6 @@
   --color-chart-line: #ecfd52;
   /* Borda do botão secundário (guia: rgba(59,67,50,0.28)). */
   --a4p-borda-controle: rgba(59, 67, 50, 0.28);
-
   /* Degradê OFICIAL da marca: do branco quente ao lima.
      ⚠️ Reservado a DESTAQUE (ícone, celebração, capa, CTA final). Nunca fundo
      de tela com muito texto — os stops claros do topo não sustentam leitura. */
@@ -277,11 +299,9 @@
   /* Versão em ONDA: os mesmos stops numa faixa LARGA e na diagonal — deslizar
      essa faixa (classe `.a4p-onda`) faz a cor ondular sem sair da paleta. */
   --gradient-marca-onda: linear-gradient(#ecfd52, #ecfd52);
-
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
   --gradient-hero-glow: #4b4d3d;
-
   /* ⚠️ STATUS — DE PROPÓSITO FORA DA PALETA DE NOVE.
      A paleta quente nomeia nove cores e NENHUMA delas é vermelha: ela é uma
      paleta de MARCA, não o conjunto semântico de um ERP. Um sistema que
@@ -291,13 +311,38 @@
      abaixo no bloco `.ds-visor` — e são as ÚNICAS exceções sancionadas.
      A guarda `npm run paleta` conhece as três e reprova qualquer outra. */
   --color-warning: #f2a519;
+  /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
+     Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
+     neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
+     aparecem — no valor de um recebimento, no total de uma coluna, no sinal de
+     um resultado. A auditoria reprovou os valores em verde da tela de títulos.
+     
+     Estes são os mesmos matizes da família dessaturada que o DS documenta
+     (positive #3F8F5B · negative #C2473D · warning #E8821E), escurecidos o
+     necessário para passar 4,5:1 sobre o branco E sobre o canvas. A identidade
+     é a mesma; o que muda é que agora se lê.
+     ⚠️ NEON, PROMOVIDO DO LABORATÓRIO EM 05/08/2026 — DECISÃO TOMADA COM O
+     CONTRASTE MEDIDO EM MÃOS, não por descuido. Quem encontrar isto depois:
+     não "conserte" achando que escapou.
+     
+     Medido (WCAG, texto normal exige 4,5:1):
+       positive #4dff00 → 1,24:1 sobre o canvas · 1,34:1 sobre o card
+       negative #ff1500 → 3,62:1 sobre o canvas · 3,92:1 sobre o card
+     
+     O parágrafo acima descreve a decisão ANTERIOR (ONDA 12), que substituiu
+     este mesmo neon pela família dessaturada depois de medir 26 reprovações.
+     A escolha foi revertida deliberadamente. O custo conhecido: estas cores
+     aparecem como TEXTO no produto — o valor de um recebimento, o sinal de um
+     lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
+     claro. Se um dia isto voltar à família dessaturada, o valor anterior era
+     positive #367b4e · negative #be463c. */
   --color-positive: #35c759;
-  --color-negative: #e5484d; /* Erro — o ÚNICO vermelho da marca */
+  /* Erro — o ÚNICO vermelho da marca */
+  --color-negative: #e5484d;
   /* O verde-lima de estado positivo citado no guia. É cor de MARCA, então
      entra como marca/preenchimento pontual (ponto, barra, realce) — nunca
      como texto: 1,69:1 sobre o branco quente. */
   --color-positive-spot: #4be200;
-
   /* ============================================================
      RAMPA CATEGÓRICA — as fatias de um donut, as pilhas de uma barra.
      ⚠️ Feita com `color-mix` sobre os tokens, NÃO com oito hexes novos: a
@@ -314,32 +359,184 @@
   --a4p-cat-6: var(--color-surface-3);
   --a4p-cat-7: color-mix(in srgb, var(--color-text-secondary) 62%, var(--color-white));
   --a4p-cat-8: var(--color-ink);
-
   /* Radii / shadows (for inline + SVG use) */
   --radius-card: 20px;
-  --radius-md: 14px; /* campo de formulário */
+  /* campo de formulário */
+  --radius-md: 14px;
   --radius-modal: 24px;
   --radius-bloco: 32px;
   --radius-sm: 8px;
   --radius-pill: 999px;
-
   /* Glass — SÓ overlays (popover/sidebar/drawers); cards são sólidos (Ledger).
-     strong = vidro dos overlays · edge = fio de 1px do vidro. */
-  /* O vidro também é QUENTE: rgba do White #FEFDF0, não do branco puro — um
+     strong = vidro dos overlays · edge = fio de 1px do vidro.
+     O vidro também é QUENTE: rgba do White #FEFDF0, não do branco puro — um
      vidro branco frio sobre canvas quente lê como uma folha de outro sistema
      por cima do app. E a sombra é do Black quente, não de um azul-cinza. */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-bg-strong: rgba(255, 255, 255, 0.84);
-  --glass-edge: rgba(255, 255, 255, 0.65);
+  --glass-bg: rgba(254, 254, 253, 0.72);
+  --glass-bg-strong: rgba(254, 254, 253, 0.84);
+  --glass-edge: rgba(254, 254, 253, 0.65);
   --glass-blur: 20px;
-  /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
-  /* A única sombra do guia Quattro: longa e quase invisível. */
+  /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta)
+     A única sombra do guia Quattro: longa e quase invisível. */
   --shadow-card: none;
-  --shadow-popover:
-    inset 0 1px 0 0 var(--glass-edge),
+  --shadow-popover: inset 0 1px 0 0 var(--glass-edge),
     0 24px 64px -16px rgba(43, 49, 37, 0.24);
   --shadow-pill: 0 8px 24px -10px rgba(43, 49, 37, 0.22);
+  /* easeOutQuint — limpo, sem overshoot */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  /* leve "pop" no retorno do clique */
+  --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1);
+  /* cor do número: o preto do dinheiro da referência Jota (15/10/2026) */
+  --erp-num-cor: #1a1a1a;
+  /* R$ na mesma cor do número */
+  --erp-moeda-cor: #1a1a1a;
+  /* só os centavos diferem */
+  --erp-centavos-cor: #1a1a1a;
+  /* o menu é um card: o branco da referência */
+  --erp-menu-fundo: var(--color-white);
+  --erp-menu-borda: #f4f4f4;
+  --erp-menu-ativo: #ecfd52;
+  --erp-logo-cor: #3b4332;
+  --erp-graf-grade: var(--color-border);
+  --erp-graf-linha: 1px;
+  --erp-graf-area: var(--color-lime);
+  --erp-graf-area-opacidade: 0.5;
+  /* Biblioteca (14/10/2026): a área é DEGRADÊ — forte no alto, quase nada embaixo. */
+  --erp-graf-area-topo: 0.5;
+  --erp-graf-area-base: 0.05;
+  --erp-graf-comparacao: var(--color-areia);
+  --erp-graf-comparacao-espessura: 0.6px;
+  --erp-graf-comparacao-traco: 2 2;
+  --erp-graf-ponto-raio: 2px;
+  --erp-graf-ponto-espessura: 1px;
+  --erp-graf-ponto-selecionado: 5px;
+  /* A dica ao passar o mouse e a pílula de variação (prancheta Biblioteca). */
+  --erp-dica-fundo: var(--a4p-pilula-fundo);
+  --erp-dica-raio: 16px;
+  --erp-dica-padding-y: 14px;
+  --erp-dica-padding-x: 15px;
+  --erp-dica-sombra: var(--shadow-popover);
+  --erp-dica-valor: 15px;
+  --erp-dica-rotulo: 10px;
+  --erp-dica-espaco-rotulo: 7px;
+  --erp-dica-cor-rotulo: var(--color-text-secondary);
+  --erp-dica-cor-valor: var(--color-text-secondary);
+  --erp-pilula-proporcao: 0.5;
+  --erp-pilula-intensidade: 14%;
+  --erp-pilula-espaco-frase: 5px;
+  --erp-pilula-espaco-valor: 2px;
+  --erp-graf-serie-1: var(--color-ink);
+  --erp-graf-serie-2: var(--color-areia);
+  --erp-graf-serie-3: var(--color-lime);
+  --erp-graf-serie-4: var(--color-text-secondary);
+  --erp-graf-serie-5: var(--color-surface-3);
+  /* Entradas e saídas nos modelos da Biblioteca escolhidos nas TROCAS
+     (15/10/2026): o dono ligou "Positivo e negativo" no canvas. A cor é da
+     SÉRIE, nunca do valor — ver CLAUDE.md, terceira exceção declarada. */
+  --erp-graf-entrada: var(--color-positive);
+  --erp-graf-saida: var(--color-negative);
+  --erp-tabela-linha: var(--erp-menu-borda);
+  --a4p-bolha-usuario: #eaeaea;
+  --a4p-pilula-fundo: #fefefd;
+  --a4p-pilula-texto: var(--color-ink);
 }
+/* tema escuro */
+html.dark {
+  /* Neutrals invertidas — SEM sair da paleta quente. O escuro do sistema é o
+     Black #28211B e o Dark Grey #37332A da tabela; os cinzas neutros
+     anteriores (#161616, #0e0e0e, #2a2a2a) eram frios e brigavam com o
+     branco quente que continua sendo o texto.
+     Cinza claro vira o texto */
+  --color-ink: #f3f1ee;
+  --color-ink-soft: #d6d8ca;
+  /* Verde-base — superfície de card */
+  --color-white: #3b4332;
+  /* fundo da página */
+  --color-surface-1: #2b3125;
+  --color-surface-2: #2b3125;
+  --color-surface-3: #6b7060;
+  --color-border: #6b7060;
+  --color-border-soft: color-mix(in srgb, #6b7060 55%, #3b4332);
+  --a4p-hairline: #6b7060;
+  /* Moldura no tema escuro: o chrome fica MAIS escuro que o cartão do app, para
+     o cartão continuar lendo como a peça de cima. Sem isso os dois viram o
+     mesmo preto e a moldura desaparece — que é o oposto da referência.
+     verde-base rebaixado — a moldura fica abaixo do cartão */
+  --a4p-chrome: #1f2419;
+  --a4p-chrome-field: #3b4332;
+  --a4p-chrome-field-hover: #6b7060;
+  --a4p-app-bg: #2b3125;
+  --color-text-secondary: #d6d8ca;
+  --color-text-tertiary: #d6d8ca;
+  --color-text-quaternary: #a9ad9e;
+  /* Accent — o mesmo #C8D930 manda igual; o wash vira um olival escuro */
+  --color-lime-tint: color-mix(in srgb, #ecfd52 18%, #3b4332);
+  /* on-lime continua Black quente (texto escuro sobre o acento) */
+  --color-chart-line: #ecfd52;
+  /* Status — clareados ~1 passo para contraste no escuro */
+  --color-warning: #f0962e;
+  --color-positive: #57a877;
+  --color-negative: #d8584c;
+  /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline
+     rgba do Black quente e do White quente — o vidro do escuro é a mesma
+     matéria do claro, só invertida. */
+  --glass-bg: rgba(43, 49, 37, 0.68);
+  --glass-bg-strong: rgba(43, 49, 37, 0.86);
+  --glass-edge: rgba(243, 241, 238, 0.1);
+  --shadow-card: 0 1px 2px rgba(27, 31, 23, 0.34),
+    0 8px 24px -18px rgba(27, 31, 23, 0.55);
+  --shadow-popover: inset 0 1px 0 0 var(--glass-edge),
+    0 24px 64px -16px rgba(27, 31, 23, 0.68);
+  --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
+  --a4p-bolha-usuario: var(--color-surface-2);
+  --a4p-pilula-fundo: var(--color-white);
+}
+/* dentro do app, nos dois temas */
+.ds-visor {
+  --radius-card: var(--a4p-box-radius);
+  /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. ==
+     bg/base — área de trabalho */
+  --a4p-bg: #fefefd;
+  /* cards SÓLIDOS */
+  --a4p-box-bg: #f5f5f5;
+  /* card Quattro: 26px */
+  --a4p-box-radius: 20px;
+  /* card Quattro: 28px */
+  --a4p-box-padding: 28px;
+  /* card com borda 1px Cinza médio */
+  --a4p-box-border: var(--color-border);
+  --font-display: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* ⚠️ O papel de RÓTULO pede `var(--font-mono)`, e a única monoespaçada da
+     casa é a Roobert Mono — mesma família da UI, largura fixa de verdade.
+     Uma monoespaçada de fora resolveria a largura e traria um segundo
+     desenho de letra para dentro do sistema, que é o que as três famílias
+     existem para evitar. */
+  --font-mono: "Roobert Mono", "Roobert Semi Mono", ui-monospace, monospace;
+}
+/* dentro do app, tema claro */
+html:not(.dark) .ds-visor {
+  --color-ink: #1a1a1a;
+  --color-ink-soft: #535353;
+  --color-white: #fefefd;
+  --color-surface-1: #f5f5f5;
+  --color-surface-2: #f5f5f5;
+  --color-surface-3: #d6d8ca;
+  --color-border: #e2e2e2;
+  --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
+  --color-text-secondary: #535353;
+  --color-text-tertiary: #9a9a9a;
+  --color-text-quaternary: #9a9a9a;
+  --color-lime: #ecfd52;
+  --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
+  --color-on-lime: #3b4332;
+  /* A série temporal é verde-base; o lime vira a ÁREA sob ela. */
+  --color-chart-line: var(--erp-graf-serie-1);
+  --color-warning: #f2a519;
+  --color-positive: #35c759;
+  --color-negative: #e5484d;
+}
+/* </tokens-gerados> */
 
 /* ============================================================
    Dark mode — mesma linguagem do DS, invertida. Cores extraídas
@@ -348,55 +545,6 @@
    Só as NEUTRAS invertem; lime/on-lime e o número-herói seguem
    mandando. Status levemente clareados para legibilidade no escuro.
    ============================================================ */
-html.dark {
-  /* Neutrals invertidas — SEM sair da paleta quente. O escuro do sistema é o
-     Black #28211B e o Dark Grey #37332A da tabela; os cinzas neutros
-     anteriores (#161616, #0e0e0e, #2a2a2a) eram frios e brigavam com o
-     branco quente que continua sendo o texto. */
-  --color-ink: #f3f1ee; /* Cinza claro vira o texto */
-  --color-ink-soft: #d6d8ca;
-  --color-white: #3b4332; /* Verde-base — superfície de card */
-  --color-surface-1: #2b3125; /* fundo da página */
-  --color-surface-2: #2b3125;
-  --color-surface-3: #6b7060;
-  --color-border: #6b7060;
-  --color-border-soft: color-mix(in srgb, #6b7060 55%, #3b4332);
-  --a4p-hairline: #6b7060;
-  /* Moldura no tema escuro: o chrome fica MAIS escuro que o cartão do app, para
-     o cartão continuar lendo como a peça de cima. Sem isso os dois viram o
-     mesmo preto e a moldura desaparece — que é o oposto da referência. */
-  --a4p-chrome: #1f2419; /* verde-base rebaixado — a moldura fica abaixo do cartão */
-  --a4p-chrome-field: #3b4332;
-  --a4p-chrome-field-hover: #6b7060;
-  --a4p-app-bg: #2b3125;
-  --color-text-secondary: #d6d8ca;
-  --color-text-tertiary: #d6d8ca;
-  --color-text-quaternary: #a9ad9e;
-
-  /* Accent — o mesmo #C8D930 manda igual; o wash vira um olival escuro */
-  --color-lime-tint: color-mix(in srgb, #ecfd52 18%, #3b4332);
-  /* on-lime continua Black quente (texto escuro sobre o acento) */
-  --color-chart-line: #ecfd52;
-
-  /* Status — clareados ~1 passo para contraste no escuro */
-  --color-warning: #f0962e;
-  --color-positive: #57a877;
-  --color-negative: #d8584c;
-
-  /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline */
-  /* rgba do Black quente e do White quente — o vidro do escuro é a mesma
-     matéria do claro, só invertida. */
-  --glass-bg: rgba(43, 49, 37, 0.68);
-  --glass-bg-strong: rgba(43, 49, 37, 0.86);
-  --glass-edge: rgba(243, 241, 238, 0.1);
-  --shadow-card:
-    0 1px 2px rgba(27, 31, 23, 0.34),
-    0 8px 24px -18px rgba(27, 31, 23, 0.55);
-  --shadow-popover:
-    inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(27, 31, 23, 0.68);
-  --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
-}
 
 @layer base {
   html,
@@ -498,10 +646,6 @@ html { scroll-behavior: smooth; }
    com retorno macio no clique, realce sutil dos ícones, elevação
    dos cards e foco visível discreto. O clique é o herói.
    ============================================================ */
-:root {
-  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); /* easeOutQuint — limpo, sem overshoot */
-  --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1); /* leve "pop" no retorno do clique */
-}
 button, a, [role="button"], summary, label[for], .a4p-hoverable {
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease,
     box-shadow 0.24s var(--ease-smooth), transform 0.26s var(--ease-press), opacity 0.18s ease;
@@ -579,77 +723,14 @@ h1, h2, h3,
    único acento. Referências: Vaulto (Awwwards), Mercury/Ramp.
    ============================================================ */
 .ds-visor {
-  /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #ffffff;          /* bg/base — área de trabalho */
-  --a4p-box-bg: #f6f6f6;      /* cards SÓLIDOS */
-  --a4p-box-radius: 20px;     /* card Quattro: 26px */
-  --a4p-box-padding: 28px;    /* card Quattro: 28px */
-  --a4p-box-border: var(--color-border); /* card com borda 1px Cinza médio */
   /* ========================================================================= */
 
   font-family: "Roobert", "Roobert Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: -0.01em;
-  --radius-card: var(--a4p-box-radius);
   /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
   background: transparent;
 }
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
-html:not(.dark) .ds-visor {
-  /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
-     app, então divergir aqui é repintar o produto com valores que ninguém
-     escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
-  --color-surface-1: #ffffff;      /* área de trabalho */
-  --color-surface-2: #ffffff;      /* chips / seções */
-  --color-surface-3: #d6d8ca;      /* Cinza médio */
-  --color-white: #f6f6f6;          /* superfície de card */
-  --color-ink: #3b4332;            /* Verde-base — NUNCA preto */
-  --color-ink-soft: #2b3125;
-  --color-text-secondary: #6b7060;
-  --color-text-tertiary: #6b7060;
-  /* ⚠️ Placeholder #A9A6A4 dá 2,36:1 sobre o branco quente — serve para o
-     texto-fantasma de um campo vazio e para NADA que precise ser lido.
-     Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
-     (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12. */
-  --color-text-quaternary: #a9ad9e;/* Placeholder */
-  --color-border: #e2e2e2;         /* Cinza médio */
-  /* Espelha o `:root`: divisor e grade de gráfico em CINZA, derivado da borda.
-     Ver o porquê na declaração de cima — divergir aqui repintaria o app com
-     um valor que ninguém escolheu, que é o defeito das semânticas neon. */
-  --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
-  /* Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
-  --color-lime: #ecfd52;
-  --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
-  --color-on-lime: #3b4332;
-  --color-chart-line: #ecfd52;
-  /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
-     Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
-     neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
-     aparecem — no valor de um recebimento, no total de uma coluna, no sinal de
-     um resultado. A auditoria reprovou os valores em verde da tela de títulos.
-
-     Estes são os mesmos matizes da família dessaturada que o DS documenta
-     (positive #3F8F5B · negative #C2473D · warning #E8821E), escurecidos o
-     necessário para passar 4,5:1 sobre o branco E sobre o canvas. A identidade
-     é a mesma; o que muda é que agora se lê. */
-  /* ⚠️ NEON, PROMOVIDO DO LABORATÓRIO EM 05/08/2026 — DECISÃO TOMADA COM O
-     CONTRASTE MEDIDO EM MÃOS, não por descuido. Quem encontrar isto depois:
-     não "conserte" achando que escapou.
-
-     Medido (WCAG, texto normal exige 4,5:1):
-       positive #4dff00 → 1,24:1 sobre o canvas · 1,34:1 sobre o card
-       negative #ff1500 → 3,62:1 sobre o canvas · 3,92:1 sobre o card
-
-     O parágrafo acima descreve a decisão ANTERIOR (ONDA 12), que substituiu
-     este mesmo neon pela família dessaturada depois de medir 26 reprovações.
-     A escolha foi revertida deliberadamente. O custo conhecido: estas cores
-     aparecem como TEXTO no produto — o valor de um recebimento, o sinal de um
-     lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
-     claro. Se um dia isto voltar à família dessaturada, o valor anterior era
-     positive #367b4e · negative #be463c. */
-  --color-positive: #35c759;
-  --color-warning: #f2a519;
-  --color-negative: #e5484d;
-}
 /* ============================================================
    TRÊS FAMÍLIAS, TRÊS PAPÉIS — e nenhum deles se sobrepõe.
 
@@ -670,16 +751,6 @@ html:not(.dark) .ds-visor {
    Regra de ouro: se é número, é Gellix; se é conteúdo, é Roobert; se é
    rótulo ou estado, é a classe de rótulo em caixa alta.
    ============================================================ */
-.ds-visor {
-  --font-display: "Centra No2", "Archivo", "Roobert", sans-serif;
-  --font-sans: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* ⚠️ O papel de RÓTULO pede `var(--font-mono)`, e a única monoespaçada da
-     casa é a Roobert Mono — mesma família da UI, largura fixa de verdade.
-     Uma monoespaçada de fora resolveria a largura e traria um segundo
-     desenho de letra para dentro do sistema, que é o que as três famílias
-     existem para evitar. */
-  --font-mono: "Roobert Mono", "Roobert Semi Mono", ui-monospace, monospace;
-}
 .ds-visor,
 .ds-visor * {
   font-family: var(--font-sans);
@@ -708,7 +779,7 @@ html:not(.dark) .ds-visor {
      entrelinha 1,03–1,1). Substitui a regra anterior de h1 em Roobert. */
   font-family: var(--font-display);
   font-weight: 900;
-  text-transform: uppercase;
+  text-transform: none;
   line-height: 1.05;
   color: var(--color-ink);
   letter-spacing: -0.02em;
@@ -717,7 +788,7 @@ html:not(.dark) .ds-visor {
 .ds-visor .a4p-heroi {
   font-family: var(--font-display);
   font-weight: 900;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--color-ink);
   letter-spacing: -0.02em;
 }
@@ -874,14 +945,16 @@ html:not(.dark) .ds-visor {
   font-weight: 400;
 }
 
-/* Subtítulos (H2) — regra POR TIPO do Laboratório: Roobert Variable 17/400,
+/* Subtítulos (H2) — regra POR TIPO do Laboratório: Roobert Variable 17/500,
    tracking −0.02em, na cor ink. Precisa vir DEPOIS do bloco que põe 600 nos
-   títulos, senão o peso 600 vence pela ordem. */
+   títulos, senão o peso 600 vence pela ordem.
+   ⚠️ 15/10/2026, decisão do dono: os títulos de seção subiram UM peso
+   (regular → medium aqui; medium → semibold em `.a4p-titulo-secao`). */
 .ds-visor h2,
 .ds-visor .text-h2 {
   font-family: "Roobert Variable", "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 17px;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--color-ink);
 }
@@ -1008,6 +1081,23 @@ html:not(.dark) .ds-visor {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Título de seção que não é `h2` (as colunas da Home): Roobert SemiBold.
+   ⚠️ Precisa do `.ds-visor` na frente: `.ds-visor *` fixa 500 e empataria
+   com um `.font-semibold` solto, vencendo pela ordem. */
+.ds-visor .a4p-titulo-secao { font-weight: 600; }
+
+/* Três pontos da IA "digitando": pulam em sequência até a resposta chegar.
+   Só tokens; para em `prefers-reduced-motion` (os pontos ficam parados). */
+.a4p-digitando span {
+  animation: a4p-digitando 1.2s ease-in-out infinite;
+}
+.a4p-digitando span:nth-child(2) { animation-delay: 0.15s; }
+.a4p-digitando span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes a4p-digitando {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
 /* Pulso das etapas de análise: o passo corrente respira. */
 .a4p-pulso { animation: a4p-pulso 1.5s ease-in-out infinite; }
 @keyframes a4p-pulso {
@@ -1027,7 +1117,7 @@ html:not(.dark) .ds-visor {
 
 @media (prefers-reduced-motion: reduce) {
   .a4p-entra { animation: none; }
-  .a4p-pulso, .a4p-varre { animation: none; }
+  .a4p-pulso, .a4p-varre, .a4p-digitando span { animation: none; }
 }
 
 /* ============================================================
@@ -1217,6 +1307,14 @@ html.dark .a4p-canvas {
   background: var(--color-white);
   border: 0;
   color: var(--color-ink);
+}
+/* O topo da tela que GRUDA ao rolar (avisos + título, `AppShell`).
+   ⚠️ Sem retângulo sólido (dono, 15/10/2026): um bloco branco com borda reta
+   descia junto com a página. O fundo é a cor da área até o fim do título e se
+   dissolve nos 18px de baixo — o título fica legível e o conteúdo some sob ele
+   em vez de bater num corte. Só tokens: a cor é a da própria área. */
+.a4p-topo-tela {
+  background: linear-gradient(to bottom, var(--a4p-app-bg) calc(100% - 18px), transparent);
 }
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
@@ -1451,6 +1549,10 @@ html.dark .a4p-canvas {
     border: 0 !important;
   }
   .ds-visor, .a4p-app-card > main { display: block !important; min-height: 0 !important; }
+  /* A barra flutuante não sai no papel, então a folga que a contorna também
+     não; e o topo que gruda volta ao fluxo, sem o degradê. */
+  [data-folga-barra] { display: none !important; }
+  .a4p-topo-tela { position: static !important; background: none !important; }
   /* A área que rola: sem isto ela imprime só a primeira dobra. O seletor pega
      qualquer contêiner de rolagem dentro do cartão do app — a regra é sobre a
      PROPRIEDADE, não sobre uma coordenada de DOM. */
@@ -1547,15 +1649,6 @@ html.dark .a4p-canvas {
    em Roobert 500 com o número PRINCIPAL da tela em Centra, R$ do mesmo corpo
    e cor do número, centavos à metade em cinza, menu com linha entre itens.
    ============================================================ */
-:root {
-  --erp-num-cor: #000000;      /* cor do número (decisão do dono no canvas) */
-  --erp-moeda-cor: #000000;    /* R$ na mesma cor do número */
-  --erp-centavos-cor: #6b7060; /* só os centavos diferem */
-  --erp-menu-fundo: #f6f6f6;
-  --erp-menu-borda: #f4f4f4;
-  --erp-menu-ativo: #ecfd52;
-  --erp-logo-cor: #3b4332;
-}
 /* Card: sem borda, sem sombra, raio 20. */
 .ds-visor [data-card="1"],
 .ds-visor [data-card="1"]:hover {
@@ -1617,8 +1710,8 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
 .a4p-logo-mono {
   display: inline-block;
   background: var(--erp-logo-cor);
-  -webkit-mask: url(/quattro-logo.webp) left center / contain no-repeat;
-  mask: url(/quattro-logo.webp) left center / contain no-repeat;
+  -webkit-mask: url(/quattro-erp-logo.png) left center / contain no-repeat;
+  mask: url(/quattro-erp-logo.png) left center / contain no-repeat;
 }
 
 /* ============================================================
@@ -1633,46 +1726,6 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
    médio · tabela com cabeçalho em micro-rótulo, linha #F4F4F4 e situação em
    pílula com ponto.
    ============================================================ */
-:root {
-  --erp-graf-grade: var(--color-border);
-  --erp-graf-linha: 1px;
-  --erp-graf-area: var(--color-lime);
-  --erp-graf-area-opacidade: 0.5;
-  /* Biblioteca (14/10/2026): a área é DEGRADÊ — forte no alto, quase nada embaixo. */
-  --erp-graf-area-topo: 0.5;
-  --erp-graf-area-base: 0.05;
-  --erp-graf-comparacao: var(--color-areia);
-  --erp-graf-comparacao-espessura: 0.6px;
-  --erp-graf-comparacao-traco: 2 2;
-  --erp-graf-ponto-raio: 2px;
-  --erp-graf-ponto-espessura: 1px;
-  --erp-graf-ponto-selecionado: 5px;
-  /* A dica ao passar o mouse e a pílula de variação (prancheta Biblioteca). */
-  --erp-dica-fundo: var(--color-surface-1);
-  --erp-dica-raio: 16px;
-  --erp-dica-padding-y: 14px;
-  --erp-dica-padding-x: 15px;
-  --erp-dica-sombra: var(--shadow-popover);
-  --erp-dica-valor: 15px;
-  --erp-dica-rotulo: 10px;
-  --erp-dica-espaco-rotulo: 7px;
-  --erp-dica-cor-rotulo: var(--color-text-secondary);
-  --erp-dica-cor-valor: var(--color-text-secondary);
-  --erp-pilula-proporcao: 0.5;
-  --erp-pilula-intensidade: 14%;
-  --erp-pilula-espaco-frase: 5px;
-  --erp-pilula-espaco-valor: 2px;
-  --erp-graf-serie-1: var(--color-ink);
-  --erp-graf-serie-2: var(--color-areia);
-  --erp-graf-serie-3: var(--color-lime);
-  --erp-graf-serie-4: var(--color-text-secondary);
-  --erp-graf-serie-5: var(--color-surface-3);
-  --erp-tabela-linha: var(--erp-menu-borda);
-}
-html:not(.dark) .ds-visor {
-  /* A série temporal é verde-base; o lime vira a ÁREA sob ela. */
-  --color-chart-line: var(--erp-graf-serie-1);
-}
 html:not(.dark) .ds-visor .recharts-cartesian-grid line {
   stroke: var(--erp-graf-grade);
   stroke-dasharray: none;
@@ -1767,7 +1820,7 @@ html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-item {
 html:not(.dark) .ds-visor thead th {
   font-size: 11px;
   font-weight: 500;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   color: var(--color-text-secondary);
   box-shadow: inset 0 -1px 0 var(--erp-tabela-linha);
@@ -1776,3 +1829,101 @@ html:not(.dark) .ds-visor tbody tr + tr { border-top-color: var(--erp-tabela-lin
 html:not(.dark) .ds-visor tbody tr { border-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tbody td { border-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade); }
+
+/* ============================================================
+   REFERÊNCIA JOTA (decisão do dono, 15/10/2026) — vence o TEMA ERP e toda
+   seção de identidade acima onde discordar. As cores foram MEDIDAS nos
+   pixels do print de referência (docs/design/referencia-jota/), não
+   estimadas:
+
+     fundo de página  #F2F2F2   (--color-surface-1, --a4p-app-bg, --a4p-chrome)
+     card             #FBFBFB   (--color-white) · sem borda, sem sombra
+     balão de quem pergunta  #EAEAEA (--a4p-bolha-usuario)
+     pílula           #FFFFFF   texto e ícone #1A1A1A (--a4p-pilula-*)
+     rótulo           #535353   (--color-text-secondary)
+     meta             #9A9A9A   (--color-text-tertiary)
+     número e texto   #1A1A1A   (--color-ink, --erp-num-cor)
+
+   A fonte (Roobert Trial) e os ícones (Lucide 1,75px) não mudaram. O lime
+   segue sendo o acento; o dark mode segue como estava.
+   ============================================================ */
+/* Pílula: branca, texto e ícone pretos, sem borda, raio cheio. É o chip de
+   sugestão da IA, o "Fechar chat" e as ações soltas sobre o fundo cinza. */
+.a4p-pilula {
+  background: var(--a4p-pilula-fundo);
+  color: var(--a4p-pilula-texto);
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+.a4p-pilula svg { color: var(--a4p-pilula-texto); }
+.a4p-pilula:hover:not(:disabled) { background: var(--color-white); }
+/* O balão da pergunta de quem usa: o cinza um passo mais escuro que o fundo. */
+.a4p-bolha-usuario {
+  background: var(--a4p-bolha-usuario);
+  color: var(--color-ink);
+}
+
+/* ============================================================
+   DESIGN SYSTEM 16/10/2026 (decisão do dono) — vence tudo acima.
+
+   · UMA família: Roobert. A Centra No2 saiu do sistema (`--font-display`
+     agora É Roobert, então todo papel que a pedia segue sem mudar de nome).
+   · Branco #FEFEFD (--color-white, --a4p-bg, pílula) · cinza #F5F5F5
+     (fundo de página, chips, seções).
+   · Texto #1A1A1A · cinza escuro #535353 · cinza claro #9A9A9A.
+   · NENHUM texto sobe ou desce de caixa: sempre "Aa", nunca "AA" nem "aa".
+     A regra é GLOBAL e com !important porque caixa alta voltava por classe
+     utilitária solta em tabela e rótulo — uma regra só alcança o código que
+     ainda não foi escrito.
+   · Número: Roobert SemiBold em #1A1A1A, "R$ 16.000,00", com a vírgula e os
+     centavos no MESMO corpo e cor do inteiro.
+   · Título de card em #535353.
+   ============================================================ */
+*, *::before, *::after { text-transform: none !important; }
+
+.ds-visor h1,
+.ds-visor .text-h1,
+.ds-visor .text-display,
+.ds-visor .a4p-heroi {
+  font-family: var(--font-sans);
+}
+
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .text-value-lg,
+.ds-visor .a4p-home .a4p-num,
+.ds-visor .a4p-home .a4p-num *,
+.ds-visor .a4p-heroi .a4p-num,
+.ds-visor .a4p-heroi .a4p-num *,
+.ds-visor .a4p-home .a4p-heroi .a4p-num,
+.ds-visor .a4p-home .a4p-heroi .a4p-num * {
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+}
+html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
+/* Vírgula e centavos: o mesmo corpo e a mesma cor do número. */
+.ds-visor .a4p-num [data-cents],
+.ds-visor .a4p-heroi .a4p-num > span:last-child[data-cents] {
+  font-size: 1em !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  margin-left: 0 !important;
+}
+/* O "R$" acompanha o número: mesmo corpo, peso e cor. */
+.ds-visor .a4p-heroi .a4p-num > span:first-child { font-family: var(--font-sans); font-weight: 600; }
+/* Valor em linha (lista, agenda): continua Roobert 500 ao lado do nome. */
+.ds-visor .tabular-nums.a4p-valor-texto,
+.ds-visor .a4p-num.a4p-valor-texto,
+.ds-visor .a4p-valor-texto .a4p-num,
+.ds-visor .a4p-valor-texto .a4p-num * {
+  font-weight: 500 !important;
+}
+
+/* Título de card em cinza escuro. */
+.ds-visor [data-card="1"] h2,
+.ds-visor [data-card="1"] h3,
+.ds-visor [data-card="1"] .text-h2,
+.ds-visor [data-card="1"] .text-h3 {
+  color: var(--color-text-secondary);
+}

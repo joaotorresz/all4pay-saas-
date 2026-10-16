@@ -48,8 +48,7 @@ export function HistoricoRegistro({
       <div className="flex flex-col gap-1">
         <span className="text-label font-medium text-muted">{titulo}</span>
         <p className="m-0 text-caption text-faint max-w-[60ch]">
-          Em demonstração os dados vivem neste navegador e não há trilha no servidor
-          para consultar.
+          Sem histórico na demonstração.
         </p>
       </div>
     );
@@ -69,13 +68,11 @@ export function HistoricoRegistro({
         <span className="text-caption text-faint">Carregando…</span>
       ) : eventos === null ? (
         <p className="m-0 text-caption text-faint max-w-[60ch]">
-          Não foi possível consultar a trilha agora. Isto não quer dizer que nada
-          aconteceu com este registro — quer dizer que não deu para perguntar.
+          Não foi possível consultar a trilha agora.
         </p>
       ) : eventos.length === 0 ? (
         <p className="m-0 text-caption text-faint max-w-[60ch]">
-          Nenhuma alteração registrada. A trilha começou a gravar em agosto de 2026;
-          o que é anterior a isso não está aqui.
+          Nenhuma alteração registrada.
         </p>
       ) : (
         <div className="flex flex-col">

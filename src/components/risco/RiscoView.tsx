@@ -236,21 +236,6 @@ export function RiscoView() {
         ))}
       </Card>
 
-      {isDemo && (
-        <Card className="lg:col-span-3 bg-surface-2" elevated={false}>
-          <div className="flex items-start gap-3">
-            <Icon name="trending-up" size={18} color="var(--color-text-secondary)" />
-            <div>
-              <div className="text-label font-medium text-ink">Comparativo setorial · ilustrativo</div>
-              <p className="m-0 text-caption text-muted mt-1 max-w-[70ch]">
-                Empresas de porte semelhante no setor operam, em média, com runway de ~8 meses e
-                inadimplência abaixo de 12%. (Benchmark anonimizado real exige dados cross-tenant —
-                disponível quando a base estiver conectada.)
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

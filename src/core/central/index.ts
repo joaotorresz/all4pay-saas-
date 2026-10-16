@@ -369,7 +369,7 @@ function fmt(v: number): string {
   if (!Number.isFinite(v)) return "sem limite";
   const [int, dec] = Math.abs(v).toFixed(2).split(".");
   const milhar = int.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${v < 0 ? "-" : ""}R$${milhar},${dec}`;
+  return `${v < 0 ? "-" : ""}R$ ${milhar},${dec}`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

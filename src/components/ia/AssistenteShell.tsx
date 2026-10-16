@@ -84,10 +84,7 @@ export function AssistenteShell() {
 
       {aba === null && (
         <div className="flex flex-col items-start gap-3 py-6">
-          <p className="m-0 text-[15px] text-ink max-w-[560px]">
-            A conversa com a Quattro AI abre por cima de qualquer tela: pelo menu, pelo ⌘K e pela caixa da Home.
-            As abas acima são os relatórios dos motores.
-          </p>
+
           <button
             type="button"
             onClick={() => setChat((c) => ({ n: (c?.n ?? 0) + 1 }))}

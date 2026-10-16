@@ -2,7 +2,7 @@
  * Recommendation Engine — não só detecta: RECOMENDA com impacto
  * quantificado. Para cada ação candidata, constrói o cenário modificado
  * e RE-RODA o motor de risco, medindo o ganho real (Δrunway, Δscore,
- * Δprob. de ruptura). "Antecipar R$240k → +11 dias de runway".
+ * Δprob. de ruptura). "Antecipar R$ 240k → +11 dias de runway".
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { scoreRiscoCaixa } from "@/core/risk-engine";

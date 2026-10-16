@@ -53,7 +53,7 @@ function Bloco({ a, aoCorrigir }: { a: Achado; aoCorrigir: (msg: string) => void
     <div className="flex flex-col gap-2 py-4 border-t border-border-soft first:border-t-0">
       <div className="flex items-baseline gap-3 flex-wrap">
         <span
-          className="text-[11px] font-medium uppercase tracking-[0.08em]"
+          className="text-[11px] font-medium"
           style={{ color: COR[a.gravidade] }}
         >
           {ROTULO_GRAVIDADE[a.gravidade]}
@@ -160,13 +160,7 @@ export function QualidadeDeDados() {
   return (
     <Card padded={false} className="flex flex-col">
       <div className="px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <span className="text-h3 text-ink">Qualidade dos dados</span>
-          <p className="m-0 mt-1 text-caption text-faint max-w-[76ch]">
-            Dado sujo não avisa: ele não derruba a tela, contamina o relatório. Aqui
-            estão os problemas que mudam número, com a razão de cada um.
-          </p>
-        </div>
+        <span className="text-h3 text-ink min-w-0">Qualidade dos dados</span>
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col items-end">
             {/* Número não tem cor por sinal (decisão de 30/09/2026): vermelho

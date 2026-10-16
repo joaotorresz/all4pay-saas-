@@ -41,7 +41,7 @@ export function OndeMais({
 }) {
   if (irmas.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2 px-4 py-3 rounded-card bg-surface-1 border border-border-soft">
+    <div className="flex flex-col gap-2 px-4 py-3 rounded-card bg-white">
       <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
         Esta tela responde
       </span>

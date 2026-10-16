@@ -63,7 +63,7 @@ export function telefoneParaPedido(t: string): string {
 
 export interface DadosDoPedido {
   descricao: string;
-  /** Já formatado (ex.: "R$1.000,00") — a moeda encosta no número. */
+  /** Já formatado (ex.: "R$ 1.000,00") — a moeda encosta no número. */
   valorFormatado: string;
   /** Data legível (ex.: "15/10/2026"). */
   vencimento: string;

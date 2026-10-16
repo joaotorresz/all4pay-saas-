@@ -94,7 +94,7 @@ export function TopBar() {
         {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
             versão escura sumiria no claro — o inverso do que fazia antes. */}
         {/* Logo em UMA cor (canvas): o arquivo vira máscara, a cor é o token. */}
-        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[92px] h-[25px]" />
+        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
         {isDemo && (
           <span className="hidden sm:block text-[11px] leading-none" style={{ color: "var(--color-text-secondary)" }}>
             Demonstração
@@ -138,7 +138,7 @@ export function TopBar() {
         </button>
 
         {menu && (
-          <div data-topbar="menu" className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white border border-border-soft overflow-hidden">
+          <div data-topbar="menu" className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white shadow-popover overflow-hidden">
             <div className="px-4 py-3 border-b border-border-soft flex items-center gap-3">
               <Avatar name={nome} size={30} />
               <div className="min-w-0">

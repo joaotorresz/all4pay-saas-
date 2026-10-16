@@ -14,6 +14,14 @@ export type TipoAutomacao =
   | "fechamento_pendente"
   | "regua_cobranca";
 
+/**
+ * O que vai no registro de envios: as seis automações fixas e os FLUXOS que o
+ * cliente monta (`./fluxo`). O fluxo não é um tipo de automação — não tem
+ * configuração em `automacoes` nem prévia no catálogo —, mas o envio dele passa
+ * pela MESMA trava (reservar → enviar → concluir) e mora na mesma tabela.
+ */
+export type TipoEnvio = TipoAutomacao | "fluxo";
+
 export const TIPOS_AUTOMACAO: TipoAutomacao[] = [
   "resumo_diario", "resumo_semanal", "lembrete_pagar", "alerta_caixa", "fechamento_pendente", "regua_cobranca",
 ];
@@ -81,11 +89,20 @@ export interface ConfigAutomacao {
 }
 
 /** Um contato (cliente/fornecedor) — o destino da régua. */
+/**
+ * O WhatsApp do CLIENTE (decisão do dono, 15/10/2026): só com autorização
+ * registrada; quem respondeu SAIR não recebe nada. ⚠️ Ausente = sem
+ * autorização — um contexto antigo, sem a informação, não manda WhatsApp a
+ * cliente nenhum (falha fechada).
+ */
+export type SituacaoWhatsapp = "autorizado" | "sem_autorizacao" | "saiu";
+
 export interface Contato {
   id: string;
   nome: string;
   telefone?: string | null;
   email?: string | null;
+  whatsapp?: SituacaoWhatsapp;
 }
 
 /** Titular/admin ATUAL da empresa. O e-mail vem daqui, nunca da configuração. */
@@ -136,7 +153,8 @@ export interface ContextoAutomacao {
 /** O template aprovado que cada finalidade usa no WhatsApp. */
 export type FinalidadeTemplate =
   | "cobranca_lembrete" | "cobranca_atraso" | "cobranca_formal"
-  | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente";
+  | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente"
+  | "fluxo_agendado";
 
 /** O conteúdo, antes de ter destino. É o que a PRÉVIA mostra. */
 export interface Conteudo {
@@ -166,7 +184,7 @@ export interface SemEnvio {
 }
 
 export interface MensagemAutomacao {
-  tipo: TipoAutomacao;
+  tipo: TipoEnvio;
   canal: CanalEnvio;
   destino: string;
   destinoMascarado: string;

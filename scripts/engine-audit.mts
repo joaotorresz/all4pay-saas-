@@ -6,6 +6,9 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
+import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
+import { BANCOS_CONTA } from "@/core/registros/hierarquia";
 import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFinalR8, mesAnterior as mesAnteriorR8, competenciaDoMesAnterior as competenciaDoMesAnteriorR8, comCompetencias as comCompetenciasR8 } from "@/core/importacao/competencia";
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
@@ -64,7 +67,9 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { execSync as execSyncIcone } from "node:child_process";
+import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
 import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { rotuloSituacao } from "@/core/movimentacoes";
@@ -5035,8 +5040,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // A4P-078 — Simples + IRPJ/CSLL no mesmo mês: ALERTA, nunca provisão
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Medido em produção: a org tem `Simples Nacional` R$5.200/mês e `IRPJ / CSLL`
-// (R$75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
+// Medido em produção: a org tem `Simples Nacional` R$ 5.200/mês e `IRPJ / CSLL`
+// (R$ 75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
 // estão dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal.
 //
 // ⚠️ A asserção que carrega a decisão é a ÚLTIMA: `provisaoEstimada === 0`
@@ -5270,8 +5275,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Medido: os três cards tinham o mesmo peso e "Total geral pago no período" era
-// o PRIMEIRO — na ordem de leitura, o destaque. Com R$1,54 pago ao lado de
-// R$38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
+// o PRIMEIRO — na ordem de leitura, o destaque. Com R$ 1,54 pago ao lado de
+// R$ 38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
 // O que já saiu não muda nada; vencidas e a vencer mudam.
 {
   const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
@@ -6343,7 +6348,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // MVP · A IA NÃO CHAMA FOLHA DE FORNECEDOR
 //
 // ⚠️ Medido numa organização real: "qual meu maior fornecedor" respondia
-// "Folha Funcionarios (R$65.441,24), Pro Labore Socios (R$18.000,00)". Não é
+// "Folha Funcionarios (R$ 65.441,24), Pro Labore Socios (R$ 18.000,00)". Não é
 // falso — o dinheiro sai mesmo para eles — mas para um dono de empresa
 // fornecedor é quem lhe VENDE, não quem trabalha nele. Uma resposta que soa
 // errada contamina as certas ao lado, e numa demo isso custa a reunião.
@@ -6551,7 +6556,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("variacao: a tarifa continua no drill-down mesmo sem ser manchete",
      fin?.motivos.some((x) => x.categoria === "Tarifa bancária" && Math.abs(x.delta + 20) < 0.01) === true);
   ok("variacao: o comentário cita a linha, o valor e quem explica",
-     !!opex && opex.comentario.includes(opex.label) && opex.comentario.includes("R$6.000,00") && opex.comentario.includes("Marketing") && opex.comentario.includes("Meta Ads"), opex?.comentario);
+     !!opex && opex.comentario.includes(opex.label) && opex.comentario.includes("R$ 6.000,00") && opex.comentario.includes("Marketing") && opex.comentario.includes("Meta Ads"), opex?.comentario);
   // Sem mês anterior com lançamento, a variação é AUSENTE — não "+100%".
   const semBase = analisarVariacao(inV, "2026-07");
   ok("variacao: sem base de comparação o motor diz o motivo (ONDA 4)",
@@ -6620,7 +6625,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("régua: título pago e título distante não entram", !regua.itens.some((i) => i.movimentoId === "r-pago" || i.movimentoId === "r-longe"));
   const msg = regua.itens.find((i) => i.movimentoId === "r-3")?.mensagem ?? "";
   ok("régua: a mensagem sai preenchida (cliente, valor, vencimento, dias)",
-     msg.includes("Beta") && msg.includes("R$900,00") && msg.includes("17/09/2026") && msg.includes("3 dias") && !msg.includes("{"), msg);
+     msg.includes("Beta") && msg.includes("R$ 900,00") && msg.includes("17/09/2026") && msg.includes("3 dias") && !msg.includes("{"), msg);
   // ⚠️ O que discrimina: o mesmo título NÃO recebe a mesma etapa duas vezes.
   const envio = { movimentoId: "r-3", etapaId: "d+3", em: "2026-09-20T10:00:00Z", canal: "whatsapp" as const };
   const r1 = registrarEnvio([], envio);
@@ -7320,7 +7325,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 }
 /* ── AUT ── */
 /* AUTOMAÇÕES DE E-MAIL E WHATSAPP (30/09/2026) — cada asserção prova o que a
- * regra PROÍBE: reenviar ao reexecutar, simulado virando avisado, "R$0,00" de
+ * regra PROÍBE: reenviar ao reexecutar, simulado virando avisado, "R$ 0,00" de
  * empresa vazia, régua sem opt-in ou no degrau de 60 dias, mensagem sem credor
  * ou com valor cru. Os casos negativos plantam o defeito e exigem que a
  * asserção o enxergue (senão ela seria decoração). */
@@ -7355,7 +7360,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     orgId: "org-a", hoje: HOJE, credor,
     input: { hoje: HOJE, saldoAtual: 10_000, movements: movs, partyNames: { F1: "Imobiliária Sol", F2: "Luz SA", F3: "Net", F4: "Seguradora", C1: "Cliente Um", C2: "Cliente Dois", C3: "Cliente Tres" }, horizonDias: 60 },
     contas: [{ id: "A1", nome: "Conta Movimento", saldo: 1_000 }, { id: "A2", nome: "Reserva", saldo: 9_000 }],
-    contatos: { C1: { id: "C1", nome: "Cliente Um", telefone: "(11) 99999-0001" }, C2: { id: "C2", nome: "Cliente Dois", email: "dois@cliente.com" }, C3: { id: "C3", nome: "Cliente Tres", telefone: "11999990003" } },
+    contatos: { C1: { id: "C1", nome: "Cliente Um", telefone: "(11) 99999-0001", whatsapp: "autorizado" }, C2: { id: "C2", nome: "Cliente Dois", email: "dois@cliente.com" }, C3: { id: "C3", nome: "Cliente Tres", telefone: "11999990003", whatsapp: "autorizado" } },
     membros: [{ userId: "u1", papel: "owner", nome: "Dona", email: "dona@aurora.com" }],
     aprovacoesPendentes: 2, mesesTravados: [], envios: [], appUrl: "https://app.exemplo", ...over,
   });
@@ -7449,14 +7454,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const r = A.gerarMensagens(cfg(t), vazio);
     ok(`aut: empresa sem lançamentos não recebe ${t}`, r.mensagens.length === 0 && r.semEnvio?.codigo === "sem_dados", r.semEnvio?.codigo ?? "saiu mensagem");
   }
-  // Com dados, mas NADA vencendo hoje: a soma vazia vira frase, nunca "R$0,00".
+  // Com dados, mas NADA vencendo hoje: a soma vazia vira frase, nunca "R$ 0,00".
   const semHoje = ctxBase({ input: { ...ctx.input, movements: movs.filter((m) => m.due_date !== HOJE) } });
   const rd0 = A.redigirResumoDiario(semHoje);
   const zeroFormatado = formatBRL(0);
-  ok("aut: resumo sem vencimento hoje diz 'nada vence hoje' e NÃO imprime R$0,00",
+  ok("aut: resumo sem vencimento hoje diz 'nada vence hoje' e NÃO imprime R$ 0,00",
      !A.ehSemEnvio(rd0) && rd0.texto.includes("nada vence hoje") && !rd0.texto.includes(zeroFormatado) && !rd0.html.includes(zeroFormatado),
      A.ehSemEnvio(rd0) ? rd0.motivo : rd0.texto);
-  ok("aut: (defeito plantado) o detector enxerga R$0,00 quando ele aparece", `A receber hoje: ${formatBRL(0)}`.includes(zeroFormatado));
+  ok("aut: (defeito plantado) o detector enxerga R$ 0,00 quando ele aparece", `A receber hoje: ${formatBRL(0)}`.includes(zeroFormatado));
   const rdc = A.redigirResumoDiario(ctx);
   ok("aut: o resumo do dia RECEBEU valor (saldo, hoje, vencidos, aprovações)",
      !A.ehSemEnvio(rdc) && rdc.texto.includes(formatBRL(10_000)) && rdc.texto.includes(formatBRL(1_500)) && rdc.texto.includes(formatBRL(300)) && rdc.texto.includes("Aprovações pendentes"),
@@ -7476,6 +7481,45 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      doC1.length === 1 && (doC1[0].chavesExtras ?? []).length === 2 && doC1[0].texto.includes(formatBRL(1_300.5)), doC1.map((m) => m.texto).join(" | "));
   ok("aut: o canal é o do cadastro (C1 WhatsApp · C2 só tem e-mail)",
      doC1[0]?.canal === "whatsapp" && regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.canal === "email");
+
+  // ---- 5b) AUTORIZAÇÃO E SAÍDA (etapa 5, decisão do dono 15/10/2026) ----
+  // WhatsApp a cliente só com autorização registrada, e nunca a quem respondeu
+  // SAIR. Cada caso carrega o defeito ao lado: ignorar a situação faria sair.
+  const comC1 = (c1: Partial<import("@/core/automacoes").Contato>) =>
+    A.gerarMensagens(cfgRegua, ctxBase({ contatos: { ...ctx.contatos, C1: { ...ctx.contatos.C1, ...c1 } } }));
+  const semAut = comC1({ whatsapp: "sem_autorizacao" });
+  ok("aut-wa: sem autorização e sem e-mail, o cliente NÃO recebe WhatsApp (e o motivo é dito)",
+     !semAut.mensagens.some((m) => m.chave.startsWith("cliente:C1:"))
+     && semAut.pulados.some((p) => p.alvo === "Cliente Um" && p.motivo.includes("sem autorização")), JSON.stringify(semAut.pulados));
+  const semCampo = comC1({ whatsapp: undefined });
+  ok("aut-wa: situação AUSENTE é sem autorização (falha fechada)", !semCampo.mensagens.some((m) => m.chave.startsWith("cliente:C1:")));
+  const viaEmail = comC1({ whatsapp: "sem_autorizacao", email: "um@cliente.com" });
+  ok("aut-wa: sem autorização, com e-mail, a cobrança segue pelo E-MAIL",
+     viaEmail.mensagens.find((m) => m.chave.startsWith("cliente:C1:"))?.canal === "email");
+  const saiuC1 = comC1({ whatsapp: "saiu" });
+  ok("aut-wa: quem respondeu SAIR não recebe, e o motivo diz isso",
+     !saiuC1.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && saiuC1.pulados.some((p) => p.motivo.includes("pediu para não receber")));
+  ok("aut-wa: a mensagem de WhatsApp ao cliente ensina o SAIR; a de e-mail não",
+     doC1[0]?.texto.endsWith(A.RODAPE_SAIR) && !(regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.texto ?? "").includes(A.RODAPE_SAIR));
+  ok("aut-wa: o telefone da saída é o canônico (+55 e máscara caem)",
+     JSON.stringify(A.telefonesDeWhatsapp([...regua.mensagens, ...regua.mensagens])) === JSON.stringify(["11999990001"])
+     && A.destinoCanonico("whatsapp", "+55 (11) 99999-0001") === "11999990001", A.telefonesDeWhatsapp(regua.mensagens).join(","));
+  {
+    let chamou = 0;
+    const provW: Prov = { ativo: () => true, async enviar() { chamou++; return { ok: true }; } };
+    const linhasB: Linha[] = [];
+    const rb = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria(linhasB), provedor: provW, saidas: new Set(["11999990001"]) });
+    ok("aut-wa: o despacho BLOQUEIA o telefone que saiu (sem registrar, sem chamar o provedor)",
+       rb.bloqueados === 1 && !linhasB.some((l) => l.chave.startsWith("cliente:C1:")) && chamou === regua.mensagens.length - 1, `${rb.bloqueados} ${chamou}`);
+    chamou = 0;
+    const linhasT: Linha[] = [];
+    const rt = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria(linhasT), provedor: provW, saidas: "todos" });
+    const nW = regua.mensagens.filter((m) => m.canal === "whatsapp").length;
+    ok("aut-wa: sem saber quem saiu (\"todos\"), nenhum WhatsApp sai — e o e-mail segue",
+       rt.bloqueados === nW && nW > 0 && chamou === regua.mensagens.length - nW && linhasT.every((l) => l.canal === "email"), `${rt.bloqueados}/${nW} ${chamou}`);
+    const rdry = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria([]), provedor: provW, saidas: "todos", dryRun: true });
+    ok("aut-wa: o bloqueio vale também na prévia (dryRun)", rdry.bloqueados === nW);
+  }
   const pausada = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-10-15" }] } }, ctx);
   ok("aut: cliente pausado não recebe", !pausada.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && pausada.mensagens.length === 1);
   const pausaVencida = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-09-29" }] } }, ctx);
@@ -8131,7 +8175,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia: a margem da IA é a margem líquida do DRE (64,0%), não a de caixa (50,0%)",
      rMarg.includes(`é ${mEsperada}`) && !/\b50(,0)?%/.test(rMarg), rMarg.slice(0, 140));
   const rLucro = resp("qual meu lucro esse mês?");
-  ok("ia: \"lucro\" é o resultado líquido do DRE (R$12.800,00), com o caixa (R$5.000,00) dito como caixa",
+  ok("ia: \"lucro\" é o resultado líquido do DRE (R$ 12.800,00), com o caixa (R$ 5.000,00) dito como caixa",
      /resultado líquido de R\$\s?12\.800,00/.test(rLucro) && /por competência/.test(rLucro) && /Pelo caixa.*R\$\s?5\.000,00/.test(rLucro), rLucro.slice(0, 220));
 
   /* origem: a linha "=" do DRE não tem lançamento próprio — a frase soma as linhas que a formam */
@@ -8146,17 +8190,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const rGasto = resp("posso gastar 20 mil?");
   ok("ia: \"posso gastar 20 mil?\" usa a reserva do simulador (3 meses de DESPESA média)",
      rGasto.includes(reservaIA), `esperava ${reservaIA} — ${rGasto.slice(0, 200)}`);
-  ok("ia: …e não a reserva inventada de 15% do saldo × 3 (R$45.000,00)", !/45\.000,00/.test(rGasto), rGasto.slice(0, 200));
+  ok("ia: …e não a reserva inventada de 15% do saldo × 3 (R$ 45.000,00)", !/45\.000,00/.test(rGasto), rGasto.slice(0, 200));
   ok("ia: …com o MESMO veredito da tela \"Posso comprar?\"", rGasto.startsWith(VEREDITO_LABEL[simIA.veredito]), `${VEREDITO_LABEL[simIA.veredito]} × ${rGasto.slice(0, 40)}`);
 
   /* a semana: segunda a domingo, como os painéis de contas a pagar/receber */
   const rSem = resp("o que vence esta semana?");
-  ok("ia: \"esta semana\" vai de segunda a domingo — o título do DOMINGO 19/07 entra (R$1.500,00)",
+  ok("ia: \"esta semana\" vai de segunda a domingo — o título do DOMINGO 19/07 entra (R$ 1.500,00)",
      /R\$\s?1\.500,00 a pagar/.test(rSem), rSem.slice(0, 160));
   ok("ia: …e o do domingo ANTERIOR (12/07) não entra", !/R\$\s?2\.200,00|R\$\s?700,00 a pagar/.test(rSem), rSem.slice(0, 160));
   // sem período na pergunta, o padrão é a semana corrente — pela MESMA função
   const rVenc = resp("quais os próximos vencimentos?");
-  ok("ia: sem período dito, os vencimentos são os da semana seg–dom (R$1.500,00)",
+  ok("ia: sem período dito, os vencimentos são os da semana seg–dom (R$ 1.500,00)",
      /R\$\s?1\.500,00 a pagar/.test(rVenc) && /nesta semana/i.test(rVenc), rVenc.slice(0, 160));
 
   /* pontualidade: pagar no dia é "no dia do vencimento", não "0 dia(s) no do vencimento" */
@@ -8298,13 +8342,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia-rev: âncora — a carteira do painel de Contas a receber é R$ 5.000,00 (sem empréstimo nem transferência)",
      Math.abs(painel.carteira.emAberto - 5000) < 0.005, String(painel.carteira.emAberto));
   const rRec = responderLocal("quanto tenho a receber?", inpR)?.resposta ?? "";
-  ok("ia-rev: \"quanto tenho a receber?\" é a carteira do painel (R$5.000,00), não R$32.000,00",
+  ok("ia-rev: \"quanto tenho a receber?\" é a carteira do painel (R$ 5.000,00), não R$ 32.000,00",
      /Há R\$\s?5\.000,00 a receber em 2 título/.test(rRec), rRec.slice(0, 140));
   const rDev = responderLocal("quem está me devendo?", inpR)?.resposta ?? "";
-  ok("ia-rev: a lista de devedores não cobra a transferência que a empresa fez para si mesma (vencido R$2.000,00)",
+  ok("ia-rev: a lista de devedores não cobra a transferência que a empresa fez para si mesma (vencido R$ 2.000,00)",
      /R\$\s?2\.000,00 vencidos/.test(rDev) && !/9\.000,00|7\.000,00/.test(rDev), rDev.slice(0, 140));
   const rSem = responderLocal("o que vence esta semana?", inpR)?.resposta ?? "";
-  ok("ia-rev: o \"a receber\" da semana não inclui o empréstimo a creditar (R$3.000,00)",
+  ok("ia-rev: o \"a receber\" da semana não inclui o empréstimo a creditar (R$ 3.000,00)",
      /R\$\s?3\.000,00 a receber/.test(rSem), rSem.slice(0, 140));
 
   /* receita ≠ toda entrada; gasto ≠ toda saída */
@@ -8316,9 +8360,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     mvR({ type: "saida", amount: 2500, category: "Transferência entre contas", paid_date: H, status: "pago" }),
   ] } as RiskInput;
   const rFat = responderLocal("quanto faturei esse mês?", inpF)?.resposta ?? "";
-  ok("ia-rev: \"quanto faturei?\" é a receita (R$10.000,00), não o empréstimo somado (R$33.000,00)",
+  ok("ia-rev: \"quanto faturei?\" é a receita (R$ 10.000,00), não o empréstimo somado (R$ 33.000,00)",
      /receita recebida em julho soma R\$\s?10\.000,00/.test(rFat) && !/Principal origem: Empréstimo/.test(rFat), rFat.slice(0, 160));
-  ok("ia-rev: …e o que entrou sem ser faturamento é DITO, não some (R$23.000,00)", /R\$\s?23\.000,00 que não são faturamento/.test(rFat), rFat.slice(0, 220));
+  ok("ia-rev: …e o que entrou sem ser faturamento é DITO, não some (R$ 23.000,00)", /R\$\s?23\.000,00 que não são faturamento/.test(rFat), rFat.slice(0, 220));
   const rEnt = responderLocal("quanto entrou esse mês?", inpF)?.resposta ?? "";
   ok("ia-rev: \"quanto entrou?\" (caixa) cita o total das entradas E a parte que é receita",
      /Entraram R\$\s?33\.000,00/.test(rEnt) && /R\$\s?10\.000,00 de receita/.test(rEnt), rEnt.slice(0, 160));
@@ -8327,7 +8371,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const rOri = responderLocal("de onde vem minha receita?", inpF)?.resposta ?? "";
   ok("ia-rev: \"de onde vem a receita\" não lista empréstimo como fonte de receita", !/concentra-se em:[^.]*Empréstimo/.test(rOri), rOri.slice(0, 200));
   const rGas = responderLocal("quanto gastei esse mês?", inpF)?.resposta ?? "";
-  ok("ia-rev: \"quanto gastei?\" não conta a transferência entre contas próprias como gasto (R$4.000,00)",
+  ok("ia-rev: \"quanto gastei?\" não conta a transferência entre contas próprias como gasto (R$ 4.000,00)",
      /gastos pagos em julho somam R\$\s?4\.000,00/.test(rGas), rGas.slice(0, 160));
 }
 
@@ -10179,9 +10223,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("wa: remetente e pedido chegam ao MESMO número",
      telefoneDoRemetente("whatsapp:+5511999998888") === telefoneParaPedido("11 99999 8888"));
 
-  const msg = mensagemDoPedido({ descricao: "Aluguel", valorFormatado: "R$1.000,00", vencimento: "15/10/2026", codigo: "ABC234" });
+  const msg = mensagemDoPedido({ descricao: "Aluguel", valorFormatado: "R$ 1.000,00", vencimento: "15/10/2026", codigo: "ABC234" });
   ok("wa: a mensagem diz como aprovar, como recusar e a validade",
-     msg.includes("SIM ABC234") && msg.includes("NÃO ABC234") && msg.includes("24 horas") && msg.includes("R$1.000,00"));
+     msg.includes("SIM ABC234") && msg.includes("NÃO ABC234") && msg.includes("24 horas") && msg.includes("R$ 1.000,00"));
   ok("wa: o que a mensagem manda digitar é o que a leitura aceita",
      igual(lerResposta("SIM ABC234"), { decisao: "sim", codigo: "ABC234" }) && igual(lerResposta("NÃO ABC234")?.decisao, "nao"));
 
@@ -10203,16 +10247,39 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // A ORDEM dos portões, lida no código sem os comentários (que explicam a regra
   // citando as mesmas palavras — a guarda não pode passar pela documentação).
   const semComentario = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
-  const rota = semComentario(readFileSync("src/app/api/whatsapp/aprovacao/route.ts", "utf8"));
-  const iPortao = rota.indexOf('process.env.WHATSAPP_APROVACAO !== "ligado"');
+  // Desde a etapa 5 das automações, a entrada do WhatsApp é UMA porta
+  // (`lib/whatsapp-entrada`), servida pelas duas rotas: SAIR/VOLTAR sempre,
+  // a aprovação só ligada.
+  const rota = semComentario(readFileSync("src/lib/whatsapp-entrada.ts", "utf8"));
+  const iToken = rota.indexOf("process.env.TWILIO_AUTH_TOKEN");
   const iForm = rota.indexOf("formData(");
   const iAdmin = rota.indexOf("createAdmin(");
-  const iRpc = rota.indexOf(".rpc(");
   const iAss = rota.indexOf("assinaturaTwilioValida(");
-  ok("wa: a rota DESLIGADA recusa antes de ler o corpo e de qualquer banco",
-     iPortao >= 0 && iForm > iPortao && iAdmin > iPortao && iRpc > iPortao && rota.slice(iPortao, iForm).includes("503"));
-  ok("wa: a rota confere a ASSINATURA antes da chave de serviço e da RPC",
-     iAss >= 0 && iAss < iAdmin && iAss < iRpc && /if \(!assinaturaTwilioValida\(/.test(rota) && rota.slice(iAss, iAdmin).includes("403"));
+  const iSaida = rota.indexOf('"whatsapp_registrar_saida"');
+  const iLigado = rota.indexOf('process.env.WHATSAPP_APROVACAO === "ligado"');
+  const iAprov = rota.indexOf('"responder_aprovacao_whatsapp"');
+  ok("wa: sem o token da Twilio a entrada recusa antes de ler o corpo e de qualquer banco",
+     iToken >= 0 && iForm > iToken && iAdmin > iToken && rota.slice(iToken, iForm).includes("503"));
+  ok("wa: a entrada confere a ASSINATURA antes da chave de serviço e de qualquer RPC",
+     iAss >= 0 && iAss < iAdmin && iAss < iSaida && iAss < iAprov && /if \(!assinaturaTwilioValida\(/.test(rota) && rota.slice(iAss, iAdmin).includes("403"));
+  ok("wa: o SAIR é atendido ANTES do interruptor da aprovação (parar de receber não depende dele)",
+     iSaida > iAss && iLigado > iSaida);
+  ok("wa: a aprovação só roda com o interruptor LIGADO", iLigado >= 0 && iAprov > iLigado);
+  ok("wa: falha ao registrar o SAIR responde 503 (a Twilio reenvia; SAIR perdido não se desfaz)",
+     /if \(error\) return NextResponse\.json\(\{[^}]*\}, \{ status: 503 \}\)/.test(rota.slice(iSaida, iLigado)));
+  for (const r of ["src/app/api/whatsapp/aprovacao/route.ts", "src/app/api/whatsapp/entrada/route.ts"]) {
+    const t = semComentario(readFileSync(r, "utf8"));
+    ok(`wa: ${r.split("/").slice(-2, -1)[0]} é a MESMA porta (delega, sem RPC própria)`,
+       t.includes("return receberWhatsapp(req)") && !t.includes(".rpc(") && !t.includes("createAdmin("));
+  }
+  {
+    const { lerPedidoDeSaida } = await import("@/core/whatsapp/saida");
+    ok("wa-saida: SAIR em qualquer caixa, com acento e pontuação",
+       ["SAIR", "sair", "Sair.", "  pare! ", "Não quero mais", "STOP", "descadastrar"].every((t) => lerPedidoDeSaida(t) === "sair"));
+    ok("wa-saida: VOLTAR", ["VOLTAR", "voltar!", "quero receber"].every((t) => lerPedidoDeSaida(t) === "voltar"));
+    ok("wa-saida: a palavra no MEIO da frase não cala ninguém",
+       ["vou sair mais cedo", "pode parar o boleto?", "SIM ABC234", "", "voltar a pagar amanhã"].every((t) => lerPedidoDeSaida(t) === null));
+  }
 
   const acoes = semComentario(readFileSync("src/app/central/acoes.ts", "utf8"));
   const iPedir = acoes.indexOf("export async function pedirAprovacaoWhatsappAction");
@@ -11846,6 +11913,124 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }
 
+// ── area-admin: o painel da plataforma no seu próprio endereço ───────────────
+{
+  const A = await import("@/core/area-admin");
+  const { origemDoApp, SECOES_ADMIN, secaoAtiva } = A;
+  const H = "admin.quattro.finance";
+  const d = (host: string, pathname: string, hostAdmin: string | null = H) => A.decidirPorHost({ host, pathname, hostAdmin });
+  ok("area-admin: sem ADMIN_HOST nada muda (/admin segue no próprio endereço)",
+     d("app.quattro.finance", "/admin", null).tipo === "seguir" && d("localhost:3000", "/api/admin/impersonate", null).tipo === "seguir");
+  const raiz = d("admin.quattro.finance", "/");
+  ok("area-admin: no endereço da plataforma, / serve /admin", raiz.tipo === "reescrever" && raiz.caminho === "/admin");
+  const cli = d("ADMIN.quattro.finance:443", "/clientes");
+  ok("area-admin: endereço limpo (/clientes → /admin/clientes), com host em caixa alta e porta", cli.tipo === "reescrever" && cli.caminho === "/admin/clientes");
+  const tela = d(H, "/fluxo-caixa");
+  ok("area-admin: tela do cliente no endereço da plataforma cai em /admin/* (404), nunca é servida",
+     tela.tipo === "reescrever" && tela.caminho.startsWith("/admin/"));
+  ok("area-admin: a porta de entrada responde no endereço da plataforma",
+     ["/login", "/segundo-fator", "/configuracoes/seguranca", "/redefinir-senha"].every((c) => d(H, c).tipo === "seguir"));
+  ok("area-admin: API do cliente não existe no endereço da plataforma; a da área e a do login, sim",
+     d(H, "/api/cobranca/whatsapp").tipo === "inexistente" && d(H, "/api/admin/impersonate").tipo === "seguir" && d(H, "/api/auth/recuperar").tipo === "seguir");
+  const red = d("app.quattro.finance", "/admin/cobranca");
+  ok("area-admin: /admin no endereço do cliente vai para o da plataforma, com o caminho limpo",
+     red.tipo === "redirecionar" && red.host === H && red.caminho === "/cobranca");
+  const red0 = d("all4pay-saas.vercel.app", "/admin");
+  ok("area-admin: /admin sozinho vai para a raiz da plataforma", red0.tipo === "redirecionar" && red0.caminho === "/");
+  ok("area-admin: /api/admin fora do endereço da plataforma não existe (uma segunda porta é a que ninguém vigia)",
+     d("app.quattro.finance", "/api/admin/impersonate").tipo === "inexistente");
+  ok("area-admin: /administracao não é confundido com /admin",
+     d("app.quattro.finance", "/administracao").tipo === "seguir");
+  ok("area-admin: o app dos clientes segue intacto", d("app.quattro.finance", "/fluxo-caixa").tipo === "seguir");
+  // ⚠️ Quem chama de FORA não sabe que o painel mudou de endereço: a Pinbank
+  // manda o webhook ao app, e o pg_cron do Open Finance e a guarda `no-ar`
+  // chamam o `all4pay-saas.vercel.app`. Ligar o ADMIN_HOST não pode tocar
+  // nesses caminhos — um 404 aqui seria venda da maquininha que não entra.
+  const deFora = [
+    ["app.quattro.finance", "/api/pinbank/webhook"], ["all4pay-saas.vercel.app", "/api/pinbank/webhook"],
+    ["app.quattro.finance", "/api/pinbank/reprocessar"], ["app.quattro.finance", "/api/pinbank/conferencia"],
+    ["all4pay-saas.vercel.app", "/api/recorrencias/run"], ["all4pay-saas.vercel.app", "/api/financial-os/run"],
+    ["all4pay-saas.vercel.app", "/api/versao"],
+  ] as const;
+  const travados = deFora.filter(([h, p]) => d(h, p).tipo !== "seguir").map(([h, p]) => `${h}${p}`);
+  ok("area-admin: com ADMIN_HOST ligado, webhook da Pinbank, rotas da maquininha e crons seguem no app e no vercel.app",
+     travados.length === 0, travados.join(", "));
+  ok("area-admin: o webhook da Pinbank não responde no endereço da plataforma (só o app o recebe)",
+     d(H, "/api/pinbank/webhook").tipo === "inexistente");
+  // O middleware tem de julgar o caminho EFETIVO: com o digitado, `/clientes`
+  // passaria pelo perímetro da plataforma sem a pergunta "é o dono?".
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  const julgaEfetivo = (t: string) => /const pathname = decisao\.tipo === "reescrever" \? decisao\.caminho : pedido;/.test(t) && /const areaDaPlataforma = pathname === "\/admin"/.test(t);
+  ok("area-admin: o middleware julga o caminho efetivo (reescrito)", julgaEfetivo(mw));
+  ok("area-admin: (defeito plantado) o perímetro olhando o caminho digitado é REPROVADO",
+     !julgaEfetivo(mw.replace('decisao.caminho : pedido;', 'pedido : pedido;')));
+  // ── o segundo fator OBRIGATÓRIO na área da plataforma ──
+  ok("area-admin: sem aplicativo, o dono não entra — cadastra",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: false, nivelAtual: "aal1" }) === "cadastrar_aplicativo"
+     && A.portaSegundoFatorAdmin({ temFatorVerificado: false, nivelAtual: "aal2" }) === "cadastrar_aplicativo");
+  ok("area-admin: com aplicativo e só a senha, o código; nível ilegível também pede (falha fechada)",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: "aal1" }) === "digitar_codigo"
+     && A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: null }) === "digitar_codigo");
+  ok("area-admin: aplicativo + código (aal2) entra",
+     A.portaSegundoFatorAdmin({ temFatorVerificado: true, nivelAtual: "aal2" }) === "entrar");
+  // A ordem no perímetro: o fator ANTES de "é o dono?" — o veredito do banco
+  // nega o dono em aal1, e a pergunta na ordem inversa daria a frase errada.
+  const iArea = mw.indexOf("if (areaDaPlataforma && supabase)");
+  const fatorAntes = (t: string) => {
+    const i = t.indexOf("if (areaDaPlataforma && supabase)");
+    const a = t.indexOf("portaDoAdmin(supabase, user)", i), b = t.indexOf("ehDonoDaPlataforma(supabase)", i);
+    return i >= 0 && a > i && b > a;
+  };
+  ok("area-admin: o perímetro pede o segundo fator antes de perguntar se é o dono", iArea >= 0 && fatorAntes(mw));
+  ok("area-admin: (defeito plantado) o perímetro sem a porta do fator é REPROVADO",
+     !fatorAntes(mw.replace("portaDoAdmin(supabase, user)", "Promise.resolve(\"entrar\")")));
+  const pagina = readFileSync("src/app/admin/layout.tsx", "utf8");
+  ok("area-admin: o layout do painel confere o segundo fator no servidor (o segundo cadeado)",
+     /portaDoAdmin\(supabase, user\)/.test(pagina) && /redirect\(ROTA_SEGURANCA_CONTA\)/.test(pagina) && /redirect\(ROTA_CODIGO\)/.test(pagina));
+
+  // ── "Logar como" abre a sessão do cliente no APP, nunca na plataforma.
+  ok("area-admin: na plataforma, o link mágico aponta para o app (admin. → app.)",
+     origemDoApp({ origem: "https://admin.quattro.finance/api/admin/impersonate", hostAdmin: "admin.quattro.finance" }) === "https://app.quattro.finance");
+  ok("area-admin: APP_HOST manda quando existe",
+     origemDoApp({ origem: "https://admin.quattro.finance/x", hostAdmin: "admin.quattro.finance", hostApp: "painel.quattro.finance" }) === "https://painel.quattro.finance");
+  ok("area-admin: fora da plataforma (ou sem ADMIN_HOST) a origem não muda",
+     origemDoApp({ origem: "https://all4pay-saas.vercel.app/api/admin/impersonate", hostAdmin: "admin.quattro.finance" }) === "https://all4pay-saas.vercel.app"
+     && origemDoApp({ origem: "http://localhost:3000/x", hostAdmin: undefined }) === "http://localhost:3000");
+  ok("area-admin: a rota de \"logar como\" usa a origem do app",
+     /origemDoApp\(/.test(readFileSync("src/app/api/admin/impersonate/route.ts", "utf8")));
+
+  // ── As seções: uma página por item do menu, e o menu acha a seção nos dois endereços.
+  const semPagina = SECOES_ADMIN.filter((s) => !existsSync(`src/app${s.href}/page.tsx`));
+  ok("area-admin: toda seção do menu tem página (menu que leva a 404 não é menu)", semPagina.length === 0, semPagina.map((s) => s.href).join(", "));
+  ok("area-admin: seção ativa pelo endereço limpo e pelo longo",
+     secaoAtiva("/cobranca").id === "cobranca" && secaoAtiva("/admin/cobranca").id === "cobranca"
+     && secaoAtiva("/admin").id === "visao-geral" && secaoAtiva("/").id === "visao-geral"
+     && secaoAtiva("/clientes/123").id === "clientes");
+  ok("area-admin: (defeito plantado) prefixo parecido não acende a seção errada",
+     secaoAtiva("/acessosx").id === "visao-geral");
+  // ⚠️ O vínculo do EC morava no fim de Suporte, abaixo da lista de TODAS as
+  // empresas, e o dono não o achava. Credenciar maquininha tem item próprio, e
+  // o cartão mora numa seção SÓ — sem isto, ele volta a ser empilhado onde
+  // sobrar espaço.
+  const maq = d(H, "/maquininhas");
+  ok("area-admin: Maquininhas é item do menu, com endereço limpo na plataforma",
+     SECOES_ADMIN.some((s) => s.id === "maquininhas" && s.href === "/admin/maquininhas")
+     && secaoAtiva("/maquininhas").id === "maquininhas" && secaoAtiva("/admin/maquininhas").id === "maquininhas"
+     && maq.tipo === "reescrever" && maq.caminho === "/admin/maquininhas");
+  {
+    const view = readFileSync("src/components/admin/AdminView.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const montagens = (view.match(/<PinbankAdminCard\b/g) ?? []).length;
+    const comCartao = [...view.matchAll(/^function (Secao\w+)\(\)[\s\S]*?^}/gm)]
+      .filter((m) => /<PinbankAdminCard\b/.test(m[0])).map((m) => m[1]);
+    ok("area-admin: o vínculo da maquininha mora em Maquininhas, e só lá",
+       montagens === 1 && comCartao.length === 1 && comCartao[0] === "SecaoMaquininhas",
+       `${montagens} montagem(ns): ${comCartao.join(", ") || "fora de qualquer seção"}`);
+  }
+  ok("area-admin: o painel não usa a moldura do cliente",
+     !/AppShell/.test(readFileSync("src/components/admin/AdminView.tsx", "utf8"))
+     && !/AppShell/.test(readFileSync("src/components/admin/AdminShell.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")));
+}
+
 // ═══ CONFERÊNCIA EXTRATO × SISTEMA — a empresa pede, a plataforma chama ════════
 // O COMPORTAMENTO do motor (pares, datas, centavos, o que é afirmado e o que
 // fica sem conclusão) é provado em `npm run pinbank-conferencia`. Aqui, o que
@@ -12513,6 +12698,40 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !rastroC(rotaC.replace('JSON.stringify({ ...chamada, resultado: "ok" })', 'JSON.stringify({ ...chamada, resultado: "ok", vendas: extrato.resposta.linhas })')));
   ok("conferencia-pinbank: (defeito plantado) a falha da Pinbank sem dizer quem pediu é ACUSADA",
      !rastroC(rotaC.replace('JSON.stringify({ ...rastro, resultado: "pinbank_falhou", etapa: d.etapa })', 'JSON.stringify({ resultado: "pinbank_falhou", etapa: d.etapa })')));
+}
+
+// ── ícone: Lucide, traço 2px, e nenhuma chave pedida sem glifo ──
+// Chave que não está no mapa renderiza NADA — e um botão sem ícone não quebra
+// teste nenhum. Na troca para o Lucide (15/10/2026) a varredura achou cinco
+// chaves que já não desenhavam com o set anterior (user, download, chevron-up,
+// arrow-left e o "b" do "Novo produto" no painel Criar).
+{
+  const arquivos = execSyncIcone("git ls-files src", { encoding: "utf8" }).split("\n").filter((f) => /\.(tsx?|ts)$/.test(f));
+  const pedidos = (txt: string) => [...txt.matchAll(/(?:<Icon\b[^>]*?\bname|\bicon|\bicone)\s*[:=]\s*\{?\s*"([a-z][a-z0-9-]*)"/g)].map((m) => m[1]);
+  const faltando = new Set<string>();
+  for (const f of arquivos) for (const n of pedidos(readFileSync(f, "utf8"))) if (!iconeExisteLucide(n)) faltando.add(`${n} (${f})`);
+  ok("icone: toda chave pedida pelas telas existe no conjunto Lucide", faltando.size === 0, [...faltando].join(", "));
+  ok("icone: (defeito plantado) uma chave inexistente é ACUSADA", pedidos('<Icon name="nao-existe" />').some((n) => !iconeExisteLucide(n)));
+  const icon = readFileSync("src/components/ui/Icon.tsx", "utf8");
+  ok("icone: o traço padrão do sistema é 1,75px", /STROKE_ICONE = 1\.75;/.test(icon) && /strokeWidth = STROKE_ICONE/.test(icon));
+  ok("icone: o traço é absoluto (2px em qualquer tamanho)", /absoluteStrokeWidth/.test(icon));
+  ok("icone: nenhuma tela importa o lucide-react por fora do Icon", arquivos.filter((f) => !f.endsWith("ui/lucide-icons.ts") && /from "lucide-react"/.test(readFileSync(f, "utf8"))).length === 0);
+}
+
+/* ===================== bancos: o logo certo, ou nenhum ===================== */
+{
+  const casos: [string, string | null][] = [
+    ["itau", "itau"], ["Itaú Unibanco", "itau"], ["Itaú BBA", "itau"], ["bb", "banco-brasil"],
+    ["Banco do Brasil", "banco-brasil"], ["Banco do Nordeste", "banco-nordeste"],
+    ["Banco de Brasília", "banco-brasilia"], ["Caixa Econômica", "caixa"], ["Bancoob", "sicoob"],
+    ["Inter", "inter"], ["Intermedium Corretora", null], ["C6 Bank", null], ["BTG Pactual", null],
+    ["Mercado Pago", null], ["Stone", null], ["", null], ["outro", null],
+  ];
+  for (const [entrada, esperado] of casos)
+    ok(`bancos: "${entrada}" → ${esperado ?? "sem logo"}`, glifoDoBanco(entrada) === esperado, String(glifoDoBanco(entrada)));
+  ok("bancos: toda chave de conta com logo aponta para um glifo que EXISTE",
+     BANCOS_CONTA.every((b) => { const g = glifoDoBanco(b.id); return g === null || typeof BANCO_GLIFOS[g] === "string"; }));
+  ok("bancos: banco sem logo mostra iniciais, nunca vazio", iniciaisDoBanco("C6 Bank") === "C6" && iniciaisDoBanco("Mercado Pago") === "MP" && iniciaisDoBanco("") === "·");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

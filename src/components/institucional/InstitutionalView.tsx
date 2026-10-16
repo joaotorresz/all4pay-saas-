@@ -101,7 +101,7 @@ export function InstitutionalView() {
 
       {/* Escada de aprovação */}
       <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Fluxo de aprovação", oQue: "Define quem precisa aprovar um pagamento conforme o valor, da liberação automática à dupla alçada.", comoCalcula: "As faixas de valor são configuráveis; cada uma define os passos de aprovação (sequenciais ou paralelos) e se exige biometria." }}>
-        <SectionHead icon="list-checks" title="Fluxo de aprovação por faixa" sub="configurável por empresa" />
+        <SectionHead icon="list-checks" title="Fluxo de aprovação por faixa" />
         <div className="flex flex-col gap-2">
           {REGRAS_PADRAO.map((r, i) => {
             const de = i === 0 ? 0 : REGRAS_PADRAO[i - 1].ateValor;
@@ -141,7 +141,6 @@ export function InstitutionalView() {
             <span className="text-label font-medium tabular-nums text-muted">{tempo(s.tempoMedioMin)}</span>
           </div>
         ))}
-        {!isDemo && <span className="text-caption text-faint">Ilustrativo até haver histórico de aprovações.</span>}
       </Card>
 
       {/* ⚠️ Este cartão era `isDemo &&` — em produção ele SUMIA inteiro, e a
@@ -150,7 +149,7 @@ export function InstitutionalView() {
           nada dizendo por quê: ausência lida como funcionalidade que não
           existe. Agora ele aparece sempre, e o vazio manda para a fila real. */}
       <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Solicitações de aprovação", oQue: "Acompanha os pagamentos que aguardam aprovação, com a sugestão da IA e a assinatura de cada passo.", comoCalcula: "Cada solicitação segue a faixa de valor; a IA avalia a consistência com o histórico do favorecido e cada aprovador assina eletronicamente." }}>
-        <SectionHead icon="list-checks" title="Solicitações de aprovação" sub="com sugestão de IA e assinatura eletrônica" />
+        <SectionHead icon="list-checks" title="Solicitações de aprovação" />
         {isDemo ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {requestsDemo().map((r) => (
@@ -318,16 +317,13 @@ function PolicyEngineCard() {
 
   return (
     <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Simulador de política", oQue: "Permite ENSAIAR como a política de aprovação reagiria a uma transação: aprovar, exigir segundo fator, escalar, rejeitar ou bloquear.", comoCalcula: "Combina usuário, valor, método, limite da alçada, país, horário e IP, e devolve a decisão com os motivos. É um ensaio: quem recusa de fato uma operação é a regra no banco de dados, pelo papel do usuário na organização." }}>
-      <SectionHead icon="gauge" title="Simulador de política" sub="ensaio, não bloqueio" />
+      <SectionHead icon="gauge" title="Simulador de política" />
       {/* ⚠️ Isto é um SIMULADOR e o texto passou a dizer isso. `avaliarPolitica`
           é chamada de um lugar só no produto inteiro — deste cartão — e não
           está no caminho de pagamento nenhum. "Policy engine · avaliação em
           tempo real" lia como proteção ativa; um cliente concluiria que suas
           transações passam por aqui, e não passam. Quem recusa de verdade são
           as políticas restritivas do banco (ONDA 9), que continuam valendo. */}
-      <p className="m-0 text-caption text-faint">
-        Ensaie uma transação e veja o que a política decidiria. O bloqueio real acontece no banco de dados, pelo papel de cada pessoa.
-      </p>
       {/* ⚠️ Em produção os cinco usuários de exemplo NÃO podem aparecer com
           nome de gente: "Marina (Financeiro)" numa organização real lê como
           membro da equipe, e ninguém ali se chama Marina. A alçada real é por
@@ -339,11 +335,6 @@ function PolicyEngineCard() {
         onChange={setUserId}
         options={DEMO_USUARIOS.map((u) => ({ value: u.id, label: isDemo ? u.nome : ROLE_LABEL[u.role] }))}
       />
-      {!isDemo && (
-        <p className="m-0 text-caption text-faint">
-          Perfis ilustrativos, não membros da sua empresa: os limites de cada perfil são de exemplo.
-        </p>
-      )}
       <div className="grid grid-cols-2 gap-2">
         <Input label="Valor (R$)" type="number" value={String(valor)} onChange={(e) => setValor(Number(e.target.value) || 0)} />
         <Select

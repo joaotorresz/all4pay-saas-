@@ -10,7 +10,6 @@ import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
 import { BannerAmostra } from "@/components/app/BannerAmostra";
 import { BannerAssinatura } from "@/components/app/BannerAssinatura";
 import { RouteTracker } from "@/components/app/RouteTracker";
-import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
 import { CriarNovo } from "@/components/app/CriarNovo";
@@ -74,13 +73,12 @@ export function AppShell({
           <h1
             className="m-0 text-[30px] text-ink truncate"
             style={{
-              // TEMA ERP (canvas "Quattro ERP · Protótipo", 13/10/2026): título
-              // de tela em Centra No2 500, CAIXA ALTA, espaçamento 0, 30px.
+              // Título de tela em Roobert 500, caixa de frase ("Aa"),
+              // espaçamento 0, 30px (design system de 16/10/2026).
               fontFamily: "var(--font-display)",
               fontWeight: 500,
               letterSpacing: 0,
               lineHeight: 1.1,
-              textTransform: "uppercase",
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",
             }}
@@ -99,27 +97,27 @@ export function AppShell({
     // claro arredondado logo abaixo da barra. `bg-surface-1` saiu daqui: o
     // fundo agora vem do token da moldura, e a utility venceria a regra do CSS.
     <div className="a4p-canvas fixed inset-0 flex flex-col overflow-hidden">
-      <TopBar />
+      {/* ⚠️ A BARRA DE CIMA FLUTUA (dono, 15/10/2026). Ela era a primeira linha
+          da coluna, e o conteúdo parava num retângulo branco logo abaixo dela:
+          ao rolar, a barra cinza parecia colada num bloco bruto. Agora ela fica
+          POR CIMA da área de trabalho, que sobe até o topo dela e rola por
+          baixo. O invólucro não recebe clique (só a barra), senão a faixa das
+          margens viraria uma parede invisível sobre o conteúdo. */}
+      <div className="absolute inset-x-0 top-0 z-30 pointer-events-none [&>*]:pointer-events-auto">
+        <TopBar />
+      </div>
       {/* PROPOSTA "Quattro · Home" (out/2026): abaixo da barra, DOIS cartões
           lado a lado sobre a moldura — o menu lateral (todos os grupos, em
           acordeão) e a área de trabalho. A barra de pílulas saiu: os grupos
           moram no menu. */}
-      <div className="flex-1 flex min-h-0 gap-3 p-3">
+      {/* `pt-[84px]` = a barra (12 + 60) + o respiro de 12: o menu lateral
+          começa onde começava. */}
+      <div className="flex-1 flex min-h-0 gap-3 p-3 pt-[84px]">
       {/* A lateral lê o `?tab=` para saber QUAL item está na tela (três deles
           apontam para o mesmo caminho). `useSearchParams` exige a fronteira de
           Suspense — a mesma que o `PageGuide` já usa logo abaixo. */}
       <React.Suspense fallback={null}><Sidebar /></React.Suspense>
-      <main className={`a4p-app-card flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`} style={{ background: "var(--a4p-app-bg)" }}>
-        {/* ⚠️ ACIMA do cabeçalho e FORA da área que rola: o aviso de dado de
-            demonstração precisa valer para toda tela e não pode sair de vista
-            quando a pessoa rola o DRE — que é exatamente onde a contaminação
-            aparece. Não fecha e não tem "x": some quando a amostra for
-            removida, e só então. */}
-        <BannerAmostra />
-        {/* ⚠️ Abaixo do de amostra e acima do cabeçalho, fora da área que rola:
-            os dois falam do ESTADO da conta, não do conteúdo da tela. */}
-        <BannerAssinatura />
-        {stickyHeader && !semCabecalho && header}
+      <main className={`a4p-app-card -mt-[72px] flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`} style={{ background: "var(--a4p-app-bg)" }}>
         {/*
           ⚠️ **A FOLGA DE BAIXO É O TAMANHO DO FAB, e era menor que ele.**
 
@@ -134,7 +132,32 @@ export function AppShell({
           espaçador dentro de cada tela: com 82 rotas, a próxima tela nasceria
           sem ele.
         */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-24">
+        {/* ⚠️ O cartão sobe 72px (`-mt-[72px]`) para ficar POR BAIXO da barra
+            flutuante, e a área que rola devolve esses 72px num ESPAÇADOR: o
+            conteúdo abre no mesmo lugar e, ao rolar, passa sob a barra.
+            Espaçador, não `padding-top`: o Chrome mede o `top` do sticky a
+            partir da caixa de conteúdo da área que rola, e com o padding o
+            título grudava 72px mais baixo, por cima do primeiro cartão
+            (medido no navegador). */}
+        <div data-area-rola className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-24">
+          <div data-folga-barra aria-hidden className="h-[72px]" />
+          {/* O bloco que GRUDA logo abaixo da barra: avisos da conta e o título
+              da tela. ⚠️ Sem retângulo branco (dono, 15/10/2026): o fundo é um
+              DEGRADÊ da cor da área para transparente — o título continua
+              legível sobre o que passa por baixo, e o conteúdo some suavemente
+              em vez de bater numa borda reta. */}
+          <div className="a4p-topo-tela sticky top-[60px] z-20 -mx-4 sm:-mx-6 lg:-mx-8">
+            {/* ⚠️ ACIMA do cabeçalho e GRUDADO no topo: o aviso de dado de
+                demonstração precisa valer para toda tela e não pode sair de vista
+                quando a pessoa rola o DRE — que é exatamente onde a contaminação
+                aparece. Não fecha e não tem "x": some quando a amostra for
+                removida, e só então. */}
+            <BannerAmostra />
+            {/* ⚠️ Abaixo do de amostra e acima do cabeçalho, também grudado:
+                os dois falam do ESTADO da conta, não do conteúdo da tela. */}
+            <BannerAssinatura />
+            {stickyHeader && !semCabecalho && header}
+          </div>
           {/* Header rola junto com o conteúdo quando stickyHeader=false. */}
           {!stickyHeader && !semCabecalho && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
           {children}
@@ -144,20 +167,9 @@ export function AppShell({
       <TituloDaAba titulo={tituloAba ?? (typeof title === "string" ? title : null)} />
       <RouteTracker />
       <SincronizacaoOrg />
-      {/* ⚠️ O LABORATÓRIO SAIU DE PRODUÇÃO. Ele é um sandbox que repinta o app
-          com valores que ninguém do outro lado escolheu, e o botão flutuante
-          aparecia para TODO usuário em TODA tela — ruído sobre a interface do
-          cliente. Não foi apagado: continua inteiro em `npm run dev`, que é
-          onde o design é feito.
-          `DesignLabStyle` sai JUNTO, e de propósito: ele injeta o CSS salvo no
-          navegador. Deixá-lo montado manteria a repintura de quem já salvou
-          algo, sem existir mais a ferramenta para desfazer. */}
-      {process.env.NODE_ENV !== "production" && (
-        <>
-          <DesignLabStyle />
-          <DesignLab />
-        </>
-      )}
+      {/* ⚠️ O Laboratório de Design e o Editor Visual SAÍRAM (16/10/2026). O
+          design system se edita em Administração › Design system, que salva
+          num PR por `src/design/tokens.json` — a mesma fonte das guardas. */}
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
       <ChatGlobal />

@@ -141,7 +141,6 @@ export function ArmazenamentoView() {
           <div className="flex flex-col">
             <span className="text-caption text-faint">No servidor</span>
             <span className="text-[22px] font-semibold tabular-nums text-ink">{est.sincronizadas.length}</span>
-            <span className="text-caption text-faint">sobrevivem a troca de máquina</span>
           </div>
           <div className="flex flex-col">
             <span className="text-caption text-faint inline-flex items-center gap-1">
@@ -177,9 +176,7 @@ export function ArmazenamentoView() {
           <div className="flex items-start gap-2 px-3 py-2 rounded-md" style={{ background: "var(--color-lime-tint)" }}>
             <Icon name="triangle-alert" size={15} color="var(--color-negative)" />
             <span className="text-caption text-ink max-w-[62ch]">
-              O armazenamento do navegador está perto do limite. Quando ele enche, gravações
-              começam a falhar — e sem sincronização com o servidor isso significa perder o
-              que foi digitado depois.
+              O armazenamento do navegador está perto do limite.
             </span>
           </div>
         )}
@@ -198,10 +195,8 @@ export function ArmazenamentoView() {
             {ocupado ? "Sincronizando…" : "Sincronizar agora"}
           </Button>
           {msg && <span className="text-caption text-muted">{msg}</span>}
-          {!est.ativo && (
-            <span className="text-caption text-faint">
-              {isDemo ? "Em demonstração não há servidor — nada sai deste navegador, por definição." : "Configure o Supabase para sincronizar."}
-            </span>
+          {!est.ativo && !isDemo && (
+            <span className="text-caption text-faint">Configure o Supabase para sincronizar.</span>
           )}
         </div>
       </Card>
@@ -220,12 +215,6 @@ export function ArmazenamentoView() {
             {est.dentroDaMeta ? "Dentro da meta" : `${kb(est.bytesDeNegocio)} de negócio no disco`}
           </StatusBadge>
         </div>
-        <p className="m-0 text-caption text-faint max-w-[70ch]">
-          A meta é que o navegador guarde apenas preferência de tela e cache que a rede
-          reconstitui. Enquanto houver dado de negócio aqui, limpar o cache desta máquina
-          significa perder trabalho — e é por isso que o número precisa ser visível, não
-          estimado.
-        </p>
         <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="secondary"
@@ -241,11 +230,6 @@ export function ArmazenamentoView() {
           >
             Liberar espaço local
           </Button>
-          <span className="text-caption text-faint max-w-[52ch]">
-            Remove do disco apenas o que o servidor já confirmou nesta sessão; o valor segue
-            em memória. Apagar antes da confirmação trocaria &ldquo;só existe no navegador&rdquo; por
-            &ldquo;não existe em lugar nenhum&rdquo;.
-          </span>
         </div>
       </Card>
 
@@ -258,11 +242,6 @@ export function ArmazenamentoView() {
             "O arquivo traz apenas as chaves de dado de negócio. Preferência de tela e cache ficam de fora de propósito: restaurá-los sobrescreveria os ajustes da máquina onde a restauração acontece e reintroduziria dados vencidos.",
         }}>
         <span className="text-h3 text-ink">Backup e restauração</span>
-        <p className="m-0 text-caption text-faint max-w-[70ch]">
-          Um backup que nunca foi restaurado não é backup — é um arquivo. Por isso a
-          restauração informa quantos itens entraram, quanto tempo levou e o que foi
-          recusado.
-        </p>
 
         <div className="flex items-center gap-3 flex-wrap">
           <Button onClick={baixarBackup} leftIcon={<Icon name="arrow-down-to-line" size={15} />}>
@@ -311,10 +290,6 @@ export function ArmazenamentoView() {
         <Card padded={false}>
           <div className="px-5 py-3 border-b border-border-soft">
             <span className="text-label font-medium text-muted">Ainda só neste navegador</span>
-            <p className="m-0 mt-1 text-caption text-faint max-w-[70ch]">
-              Estes dados são de negócio e ainda não subiram. A migração para o servidor
-              acontece por etapas; até lá, evite limpar os dados do navegador nesta máquina.
-            </p>
           </div>
           {est.negocioLocal.map((k, i) => (
             <div key={k.chave} className={`flex items-center gap-3 px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
@@ -332,11 +307,6 @@ export function ArmazenamentoView() {
           <span className="text-label font-medium text-muted">Cache deste dispositivo</span>
           <span className="text-caption text-faint tabular-nums">{kb(bytesCache)}</span>
         </div>
-        <p className="m-0 text-caption text-faint max-w-[70ch]">
-          Respostas de consultas públicas copiadas para não repetir a chamada. Perdê-las
-          custa uma requisição, não trabalho — mas elas VENCEM, e a entrada vencida que
-          ninguém remove ocupa a mesma cota de que os dados de verdade precisam.
-        </p>
         <div className="flex flex-col gap-1">
           {CACHES_LOCAIS.map((c) => {
             const presente = est.caches.find((x) => x.chave === c.chave);
@@ -366,27 +336,17 @@ export function ArmazenamentoView() {
           >
             Expurgar cache vencido
           </Button>
-          <span className="text-caption text-faint">O expurgo também roda sozinho a cada sessão.</span>
         </div>
       </Card>
 
       <Card className="flex flex-col gap-2">
         <span className="text-label font-medium text-muted">Preferências deste dispositivo</span>
-        <p className="m-0 text-caption text-faint max-w-[70ch]">
-          Tema, largura do menu, widgets da Home e progresso dos tours continuam no
-          navegador de propósito: são ajustes de exibição, não dados. Perdê-los ao trocar
-          de máquina custa um reajuste de tela, não trabalho.
-          <span className="text-placeholder"> ({PREFERENCIAS_LOCAIS.length} chaves)</span>
-        </p>
+        <span className="text-caption text-faint tabular-nums">{PREFERENCIAS_LOCAIS.length} chaves</span>
       </Card>
 
       {est.naoClassificadas.length > 0 && (
         <Card className="flex flex-col gap-2">
           <span className="text-label font-medium text-muted">Ainda sem classificação</span>
-          <p className="m-0 text-caption text-faint max-w-[70ch]">
-            Chaves que não estão nem na lista de dados de negócio nem na de preferências.
-            Aparecem aqui para que a decisão seja tomada, e não esquecida.
-          </p>
           <span className="text-caption text-placeholder break-words">
             {est.naoClassificadas.map((k) => k.chave).join(", ")}
           </span>

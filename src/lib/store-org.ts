@@ -109,6 +109,9 @@ export const CHAVES_ORG = {
   // DEMONSTRAÇÃO (congeladas em produção — ver CHAVES_CONGELADAS).
   automacoes: "a4p_automacoes",
   automacaoEnvios: "a4p_automacao_envios",
+  // Os FLUXOS que o cliente monta na tela Automações (gatilho → dados → envio).
+  // Moram no servidor por `org_state` porque o disparo agendado lê daqui.
+  automacaoFluxos: "a4p_automacao_fluxos",
   regrasUso: "a4p_regras_uso",
   fdipMemory: "a4p_fdip_memory",
   iaMemory: "a4p_ia_memory",
@@ -218,8 +221,10 @@ export const CHAVES_DE_NEGOCIO: string[] = Object.values(CHAVES_ORG);
 export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_theme", "a4p_theme_draft", "a4p_modo", "a4p_tipo_conta",
   "a4p_sidebar_width", "a4p_home_widgets", "a4p_home_order", "a4p_home_painel_ordem", "a4p_home_period",
-  "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros", "a4p_designlab",
-  "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
+  "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros",
+  // O rascunho do editor do design system (Administração › Design system):
+  // trabalho em andamento de quem edita, que só vira sistema por um PR.
+  "a4p_ds_rascunho", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
   "a4p_anuncios_lidos", "a4p_sidebar_collapsed",
   // As prioridades que a pessoa marcou na caixa da IA e quantas vezes clicou
@@ -324,6 +329,7 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_logs_admin: "Logs administrativos",
   a4p_regua_envios: "Envios da régua de cobrança (antigo)",
   a4p_automacoes: "Automações de e-mail e WhatsApp",
+  a4p_automacao_fluxos: "Fluxos de automação montados pela empresa",
   a4p_automacao_envios: "Envios das automações",
   a4p_regras_uso: "Uso das regras de categorização",
   a4p_fdip_memory: "Aprendizado da importação",

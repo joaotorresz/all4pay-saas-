@@ -155,8 +155,7 @@ export function ModalBaixa({
 
                 <span className="text-caption text-muted leading-[1.5]">
                   Ao confirmar, o saldo da conta {ehSaida ? "cai" : "sobe"} e o título passa a
-                  {ehSaida ? " “pago”" : " “recebido”"}. A operação é idempotente: confirmar de novo não
-                  {ehSaida ? " paga" : " credita"} duas vezes.
+                  {ehSaida ? " “pago”" : " “recebido”"}.
                 </span>
 
                 {/* ⚠️ O histórico fica NO modal da baixa, e não numa tela à

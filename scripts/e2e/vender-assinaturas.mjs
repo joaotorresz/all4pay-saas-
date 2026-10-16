@@ -81,7 +81,7 @@ export default async function venderAssinaturas(navegador) {
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const tit = norm(await u.texto());
-  v.ok(tit.includes("R$1.200,00") && (anual.length === 0 || tit.includes("R$3.200,00")), "as faturas aparecem em Títulos a receber");
+  v.ok(tit.includes("R$ 1.200,00") && (anual.length === 0 || tit.includes("R$ 3.200,00")), "as faturas aparecem em Títulos a receber");
 
   const esperado = [...tri, ...anual].filter((f) => dentroDe180(f.venc)).reduce((a, f) => a + f.valor, 0);
   const fluxoDepois = await entradasProjetadas(u);
@@ -116,7 +116,7 @@ export default async function venderAssinaturas(navegador) {
   await u.ir("/contas-a-receber/titulos");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const tit2 = norm(await u.texto());
-  v.ok(!tit2.includes("R$1.200,00") && !tit2.includes("R$3.200,00"), "depois de pausar e cancelar, nenhuma fatura sobra em Títulos a receber");
+  v.ok(!tit2.includes("R$ 1.200,00") && !tit2.includes("R$ 3.200,00"), "depois de pausar e cancelar, nenhuma fatura sobra em Títulos a receber");
 
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));
   await u.ctx.close();

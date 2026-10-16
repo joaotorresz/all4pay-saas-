@@ -92,7 +92,6 @@ export function OrcamentosView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo="Planejamento financeiro por categoria e mês. O orçamento salvo pode ser comparado com o realizado no DRE e no DFC."
         acaoNova={{ label: "Novo orçamento", onClick: () => setEditando(novo()) }}
         exportar={{ nomeArquivo: "orcamentos", aba: "Orçamentos", linhas: linhasXLSX }}
       />
@@ -104,7 +103,7 @@ export function OrcamentosView() {
         vazio={
           <VazioRegistro
             texto={lista.length === 0
-              ? "Nenhum orçamento cadastrado para esta empresa. Crie o primeiro para comparar previsto e realizado nos relatórios."
+              ? "Nenhum orçamento cadastrado."
               : "Nenhum orçamento encontrado com essa busca."}
             acao={lista.length === 0 ? <Button variant="primary" onClick={() => setEditando(novo())}>Novo orçamento</Button> : undefined}
           />
@@ -213,12 +212,7 @@ function Editor({
             </Campo>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Campo
-                label="Regime" obrigatorio erro={erros.regime}
-                ajuda={o.regime === "competencia"
-                  ? "Compara com a DRE (o mês do fato — a competência, ou o vencimento quando ela falta)."
-                  : "Compara com o DFC (o caixa, pelo pagamento)."}
-              >
+              <Campo label="Regime" obrigatorio erro={erros.regime}>
                 <Select
                   value={o.regime}
                   onChange={(v) => set("regime", v as RegimeOrcamento)}
@@ -228,12 +222,7 @@ function Editor({
                   ]}
                 />
               </Campo>
-              <Campo
-                label="Formato" obrigatorio erro={erros.formato}
-                ajuda={o.formato === "detalhado"
-                  ? "Uma linha por categoria."
-                  : "Poucas linhas — os grandes blocos de receita e despesa."}
-              >
+              <Campo label="Formato" obrigatorio erro={erros.formato}>
                 <Select
                   value={o.formato}
                   onChange={(v) => set("formato", v as FormatoOrcamento)}
@@ -275,7 +264,7 @@ function Editor({
           </div>
         </Card>
         <p className="m-0 text-caption text-faint text-center">
-          Etapa 1 de 2 — preencha os dados iniciais. Ao salvar, o próximo passo abre a tabela de alocação mensal por categoria.
+          Etapa 1 de 2
         </p>
       </div>
     );
@@ -348,7 +337,6 @@ function Alocacao({
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo={`${o.nome || "Orçamento"} · ${fmtDia(o.periodo.de)} → ${fmtDia(o.periodo.ate)} · ${meses.length} ${meses.length === 1 ? "mês" : "meses"}`}
         exportar={{ nomeArquivo: `orcamento-${o.nome || "novo"}`, aba: "Alocação", linhas: linhasXLSX }}
       />
 
@@ -376,7 +364,7 @@ function Alocacao({
       {o.alocacoes.length === 0 ? (
         <Card>
           <VazioRegistro
-            texto="Nenhuma categoria alocada ainda. Comece puxando as categorias que a empresa já usa e depois preencha os meses."
+            texto="Nenhuma categoria alocada ainda."
             acao={<Button variant="primary" onClick={puxarDoRealizado}>Puxar categorias do realizado</Button>}
           />
         </Card>
@@ -470,8 +458,8 @@ function Alocacao({
         </div>
       </div>
       <p className="m-0 text-caption text-faint text-center">
-        Etapa 2 de 2 — alocação mensal por categoria. Depois de salvar, escolha este orçamento no DRE ou no DFC
-        para ver as colunas Orçado / Diferença / %.
+        Etapa 2 de 2
+
       </p>
     </div>
   );

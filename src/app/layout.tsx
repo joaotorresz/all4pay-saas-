@@ -11,10 +11,7 @@ import { Providers } from "./providers";
 // escala inteira (Light · Regular · Medium · SemiBold) e os valores usam
 // Roobert Mono, que é da mesma família e monoespaçada — as colunas continuam
 // alinhando.
-//
-// `boldonse` fica: é fonte de DISPLAY exclusiva do Laboratório de Design, que
-// só injeta CSS quando há estado salvo. Não pinta nada por padrão.
-import "@fontsource/boldonse";
+
 import "./globals.css";
 
 export const metadata: Metadata = {

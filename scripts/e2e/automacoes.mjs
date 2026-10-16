@@ -65,7 +65,7 @@ export default async function automacoes(navegador) {
   const saldoPrevia = ms ? (ms[1] ? -1 : 1) * brl(ms[2]) : NaN;
   v.ok(Number.isFinite(saldoPrevia) && Math.abs(Math.round(saldoPrevia) - Math.round(saldoHome)) <= 1,
     "a prévia do resumo traz o mesmo saldo da Visão geral", `prévia ${saldoPrevia} · Visão geral ${saldoHome}`);
-  v.ok(!/R\$\s*0,00/.test(pr) || /A (receber|pagar) hoje: R\$/.test(pr), "o resumo não imprime R$0,00 no lugar de 'nada vence hoje'");
+  v.ok(!/R\$\s*0,00/.test(pr) || /A (receber|pagar) hoje: R\$/.test(pr), "o resumo não imprime R$ 0,00 no lugar de 'nada vence hoje'");
 
   // A prévia do lembrete: toda conta listada existe nos títulos a pagar, com o
   // mesmo valor. ⚠️ A lista de títulos abre no MÊS corrente (`?mes=`): a conta

@@ -94,7 +94,13 @@ export interface RotaInventario {
  */
 export const INVENTARIO: RotaInventario[] = [
   { rota: "/", nome: "Visão geral", dono: "home", status: "canonica", criterio: "nucleo" },
-  { rota: "/admin", nome: "Dono da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin", nome: "Visão geral da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/clientes", nome: "Clientes e planos", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/maquininhas", nome: "Maquininhas da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/cobranca", nome: "Cobrança da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/design-system", nome: "Design system da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/acessos", nome: "Acessos da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/suporte", nome: "Suporte aos clientes", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/quattro-ai", nome: "Quattro AI", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
   { rota: "/aprovacoes", nome: "Aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
   { rota: "/central", nome: "Central financeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
@@ -165,6 +171,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/sales-invoices/tax-provisioning", nome: "Impostos e obrigações", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/empresas/nova", nome: "Nova empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/fluxo-caixa", nome: "Fluxo de caixa", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/automacoes", nome: "Automações", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
   { rota: "/investidores", nome: "Relatório ao investidor", dono: "inteligencia", status: "canonica", criterio: "travada" },
   { rota: "/lixeira", nome: "Lixeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica", criterio: "nucleo" },

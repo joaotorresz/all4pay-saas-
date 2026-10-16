@@ -184,22 +184,6 @@ function CardAlternante({
             {projecao.totalRealizado > 0 && <> — o resto já tem título lançado.</>}.
           </span>
         )}
-        <span className="block mt-1 text-faint">
-          {/* ⚠️ O card mede SÓ o que tem regra de recorrência cadastrada — não é
-              o total de contas a pagar do período. Sem esta linha ele seria
-              lido como "meu gasto do semestre", e a diferença para o total real
-              apareceria como um erro de cálculo que não existe. */}
-          Considera {projecao.regrasConsideradas === 1 ? "1 regra" : `${projecao.regrasConsideradas} regras`} de
-          recorrência{projecao.regrasSemPrazo > 0 && <> · {projecao.regrasSemPrazo} sem data de término</>}.
-        </span>
-        {projecao.regrasComValorDivergente > 0 && (
-          <span className="block mt-1">
-            {projecao.regrasComValorDivergente === 1
-              ? "1 recorrência usa"
-              : `${projecao.regrasComValorDivergente} recorrências usam`}{" "}
-            a última cobrança conhecida, e não o valor cadastrado.
-          </span>
-        )}
       </>
     ),
   } : null;
@@ -228,8 +212,7 @@ function CardAlternante({
       indisponivel: painel.custoFixoIndisponivel,
       detalhe: painel.custoFixoIndisponivel ? null : (
         <>
-          {painel.compromissosFixos === 1 ? "1 compromisso" : `${painel.compromissosFixos} compromissos`} que
-          se repetem com valor estável, observados nos últimos {JANELA_MESES} meses.
+          {painel.compromissosFixos === 1 ? "1 compromisso fixo" : `${painel.compromissosFixos} compromissos fixos`}
         </>
       ),
     },
@@ -391,17 +374,6 @@ function CardVelas({
           ))}
         </div>
       </div>
-
-      {/* ⚠️ A troca de janela TROCA A PERGUNTA, e a tela diz isso. O passado
-          mostra TODAS as contas a pagar, classificadas por espécie a partir do
-          padrão observado; o futuro mostra SÓ o que as regras de recorrência
-          projetam. Desenhá-los no mesmo eixo sem avisar faria a coluna de
-          setembro parecer uma queda de gasto, quando ela mede outra coisa. */}
-      {olhandoParaFrente && (
-        <p className="m-0 mt-2 text-caption text-muted">
-          À frente só entram as contas com regra de recorrência cadastrada — não é o total de contas a pagar.
-        </p>
-      )}
 
       {olhandoParaFrente ? (
         vazioFuturo ? (

@@ -37,7 +37,7 @@ export function InicioActions({ demo }: { demo: boolean }) {
               dado ao cabeçalho da empresa: importar é a casa da entrada em lote
               (`/upload`), e "Novo lançamento" abre o MESMO modal dos lançamentos
               — nenhum formulário novo. */}
-          <Link href="/upload" className="inline-flex items-center rounded-pill border border-[color:var(--a4p-borda-controle)] px-6 h-11 text-[14px] font-medium text-ink no-underline">
+          <Link href="/upload" className="inline-flex items-center rounded-pill bg-white px-6 h-11 text-[14px] font-medium text-ink no-underline">
             Importar extrato
           </Link>
           <Button pill onClick={() => window.dispatchEvent(new Event("a4p:open-nova-transacao"))}>

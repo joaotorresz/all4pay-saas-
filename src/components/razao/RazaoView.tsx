@@ -211,7 +211,6 @@ export function RazaoView() {
             <button onClick={limpar} className="text-caption text-muted hover:text-ink underline ml-auto">Limpar lançamentos próprios (demo)</button>
           )}
         </div>
-        <span className="text-caption text-faint">O razão é uma <b className="text-muted font-medium">projeção dos movimentos</b> (sempre em sincronia) + os lançamentos próprios do GL (manual, cronogramas, provisões, receita).</span>
         {msg && <span className="text-caption text-muted">{msg}</span>}
 
         {form && (
@@ -273,7 +272,7 @@ export function RazaoView() {
         ) : entries.length === 0 ? (
           <Card className="flex flex-col items-start gap-2">
             <span className="text-h3 font-medium text-ink">Razão vazio</span>
-            <span className="text-caption text-muted">Lance um movimento (Nova transação) ou importe dados — o razão projeta tudo automaticamente. Você também pode postar um lançamento manual aqui.</span>
+            <span className="text-caption text-muted">Nenhum lançamento no razão.</span>
           </Card>
         ) : (
           <>
@@ -414,16 +413,13 @@ function ConciliacaoCaixa({ entries }: { entries: RazaoLancamento[] }) {
         </div>
         <div className="flex flex-col gap-2 pt-1 border-t border-border-soft">
           {rec.parcelas.map((p) => (
-            <div key={p.id} className="flex flex-col gap-[2px]" data-parcela={p.id}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[15px] text-ink">{p.rotulo}</span>
-                <span className="tabular-nums text-ink shrink-0"><BRL value={p.valor} /></span>
-              </div>
-              <span className="text-caption text-faint max-w-[70ch]">{p.explicacao}</span>
+            <div key={p.id} className="flex items-baseline justify-between gap-3" data-parcela={p.id}>
+              <span className="text-[15px] text-ink">{p.rotulo}</span>
+              <span className="tabular-nums text-ink shrink-0"><BRL value={p.valor} /></span>
             </div>
           ))}
           <span className="text-caption text-faint max-w-[70ch]">
-            Fora da conta: <span className="tabular-nums"><BRL value={rec.previstosForaDoRazao} /></span> em títulos ainda em aberto não estão nem no razão nem no extrato — existem no resultado por competência.
+            Fora da conta: <span className="tabular-nums"><BRL value={rec.previstosForaDoRazao} /></span> em títulos em aberto
           </span>
         </div>
         {/* A palavra "conciliado" só aparece quando a conta fecha contra uma

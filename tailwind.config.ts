@@ -1,10 +1,17 @@
 import type { Config } from "tailwindcss";
+// ⚠️ As escalas nomeadas (tipo, raio, borda de campo, botão) saem da FONTE
+// ÚNICA do design system. Editar um valor aqui em vez de lá reprova a guarda
+// `npm run tokens`. Ver o bloco `escalas` de src/design/tokens.json.
+import tokens from "./src/design/tokens.json";
+const { escalas } = tokens;
 
 /**
  * ============================================================
  *  Quattro Design System — Tailwind token extraction
  * ------------------------------------------------------------
- *  This is the CANONICAL source of truth for the visual layer.
+ *  ⚠️ A FONTE dos valores é src/design/tokens.json (cores e medidas viram
+ *  variáveis CSS geradas no globals.css; as escalas abaixo são lidas de lá).
+ *  Este arquivo só LIGA os nomes do Tailwind a essas variáveis e escalas.
  *  Tokens were extracted from the "Round Treasury / all4pay"
  *  design system (colors pixel-sampled from production, type
  *  scale / radii / shadows / spacing calibrated from the spec).
@@ -85,7 +92,7 @@ const config: Config = {
         // numeral tabular, cada linha de uma coluna de dinheiro começaria num
         // ponto diferente. É o que separa ela das outras candidatas.
         // Quattro: Centra No.2 Black, CAIXA ALTA nos títulos (tem `tnum`).
-        display: ['"Centra No2"', '"Archivo"', '"Roobert"', "sans-serif"],
+        display: ['"Roobert"', "-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "sans-serif"],
         sans: [
           '"Roobert"',
           '"Roobert Variable"',
@@ -103,20 +110,7 @@ const config: Config = {
           "monospace",
         ],
       },
-      fontSize: {
-        // Roc Grotesk Regular: peso 400, tracking -0.01em, line-height 22px na
-        // escala de texto; nos tamanhos grandes (heróis de uma linha) o lh 22px
-        // é menor que o glifo, então usamos leading-none (1) para não recortar.
-        // Escala de tipos Visor (DM Sans): número-herói ~36 · título de card ~18.
-        display: ["62px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h1: ["44px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        "value-lg": ["36px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h2: ["30px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
-        h3: ["18px", { lineHeight: "1.1", letterSpacing: "-0.01em" }],
-        body: ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
-        label: ["15px", { lineHeight: "21px", letterSpacing: "-0.01em" }],
-        caption: ["13px", { lineHeight: "19px", letterSpacing: "-0.01em" }],
-      },
+      fontSize: escalas.fontSize as unknown as NonNullable<Config["theme"]>["fontSize"],
       fontWeight: {
         // Onest — múltiplos pesos (Regular · Medium · SemiBold).
         regular: "400",
@@ -149,30 +143,12 @@ const config: Config = {
         "24": "96px",
         "26": "104px",
         "28": "112px",
-        sidebar: "240px",
-        // Padding do botão do guia Quattro (15px 30px).
-        "botao-y": "13px",
-        "botao-x": "36px",
+        ...escalas.spacingNomeado, // sidebar · botao-y · botao-x
       },
-      minWidth: {
-        botao: "104px", // largura mínima do botão (canvas Quattro ERP)
-      },
-      borderRadius: {
-        // ⚠️ A CURVA PERTENCE AO CARD, NÃO AO CONTROLE. O card leva o raio
-        // grande e constante da marca; o botão é reto (`rounded-none`), e
-        // `pill` fica para os chips, onde a forma redonda É a função.
-        // Guia Quattro: botão é PÍLULA sempre; card 26; bloco 32; campo 14;
-        // modal 24.
-        card: "26px", // cards, panels, tooltip — grande e constante
-        bloco: "32px", // blocos grandes e formulários
-        modal: "24px",
-        md: "14px", // campo de formulário
-        sm: "8px",
-        pill: "999px", // chips, toggles, avatares
-      },
-      borderWidth: {
-        campo: "1.5px", // borda do campo de formulário (guia Quattro)
-      },
+      minWidth: escalas.minWidth, // largura mínima do botão (canvas Quattro ERP)
+      // ⚠️ A CURVA PERTENCE AO CARD (card 26 · bloco 32 · campo 14 · modal 24).
+      borderRadius: escalas.borderRadius,
+      borderWidth: escalas.borderWidth, // borda do campo de formulário (guia Quattro)
       boxShadow: {
         // Aurora glass — sombras var-backed (globals.css define claro/escuro):
         // fio luminoso 1px (inset) + ambiente suave. hero-glow é marketing.

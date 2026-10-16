@@ -26,7 +26,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Sector, Tooltip, Cell,
 } from "recharts";
 import type { PieSectorDataItem } from "recharts/types/polar/Pie";
-import { Card, BRL, Icon, Select, DateField } from "@/components/ui";
+import { Card, BRL, Icon, Select, DateField, AneisConcentricos } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import type { Periodo, TipoPeriodo } from "@/core/contas-pagar";
@@ -189,7 +189,7 @@ export function CardExpansivel({
    * ⚠️ **HIERARQUIA POR MÉTRICA ACIONÁVEL — A4P-034.** Os três cards tinham o
    * mesmo peso e "Total geral pago no período" vinha PRIMEIRO, que na ordem de
    * leitura é o destaque. O que já foi pago não pede ação nenhuma; vencidas e a
-   * vencer pedem. Com R$1,54 pago e R$38.626,59 vencidos, a tela dava o lugar
+   * vencer pedem. Com R$ 1,54 pago e R$ 38.626,59 vencidos, a tela dava o lugar
    * nobre ao número que não muda nada.
    *
    * `secundario` não esconde: reduz o corpo do valor. Esconder trocaria um
@@ -296,12 +296,18 @@ function SetorAtivo(props: PieSectorDataItem) {
 }
 
 export function DistribuicaoDonut({
-  titulo, fatias, vazioTexto, info,
+  titulo, fatias, vazioTexto, info, variante = "rosca",
 }: {
   titulo: string;
   fatias: FatiaDeSituacao[];
   vazioTexto: string;
   info: { titulo: string; oQue: string; comoCalcula: string };
+  /**
+   * `aneis`: o modelo "Histórico de transferências 3" que o dono escolheu
+   * para o lado de RECEBER nas trocas do canvas (15/10/2026) — um anel por
+   * situação, do maior para o menor. O de pagar segue na rosca.
+   */
+  variante?: "rosca" | "aneis";
 }) {
   // ⚠️ Fatia de valor zero SAI do desenho. O Recharts a renderiza como um traço
   // de espessura nula que o mouse ainda alcança — dá para "selecionar" uma
@@ -318,6 +324,26 @@ export function DistribuicaoDonut({
   const resumo = fatias
     .map((d) => `${d.rotulo}: ${formatBRL(d.valor)} (${pct(d.fracao)})`)
     .join(" · ");
+
+  if (variante === "aneis") {
+    const ordem = [...dados].sort((a, b) => b.valor - a.valor);
+    const quantidade = fatias.reduce((n, d) => n + d.quantidade, 0);
+    return (
+      <Card className="flex flex-col gap-3" info={info}>
+        <span className="text-[13px] font-medium pr-8" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
+        {vazio ? (
+          <p className="m-0 text-body text-muted py-10 text-center">{vazioTexto}</p>
+        ) : (
+          <AneisConcentricos
+            aneis={ordem.map((d) => ({ chave: d.chave, nome: d.rotulo, valor: d.valor, fracao: d.fracao, cor: d.cor, detalhe: <BRL value={d.valor} /> }))}
+            total={quantidade}
+            rotuloTotal={quantidade === 1 ? "Título no período" : "Títulos no período"}
+            ariaLabel={`${titulo}. ${resumo}`}
+          />
+        )}
+      </Card>
+    );
+  }
 
   return (
     <Card className="flex flex-col gap-3" info={info}>

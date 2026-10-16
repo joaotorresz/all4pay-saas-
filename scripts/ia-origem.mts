@@ -89,10 +89,10 @@ function conferir(n: NumeroResposta, porId: Map<string, RiskMovement>): string |
   const porId = new Map(input.movements.map((m) => [m.id, m]));
   const [a, b] = input.movements;
   const plantados: [string, NumeroResposta, RegExp][] = [
-    ["sem origem", { label: "Gasto", valor: "R$100,00" }, /sem origem/],
+    ["sem origem", { label: "Gasto", valor: "R$ 100,00" }, /sem origem/],
     ["lista errada", { label: "Gasto", valor: `R$${Math.abs(a.amount).toFixed(2).replace(".", ",")}`, origem: { ...TELAS.extrato, movimentos: [a.id, b.id], soma: true } }, /a gaveta soma/],
     ["contagem errada", { label: "Títulos", valor: "3", origem: { ...TELAS.receber, movimentos: [a.id], soma: true } }, /lançamento\(s\) e o número diz/],
-    ["id inexistente", { label: "Gasto", valor: "R$1,00", origem: { ...TELAS.extrato, movimentos: ["nao-existe"], soma: true } }, /não existe/],
+    ["id inexistente", { label: "Gasto", valor: "R$ 1,00", origem: { ...TELAS.extrato, movimentos: ["nao-existe"], soma: true } }, /não existe/],
   ];
   for (const [nome, n, re] of plantados) {
     const d = conferir(n, porId);
@@ -152,7 +152,7 @@ for (const [nomeConj, base] of [["corpus", input], ["vencidos+transferência", i
 /* ── 5. o número que vem do Claude perde a origem que o modelo escrevesse ── */
 {
   const de = numerosDeFora([
-    { label: "Saldo", valor: "R$10,00", origem: { rota: "https://golpe.example", tela: "x", movimentos: ["a"], soma: true } },
+    { label: "Saldo", valor: "R$ 10,00", origem: { rota: "https://golpe.example", tela: "x", movimentos: ["a"], soma: true } },
     { label: "Qualquer", valor: "1" },
     "lixo",
   ]);

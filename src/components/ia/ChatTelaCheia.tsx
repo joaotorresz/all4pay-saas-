@@ -189,15 +189,14 @@ export function ChatTelaCheia({
       style={{ background: "var(--color-surface-1)" }}
     >
       <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
-        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[92px] h-[25px]" />
+        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
         <div className="flex items-center gap-2">
           {!ajuste && <button
             type="button"
             onClick={() => setHistorico((h) => !h)}
             aria-expanded={historico}
             aria-controls="a4p-chat-conversas"
-            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink"
-            style={{ background: "var(--color-white)" }}
+            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula"
           >
             <Icon name="menu" size={16} strokeWidth={1.5} />
             Conversas
@@ -205,8 +204,7 @@ export function ChatTelaCheia({
           <button
             type="button"
             onClick={fechar}
-            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink"
-            style={{ background: "var(--color-white)" }}
+            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula"
           >
             <Icon name="x" size={16} strokeWidth={1.5} />
             Fechar chat
@@ -299,7 +297,7 @@ export function ChatTelaCheia({
               </React.Fragment>
             ))}
             {chat.pergunta && <Pergunta texto={chat.pergunta} />}
-            {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start w-full max-w-[420px]" />}
+            {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start" />}
 
             {chips.length > 0 && (
               <section className="flex flex-col gap-4 pt-6">
@@ -315,8 +313,7 @@ export function ChatTelaCheia({
                       aria-label={s.texto}
                       data-sugestao={s.id}
                       data-ia="chip"
-                      className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] text-ink disabled:opacity-50"
-                      style={{ background: "var(--color-white)" }}
+                      className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula disabled:opacity-50"
                     >
                       <Icon name={s.icone} size={16} strokeWidth={1.5} />
                       {s.curto}
@@ -364,8 +361,7 @@ function Pergunta({ texto }: { texto: string }) {
   return (
     <div
       data-ia="pergunta"
-      className="a4p-entra self-end max-w-[80%] px-5 py-3 rounded-[24px] text-[15px] text-ink"
-      style={{ background: "var(--color-white)" }}
+      className="a4p-entra a4p-bolha-usuario self-end max-w-[80%] px-5 py-3 rounded-[24px] text-[15px]"
     >
       {texto}
     </div>
@@ -445,8 +441,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
                         <button
                           type="button"
                           onClick={() => desfazer(t)}
-                          className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] text-ink"
-                          style={{ background: "var(--color-white)" }}
+                          className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula"
                         >
                           <Icon name="rotate-ccw" size={15} strokeWidth={1.5} />
                           Desfazer
@@ -468,8 +463,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
                   onClick={() => void pedir(ex)}
                   disabled={pensando}
                   data-ajuste="exemplo"
-                  className="inline-flex items-center h-12 px-5 rounded-pill text-[15px] text-ink disabled:opacity-50"
-                  style={{ background: "var(--color-white)" }}
+                  className="inline-flex items-center h-12 px-5 rounded-pill text-[15px] a4p-pilula disabled:opacity-50"
                 >
                   {ex}
                 </button>

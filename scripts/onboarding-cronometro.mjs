@@ -170,22 +170,35 @@ await fase("0. Entrar pelo cadastro de três campos",
   async () => {
     await page.goto(`${BASE}/criar-conta`, { waitUntil: "networkidle", timeout: 60000 });
     await abortarSeAmbienteQuebrou(page, "abrir o cadastro");
-    const campos = await page.evaluate(() => {
-      const dentro = document.querySelector("main") ?? document.body;
-      return [...dentro.querySelectorAll("input")]
-        .filter((i) => !["hidden", "submit", "button"].includes(i.type))
-        .map((i) => i.type);
-    });
-    if (campos.length === 0) { falhas++; return "REPROVA: o cadastro não tem campo nenhum"; }
-    if (campos.length > 3) {
-      falhas++;
-      return `REPROVA: o cadastro voltou a ter ${campos.length} campos — a decisão é TRÊS`;
+    /* (16/10/2026) O cadastro virou CONVERSA com a Quattro AI: as três
+       perguntas vêm uma de cada vez, num campo só que troca de tipo. O que se
+       reprova é o mesmo — mais de três perguntas, mais de um campo por vez, e
+       a senha fora de um campo de senha. A última resposta NÃO é enviada (não
+       há Supabase atrás do build de demonstração). */
+    const RESPOSTAS = { "Nome da empresa": "Padaria Cronômetro", "E-mail": "cronometro@exemplo.com.br", Senha: "senha-forte-1" };
+    const tipos = [];
+    for (let i = 0; i < 4; i++) {
+      const campo = page.locator("form input:not([hidden])").first();
+      if (!(await campo.count())) break;
+      await campo.waitFor({ state: "visible", timeout: 15000 });
+      await page.waitForFunction(() => !document.querySelector("form input:not([hidden])")?.disabled, null, { timeout: 15000 });
+      const visiveis = await page.evaluate(() => [...document.querySelectorAll("input")]
+        .filter((x) => !x.hidden && !["hidden", "submit", "button"].includes(x.type)).length);
+      if (visiveis > 1) { falhas++; return `REPROVA: a conversa mostra ${visiveis} campos ao mesmo tempo — a regra é UMA pergunta por vez`; }
+      const rotulo = await campo.getAttribute("aria-label");
+      tipos.push(await campo.getAttribute("type"));
+      if (!(rotulo in RESPOSTAS)) { falhas++; return `REPROVA: pergunta inesperada no cadastro ("${rotulo}") — a decisão é TRÊS`; }
+      await campo.fill(RESPOSTAS[rotulo]);
+      if (rotulo === "Senha") break;
+      await campo.press("Enter");
+      await page.waitForFunction((r) => document.querySelector("form input:not([hidden])")?.getAttribute("aria-label") !== r, rotulo, { timeout: 15000 });
     }
+    if (tipos.length === 0) { falhas++; return "REPROVA: o cadastro não tem campo nenhum"; }
+    if (tipos.length > 3) { falhas++; return `REPROVA: o cadastro voltou a ter ${tipos.length} perguntas — a decisão é TRÊS`; }
     /* ⚠️ E a senha tem de ser senha: um `type="text"` aqui expõe o que a pessoa
-       digita na frente de quem estiver ao lado, e passa despercebido porque a
-       tela continua funcionando. */
-    if (!campos.includes("password")) { falhas++; return "REPROVA: a senha não é campo de senha"; }
-    return `${campos.length} campos (${campos.join(", ")}) · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
+       digita na frente de quem estiver ao lado. */
+    if (!tipos.includes("password")) { falhas++; return "REPROVA: a senha não é campo de senha"; }
+    return `${tipos.length} perguntas, uma por vez (${tipos.join(", ")}) · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
   });
 
 /* ─── 1. CRIAR A EMPRESA + DECLARAR O REGIME ───────────────────────────────
