@@ -19,6 +19,7 @@ import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
 import { RAIO_DIREITA } from "@/lib/grafico";
+import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -73,54 +74,8 @@ export interface Turno {
   grafico?: GraficoResposta;
 }
 
-/* ============================== MARCA ============================== */
-
-/**
- * O "4" da marca — o raio do wordmark Quattro, vetorizado do próprio
- * `public/all4pay-dark.png`; o mesmo path vive em `public/all4pay-4.svg`.
- */
-export const PATH_4 = "M39.3 0L64.32 0.29L34.06 53.95L61.56 54.61L74.5 31.49L98.95 31.97L60.99 99.81L36.06 100L53.38 68.98L1.05 68.6Z";
-
-export const GRAD_MARCA = "var(--gradient-marca)";
-/** Faixa larga do mesmo degradê + `a4p-onda` = a onda entre as cores. */
-export const GRAD_ONDA = "var(--gradient-marca-onda)";
-
-/** O "4" em degradê lime→verde (tile do FAB). Id único por instância. */
-export function Marca4({ size = 18 }: { size?: number }) {
-  const id = React.useId();
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden className="shrink-0">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--color-lime)" />
-          <stop offset="1" stopColor="var(--a4p-cat-3)" />
-        </linearGradient>
-      </defs>
-      <path fill={`url(#${id})`} d={PATH_4} />
-    </svg>
-  );
-}
-
-/**
- * A logo da IA — o MESMO "4" da marca girado 90°, em branco sobre o degradê
- * lima. É a marca que identifica o assistente (cabeçalho, estado vazio,
- * cada análise).
- */
-export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: number }) {
-  return (
-    <span
-      className="inline-flex items-center justify-center shrink-0"
-      style={{ width: size, height: size, borderRadius: radius, backgroundImage: GRAD_MARCA }}
-      aria-hidden
-    >
-      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 100 100">
-        <g transform="rotate(90 50 50)">
-          <path fill="var(--color-white)" d={PATH_4} />
-        </g>
-      </svg>
-    </span>
-  );
-}
+/* A marca da IA mora em `./marca` (sem Recharts: a abertura de conta também a usa). */
+export { PATH_4, GRAD_MARCA, GRAD_ONDA, Marca4, MarcaIA } from "./marca";
 
 /* ============================= GRÁFICO ============================= */
 
@@ -199,23 +154,13 @@ export const RITMO = [560, 640, 540, 400];
 export const espera = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
- * O "digitando" da IA: três pontos que pulam em sequência enquanto a análise
- * roda (decisão do dono, 15/10/2026 — saiu a lista de etapas com barra). O
- * ritmo de `RITMO` continua valendo; só a encenação mudou. `etapa` segue no
- * rótulo acessível, para quem usa leitor de tela saber o que está acontecendo.
+ * O "digitando" da IA: a marca respira, três pontos pulam e o nome da etapa
+ * corrente passa com um brilho (`DigitandoIA`, a MESMA peça de toda conversa
+ * da Quattro AI). A lista de etapas com barra saiu em 15/10/2026; o ritmo de
+ * `RITMO` continua valendo.
  */
 export function EtapasAnalise({ etapa, className = "" }: { etapa: number; className?: string }) {
-  return (
-    <div
-      role="status"
-      aria-label={`${ETAPAS[etapa] ?? "Analisando"}…`}
-      className={`a4p-entra a4p-digitando inline-flex w-fit items-center gap-[6px] rounded-card rounded-bl-sm bg-surface-1 px-4 py-[14px] ${className}`}
-    >
-      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
-      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
-      <span className="block w-[7px] h-[7px] rounded-pill bg-muted" />
-    </div>
-  );
+  return <DigitandoIA rotulo={ETAPAS[etapa] ?? "Analisando"} className={className} />;
 }
 
 /* =========================== BOLHA DE RESPOSTA =========================== */
@@ -227,9 +172,15 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
  * precisa fazer nada.
  */
 export function BolhaResposta({
-  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha",
+  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha", animar = false,
 }: {
   t: Turno;
+  /**
+   * Verdadeiro só na resposta que ACABOU de chegar: o texto surge palavra por
+   * palavra e o resto (gráfico, números, atalhos) entra depois dele. Uma
+   * conversa reaberta do histórico aparece inteira.
+   */
+  animar?: boolean;
   /**
    * "bolha" = o balão do painel e da página; "aberta" = o chat em tela cheia
    * da Home: texto solto na coluna e o gráfico e os números em CARTÕES, como
@@ -247,7 +198,11 @@ export function BolhaResposta({
     <div data-ia="resposta" className={aberta
       ? "self-stretch flex flex-col gap-4"
       : "self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2"}>
-      <p className={`m-0 text-ink whitespace-pre-wrap ${aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"}`}>{t.resposta}</p>
+      <p className={`m-0 text-ink whitespace-pre-wrap ${aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"}`}><TextoRevelado texto={t.resposta ?? ""} animar={animar} /></p>
+      <div
+        className={`flex flex-col ${aberta ? "gap-4" : "gap-2"} ${animar ? "a4p-entra" : ""}`}
+        style={animar ? ({ "--a4p-atraso": `${duracaoRevelar(t.resposta ?? "") - 200}ms` } as React.CSSProperties) : undefined}
+      >
       {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}
@@ -302,6 +257,7 @@ export function BolhaResposta({
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { glossarioPublicado, REGRAS_DE_FORMATO } from "@/core/glossario";
 import { METODOLOGIAS, METODOLOGIA_VERSION } from "@/core/metodologia";
 import { pctDeInteiro } from "@/lib/format";
 import { JornadaView } from "@/components/comece/Jornada";
+import { DigitandoIA, TextoRevelado } from "@/components/ia/conversa";
 
 const agora = () => new Date().toISOString();
 const hojeISO = () => new Date().toISOString().slice(0, 10);
@@ -114,6 +115,11 @@ function ChatAjuda() {
   const [texto, setTexto] = React.useState("");
   const [abrindo, setAbrindo] = React.useState(false);
   const fim = React.useRef<HTMLDivElement>(null);
+  // A resposta é gravada na hora (nada se perde se a pessoa sair), mas na TELA
+  // ela espera o "digitando" e surge palavra por palavra. Só a desta sessão:
+  // a conversa reaberta aparece inteira.
+  const [respondendo, setRespondendo] = React.useState<string | null>(null);
+  const [revelar, setRevelar] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const carregar = () => { setMsgs(lerConversa()); setChamados(listarChamados()); };
@@ -156,6 +162,12 @@ function ChatAjuda() {
     const novas = salvarConversa([...msgs, doUsuario, resposta]);
     setMsgs(novas);
     setTexto("");
+    setRevelar(resposta.id);
+    const semMovimento = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (!semMovimento) {
+      setRespondendo(resposta.id);
+      window.setTimeout(() => setRespondendo((id) => (id === resposta.id ? null : id)), 700 + Math.min(resposta.texto.length * 3, 500));
+    }
     if (encontrados.length > 0) {
       toast(`${encontrados.length} dado sensível removido antes de gravar.`);
     }
@@ -222,10 +234,12 @@ function ChatAjuda() {
             </div>
           ) : (
             <div className="flex flex-col gap-3 max-h-[440px] overflow-y-auto">
-              {msgs.map((m) => (
-                <div key={m.id} className={m.autor === "usuario" ? "self-end max-w-[80%]" : "self-start max-w-[80%]"}>
+              {msgs.map((m) => m.id === respondendo ? (
+                <DigitandoIA key={m.id} className="self-start" />
+              ) : (
+                <div key={m.id} className={`${m.autor === "usuario" ? "self-end" : "self-start"} max-w-[80%] ${m.id === revelar ? "a4p-entra" : ""}`}>
                   <div className={`rounded-md px-4 py-3 ${m.autor === "usuario" ? "bg-ink text-white" : "bg-surface-2 text-ink"}`}>
-                    <span className="text-label">{m.texto}</span>
+                    <span className="text-label">{m.autor === "ajuda" ? <TextoRevelado texto={m.texto} animar={m.id === revelar} /> : m.texto}</span>
                   </div>
                   {m.redigidos ? (
                     <span className="block mt-1 text-caption text-warning">
