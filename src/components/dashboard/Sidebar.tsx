@@ -214,9 +214,9 @@ export function Sidebar() {
               </>
             );
             const classe = cn(
-              "flex items-center gap-[15px] min-h-[44px] rounded-[12px] text-[14px] text-ink transition-colors",
+              "flex items-center gap-[15px] min-h-[44px] rounded-[12px] text-[15px] font-semibold text-ink transition-colors",
               col ? "justify-center px-0" : "px-3",
-              marcado ? "bg-lime text-on-lime font-medium" : "hover:bg-surface-2/60",
+              marcado ? "bg-lime text-on-lime" : "hover:bg-surface-2/60",
             );
             return (
               <div key={s.id} className="flex flex-col">
@@ -243,13 +243,13 @@ export function Sidebar() {
               aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}${temDireito ? "" : " — não incluso no plano"}`}
               onClick={() => { if (!setPro(pro ? "simples" : "pro")) router.push("/planos?de=modo-pro"); }}
               title={!temDireito ? "Modo Pro — não incluso no plano desta empresa. Ver planos." : pro ? "Modo Pro ativo" : "Modo Pro"}
-              className={cn("flex items-center gap-[10px] min-h-[44px] rounded-[12px] text-[14px] text-ink hover:bg-surface-2/60", col ? "justify-center px-0" : "px-3")}
+              className={cn("flex items-center gap-[10px] min-h-[44px] rounded-[12px] text-[15px] font-semibold text-ink hover:bg-surface-2/60", col ? "justify-center px-0" : "px-3")}
             >
               <Icon name="sparkles" size={18} color="currentColor" className="shrink-0" />
               {!col && (
                 <>
                   <span className="flex-1 text-left">Modo Pro</span>
-                  <span className="text-[11px] text-muted">{!temDireito ? "plano" : pro ? "on" : "off"}</span>
+                  <span className="text-[12px] text-muted">{!temDireito ? "plano" : pro ? "on" : "off"}</span>
                 </>
               )}
             </button>
@@ -268,7 +268,7 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
       {itens.map((it, i) => {
         const on = i === iAtivo;
         const classe = cn(
-          "flex items-center gap-2 min-h-[36px] px-2 rounded-[10px] text-[13px] text-ink transition-colors",
+          "flex items-center gap-2 min-h-[36px] px-2 rounded-[10px] text-[14px] text-ink transition-colors",
           on ? "font-medium bg-surface-1" : "hover:bg-surface-2/60",
         );
         const rotulo = (
