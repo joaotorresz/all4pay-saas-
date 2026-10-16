@@ -25,7 +25,6 @@ import {
   filtrarLogs, periodoForaDaJanela, statusExportacao, filtrarExportacoes,
   expiraEm, diasEntre, identidadeDoCadastro, resumoDeMudanca,
   PERFIS, ACOES_LOG, ORIGENS_LOG, TIPOS_ENTIDADE, JANELA_LOGS_DIAS,
-  LIMITE_PDF_LINHAS, LIMITE_XLSX_LINHAS, DIAS_RETENCAO_EXPORT,
   type PerfilUsuario, type UsuarioEmpresa, type RegistroLog, type FiltroLogs,
   type Exportacao, type FormatoExport,
 } from "@/core/administracao";
@@ -169,8 +168,6 @@ export function AssinaturaView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="m-0 text-label text-muted">Plano atual, empresa e o que está conectado.</p>
-
       <Card>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1">
@@ -196,10 +193,6 @@ export function AssinaturaView() {
               ) : <span className="text-label text-muted">Não informado</span>}
             </Dado>
           </div>
-          <p className="m-0 text-caption text-faint max-w-[84ch]">
-            Upgrade de plano, faturas históricas e cancelamento seguem no fluxo de cobrança —
-            os dados acima são lidos da empresa ativa e ficam em sincronia.
-          </p>
         </div>
       </Card>
 
@@ -243,20 +236,14 @@ export function AssinaturaView() {
               <Icon name="credit-card" size={16} color="var(--color-text-secondary)" />
               Contas bancárias
             </span>
-            <span className="text-caption text-faint">Open Finance e status de conciliação por conta</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Numero rotulo="Contas cadastradas" n={panorama.contasCadastradas} />
             <Numero rotulo="Em Open Finance" texto={`${panorama.contasConectadas}/${panorama.contasCadastradas}`} />
             <Numero rotulo="Elegíveis sem conexão" n={panorama.elegiveisSemConexao} />
           </div>
-          {panorama.contasCadastradas === 0 ? (
+          {panorama.contasCadastradas === 0 && (
             <p className="m-0 py-6 text-center text-label text-muted">Nenhuma conta bancária cadastrada.</p>
-          ) : panorama.elegiveisSemConexao > 0 && (
-            <p className="m-0 text-caption text-faint">
-              {panorama.elegiveisSemConexao} conta(s) têm conector disponível e ainda não foram
-              conectadas — enquanto isso, o extrato delas entra à mão.
-            </p>
           )}
         </div>
       </Card>
@@ -269,7 +256,6 @@ export function AssinaturaView() {
                 <Icon name="receipt" size={16} color="var(--color-text-secondary)" />
                 Notas fiscais
               </span>
-              <span className="text-caption text-faint">Recebimento e emissão automática</span>
             </div>
             <LinhaIntegracao
               titulo="Receber NFs automaticamente" sub="Busca as NFs recebidas na SEFAZ"
@@ -288,7 +274,6 @@ export function AssinaturaView() {
                 <Icon name="link" size={16} color="var(--color-text-secondary)" />
                 Plataformas de vendas
               </span>
-              <span className="text-caption text-faint">Produtos por plataforma e configuração de NF automática</span>
             </div>
             {panorama.plataformasConectadas === 0 ? (
               <div className="flex flex-col items-center gap-2 py-6 text-center">
@@ -381,8 +366,7 @@ export function UsuariosView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Usuários com acesso a esta empresa</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="primary" onClick={() => { setErro(null); setConvite(true); }}>
             <Icon name="plus" size={15} color="currentColor" />
@@ -470,11 +454,6 @@ export function UsuariosView() {
         </Card>
       )}
 
-      <p className="m-0 text-caption text-faint max-w-[84ch]">
-        O último administrador não pode ser removido nem rebaixado: a organização ficaria sem
-        quem convida outro, e nenhuma tela conseguiria desfazer — desfazer exige justamente o
-        papel que acabou de sumir.
-      </p>
       {node}
     </div>
   );
@@ -587,17 +566,12 @@ export function LogsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Histórico de alterações realizadas pelos usuários da empresa.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="outline" disabled={lista.length === 0} onClick={() => baixarXLSX("logs", [{ nome: "Logs", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
           Exportar XLSX
         </Button>
       </div>
-
-      <Card>
-        <p className="m-0 text-label text-muted">Logs disponíveis pelos últimos {JANELA_LOGS_DIAS} dias.</p>
-      </Card>
 
       <Card>
         <div className="flex flex-col gap-4">
@@ -637,9 +611,7 @@ export function LogsView() {
           <div className="flex items-start gap-3">
             <Icon name="triangle-alert" size={17} color="var(--color-warning)" />
             <span className="text-caption text-muted max-w-[86ch]">
-              O período pedido começa antes da janela de retenção de {JANELA_LOGS_DIAS} dias. O que
-              está fora dela foi descartado — a lista abaixo não significa que nada aconteceu
-              naquele intervalo, e é numa auditoria que a diferença entre as duas frases importa.
+              O período pedido começa antes da janela de retenção de {JANELA_LOGS_DIAS} dias.
             </span>
           </div>
         </Card>
@@ -696,35 +668,12 @@ export function RelatoriosExportadosView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Encontre e baixe novamente as suas exportações recentes.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="ghost" onClick={() => { setLista(listarExportacoes()); toast("Lista recarregada."); }}>
           <Icon name="rotate-ccw" size={15} color="currentColor" />
           Recarregar
         </Button>
       </div>
-
-      <Card>
-        <div className="flex items-start gap-3">
-          <Icon name="info" size={17} color="var(--color-text-secondary)" />
-          <div className="flex flex-col gap-2 text-caption text-muted max-w-[92ch]">
-            <span>
-              Ficam registradas aqui as exportações de <strong>Contas a pagar</strong> e{" "}
-              <strong>Contas a receber</strong> processadas em segundo plano: PDF com mais de{" "}
-              <strong className="tabular-nums">{LIMITE_PDF_LINHAS}</strong> linhas e XLSX com mais de{" "}
-              <strong className="tabular-nums">{LIMITE_XLSX_LINHAS.toLocaleString("pt-BR")}</strong> linhas.
-            </span>
-            <span>
-              O registro fica aqui por{" "}
-              <strong className="tabular-nums">{DIAS_RETENCAO_EXPORT} dias</strong>; o arquivo em si é
-              gerado de novo na tela de origem, com os filtros do momento. Exportações
-              menores baixam na hora, direto da tela de origem, e não aparecem nesta lista —
-              registrar todas transformaria a fila num log onde o relatório que você está
-              esperando se perderia.
-            </span>
-          </div>
-        </div>
-      </Card>
 
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

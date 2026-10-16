@@ -29,7 +29,6 @@ import {
   moverTituloAction, lancarTituloAction, aprovadoresWhatsappAction, pedirAprovacaoWhatsappAction,
   type AprovadorWhatsapp, type ResultadoPedidoWhatsapp,
 } from "@/app/central/acoes";
-import { isDemo } from "@/lib/demo";
 import {
   getFilaCentral, getContextoCentral, getTransicoes, porQueNaoConfirma,
   type TituloDaFila, type ContextoCentral, type Transicao, type RecusaCentral,
@@ -45,7 +44,6 @@ const ORIGEM: Record<string, string> = {
   contrato: "contrato",
   conciliacao: "conciliação",
 };
-import { formatBRL } from "@/lib/format";
 
 /** A esteira, na ordem em que o dinheiro anda. */
 const ESTEIRA: { estado: Situacao; rotulo: string; oQue: string }[] = [
@@ -171,9 +169,6 @@ function FormLancar({ onPronto, onCancelar }: { onPronto: () => void; onCancelar
             {enviando ? "Lançando…" : "Lançar como previsto"}
           </Button>
           <Button type="button" variant="ghost" onClick={onCancelar}>Cancelar</Button>
-          {/* ⚠️ Dizer o que vai acontecer ANTES: o título nasce previsto e
-              precisa de confirmação — é o passo seguinte da esteira. */}
-          <span className="text-caption text-faint">Nasce como <b className="text-muted font-medium">previsto</b> e entra na fila de confirmação.</span>
         </div>
       </form>
     </Card>
@@ -226,9 +221,6 @@ function PedirWhatsapp({ tituloId, onFechar }: { tituloId: string; onFechar: () 
           {enviando ? "Enviando…" : "Enviar pedido"}
         </Button>
         <Button type="button" variant="ghost" onClick={onFechar}>Fechar</Button>
-        <span className="text-caption text-faint">
-          O aprovador responde SIM ou NÃO com o código. O código vale por 24 horas e serve uma vez; a confirmação passa pelas mesmas regras desta tela.
-        </span>
       </div>
     </form>
   );
@@ -275,19 +267,6 @@ export function CentralView({ whatsappLigado = false }: { whatsappLigado?: boole
     return (
       <Card className="flex flex-col gap-3">
         <span className="text-h3 text-ink">Nada aguardando confirmação</span>
-        <p className="m-0 text-body text-muted max-w-[68ch]">
-          A Central é onde um título deixa de ser previsão e vira compromisso: alguém com alçada
-          confirma, e só então ele pode ser baixado. Os títulos chegam aqui sozinhos, vindos de
-          Contas a pagar, Contas a receber e da entrada de dados.
-        </p>
-        <p className="m-0 text-caption text-faint max-w-[68ch]">
-          {isDemo
-            ? "Na demonstração a fila não é ligada ao banco — a máquina de estados roda em produção."
-            : "Assim que o primeiro título for lançado, ele aparece aqui como Previsto."}
-        </p>
-        {/* ⚠️ Vazio que OFERECE O BOTÃO que o preenche. Um vazio que só explica
-            deixa a pessoa sem o próximo passo — e é o próximo passo que falta
-            numa organização nova. */}
         {lancando
           ? <FormLancar onPronto={() => { setLancando(false); void qc.invalidateQueries({ queryKey: ["central"] }); }}
                         onCancelar={() => setLancando(false)} />
@@ -298,13 +277,6 @@ export function CentralView({ whatsappLigado = false }: { whatsappLigado?: boole
 
   return (
     <div className="flex flex-col gap-4 pb-6">
-      <p className="m-0 text-caption text-faint max-w-[80ch]">
-        Quem autoriza é o servidor: a recusa vem da máquina de estados mesmo que a ação seja
-        chamada por fora desta tela. O que está abaixo explica, antes do clique, o que cada
-        título permite a <b className="text-muted font-medium">você</b>
-        {ctx.papel ? ` (papel ${ctx.papel}${ctx.teto === null ? ", sem teto" : `, teto ${formatBRL(ctx.teto)}`})` : ""}.
-      </p>
-
       <div className="flex items-center gap-2 flex-wrap">
         <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="group" aria-label="Filtrar por situação">
           {([["todos", "Todos"], ["previsto", "Previsto"], ["confirmado", "Confirmado"]] as const).map(([v, r]) => (

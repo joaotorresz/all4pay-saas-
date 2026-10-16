@@ -121,8 +121,7 @@ export function PrevisaoDoMes() {
           const k = p.camadas[c];
           const m = MARCA[c];
           return (
-            <div key={c} data-camada={c} data-entradas={k.entradas} data-saidas={k.saidas} className="flex flex-col gap-1 rounded-card p-4"
-              style={{ border: `1px ${m.tracejado ? "dashed" : "solid"} var(--color-border)` }}>
+            <div key={c} data-camada={c} data-entradas={k.entradas} data-saidas={k.saidas} className="flex flex-col gap-1 rounded-card p-4 bg-surface-2">
               <span className="text-caption text-muted inline-flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded-sm" aria-hidden style={{
                   background: `color-mix(in srgb, var(--color-ink) ${Math.round(m.opacidade * 100)}%, transparent)`,
@@ -140,12 +139,6 @@ export function PrevisaoDoMes() {
           );
         })}
       </div>
-
-      {(p.vencidoNoAgendado.entradas > 0 || p.vencidoNoAgendado.saidas > 0) && (
-        <p className="m-0 text-caption text-muted">
-          O agendado inclui o vencido de meses anteriores que ainda não se moveu: entradas <BRL value={p.vencidoNoAgendado.entradas} /> · saídas <BRL value={p.vencidoNoAgendado.saidas} />.
-        </p>
-      )}
 
       {p.estimados.length > 0 ? (
         <div className="flex flex-col gap-2">

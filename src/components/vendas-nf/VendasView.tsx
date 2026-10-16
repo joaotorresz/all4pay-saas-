@@ -77,8 +77,7 @@ export function VendasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Controle de vendas e notas fiscais.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Button variant="primary" onClick={() => router.push("/dashboard/sales-invoices/new")}>
             <Icon name="plus" size={15} color="currentColor" />
@@ -115,9 +114,7 @@ export function VendasView() {
                 {soLocais.length === 1 ? "1 venda foi registrada" : `${soLocais.length} vendas foram registradas`} antes
                 de a venda passar a ser gravada no servidor. Elas não estão no contas a receber nem no DRE.
               </p>
-              <p className="m-0 text-caption text-muted">
-                Enviar grava cada uma no servidor e gera o recebível — o contas a receber e o DRE passam a contá-las.
-              </p>
+
             </div>
             <Button variant="primary" disabled={enviando} onClick={async () => {
               setEnviando(true);
@@ -220,7 +217,8 @@ export function VendasView() {
             </span>
             <p className="m-0 text-label text-muted max-w-[46ch]">
               {(lista ?? []).length === 0
-                ? "Nenhuma venda registrada. A venda gera o recebível, ampara a nota fiscal e entra no cálculo do imposto."
+                ? "Nenhuma venda registrada."
+
                 : "Nenhuma venda encontrada com esses filtros."}
             </p>
             <Button variant="primary" onClick={() => router.push("/dashboard/sales-invoices/new")}>Nova venda</Button>

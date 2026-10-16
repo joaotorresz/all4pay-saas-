@@ -122,7 +122,6 @@ export function CronogramasView() {
                 ))}
               </div>
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <span className="text-caption text-faint">Entrada contábil para revisão — um lançamento de despesa por mês.</span>
                 <Button size="sm" onClick={lancarNoRazao} disabled={postando} leftIcon={<Icon name="check" size={14} />}>
                   {postando ? "Lançando…" : "Lançar no razão"}
                 </Button>

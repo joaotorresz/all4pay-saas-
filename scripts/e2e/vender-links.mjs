@@ -36,11 +36,11 @@ export default async function venderLinks(navegador) {
     const qr = await u.page.locator("div.rounded-card.bg-white > svg").evaluate((s) => s.innerHTML.length).catch(() => 0);
     v.ok(qr > 500, "o QR do PIX é desenhado dentro do modal", `${qr} caracteres de SVG`);
   }
-  v.ok(modal.includes("R$350,00"), "o modal mostra o valor do link");
+  v.ok(modal.includes("R$ 350,00"), "o modal mostra o valor do link");
 
   await u.ir("/dashboard/sales-invoices/payment-links");
   const lista = norm(await u.texto());
-  v.ok(lista.includes("Mentoria outubro") && lista.includes("R$350,00"), "o link continua na lista depois de recarregar");
+  v.ok(lista.includes("Mentoria outubro") && lista.includes("R$ 350,00"), "o link continua na lista depois de recarregar");
   const guardado = await u.page.evaluate(() => JSON.parse(localStorage.getItem("a4p_links_pagamento") ?? "[]"));
   v.ok(guardado.length === 1 && guardado[0].valor === 350, "o link é guardado pela chave da empresa (store-org)", JSON.stringify(guardado[0] ?? null).slice(0, 80));
 

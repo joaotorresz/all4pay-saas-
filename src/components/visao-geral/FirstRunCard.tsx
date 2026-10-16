@@ -25,9 +25,7 @@ export function FirstRunCard() {
         <div className="min-w-0">
           <h2 className="m-0 text-h3 font-medium text-ink">Vamos dar vida ao seu painel</h2>
           <p className="m-0 mt-1 text-body text-muted leading-[1.5]">
-            Sua organização ainda não tem lançamentos. Importe um extrato e o Quattro
-            reconstrói recebíveis, contas, fluxo de caixa, DRE e risco automaticamente —
-            ou comece lançando manualmente.
+            Sua organização ainda não tem lançamentos.
           </p>
         </div>
       </div>
@@ -46,29 +44,7 @@ export function FirstRunCard() {
         <Button variant="secondary" onClick={() => router.push("/comecar")}>
           Cadastrar a empresa inteira
         </Button>
-        <span className="text-caption text-faint">
-          ou use <b className="font-medium text-muted">Novo lançamento</b> no topo para registrar à mão.
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-2 border-t border-border-soft pt-3">
-        <Step n={1} t="Faça o upload (OFX/CSV ou documento)" d="O Upload de dados lê o extrato ou o boleto/comprovante, classifica e detecta clientes/fornecedores." />
-        <Step n={2} t="O sistema se popula" d="Painéis, DRE, risco, inadimplência e copiloto passam a refletir seus dados." />
-        <Step n={3} t="Opere" d="Cobre inadimplentes, acompanhe o caixa e automatize regras." />
       </div>
     </Card>
-  );
-}
-
-function Step({ n, t, d }: { n: number; t: string; d: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="w-5 h-5 rounded-pill bg-surface-2 text-caption font-medium text-muted inline-flex items-center justify-center shrink-0 tabular-nums">
-        {n}
-      </span>
-      <p className="m-0 text-caption text-muted leading-[1.45]">
-        <b className="font-medium text-ink">{t}.</b> {d}
-      </p>
-    </div>
   );
 }

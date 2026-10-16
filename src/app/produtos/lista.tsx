@@ -48,7 +48,7 @@ export function ProdutosLista() {
                 key={p.id}
                 onClick={() => setEditando(p)}
                 title="Editar produto"
-                className="rounded-card border border-border-soft bg-white overflow-hidden flex flex-col shadow-card text-left hover:border-ink/30 transition-colors"
+                className="rounded-card bg-white overflow-hidden flex flex-col text-left transition-colors"
               >
                 <div className="aspect-[4/3] bg-surface-1 flex items-center justify-center overflow-hidden">
                   {img

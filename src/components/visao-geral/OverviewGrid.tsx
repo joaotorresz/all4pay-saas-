@@ -158,7 +158,6 @@ export function OverviewGrid() {
         visiveis={visiveis}
         ordem={ordem}
         auto={auto}
-        setor={hc.setor}
         onToggle={toggle}
         onReorder={persistOrd}
         onAuto={persistAuto}

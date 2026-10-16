@@ -13,8 +13,7 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton, NotaCancelados } from "@/components/ui";
-import { canceladosNaJanela, janela as fazJanela } from "@/core/indicadores";
+import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
@@ -199,18 +198,6 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
     [input, direcao, filtro, janela, busca],
   );
 
-  // ⚠️ Mesmo recorte dos cards (vencimento na janela), mesmo LADO da tela: um
-  // painel de contas a pagar não deve rodapear cancelamento de recebível.
-  const cancelados = React.useMemo(
-    () => (input
-      ? canceladosNaJanela(
-          input,
-          fazJanela(janela.de || "0000-01-01", janela.ate || "9999-12-31"),
-          direcao === "pagar" ? "saida" : "entrada",
-        )
-      : null),
-    [input, janela.de, janela.ate, direcao],
-  );
   const cards = React.useMemo(
     () => (input ? resumoTitulos(baseDosCards, direcao, input.hoje) : []),
     [baseDosCards, direcao, input],
@@ -356,18 +343,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
       </Card>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        {/* ⚠️ **A TELA DIZ O QUE CONTA.** Esta lista tem os títulos que EXISTEM;
-            a projeção de contas recorrentes conta o compromisso que a REGRA
-            cria, inclusive nos meses que ainda não viraram título. As duas
-            respondem perguntas diferentes e podem divergir muito no mesmo mês —
-            medido em produção, outubro tem R$ 20.640 de títulos e R$ 40.802 de
-            compromisso recorrente, e nenhum centavo do segundo está aqui. Sem
-            esta frase, quem abre as duas conclui que uma está errada. */}
-        <p className="m-0 text-label text-muted max-w-[62ch]">
-          {direcao === "receber" ? "Valores a receber dos seus clientes." : "Valores a pagar aos seus fornecedores."}
-          {" "}Só entram os títulos <b className="text-ink">já lançados</b>
-          {direcao === "pagar" && <> — o que ainda vai vencer por contrato aparece em Contas recorrentes</>}.
-        </p>
+        <span />
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Button variant="primary" onClick={() => router.push(rotaNovo)}>
             <Icon name="plus" size={15} color="currentColor" />
@@ -438,13 +414,6 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           </button>
         </p>
       )}
-
-      {/* ⚠️ O CANCELADO, DITO. Ele fica fora dos quatro cards — e deve mesmo,
-          porque não é dívida nem crédito de ninguém. Mas até aqui saía calado,
-          e um painel sobre uma base com dezenas de cancelados tinha a mesma
-          cara de um sobre base limpa. É rodapé, nunca card: virar o quinto
-          card o convidaria para dentro da soma. */}
-      {cancelados && <NotaCancelados dados={cancelados} />}
 
       {/* ------------------------------ barra de ações ------------------------------ */}
       <Card>
@@ -726,7 +695,7 @@ function CardTitulo({
              vence), então o estado selecionado não desenhava NADA. A borda
              transparente no estado normal reserva o pixel — sem ela o card
              pula 1px ao ser escolhido. */
-          selecionado ? "border border-border" : "border border-transparent hover:bg-surface-2/40"
+          selecionado ? "" : "hover:bg-surface-2/40"
         }`}
       >
       <div className="flex items-center gap-4">
@@ -742,7 +711,8 @@ function CardTitulo({
           </text>
         </svg>
         <div className="min-w-0">
-          <div className="text-caption text-muted">
+          <div className="text-caption text-muted inline-flex items-center gap-[6px]">
+            {selecionado && <span aria-hidden className="inline-block w-[6px] h-[6px] rounded-pill bg-ink" />}
             {c.label} <span className="text-faint tabular-nums">({c.quantidade})</span>
           </div>
           {/* ⚠️ O número fica na TINTA do texto (decisão do dono, 30/09/2026):

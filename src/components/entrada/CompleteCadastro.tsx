@@ -106,17 +106,11 @@ export function CompleteCadastro() {
         </span>
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <span className="text-h3 text-ink">Complete seu cadastro</span>
-          <p className="m-0 text-body text-muted max-w-[60ch]">
-            {faltando.length === 1
-              ? "Falta um item, e é o que mais muda os seus números."
-              : `Faltam ${faltando.length} itens. Comece por este — é o único que muda cálculo.`}
-          </p>
         </div>
       </div>
 
       <div className="flex flex-col gap-2 pt-1 border-t border-border-soft">
         <span className="text-label font-medium text-ink pt-2">{primeira.titulo}</span>
-        <p className="m-0 text-caption text-muted max-w-[60ch]">{primeira.porque}</p>
 
         {ehRegime ? (
           <div className="flex flex-wrap items-end gap-2 pt-1">
@@ -138,7 +132,7 @@ export function CompleteCadastro() {
 
       {faltando.length > 1 && (
         <span className="text-caption text-faint">
-          Depois: {faltando.slice(1).map((p) => p.titulo).join(" · ")} — em Configurações, quando quiser.
+          Depois: {faltando.slice(1).map((p) => p.titulo).join(" · ")}
         </span>
       )}
     </Card>

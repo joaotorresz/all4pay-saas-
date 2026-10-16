@@ -71,7 +71,7 @@ const ativoUsuario = (iso: string | null) => !!iso && Date.now() - Date.parse(is
  *
  * ⚠️ **O painel dizia MRR e contava assinaturas; nenhuma tela cruzava cobrança
  * com USO.** Medido em 18/08: 1.402 dos 1.415 lançamentos de produção (99,1%)
- * estavam em organizações que não pagavam nada, e a única que pagava R$990/mês
+ * estavam em organizações que não pagavam nada, e a única que pagava R$ 990/mês
  * tinha ZERO lançamentos. Os dois fatos estavam nos dados desde sempre, cada um
  * numa coluna diferente da mesma tabela, e ninguém os leu juntos.
  *
@@ -159,9 +159,6 @@ function FerramentasInternas() {
   return (
     <Card>
       <h2 className="text-h3 m-0">Ferramentas internas</h2>
-      <p className="m-0 mt-1 text-caption text-muted">
-        Respondem pela plataforma — não aparecem no menu do cliente.
-      </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
           href="/dashboard/administration/routes"
@@ -207,10 +204,6 @@ export function AdminView({ secao = "visao-geral" }: { secao?: SecaoPainel }) {
         {secao === "cobranca" && <SecaoCobranca />}
         {secao === "acessos" && <SecaoAcessos />}
         {secao === "suporte" && <SecaoSuporte />}
-        <span className="text-caption text-faint inline-flex items-center gap-2">
-          <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
-          Visão entre empresas, exclusiva de quem administra a plataforma: cada consulta passa pela verificação de acesso e fica registrada. {isDemo ? "Dados de demonstração." : ""}
-        </span>
       </div>
     </AdminShell>
   );
@@ -433,7 +426,6 @@ function GrowthCard() {
           </ComposedChart>
         </ResponsiveContainer>
       )}
-      <span className="text-caption text-faint">Barras = novos clientes no mês · linha = base acumulada de empresas.</span>
     </Card>
   );
 }
@@ -466,7 +458,6 @@ function MrrCard() {
           </ComposedChart>
         </ResponsiveContainer>
       )}
-      <span className="text-caption text-faint">Receita recorrente mensal. Meses sem snapshot são derivados das assinaturas ativas (o histórico real acumula a cada captura).</span>
     </Card>
   );
 }
@@ -547,12 +538,6 @@ function PinbankAdminCard({ orgs, toast }: { orgs: AdminOrg[]; toast: (s: string
             placeholder="ex.: 3510" value={ecExtrato} onChange={(e) => setEcExtrato(e.target.value)} />
           <Button variant="primary" disabled={busy} onClick={vincular}>Vincular</Button>
         </div>
-        <span className="text-caption text-muted max-w-[90ch]">
-          É o número que a Pinbank usa no extrato de vendas (ex.: 3510). Confira-o no extrato antes de vincular: ele pode
-          não ser o código da loja que aparece na quarentena. Sem ele, a empresa não consegue conferir as vendas com o
-          extrato. O mesmo EC não pode estar vinculado a duas empresas ao mesmo tempo; para corrigir um EC, desvincule e
-          vincule de novo.
-        </span>
 
         {q.isLoading ? <Skeleton className="h-16 w-full" /> : q.error ? (
           <span className="text-caption text-negative">Não foi possível ler: {(q.error as Error).message}</span>

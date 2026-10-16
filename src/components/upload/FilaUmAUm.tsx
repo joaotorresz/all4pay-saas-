@@ -105,9 +105,7 @@ export function FilaUmAUm({
     return (
       <Card className="flex flex-col items-start gap-3">
         <p className="m-0 text-body text-ink">Nada para revisar neste arquivo.</p>
-        <p className="m-0 text-caption text-muted">
-          Todas as linhas já existiam na base — nenhum lançamento novo seria criado.
-        </p>
+
         <Button onClick={onCancelar}>Voltar</Button>
       </Card>
     );
@@ -119,9 +117,7 @@ export function FilaUmAUm({
       <Card className="flex flex-col items-start gap-4">
         <h2 className="text-h2 m-0">Revisão concluída</h2>
         <p className="m-0 text-body text-muted">
-          {vaiGravar.length} de {fila.length} confirmados. Eles entram como{" "}
-          <strong className="text-ink">previstos</strong> e vão para a fila da Central,
-          onde alguém confirma antes de virar baixa.
+          {vaiGravar.length} de {fila.length} confirmados.
         </p>
         <div className="flex gap-2 flex-wrap">
           <Button onClick={() => { gravar(CHAVES_ORG.filaImportacao, estadoVazio()); onConcluir(vaiGravar); }}>
@@ -248,9 +244,7 @@ export function FilaUmAUm({
             Aplicar <strong>{regraDe.categoria}</strong> a todas as próximas de{" "}
             <strong>{regraDe.item.contraparte ?? "esta contraparte"}</strong>?
           </p>
-          <p className="m-0 text-caption text-muted">
-            Vira uma regra da empresa e passa a valer nas próximas importações.
-          </p>
+
           <div className="flex gap-2">
             <Button onClick={() => {
               const r = sugerirRegra(

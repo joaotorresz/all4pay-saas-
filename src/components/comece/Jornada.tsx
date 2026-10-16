@@ -64,7 +64,7 @@ export function JornadaCard() {
       <div className="rounded-md bg-surface-2 p-4 flex items-start gap-3">
         <span className="w-6 h-6 rounded-pill border-2 border-lime inline-flex items-center justify-center shrink-0 mt-[1px]" />
         <div className="min-w-0 flex-1">
-          <div className="text-caption font-medium text-faint tracking-wide">PRÓXIMO PASSO</div>
+          <div className="text-caption font-medium text-faint tracking-wide">Próximo passo</div>
           <div className="text-[16px] font-medium text-ink mt-[1px]">{proximo.titulo}</div>
           <p className="m-0 text-caption text-muted leading-[1.45] mt-1">{proximo.desc}</p>
         </div>
@@ -99,8 +99,9 @@ export function JornadaView() {
               </h2>
               <span className="text-caption text-faint">
                 {isLoading ? "carregando…" : jornada && jornada.pct >= 100
-                  ? "Todos os estágios concluídos — você está usando o sistema por inteiro."
-                  : `${jornada?.feitos ?? 0} de ${jornada?.total ?? 0} passos · do essencial ao domínio, no seu ritmo`}
+                  ? "Todos os estágios concluídos."
+                  : `${jornada?.feitos ?? 0} de ${jornada?.total ?? 0} passos`}
+
               </span>
             </div>
             <span className="text-display font-semibold tabular-nums text-ink leading-none">{jornada?.pct ?? 0}%</span>

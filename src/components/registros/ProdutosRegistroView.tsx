@@ -93,7 +93,6 @@ export function ProdutosRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo={ehServico ? "Gerencie o catálogo de serviços." : "Gerencie seu catálogo de produtos."}
         acaoNova={{ label: ehServico ? "Novo serviço" : "Novo produto", onClick: () => setNovo(true) }}
         exportar={{
           nomeArquivo: ehServico ? "servicos" : "produtos",
@@ -142,8 +141,8 @@ export function ProdutosRegistroView() {
             <VazioRegistro
               texto={(data ?? []).length === 0
                 ? ehServico
-                  ? "Nenhum serviço cadastrado. Cadastre o primeiro para vender e emitir NFS-e."
-                  : "Nenhum produto cadastrado. Cadastre o primeiro para vender e emitir nota."
+                  ? "Nenhum serviço cadastrado."
+                  : "Nenhum produto cadastrado."
                 : `Nenhum ${ehServico ? "serviço" : "produto"} encontrado com esses filtros.`}
               acao={(data ?? []).length === 0
                 ? <Button variant="primary" onClick={() => setNovo(true)}>{ehServico ? "Novo serviço" : "Novo produto"}</Button>
@@ -213,10 +212,9 @@ function FormFiscal({
           <Input value={fmtBRL(produto.sale_price ?? 0)} disabled />
         </Campo>
       </div>
-      <p className="m-0 text-caption text-faint">
-        Nome, código e preço são editados no cadastro do produto — abra por Cadastros › Produtos.
-      </p>
-      <Campo label="Tipo" ajuda="Decide o que sai na nota fiscal.">
+
+      <Campo label="Tipo">
+
         <Select value={tipo} onChange={(v) => setTipo(v as TipoProduto)} options={TIPOS_PRODUTO.map((t) => ({ value: t.id, label: t.label }))} />
       </Campo>
       <Campo label="Descrição">

@@ -92,7 +92,7 @@ const config: Config = {
         // numeral tabular, cada linha de uma coluna de dinheiro começaria num
         // ponto diferente. É o que separa ela das outras candidatas.
         // Quattro: Centra No.2 Black, CAIXA ALTA nos títulos (tem `tnum`).
-        display: ['"Centra No2"', '"Archivo"', '"Roobert"', "sans-serif"],
+        display: ['"Roobert"', "-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "sans-serif"],
         sans: [
           '"Roobert"',
           '"Roobert Variable"',

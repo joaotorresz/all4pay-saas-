@@ -92,7 +92,6 @@ export function ContasBancariasView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo="As contas da empresa — as mesmas que os lançamentos, o extrato e a conciliação usam."
         acaoNova={{ label: "Nova conta bancária", onClick: () => setEditando(vazia()) }}
         exportar={{ nomeArquivo: "contas-bancarias", aba: "Contas bancárias", linhas: linhasXLSX }}
       />
@@ -134,7 +133,7 @@ export function ContasBancariasView() {
               texto={contas.isLoading
                 ? "Carregando as contas…"
                 : itens.length === 0
-                  ? "Nenhuma conta bancária cadastrada. Cadastre a primeira para começar a lançar e conciliar o extrato."
+                  ? "Nenhuma conta bancária cadastrada."
                   : "Nenhuma conta bancária encontrada com esses filtros."}
               acao={!contas.isLoading && itens.length === 0
                 ? <Button variant="primary" onClick={() => setEditando(vazia())}>Nova conta bancária</Button>
@@ -276,10 +275,7 @@ function FormularioConta({
         <Campo label="Data do saldo inicial" erro={erros.dataSaldoInicial}>
           <DateField value={f.dataSaldoInicial} onChange={(v) => set("dataSaldoInicial", v)} />
         </Campo>
-        <Campo
-          label="Saldo inicial"
-          ajuda={inicial.id ? "Mudar o saldo inicial não mexe no saldo atual — quem o move são as baixas e a conciliação." : "A conta nasce com este saldo."}
-        >
+        <Campo label="Saldo inicial">
           <CurrencyInput value={f.saldoInicial} onValueChange={(v) => set("saldoInicial", v)} />
         </Campo>
       </div>
@@ -294,27 +290,16 @@ function FormularioConta({
           onChange={(v) => set("saldoInicialConferido", v)}
           label="Confirmo que este é o saldo real da conta na data acima"
         />
-        <p className="text-caption text-faint mt-1 max-w-[60ch]">
-          Marque só quando o valor e a data forem o saldo de abertura de verdade.
-          É o que permite ao Razão conferir o caixa contra o extrato; sem a
-          confirmação, a conta aparece como <strong>não conferida</strong>.
-        </p>
+
       </BlocoForm>
 
-      <Campo
-        label="Código contábil (Domínio)"
-        ajuda="Código da conta no Domínio. Usado na geração do TXT contábil. Aplica-se a contas correntes, cartões e aplicações."
-      >
+      <Campo label="Código contábil (Domínio)">
         <Input value={f.codigoContabil} onChange={(e) => set("codigoContabil", e.target.value)} placeholder="Ex.: 7" />
       </Campo>
 
       <BlocoForm titulo="Status">
         <SwitchAtivo checked={f.ativo} onChange={(v) => set("ativo", v)} label="Conta ativa" />
-        {!f.ativo && (
-          <p className="text-caption text-faint m-0">
-            Conta inativa sai das escolhas e não recebe lançamento novo; o histórico dela continua.
-          </p>
-        )}
+
       </BlocoForm>
     </FormModal>
   );

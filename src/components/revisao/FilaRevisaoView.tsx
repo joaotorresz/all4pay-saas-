@@ -35,7 +35,8 @@ export function FilaRevisaoView() {
         <div className="flex flex-col items-center gap-3 py-14 text-center">
           <Icon name="check" size={20} color="var(--color-positive)" />
           <p className="m-0 text-label text-muted max-w-[46ch]">
-            Nada na fila. Todo lançamento tem classificação, descrição legível e valor.
+            Nada na fila.
+
           </p>
         </div>
       </Card>
@@ -57,8 +58,8 @@ export function FilaRevisaoView() {
                 um saldo — há entrada e saída no mesmo balde. É o tamanho da
                 dúvida, e chamá-lo de total convidaria a somá-lo a outra coisa. */}
             <span className="text-caption text-muted">
-              Soma das magnitudes envolvidas: <b className="text-ink tabular-nums"><BRL value={fila.total} /></b>.
-              O sistema não classifica nada aqui — ele separa o que discorda e diz o que discorda.
+              Soma das magnitudes envolvidas: <b className="text-ink tabular-nums"><BRL value={fila.total} /></b>
+
             </span>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
               {Object.entries(fila.porMotivo).map(([m, v]) => (
@@ -96,7 +97,7 @@ function ItemFila({
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1 min-w-[240px] flex-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+            <span className="text-[11px] font-medium text-faint">
               {ROTULO_MOTIVO[a.motivo]} · {a.origem === "recorrencia" ? "regra recorrente" : "lançamento"}
             </span>
             <span className="text-h3 font-medium text-ink">{a.descricao || "(sem descrição)"}</span>
@@ -166,7 +167,7 @@ function ItemFila({
 function Fonte({ rotulo, valor }: { rotulo: string; valor: string | null }) {
   return (
     <div className="flex flex-col gap-[2px]">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotulo}</span>
+      <span className="text-[11px] font-medium text-faint">{rotulo}</span>
       <span className={valor ? "text-label text-ink" : "text-label text-placeholder"}>
         {valor || "— vazio"}
       </span>

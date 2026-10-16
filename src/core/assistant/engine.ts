@@ -762,7 +762,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
      * ouvir ZERO quando é zero.**
      *
      * Medido sobre 408 lançamentos reais: a pergunta "quanto tenho a receber
-     * vencido" era respondida com *"Há R$237.161,67 a receber em 10 títulos. O
+     * vencido" era respondida com *"Há R$ 237.161,67 a receber em 10 títulos. O
      * próximo vence em 21/08"*. O número não estava errado — não havia nada
      * vencido, e o R$ 0,00 aparecia num campo lateral. Errada estava a FORMA:
      * a pergunta é sobre atraso e a resposta lidera com a carteira inteira e
@@ -1092,8 +1092,8 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
   /**
    * ⚠️ **FOLHA E PRÓ-LABORE NÃO SÃO FORNECEDOR, e responder que são derruba a
    * confiança no resto.** Medido numa organização real: "qual meu maior
-   * fornecedor" respondia *"Folha Funcionarios (R$65.441,24), Pro Labore Socios
-   * (R$18.000,00)"* — as duas maiores contrapartes de SAÍDA. Não é falso (o
+   * fornecedor" respondia *"Folha Funcionarios (R$ 65.441,24), Pro Labore Socios
+   * (R$ 18.000,00)"* — as duas maiores contrapartes de SAÍDA. Não é falso (o
    * dinheiro sai mesmo para elas), mas para um dono de empresa "fornecedor" é
    * quem lhe VENDE, não quem trabalha nele. Uma resposta que soa errada
    * contamina as nove certas ao lado.

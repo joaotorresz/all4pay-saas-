@@ -61,14 +61,14 @@ const linha = (l: LinhaEmail) => `
 export function montarHtml(c: CorpoEmail): string {
   const destaques = (c.destaques ?? []).map((d) => `
       <td valign="top" style="padding:0 16px 0 0;">
-        <div style="font:500 11px/15px ${FONTE};letter-spacing:0.44px;text-transform:uppercase;color:${E.secundario};">${esc(d.rotulo)}</div>
+        <div style="font:500 11px/15px ${FONTE};letter-spacing:0.44px;text-transform:none;color:${E.secundario};">${esc(d.rotulo)}</div>
         <div style="font:700 22px/28px ${FONTE};color:${E.ink};font-variant-numeric:tabular-nums;">${esc(d.valor)}</div>
         ${d.detalhe ? `<div style="font:400 12px/18px ${FONTE};color:${E.secundario};">${esc(d.detalhe)}</div>` : ""}
       </td>`).join("");
 
   const secoes = (c.secoes ?? []).map((s) => `
     <tr><td style="padding:20px 28px 0 28px;">
-      <div style="font:500 11px/15px ${FONTE};letter-spacing:0.44px;text-transform:uppercase;color:${E.secundario};padding-bottom:4px;">${esc(s.titulo)}</div>
+      <div style="font:500 11px/15px ${FONTE};letter-spacing:0.44px;text-transform:none;color:${E.secundario};padding-bottom:4px;">${esc(s.titulo)}</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${s.linhas.map(linha).join("")}</table>
       ${s.nota ? `<div style="font:400 12px/18px ${FONTE};color:${E.secundario};padding-top:6px;">${esc(s.nota)}</div>` : ""}
     </td></tr>`).join("");
@@ -88,7 +88,7 @@ export function montarHtml(c: CorpoEmail): string {
       <tr><td style="padding:24px 28px 0 28px;">
         <div style="width:40px;height:4px;background:${E.lime};border-radius:2px;"></div>
         <div style="font:500 12px/18px ${FONTE};color:${E.secundario};padding-top:12px;">Quattro</div>
-        <h1 style="margin:4px 0 0 0;font:900 20px/26px ${FONTE};letter-spacing:-0.02em;text-transform:uppercase;color:${E.ink};">${esc(c.titulo)}</h1>
+        <h1 style="margin:4px 0 0 0;font:900 20px/26px ${FONTE};letter-spacing:-0.02em;text-transform:none;color:${E.ink};">${esc(c.titulo)}</h1>
         ${c.abertura ? `<p style="margin:8px 0 0 0;font:400 14px/20px ${FONTE};color:${E.ink};">${esc(c.abertura)}</p>` : ""}
       </td></tr>
       ${destaques ? `<tr><td style="padding:20px 28px 0 28px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${destaques}</tr></table></td></tr>` : ""}

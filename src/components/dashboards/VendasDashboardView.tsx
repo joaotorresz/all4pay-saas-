@@ -223,7 +223,6 @@ export function VendasDashboardView() {
   return (
     <AppShell title="Painel de vendas" actions={acoes}>
       <div className="flex flex-col gap-5 pb-6">
-        <p className="m-0 -mt-1 text-caption text-muted">CAC · LTV · LTV/CAC · EBITDA · Receita · Reembolsos · Chargebacks · período: <span className="text-ink font-medium">{period.label}</span>.</p>
 
         {isLoading || !calc ? (
           <Card><Skeleton className="h-64 w-full" /></Card>
@@ -297,7 +296,7 @@ export function VendasDashboardView() {
               </ResponsiveContainer>
             </Card>
 
-            <span className="text-caption text-faint">CAC e LTV são aproximações do período (marketing÷clientes e receita bruta÷clientes, contando só clientes com lançamento na Receita Bruta). Receita, margem de contribuição e EBITDA são as linhas do DRE — a classificação segue o plano de contas declarado e, sem ele, a palavra-chave da categoria.</span>
+
           </>
         )}
       </div>

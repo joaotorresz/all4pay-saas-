@@ -73,13 +73,12 @@ export function AppShell({
           <h1
             className="m-0 text-[30px] text-ink truncate"
             style={{
-              // TEMA ERP (canvas "Quattro ERP · Protótipo", 13/10/2026): título
-              // de tela em Centra No2 500, CAIXA ALTA, espaçamento 0, 30px.
+              // Título de tela em Roobert 500, caixa de frase ("Aa"),
+              // espaçamento 0, 30px (design system de 16/10/2026).
               fontFamily: "var(--font-display)",
               fontWeight: 500,
               letterSpacing: 0,
               lineHeight: 1.1,
-              textTransform: "uppercase",
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",
             }}

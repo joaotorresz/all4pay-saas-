@@ -40,14 +40,6 @@ export default function NaoEncontrada() {
           de lugar.
         </p>
 
-        {/* Endereços antigos são desviados no servidor (308) antes de chegar aqui;
-            quem chega nesta tela digitou algo que nunca existiu. Dizer isso evita
-            que a pessoa fique tentando variações do mesmo endereço. */}
-        <p className="m-0 text-caption text-faint">
-          Os endereços antigos do sistema continuam funcionando e levam sozinhos para o
-          lugar novo — então este aqui não é um deles.
-        </p>
-
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/"

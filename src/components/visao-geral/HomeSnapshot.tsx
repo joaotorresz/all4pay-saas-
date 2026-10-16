@@ -227,10 +227,10 @@ function PerguntaPrioridades({ prefs, aoFechar }: { prefs: PreferenciasIA; aoFec
               type="button"
               aria-pressed={on}
               onClick={() => alternar(o.id)}
-              className="px-3 py-[6px] rounded-pill text-[13px] border"
+              className="px-3 py-[6px] rounded-pill text-[13px]"
               style={on
-                ? { background: "var(--color-ink)", color: "var(--color-surface-1)", borderColor: "var(--color-ink)" }
-                : { background: "var(--color-white)", color: "var(--color-ink)", borderColor: "var(--color-border)" }}
+                ? { background: "var(--color-ink)", color: "var(--color-surface-1)" }
+                : { background: "var(--color-white)", color: "var(--color-ink)" }}
             >
               {o.rotulo}
             </button>
@@ -545,8 +545,8 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
     <Link
       href={n.href}
       draggable={false}
-      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6 border"
-      style={{ background: "var(--color-surface-1)", borderColor: "var(--color-border)", borderRadius: "var(--a4p-box-radius)" }}
+      className="relative h-full flex flex-col gap-4 min-h-[380px] px-8 pt-[30px] pb-6"
+      style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
     >
       <span className="text-[15px] text-ink">{n.rotulo}</span>
       <div className="flex items-center gap-[13.8px] flex-wrap">
@@ -672,7 +672,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
       {abertas.map((t) => (
         <div key={t.id} className="flex justify-between items-center gap-2 py-[10px] border-t" style={{ borderColor: "var(--color-border)" }}>
           <span className="text-[14px] text-ink">{t.titulo}</span>
-          <span className="flex-none text-[10px] font-medium tracking-[.06em] uppercase px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
+          <span className="flex-none text-[10px] font-medium px-[10px] py-1 rounded-pill text-muted" style={{ background: "var(--color-surface-1)" }}>
             {ROTULO_STATUS[t.status]}
           </span>
         </div>

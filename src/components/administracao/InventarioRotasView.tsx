@@ -62,11 +62,6 @@ export function InventarioRotasView() {
           <Numero label="Em aposentadoria" v={APOSENTANDO.length} tom="var(--color-warning)" />
           <Numero label="Endereços antigos com desvio" v={TODOS_OS_DESVIOS.length} />
         </div>
-        <p className="m-0 text-caption text-faint max-w-[76ch]">
-          Esta lista é a mesma que o teste automatizado confere a cada deploy: ele varre as
-          páginas realmente publicadas e falha se aparecer rota que ninguém declarou. Tela e
-          teste não podem divergir.
-        </p>
         <Input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
@@ -78,11 +73,6 @@ export function InventarioRotasView() {
         <Card padded={false}>
           <div className="px-5 py-3 border-b border-border-soft">
             <span className="text-label font-medium text-muted">Em aposentadoria</span>
-            <p className="m-0 mt-1 text-caption text-faint max-w-[76ch]">
-              Vão virar desvio permanente. ⚠️ Cada uma só pode ser desligada quando tudo que ela
-              fazia melhor já existir na canônica — o que falta está listado abaixo, e a guarda
-              impede o desligamento antes disso.
-            </p>
           </div>
           {APOSENTANDO.map((i, k) => {
             const fusao = FUSOES.find((f) => f.aposentar.some((r) => r.split("?")[0] === i.rota));
@@ -132,10 +122,6 @@ export function InventarioRotasView() {
       <Card padded={false}>
         <div className="px-5 py-3 border-b border-border-soft">
           <span className="text-label font-medium text-muted">Endereços antigos que ainda respondem</span>
-          <p className="m-0 mt-1 text-caption text-faint max-w-[76ch]">
-            Respondem com desvio permanente (308) e são CONTADOS a cada acesso — é a contagem que
-            permite remover um deles com evidência em vez de com palpite.
-          </p>
         </div>
         {TODOS_OS_DESVIOS.map((a, k) => (
           <div key={a.de} className={`flex items-baseline gap-3 px-5 py-2 ${k ? "border-t border-border-soft" : ""}`}>

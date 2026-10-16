@@ -62,8 +62,7 @@ export function ConfirmacaoModal({ itens, onClose }: { itens: PendingMovement[];
             onDone={(msg) => { show(msg); avancar(); }}
           />
 
-          <div className="flex items-center justify-between border-t border-border-soft pt-3">
-            <span className="text-caption text-faint">As demais transações entram em seguida, uma a uma.</span>
+          <div className="flex items-center justify-end border-t border-border-soft pt-3">
             <button onClick={() => fechar()} className="text-caption text-muted hover:text-ink">Concluir depois</button>
           </div>
         </Card>

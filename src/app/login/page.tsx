@@ -7,7 +7,6 @@ import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
-import { MARCA } from "@/core/marca";
 import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
 import { pedirRedefinicao, precisaDoCodigoAgora } from "@/lib/entrada";
 import { ROTA_CODIGO } from "@/core/segundo-fator";
@@ -117,13 +116,6 @@ export default function LoginPage() {
             <h1 className="m-0 text-h2 font-medium text-ink leading-none">
               {view === "signin" ? "Entrar" : "Redefinir senha"}
             </h1>
-            <p className="m-0 text-label text-muted mt-2">
-              {view === "reset"
-                ? "Informe seu e-mail e enviaremos um link de redefinição."
-                : pessoal
-                  ? `Controle seus gastos do dia a dia com a ${MARCA}.`
-                  : `Acesse o painel financeiro ${MARCA}.`}
-            </p>
           </div>
 
           {view === "signin" && (

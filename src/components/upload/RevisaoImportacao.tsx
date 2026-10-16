@@ -94,7 +94,7 @@ export function RevisaoImportacao({
           <Mini label="Centros" v={resultado.centrosCusto ?? 0} />
           <Mini label="Lançamentos" v={resultado.movimentos ?? 0} />
         </div>
-        <span className="text-caption text-faint">Os dados já alimentam os painéis, DRE, risco, inteligência e todo o ERP.</span>
+
       </Card>
     );
   }
@@ -137,20 +137,11 @@ export function RevisaoImportacao({
             </span>
             <span className="text-caption text-faint">em {fmtDate(report.saldoDeclarado.data)}</span>
           </div>
-          {isDemo ? (
-            <span className="text-caption text-muted max-w-[70ch]">
-              Este valor entra como <strong>saldo de abertura conferido</strong>: é
-              contra ele que o Razão mede a diferença entre o extrato e os lançamentos.
-            </span>
-          ) : (
+          {!isDemo && (
             <>
               <StatusBadge tone="warning">Este valor NÃO é salvo</StatusBadge>
               <span className="text-caption text-muted max-w-[70ch]">
-                O saldo declarado pelo banco ainda não tem onde ser guardado, então
-                ele se perde ao recarregar e a conferência do caixa continua
-                <strong> indisponível</strong>. Para conferir de verdade, informe o
-                saldo de abertura no cadastro da conta (Cadastros › Contas bancárias)
-                e marque a confirmação — é o que o Razão lê.
+                Informe o saldo de abertura em Cadastros › Contas bancárias.
               </span>
             </>
           )}
@@ -169,7 +160,7 @@ export function RevisaoImportacao({
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-[26px] leading-none font-semibold text-ink tabular-nums"><BRL value={report.padroes.custoRecorrenteMensal} /></span>
-            <span className="text-caption text-faint">/mês em custos fixos — o compromisso mensal da empresa</span>
+            <span className="text-caption text-faint">/mês em custos fixos</span>
           </div>
           {custos.map((r, i) => (
             <div key={i} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
@@ -221,14 +212,7 @@ export function RevisaoImportacao({
       {onCompetencias && (
         <Card data-competencia="painel">
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-label font-medium text-ink">Competência — o mês a que cada lançamento pertence</span>
-              <span className="text-caption text-muted">
-                Sem escolha, cada linha entra no DRE no mês em que passou pelo banco. O aluguel de setembro pago em
-                05/10 é de setembro: ajuste a coluna Competência na linha, ou leve as contas fixas do começo do mês
-                para o mês anterior.
-              </span>
-            </div>
+            <span className="text-label font-medium text-ink">Competência</span>
             <div className="flex items-center gap-2 flex-wrap">
               <label className="text-caption text-muted inline-flex items-center gap-2">
                 Contas fixas pagas até o dia
@@ -265,7 +249,7 @@ export function RevisaoImportacao({
       {/* Lançamentos (revisão por transação, estilo OF) */}
       <Card padded={false}>
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
-          <span className="text-label font-medium text-muted">Lançamentos lidos — revise a categoria onde a confiança for baixa</span>
+          <span className="text-label font-medium text-muted">Lançamentos lidos</span>
           {onAuto && (
             <Button size="sm" variant="secondary" onClick={onAuto} disabled={autoBusy} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>
               {autoBusy ? "Categorizando…" : "Recategorizar (IA)"}
@@ -322,7 +306,7 @@ export function RevisaoImportacao({
         <Button variant="primary" onClick={onConfirmar} disabled={aplicando || aGravar === 0} leftIcon={<Icon name="check" size={15} />}>
           {aplicando ? "Confirmando…" : `Confirmar importação (${(aGravar ?? report.records.length).toLocaleString("pt-BR")})`}
         </Button>
-        <span className="text-caption text-faint">Cadastra contatos + categorias e cria os lançamentos. Em live, entram na fila de confirmação por movimento.</span>
+
       </div>
     </div>
   );

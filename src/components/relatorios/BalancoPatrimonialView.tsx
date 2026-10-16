@@ -41,7 +41,6 @@ export function BalancoPatrimonialView() {
       <Card className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <DatePicker label="Posição em" value={ate} onChange={setAte} containerClassName="min-w-[150px]" />
         <DatePicker label="Comparar com" value={base} onChange={setBase} max={ate} containerClassName="min-w-[150px]" />
-        <span className="text-caption text-faint self-center ml-auto">Fonte: razão de dupla entrada</span>
       </Card>
 
       {entries === null || !cmp ? (
@@ -49,7 +48,7 @@ export function BalancoPatrimonialView() {
       ) : entries.length === 0 ? (
         <Card className="flex flex-col items-start gap-2">
           <span className="text-h3 font-medium text-ink">O razão ainda está vazio</span>
-          <span className="text-caption text-muted">O balanço é montado a partir dos lançamentos. Importe um extrato ou lance um movimento e ele aparece aqui.</span>
+          <span className="text-caption text-muted">Importe um extrato ou lance um movimento.</span>
           <Link href="/upload" className="text-label font-medium text-ink underline">Enviar extrato →</Link>
         </Card>
       ) : (

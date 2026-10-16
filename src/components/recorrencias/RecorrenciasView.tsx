@@ -166,7 +166,7 @@ export function RecorrenciasView() {
           </div>
           <div className="flex flex-col max-h-[560px] overflow-y-auto">
             {lista.length === 0 ? (
-              <p className="text-caption text-faint text-center py-8">Nenhuma recorrência. Crie ao lado — itens vêm do catálogo de Produtos/Serviços.</p>
+              <p className="text-caption text-faint text-center py-8">Nenhuma recorrência.</p>
             ) : lista.map((r) => {
               const on = aberto === r.id;
               return (

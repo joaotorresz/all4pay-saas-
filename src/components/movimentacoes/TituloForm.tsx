@@ -517,7 +517,6 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             <Campo
               label={folha.vinculo === "clt" ? "Salário bruto mensal" : "Valor da nota"}
               obrigatorio campo="valor" erro={erros.valor}
-              ajuda={folha.vinculo === "clt" ? "O bruto, antes de qualquer desconto." : undefined}
             >
               <CurrencyInput value={f.valor} onValueChange={(v) => set("valor", v)} />
             </Campo>
@@ -572,7 +571,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                   na linha errada. As linhas de TOTAL (Receita Líquida, EBITDA)
                   nunca entram: elas saem de fórmula, e apontar uma categoria
                   para uma delas contaria o mesmo valor duas vezes. */}
-              <Campo label="Linha do DRE" obrigatorio ajuda="Onde os lançamentos desta categoria entram no resultado.">
+              <Campo label="Linha do DRE" obrigatorio>
                 <Select
                   value={criando.linha}
                   onChange={(v) => setCriando({ ...criando, linha: v })}
@@ -607,7 +606,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             </div>
           )}
           {!receber && (
-            <Campo label="Espécie" ajuda="A nota que ampara a despesa.">
+            <Campo label="Espécie">
               <Select
                 value={f.especie}
                 onChange={(v) => set("especie", v)}
@@ -663,13 +662,12 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         {/* ---------------------------- datas e valor ---------------------------- */}
         <Bloco titulo="Datas e valor">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Campo label="Data de competência" obrigatorio campo="competencia" erro={erros.competencia} ajuda="Quando o fato aconteceu — é o que o DRE lê.">
+            <Campo label="Data de competência" obrigatorio campo="competencia" erro={erros.competencia}>
               <DateField value={f.competencia} onChange={(v) => set("competencia", v)} />
             </Campo>
             <Campo
               label={modo === "unica" ? "Data de vencimento" : "Primeiro vencimento"}
               obrigatorio campo="vencimento" erro={erros.vencimento}
-              ajuda="Quando cai — é o que a cobrança lê."
             >
               <DateField value={f.vencimento} onChange={(v) => set("vencimento", v)} />
             </Campo>
@@ -681,9 +679,6 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           <Campo
             label={modo === "parcelada" ? "Valor total da compra" : modo === "recorrente" ? "Valor de cada ocorrência" : "Valor"}
             obrigatorio campo="valor" erro={erros.valor}
-            ajuda={modo === "parcelada"
-              ? "O preço cheio. As parcelas saem dele."
-              : modo === "recorrente" ? "Quanto vence a cada vez — não o total do período." : undefined}
           >
             <CurrencyInput value={f.valor} onValueChange={(v) => set("valor", v)} />
           </Campo>
@@ -697,7 +692,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                   options={FREQUENCIAS.map((x) => ({ value: x.valor, label: x.rotulo }))}
                 />
               </Campo>
-              <Campo label="Quantas ocorrências" obrigatorio ajuda="Sem fim, a recorrência gera título para sempre.">
+              <Campo label="Quantas ocorrências" obrigatorio>
                 <Input
                   type="number" min={2} max={120}
                   value={String(f.ocorrencias)}
@@ -730,10 +725,10 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           <Campo label="Descrição">
             <Input value={f.descricao} onChange={(e) => set("descricao", e.target.value)} />
           </Campo>
-          <Campo label="Documento fiscal" ajuda="NF ou referência do extrato que ampara a transação.">
+          <Campo label="Documento fiscal">
             <Input value={f.documentoFiscal} onChange={(e) => set("documentoFiscal", e.target.value)} />
           </Campo>
-          <Campo label="Dados de pagamento" ajuda="Código de pagamento (boleto, PIX, etc.).">
+          <Campo label="Dados de pagamento">
             <Textarea value={f.dadosPagamento} onChange={(e) => set("dadosPagamento", e.target.value)} rows={2} />
           </Campo>
         </Bloco>
@@ -793,10 +788,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             </span>
           </div>
           {plano.ehCustoFixo && (
-            <p className="m-0 mt-2 text-caption text-muted">
-              Marcada como <b className="text-ink">custo fixo</b> — entra na conta de quanto a
-              empresa compromete todo mês.
-            </p>
+            <span className="mt-2 inline-block rounded-pill bg-surface-2 px-[10px] py-[3px] text-caption text-ink">Custo fixo</span>
           )}
           <div className="mt-3 flex flex-wrap gap-1">
             {plano.titulos.slice(0, 14).map((t) => (
@@ -812,15 +804,6 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
               <span className="text-caption text-faint self-center">+{plano.titulos.length - 14}</span>
             )}
           </div>
-          {modo === "parcelada" && (
-            // ⚠️ Dito na tela porque é contraintuitivo e muda o mês do
-            // resultado: as parcelas caem no caixa mês a mês, mas a DESPESA é
-            // inteira no mês da compra.
-            <p className="m-0 mt-3 text-caption text-faint">
-              As parcelas vencem mês a mês, mas a despesa é inteira na competência de{" "}
-              {f.competencia.split("-").reverse().join("/")} — é assim que o DRE a enxerga.
-            </p>
-          )}
         </Card>
       )}
 
@@ -841,7 +824,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       {/* --------------------------------- anexos --------------------------------- */}
       {modo !== "folha" && <Card>
         <span className="text-h3 font-semibold text-ink">Anexos</span>
-        <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
+        <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
           <span className="text-label text-muted">Arraste arquivos para cá ou clique para selecionar</span>
           <span className="text-caption text-faint">{EXT_OK.join(", ")} · até 10 MB</span>

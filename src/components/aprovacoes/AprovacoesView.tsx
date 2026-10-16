@@ -174,14 +174,12 @@ export function AprovacoesView() {
                   <button onClick={() => agir("devolver")} className="text-caption font-medium text-muted hover:text-ink bg-surface-2 rounded-pill px-3 py-[7px]">Devolver</button>
                   <button onClick={() => agir("rejeitar")} className="text-caption font-medium text-negative hover:opacity-80 bg-surface-2 rounded-pill px-3 py-[7px]">Rejeitar</button>
                 </div>
-                {recusa ? (
+                {recusa && (
                   <span className="inline-flex items-start gap-[6px] text-caption" style={{ color: "var(--color-warning)" }}>
                     <Icon name="shield-check" size={13} color="currentColor" />
                     {FRASE_RECUSA[recusa]}
                     {recusa === "sem-papel" && papel ? ` Seu papel: ${nomeDoPapel(papel)}.` : ""}
                   </span>
-                ) : (
-                  <span className="text-caption text-faint">Segregação: quem solicita não aprova a própria. Aprovado no último nível libera a execução na Central.</span>
                 )}
               </>
             )}

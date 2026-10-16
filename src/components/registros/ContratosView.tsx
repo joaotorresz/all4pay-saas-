@@ -77,9 +77,6 @@ export function ContratosView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo={lado === "fornecedor"
-          ? "Contratos ativos e históricos vinculados aos fornecedores da empresa."
-          : "Contratos ativos e históricos vinculados aos clientes — e as vendas recorrentes que eles geram."}
         acaoNova={{ label: "Novo contrato", onClick: () => setEditando(vazio(lado)) }}
         exportar={{ nomeArquivo: `contratos-${lado}`, aba: "Contratos", linhas }}
       />
@@ -266,17 +263,8 @@ function FormContrato({
         onChange={(l) => set("centros", l)}
       />
 
-      {/* Vendas recorrentes são EXCLUSIVAS do contrato de cliente — dizer isso
-          na tela evita o operador procurar a chave no lugar errado. */}
-      {c.lado === "fornecedor" ? (
-        <div className="flex items-start gap-3 rounded-card bg-surface-2 p-4">
-          <Icon name="info" size={16} color="var(--color-text-tertiary)" className="mt-[2px] shrink-0" />
-          <p className="m-0 text-caption text-muted">
-            A criação de vendas recorrentes é exclusiva dos contratos de Cliente. Para gerar vendas mês a mês
-            a partir de um contrato, cadastre um contrato de Cliente.
-          </p>
-        </div>
-      ) : (
+      {/* Vendas recorrentes são EXCLUSIVAS do contrato de cliente. */}
+      {c.lado !== "fornecedor" && (
         <BlocoVendas
           cfg={c.vendas}
           erros={erros}
@@ -421,10 +409,6 @@ function BlocoVendas({
         onChange={(v) => onChange(v ? padrao() : null)}
         label="Criar vendas associadas ao contrato"
       />
-      <p className="m-0 text-caption text-muted">
-        Gera uma venda por mês dentro da vigência do contrato, com conta a receber vinculada e,
-        se configurado, NF com emissão agendada mês a mês.
-      </p>
 
       {cfg && (
         <>

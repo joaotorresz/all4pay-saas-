@@ -62,7 +62,6 @@ export function PlanoContasView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo="A árvore de categorias que os lançamentos, o DRE e a conciliação usam."
         exportar={{ nomeArquivo: "plano-de-contas", aba: "Plano de contas", linhas: linhasXLSX }}
       />
 
@@ -214,12 +213,13 @@ function Arvore({ cats, carregando, carregado }: { cats: CategoriaCadastro[]; ca
       <div className="flex items-center gap-5 text-caption text-muted flex-wrap">
         <Legenda cor={COR.receita}>Receita (contas a receber)</Legenda>
         <Legenda cor={COR.despesa}>Despesa (contas a pagar)</Legenda>
-        <span>Lançamento só em categoria sem subcategorias.</span>
+
       </div>
 
       {visiveis.length === 0 ? (
         <Card>
-          <VazioRegistro texto={carregando ? "Carregando o plano de contas…" : cats.length === 0 ? "O plano de contas está vazio. Crie o primeiro grupo ou categoria." : "Nenhuma categoria encontrada."} />
+          <VazioRegistro texto={carregando ? "Carregando o plano de contas…" : cats.length === 0 ? "O plano de contas está vazio."
+ : "Nenhuma categoria encontrada."} />
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
@@ -365,7 +365,7 @@ function FormCategoria({
       <Campo label="Nome" obrigatorio erro={erros.nome}>
         <Input value={f.nome} onChange={(e) => set("nome", e.target.value)} placeholder="Ex.: Produto Online" />
       </Campo>
-      <Campo label="Código" erro={erros.codigo} ajuda="Opcional — o código do plano contábil (o Domínio casa por ele).">
+      <Campo label="Código" erro={erros.codigo}>
         <Input value={f.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Ex.: 3.1.01" />
       </Campo>
       {pai ? (
@@ -382,7 +382,7 @@ function FormCategoria({
         </Campo>
       )}
       {!ehGrupo && (
-        <Campo label="Grupo" erro={erros.paiId} ajuda="Vazio = a categoria fica no primeiro nível do plano.">
+        <Campo label="Grupo" erro={erros.paiId}>
           <Select
             value={f.paiId ?? ""}
             onChange={(v) => set("paiId", v || null)}
@@ -391,13 +391,7 @@ function FormCategoria({
           />
         </Campo>
       )}
-      <Campo
-        label="Linha do DRE"
-        erro={erros.dreLinha}
-        ajuda={ehGrupo
-          ? "Um grupo não recebe lançamento — a linha vale para as subcategorias que não declararem a própria."
-          : "Onde os lançamentos desta categoria entram no DRE. Sem declarar, o sistema adivinha pelo nome."}
-      >
+      <Campo label="Linha do DRE" erro={erros.dreLinha}>
         <Select
           value={f.dreLinha ?? ""}
           onChange={(v) => set("dreLinha", v || undefined)}
@@ -424,12 +418,7 @@ function UsoPadrao({ cats }: { cats: CategoriaCadastro[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-label text-muted max-w-[92ch]">
-        Qual categoria cada função automática usa (vendas importadas, taxas de plataforma, chargebacks).
-        Cada função aceita uma única categoria, e só categorias sem subcategorias entram. As
-        importações ainda classificam pelo nome: esta escolha fica gravada no cadastro da empresa
-        para quando passarem a lê-la.
-      </p>
+
       {antigos.length > 0 && (
         <Card>
           <div className="flex items-center justify-between gap-3 flex-wrap">

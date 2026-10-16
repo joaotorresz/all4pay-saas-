@@ -49,13 +49,7 @@ export function AlcadaCard({ onToast }: { onToast: (m: string) => void }) {
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-h2 m-0">Alçada de aprovação</h2>
-          <p className="m-0 text-caption text-muted">
-            Quanto cada papel confirma sozinho na Central. Quem <em>pode</em> aprovar vem do
-            papel; aqui você define <em>quanto</em>.
-          </p>
-        </div>
+        <h2 className="text-h2 m-0">Alçada de aprovação</h2>
         <InfoHint
           align="left"
           oQue="O teto que cada papel confirma sozinho, sem escalar para alguém acima."

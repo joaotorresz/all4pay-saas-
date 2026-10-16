@@ -65,11 +65,7 @@ export function NotasFiscaisView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[70ch]">
-          Consulte e baixe as notas fiscais emitidas. Use as abas para alternar entre a lista detalhada e o
-          download em lote.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="outline" disabled={comNF.length === 0}
           onClick={() => baixarXLSX("notas-fiscais", [{ nome: "Notas fiscais", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
@@ -127,10 +123,6 @@ export function NotasFiscaisView() {
       ) : (
         <Card>
           <span className="text-h3 font-semibold text-ink">Download em lote</span>
-          <p className="m-0 mt-1 text-caption text-muted">
-            Selecione as notas emitidas para baixar de uma vez. Só nota EMITIDA tem arquivo — processando,
-            cancelada e negada não geram documento.
-          </p>
           {emitidas.length === 0 ? (
             <Vazio texto="Nenhuma nota emitida para baixar." />
           ) : (
@@ -176,13 +168,6 @@ export function NotasFiscaisView() {
                 <Icon name="arrow-down-to-line" size={15} color="currentColor" />
                 Baixar selecionadas
               </Button>
-              {/* Honestidade: o XML/PDF da nota vem do emissor. Enquanto a
-                  integração não existe, o lote sai como planilha — e a tela diz
-                  isso, em vez de oferecer um download que não existe. */}
-              <p className="m-0 mt-3 text-caption text-faint">
-                O XML e o PDF vêm do emissor de notas. Enquanto a integração não estiver ligada, o lote sai
-                como planilha com os dados das notas.
-              </p>
             </>
           )}
         </Card>
@@ -297,10 +282,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[62ch]">
-          Impostos das vendas por mês de competência. Soma por mês para gerar uma conta a pagar por imposto.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-3 shrink-0">
           <span className="rounded-pill bg-surface-2 px-3 py-[6px] text-caption text-muted">
             Regime <b className="text-ink">{regimeEmpresa === "presumido" ? "Lucro Presumido" : regimeEmpresa === "real" ? "Lucro Real" : "Simples Nacional"}</b>
@@ -341,9 +323,6 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <span className="text-h3 font-semibold text-warning">Configuração incompleta</span>
-              <p className="m-0 mt-1 text-label text-muted">
-                Complete a configuração para criar as contas a pagar dos impostos previstos.
-              </p>
               <p className="m-0 mt-1 text-caption text-faint">· {pendencias.join(" · ")}</p>
             </div>
             <Button variant="primary" onClick={() => setAbrirConfig(true)}>Abrir configurar</Button>
@@ -485,16 +464,14 @@ function ConfigImpostosModal({
 
   return (
     <FormModal title="Configurar impostos" size="large" onClose={onClose} onSave={() => onSalvo(c)}>
-      <Campo label="Conta bancária padrão de compras" ajuda="É de onde as contas a pagar dos impostos saem.">
+      <Campo label="Conta bancária padrão de compras">
         <Select value={c.contaId} onChange={(v) => setC((s) => ({ ...s, contaId: v }))}
           placeholder="Selecione a conta" options={contas} />
       </Campo>
 
-      <div className="flex items-center justify-between gap-3 pt-2">
-        <span className="text-caption text-muted">
-          Sem fornecedor o título fica órfão — ninguém sabe a quem pagar.
-        </span>
-        <Button variant="ghost" disabled={propondo} onClick={async () => {
+      <div className="flex items-center justify-end gap-3 pt-2">
+        <Button variant="ghost" disabled={propondo}
+ onClick={async () => {
           // ⚠️ A escolha volta para a cópia do modal: sem isto, "Salvar"
           // devolvia a configuração de antes e apagava o que foi proposto.
           setPropondo(true);
@@ -544,13 +521,6 @@ function ConfigImpostosModal({
           </div>
         );
       })}
-
-      {/* As alíquotas são padrões do regime — ISS varia por município, ICMS por
-          estado. Quem confirma é o contador; o sistema garante a aritmética. */}
-      <p className="m-0 text-caption text-faint">
-        As alíquotas vêm do regime da empresa e servem de ponto de partida: ISS varia por município, ICMS por
-        estado e a base do Lucro Presumido muda conforme a atividade. Ajuste com o seu contador.
-      </p>
     </FormModal>
   );
 }
@@ -590,8 +560,7 @@ export function AssinaturasVendasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Gerencie assinaturas e cobranças recorrentes.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="outline" disabled={visiveis.length === 0}
           onClick={() => baixarXLSX("assinaturas", [{
             nome: "Assinaturas",
@@ -631,7 +600,7 @@ export function AssinaturasVendasView() {
         <Card><Skeleton className="h-[200px]" /></Card>
       ) : visiveis.length === 0 ? (
         <Card>
-          <Vazio texto="Nenhuma assinatura encontrada. As recorrências que você ativar aparecem aqui — e as faturas delas entram no fluxo de caixa." />
+          <Vazio texto="Nenhuma assinatura encontrada." />
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
@@ -697,11 +666,7 @@ export function LinksPagamentoView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[70ch]">
-          Cada link gera o PIX copia-e-cola e o QR do PIX da empresa, com o valor do link. Ainda não existe
-          página pública de pagamento: o que se envia ao cliente é o código PIX.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="primary" onClick={() => setNovo(criar())}>
           <Icon name="plus" size={15} color="currentColor" />
           Novo link
@@ -711,10 +676,7 @@ export function LinksPagamentoView() {
       {recebedor === null && (
         <Card>
           <span className="text-h3 font-semibold text-warning">PIX sem recebedor</span>
-          <p className="m-0 mt-1 text-label text-muted">
-            O PIX usa o CNPJ cadastrado da empresa como chave, e não há CNPJ no cadastro. Sem ele o link não gera
-            código para pagar — preencha em Dados da empresa.
-          </p>
+          <p className="m-0 mt-1 text-label text-muted">Preencha o CNPJ em Dados da empresa.</p>
         </Card>
       )}
 
@@ -722,7 +684,7 @@ export function LinksPagamentoView() {
         <Card><Skeleton className="h-[180px]" /></Card>
       ) : lista.length === 0 ? (
         <Card>
-          <Vazio texto="Nenhum link de pagamento criado. Cada link gera o PIX copia-e-cola e o QR do PIX da empresa — o cliente paga pelo aplicativo do banco." />
+          <Vazio texto="Nenhum link de pagamento criado." />
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -802,7 +764,8 @@ function FormLink({
         <Input value={l.titulo} onChange={(e) => setL((s) => ({ ...s, titulo: e.target.value }))}
           placeholder="Ex.: Mentoria — turma de setembro" />
       </Campo>
-      <Campo label="Valor" erro={erros.valor} ajuda="Deixe zero para o pagador digitar o valor no aplicativo do banco.">
+      <Campo label="Valor" erro={erros.valor} ajuda="Zero = valor aberto."
+>
         <CurrencyInput value={l.valor} onValueChange={(x) => setL((s) => ({ ...s, valor: x }))} />
       </Campo>
       <Campo label="Cliente">
@@ -849,9 +812,7 @@ function QRModal({
         {pix && (
           <>
             <div className="w-full rounded-md bg-surface-2 px-3 py-2 text-caption text-muted break-all">{pix}</div>
-            <p className="m-0 text-caption text-faint text-center">
-              A chave é o CNPJ da empresa — confira no seu banco que ele está cadastrado como chave PIX.
-            </p>
+
             <Button
               variant="ghost"
               onClick={() => {

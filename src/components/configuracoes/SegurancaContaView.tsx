@@ -126,9 +126,7 @@ export function SegurancaContaView() {
       <Card className="flex flex-col gap-2">
         <span className="text-h3 font-medium text-ink">Segundo fator</span>
         <p className="m-0 text-label text-muted max-w-[72ch]">
-          No modo demonstração não há conta para proteger. Na conta de verdade, esta tela cadastra o aplicativo
-          autenticador do seu celular: depois da senha, a {MARCA} passa a pedir o código de {DIGITOS_CODIGO} dígitos que
-          ele mostra para abrir o sistema.
+          No modo demonstração não há conta para proteger.
         </p>
       </Card>
     );
@@ -153,8 +151,8 @@ export function SegurancaContaView() {
         {fatores !== null && (
         <p className="m-0 text-label text-muted max-w-[72ch]">
           {ativo
-            ? "A cada entrada, depois da senha, a conta pede o código do aplicativo. Cadastre um segundo aparelho como reserva: sem o celular, só o suporte consegue retirar o segundo fator."
-            : `Proteja a conta com o código do aplicativo autenticador do celular (Google Authenticator, Microsoft Authenticator, 1Password ou outro). Depois de ativado, a ${MARCA} pede o código a cada entrada.`}
+            ? "Cadastre um segundo aparelho como reserva."
+            : "Google Authenticator, Microsoft Authenticator, 1Password ou outro."}
         </p>
         )}
 
@@ -286,10 +284,6 @@ function PainelCadastro({
       <div className="flex flex-col gap-1">
         <span className="a4p-label text-muted">Passo 1 de 2</span>
         <span ref={titulo} tabIndex={-1} className="text-h3 font-medium text-ink outline-none">Adicione a conta no aplicativo</span>
-        <p className="m-0 text-label text-muted max-w-[72ch]">
-          No computador, leia o código QR com o aplicativo autenticador do celular. No próprio celular, toque em
-          “Abrir no aplicativo autenticador” ou digite a chave.
-        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-5 sm:items-start">
@@ -385,7 +379,6 @@ function QRAmpliado({ svg, aoFechar }: { svg: string; aoFechar: () => void }) {
         </div>
         {/* O lado acompanha a tela (até 80% da menor dimensão), sem sair dela. */}
         <div data-qr="ampliado" className="overflow-hidden rounded-md leading-none [&>svg]:block [&>svg]:h-auto [&>svg]:w-[min(78vw,70vh)]" dangerouslySetInnerHTML={{ __html: svg }} />
-        <p className="m-0 text-caption text-muted">Esc ou um clique fora fecha.</p>
       </div>
     </div>,
     document.body,

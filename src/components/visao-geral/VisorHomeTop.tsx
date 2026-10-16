@@ -208,7 +208,7 @@ export function VisorHomeTop() {
               traz o resultado do período (entradas − saídas). */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
             {/* ⚠️ SEM `Math.abs`. O herói exibia o saldo em módulo, então um
-                caixa de −R$31.000,16 aparecia como +R$31.000,16: a informação
+                caixa de −R$ 31.000,16 aparecia como +R$ 31.000,16: a informação
                 mais importante da tela, com o sinal trocado. Um saldo negativo
                 é a coisa que a pessoa PRECISA ver — ele entra com o "−" escrito,
                 em ink (número não tem cor por sinal, decisão de 30/09/2026). */}
