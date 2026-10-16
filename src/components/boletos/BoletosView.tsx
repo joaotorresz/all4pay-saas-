@@ -114,7 +114,7 @@ export function BoletosView() {
         </div>
         <div className="flex flex-col max-h-[520px] overflow-y-auto">
           {lista.length === 0 ? (
-            <p className="text-caption text-faint text-center py-8">Nenhum recebível em aberto. Faturas de Recorrência aparecem aqui para emitir boleto.</p>
+            <p className="text-caption text-faint text-center py-8">Nenhum recebível em aberto.</p>
           ) : lista.map((m) => {
             const st = statusEfetivo(m, hoje);
             return (
@@ -144,9 +144,7 @@ export function BoletosView() {
             );
           })}
         </div>
-        <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">O <b className="text-muted font-medium">PIX</b> (copia e cola) é gerado de verdade — BR Code/EMV com a chave da empresa (CNPJ), sem PSP. O trilho do <b className="text-muted font-medium">boleto bancário</b> (linha digitável registrada) depende de integração com o banco emissor/PSP — por ora simulado. Ao marcar pago, concilia automático e o saldo sobe.</span>
-        </div>
+
       </Card>
 
       {/* Modal de emissão */}
@@ -182,7 +180,8 @@ function EmitirModal({ mov, contas, busy, onClose, onConfirm, nome }: {
             <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
             <Button variant="primary" onClick={() => onConfirm({ multa, juros, desconto, instrucoes: instrucoes.trim() || undefined, conta })} disabled={busy}>{busy ? "Emitindo…" : "Emitir boleto"}</Button>
           </div>
-          <span className="text-caption text-faint">{/* TODO INTEGRAÇÃO PSP */}O registro no banco emissor é simulado — nosso número e linha digitável são gerados para destravar o ciclo.</span>
+          {/* TODO INTEGRAÇÃO PSP: o registro no banco emissor é simulado. */}
+
         </Card>
       </div>
     </div>

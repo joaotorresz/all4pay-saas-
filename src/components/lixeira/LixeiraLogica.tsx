@@ -73,10 +73,7 @@ export function LixeiraLogica() {
     return (
       <Card className="flex flex-col gap-2">
         <span className="text-h3 text-ink">Excluídos</span>
-        <p className="m-0 text-caption text-faint max-w-[72ch]">
-          Em demonstração os dados vivem neste navegador e não há lixeira no servidor
-          para consultar.
-        </p>
+        <p className="m-0 text-caption text-faint">Indisponível em demonstração.</p>
       </Card>
     );
   }
@@ -88,11 +85,7 @@ export function LixeiraLogica() {
       <div className="px-5 py-3 border-b border-border-soft flex items-center justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <span className="text-h3 text-ink">Excluídos</span>
-          <p className="m-0 mt-1 text-caption text-faint max-w-[72ch]">
-            Tudo que foi excluído continua aqui e volta com um clique. Apagar em
-            definitivo é o segundo ato — exige motivo escrito e o papel de quem
-            administra.
-          </p>
+
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {itens.length > 0 && <Badge variant="count">{itens.length}</Badge>}

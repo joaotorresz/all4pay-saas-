@@ -86,11 +86,7 @@ export function FechamentoView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[80ch]">
-          Relatório de análise financeira mensal — DRE em cascata, KPIs e pontos de atenção.
-          Edite os textos, exporte em DOCX e mantenha o histórico de fechamentos.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <Button variant="primary" onClick={() => setModo("novo")}>
           <Icon name="plus" size={15} color="currentColor" />
           Novo fechamento
@@ -175,10 +171,6 @@ function Formulario({
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted max-w-[80ch]">
-        Selecione o mês de referência e o período comparativo. Depois de gerar, você revisa e edita os
-        textos do relatório antes de exportar.
-      </p>
       <Card className="max-w-[640px] self-center w-full">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col gap-[6px]">
@@ -203,7 +195,6 @@ function Formulario({
               { value: "12", label: "Últimos 12 meses (ano)" },
             ]}
           />
-          <span className="text-caption text-faint">Define quantos meses aparecem na DRE comparativa do relatório.</span>
         </div>
         <div className="flex flex-col gap-[6px] mt-4">
           <label className="text-caption font-medium text-muted">Emitido por</label>
@@ -329,9 +320,6 @@ function Relatorio({
 
       <Card>
         <span className="text-h3 font-semibold text-ink">Textos do relatório</span>
-        <p className="m-0 mt-1 text-caption text-faint">
-          Redigidos a partir dos números do período. Ajuste antes de exportar — quem assina é você.
-        </p>
         <div className="flex flex-col gap-4 mt-4">
           <CampoTexto label="Resumo do período" value={textos.resumo} onChange={(v) => setTextos((s) => ({ ...s, resumo: v }))} />
           <CampoTexto label="Destaques" value={textos.destaques} onChange={(v) => setTextos((s) => ({ ...s, destaques: v }))} />

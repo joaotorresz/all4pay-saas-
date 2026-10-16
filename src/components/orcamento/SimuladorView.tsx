@@ -178,7 +178,6 @@ export function SimuladorView() {
                 label="Ou a parcela que te ofereceram"
                 value={parcelaInformada}
                 onChange={setParcelaInformada}
-                hint="se preencher, o juro real é calculado"
               />
             </>
           )}
@@ -186,22 +185,14 @@ export function SimuladorView() {
             label={tipo === "contratacao" ? "Custo mensal (salário + encargos)" : "Custo mensal de manter"}
             value={custoExtra}
             onChange={(v) => { tocado.current.custo = true; setCustoExtra(v); }}
-            hint={tipo === "veiculo" ? "IPVA, seguro, combustível…" : undefined}
           />
           <CampoValor
             label={pessoal ? "Economia que isso traz por mês" : "Receita que isso gera por mês"}
             value={receitaExtra}
             onChange={setReceitaExtra}
-            hint={pessoal ? "ex.: deixa de gastar com app/aluguel" : "entra no payback"}
           />
         </div>
 
-        {preset.dica && (
-          <p className="m-0 mt-4 text-caption text-muted flex items-start gap-2">
-            <Icon name="sparkles" size={14} color="var(--color-text-tertiary)" className="mt-[2px] shrink-0" />
-            {preset.dica}
-          </p>
-        )}
       </Card>
 
       {/* ---------- o resultado ---------- */}
@@ -238,7 +229,7 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 pt-5 border-t border-border-soft">
           <Metrica label="Parcela" valor={r.parcela} sufixo={r.parcelas > 0 ? `× ${r.parcelas}` : undefined} />
-          <Metrica label="Peso no mês" valor={r.pesoMensal} hint="parcela + custos − ganhos" />
+          <Metrica label="Peso no mês" valor={r.pesoMensal} />
           <Metrica label="Sobra depois" valor={r.sobraDepois} />
           <Metrica label="Total pago" valor={r.totalPago} hint={r.juros > 0 ? `${formatBRL(r.juros)} de juros` : "sem juros"} />
         </div>
@@ -291,8 +282,7 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
       {/* fatores + alternativas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card>
-          <h3 className="text-h3 font-semibold text-ink m-0 mb-1">Por que esse veredito</h3>
-          <p className="m-0 mb-4 text-caption text-faint">cada fator que pesou na conta</p>
+          <h3 className="text-h3 font-semibold text-ink m-0 mb-4">Por que esse veredito</h3>
           <div className="flex flex-col">
             {r.fatores.map((f, i) => (
               <div key={i} className="flex items-start gap-3 py-[10px] border-b border-border-soft last:border-0">
@@ -308,10 +298,9 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
         </Card>
 
         <Card>
-          <h3 className="text-h3 font-semibold text-ink m-0 mb-1">
+          <h3 className="text-h3 font-semibold text-ink m-0 mb-4">
             {r.veredito === "confortavel" ? "Dá para melhorar" : "O que faria caber"}
           </h3>
-          <p className="m-0 mb-4 text-caption text-faint">alternativas com o número de cada uma</p>
           {r.alternativas.length === 0 ? (
             <p className="m-0 text-caption text-faint py-4">Sem alternativa melhor para este cenário.</p>
           ) : (

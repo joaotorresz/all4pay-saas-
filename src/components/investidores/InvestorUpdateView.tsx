@@ -69,7 +69,6 @@ export function InvestorUpdateView() {
               <div className="flex items-center gap-3 mb-4">
                 <div>
                   <h2 className="m-0 text-h3 font-medium text-ink">Métricas · {u.mesReferencia}</h2>
-                  <span className="text-caption text-faint">derivadas dos lançamentos reais · {u.versaoModelo}</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -91,7 +90,6 @@ export function InvestorUpdateView() {
                 <div className="flex items-center gap-3">
                   <div>
                     <h2 className="m-0 text-h3 font-medium text-ink">Sua parte</h2>
-                    <span className="text-caption text-faint">o que só o fundador sabe — entra nas seções do texto</span>
                   </div>
                 </div>
                 <Input label="Nome da empresa (opcional)" value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="ex.: ACME Tecnologia" />
@@ -132,7 +130,6 @@ export function InvestorUpdateView() {
                 <div className="flex items-center gap-3">
                   <div className="min-w-0">
                     <h2 className="m-0 text-h3 font-medium text-ink">Texto pronto para enviar</h2>
-                    <span className="text-caption text-faint">atualiza ao vivo com os campos ao lado</span>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Idioma do texto">

@@ -220,12 +220,6 @@ export function FolhaSalarial() {
             <Icon name="triangle-alert" size={18} color="var(--color-warning)" />
             <div className="min-w-0">
               <p className="m-0 text-body text-ink">O regime tributário não está declarado.</p>
-              <p className="m-0 mt-1 text-caption text-muted">
-                Ele decide se a contribuição patronal de 20% entra no custo de cada funcionário —
-                a diferença passa de 30% sobre a mesma folha. Sem ele, o cálculo usa o cenário mais
-                caro: os números abaixo são um <b className="text-ink">teto</b>, e declarar o regime
-                só pode reduzi-los.
-              </p>
               <Button variant="ghost" onClick={() => router.push("/dashboard/administration/company-data")}>
                 Declarar o regime
               </Button>
@@ -239,11 +233,6 @@ export function FolhaSalarial() {
             <Icon name="triangle-alert" size={18} color="var(--color-warning)" />
             <div className="min-w-0">
               <p className="m-0 text-body text-ink">A tabela legal usada não é a mais recente.</p>
-              <p className="m-0 mt-1 text-caption text-muted">
-                As faixas do INSS mudam por portaria todo janeiro, e o valor só existe quando ela sai —
-                o sistema não tem como deduzi-lo. O cálculo segue com a última tabela conhecida; quando
-                o seu contador mandar a do ano, entre com ela aqui.
-              </p>
               <Button variant="ghost" onClick={() => setVerTabelas(true)}>
                 Ver as tabelas em uso
               </Button>
@@ -317,16 +306,14 @@ export function FolhaSalarial() {
                 <b className="text-ink font-medium">Encargos lançados divergem do projetado.</b>{" "}
                 A calculadora projeta <b className="text-ink">{formatBRL(conf.projetado)}</b> de FGTS e INSS
                 patronal nesta competência; o extrato traz <b className="text-ink">{formatBRL(conf.lancado)}</b>
-                {" "}({conf.desvio > 0 ? "+" : ""}{Math.round(conf.desvio * 100)}%). Pode ser quadro de pessoal
-                diferente do cadastrado, regime diferente do declarado, ou guia que não foi lançada —
-                vale conferir com o contador.
+                {" "}({conf.desvio > 0 ? "+" : ""}{Math.round(conf.desvio * 100)}%).
               </p>
             )}
             <p className="m-0 mt-4 text-caption text-muted">
               Regime <b className="text-ink">{ROTULO_REGIME[painel.regime]}</b>
-              {painel.anexo ? ` · Anexo ${painel.anexo}` : ""} — {painel.encargos.porque}
+              {painel.anexo ? ` · Anexo ${painel.anexo}` : ""}
               {anual > 0 && (
-                <> Ao longo de {mes.slice(0, 4)}, a folha custa{" "}
+                <> · Em {mes.slice(0, 4)}, a folha custa{" "}
                   <b className="text-ink">{formatBRL(anual)}</b>.</>
               )}
             </p>

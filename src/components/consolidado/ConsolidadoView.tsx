@@ -57,9 +57,6 @@ export function ConsolidadoView() {
           <InfoHint align="left" titulo="Período do consolidado" oQue="Define a janela de datas usada para somar receita, despesa e resultado de todas as suas empresas." comoCalcula="Soma os lançamentos não cancelados de cada organização com vencimento entre De e Até; o saldo é a posição atual, independente do período." />
           <DatePicker label="De" value={de} onChange={setDe} max={ate} containerClassName="min-w-[150px]" />
           <DatePicker label="Até" value={ate} onChange={setAte} min={de} containerClassName="min-w-[150px]" />
-          <span className="text-caption text-faint self-center ml-auto">
-            {posicao ? "Agrega as organizações em que você é membro · com eliminações intercompany" : "Agrega as organizações em que você é membro"}
-          </span>
         </Card>
 
         {carregando || !antes || !depois ? (
@@ -67,15 +64,14 @@ export function ConsolidadoView() {
         ) : empresas.length === 0 ? (
           <Card className="flex flex-col items-start gap-2">
             <span className="text-h3 font-medium text-ink">Uma organização</span>
-            <span className="text-caption text-muted">Você participa de uma única organização — não há o que consolidar. Adicione/participe de outras empresas (Configurações → Governança) para ver o consolidado.</span>
+            <span className="text-caption text-muted">Você participa de uma única organização.</span>
           </Card>
         ) : (
           <>
             {!posicao && (
               <Card>
                 <p className="m-0 text-caption text-warning" role="status">
-                  Os lançamentos por organização não estão disponíveis neste ambiente (migration 0020 pendente) — os totais
-                  abaixo são a soma das partes, SEM eliminar as operações entre as empresas do grupo.
+                  Totais sem eliminações intercompany neste ambiente.
                 </p>
               </Card>
             )}

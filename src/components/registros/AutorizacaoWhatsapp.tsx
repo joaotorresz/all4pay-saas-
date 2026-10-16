@@ -75,10 +75,6 @@ export function ModalAutorizarWhatsapp({
   return (
     <FormModal title="Registrar autorização de WhatsApp" size="medium" onClose={onClose} onSave={salvar} saving={autorizar.isPending}>
       <div className="flex flex-col gap-4">
-        <p className="text-label text-muted">
-          Só recebe cobrança por WhatsApp o cliente que autorizou. Sem autorização, a cobrança segue por e-mail.
-          Quem responder SAIR deixa de receber, e só volta respondendo VOLTAR.
-        </p>
 
         {elegiveis.length === 0 ? (
           <p className="text-label text-ink">Nenhum cliente ativo com telefone está esperando autorização.</p>

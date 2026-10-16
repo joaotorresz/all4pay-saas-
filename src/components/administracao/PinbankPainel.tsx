@@ -23,7 +23,6 @@
  * crédito. As duas foram medidas no extrato de produção em 14/10/2026.
  */
 import * as React from "react";
-import Link from "next/link";
 import { Card, Button, Input, CurrencyInput, Select, Switch, StatusBadge, BRL } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { useContasBancarias } from "@/components/registros/hooks";
@@ -122,7 +121,7 @@ export function PinbankPainel({ toast }: { toast: (s: string) => void }) {
     return (
       <Card>
         <p className="m-0 text-label text-muted max-w-[80ch]">
-          Na demonstração não há maquininha conectada. Em produção, cada venda, cancelamento e estorno de uma maquininha Pinbank vinculada à empresa entra sozinho como venda e contas a receber.
+          Na demonstração não há maquininha conectada.
         </p>
       </Card>
     );
@@ -130,20 +129,6 @@ export function PinbankPainel({ toast }: { toast: (s: string) => void }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <div className="flex flex-col gap-3">
-          <span className="a4p-label text-muted">Como funciona</span>
-          <ol className="m-0 pl-5 flex flex-col gap-1 text-label text-ink">
-            <li>A equipe da Quattro vincula o seu estabelecimento Pinbank a esta empresa.</li>
-            <li>Quem administra a empresa escolhe a conta do repasse, informa as taxas, a tarifa por venda e a antecipação contratadas, e ativa.</li>
-            <li>A partir daí, toda venda aprovada vira venda e contas a receber (por parcela, com a taxa ao lado); cancelamento e estorno desfazem o que ainda não caiu na conta.</li>
-          </ol>
-          <span className="text-caption text-muted max-w-[80ch]">
-            As datas e as taxas são as do contrato que você informar: a Pinbank não as manda na venda. Elas aparecem em <Link className="underline" href="/contas-a-receber/titulos">Títulos a receber</Link> e na <Link className="underline" href="/dashboard/sales-invoices">lista de vendas</Link>.
-          </span>
-        </div>
-      </Card>
-
       {erro && (
         <Card><p className="m-0 text-label text-negative">Não foi possível ler a maquininha: {erro}</p></Card>
       )}
@@ -320,9 +305,6 @@ function VinculoForm({
             <CurrencyInput label="Tarifa fixa por venda" value={tarifa} onValueChange={setTarifa}
               placeholder="sem tarifa" disabled={!administra} />
           </div>
-          <span className="text-caption text-muted max-w-[80ch]">
-            Sai uma vez por venda, antes da taxa: a taxa é cobrada sobre o valor da venda menos a tarifa. No parcelado, a tarifa é repartida entre as parcelas.
-          </span>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -341,13 +323,9 @@ function VinculoForm({
               value={antecipacao} disabled={!administra}
               onChange={(e) => setAntecipacao(e.target.value)} />
           </div>
-          {antecipado && !antecipacao.trim() ? (
+          {antecipado && !antecipacao.trim() && (
             <span className="text-caption text-warning max-w-[80ch]">
               Sem a taxa de antecipação, as vendas no crédito entram sem esse custo, e cada uma avisa que ela falta.
-            </span>
-          ) : (
-            <span className="text-caption text-muted max-w-[80ch]">
-              Cobrada só com o repasse antecipado, e só no crédito (à vista e parcelado). Ela vai ao resultado financeiro, não ao custo de vender.
             </span>
           )}
         </div>

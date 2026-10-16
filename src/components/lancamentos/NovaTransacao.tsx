@@ -108,9 +108,7 @@ function FormModalShell({ tipo, onPickTipo, onClose }: { tipo: Tipo | null; onPi
             </button>
           ))}
         </div>
-        <p className="text-caption text-faint mt-3">
-          Uma porta só: escolha e o sistema decide o destino (lançamento, título a vencer ou baixa).
-        </p>
+
       </FormModal>
     );
   }

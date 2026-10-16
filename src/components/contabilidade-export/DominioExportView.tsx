@@ -112,10 +112,6 @@ export function DominioExportView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="m-0 text-label text-muted max-w-[80ch]">
-        Exporta o extrato bancário no formato Partidas Simples (lanctos.txt) para importação
-        direta no Domínio.
-      </p>
 
       <Card>
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_auto] gap-4 items-end">
@@ -161,7 +157,7 @@ export function DominioExportView() {
             <Aviso
               tom="negativo"
               titulo="A conta bancária não tem código contábil do Domínio"
-              texto={`Em partidas simples a conta bancária é a contrapartida FIXA de todos os lançamentos, e ela NÃO vai dentro do arquivo: é informada na tela de importação do Domínio. Sem o código cadastrado, quem importa não tem de onde tirá-lo. Preencha "Código contábil (Domínio)" no cadastro da conta${extraDaConta ? ` "${extraDaConta.nome}"` : ""}.`}
+              texto={`Preencha "Código contábil (Domínio)" no cadastro da conta${extraDaConta ? ` "${extraDaConta.nome}"` : ""}.`}
             />
           )}
 
@@ -169,7 +165,6 @@ export function DominioExportView() {
             <Aviso
               tom="alerta"
               titulo={`${pendencias.length} lançamento${pendencias.length > 1 ? "s ficaram" : " ficou"} de fora`}
-              texto="Um lançamento sem código contábil não sai com o campo em branco: ele fica FORA do arquivo. O Domínio aceitaria a linha vazia e jogaria o valor numa conta transitória — o mês fecharia, o total bateria, e o erro só apareceria no balancete."
             >
               <ul className="m-0 mt-2 pl-4 flex flex-col gap-1">
                 {pendencias.slice(0, 8).map((p) => (
@@ -251,13 +246,7 @@ export function DominioExportView() {
                     <pre className="m-0 p-4 rounded-md bg-surface-2 text-caption text-ink tabular-nums overflow-x-auto">
 {gerarLanctosTxt(linhas.slice(0, 4)).trimEnd() || "—"}
                     </pre>
-                    <p className="m-0 text-caption text-faint max-w-[82ch]">
-                      O arquivo sai em <strong>ANSI (Windows-1252)</strong> com quebras CRLF — o Domínio
-                      lê ANSI, e um arquivo UTF-8 faz cada acento chegar como dois caracteres de lixo
-                      no histórico de todos os lançamentos. A <strong>ordem dos campos varia entre
-                      versões do Domínio</strong>: confira esta prévia contra a tela de importação do
-                      escritório antes do primeiro envio.
-                    </p>
+
                   </div>
                 </>
               )}
@@ -296,7 +285,7 @@ function Kpi({ rotulo, valor, node }: { rotulo: string; valor?: string; node?: R
 
 function Aviso({
   tom, titulo, texto, children,
-}: { tom: "alerta" | "negativo"; titulo: string; texto: string; children?: React.ReactNode }) {
+}: { tom: "alerta" | "negativo"; titulo: string; texto?: string; children?: React.ReactNode }) {
   const cor = tom === "negativo" ? "var(--color-negative)" : "var(--color-warning)";
   return (
     <Card>
@@ -304,7 +293,8 @@ function Aviso({
         <Icon name="triangle-alert" size={17} color={cor} />
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-label font-medium text-ink">{titulo}</span>
-          <span className="text-caption text-muted max-w-[86ch]">{texto}</span>
+          {texto && <span className="text-caption text-muted max-w-[86ch]">{texto}</span>}
+
           {children}
         </div>
       </div>

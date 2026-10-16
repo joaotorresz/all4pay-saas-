@@ -277,7 +277,7 @@ export function BarraEditor() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[14px] text-ink tabular-nums">
-          {n === 0 ? "Nenhuma alteração. Mexa em qualquer valor para ver a prévia." : `${n} alteraç${n > 1 ? "ões" : "ão"} no rascunho`}
+          {n === 0 ? "Nenhuma alteração." : `${n} alteraç${n > 1 ? "ões" : "ão"} no rascunho`}
         </span>
         {erros.length > 0 && <span className="text-[13px] text-negative">{erros.length} valor(es) inválido(s): {erros[0]}</span>}
         <span className="flex-1" />

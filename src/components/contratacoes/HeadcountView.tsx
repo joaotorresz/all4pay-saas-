@@ -51,7 +51,6 @@ export function HeadcountView() {
               <div className="flex items-center gap-3">
                 <div>
                   <h2 className="m-0 text-h3 font-medium text-ink">Vagas do plano</h2>
-                  <span className="text-caption text-faint">salário + encargos reais (13º · férias+1/3 · FGTS)</span>
                 </div>
               </div>
 

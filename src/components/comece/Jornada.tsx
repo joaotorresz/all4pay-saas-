@@ -99,8 +99,9 @@ export function JornadaView() {
               </h2>
               <span className="text-caption text-faint">
                 {isLoading ? "carregando…" : jornada && jornada.pct >= 100
-                  ? "Todos os estágios concluídos — você está usando o sistema por inteiro."
-                  : `${jornada?.feitos ?? 0} de ${jornada?.total ?? 0} passos · do essencial ao domínio, no seu ritmo`}
+                  ? "Todos os estágios concluídos."
+                  : `${jornada?.feitos ?? 0} de ${jornada?.total ?? 0} passos`}
+
               </span>
             </div>
             <span className="text-display font-semibold tabular-nums text-ink leading-none">{jornada?.pct ?? 0}%</span>

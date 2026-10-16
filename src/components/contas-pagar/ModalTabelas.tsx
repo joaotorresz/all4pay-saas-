@@ -100,9 +100,6 @@ export function ModalTabelas({
         <div className="flex items-start justify-between gap-3 p-6 border-b border-border-soft">
           <div className="min-w-0">
             <span className="block text-h3 text-ink">Tabelas legais</span>
-            <span className="block text-caption text-muted mt-1">
-              Com que números a folha desta competência foi calculada.
-            </span>
           </div>
           <button type="button" onClick={onFechar} aria-label="Fechar"
             className="inline-flex items-center justify-center w-9 h-9 rounded-md text-muted hover:text-ink hover:bg-surface-2 shrink-0">
@@ -163,11 +160,6 @@ export function ModalTabelas({
                     <span className="block text-caption text-ink">
                       Isenção efetiva até {formatBRL(5000)} · {emUso.irrf.tabela.redutor.fonte}
                     </span>
-                    <span className="block text-caption text-muted mt-1">
-                      O abatimento cobre o imposto inteiro até {formatBRL(5000)} e se dissolve até{" "}
-                      {formatBRL(emUso.irrf.tabela.redutor.ate)}. As faixas não mudaram — a lei abate o
-                      imposto apurado.
-                    </span>
                   </div>
                 )}
               </div>
@@ -177,12 +169,6 @@ export function ModalTabelas({
           {/* --------------------- a portaria que falta --------------------- */}
           {!editando && (
             <div className="flex flex-col gap-3">
-              <p className="m-0 text-caption text-muted">
-                As faixas do INSS mudam por portaria todo janeiro, e o valor só existe quando ela sai —
-                o sistema não tem como deduzi-lo. Quando o seu contador mandar a tabela do ano, entre
-                com ela aqui: a aritmética (faixa a faixa, com teto) e a vigência continuam por nossa
-                conta.
-              </p>
               <div>
                 <Button variant="secondary" onClick={() => setEditando(true)}>
                   <Icon name="plus" size={14} color="currentColor" />

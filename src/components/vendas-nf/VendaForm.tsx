@@ -255,7 +255,7 @@ export function VendaForm() {
             <Campo label="Valor total" obrigatorio erro={erros.valorTotal}>
               <CurrencyInput value={v.valorTotal} onValueChange={(x) => { setTotalDigitado(true); set("valorTotal", x); }} />
             </Campo>
-            <Campo label="Valor total com juros" ajuda="Quando o cliente pagou parcelado com acréscimo.">
+            <Campo label="Valor total com juros">
               <CurrencyInput value={v.valorTotalComJuros} onValueChange={(x) => set("valorTotalComJuros", x)} />
             </Campo>
 
@@ -321,7 +321,7 @@ export function VendaForm() {
             <Select value={v.metodo} onChange={(x) => set("metodo", x as MetodoPagamento)}
               options={METODOS_PAGAMENTO.map((m) => ({ value: m.id, label: m.label }))} />
           </Campo>
-          <Campo label="ID externo" ajuda="O identificador da venda na plataforma de origem.">
+          <Campo label="ID externo">
             <Input value={v.idExterno} onChange={(e) => set("idExterno", e.target.value)} />
           </Campo>
           <Campo label="Categoria da conta a receber" obrigatorio erro={erros.categoria}>
@@ -397,7 +397,7 @@ export function VendaForm() {
           <Campo label="Descrição">
             <Textarea value={v.descricao} onChange={(e) => set("descricao", e.target.value)} rows={3} />
           </Campo>
-          <Campo label="Texto do documento fiscal" ajuda="Sai na descrição da nota.">
+          <Campo label="Texto do documento fiscal">
             <Textarea value={v.textoDocumentoFiscal} onChange={(e) => set("textoDocumentoFiscal", e.target.value)} rows={3} />
           </Campo>
           <Campo label="Observações">

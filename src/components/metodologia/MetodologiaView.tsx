@@ -19,11 +19,10 @@ import { LIMITES } from "@/core/metodologia/limites";
 
 const SINAL: Record<string, string> = { "+": "+", "-": "−", "=": "=", "+/-": "+/−" };
 
-function Cascata({ linhas, titulo, nota }: { linhas: typeof ESTRUTURA_DRE; titulo: string; nota: string }) {
+function Cascata({ linhas, titulo }: { linhas: typeof ESTRUTURA_DRE; titulo: string }) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-h2 m-0">{titulo}</h2>
-      <p className="m-0 text-body text-muted max-w-[70ch]">{nota}</p>
       <div className="flex flex-col">
         {linhas.map((l) => (
           <div key={l.id} className="flex gap-3 py-4 border-t border-border-soft">
@@ -67,31 +66,20 @@ export function MetodologiaView() {
       <header className="flex flex-col gap-3">
         <span className="a4p-label text-muted">Metodologia</span>
         <h1 className="text-h1 m-0 max-w-[24ch]">Como os números desta plataforma são calculados</h1>
-        <p className="m-0 text-body text-muted max-w-[70ch]">
-          Esta página é pública e não exige conta. Ela descreve a estrutura do resultado, o que
-          entra em cada linha, como os indicadores são formados — e, no fim, o que o sistema não
-          faz. A última parte é a que decide se as anteriores merecem confiança.
-        </p>
       </header>
 
       <Cascata
         linhas={ESTRUTURA_DRE}
         titulo="A demonstração de resultado, linha a linha"
-        nota="Apurada por COMPETÊNCIA: cada lançamento entra no mês em que o fato aconteceu, tenha o dinheiro entrado ou não. As linhas em negrito não somam lançamento nenhum — saem de fórmula sobre as linhas acima, e é isso que impede um valor de ser contado duas vezes."
       />
 
       <Cascata
         linhas={ESTRUTURA_DFC}
         titulo="O fluxo de caixa, linha a linha"
-        nota="Apurado por CAIXA: cada lançamento entra na data em que o dinheiro se moveu. É a diferença inteira entre os dois relatórios — uma conta lançada e não paga existe no resultado e não existe aqui, e nenhum dos dois está errado."
       />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-h2 m-0">Os indicadores, e o que cada um pesa</h2>
-        <p className="m-0 text-body text-muted max-w-[70ch]">
-          Cada indicador declara o motor que o produz, a janela que enxerga, os componentes com
-          seu peso e — no mesmo lugar, com o mesmo destaque — o que ele não enxerga.
-        </p>
         {METODOLOGIAS.map((m) => (
           <article key={m.id} className="flex flex-col gap-2 py-5 border-t border-border-soft">
             <h3 className="text-h3 m-0">{m.indicador}</h3>
@@ -134,10 +122,6 @@ export function MetodologiaView() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-h2 m-0">O que o sistema não faz</h2>
-        <p className="m-0 text-body text-muted max-w-[70ch]">
-          Fronteiras declaradas, não defeitos escondidos. Cada uma diz o que o sistema faz de
-          fato, por que a fronteira existe, e o que fazer no lugar.
-        </p>
         {LIMITES.map((l) => (
           <article key={l.titulo} className="flex flex-col gap-2 py-5 border-t border-border-soft">
             <h3 className="text-h3 m-0">{l.titulo}</h3>
@@ -153,13 +137,6 @@ export function MetodologiaView() {
         ))}
       </section>
 
-      <footer className="border-t border-border-soft pt-6">
-        <p className="m-0 text-caption text-faint max-w-[70ch]">
-          Esta página é gerada a partir das mesmas definições que o produto executa: as linhas
-          vêm da estrutura que monta o relatório, e os pesos vêm do motor que calcula o
-          indicador. Quando o cálculo muda, esta página muda junto.
-        </p>
-      </footer>
     </main>
   );
 }

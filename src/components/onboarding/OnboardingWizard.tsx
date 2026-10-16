@@ -261,7 +261,6 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
           <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
               <button onClick={onTrocarTipo} className="text-caption text-muted hover:text-ink underline">Sou pessoa física</button>
-              <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
             </div>
           </div>
           <div>
@@ -279,15 +278,7 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
                 </span>
               ))}
             </div>
-            <p className="m-0 text-caption text-muted mt-2">Nossa IA configurará seu ambiente financeiro a partir destas informações.</p>
           </div>
-          {/* O aviso de beta é PARTE do plano de lançamento: um beta que declara
-              o que ainda não faz é levado a sério; um que esconde perde o
-              cliente no primeiro buraco. */}
-          <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
-            Beta gratuito. Seus dados são reais e ficam salvos; algumas integrações ainda
-            estão chegando. <a href="/privacidade" className="underline hover:text-ink">Como tratamos seus dados</a>.
-          </p>
           <div>
           </div>
         </div>
@@ -323,7 +314,6 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             sem e-mail e senha não há como entrar, porque o acesso anônimo está
             desligado. Texto de tela não fala de MVP, e não promete o que o
             sistema recusa. */}
-        <p className="text-center text-caption text-faint">Os campos opcionais podem ficar em branco e ser preenchidos depois, em Configurações.</p>
       </div>
       </div>
     </MolduraPublica>
@@ -403,7 +393,6 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
   const set = (k: keyof PerfilEmpresa, v: any) => setPerfil((p) => ({ ...p, [k]: v }));
   return (
     <>
-      <p className="m-0 text-caption text-muted">Esta etapa é o que mais ajuda a IA a entender o seu negócio.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Setor" value={perfil.setor} onChange={(v) => set("setor", v)} options={opt(SETORES)} placeholder="Selecione" />
         <Select label="Modelo de negócio" value={perfil.modelo} onChange={(v) => set("modelo", v)} options={opt(MODELOS)} placeholder="Selecione" />
@@ -426,7 +415,6 @@ function PassoGovernanca({ participantes, setParticipantes }: { participantes: P
   const rem = (i: number) => setParticipantes((ps) => ps.filter((_, j) => j !== i));
   return (
     <>
-      <p className="m-0 text-caption text-muted">Quem decide, quem opera, quem aprova — a IA usa isto para RBAC, aprovações e alertas.</p>
       {participantes.map((p, i) => (
         <div key={i} className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -454,7 +442,6 @@ function PassoEstrutura({ estrutura, setEstrutura, contaTipos, setContaTipos }: 
   const set = (k: keyof Estrutura, v: any) => setEstrutura((e: Estrutura) => ({ ...e, [k]: v }));
   return (
     <>
-      <p className="m-0 text-caption text-muted">Substitui dezenas de configurações manuais — a IA pode sugerir o resto.</p>
       <Campo label="Tipos de conta"><ChipMulti options={["Operacional", "Folha", "Reserva", "Investimento"]} value={contaTipos} onChange={setContaTipos} /></Campo>
       <Campo label="Centros de custo (ou deixe a IA sugerir)"><ChipMulti options={CENTROS} value={estrutura.centrosCusto} onChange={(v) => set("centrosCusto", v)} /></Campo>
       <Campo label="Unidades de negócio"><ChipMulti options={UNIDADES} value={estrutura.unidades} onChange={(v) => set("unidades", v)} /></Campo>
@@ -474,7 +461,6 @@ function PassoImport({ texto, setTexto, report, analisar, carregarAmostra }: any
   };
   return (
     <>
-      <p className="m-0 text-caption text-muted">Envie o extrato (CSV ou OFX) e o sistema descobre clientes, fornecedores, recorrências e categorias. Você pode pular e importar depois.</p>
       <textarea value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Cole um extrato (data;descrição;valor) ou carregue um arquivo / a amostra." className="w-full h-24 rounded-md border border-border bg-white p-3 text-caption text-ink font-mono outline-none focus:border-faint resize-y" />
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={() => analisar(texto)} disabled={!texto.trim()}>Analisar</Button>
@@ -500,20 +486,6 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="sparkles" size={14} color="var(--color-on-lime)" /></span>
         <span className="text-label font-medium text-muted">Análise da IA · DNA financeiro</span>
       </div>
-      {/*
-        * ⚠️ **O AVISO NÃO É DECORAÇÃO.** Estes números saem do extrato
-        * importado, sobre classificação que o próprio motor declara com
-        * confiança — não da cascata do DRE. Sem o aviso, o cliente novo lê uma
-        * estimativa de importação com a mesma cara de uma demonstração
-        * contábil, e é essa indistinguibilidade que faz o número errado
-        * atravessar. Ver `docs/auditoria.md`, #14.
-        */}
-      <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
-        <b className="text-ink font-medium">Estimativa da importação.</b>{" "}
-        Estes números vêm do extrato que você enviou e da classificação automática —
-        não são o resultado contábil. O DRE passa a existir depois que as categorias
-        forem confirmadas.
-      </p>
       {/* DNA */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-3">
         {dna.map((l) => (
@@ -563,7 +535,6 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
       {configured && (
         <div className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
           <span className="text-caption font-medium text-faint tracking-wide">Criar acesso</span>
-          <p className="m-0 text-caption text-muted">Defina o e-mail e a senha com que você vai entrar. Os dois são obrigatórios.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="E-mail" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="voce@empresa.com" />
             <Input label="Senha" type="password" value={senha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSenha(e.target.value)} placeholder="••••••••" />

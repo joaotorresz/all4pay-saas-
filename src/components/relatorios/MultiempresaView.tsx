@@ -100,11 +100,7 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">
-          {tipo === "dre" ? "Demonstrativo consolidado de resultado." : "Demonstrativo consolidado de fluxo de caixa."}{" "}
-          Selecione até {MAX_EMPRESAS} empresas para gerar o relatório.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         {consolidado && <BotoesExportar nome={`${tipo}-multiempresas`} relatorio={consolidado.consolidado} layout={layout} />}
       </div>
 
@@ -171,8 +167,7 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
             <span className="text-h3 font-semibold text-ink">Empresas no consolidado</span>
             {fontePorOrg === false && (
               <p className="m-0 mt-2 text-caption text-warning">
-                A fonte por organização ainda não está disponível neste ambiente (migration 0020 pendente) —
-                o relatório sai da empresa atual.
+                Relatório da empresa atual: a fonte por organização não está disponível neste ambiente.
               </p>
             )}
             <div className="flex flex-col mt-3">
@@ -188,9 +183,6 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
                 );
               })}
             </div>
-            <p className="m-0 mt-3 text-caption text-faint">
-              {tipo === "dre" ? "Receita bruta" : "Entradas"} de cada empresa no período, antes das eliminações.
-            </p>
           </Card>
           {/* CAMP-B · o consolidado abaixo JÁ sai sem os pares intercompany; a
               lista é o que explica por que ele é menor que a soma das partes. */}
@@ -198,13 +190,6 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
             <span className="text-h3 font-semibold text-ink">Eliminações entre empresas</span>
             <ListaEliminacoes eliminacoes={consolidado.eliminacoes} />
           </Card>
-          {tipo === "dfc" && !consolidado.consolidado.linhas.some((l) => l.id === "saldo_inicial") && (
-            <p className="m-0 text-caption text-faint max-w-[76ch]" role="note">
-              Sem linhas de saldo neste recorte: o saldo do grupo é reconstruído do saldo de hoje de cada
-              empresa, e isso só é possível com o período chegando até hoje e sem filtro de conta, projeto
-              ou centro. O fluxo do período continua inteiro.
-            </p>
-          )}
           <TabelaRelatorio relatorio={consolidado.consolidado} layout={layout} onCelula={setCelula} />
         </>
       )}

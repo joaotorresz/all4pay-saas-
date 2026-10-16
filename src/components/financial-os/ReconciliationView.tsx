@@ -24,9 +24,7 @@ export function ReconciliationView({ onToast }: { onToast: (m: string) => void }
     return (
       <Card>
         <p className="m-0 text-muted text-body">
-          Conecte uma integração bancária (OFX, PIX, API) ou envie comprovantes para
-          a engine de conciliação processar as fontes. Em modo demonstração os
-          exemplos abaixo ilustram o motor em ação.
+          Nenhuma fonte conectada para conciliar.
         </p>
       </Card>
     );

@@ -97,9 +97,7 @@ function ListaFluxos({ fluxos, pedido, onAbrir, onModelo }: {
         <h2 className="text-h3 text-ink">Seus fluxos</h2>
         {fluxos.length === 0 ? (
           <Card>
-            <p className="text-body text-muted">
-              Nenhum fluxo ainda. Comece por um modelo abaixo ou monte um do zero em Novo fluxo.
-            </p>
+            <p className="text-body text-muted">Nenhum fluxo ainda.</p>
           </Card>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
@@ -138,11 +136,11 @@ function ListaFluxos({ fluxos, pedido, onAbrir, onModelo }: {
         <div className="grid gap-3 md:grid-cols-2">
           {MODELOS_FLUXO.map((m) => (
             <Card key={m.id}>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-4">
                 <Icon name="workflow" size={16} color="var(--color-ink)" />
                 <span className="text-label font-medium text-ink">{m.nome}</span>
               </div>
-              <p className="text-caption text-muted mb-4">{m.descricao}</p>
+
               <Button variant="secondary" size="sm" onClick={() => onModelo(m.id)}>Usar este modelo</Button>
             </Card>
           ))}
@@ -237,7 +235,7 @@ function PainelNo({ no, onMudar }: { no: NoFluxo; onMudar: (n: NoFluxo) => void 
           options={(Object.keys(FONTES_FLUXO) as FonteFluxo[]).map((f) => ({ value: f, label: FONTES_FLUXO[f].nome }))}
         />
       )}
-      {no.tipo === "dados" && <p className="text-caption text-muted">{FONTES_FLUXO[no.fonte].resumo}</p>}
+
       {no.tipo === "envio" && <PainelEnvio no={no} onMudar={onMudar} />}
     </div>
   );
@@ -375,11 +373,7 @@ function PreviaMensagem({ fluxo }: { fluxo: Fluxo }) {
         </div>
       )}
       {resultado && !ehMensagem(resultado) && <p className="text-body text-muted">{resultado.motivo}</p>}
-      {exemplo && (
-        <p className="text-caption text-muted mt-3">
-          A prévia usa vendas inventadas para mostrar o formato. No envio, entram as vendas do dia da sua maquininha.
-        </p>
-      )}
+
     </Card>
   );
 }

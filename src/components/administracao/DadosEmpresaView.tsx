@@ -174,8 +174,7 @@ export function DadosEmpresaView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Informações cadastrais, contato e preferências.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         {d.documento && (
           <span className="text-caption text-faint tabular-nums px-3 py-1 rounded-pill bg-surface-2">
             ID {d.documento}
@@ -252,7 +251,7 @@ export function DadosEmpresaView() {
                 <Campo label="Faturamento mensal" erro={erros.faturamentoMensal}>
                   <CurrencyInput value={d.faturamentoMensal} onValueChange={(v) => set("faturamentoMensal", v)} />
                 </Campo>
-                <Campo label="Identificador estrangeiro" ajuda="Para empresas com registro fora do Brasil.">
+                <Campo label="Identificador estrangeiro">
                   <Input value={d.identificadorEstrangeiro} onChange={(e) => set("identificadorEstrangeiro", e.target.value)} />
                 </Campo>
                 <Select label="Status" value={d.status} onChange={(v) => set("status", v as StatusEmpresa)}
@@ -274,12 +273,7 @@ export function DadosEmpresaView() {
                 <Select label="Contribuinte de ICMS" value={d.contribuinteICMS ? "sim" : "nao"}
                   onChange={(v) => set("contribuinteICMS", v === "sim")}
                   options={[{ value: "nao", label: "Não" }, { value: "sim", label: "Sim" }]} />
-                <Campo
-                  label="Regime tributário"
-                  ajuda={simples
-                    ? "Define automaticamente optante pelo Simples Nacional."
-                    : "Fora do Simples — o imposto sai por alíquota, não por faixa de RBT12."}
-                >
+                <Campo label="Regime tributário">
                   <Select value={d.regime} onChange={(v) => set("regime", v as RegimeTributario | "")}
                     options={[
                       /* ⚠️ A opção vazia é o estado inicial de verdade: sem ela
@@ -294,7 +288,7 @@ export function DadosEmpresaView() {
                     fora do Simples faria a tela perguntar algo que não se
                     aplica. */}
                 {simples && (
-                  <Campo label="Anexo do Simples" ajuda="Decide o que está dentro do DAS. No Anexo IV a contribuição patronal é recolhida por fora; nos demais, não.">
+                  <Campo label="Anexo do Simples">
                     <Select value={d.anexoSimples ?? ""} onChange={(v) => set("anexoSimples", v as AnexoSimplesCadastro | "")}
                       options={[
                         { value: "", label: "Selecione o anexo…" },
@@ -302,7 +296,7 @@ export function DadosEmpresaView() {
                       ]} />
                   </Campo>
                 )}
-                <Campo label="Regime especial de tributação (NFS-e)" ajuda="Código do município; 0 quando não há regime especial.">
+                <Campo label="Regime especial de tributação (NFS-e)">
                   <Input value={d.regimeEspecialNFSe} onChange={(e) => set("regimeEspecialNFSe", e.target.value)} />
                 </Campo>
               </div>
@@ -354,7 +348,7 @@ export function DadosEmpresaView() {
                 onChange={(e) => set("notificacoesEmail", e.target.checked)}
                 label="Permitir notificações por e-mail"
               />
-              <Campo label="Observação interna" ajuda="Só a sua equipe vê — não sai em nota, boleto ou relatório.">
+              <Campo label="Observação interna">
                 <Textarea value={d.observacaoInterna} onChange={(e) => set("observacaoInterna", e.target.value)} rows={3} />
               </Campo>
             </div>
@@ -382,8 +376,8 @@ export function DadosEmpresaView() {
 /* --------------------------------- peças --------------------------------- */
 
 function Campo({
-  label, erro, ajuda, children,
-}: { label: string; erro?: string; ajuda?: string; children: React.ReactNode }) {
+  label, erro, children,
+}: { label: string; erro?: string; children: React.ReactNode }) {
   // ⚠️ O `<label>` ENVOLVE o campo. Ele era um irmão solto, sem `htmlFor`:
   // os 26 campos desta tela não tinham nome acessível (o leitor de tela dizia
   // "campo de edição" e mais nada) e clicar no rótulo não focava o campo.
@@ -392,8 +386,7 @@ function Campo({
     <label className="flex flex-col gap-[6px]">
       <span className="text-label font-medium text-muted">{label}</span>
       {children}
-      {erro ? <span className="text-caption text-negative">{erro}</span>
-        : ajuda ? <span className="text-caption text-faint">{ajuda}</span> : null}
+      {erro && <span className="text-caption text-negative">{erro}</span>}
     </label>
   );
 }

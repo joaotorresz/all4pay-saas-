@@ -255,11 +255,7 @@ export function QuantView() {
             <BenchCard key={b.metrica} b={b} />
           ))}
         </div>
-        {isDemo && (
-          <span className="text-caption text-faint">
-            Medianas setoriais ilustrativas — benchmark anonimizado real exige a base cross-tenant conectada.
-          </span>
-        )}
+
       </Card>
     </div>
   );

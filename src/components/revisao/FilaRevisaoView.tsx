@@ -35,7 +35,8 @@ export function FilaRevisaoView() {
         <div className="flex flex-col items-center gap-3 py-14 text-center">
           <Icon name="check" size={20} color="var(--color-positive)" />
           <p className="m-0 text-label text-muted max-w-[46ch]">
-            Nada na fila. Todo lançamento tem classificação, descrição legível e valor.
+            Nada na fila.
+
           </p>
         </div>
       </Card>
@@ -57,8 +58,8 @@ export function FilaRevisaoView() {
                 um saldo — há entrada e saída no mesmo balde. É o tamanho da
                 dúvida, e chamá-lo de total convidaria a somá-lo a outra coisa. */}
             <span className="text-caption text-muted">
-              Soma das magnitudes envolvidas: <b className="text-ink tabular-nums"><BRL value={fila.total} /></b>.
-              O sistema não classifica nada aqui — ele separa o que discorda e diz o que discorda.
+              Soma das magnitudes envolvidas: <b className="text-ink tabular-nums"><BRL value={fila.total} /></b>
+
             </span>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
               {Object.entries(fila.porMotivo).map(([m, v]) => (

@@ -28,9 +28,8 @@ export function DeclararPalpite({
   onFechar: () => void;
   onDeclarado: (gravadas: number) => void;
 }) {
-  // "Sem categoria" não tem nome para casar — fica fora da lista e é dito.
+  // "Sem categoria" não tem nome para casar — fica fora da lista.
   const declaraveis = categorias.filter((c) => c.nome.trim().toLowerCase() !== "sem categoria");
-  const semNome = categorias.length - declaraveis.length;
   const [escolha, setEscolha] = React.useState<Record<string, string>>(
     // A sugestão só entra quando é escolhível para a natureza: uma restituição
     // de imposto cai em "deduções" como ESTORNO (entrada numa linha "-"), e
@@ -61,10 +60,6 @@ export function DeclararPalpite({
 
   return (
     <FormModal title="Declarar a linha do DRE" onClose={onFechar} onSave={salvar} saving={salvando}>
-      <p className="m-0 text-caption text-muted leading-snug">
-        A linha marcada é a que o sistema adivinhou e está usando hoje — confirmar sem mudar não altera
-        nenhum número. Troque onde a categoria entra de outro jeito.
-      </p>
       {erro && <p className="m-0 text-caption text-negative" role="alert">{erro}</p>}
       <div className="flex flex-col gap-3" data-declarar="lista">
         {declaraveis.map((c) => (
@@ -85,11 +80,6 @@ export function DeclararPalpite({
           </div>
         ))}
       </div>
-      {semNome > 0 && (
-        <p className="m-0 text-caption text-muted">
-          Lançamentos sem categoria não entram aqui: classifique-os na lista de títulos.
-        </p>
-      )}
     </FormModal>
   );
 }

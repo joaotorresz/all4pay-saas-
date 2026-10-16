@@ -51,13 +51,10 @@ const doGrupo = (...grupos: string[]) => TOKENS.filter((t) => grupos.includes(t.
 
 /* ── Peças da vitrine ─────────────────────────────────────────────────────── */
 
-function Secao({ titulo, descricao, children }: { titulo: string; descricao?: string; children: React.ReactNode }) {
+function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
-      <div>
-        <h2 className="m-0 text-ink">{titulo}</h2>
-        {descricao && <p className="m-0 mt-1 text-caption text-muted">{descricao}</p>}
-      </div>
+      <h2 className="m-0 text-ink">{titulo}</h2>
       {children}
     </section>
   );
@@ -124,7 +121,7 @@ function AbaCores() {
   return (
     <div className="flex flex-col gap-8">
       {Array.from(porGrupo).map(([g, ts]) => (
-        <Secao key={g} titulo={NOME[g] ?? g} descricao={`${ts.length} cor(es).`}>
+        <Secao key={g} titulo={NOME[g] ?? g}>
           <GradeTokens tokens={ts} />
         </Secao>
       ))}
@@ -136,10 +133,10 @@ function AbaTipografia() {
   const escala = (ESCALAS.fontSize ?? {}) as Record<string, unknown>;
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="Famílias" descricao="As três famílias do sistema.">
+      <Secao titulo="Famílias">
         <GradeTokens tokens={doGrupo("tipografia")} />
       </Secao>
-      <Secao titulo="Papéis" descricao="Cada classe de papel com o texto real que ela desenha.">
+      <Secao titulo="Papéis">
         <Card className="flex flex-col gap-5">
           <div><Rotulo>Título de tela (h1)</Rotulo><h1 className="m-0 mt-1 text-ink">Fluxo de caixa</h1></div>
           <div><Rotulo>Título de seção (h2)</Rotulo><h2 className="m-0 mt-1 text-ink">Contas a receber</h2></div>
@@ -151,7 +148,7 @@ function AbaTipografia() {
           <div><Rotulo>Legenda</Rotulo><p className="m-0 mt-1 text-caption text-muted">Atualizado há 3 minutos.</p></div>
         </Card>
       </Secao>
-      <Secao titulo="Escala de tamanhos" descricao="As classes text-* do Tailwind, lidas de tokens.json. A prévia aqui é fiel; nas outras telas o valor novo aparece depois de publicado.">
+      <Secao titulo="Escala de tamanhos">
         <Card className="flex flex-col gap-1">
           {Object.keys(escala).filter((k) => !k.startsWith("$")).map((k) => <LinhaTamanho key={k} k={k} />)}
         </Card>
@@ -200,12 +197,12 @@ function AbaFormas() {
   const NOME: Record<string, string> = { borderWidth: "border", minWidth: "min-w", spacingNomeado: "espaço" };
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="Raios das classes rounded-*" descricao="Lidos de tokens.json pelo Tailwind.">
+      <Secao titulo="Raios das classes rounded-*">
         <Card className="flex flex-wrap gap-6">
           {Object.keys(raios).filter((k) => !k.startsWith("$")).map((k) => <AmostraRaio key={k} k={k} />)}
         </Card>
       </Secao>
-      <Secao titulo="Outras medidas do Tailwind" descricao="Borda do campo, largura mínima do botão, espaços do botão e largura do menu.">
+      <Secao titulo="Outras medidas do Tailwind">
         <Card className="flex flex-col gap-2 max-w-[520px]">
           {outras.map((c) => {
             const [e, k] = c.split(".");
@@ -228,7 +225,7 @@ function AbaControles() {
   const [conta, setConta] = React.useState("1");
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="Botões" descricao="Variantes e tamanhos do Button.">
+      <Secao titulo="Botões">
         <Card className="flex flex-col gap-4">
           {(["primary", "secondary", "outline", "ghost", "accent"] as const).map((v) => (
             <div key={v} className="flex items-center gap-3 flex-wrap">
@@ -273,7 +270,7 @@ function AbaControles() {
 function AbaCards() {
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="Cards" descricao="O Card do DS: sem borda e sem sombra; o contraste com o fundo é que o separa.">
+      <Secao titulo="Cards">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card><Rotulo>Card simples</Rotulo><div className="mt-2 text-[22px] text-ink"><BRL value={48230} /></div></Card>
           <Card info={{ titulo: "Saldo", oQue: "Quanto a empresa tem nas contas hoje.", comoCalcula: "Soma dos saldos das contas ativas." }}>
@@ -285,7 +282,7 @@ function AbaCards() {
           </CartaoBiblioteca>
         </div>
       </Secao>
-      <Secao titulo="Valores" descricao="Money (herói) e BRL (em linha). A moeda encosta no número.">
+      <Secao titulo="Valores">
         <Card className="flex flex-col gap-4">
           {(["display", "lg", "md", "sm"] as const).map((s) => (
             <div key={s} className="flex items-baseline gap-4"><code className="w-[90px] text-[12px] text-muted">Money {s}</code><Money integer="2.159.450" decimals="90" size={s} /></div>
@@ -315,7 +312,7 @@ const fmt = (v: number) => <BRL value={v} />;
 function AbaGraficos() {
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="A Biblioteca de gráficos" descricao="Os modelos em uso no sistema, com dado de exemplo.">
+      <Secao titulo="A Biblioteca de gráficos">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <CartaoBiblioteca titulo="Entradas (barras entrada × saída)" valor={fmt(ES[5].entrada)}>
             <BarrasEntradaSaida dados={ES} ariaLabel="Exemplo de barras de entrada e saída" />
@@ -369,7 +366,7 @@ const LINHAS_TABELA = [
 function AbaTabelas() {
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="Tabela" descricao="Cabeçalho em micro-rótulo, divisória fina, valores à direita.">
+      <Secao titulo="Tabela">
         <Card padded={false} className="overflow-x-auto">
           <table className="w-full text-[14px]">
             <thead>
@@ -399,7 +396,7 @@ function AbaTabelas() {
           </table>
         </Card>
       </Secao>
-      <Secao titulo="Situações" descricao="Pílula com ponto: fundo da cor a 14%, texto sempre na tinta.">
+      <Secao titulo="Situações">
         <Card className="flex items-center gap-3 flex-wrap">
           {(["positive", "neutral", "warning", "ink"] as const).map((t) => <StatusBadge key={t} tone={t}>{t}</StatusBadge>)}
           <span className="inline-flex items-center gap-2 text-[13px] text-ink"><PontoStatus cor="var(--color-warning)" />Atenção</span>
@@ -415,7 +412,7 @@ function AbaTabelas() {
 function AbaMoldura() {
   return (
     <div className="flex flex-col gap-8">
-      <Secao titulo="Menu" descricao="Item normal, item ativo e grupo, com os valores reais do menu.">
+      <Secao titulo="Menu">
         <Card className="max-w-[280px] flex flex-col gap-1" style={{ background: "var(--erp-menu-fundo)" }}>
           {[["house", "Visão geral", true], ["credit-card", "Caixa e bancos", false], ["receipt", "Vender e receber", false], ["file-text", "Relatórios", false]].map(([ic, r, on]) => (
             <span key={r as string} className="flex items-center gap-[15px] min-h-[40px] rounded-[12px] px-3 text-[14px] text-ink"
@@ -446,10 +443,7 @@ export function VitrineDesign() {
   return (
     <EditorProvider>
       <div className="ds-previa flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <p className="m-0 text-caption text-muted">
-            {TOKENS.length} valores de <code>src/design/tokens.json</code> e as peças reais do sistema. Mexa em qualquer valor: a página inteira mostra o resultado na hora.
-          </p>
+        <div className="flex items-center justify-end gap-3 flex-wrap">
           <div className="flex items-center gap-2" role="group" aria-label="Tema da vitrine">
             <Pill variant={dark ? "ghost" : "surface"} aria-pressed={!dark} onClick={() => apply(false)}>Claro</Pill>
             <Pill variant={dark ? "surface" : "ghost"} aria-pressed={dark} onClick={() => apply(true)}>Escuro</Pill>

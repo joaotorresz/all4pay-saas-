@@ -122,26 +122,16 @@ export function SegurancaView() {
           )}
         </div>
 
-        {isolamento.data === null ? (
-          <p className="m-0 text-caption text-faint max-w-[72ch]">
-            {semServidor()
-              ? "Em demonstração os dados vivem neste navegador e não há banco para consultar. Um teste que respondesse “tudo certo” aqui produziria a confiança sem o fato — por isso ele não responde."
-              : "O servidor não respondeu ao teste. Enquanto isso não for resolvido, o isolamento não está confirmado — e não confirmado é diferente de aprovado."}
-          </p>
-        ) : (
+        {isolamento.data !== null && (
           <>
             <div className="flex flex-wrap items-center gap-x-10 gap-y-3">
-              <Numero rotulo="Tabelas conferidas" valor={resumo.tabelas}
-                nota="toda tabela com coluna de empresa" />
-              <Numero rotulo="Tentativas" valor={resumo.tentativas}
-                nota="cinco verbos por tabela, todas desfeitas" />
+              <Numero rotulo="Tabelas conferidas" valor={resumo.tabelas} />
+              <Numero rotulo="Tentativas" valor={resumo.tentativas} />
               {/* Número verde não existe mais (30/09/2026): o zero fica neutro; o
                   vermelho segue porque cada tentativa que passou é um incidente. */}
               <Numero rotulo="Passaram" valor={resumo.vazamentos.length}
-                nota={resumo.ok ? "como tem de ser" : "cada uma é um incidente"}
                 cor={resumo.ok ? "var(--color-ink)" : "var(--color-negative)"} />
-              <Numero rotulo="Não tentadas" valor={resumo.naoTentadas}
-                nota="sem privilégio ou sem linha de molde" />
+              <Numero rotulo="Não tentadas" valor={resumo.naoTentadas} />
             </div>
 
             {/* ⚠️ O vazamento aparece com TABELA e VERBO. "Vazou" sozinho não
@@ -192,11 +182,6 @@ export function SegurancaView() {
             </span>
           ))}
         </div>
-        <p className="m-0 text-caption text-faint max-w-[72ch]">
-          A lista vem do servidor, não desta tela. Esconder um botão evita o clique inútil;
-          quem impede a escrita é o banco — as duas coisas precisam concordar, e é por isso
-          que a interface pergunta em vez de deduzir.
-        </p>
       </Card>
 
       {/* ---------------------- auditoria da política ------------------------ */}
@@ -215,14 +200,7 @@ export function SegurancaView() {
               : `${achados.length} achados`}
           </StatusBadge>
         </div>
-        {achados.length === 0 ? (
-          <p className="m-0 text-caption text-faint max-w-[72ch]">
-            Toda tabela tem política de linha ligada, nenhuma expõe a sessão anônima e nenhuma
-            tabela multiempresa ficou sem política por empresa.
-          </p>
-        ) : (
-          <ListaAchados achados={achados} />
-        )}
+        {achados.length > 0 && <ListaAchados achados={achados} />}
       </Card>
 
       {/* --------------------- acesso administrativo ------------------------- */}
@@ -247,13 +225,7 @@ export function SegurancaView() {
           )}
           <Card padded={false}>
             <div className="px-5 py-3 border-b border-border-soft flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <span className="text-label font-medium text-muted">Quem enxerga todas as empresas</span>
-                <p className="m-0 mt-1 text-caption text-faint max-w-[72ch]">
-                  Acesso administrativo que não vence é acesso que ninguém revisita. Revisar
-                  registra a decisão e recoloca uma data.
-                </p>
-              </div>
+              <span className="text-label font-medium text-muted">Quem enxerga todas as empresas</span>
               {pendencias.length > 0 && <Badge variant="count">{pendencias.length} pendências</Badge>}
             </div>
             {revisao.data.lista.map((a, i) => (
@@ -273,11 +245,6 @@ export function SegurancaView() {
           <Card padded={false}>
             <div className="px-5 py-3 border-b border-border-soft">
               <span className="text-label font-medium text-muted">Acessos administrativos (30 dias)</span>
-              <p className="m-0 mt-1 text-caption text-faint max-w-[72ch]">
-                Cada leitura da área administrativa deixa registro — inclusive a recusada, que é
-                a que mais importa. Antes, só a alteração ficava registrada: dava para abrir a
-                lista de todos os clientes sem deixar rastro.
-              </p>
             </div>
             {(acessos.data ?? []).slice(0, 40).map((a, i) => (
               <div key={`${a.quando}-${i}`} className={`flex items-center gap-3 px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
@@ -302,7 +269,7 @@ export function SegurancaView() {
   );
 }
 
-function Numero({ rotulo, valor, nota, cor }: { rotulo: string; valor: number; nota: string; cor?: string }) {
+function Numero({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: string }) {
   return (
     <div className="flex flex-col">
       <span className="inline-flex items-center gap-[6px] text-caption text-faint">
@@ -310,7 +277,6 @@ function Numero({ rotulo, valor, nota, cor }: { rotulo: string; valor: number; n
         <PontoStatus cor={cor} />
       </span>
       <span className="text-[22px] font-semibold tabular-nums text-ink">{valor}</span>
-      <span className="text-caption text-faint">{nota}</span>
     </div>
   );
 }
@@ -392,11 +358,11 @@ function LinhaRevisao({
             <Button variant="ghost" onClick={() => { setAbrindo(false); setErro(null); }}>
               Cancelar
             </Button>
-            <span className="text-caption text-faint">
-              {curto
-                ? `Faltam ${20 - motivo.trim().length} caracteres — o servidor recusa abaixo de 20.`
-                : "A decisão fica na trilha, com o seu nome e a data da próxima revisão."}
-            </span>
+            {curto && (
+              <span className="text-caption text-faint">
+                {`Faltam ${20 - motivo.trim().length} caracteres — o servidor recusa abaixo de 20.`}
+              </span>
+            )}
           </div>
           {erro && (
             <span className="text-caption" style={{ color: "var(--color-negative)" }}>{erro}</span>

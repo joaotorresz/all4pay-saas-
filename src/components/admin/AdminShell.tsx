@@ -103,7 +103,6 @@ export function AdminShell({ actions, children }: { actions?: React.ReactNode; c
               >
                 {ativa.rotulo}
               </h1>
-              <p className="m-0 mt-1 text-caption text-muted">{ativa.resumo}</p>
             </div>
             {actions && <div className="flex items-center gap-[10px] flex-wrap justify-end">{actions}</div>}
           </header>

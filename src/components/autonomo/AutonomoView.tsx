@@ -280,9 +280,7 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
           ))}
         </div>
       )}
-      <span className="text-caption text-faint">
-        Este card só PLANEJA: canal, horário e tom por cliente. Enviar é na seção Executar, acima, que confirma quem recebe antes de mandar. Adicione o telefone aqui (ou em Contatos) para o cliente poder ser cobrado por WhatsApp.
-      </span>
+
       {status._erro && <span className="text-caption text-negative">{status._erro}</span>}
     </Card>
   );

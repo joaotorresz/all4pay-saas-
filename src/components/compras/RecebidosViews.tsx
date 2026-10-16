@@ -128,8 +128,7 @@ export function BoletosView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Boletos capturados via DDA para pagamento pela plataforma.</p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" onClick={() => { setLista(listarBoletos()); toast("Lista recarregada."); }}>
             <Icon name="rotate-ccw" size={15} color="currentColor" />
@@ -177,11 +176,7 @@ export function BoletosView() {
             <Icon name="scan-line" size={16} color="var(--color-text-secondary)" />
             <span className="text-h3 font-semibold text-ink">Adicionar boleto pelo número</span>
           </div>
-          <p className="m-0 text-caption text-faint max-w-[80ch]">
-            O DDA ainda não está ativo, mas o boleto não depende dele: cole a linha digitável
-            (47 dígitos) ou o código de barras (44) e o sistema lê banco, valor e vencimento —
-            e confere os dígitos verificadores.
-          </p>
+
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] gap-3">
             <Input
               value={linha} onChange={(e) => setLinha(e.target.value)}
@@ -211,10 +206,7 @@ export function BoletosView() {
             <span className="inline-flex items-center justify-center w-12 h-12 rounded-pill bg-surface-2">
               <Icon name="file-text" size={20} color="var(--color-text-tertiary)" />
             </span>
-            <p className="m-0 text-label text-muted max-w-[48ch]">
-              Nenhum boleto recebido. Ative o DDA em Administração › Integrações — ou cole a
-              linha digitável acima para lançar um boleto agora.
-            </p>
+            <p className="m-0 text-label text-muted max-w-[48ch]">Nenhum boleto recebido.</p>
           </div>
         </Card>
       ) : (
@@ -280,9 +272,6 @@ export function BoletosView() {
         </Card>
       )}
 
-      <p className="m-0 text-caption text-faint">
-        Agendamento e pagamento de boletos com integração bancária seguem no fluxo de Contas a Pagar.
-      </p>
       {node}
     </div>
   );
@@ -382,10 +371,7 @@ export function NFsRecebidasView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted max-w-[70ch]">
-          Notas fiscais recebidas de fornecedores — atualizadas a cada madrugada via integração com a SEFAZ.
-        </p>
+      <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" onClick={() => { setLista(listarNFs()); toast("Lista recarregada."); }}>
             <Icon name="rotate-ccw" size={15} color="currentColor" />
@@ -461,11 +447,7 @@ export function NFsRecebidasView() {
             <Icon name="scan-line" size={16} color="var(--color-text-secondary)" />
             <span className="text-h3 font-semibold text-ink">Lançar nota pela chave de acesso</span>
           </div>
-          <p className="m-0 text-caption text-faint max-w-[80ch]">
-            A captura automática exige certificado digital. A chave impressa no DANFE, não: os 44
-            dígitos dizem UF, mês de emissão, CNPJ do emitente, modelo, série e número — e o último
-            prova que os outros 43 estão certos.
-          </p>
+
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_140px_auto] gap-3">
             <Input value={chave} onChange={(e) => setChave(e.target.value)} placeholder="Chave de acesso (44 dígitos)" />
             <Input value={fornecedorNovo} onChange={(e) => setFornecedorNovo(e.target.value)} placeholder="Fornecedor (opcional)" />
@@ -496,7 +478,8 @@ export function NFsRecebidasView() {
             </span>
             <p className="m-0 text-label text-muted max-w-[48ch]">
               {lista.length === 0
-                ? "Nenhuma nota recebida. A captura via SEFAZ roda de madrugada — ou cole a chave de acesso acima."
+                ? "Nenhuma nota recebida."
+
                 : "Nenhuma nota no filtro aplicado."}
             </p>
           </div>

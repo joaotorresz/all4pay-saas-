@@ -136,11 +136,6 @@ export function SeletorOrganizacao({
             </button>
           ))}
           {erro && <p className="m-0 px-[10px] py-2 text-caption" style={{ color: "var(--color-negative)" }}>{erro}</p>}
-          {orgs.length === 1 && (
-            <p className="m-0 px-[10px] py-2 text-caption text-faint">
-              Você participa de uma empresa. Ao ser adicionado a outra, ela aparece aqui.
-            </p>
-          )}
         </div>
       )}
     </div>

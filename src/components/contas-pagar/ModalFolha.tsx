@@ -22,7 +22,7 @@ import { dataBR, pct, formatBRL } from "@/lib/format";
 import type { Regime, Anexo } from "@/core/fiscal/perfil";
 import {
   calcularFerias, FERIAS_PADRAO, diasPorFaltas, maximoAbono,
-  calcularRescisao, ROTULO_MODALIDADE, EXPLICACAO_MODALIDADE,
+  calcularRescisao, ROTULO_MODALIDADE,
   titulosDaRescisao, titulosDasFerias, titulosSubstituidosNaRescisao,
   primeiraParcelaSubstituida, salariosDoPeriodoDeFerias, decimoJaPagoNoAno,
   type Colaborador, type EntradaFerias, type EntradaRescisao, type Modalidade,
@@ -150,14 +150,13 @@ function Alertas({ lista }: { lista: string[] }) {
 }
 
 /** O selo do vencimento — a data é a razão de o modal existir. */
-function Vencimento({ data, regra }: { data: string; regra: string }) {
+function Vencimento({ data }: { data: string }) {
   if (!data) return null;
   return (
     <div className="rounded-card bg-ink text-white p-4 flex items-center gap-3">
       <Icon name="calendar" size={18} color="currentColor" />
       <div className="min-w-0">
         <span className="block text-label">Vence em {dataBR(data)}</span>
-        <span className="block text-caption text-white/70">{regra}</span>
       </div>
     </div>
   );
@@ -228,7 +227,7 @@ export function ModalFerias({
         <Campo label="Início das férias">
           <DateField value={e.inicio} onChange={(v) => set("inicio", v)} />
         </Campo>
-        <Campo label="Faltas injustificadas no período" ajuda="Reduzem o direito em degraus (art. 130).">
+        <Campo label="Faltas injustificadas no período">
           <Input type="number" min={0} max={40} value={String(e.faltas)}
             onChange={(ev) => set("faltas", Number(ev.target.value) || 0)} />
         </Campo>
@@ -238,7 +237,6 @@ export function ModalFerias({
         </Campo>
         <Campo
           label="Dias vendidos (abono)"
-          ajuda="Verba indenizatória: sem INSS, sem IRRF e sem FGTS."
         >
           <Input type="number" min={0} max={maximoAbono(direito)} value={String(e.diasAbono)}
             onChange={(ev) => set("diasAbono", Number(ev.target.value) || 0)} />
@@ -254,9 +252,7 @@ export function ModalFerias({
       {ok && (
         <>
           <Vencimento
-            data={calc.vencimento}
-            regra="Até dois dias antes do início (art. 145). Pagar no dia do início já é atraso, e o atraso dobra a remuneração."
-          />
+            data={calc.vencimento} />
           <Memoria linhas={calc.memoria} />
           <p className="m-0 text-caption text-muted">
             Retorna ao trabalho em <b className="text-ink">{dataBR(calc.retorno)}</b>.
@@ -377,7 +373,7 @@ export function ModalRescisao({
     >
       {/* ⚠️ A MODALIDADE É A PRIMEIRA PERGUNTA: ela decide quais verbas
           existem, e as mesmas cinco aparecem ou somem conforme ela. */}
-      <Campo label="Como o contrato terminou" ajuda={EXPLICACAO_MODALIDADE[e.modalidade]}>
+      <Campo label="Como o contrato terminou">
         <Select
           value={e.modalidade}
           onChange={(v) => set("modalidade", v as Modalidade)}
@@ -392,19 +388,16 @@ export function ModalRescisao({
         <Campo label="Último dia de trabalho">
           <DateField value={e.desligamento} onChange={(v) => set("desligamento", v)} />
         </Campo>
-        <Campo label="Dias de férias vencidas" ajuda="Devidas em TODAS as modalidades, inclusive na justa causa.">
+        <Campo label="Dias de férias vencidas">
           <Input type="number" min={0} max={60} value={String(e.diasFeriasVencidas)}
             onChange={(ev) => set("diasFeriasVencidas", Number(ev.target.value) || 0)} />
         </Campo>
-        <Campo label="Saldo do FGTS" ajuda={e.estimarSaldo ? "Estimado. Informe o extrato para a multa sair certa." : "Do extrato do FGTS."}>
+        <Campo label="Saldo do FGTS">
           <CurrencyInput value={e.estimarSaldo ? calc.saldoFGTS : e.saldoFGTS}
             onValueChange={(v) => { set("saldoFGTS", v); set("estimarSaldo", false); }} />
         </Campo>
         <Campo
           label="13º já pago neste ano"
-          ajuda={detectado > 0 && !adiantadoEditado
-            ? "A 1ª parcela já baixada em Títulos a pagar. Ela é descontada do 13º proporcional."
-            : "A 1ª parcela ou o adiantamento pago com as férias. É descontado do 13º proporcional."}
         >
           <CurrencyInput value={e.decimoAdiantado ?? 0}
             onValueChange={(v) => { setAdiantadoEditado(true); set("decimoAdiantado", v); }} />
@@ -421,9 +414,7 @@ export function ModalRescisao({
       {ok && (
         <>
           <Vencimento
-            data={calc.vencimento}
-            regra="Dez dias corridos do desligamento (art. 477 §6º). Pagar depois custa um salário de multa ao empregado."
-          />
+            data={calc.vencimento} />
           <Memoria linhas={calc.memoria} />
           <p className="m-0 text-caption text-muted">
             Custo total da rescisão: <b className="text-ink"><BRL value={calc.custoTotal} /></b>

@@ -199,10 +199,6 @@ export function NovaEmpresaForm() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <p className="m-0 text-label text-muted">
-        Cadastre uma nova empresa. Cada empresa é uma organização própria, que nasce com uma conta.
-      </p>
-
       {/* ------------------------------ Identificação ------------------------------ */}
       <Card>
         <h2 className="m-0 mb-5 text-h3 font-semibold text-ink">Identificação</h2>
@@ -221,11 +217,7 @@ export function NovaEmpresaForm() {
 
           <Campo
             label={docLabel}
-            hint={
-              buscando ? "consultando a base pública…"
-              : pj ? "ao sair do campo, buscamos os dados na base pública"
-              : undefined
-            }
+            hint={buscando ? "consultando a base pública…" : undefined}
             erro={docPreenchido && !docValido ? (pj ? "CNPJ inválido" : "CPF inválido") : undefined}
           >
             <Input
@@ -285,14 +277,7 @@ export function NovaEmpresaForm() {
               options={[{ value: "Não", label: "Não" }, { value: "Sim", label: "Sim" }]} />
           </Campo>
 
-          <Campo
-            label="Regime Tributário"
-            hint={
-              f.regime === "Simples Nacional" || f.regime === "MEI"
-                ? "Define automaticamente Optante pelo Simples Nacional"
-                : "Define automaticamente Optante pelo Simples Nacional"
-            }
-          >
+          <Campo label="Regime Tributário">
             <Select value={f.regime} onChange={(v) => set("regime", v)}
               options={REGIMES.map((r) => ({ value: r, label: r }))} />
           </Campo>

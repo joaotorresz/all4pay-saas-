@@ -164,7 +164,6 @@ export function Resumo({ input, titulo = "Resumo", className = "" }: { input: Ri
             ? <SemDados motivo={saldoInd.indisponivel.motivo} codigo={saldoInd.indisponivel.codigo} />
             : <BRL value={saldoAtual} />}
         </div>
-        <span className="text-caption text-faint">Posição das contas, não o resultado do mês</span>
         <div className="mt-5 flex flex-col">
           {/* ⚠️ "CONSOLIDADO" NÃO É ENFEITE NO RÓTULO — é o que estes números
               já são. `entradas`/`saidas`/`resultado` rodam no regime de CAIXA,

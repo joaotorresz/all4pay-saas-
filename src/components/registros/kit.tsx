@@ -17,9 +17,8 @@ import type { FiltroStatus } from "@/core/registros";
 /* ------------------------------- cabeçalho ------------------------------- */
 
 export function CabecalhoRegistro({
-  subtitulo, acaoNova, exportar,
+  acaoNova, exportar,
 }: {
-  subtitulo: string;
   acaoNova?: { label: string; onClick: () => void };
   exportar?: { nomeArquivo: string; aba: string; linhas: CelulaXLSX[][] };
 }) {
@@ -35,7 +34,6 @@ export function CabecalhoRegistro({
         <Link href="/dashboard/registrations" className="text-caption text-muted hover:text-ink self-start" data-hub-cadastros="1">
           Estrutura e cadastros ›
         </Link>
-        <p className="m-0 text-label text-muted">{subtitulo}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {acaoNova && (
@@ -292,26 +290,20 @@ export interface ItemAntigo {
  * a lista esvazia — é a CAUSA sumir, não um "x" que dispensa o aviso.
  */
 export function BlocoAntigos({
-  itens, onTrazer, trazendo, oQue,
+  itens, onTrazer, trazendo,
 }: {
   itens: ItemAntigo[];
   onTrazer: (i: ItemAntigo) => void;
   trazendo: string | null;
-  /** "contas", "centros"… — entra na frase. */
-  oQue: string;
+  /** "contas", "centros"… (a frase explicativa saiu da tela). */
+  oQue?: string;
 }) {
   if (itens.length === 0) return null;
   return (
     <Card>
       <div className="flex flex-col gap-3" data-bloco="cadastros-antigos">
-        <div className="flex flex-col gap-1">
-          <span className="a4p-label text-muted">Cadastros antigos deste navegador</span>
-          <p className="m-0 text-label text-muted max-w-[80ch]">
-            Estes {oQue} foram cadastrados antes de o cadastro passar a morar no banco da empresa.
-            Eles só existem neste navegador e nenhum lançamento consegue apontar para eles.
-            Traga cada um para o cadastro — nada é trazido sem você pedir.
-          </p>
-        </div>
+        <span className="a4p-label text-muted">Cadastros antigos deste navegador</span>
+
         <ul className="m-0 p-0 list-none flex flex-col divide-y divide-border-soft">
           {itens.map((i) => (
             <li key={i.chave} className="flex items-center justify-between gap-3 py-2 flex-wrap">

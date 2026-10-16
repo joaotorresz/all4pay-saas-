@@ -109,12 +109,7 @@ export function ProjecaoCarga() {
             Voltar ao regime da empresa
           </button>
         )}
-        {!salvo && regime !== "nao_declarado" && (
-          <span className="text-caption text-faint pb-2 max-w-[46ch]">
-            Simulação: a empresa não declarou regime. Declare em Configurações para
-            a projeção sair do regime dela.
-          </span>
-        )}
+
       </div>
 
       {perfil.tributos ? (
@@ -165,9 +160,6 @@ export function ProjecaoCarga() {
         </div>
       )}
 
-      {perfil.tributos && (
-        <span className="text-caption text-faint max-w-[80ch]">{perfil.observacao}</span>
-      )}
     </Card>
   );
 }

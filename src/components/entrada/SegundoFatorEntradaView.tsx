@@ -75,10 +75,6 @@ export function SegundoFatorEntradaView() {
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
             <h1 className="m-0 text-h2 font-medium text-ink leading-none">Código de verificação</h1>
-            <p className="m-0 text-label text-muted mt-2">
-              Abra o aplicativo autenticador do seu celular e digite o código de {DIGITOS_CODIGO} dígitos
-              da {MARCA}. Ele muda a cada 30 segundos.
-            </p>
           </div>
 
           {!configured && (

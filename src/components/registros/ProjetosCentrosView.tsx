@@ -99,7 +99,6 @@ export function ProjetosRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo="Centros de resultado temporais — um lançamento, uma campanha, um cliente — com previsão de receita e despesa."
         acaoNova={{ label: "Novo projeto", onClick: () => setEditando(projetoVazio()) }}
         exportar={{ nomeArquivo: "projetos", aba: "Projetos", linhas }}
       />
@@ -136,7 +135,7 @@ export function ProjetosRegistroView() {
               texto={projetos.isLoading
                 ? "Carregando os projetos…"
                 : itens.length === 0
-                  ? "Nenhum projeto ainda. Um projeto permite medir o realizado contra o previsto de uma campanha ou de um cliente."
+                  ? "Nenhum projeto ainda."
                   : "Nenhum projeto encontrado com esses filtros."}
               acao={!projetos.isLoading && itens.length === 0
                 ? <Button variant="primary" onClick={() => setEditando(projetoVazio())}>Criar primeiro projeto</Button>
@@ -230,7 +229,7 @@ function FormProjeto({
         <Campo label="Código">
           <Input value={f.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="PRJ-2026" />
         </Campo>
-        <Campo label="Situação" ajuda="Encerrado não recebe lançamento novo.">
+        <Campo label="Situação">
           <Select
             value={f.status}
             onChange={(v) => set("status", v === "encerrado" ? "encerrado" : "ativo")}
@@ -318,7 +317,6 @@ export function CentrosCustoRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo="Áreas que consomem recurso, em grupos — o recorte que o DRE por centro de custo usa."
         acaoNova={{ label: "Novo centro de custo", onClick: () => setEditando(centroVazio()) }}
         exportar={{ nomeArquivo: "centros-de-custo", aba: "Centros de custo", linhas }}
       />
@@ -351,7 +349,7 @@ export function CentrosCustoRegistroView() {
               texto={centros.isLoading
                 ? "Carregando os centros de custo…"
                 : itens.length === 0
-                  ? "Nenhum centro de custo ainda. Eles permitem ratear um lançamento entre áreas e ver o DRE por centro."
+                  ? "Nenhum centro de custo ainda."
                   : "Nenhum centro de custo encontrado com esses filtros."}
               acao={!centros.isLoading && itens.length === 0
                 ? <Button variant="primary" onClick={() => setEditando(centroVazio())}>Criar primeiro centro</Button>
@@ -433,7 +431,7 @@ function FormCentro({
       <Campo label="Nome" obrigatorio erro={erros.nome}>
         <Input value={f.nome} onChange={(e) => set("nome", e.target.value)} placeholder="Ex.: Marketing" />
       </Campo>
-      <Campo label="Grupo" erro={erros.paiId} ajuda="O centro sintético que agrupa este. Vazio = centro de primeiro nível.">
+      <Campo label="Grupo" erro={erros.paiId}>
         <Select
           value={f.paiId ?? ""}
           onChange={(v) => set("paiId", v || null)}
@@ -445,10 +443,8 @@ function FormCentro({
         <Campo label="Código" erro={erros.codigo}>
           <Input value={f.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Ex.: CC-01" />
         </Campo>
-        <Campo
-          label="Código contábil (Domínio)"
-          ajuda="Sai nas colunas CC do TXT contábil quando o lançamento tem um único centro de custo."
-        >
+        <Campo label="Código contábil (Domínio)">
+
           <Input value={f.codigoContabil} onChange={(e) => set("codigoContabil", e.target.value)} placeholder="Ex.: 12" />
         </Campo>
       </div>

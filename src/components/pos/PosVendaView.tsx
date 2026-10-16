@@ -136,7 +136,7 @@ export function PosVendaView() {
                 ) : lista.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center gap-2 px-6">
                     <Icon name="scan-line" size={26} color="var(--color-text-tertiary)" />
-                    <p className="text-caption text-muted">Nenhum produto cadastrado. Cadastre itens em Produtos para vendê-los aqui.</p>
+                    <p className="text-caption text-muted">Nenhum produto cadastrado.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">

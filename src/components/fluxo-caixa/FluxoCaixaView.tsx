@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo, LinhasSuaves, AreaComparada, MapaCalorGrade, COR_ENTRADA, COR_SAIDA, type CelulaCalor } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
-import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
+import { FluxoFiltrosProvider, useFluxoFiltros } from "./FiltrosContext";
 import { useModo } from "@/components/app/useModo";
 import { Header } from "./Header";
 import { useFluxoCaixa, useContas, useComparativo } from "./hooks";
@@ -16,10 +16,8 @@ import type {
   ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin,
 } from "@/core/cashflow";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
-import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
-import { janela as fazJanela, rotuloRunwayLido } from "@/core/indicadores";
+import { rotuloRunwayLido } from "@/core/indicadores";
 import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
-import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -35,18 +33,6 @@ export function FluxoCaixaView() {
 
 function Inner() {
   const { filtros } = useFluxoFiltros();
-  /**
-   * A janela do filtro, no tipo canônico. ⚠️ O fluxo olha para FRENTE: a
-   * janela termina daqui a N dias, e é por isso que o saldo desta tela é o
-   * PROJETADO — declarar isso é o que impede a comparação com o extrato de
-   * parecer divergência.
-   */
-  const dias = PERIODOS.find((p) => p.id === filtros.periodo)?.dias ?? filtros.diasCustom;
-  // Dia LOCAL, não UTC: das 21h à meia-noite o `toISOString` já é amanhã.
-  const hojeISO = hojeLocal();
-  const fimD = new Date(`${hojeISO}T00:00:00`); fimD.setDate(fimD.getDate() + Math.max(0, dias - 1));
-  const fim = isoDay(fimD);
-  const janelaDoFiltro = fazJanela(hojeISO, fim, `Próximos ${dias} dias`);
   const contas = useContas();
   const { data, isLoading } = useFluxoCaixa(filtros);
   const comp = useComparativo(filtros);
@@ -65,12 +51,6 @@ function Inner() {
         <Header contas={contas.data ?? []} />
       </Card>
 
-      {/* ⚠️ Esta tela projeta: o saldo que ela mostra é o de HOJE mais os
-          títulos previstos até o fim da janela. Declarar isso é o item 4 do
-          mapa de consolidação — três telas respondiam "quanto eu tenho" com
-          números diferentes e nenhuma dizia qual recorte usava. */}
-      <BaseDoSaldo base="projetado_fim" janela={janelaDoFiltro} />
-
       {/* ⚠️ **SEM UM LANÇAMENTO, esta tela desenha catorze blocos de zeros** —
           projeção, cenários, mapa de calor, gêmeo digital — e cada um com a
           aparência de um número apurado. Quem abre não distingue "não há dado"
@@ -79,15 +59,6 @@ function Inner() {
       {semLancamento ? (
         <Card className="flex flex-col gap-3">
           <span className="text-h3 text-ink">Seu caixa ainda não tem movimento</span>
-          <p className="m-0 text-body text-muted max-w-[68ch]">
-            Esta tela mostra quando o dinheiro entra e sai, o que já está agendado, e para
-            onde o saldo caminha nas próximas semanas. Ela se monta a partir dos seus
-            lançamentos — hoje não há nenhum.
-          </p>
-          <p className="m-0 text-caption text-faint max-w-[68ch]">
-            Importe um extrato e o caixa se desenha sozinho: o que já caiu vira realizado, o
-            que tem vencimento vira previsto.
-          </p>
           <div className="flex flex-wrap gap-2 pt-1">
             <Link href="/upload"><Button variant="primary">Importar extrato</Button></Link>
             <Link href="/metodologia"><Button variant="secondary">Como é calculado</Button></Link>
@@ -242,9 +213,6 @@ function Inner() {
             </AnalisesAvancadas>
           </>}
 
-          {!pro && (
-            <p className="text-caption text-faint text-center">Árvore do caixa, projeção, cenários, cascata do resultado e análises avançadas no <b className="text-muted font-medium">Modo Pro</b> (alterna na barra lateral).</p>
-          )}
         </>
       )}
         </>
@@ -555,7 +523,6 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
           </div>
         ))}
       </div>
-      <span className="text-caption text-faint">A IA aprende o comportamento (sazonalidade, recorrência, inadimplência, atrasos) — não é linha reta: Monte Carlo com bandas p10/p50/p90.</span>
     </Card>
   );
 }
@@ -772,7 +739,6 @@ function ConfidenceView({ projecoes }: { projecoes: ProjecaoHorizonte[] }) {
           <span className="text-caption tabular-nums text-ink w-[42px] text-right">{pct(p.confianca)}</span>
         </div>
       ))}
-      <span className="text-caption text-faint">Cada projeção carrega sua confiança — cai com o horizonte e com a volatilidade do fluxo.</span>
     </Card>
   );
 }
@@ -801,10 +767,6 @@ function DigitalTwinView({ twin }: { twin: { feeds: { entradas: string[]; saidas
           <span className="text-caption font-medium text-faint tracking-wide">A IA explica o porquê</span>
           <p className="m-0 mt-1 text-caption text-muted leading-[1.6]">{twin.explicacao}</p>
         </div>
-        <span className="text-caption text-faint leading-[1.5]">
-          Quando um documento chega na Caixa de Entrada (boleto, nota, comprovante, contrato, PIX), o gêmeo atualiza
-          automaticamente fluxo previsto/realizado, saldo projetado, DRE, burn, runway, tesouraria, Monte Carlo, cenários e dashboard.
-        </span>
       </Card>
     </section>
   );

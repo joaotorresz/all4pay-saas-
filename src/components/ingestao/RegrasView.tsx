@@ -86,10 +86,6 @@ export function RegrasView() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h2 className="m-0 text-h3 font-semibold text-ink">Regras de categorização</h2>
-            <p className="m-0 mt-1 text-caption text-muted max-w-[60ch]">
-              Escreva uma vez, vale para sempre. Elas rodam antes da IA — o que a regra
-              resolve, ninguém precisa adivinhar depois.
-            </p>
           </div>
           <Button variant="primary" onClick={() => setAberto((v) => !v)}>
             {aberto ? "Cancelar" : "Nova regra"}
@@ -150,7 +146,8 @@ export function RegrasView() {
 
         {regras.length === 0 ? (
           <p className="m-0 py-8 text-center text-label text-muted">
-            Sem regras ainda. Crie a primeira e o próximo extrato já chega categorizado.
+            Nenhuma regra ainda.
+
           </p>
         ) : (
           <div className="flex flex-col mt-3">

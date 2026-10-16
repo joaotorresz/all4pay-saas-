@@ -242,12 +242,9 @@ function Ponte({ ponte }: { ponte: PonteVendaRecebimento }) {
       <span className="text-h3 text-ink pr-8">Do que vendi ao que entrou</span>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Numero rotulo="Faturado no período" valor={ponte.faturado}
-          detalhe="pela competência — quando a venda aconteceu" />
-        <Numero rotulo="Recebido no período" valor={ponte.recebido}
-          detalhe="pela data do pagamento — o caixa que entrou" />
-        <Numero rotulo="A receber no período" valor={ponte.aReceber}
-          detalhe="pelo vencimento — o que ainda vai entrar" />
+        <Numero rotulo="Faturado no período" valor={ponte.faturado} />
+        <Numero rotulo="Recebido no período" valor={ponte.recebido} />
+        <Numero rotulo="A receber no período" valor={ponte.aReceber} />
       </div>
 
       <div className="rounded-card bg-surface-2 p-4 flex items-start gap-3">
@@ -269,21 +266,19 @@ function Ponte({ ponte }: { ponte: PonteVendaRecebimento }) {
               </>
             )}
           </p>
-          <p className="m-0 mt-1 text-caption text-muted">{ponte.explicacao}</p>
         </div>
       </div>
     </Card>
   );
 }
 
-function Numero({ rotulo, valor, detalhe }: { rotulo: string; valor: number; detalhe: string }) {
+function Numero({ rotulo, valor }: { rotulo: string; valor: number }) {
   return (
     <div className="rounded-card bg-surface-2 p-4">
       <span className="block text-caption text-muted">{rotulo}</span>
       <span className="a4p-num block text-[22px] leading-none mt-2 text-ink">
         <BRL value={valor} showDecimals={false} />
       </span>
-      <span className="block text-caption text-faint mt-2">{detalhe}</span>
     </div>
   );
 }

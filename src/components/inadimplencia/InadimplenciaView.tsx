@@ -3,7 +3,6 @@
 import * as React from "react";
 import { BRL, Card, Skeleton, Money, Icon, InfoHint } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
-import { isDemo } from "@/lib/demo";
 import { useInadimplencia } from "@/components/visao-geral/hooks";
 import {
   CLASSIF_LABEL,
@@ -43,10 +42,6 @@ export function InadimplenciaView() {
     return (
       <Card className="flex flex-col items-start gap-2">
         <span className="text-h3 font-medium text-ink">Sem recebíveis ainda</span>
-        <p className="m-0 text-muted max-w-[60ch]">
-          Cadastre lançamentos de receita (com cliente e vencimento) para o motor
-          aprender o comportamento de pagamento e prever inadimplência.
-        </p>
       </Card>
     );
   }
@@ -147,24 +142,6 @@ export function InadimplenciaView() {
         </div>
       </Card>
 
-      {isDemo && (
-        <Card className="lg:col-span-3 bg-surface-2" elevated={false}>
-          <div className="flex items-start gap-3">
-            <Icon name="gauge" size={18} color="var(--color-text-secondary)" />
-            <div>
-              <div className="text-label font-medium text-ink">
-                Inteligência proprietária de crédito
-              </div>
-              <p className="m-0 text-caption text-muted mt-1 max-w-[80ch]">
-                O score é comportamental e explicável (frequência e tendência de
-                atraso, oscilação de pagamento, queda de ticket, concentração). Com
-                a base conectada, o modelo aprende padrões e a precisão cresce —
-                evoluindo para underwriting e crédito proprietários.
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

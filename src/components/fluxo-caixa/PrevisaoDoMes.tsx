@@ -140,12 +140,6 @@ export function PrevisaoDoMes() {
         })}
       </div>
 
-      {(p.vencidoNoAgendado.entradas > 0 || p.vencidoNoAgendado.saidas > 0) && (
-        <p className="m-0 text-caption text-muted">
-          O agendado inclui o vencido de meses anteriores que ainda não se moveu: entradas <BRL value={p.vencidoNoAgendado.entradas} /> · saídas <BRL value={p.vencidoNoAgendado.saidas} />.
-        </p>
-      )}
-
       {p.estimados.length > 0 ? (
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => setAbrir((a) => !a)} aria-expanded={abrir}

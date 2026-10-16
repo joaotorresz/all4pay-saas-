@@ -4285,15 +4285,9 @@ const AGOSTO = janelaMes(2026, 7);
     const orfas = Object.keys(CONSUMIDORES_DA_PROJECAO).filter((f) => !existe(f));
     ok("projecao: nenhum consumidor declarado aponta para arquivo inexistente",
        orfas.length === 0, orfas.join(" | "));
-    /**
-     * ⚠️ E as duas telas de título DIZEM o que contam. Sem a frase, quem abre
-     * as duas conclui que uma está errada — e é a pergunta "qual dos dois está
-     * certo" que a guarda existe para nunca mais deixar aparecer.
-     */
-    ok("projecao: a lista de títulos declara que conta só o já lançado",
-       /já lançados/.test(ler("src/components/movimentacoes/TitulosView.tsx")));
-    ok("projecao: o painel de contas a pagar declara o mesmo",
-       /já lançados/.test(ler("src/components/contas-pagar/DashboardContasPagar.tsx")));
+    // ⚠️ As frases "só entram os títulos já lançados" das duas telas de título
+    // SAÍRAM por decisão do dono (16/10/2026: nenhum texto de apoio nas telas).
+    // O que continua guardado é a regra: a projeção não entra nelas (acima).
 
     /**
      * ⚠️ **NENHUM ID DE CADASTRO LOCAL VAI PARA UMA COLUNA UUID.**

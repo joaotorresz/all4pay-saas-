@@ -95,7 +95,7 @@ export function AccrualsSection() {
       {q.isLoading ? (
         <Skeleton className="h-20 w-full" />
       ) : lista.length === 0 ? (
-        <span className="text-caption text-faint">Nenhuma provisão sugerida — as despesas recorrentes já estão lançadas no mês corrente.</span>
+        <span className="text-caption text-faint">Nenhuma provisão sugerida.</span>
       ) : (
         <div className="flex flex-col">
           {lista.map((a, i) => {
@@ -120,7 +120,6 @@ export function AccrualsSection() {
           })}
         </div>
       )}
-      <span className="text-caption text-faint">Despesa incorrida recorrente ainda não lançada no mês vira provisão (débito da despesa · crédito Provisões a pagar). Some sozinha quando o lançamento real entra.</span>
       {node}
     </Card>
   );
