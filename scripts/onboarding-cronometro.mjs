@@ -144,61 +144,97 @@ async function fase(nome, humano, fn) {
   fases.push({ nome, maquina, humano, detalhe });
 }
 
-/* ─── 0. A PORTA DE ENTRADA: O CADASTRO DE TRÊS CAMPOS ─────────────────────
-   ⚠️ **O caminho ouro mudou de porta, e o cronômetro tem de medir a porta
-   nova.** Até aqui ele começava em `/comecar` — o assistente de sete passos,
-   quinze campos — porque era ali que se criava a conta. A entrada agora é
-   `/criar-conta`: e-mail, senha e nome da empresa. Medir a porta velha
-   publicaria um tempo que ninguém mais gasta, e para o lado errado: o número
-   sairia PIOR do que a realidade, e um cronômetro que erra para pior é
-   desligado com a mesma facilidade que um que erra para melhor.
-
-   ⚠️ **TRÊS CAMPOS É A DECISÃO, e por isso é o que se reprova.** Conferir que
-   a tela "abre" não protege nada — ela abriria igual com quinze campos de
-   volta. A asserção é sobre o NÚMERO, que é o que foi decidido e o que se
-   perde por acréscimo: cada campo novo aqui é tempo cobrado de todo mundo que
-   entra, e ninguém percebe um campo entrando um de cada vez.
+/* ─── 0. A PORTA DE ENTRADA: O CADASTRO PELA CONVERSA ──────────────────────
+   ⚠️ **(16/10/2026) A conversa pede o cadastro INTEIRO, e é isso que se
+   reprova.** A versão de três perguntas deixava o cliente entrar sem CNPJ,
+   regime, representante, perfil e estrutura. Agora a conversa abre com o
+   cartão "Que tipo de conta…", pede o CNPJ com máscara, confere na Receita
+   (no CI, sem rede, cai nas perguntas à mão) e segue pergunta a pergunta até
+   a senha. O que reprova: mais de um campo por vez, CNPJ sem máscara, a senha
+   fora de campo de senha, e a conversa chegar à senha sem ter perguntado o
+   regime, o representante, o perfil e a estrutura.
 
    ⚠️ **A criação da conta em si NÃO é exercitada, e fica dito.** Ela fala com
-   o Supabase, e o build de demonstração não tem projeto nenhum atrás — é a
-   mesma condição do `smoke-rotas` (`configured: false`). Exercitá-la exigiria
-   um projeto de verdade no CI, criando conta a cada execução. O que o
-   cronômetro mede aqui é o CUSTO HUMANO da porta (ler a tela, digitar três
-   campos, apertar um botão); o que ele não mede está declarado, não suposto. */
-await fase("0. Entrar pelo cadastro de três campos",
-  RITMO.telaNova + RITMO.campoCurto * 3 + RITMO.clique,
+   o Supabase, e o build de demonstração não tem projeto nenhum atrás. */
+await fase("0. Entrar pelo cadastro pela conversa",
+  RITMO.telaNova + RITMO.campoFormatado * 3 + RITMO.campoCurto * 6 + RITMO.escolha * 20 + RITMO.clique * 2,
   async () => {
     await page.goto(`${BASE}/criar-conta`, { waitUntil: "networkidle", timeout: 60000 });
     await abortarSeAmbienteQuebrou(page, "abrir o cadastro");
-    /* (16/10/2026) O cadastro virou CONVERSA com a Quattro AI: as três
-       perguntas vêm uma de cada vez, num campo só que troca de tipo. O que se
-       reprova é o mesmo — mais de três perguntas, mais de um campo por vez, e
-       a senha fora de um campo de senha. A última resposta NÃO é enviada (não
-       há Supabase atrás do build de demonstração). */
-    const RESPOSTAS = { "Nome da empresa": "Padaria Cronômetro", "E-mail": "cronometro@exemplo.com.br", Senha: "senha-forte-1" };
-    const tipos = [];
-    for (let i = 0; i < 4; i++) {
-      const campo = page.locator("form input:not([hidden])").first();
-      if (!(await campo.count())) break;
-      await campo.waitFor({ state: "visible", timeout: 15000 });
-      await page.waitForFunction(() => !document.querySelector("form input:not([hidden])")?.disabled, null, { timeout: 15000 });
+    const pj = page.locator('[data-cartao="conta"] button', { hasText: "Conta PJ" });
+    await pj.waitFor({ state: "visible", timeout: 20000 });
+    await pj.click();
+    const campoDoc = page.locator("form input:not([hidden])").first();
+    await campoDoc.waitFor({ state: "visible", timeout: 20000 });
+    await page.waitForFunction(() => !document.querySelector("form input:not([hidden])")?.disabled, null, { timeout: 20000 });
+    await campoDoc.pressSequentially("11222333000181");
+    const mascarado = await campoDoc.inputValue();
+    if (mascarado !== "11.222.333/0001-81") { falhas++; return `REPROVA: o CNPJ não ganha máscara enquanto se digita ("${mascarado}")`; }
+    await campoDoc.press("Enter");
+
+    const TEXTOS = {
+      "Razão social": "Padaria Cronômetro Ltda", "Nome fantasia": "Padaria Cronômetro", CEP: "01310100",
+      "Cidade e UF": "São Paulo / SP", Número: "100", "Inscrição estadual": "123456789", "Inscrição municipal": "",
+      "Seu nome": "Ana Cronômetro", WhatsApp: "11987654321", "E-mail": "cronometro@exemplo.com.br",
+      "Conte com suas palavras": "",
+    };
+    /* A "chave" do passo atual: o cartão de confirmação, as opções ou o campo. */
+    const chave = () => page.evaluate(() => {
+      const ok = [...document.querySelectorAll('[data-cartao="documento"] button')].find((b) => b.textContent.trim() === "Confirmar");
+      if (ok) return "confirmar";
+      const op = document.querySelector("[data-opcoes]");
+      if (op) return `op:${op.getAttribute("data-opcoes")}`;
+      const c = document.querySelector("form input:not([hidden])");
+      return c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
+    });
+    const perguntas = [];
+    let anterior = "";
+    for (let i = 0; i < 60; i++) {
+      await page.waitForFunction((ant) => {
+        const ok = [...document.querySelectorAll('[data-cartao="documento"] button')].some((b) => b.textContent.trim() === "Confirmar");
+        const op = document.querySelector("[data-opcoes]");
+        const c = document.querySelector("form input:not([hidden])");
+        const k = ok ? "confirmar" : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
+        return k && k !== ant;
+      }, anterior, { timeout: 30000 });
+      const k = await chave();
+      anterior = k;
+      if (k === "confirmar") { await page.locator('[data-cartao="documento"] button', { hasText: "Confirmar" }).click(); continue; }
+      if (k.startsWith("op:")) {
+        const id = k.slice(3);
+        perguntas.push(id);
+        const opcoes = page.locator(`[data-opcoes="${id}"]`);
+        if (id === "extrato") { await opcoes.getByRole("button", { name: "Agora não" }).click(); continue; }
+        const continuar = opcoes.getByRole("button", { name: "Continuar" });
+        if (await continuar.count()) {
+          if (await continuar.isDisabled()) await opcoes.locator("button[aria-pressed]").first().click();
+          await continuar.click();
+        } else {
+          const sim = opcoes.locator('[role="group"] button', { hasText: /^Sim$/ });
+          const alvo = (await sim.count()) ? sim.first() : opcoes.locator('[role="group"] button').filter({ hasNotText: /não aprovo/i }).first();
+          await alvo.click();
+        }
+        continue;
+      }
+      const rotulo = k.slice(6);
       const visiveis = await page.evaluate(() => [...document.querySelectorAll("input")]
-        .filter((x) => !x.hidden && !["hidden", "submit", "button"].includes(x.type)).length);
+        .filter((x) => !x.hidden && !["hidden", "submit", "button", "file"].includes(x.type)).length);
       if (visiveis > 1) { falhas++; return `REPROVA: a conversa mostra ${visiveis} campos ao mesmo tempo — a regra é UMA pergunta por vez`; }
-      const rotulo = await campo.getAttribute("aria-label");
-      tipos.push(await campo.getAttribute("type"));
-      if (!(rotulo in RESPOSTAS)) { falhas++; return `REPROVA: pergunta inesperada no cadastro ("${rotulo}") — a decisão é TRÊS`; }
-      await campo.fill(RESPOSTAS[rotulo]);
-      if (rotulo === "Senha") break;
+      const campo = page.locator("form input:not([hidden])").first();
+      if (rotulo === "Senha") {
+        if ((await campo.getAttribute("type")) !== "password") { falhas++; return "REPROVA: a senha não é campo de senha"; }
+        break;
+      }
+      perguntas.push(rotulo);
+      const valor = TEXTOS[rotulo] ?? "Teste";
+      if (!valor) { await page.getByRole("button", { name: "Pular esta pergunta" }).click(); continue; }
+      await campo.fill(valor);
       await campo.press("Enter");
-      await page.waitForFunction((r) => document.querySelector("form input:not([hidden])")?.getAttribute("aria-label") !== r, rotulo, { timeout: 15000 });
     }
-    if (tipos.length === 0) { falhas++; return "REPROVA: o cadastro não tem campo nenhum"; }
-    if (tipos.length > 3) { falhas++; return `REPROVA: o cadastro voltou a ter ${tipos.length} perguntas — a decisão é TRÊS`; }
-    /* ⚠️ E a senha tem de ser senha: um `type="text"` aqui expõe o que a pessoa
-       digita na frente de quem estiver ao lado. */
-    if (!tipos.includes("password")) { falhas++; return "REPROVA: a senha não é campo de senha"; }
-    return `${tipos.length} perguntas, uma por vez (${tipos.join(", ")}) · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
+    const exigidas = ["regime", "limite", "setor", "faturamento", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
+    const faltou = exigidas.filter((x) => !perguntas.includes(x));
+    if (faltou.length) { falhas++; return `REPROVA: a conversa chegou à senha sem perguntar ${faltou.join(", ")} — ela tem de pedir o cadastro inteiro`; }
+    return `${perguntas.length} perguntas, uma por vez, CNPJ com máscara · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
   });
 
 /* ─── 1. CRIAR A EMPRESA + DECLARAR O REGIME ───────────────────────────────
