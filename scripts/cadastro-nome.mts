@@ -95,7 +95,9 @@ for (const p of PORTAS) {
 /* ── 4. O vazio é recusado na TELA ───────────────────────────────────────── */
 const cadastro = semComentario(readFileSync("src/components/entrada/CriarContaView.tsx", "utf8"));
 ok("cadastro: nome vazio é RECUSADO no campo, não resolvido em silêncio",
-   /setErroEmpresa\(/.test(cadastro) && /empresa\.trim\(\)/.test(cadastro),
+   // (16/10/2026) O cadastro virou conversa: o nome sai da resposta digitada
+   // (`texto.trim()`), não mais de um campo chamado `empresa`. A regra é a mesma.
+   /setErroEmpresa\(/.test(cadastro) && /\b(empresa|texto)\.trim\(\)/.test(cadastro),
    "o gatilho tem um último recurso para não derrubar o signup; ele não é o caminho de quem está olhando o campo");
 
 /* ── 5. A migration não reintroduz a derivação ───────────────────────────── */
