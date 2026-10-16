@@ -430,6 +430,46 @@ horário", `AneisConcentricos` = "Histórico de transferências 3").
 - Novas trocas: o canvas liga cada troca à prancheta individual
   (`Bib<NN>…dc.html`, por `dc-import`); o código acompanha pelo nome do modelo.
 
+## ⚠️ OS GRÁFICOS DO SISTEMA SAEM DA BIBLIOTECA (16/10/2026)
+
+O dono mandou trocar todo gráfico do sistema pelos 25 modelos da Biblioteca,
+diversificando e casando cada um com o contexto. Os que faltavam no código
+moram em `components/ui/GraficosModelos.tsx`, com o NOME do modelo no canvas
+(`BarrasHorizontais` = Receita 3, `BarrasPareadas` = Análises 1,
+`PizzaFatias`/`RoscaFatias` = Histórico 1/2, `RoscaCentro` = Receita por linha,
+`Medidores` = Atividade, `BlocosProporcao` = Relatório de transações,
+`RadarSeries` = Estatística, `AreaPorAno` = Estatística de saldo 2,
+`DuasBarras`/`MetaCirculo` = Dinheiro poupado 1/2, `ListaProgresso` = Média de
+despesas, `LinhaPontos` = Saldo em conta, `BarrasAgrupadas` = Entradas ×
+saídas, `Velas`, `ColunasPreco` = Análise de preço 1).
+
+| Tela | Modelo |
+| --- | --- |
+| Plataforma · crescimento de clientes · MRR | Receita 1 (`BarrasDestaque tom="claro"`) · Saldo em conta |
+| Chat da IA · linha · barras | Estatística de saldo 1 · Receita 3 |
+| Ficha do contato | Receita 1 |
+| Fluxo de caixa · Para onde foi (era Sankey) | Média de despesas |
+| Contas e bancos · concentração | Receita por linha |
+| Títulos · distribuição | Histórico 2 |
+| Contas recorrentes · por categoria | Histórico 1 |
+| Receita · MRR por mês | Análise de preço 1 |
+| DRE · DFC (relatórios) | Análises 1 · Velas |
+| Posso comprar? · Decisão (Monte Carlo) | Análises 2 |
+| Dashboards customizados · linha · barras · fatias | Saldo em conta · Receita 2 · Receita por linha (contagem: Relatório de transações) |
+| Quant · radar · evolução do score | Estatística · Saldo em conta |
+| Risco · liquidez · concentração | Estatística de saldo 1 (com zero e ruptura) · Relatório de transações |
+| Planejado × Realizado · receita | Dinheiro poupado 2 (só com META digitada, nunca sobre o baseline) |
+
+- ⚠️ **QUARTA exceção declarada à "cor por sinal": a vela** (`Velas`), pela
+  série `alta`/baixa do período (fechamento × abertura), como em todo gráfico
+  de velas. A cor vem do campo da série, nunca de comparar um valor com zero
+  — a guarda `cor:` segue com teto zero sem mudar.
+- Ficaram como estavam, já no padrão: as faixas e anéis de títulos, o
+  carrossel de sazonalidade, os medidores pequenos de linha (pilares, matriz
+  de risco), o fechamento da Home e as velas das recorrentes.
+- Cabeçalho de tabela sem espaçamento entre letras (era 0,08em), como na
+  Biblioteca.
+
 ## ⚠️ HOME "SNAPSHOT" (14/10/2026, prancheta "Home · proposta snapshot")
 
 Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza

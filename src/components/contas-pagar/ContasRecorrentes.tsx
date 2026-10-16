@@ -17,9 +17,9 @@
  */
 import * as React from "react";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, PieChart, Pie, Cell,
+  ResponsiveContainer, BarChart, Bar, XAxis, Tooltip,
 } from "recharts";
-import { Card, BRL, Icon, Skeleton, DicaGrafico } from "@/components/ui";
+import { Card, BRL, Icon, Skeleton, DicaGrafico, PizzaFatias } from "@/components/ui";
 import { useRiscoInput, useRegrasRecorrentes } from "@/components/visao-geral/hooks";
 import { formatBRL, pct } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
@@ -33,12 +33,6 @@ import {
   type ResumoProjecao, type JanelaId, type Janela,
 } from "@/core/contas-pagar/projecao";
 
-const tooltipStyle = {
-  background: "var(--color-white)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 10,
-  fontSize: 12,
-} as const;
 
 export function ContasRecorrentes() {
   const { data: input, isLoading } = useRiscoInput();
@@ -574,29 +568,10 @@ function CardCategorias({ painel }: { painel: PainelRecorrentes }) {
       {fatias.length === 0 ? (
         <p className="m-0 text-body text-muted py-14 text-center">Nenhuma conta a pagar neste mês.</p>
       ) : (
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-[170px_minmax(0,1fr)] gap-4 items-center">
-          <div className="h-[170px]" role="img"
-            aria-label={`Por categoria. ${fatias.map((f) => `${f.categoria}: ${formatBRL(f.valor)}`).join(", ")}.`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={fatias} dataKey="valor" nameKey="categoria"
-                  innerRadius="56%" outerRadius="90%" stroke="none" {...chartAnim()}>
-                  {fatias.map((_, k) => <Cell key={k} fill={RAMPA[k % RAMPA.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatBRL(v)} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col gap-[6px]">
-            {fatias.map((f, k) => (
-              <div key={f.categoria} className="flex items-center gap-2 text-caption">
-                <span aria-hidden className="w-2 h-2 rounded-pill shrink-0" style={{ background: RAMPA[k % RAMPA.length] }} />
-                <span className="text-muted flex-1 truncate">{f.categoria}</span>
-                <span className="a4p-num text-faint tabular-nums">{pct(f.fracao)}</span>
-                <span className="a4p-num text-ink shrink-0"><BRL value={f.valor} showDecimals={false} /></span>
-              </div>
-            ))}
-          </div>
+        // "Histórico de transferências 1" da Biblioteca: pizza com a % sobre as fatias.
+        <div className="mt-3">
+          <PizzaFatias ariaLabel={`Por categoria. ${fatias.map((f) => `${f.categoria}: ${formatBRL(f.valor)}`).join(", ")}.`}
+            fatias={fatias.map((f, k) => ({ chave: f.categoria, nome: f.categoria, valor: f.valor, cor: RAMPA[k % RAMPA.length] }))} />
         </div>
       )}
     </Card>

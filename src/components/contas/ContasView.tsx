@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo, PontoStatus, BancoLogo } from "@/components/ui";
+import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo, PontoStatus, BancoLogo, RoscaCentro } from "@/components/ui";
 import { getAccountsList, getRiscoInput, getBankAccounts, setBankAccountSource, linkBankAccount } from "@/lib/data";
 import { treasuryCore } from "@/core/treasury";
 import { useToast } from "@/components/listas/ListChrome";
@@ -86,19 +86,9 @@ export function ContasView() {
             <span className="inline-flex items-center gap-1 text-label font-medium text-muted">Concentração bancária<InfoHint align="left" titulo="Concentração bancária" oQue="Mostra se o caixa está muito dependente de um único banco." comoCalcula="O HHI mede a concentração; ao lado, a fatia do saldo no maior banco. Acima de 60% vira alerta." /></span>
             <span className="text-caption text-faint">HHI {Math.round(t.concentracaoBancariaHHI)} · maior banco {pct(t.topBancoShare)}</span>
           </div>
-          <div className="flex flex-col gap-2">
-            {t.bancos.map((b) => (
-              <div key={b.banco} className="flex items-center gap-3">
-                <BancoLogo banco={b.banco} nome={labelBanco(b.banco)} size={22} />
-                <span className="text-caption text-ink w-[120px] truncate">{labelBanco(b.banco)}</span>
-                <div className="flex-1 h-[8px] rounded-pill bg-surface-2 overflow-hidden">
-                  <div className="h-full rounded-pill bg-ink" style={{ width: `${Math.max(2, b.share * 100)}%` }} />
-                </div>
-                <span className="text-caption tabular-nums text-muted w-[42px] text-right">{pct(b.share)}</span>
-                <span className="text-caption tabular-nums text-ink w-[110px] text-right"><BRL value={b.saldo} /></span>
-              </div>
-            ))}
-          </div>
+          {/* "Receita por linha" da Biblioteca: a rosca com o maior banco no centro. */}
+          <RoscaCentro ariaLabel="Fatia do saldo por banco"
+            fatias={t.bancos.map((b) => ({ chave: b.banco, nome: labelBanco(b.banco), valor: b.saldo }))} />
           {t.topBancoShare > 0.6 && (
             <span className="text-caption text-warning">Atenção: mais de 60% do caixa num só banco — risco de concentração.</span>
           )}

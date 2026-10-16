@@ -8,23 +8,11 @@
  * diverge do número que aparece no DRE ou no fluxo de caixa.
  */
 import * as React from "react";
-import {
-  ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip,
-} from "recharts";
-import { Card, BRL, Icon, Skeleton } from "@/components/ui";
+import { Card, BRL, Icon, Skeleton, LinhaPontos, BarrasDestaque, RoscaCentro, BlocosProporcao } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
-import { chartAnim } from "@/lib/chart-anim";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
 import {
   fonteMetrica, fonteSerie, fonteCategoria, type Widget, type EntradaFontes,
 } from "@/core/dashboards";
-import { RAIO_TOPO } from "@/lib/grafico";
-
-/** A rampa categórica do sistema (mesma do donut da Home). Vem dos tokens
- *  (`--a4p-cat-*`, feitos com `color-mix` sobre o acento e os neutros), não de
- *  oito hexes copiados — era assim, e quando um arquivo mudava o outro não. */
-const PALETA = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
 
 export function WidgetRender({ w }: { w: Widget }) {
   const { data: input, isLoading } = useRiscoInput();
@@ -104,38 +92,11 @@ function Serie({ w, i }: { w: Extract<Widget, { tipo: "serie" }>; i: EntradaFont
       {vazio ? (
         <Vazio texto="Sem dados no período." />
       ) : (
-        <div className="h-[200px] -ml-2" role="img" aria-label={f.label}>
-          <ResponsiveContainer width="100%" height="100%">
-            {w.formato === "linha" ? (
-              <LineChart data={dados} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
-                <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd"
-                  tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
-                <YAxis tickLine={false} axisLine={false} width={54}
-                  tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                  tickFormatter={(v: number) => formatBRLCompact(v)} />
-                <Tooltip formatter={(v: number) => formatBRL(v)} contentStyle={tooltipStyle} />
-                <Line type="monotone" dataKey="valor" stroke="var(--color-lime)" strokeWidth={2} dot={false}
-                  activeDot={{ r: 4 }} {...chartAnim()} />
-              </LineChart>
-            ) : (
-              <BarChart data={dados} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
-                <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd"
-                  tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
-                <YAxis tickLine={false} axisLine={false} width={54}
-                  tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                  tickFormatter={(v: number) => formatBRLCompact(v)} />
-                <Tooltip formatter={(v: number) => formatBRL(v)} cursor={{ fill: "var(--color-surface-2)" }} contentStyle={tooltipStyle} />
-                <Bar dataKey="valor" radius={RAIO_TOPO} {...chartAnim()}>
-                  {dados.map((p, k) => (
-                    // Número não tem cor por sinal (decisão de 30/09/2026): positivo em
-                    // ink, negativo em areia — o eixo e o tooltip dizem a direção.
-                    <Cell key={k} fill={p.valor < 0 ? "var(--color-areia)" : "var(--color-ink)"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
+        w.formato === "linha" ? (
+          <LinhaPontos id={`w-${w.id}`} dados={dados} altura={200} ariaLabel={f.label} />
+        ) : (
+          <BarrasDestaque dados={dados} altura={200} ariaLabel={f.label} rotuloSerie={f.label} />
+        )
       )}
     </Card>
   );
@@ -151,6 +112,7 @@ function Pizza({ w, i }: { w: Extract<Widget, { tipo: "pizza" }>; i: EntradaFont
   const resto = todas.slice(7).reduce((s, x) => s + x.valor, 0);
   const dados = resto > 0 ? [...top, { nome: "Outros", valor: resto }] : top;
   const total = dados.reduce((s, x) => s + x.valor, 0);
+  const fatias = dados.map((d) => ({ chave: d.nome, nome: d.nome, valor: d.valor }));
 
   return (
     <Card className="h-full">
@@ -164,29 +126,12 @@ function Pizza({ w, i }: { w: Extract<Widget, { tipo: "pizza" }>; i: EntradaFont
         <Vazio texto="Sem dados no período." />
       ) : (
         <>
-          <div className="h-[170px]" role="img" aria-label={f.label}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={dados} dataKey="valor" nameKey="nome" innerRadius="58%" outerRadius="86%"
-                  stroke="none" {...chartAnim()}>
-                  {dados.map((_, k) => <Cell key={k} fill={PALETA[k % PALETA.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v: number) => (f.unidade === "moeda" ? formatBRL(v) : String(v))}
-                  contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col gap-1 mt-2">
-            {dados.slice(0, 5).map((d, k) => (
-              <div key={d.nome} className="flex items-center gap-2 text-caption">
-                <span className="w-[9px] h-[9px] rounded-sm shrink-0" style={{ background: PALETA[k % PALETA.length] }} />
-                <span className="text-muted truncate flex-1">{d.nome}</span>
-                <span className="text-ink tabular-nums shrink-0">
-                  {f.unidade === "moeda" ? <BRL value={d.valor} /> : d.valor}
-                </span>
-              </div>
-            ))}
-          </div>
+          {f.unidade === "moeda" ? (
+            <RoscaCentro fatias={fatias} tamanho={160} ariaLabel={f.label} />
+          ) : (
+            // Contagem não é dinheiro: os blocos falam só a proporção.
+            <BlocosProporcao fatias={fatias} altura={180} ariaLabel={f.label} />
+          )}
         </>
       )}
     </Card>
@@ -302,13 +247,6 @@ function Grupo({
 }
 
 /* -------------------------------- comuns -------------------------------- */
-
-const tooltipStyle: React.CSSProperties = {
-  borderRadius: 12,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-white)",
-  fontSize: 13,
-};
 
 function Vazio({ texto }: { texto: string }) {
   return (
