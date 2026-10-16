@@ -56,6 +56,7 @@ import {
 import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/home/biblioteca";
 import { iconeExiste } from "@/components/ui/lucide-icons";
 import { readFileSync } from "node:fs";
+import { montarPainelMaquininha, diaEHora } from "@/core/pinbank/recentes";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -321,7 +322,8 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   const L = (ordem: IdItemHome[], ocultos: IdItemHome[] = []): LayoutHome => normalizarLayout({ ordem, ocultos })!;
 
   // catálogo
-  ok("itens: nove, ids únicos", ITENS_HOME.length === 9 && new Set(ITENS_HOME.map((i) => i.id)).size === 9);
+  ok("itens: dez, ids únicos", ITENS_HOME.length === 10 && new Set(ITENS_HOME.map((i) => i.id)).size === 10);
+  ok("itens: a maquininha vem primeiro (pedido do dono)", LAYOUT_PADRAO.ordem[0] === "maquininha" && faixasDoPainel(LAYOUT_PADRAO)[0].ids.join() === "maquininha,caixa,arr");
   ok("itens: sinônimos sem acento e em minúsculas", ITENS_HOME.every((i) => i.sinonimos.every((x) => x === x.toLowerCase() && x === x.normalize("NFD").replace(/[̀-ͯ]/g, ""))));
   ok("itens: todo número do painel tem tamanho", ITENS_HOME.filter((i) => i.grupo === "painel").every((i) => i.tamanho));
 
@@ -333,7 +335,7 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("pedido: \"volta ao padrão\" restaura", JSON.stringify(acoes("volta ao padrão")) === JSON.stringify(["restaurar"]));
   ok("pedido: \"no final\" leva ao fim", acoes("o que precisa de ação primeiro, relatórios no final").join() === "primeiro:acao,ultimo:relatorios");
   const so = interpretarPedido("só quero ver o caixa e o que vou pagar");
-  ok("pedido: \"só\" esconde o que não foi citado", so.filter((a) => a.tipo === "esconder").length === 7 && so.some((a) => a.tipo === "primeiro" && a.id === "caixa"), JSON.stringify(so));
+  ok("pedido: \"só\" esconde o que não foi citado", so.filter((a) => a.tipo === "esconder").length === 8 && so.some((a) => a.tipo === "primeiro" && a.id === "caixa"), JSON.stringify(so));
   ok("pedido: cumprimento não mexe em nada", interpretarPedido("bom dia").length === 0 && interpretarPedido("").length === 0 && interpretarPedido(42).length === 0);
   // defeito plantado: casar o sinônimo mais CURTO primeiro faria "fluxo de caixa" (o relatório) mexer no caixa
   const ingenuo = (t: string) => ITENS_HOME.filter((i) => i.sinonimos.some((x) => t.toLowerCase().includes(x))).map((i) => i.id);
@@ -348,7 +350,7 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   // a trava contra a IA e o texto
   const torto = normalizarAcoes([{ tipo: "primeiro", id: "lucro" }, { tipo: "apagar", id: "caixa" }, { tipo: "esconder", id: "burn" }, { tipo: "esconder", id: "burn" }, { tipo: "restaurar", id: "x" }, null, "primeiro"]);
   ok("ações: id inventado, tipo inventado, repetido e lixo saem", JSON.stringify(torto) === JSON.stringify([{ tipo: "esconder", id: "burn" }, { tipo: "restaurar" }]), JSON.stringify(torto));
-  ok("ações: teto de vinte", normalizarAcoes(Array.from({ length: 50 }, (_, i) => ({ tipo: i % 2 ? "esconder" : "mostrar", id: ITENS_HOME[i % 9].id }))).length <= 20);
+  ok("ações: teto de vinte", normalizarAcoes(Array.from({ length: 50 }, (_, i) => ({ tipo: i % 2 ? "esconder" : "mostrar", id: ITENS_HOME[i % 10].id }))).length <= 20);
   ok("ações: objeto que não é lista vira nada", normalizarAcoes({ tipo: "restaurar" }).length === 0);
 
   // aplicar
@@ -357,37 +359,37 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("aplicar: vários \"primeiro\" na ordem dita", visiveis(aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "primeiro", id: "receber" }, { tipo: "primeiro", id: "pagar" }])).slice(0, 2).join() === "receber,pagar");
   ok("aplicar: esconder não reordena", aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "esconder", id: "arr" }]).ordem.join() === LAYOUT_PADRAO.ordem.join());
   ok("aplicar: restaurar volta ao padrão", JSON.stringify(aplicarAcoes(L(["relatorios", "caixa"], ["burn"]), [{ tipo: "restaurar" }])) === JSON.stringify(LAYOUT_PADRAO));
-  ok("aplicar: nenhum item some da ordem", aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("só quero ver o caixa")).ordem.length === 9);
+  ok("aplicar: nenhum item some da ordem", aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("só quero ver o caixa")).ordem.length === 10);
 
   // o que o chat diz
   const depois = aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn, quero ver a pagar"));
   const frases = descreverMudancas(LAYOUT_PADRAO, depois, interpretarPedido("tira o burn, quero ver a pagar"));
   ok("chat: diz o que subiu e o que saiu", frases.some((f) => /Para o topo: Contas a pagar/.test(f)) && frases.some((f) => /Escondidos: Burn mensal/.test(f)), JSON.stringify(frases));
-  const ja = interpretarPedido("quero ver o caixa primeiro");
+  const ja = interpretarPedido("quero ver a maquininha primeiro");
   ok("chat: pedir o que já está assim não anuncia mudança", descreverMudancas(LAYOUT_PADRAO, aplicarAcoes(LAYOUT_PADRAO, ja), ja).length === 0);
   ok("chat: \"já está desse jeito\" quando nada mudou", respostaDoAjuste(ja, []).mudou === false && /já está/.test(respostaDoAjuste(ja, []).abertura));
   ok("chat: sem item no pedido, diz quais existem", /Caixa consolidado/.test(respostaDoAjuste([], []).fecho) && !respostaDoAjuste([], []).mudou);
   ok("chat: mudou → oferece seguir", respostaDoAjuste(ja, ["x"]).mudou && /mais alguma coisa/.test(respostaDoAjuste(ja, ["x"]).fecho));
 
   // o arranjo guardado
-  ok("arranjo: item que faltava volta no lugar padrão, nunca some", normalizarLayout({ ordem: ["pagar", "caixa"], ocultos: [] })!.ordem.length === 9);
+  ok("arranjo: item que faltava volta no lugar padrão, nunca some", normalizarLayout({ ordem: ["pagar", "caixa"], ocultos: [] })!.ordem.length === 10);
   ok("arranjo: id estranho e repetido saem", JSON.stringify(normalizarLayout({ ordem: ["caixa", "caixa", "lucro"], ocultos: ["x", "burn"] })!.ocultos) === JSON.stringify(["burn"]));
   ok("arranjo: lixo é ausente, não vazio", normalizarLayout("x") === null && normalizarLayout([]) === null && normalizarLayout(null) === null);
   const migrado = layoutDasOrdensAntigas({ grandes: ["arr", "caixa"], pequenos: ["receber", "pagar", "burn", "runway"] });
-  ok("arranjo: quem arrastou antes não perde a ordem", migrado?.ordem.slice(0, 6).join() === "arr,caixa,receber,pagar,burn,runway", JSON.stringify(migrado));
+  ok("arranjo: quem arrastou antes não perde a ordem", migrado?.ordem.slice(1, 7).join() === "arr,caixa,receber,pagar,burn,runway", JSON.stringify(migrado));
   ok("arranjo: o bloco que faltava não parte a ordem dos números", normalizarLayout({ ordem: ["receber", "caixa"], ocultos: [] })!.ordem.slice(-3).join() === "acao,fechamento,relatorios");
   ok("arranjo: sem ordem antiga, nada a migrar", layoutDasOrdensAntigas({}) === null && layoutDasOrdensAntigas(null) === null);
-  ok("arranjo: mover troca de lugar", moverItem(LAYOUT_PADRAO, "runway", "caixa").ordem[0] === "runway");
+  ok("arranjo: mover troca de lugar", moverItem(LAYOUT_PADRAO, "runway", "caixa").ordem[1] === "runway");
 
   // a tela
-  ok("tela: grandes e pequenos em faixas do MESMO tamanho, na ordem", JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"])).map((f) => f.ids).slice(0, 3)) === JSON.stringify([["pagar", "receber"], ["caixa", "arr"], ["burn", "runway"]]), JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"]))));
+  ok("tela: grandes e pequenos em faixas do MESMO tamanho, na ordem", JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"])).map((f) => f.ids).slice(1, 4)) === JSON.stringify([["pagar", "receber"], ["caixa", "arr"], ["burn", "runway"]]), JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"]))));
   ok("tela: o pedido de ver primeiro o que precisa de ação SOBE os blocos", ordemDasSecoes(aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("o que precisa de ação primeiro")))[0] === "bloco");
   ok("tela: arranjo padrão, painel em cima", ordemDasSecoes(LAYOUT_PADRAO)[0] === "painel");
   ok("tela: o escondido sai da faixa", !faixasDoPainel(L(LAYOUT_PADRAO.ordem, ["caixa"])).some((f) => f.ids.includes("caixa")));
 
   // preferências e servidor
   const comLayout = normalizarPreferencias({ interesses: [], cliques: {}, layout: { ordem: ["pagar", ...LAYOUT_PADRAO.ordem], ocultos: ["burn"] } });
-  ok("prefs: o arranjo é guardado normalizado", comLayout?.layout?.ordem[0] === "pagar" && comLayout.layout.ordem.length === 9 && comLayout.layout.ocultos.join() === "burn");
+  ok("prefs: o arranjo é guardado normalizado", comLayout?.layout?.ordem[0] === "pagar" && comLayout.layout.ordem.length === 10 && comLayout.layout.ocultos.join() === "burn");
   ok("prefs: entrada antiga (sem arranjo) lê como padrão", normalizarPreferencias({ interesses: [], cliques: {} })?.layout === null);
   ok("prefs: a igualdade enxerga o arranjo", !mesmasPreferencias({ interesses: [], cliques: {}, layout: LAYOUT_PADRAO }, { interesses: [], cliques: {}, layout: L(LAYOUT_PADRAO.ordem, ["burn"]) }));
   ok("prefs: o arranjo do servidor vence o do dispositivo",
@@ -520,6 +522,25 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("texto livre: o nome de um tema lista os cards dele", pedeCatalogo("Resumo executivo:") === "Resumo executivo" && pedeCatalogo("quero ver o resumo executivo") === "Resumo executivo");
   ok("texto livre: tema com item citado é pedido, não catálogo", pedeCatalogo("coloca o EBITDA do resultado do mês") === undefined);
   ok("rota: o prompt explica os cards da biblioteca e o teto", /card:/.test(ROTA_C) && /TETO_CARDS/.test(ROTA_C));
+}
+
+// ── O card "Transações recentes na maquininha" (16/10/2026) ──
+{
+  const V = (nsu: number, status: string, valor: number, ocorridoEm: string, extra: Record<string, unknown> = {}) => ({ nsu, status, valor, ocorridoEm, ...extra });
+  const p = montarPainelMaquininha([
+    V(1, "Aprovada", 100, "2026-10-16T13:00:00Z", { formaPagamento: "DEBITO", bandeira: "VISA" }),
+    V(2, "Negada", 50, "2026-10-16T14:00:00Z", { formaPagamento: "AVISTA", bandeira: "MASTERCARD" }),
+    V(3, "Aprovada", 200.1, "2026-10-17T01:30:00Z", { formaPagamento: "PARCELADO_LOJA", numeroParcelas: "3", bandeira: "ELO" }),
+    V(4, "Aprovada", 30, "2026-10-15T12:00:00Z", { ehPix: true }),
+  ], "2026-10-16", 3);
+  ok("maquininha: a mais recente primeiro e o limite vale", p.vendas.map((v) => v.nsu).join() === "3,2,1", JSON.stringify(p.vendas.map((v) => v.nsu)));
+  // 22h30 em São Paulo do dia 16 é 01h30 UTC do dia 17: conta como HOJE.
+  ok("maquininha: o dia é o de São Paulo, não o de UTC", diaEHora("2026-10-17T01:30:00Z").dia === "2026-10-16" && diaEHora("2026-10-17T01:30:00Z").hora === "22:30");
+  // Defeito plantado: somar a negada daria 350,10; somar a de ontem, 330,10.
+  ok("maquininha: hoje soma só as APROVADAS do dia", p.hoje.total === 300.1 && p.hoje.quantidade === 2, JSON.stringify(p.hoje));
+  ok("maquininha: a forma escrita como se lê", p.vendas[0].descricao === "Crédito 3x · Elo" && p.vendas[2].descricao === "Débito · Visa" && montarPainelMaquininha([V(9, "Aprovada", 1, "2026-10-16T12:00:00Z", { ehPix: true, bandeira: "VISA" })], "2026-10-16").vendas[0].descricao === "Pix");
+  ok("maquininha: sem venda, lista vazia e zero (não quebra)", montarPainelMaquininha([], "2026-10-16").hoje.total === 0);
+  ok("maquininha: valor inválido não entra", montarPainelMaquininha([V(5, "Aprovada", Number.NaN, "2026-10-16T12:00:00Z")], "2026-10-16").vendas.length === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
