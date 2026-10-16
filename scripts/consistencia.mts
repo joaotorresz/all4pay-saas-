@@ -3697,7 +3697,10 @@ const AGOSTO = janelaMes(2026, 7);
  * `--glass-*`; comentário explica, não pinta.
  */
 {
-  const VIDRO = /backdrop-filter|backdrop-blur|bg-glass|a4p-glass|--glass-/;
+  // Também a superfície BRANCA translúcida (`bg-white/90`, `rgba(255,255,255,.x)`)
+  // e o desfoque inline (`filter: "blur(…)"`): foi por elas que o vidro sobrou
+  // num botão sobre o widget e na arte do login depois da primeira varredura.
+  const VIDRO = /backdrop-filter|backdrop-blur|bg-glass|a4p-glass|--glass-|bg-white\/\d|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*0?\.\d|filter:\s*["'`]blur\(/;
   const achados: string[] = [];
   const arquivos = [
     ...varrerArquivos("src", /\.(tsx?|css|json)$/),
@@ -3715,6 +3718,10 @@ const AGOSTO = janelaMes(2026, 7);
      VIDRO.test('className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"')
      && VIDRO.test("  backdrop-filter: blur(20px);")
      && VIDRO.test('"bg-glass-strong shadow-popover"')
+     && VIDRO.test('className="p-1 rounded-md bg-white/90 text-muted"')
+     && VIDRO.test('style={{ background: "rgba(255,255,255,0.10)" }}')
+     && VIDRO.test('style={{ filter: "blur(2px)" }}')
+     && !VIDRO.test('className="p-1 rounded-md bg-white text-muted"')
      && !VIDRO.test('className="fixed inset-0 bg-black/30"'));
 }
 
