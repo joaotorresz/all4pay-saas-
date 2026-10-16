@@ -17,7 +17,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { motivoDaRecusa } from "@/lib/erros";
-import { falhaDaConferenciaSemCorpo, type PrazosPinbank, type RelatorioParaEmpresa, type TaxasPinbank } from "@/core/pinbank";
+import { falhaDaConferenciaSemCorpo, type PrazosPinbank, type RelatorioParaEmpresa, type TaxasPinbank, type VendaMaquininhaBruta } from "@/core/pinbank";
 
 export interface VinculoTela {
   id: string;
@@ -153,5 +153,77 @@ export async function conferirComExtrato(p: { vinculoId: string; de: string; ate
     motivo: typeof corpo?.motivo === "string" && corpo.motivo.trim() ? corpo.motivo : semFrase.motivo,
     // O 429 diz quanto o BANCO ainda recusa; a tela o lê por `esperaDoBotao` (que o limita a 1 ms … 60 s).
     ...(typeof corpo?.restanteMs === "number" && Number.isFinite(corpo.restanteMs) ? { restanteMs: corpo.restanteMs } : {}),
+  };
+}
+
+/* ------------------------- as vendas recentes (Home) ------------------------- */
+
+/**
+ * O que o card "Transações recentes na maquininha" da Home lê: se a empresa
+ * tem maquininha ligada e as últimas vendas que a Pinbank avisou pelo webhook
+ * (`pinbank_transacoes` + o último evento de cada uma, pela forma e bandeira).
+ * Pela sessão da pessoa: a política recorta pela empresa aberta.
+ *
+ * ⚠️ Em demonstração o card mostra vendas de EXEMPLO, marcadas como tal
+ * (`exemplo: true`), como o resto da Home de demonstração. Fora dela, nunca.
+ */
+export interface LeituraVendasMaquininha {
+  temMaquininha: boolean;
+  linhas: VendaMaquininhaBruta[];
+  exemplo: boolean;
+}
+
+/** Vendas de exemplo da demonstração, sempre de hoje e de ontem. */
+function vendasDeExemplo(agora = new Date()): VendaMaquininhaBruta[] {
+  const base: [number, string, number, string | null, number, string | null][] = [
+    // minutos atrás, status, valor, forma, parcelas, bandeira
+    [6, "Aprovada", 189.9, "AVISTA", 1, "VISA"],
+    [27, "Aprovada", 64.5, "DEBITO", 1, "ELO"],
+    [48, "Aprovada", 42, null, 1, null],
+    [71, "Negada", 320, "AVISTA", 1, "MASTERCARD"],
+    [96, "Aprovada", 1250, "PARCELADO_LOJA", 3, "MASTERCARD"],
+    [140, "Aprovada", 37.8, "DEBITO", 1, "VISA"],
+    [1500, "Aprovada", 98, "AVISTA", 1, "AMEX"],
+  ];
+  return base.map(([min, status, valor, forma, parcelas, bandeira], i) => ({
+    nsu: 900100 + i, status, valor, ocorridoEm: new Date(agora.getTime() - min * 60_000).toISOString(),
+    formaPagamento: forma, numeroParcelas: parcelas, bandeira, ehPix: forma === null,
+  }));
+}
+
+export async function lerVendasMaquininha(limite = 100): Promise<LeituraVendasMaquininha> {
+  if (isDemo) return { temMaquininha: true, linhas: vendasDeExemplo(), exemplo: true };
+  const s = createClient();
+  const [v, t] = await Promise.all([
+    s.from("pinbank_vinculos").select("id").eq("ativo", true).limit(1),
+    s.from("pinbank_transacoes")
+      .select("nsu, status, valor, ocorrido_em")
+      .order("ocorrido_em", { ascending: false }).limit(limite),
+  ]);
+  if (v.error) throw new Error(motivoDaRecusa(v.error));
+  if (t.error) throw new Error(motivoDaRecusa(t.error));
+  const trans = (t.data ?? []) as { nsu: number; status: string; valor: number | string; ocorrido_em: string }[];
+  const nsus = trans.map((x) => x.nsu);
+  const porNsu = new Map<number, { forma: string | null; parcelas: string | null; bandeira: string | null; pix: boolean }>();
+  if (nsus.length) {
+    const e = await s.from("pinbank_eventos")
+      .select("nsu, event_type, ocorrido_em, forma:payload->>formaPagamento, parcelas:payload->>numeroParcelas, bandeira:payload->cartao->>bandeira")
+      .in("nsu", nsus).order("ocorrido_em", { ascending: false }).limit(limite * 4);
+    if (e.error) throw new Error(motivoDaRecusa(e.error));
+    for (const ev of (e.data ?? []) as { nsu: number; event_type: string; forma: string | null; parcelas: string | null; bandeira: string | null }[]) {
+      // O primeiro de cada NSU é o mais recente (a lista vem do mais novo ao mais velho).
+      if (!porNsu.has(ev.nsu)) porNsu.set(ev.nsu, { forma: ev.forma, parcelas: ev.parcelas, bandeira: ev.bandeira, pix: /^compra\.pix/i.test(ev.event_type) });
+    }
+  }
+  return {
+    temMaquininha: (v.data ?? []).length > 0 || trans.length > 0,
+    exemplo: false,
+    linhas: trans.map((x) => {
+      const ev = porNsu.get(x.nsu);
+      return {
+        nsu: x.nsu, status: x.status, valor: Number(x.valor), ocorridoEm: x.ocorrido_em,
+        formaPagamento: ev?.forma ?? null, numeroParcelas: ev?.parcelas ?? null, bandeira: ev?.bandeira ?? null, ehPix: ev?.pix ?? false,
+      };
+    }),
   };
 }

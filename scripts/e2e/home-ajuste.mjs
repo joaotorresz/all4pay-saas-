@@ -43,7 +43,7 @@ export default async function homeAjuste(navegador) {
   await u.page.getByRole("button", { name: "Ajustar prioridades" }).waitFor({ timeout: 8000 });
   await u.page.locator("[data-item-home]").first().waitFor({ timeout: 15000 });
   const padrao = await ordem();
-  v.ok(padrao[0] === "caixa" && padrao.length === 9, "a Home abre no arranjo padrão, com os nove itens", padrao.join(","));
+  v.ok(padrao[0] === "maquininha" && padrao.length === 10, "a Home abre no arranjo padrão, com os dez itens (a maquininha primeiro)", padrao.join(","));
 
   // 1) o chat abre com a pergunta, sem o histórico de conversas
   await abrir();
@@ -90,11 +90,11 @@ export default async function homeAjuste(navegador) {
   await abrir();
   await pedir("não preciso do ARR nem do runway");
   await verHome();
-  v.ok((await ordem()).length === 7 && (await u.page.locator('[data-home="escondidos"]').count()) === 0, "esconder tira os itens sem deixar linha de aviso na Home", (await ordem()).join(","));
+  v.ok((await ordem()).length === 8 && (await u.page.locator('[data-home="escondidos"]').count()) === 0, "esconder tira os itens sem deixar linha de aviso na Home", (await ordem()).join(","));
   await abrir();
   await pedir("traz o ARR e o runway de volta");
   await verHome();
-  v.ok((await ordem()).length === 9, "pedir de volta traz os dois", (await ordem()).join(","));
+  v.ok((await ordem()).length === 10, "pedir de volta traz os dois", (await ordem()).join(","));
 
   // 8) cards de outras telas entram pela conversa, saem pelo X, e o chat diz o que dá para pôr
   await abrir();

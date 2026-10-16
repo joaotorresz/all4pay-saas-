@@ -2,7 +2,7 @@
  * OS ITENS DA HOME e como cada pessoa os arruma (etapas 2 e 3 do "Ajustar
  * prioridades", 14/10/2026).
  *
- * A Home tem nove itens: os seis números do "Seu painel" e os três blocos de
+ * A Home tem dez itens: as vendas da maquininha, os seis números do "Seu painel" e os três blocos de
  * baixo. Cada um tem NOME e SINÔNIMOS — é por eles que o que a pessoa DIGITA
  * no chat ("quero ver primeiro o que tenho a pagar, e tira o burn") vira ação
  * sobre a tela. A caixa da Quattro AI não é item: é por ela que se ajusta, e
@@ -15,7 +15,7 @@
  * passa por `normalizarAcoes`: tipo conhecido, id do catálogo. A IA só escolhe
  * entre os itens que existem; ela não inventa card nem muda número.
  *
- * ⚠️ Além dos nove FIXOS, a Home aceita os cards da BIBLIOTECA (`./biblioteca`,
+ * ⚠️ Além dos dez FIXOS, a Home aceita os cards da BIBLIOTECA (`./biblioteca`,
  * id `card:<id do cockpit>`): ficam fora da tela até a pessoa pedir
  * ("coloca a inadimplência") e saem do mesmo jeito. O fixo que se tira fica
  * ESCONDIDO (tem "Mostrar de novo"); o card da biblioteca SAI da ordem — ele
@@ -26,10 +26,10 @@
 
 import { CARDS_BIBLIOTECA, TEMAS_CARD, type TemaCard } from "./biblioteca";
 
-export const ITENS_HOME_VERSION = "home-itens/1.1.0";
+export const ITENS_HOME_VERSION = "home-itens/1.2.0";
 
 export type IdItemHome =
-  | "caixa" | "arr" | "burn" | "runway" | "pagar" | "receber"
+  | "maquininha" | "caixa" | "arr" | "burn" | "runway" | "pagar" | "receber"
   | "acao" | "fechamento" | "relatorios";
 
 /** Um card da biblioteca na Home: `card:` + o id do catálogo do cockpit. */
@@ -56,6 +56,9 @@ export interface ItemHome {
 }
 
 export const ITENS_HOME: ItemHome[] = [
+  // Primeiro na esquerda (pedido do dono, 16/10/2026): as vendas que a Pinbank avisou pelo webhook.
+  { id: "maquininha", nome: "Transações recentes na maquininha", grupo: "painel", tamanho: "grande", descricao: "as últimas vendas da maquininha Pinbank e o total aprovado hoje",
+    sinonimos: ["transacoes recentes na maquininha", "transacoes da maquininha", "vendas da maquininha", "vendas na maquininha", "maquininha", "maquina de cartao", "pinbank", "vendas no cartao"] },
   { id: "caixa", nome: "Caixa consolidado", grupo: "painel", tamanho: "grande", descricao: "o saldo de todas as contas hoje, com a curva de 7 meses",
     sinonimos: ["caixa consolidado", "caixa", "saldo", "saldos", "dinheiro em conta", "dinheiro no banco", "quanto tenho", "banco", "bancos"] },
   { id: "arr", nome: "Receita recorrente (ARR)", grupo: "painel", tamanho: "grande", descricao: "a receita recorrente anualizada, com a curva de 7 meses",
@@ -100,7 +103,7 @@ export const idDoCockpit = (id: IdCard): string => id.slice("card:".length);
 /* ------------------------------ o arranjo ------------------------------ */
 
 export interface LayoutHome {
-  /** Os nove fixos (sempre) e os cards da biblioteca que a pessoa pôs, na ordem em que aparecem. */
+  /** Os dez fixos (sempre) e os cards da biblioteca que a pessoa pôs, na ordem em que aparecem. */
   ordem: IdHome[];
   /** Os FIXOS que a pessoa escondeu (card da biblioteca não se esconde: sai da ordem). */
   ocultos: IdItemHome[];
@@ -263,7 +266,7 @@ export type TipoAcaoHome = "primeiro" | "ultimo" | "mostrar" | "esconder" | "res
 export interface AcaoHome { tipo: TipoAcaoHome; id?: IdHome }
 
 const TIPOS = new Set<TipoAcaoHome>(["primeiro", "ultimo", "mostrar", "esconder", "restaurar"]);
-/** Teto de ações de um pedido: nove fixos + o teto de cards, com folga. */
+/** Teto de ações de um pedido: dez fixos + o teto de cards, com folga. */
 const TETO_ACOES = 40;
 
 /**
