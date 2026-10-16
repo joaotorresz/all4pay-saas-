@@ -5,7 +5,7 @@ import {
   EyeOff, FileText, Gauge, GripVertical, House, Inbox, Info, Layers, LayoutDashboard, Link,
   ListChecks, Mail, Menu, Minus, Moon, Network, Palette, Paperclip, Pencil, Pentagon, Plus,
   Package, Receipt, Repeat, RotateCcw, ScanLine, Search, Settings, ShieldCheck, ShoppingCart, SlidersHorizontal,
-  Smartphone, Sparkles, Sun, Target, Trash2, TrendingDown, TrendingUp, TriangleAlert, Upload,
+  Smartphone, Smile, Sparkles, Sun, Target, Trash2, TrendingDown, TrendingUp, TriangleAlert, Upload,
   User, Users, Workflow, X, type LucideIcon,
 } from "lucide-react";
 
@@ -76,6 +76,7 @@ export const LUCIDE_ICONS = {
   "shield-check": ShieldCheck,
   "shopping-cart": ShoppingCart,
   smartphone: Smartphone,
+  smile: Smile,
   sparkles: Sparkles,
   sun: Sun,
   target: Target,
