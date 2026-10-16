@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isDemo } from "@/lib/demo";
 import { descricaoParaIA } from "@/core/home/sugestoes";
 import { FONTES_FLUXO } from "@/core/automacoes/fluxo";
+import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 import { normalizarProposta, mesclarProposta, PROPOSTA_VAZIA } from "@/core/automacoes/pedido";
 
 /**
@@ -25,7 +26,7 @@ import { normalizarProposta, mesclarProposta, PROPOSTA_VAZIA } from "@/core/auto
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = MODELO_CLAUDE;
 
 export async function POST(req: Request) {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -80,7 +81,7 @@ ${JSON.stringify(pedido)}`;
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 500,
+        ...SAIDA_CLAUDE,
         system,
         messages: [{ role: "user", content: "Qual a proposta completada?" }],
       }),

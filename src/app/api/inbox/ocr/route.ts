@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 
 /**
  * Document Intelligence (OCR real) — SERVER-ONLY.
@@ -8,12 +9,12 @@ import { NextResponse } from "next/server";
  *
  * Variáveis (Vercel, server-side):
  *   ANTHROPIC_API_KEY   — chave da Anthropic
- *   ANTHROPIC_MODEL     — opcional (default claude-sonnet-5)
+ *   ANTHROPIC_MODEL     — opcional (default claude-sonnet-5-5)
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = MODELO_CLAUDE;
 
 const PROMPT = `Você é um extrator de documentos financeiros brasileiros (boleto, comprovante PIX/TED, nota fiscal, DARF/GPS/GNRE, fatura, extrato, recibo, contrato, folha).
 Extraia os campos e responda APENAS com JSON válido, sem markdown, no formato exato:
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
+        ...SAIDA_CLAUDE,
         messages: [{ role: "user", content: [fileBlock, { type: "text", text: PROMPT }] }],
       }),
     });
