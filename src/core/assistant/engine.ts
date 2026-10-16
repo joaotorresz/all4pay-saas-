@@ -229,6 +229,42 @@ const S = (...a: Parameters<typeof R>): RespostaLocal => {
 const barras = (titulo: string, tom: GraficoResposta["tom"], dados: { nome: string; valor: number }[], n = 5): GraficoResposta | undefined =>
   dados.length >= 2 ? { tipo: "barras", titulo, tom, dados: dados.slice(0, n).map(({ nome, valor }) => ({ nome, valor })) } : undefined;
 
+/**
+ * Os gráficos que a IA (Claude) pode PEDIR para acompanhar a resposta. Ela
+ * escolhe só o id; os dados saem daqui, dos mesmos lançamentos do resto do
+ * sistema. Assim nenhum ponto do gráfico é escrito pelo modelo — um gráfico
+ * com número inventado seria pior que nenhum gráfico.
+ */
+export const GRAFICOS_DA_IA = {
+  receita_mensal: "receita mês a mês, últimos 6 meses",
+  despesa_mensal: "despesa mês a mês, últimos 6 meses",
+  resultado_mensal: "resultado (entradas − saídas) mês a mês, últimos 6 meses",
+  despesas_por_categoria: "despesas por categoria, últimos 90 dias",
+  receita_por_cliente: "receita por cliente, últimos 90 dias",
+} as const;
+export type GraficoDaIA = keyof typeof GRAFICOS_DA_IA;
+
+export function graficoDoCatalogo(id: unknown, input: RiskInput): GraficoResposta | undefined {
+  if (typeof id !== "string" || !(id in GRAFICOS_DA_IA)) return undefined;
+  const movs = ativos(input.movements);
+  const hoje = input.hoje;
+  const ini = new Date(hoje + "T00:00:00");
+  ini.setDate(ini.getDate() - 89);
+  const w: Janela = { from: `${ini.getFullYear()}-${pad(ini.getMonth() + 1)}-${pad(ini.getDate())}`, to: hoje, label: "· últimos 90 dias" };
+  switch (id as GraficoDaIA) {
+    case "receita_mensal":
+      return { tipo: "linha", titulo: "Receita mensal · últimos 6 meses", tom: "entrada", dados: serieMensal(movs, hoje, 6, "receita") };
+    case "despesa_mensal":
+      return { tipo: "linha", titulo: "Despesa mensal · últimos 6 meses", tom: "saida", dados: serieMensal(movs, hoje, 6, "despesa") };
+    case "resultado_mensal":
+      return { tipo: "linha", titulo: "Resultado mensal · últimos 6 meses", tom: "neutro", dados: serieMensal(movs, hoje, 6, "resultado") };
+    case "despesas_por_categoria":
+      return barras("Despesas por categoria · últimos 90 dias", "saida", topCategorias(pagosNa(movs, "saida", w).filter(ehGastoReal)));
+    case "receita_por_cliente":
+      return barras("Receita por cliente · últimos 90 dias", "entrada", topClientes(pagosNa(movs, "entrada", w).filter(ehReceitaDeVenda), input.partyNames));
+  }
+}
+
 /* ── O DRE, lido da cascata (a mesma função que desenha o relatório) ─────── */
 
 /** As linhas que SOMAM lançamentos até o EBITDA — as "=" saem de fórmula. */

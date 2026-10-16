@@ -71,6 +71,8 @@ export interface Turno {
   rotaLabel?: string;
   contatoId?: string;
   grafico?: GraficoResposta;
+  /** O número veio do motor e o texto foi reescrito pela IA, com os mesmos números. */
+  redigida?: boolean;
 }
 
 /* ============================== MARCA ============================== */
@@ -247,7 +249,7 @@ export function BolhaResposta({
     <div data-ia="resposta" className={aberta
       ? "self-stretch flex flex-col gap-4"
       : "self-start max-w-[92%] rounded-card rounded-bl-sm bg-surface-1 px-3 py-[10px] flex flex-col gap-2"}>
-      <p className={`m-0 text-ink whitespace-pre-wrap ${aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"}`}>{t.resposta}</p>
+      <TextoDaResposta texto={t.resposta ?? ""} className={aberta ? "text-[16px] leading-[1.55]" : "text-[15px] leading-[1.5]"} />
       {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}
@@ -287,7 +289,11 @@ export function BolhaResposta({
       )}
       {(t.fontes?.length || t.fonte !== "carregando") && (
         <div className="flex items-center gap-2 text-[11px] text-faint">
-          {t.fontes && t.fontes.length > 0 && <span className="truncate">Fontes: {t.fontes.join(" · ")}{t.fonte === "ia" ? " · Claude" : ""}</span>}
+          {t.fonte !== "carregando" && (
+            <span data-ia="origem" className="shrink-0 rounded-pill bg-surface-2 px-2 py-[2px] text-muted"
+              title={ORIGEM[origemDe(t)].dica}>{ORIGEM[origemDe(t)].rotulo}</span>
+          )}
+          {t.fontes && t.fontes.length > 0 && <span className="truncate">Fontes: {t.fontes.join(" · ")}</span>}
           {t.fonte !== "carregando" && (
             <span className="ml-auto inline-flex items-center gap-1 shrink-0">
               <button onClick={() => onCopiar(t)} aria-label="Copiar resposta" className={`h-6 px-2 rounded-sm inline-flex items-center hover:bg-surface-2 hover:text-ink transition-colors ${copia === "falhou" ? "text-negative" : "text-faint"}`}>
@@ -304,6 +310,63 @@ export function BolhaResposta({
       )}
     </div>
   );
+}
+
+/* ======================== TEXTO DA RESPOSTA ======================== */
+
+/**
+ * De onde veio a resposta — dito em toda bolha, para ninguém precisar
+ * adivinhar se a IA está ligada. "Redigida" = o número é do motor do sistema
+ * e o texto foi reescrito pela IA com os MESMOS números (`numerosInventados`).
+ */
+type Origem = "ia" | "redigida" | "sistema" | "ajuda";
+function origemDe(t: Turno): Origem {
+  if (t.fonte === "ia") return "ia";
+  if (t.fonte === "kb") return "ajuda";
+  return t.redigida ? "redigida" : "sistema";
+}
+const ORIGEM: Record<Origem, { rotulo: string; dica: string }> = {
+  ia: { rotulo: "Análise da IA", dica: "Respondida pela IA (Claude) a partir dos números desta empresa." },
+  redigida: { rotulo: "Calculado pelo sistema · escrito pela IA", dica: "Os números vêm do motor do sistema; a IA (Claude) só escreveu o texto, sem mudar nenhum valor." },
+  sistema: { rotulo: "Calculado pelo sistema", dica: "Resposta do motor do sistema, sem passar pela IA." },
+  ajuda: { rotulo: "Central de ajuda", dica: "Resposta da base de conhecimento do sistema." },
+};
+
+/** "**trecho**" vira negrito; sem nenhum, os valores em R$ e % ganham negrito sozinhos. */
+function emLinha(linha: string, auto: boolean): React.ReactNode[] {
+  const marcado = auto ? linha.replace(/(-?R\$\s?[\d.]+(?:,\d+)?|\d+(?:,\d+)?\s?%)/g, "**$1**") : linha;
+  return marcado.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p, i) =>
+    p.startsWith("**") && p.endsWith("**")
+      ? <strong key={i} className="font-semibold text-ink tabular-nums">{p.slice(2, -2)}</strong>
+      : <React.Fragment key={i}>{p}</React.Fragment>);
+}
+
+/**
+ * O texto da resposta com o mínimo de formatação que a IA usa: parágrafos,
+ * tópicos ("- ") e negrito. Nada de HTML vindo de fora: o texto só vira
+ * elementos React, então um "<script>" na resposta aparece como texto.
+ */
+export function TextoDaResposta({ texto, className = "" }: { texto: string; className?: string }) {
+  const auto = !texto.includes("**");
+  const blocos: React.ReactNode[] = [];
+  let itens: string[] = [];
+  const fecharLista = () => {
+    if (!itens.length) return;
+    blocos.push(
+      <ul key={`l${blocos.length}`} className="m-0 pl-5 list-disc flex flex-col gap-1 marker:text-faint">
+        {itens.map((it, i) => <li key={i}>{emLinha(it, auto)}</li>)}
+      </ul>);
+    itens = [];
+  };
+  for (const bruta of texto.split("\n")) {
+    const linha = bruta.trim();
+    const item = linha.match(/^(?:[-•*]|\d+[.)])\s+(.*)$/);
+    if (item) { itens.push(item[1]); continue; }
+    fecharLista();
+    if (linha) blocos.push(<p key={`p${blocos.length}`} className="m-0">{emLinha(linha, auto)}</p>);
+  }
+  fecharLista();
+  return <div data-ia="texto" className={`text-ink flex flex-col gap-2 ${className}`}>{blocos}</div>;
 }
 
 /* ======================== NÚMEROS DA RESPOSTA ======================== */

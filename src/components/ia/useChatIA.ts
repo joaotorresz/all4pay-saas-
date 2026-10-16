@@ -13,7 +13,8 @@ import * as React from "react";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { responderLocal } from "@/core/assistant/engine";
+import { responderLocal, graficoDoCatalogo } from "@/core/assistant/engine";
+import { numerosInventados } from "@/core/assistant/redacao";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
 import { ehPedidoDeAutomacao } from "@/core/automacoes/pedido";
@@ -22,6 +23,23 @@ import { logAcaoIA } from "@/lib/ai-copilot";
 import { ETAPAS, RITMO, espera, CURADAS, copiarTexto, type Turno, type EstadoCopia } from "./chat-kit";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
+
+/**
+ * Pede ao Claude só a REDAÇÃO de uma resposta que o motor já calculou. Sem
+ * chave, sem rede ou demorando mais de 9 s, devolve `null` e a resposta do
+ * motor segue como está — a conversa nunca espera pela reescrita.
+ */
+async function redigir(pergunta: string, resposta: string, numeros: { label: string; valor: string }[]): Promise<{ ok?: boolean; resposta?: string } | null> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 9000);
+  try {
+    const r = await fetch("/api/ai/copiloto", {
+      method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
+      body: JSON.stringify({ pergunta, base: { resposta, numeros: numeros.map(({ label, valor }) => ({ label, valor })) } }),
+    });
+    return await r.json();
+  } catch { return null; } finally { clearTimeout(t); }
+}
 
 export function useChatIA({ inicial = [], onMudou }: {
   /** Turnos de uma conversa retomada do histórico. */
@@ -143,9 +161,13 @@ export function useChatIA({ inicial = [], onMudou }: {
     // 2) Sobre os NÚMEROS → motor NATIVO (resposta factual, offline)
     const local = responderLocal(q, input, ctx);
     if (local) {
-      await analisar(null);
+      // O número é do motor; o TOM é da IA. Se a reescrita não chegar, ou
+      // trouxer um número que o motor não calculou, fica o texto do motor.
+      const j = await analisar(redigir(q, local.resposta, local.numeros));
+      const fiel = j?.ok && typeof j.resposta === "string" && j.resposta.trim()
+        && numerosInventados(j.resposta, [local.resposta, ...local.numeros.map((n) => `${n.label} ${n.valor}`)]).length === 0;
       setPergunta(null);
-      registrar({ id, q, resposta: local.resposta, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico });
+      registrar({ id, q, resposta: fiel ? j.resposta : local.resposta, redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico });
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: local.resposta, status: "lida" });
       force();
       return;
@@ -168,7 +190,7 @@ export function useChatIA({ inicial = [], onMudou }: {
 
       let turno: Turno;
       if (j?.ok) {
-        turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: numerosDeFora(j.numeros), fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia" };
+        turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: numerosDeFora(j.numeros), fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia", grafico: graficoDoCatalogo(j.grafico, input) };
       } else if (ctx) {
         const exec: RespostaCopiloto = copilotoFinanceiro(q, ctx);
         turno = { id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" };
