@@ -128,6 +128,8 @@ export function useDefinirStatusProjeto() {
  * chegar — antes disso tudo pareceria "não existe no cadastro" — e só no
  * navegador (ler as chaves antigas no render quebraria a hidratação).
  */
+const CAMPO_DO_TIPO = { contas: "contas", centros: "centros", projetos: "projetos", categorias: "categorias" } as const;
+
 export function usePendenciasAntigas(
   tipo: "contas" | "centros" | "projetos" | "categorias",
   atuais: {
@@ -136,9 +138,19 @@ export function usePendenciasAntigas(
   } | null,
 ): PendenciaAntiga[] {
   const [p, setP] = React.useState<PendenciaAntiga[]>([]);
+  // ⚠️ A dependência é a LISTA, nunca o objeto `atuais`: as telas o montam na
+  // hora (`{ centros: centros.data }`), então ele é novo a cada render. Com ele
+  // na dependência, o efeito gravava um array novo, a tela renderizava de novo
+  // e o efeito rodava outra vez, para sempre. Esse laço sem fim deixava o React
+  // sem vez para o resto: o menu lateral não aparecia e nenhum link (nem a logo)
+  // navegava — a tela "travava" (16/10/2026).
+  const lista = atuais ? (atuais.contas ?? atuais.centros ?? atuais.projetos ?? atuais.categorias) : undefined;
+  const pronto = atuais !== null;
   React.useEffect(() => {
-    setP(atuais ? pendenciasAntigas(tipo, atuais) : []);
-  }, [tipo, atuais]);
+    if (!pronto) { setP((a) => (a.length === 0 ? a : [])); return; }
+    const novas = pendenciasAntigas(tipo, { [CAMPO_DO_TIPO[tipo]]: lista ?? [] });
+    setP((a) => (JSON.stringify(a) === JSON.stringify(novas) ? a : novas));
+  }, [tipo, pronto, lista]);
   return p;
 }
 

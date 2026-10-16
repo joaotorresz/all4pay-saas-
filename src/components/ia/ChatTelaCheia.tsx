@@ -18,6 +18,7 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { BolhaResposta, EtapasAnalise, type Turno } from "./chat-kit";
 import { useChatIA } from "./useChatIA";
@@ -189,7 +190,11 @@ export function ChatTelaCheia({
       style={{ background: "var(--color-surface-1)" }}
     >
       <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
-        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
+        {/* A logo leva à Home, como a da barra de cima: o chat cobre a tela
+            inteira, e sem isto a única saída era "Fechar chat". */}
+        <Link href="/" onClick={fechar} aria-label="Ir para a Home" title="Ir para a Home" className="inline-flex">
+          <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
+        </Link>
         <div className="flex items-center gap-2">
           {!ajuste && <button
             type="button"
