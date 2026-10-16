@@ -87,6 +87,10 @@ export function ReguaCobrancaView() {
       // mostra antes de um protesto.
       if (!r.ok) {
         show(j?.motivo ?? "O envio foi recusado.");
+      } else if (j?.pediramSaida) {
+        show(`${i.cliente} pediu para não receber WhatsApp. Cobre por e-mail ou por telefone.`);
+      } else if (j?.semAutorizacao) {
+        show(`${i.cliente} não tem autorização registrada para WhatsApp. Registre a autorização no cadastro do contato ou cobre por e-mail.`);
       } else if (j?.provedores?.whatsapp === false) {
         show("O WhatsApp não está configurado neste ambiente: nada foi enviado ao cliente. Copie a mensagem e envie por fora.");
       } else if (j?.jaCobradosHoje) {

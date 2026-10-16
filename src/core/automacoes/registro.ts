@@ -8,11 +8,11 @@
  * igual e para a guarda poder plantar o defeito sem banco.
  */
 import type { RegistroEnvios, ChaveEnvio } from "./index";
-import type { StatusEnvio, TipoAutomacao, CanalEnvio } from "./tipos";
+import type { StatusEnvio, TipoEnvio, CanalEnvio } from "./tipos";
 
 export interface LinhaEnvio {
   orgId: string;
-  tipo: TipoAutomacao;
+  tipo: TipoEnvio;
   chave: string;
   canal: CanalEnvio | "manual";
   destinoMascarado: string;

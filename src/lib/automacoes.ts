@@ -75,17 +75,20 @@ export interface EnvioVisivel extends EnvioHistorico {
   erro?: string | null;
 }
 
-const doLocal = (l: LinhaEnvio): EnvioVisivel => ({
+const doLocal = (l: LinhaEnvio & { tipo: TipoAutomacao }): EnvioVisivel => ({
   tipo: l.tipo, chave: l.chave, canal: l.canal, status: l.status, em: l.criadoEm,
   destinoMascarado: l.destinoMascarado, erro: l.erro ?? null,
 });
 
 export async function listarEnvios(limite = 200): Promise<EnvioVisivel[]> {
   if (isDemo) {
-    return ler<LinhaEnvio[]>(K_ENVIOS, []).map(doLocal).sort((a, b) => b.em.localeCompare(a.em)).slice(0, limite);
+    // Os envios dos FLUXOS (tipo "fluxo") têm a tela deles: aqui ficam as seis
+    // automações fixas, que é o que o catálogo desta lista sabe descrever.
+    return ler<LinhaEnvio[]>(K_ENVIOS, []).flatMap((l) => (l.tipo === "fluxo" ? [] : [doLocal({ ...l, tipo: l.tipo })])).sort((a, b) => b.em.localeCompare(a.em)).slice(0, limite);
   }
   const { data, error } = await createClient()
     .from("automacao_envios").select("tipo,chave,canal,status,criado_em,destino_mascarado,erro")
+    .neq("tipo", "fluxo")
     .order("criado_em", { ascending: false }).limit(Math.min(limite, TETO_LINHAS));
   if (error) throw error;
   return ((data ?? []) as { tipo: TipoAutomacao; chave: string; canal: CanalEnvio | "manual"; status: StatusEnvio; criado_em: string; destino_mascarado: string | null; erro: string | null }[])

@@ -7360,7 +7360,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     orgId: "org-a", hoje: HOJE, credor,
     input: { hoje: HOJE, saldoAtual: 10_000, movements: movs, partyNames: { F1: "Imobiliária Sol", F2: "Luz SA", F3: "Net", F4: "Seguradora", C1: "Cliente Um", C2: "Cliente Dois", C3: "Cliente Tres" }, horizonDias: 60 },
     contas: [{ id: "A1", nome: "Conta Movimento", saldo: 1_000 }, { id: "A2", nome: "Reserva", saldo: 9_000 }],
-    contatos: { C1: { id: "C1", nome: "Cliente Um", telefone: "(11) 99999-0001" }, C2: { id: "C2", nome: "Cliente Dois", email: "dois@cliente.com" }, C3: { id: "C3", nome: "Cliente Tres", telefone: "11999990003" } },
+    contatos: { C1: { id: "C1", nome: "Cliente Um", telefone: "(11) 99999-0001", whatsapp: "autorizado" }, C2: { id: "C2", nome: "Cliente Dois", email: "dois@cliente.com" }, C3: { id: "C3", nome: "Cliente Tres", telefone: "11999990003", whatsapp: "autorizado" } },
     membros: [{ userId: "u1", papel: "owner", nome: "Dona", email: "dona@aurora.com" }],
     aprovacoesPendentes: 2, mesesTravados: [], envios: [], appUrl: "https://app.exemplo", ...over,
   });
@@ -7481,6 +7481,45 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      doC1.length === 1 && (doC1[0].chavesExtras ?? []).length === 2 && doC1[0].texto.includes(formatBRL(1_300.5)), doC1.map((m) => m.texto).join(" | "));
   ok("aut: o canal é o do cadastro (C1 WhatsApp · C2 só tem e-mail)",
      doC1[0]?.canal === "whatsapp" && regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.canal === "email");
+
+  // ---- 5b) AUTORIZAÇÃO E SAÍDA (etapa 5, decisão do dono 15/10/2026) ----
+  // WhatsApp a cliente só com autorização registrada, e nunca a quem respondeu
+  // SAIR. Cada caso carrega o defeito ao lado: ignorar a situação faria sair.
+  const comC1 = (c1: Partial<import("@/core/automacoes").Contato>) =>
+    A.gerarMensagens(cfgRegua, ctxBase({ contatos: { ...ctx.contatos, C1: { ...ctx.contatos.C1, ...c1 } } }));
+  const semAut = comC1({ whatsapp: "sem_autorizacao" });
+  ok("aut-wa: sem autorização e sem e-mail, o cliente NÃO recebe WhatsApp (e o motivo é dito)",
+     !semAut.mensagens.some((m) => m.chave.startsWith("cliente:C1:"))
+     && semAut.pulados.some((p) => p.alvo === "Cliente Um" && p.motivo.includes("sem autorização")), JSON.stringify(semAut.pulados));
+  const semCampo = comC1({ whatsapp: undefined });
+  ok("aut-wa: situação AUSENTE é sem autorização (falha fechada)", !semCampo.mensagens.some((m) => m.chave.startsWith("cliente:C1:")));
+  const viaEmail = comC1({ whatsapp: "sem_autorizacao", email: "um@cliente.com" });
+  ok("aut-wa: sem autorização, com e-mail, a cobrança segue pelo E-MAIL",
+     viaEmail.mensagens.find((m) => m.chave.startsWith("cliente:C1:"))?.canal === "email");
+  const saiuC1 = comC1({ whatsapp: "saiu" });
+  ok("aut-wa: quem respondeu SAIR não recebe, e o motivo diz isso",
+     !saiuC1.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && saiuC1.pulados.some((p) => p.motivo.includes("pediu para não receber")));
+  ok("aut-wa: a mensagem de WhatsApp ao cliente ensina o SAIR; a de e-mail não",
+     doC1[0]?.texto.endsWith(A.RODAPE_SAIR) && !(regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.texto ?? "").includes(A.RODAPE_SAIR));
+  ok("aut-wa: o telefone da saída é o canônico (+55 e máscara caem)",
+     JSON.stringify(A.telefonesDeWhatsapp([...regua.mensagens, ...regua.mensagens])) === JSON.stringify(["11999990001"])
+     && A.destinoCanonico("whatsapp", "+55 (11) 99999-0001") === "11999990001", A.telefonesDeWhatsapp(regua.mensagens).join(","));
+  {
+    let chamou = 0;
+    const provW: Prov = { ativo: () => true, async enviar() { chamou++; return { ok: true }; } };
+    const linhasB: Linha[] = [];
+    const rb = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria(linhasB), provedor: provW, saidas: new Set(["11999990001"]) });
+    ok("aut-wa: o despacho BLOQUEIA o telefone que saiu (sem registrar, sem chamar o provedor)",
+       rb.bloqueados === 1 && !linhasB.some((l) => l.chave.startsWith("cliente:C1:")) && chamou === regua.mensagens.length - 1, `${rb.bloqueados} ${chamou}`);
+    chamou = 0;
+    const linhasT: Linha[] = [];
+    const rt = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria(linhasT), provedor: provW, saidas: "todos" });
+    const nW = regua.mensagens.filter((m) => m.canal === "whatsapp").length;
+    ok("aut-wa: sem saber quem saiu (\"todos\"), nenhum WhatsApp sai — e o e-mail segue",
+       rt.bloqueados === nW && nW > 0 && chamou === regua.mensagens.length - nW && linhasT.every((l) => l.canal === "email"), `${rt.bloqueados}/${nW} ${chamou}`);
+    const rdry = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria([]), provedor: provW, saidas: "todos", dryRun: true });
+    ok("aut-wa: o bloqueio vale também na prévia (dryRun)", rdry.bloqueados === nW);
+  }
   const pausada = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-10-15" }] } }, ctx);
   ok("aut: cliente pausado não recebe", !pausada.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && pausada.mensagens.length === 1);
   const pausaVencida = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-09-29" }] } }, ctx);
@@ -10208,16 +10247,39 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // A ORDEM dos portões, lida no código sem os comentários (que explicam a regra
   // citando as mesmas palavras — a guarda não pode passar pela documentação).
   const semComentario = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
-  const rota = semComentario(readFileSync("src/app/api/whatsapp/aprovacao/route.ts", "utf8"));
-  const iPortao = rota.indexOf('process.env.WHATSAPP_APROVACAO !== "ligado"');
+  // Desde a etapa 5 das automações, a entrada do WhatsApp é UMA porta
+  // (`lib/whatsapp-entrada`), servida pelas duas rotas: SAIR/VOLTAR sempre,
+  // a aprovação só ligada.
+  const rota = semComentario(readFileSync("src/lib/whatsapp-entrada.ts", "utf8"));
+  const iToken = rota.indexOf("process.env.TWILIO_AUTH_TOKEN");
   const iForm = rota.indexOf("formData(");
   const iAdmin = rota.indexOf("createAdmin(");
-  const iRpc = rota.indexOf(".rpc(");
   const iAss = rota.indexOf("assinaturaTwilioValida(");
-  ok("wa: a rota DESLIGADA recusa antes de ler o corpo e de qualquer banco",
-     iPortao >= 0 && iForm > iPortao && iAdmin > iPortao && iRpc > iPortao && rota.slice(iPortao, iForm).includes("503"));
-  ok("wa: a rota confere a ASSINATURA antes da chave de serviço e da RPC",
-     iAss >= 0 && iAss < iAdmin && iAss < iRpc && /if \(!assinaturaTwilioValida\(/.test(rota) && rota.slice(iAss, iAdmin).includes("403"));
+  const iSaida = rota.indexOf('"whatsapp_registrar_saida"');
+  const iLigado = rota.indexOf('process.env.WHATSAPP_APROVACAO === "ligado"');
+  const iAprov = rota.indexOf('"responder_aprovacao_whatsapp"');
+  ok("wa: sem o token da Twilio a entrada recusa antes de ler o corpo e de qualquer banco",
+     iToken >= 0 && iForm > iToken && iAdmin > iToken && rota.slice(iToken, iForm).includes("503"));
+  ok("wa: a entrada confere a ASSINATURA antes da chave de serviço e de qualquer RPC",
+     iAss >= 0 && iAss < iAdmin && iAss < iSaida && iAss < iAprov && /if \(!assinaturaTwilioValida\(/.test(rota) && rota.slice(iAss, iAdmin).includes("403"));
+  ok("wa: o SAIR é atendido ANTES do interruptor da aprovação (parar de receber não depende dele)",
+     iSaida > iAss && iLigado > iSaida);
+  ok("wa: a aprovação só roda com o interruptor LIGADO", iLigado >= 0 && iAprov > iLigado);
+  ok("wa: falha ao registrar o SAIR responde 503 (a Twilio reenvia; SAIR perdido não se desfaz)",
+     /if \(error\) return NextResponse\.json\(\{[^}]*\}, \{ status: 503 \}\)/.test(rota.slice(iSaida, iLigado)));
+  for (const r of ["src/app/api/whatsapp/aprovacao/route.ts", "src/app/api/whatsapp/entrada/route.ts"]) {
+    const t = semComentario(readFileSync(r, "utf8"));
+    ok(`wa: ${r.split("/").slice(-2, -1)[0]} é a MESMA porta (delega, sem RPC própria)`,
+       t.includes("return receberWhatsapp(req)") && !t.includes(".rpc(") && !t.includes("createAdmin("));
+  }
+  {
+    const { lerPedidoDeSaida } = await import("@/core/whatsapp/saida");
+    ok("wa-saida: SAIR em qualquer caixa, com acento e pontuação",
+       ["SAIR", "sair", "Sair.", "  pare! ", "Não quero mais", "STOP", "descadastrar"].every((t) => lerPedidoDeSaida(t) === "sair"));
+    ok("wa-saida: VOLTAR", ["VOLTAR", "voltar!", "quero receber"].every((t) => lerPedidoDeSaida(t) === "voltar"));
+    ok("wa-saida: a palavra no MEIO da frase não cala ninguém",
+       ["vou sair mais cedo", "pode parar o boleto?", "SIM ABC234", "", "voltar a pagar amanhã"].every((t) => lerPedidoDeSaida(t) === null));
+  }
 
   const acoes = semComentario(readFileSync("src/app/central/acoes.ts", "utf8"));
   const iPedir = acoes.indexOf("export async function pedirAprovacaoWhatsappAction");

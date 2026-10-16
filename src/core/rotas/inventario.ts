@@ -170,6 +170,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/sales-invoices/tax-provisioning", nome: "Impostos e obrigações", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/empresas/nova", nome: "Nova empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/fluxo-caixa", nome: "Fluxo de caixa", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/automacoes", nome: "Automações", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
   { rota: "/investidores", nome: "Relatório ao investidor", dono: "inteligencia", status: "canonica", criterio: "travada" },
   { rota: "/lixeira", nome: "Lixeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica", criterio: "nucleo" },

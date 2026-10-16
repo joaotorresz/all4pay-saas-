@@ -260,6 +260,18 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/automacoes.sql
+      - name: Guarda do disparo dos fluxos (quem salvou, só a chave de serviço, dia de Brasília)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/automacao-fluxos.sql
+      # ⚠️ WhatsApp a cliente: só com autorização registrada pela empresa, e
+      # nunca a quem respondeu SAIR (vale para todas as empresas). Cinco casos —
+      # quem registra, quem é recusado, a saída com +55, quem chama o quê e o
+      # isolamento entre empresas.
+      - name: Guarda da autorização e da saída do WhatsApp
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/whatsapp-autorizacao.sql
       # ⚠️ Aprovar título pela WhatsApp: o "SIM" passa pelo MESMO gatilho da
       # Central (segregação, permissão, alçada, carimbo). Sete casos — caminho
       # feliz, código reusado, telefone/código errado, vencido, segregação,

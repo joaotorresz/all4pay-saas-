@@ -38,3 +38,7 @@ design-edits.json
 
 # worktrees locais dos agentes paralelos (nunca vão para o repositório)
 /.claude/worktrees/
+
+# Estado local do CLI do Supabase
+supabase/.branches/
+supabase/.temp/

@@ -50,6 +50,8 @@ const TEMPLATE_DA_FINALIDADE: Record<FinalidadeTemplate, string> = {
   lembrete_pagar: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID",
   alerta_caixa: "TWILIO_TEMPLATE_ALERTA_SID",
   fechamento_pendente: "TWILIO_TEMPLATE_FECHAMENTO_SID",
+  // Os fluxos que o cliente monta (Automações): variáveis 1 = título, 2 = resumo.
+  fluxo_agendado: "TWILIO_TEMPLATE_FLUXO_SID",
 };
 
 export const templateDe = (f: FinalidadeTemplate): string | undefined =>

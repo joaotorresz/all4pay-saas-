@@ -3612,13 +3612,18 @@ const AGOSTO = janelaMes(2026, 7);
   const rota = ler("src/app/api/cobranca/whatsapp/route.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   const iSessao = rota.indexOf("auth.getUser()");
   const iPermissao = rota.indexOf('rpc("tem_permissao"');
-  const iDestino = rota.indexOf('from("parties")');
+  // Desde a etapa 5 (15/10/2026) o destino conhecido E a autorização saem da
+  // MESMA leitura: `whatsapp_situacao_contatos`, recortada pela empresa ativa.
+  const iDestino = rota.indexOf('rpc("whatsapp_situacao_contatos")');
   // O envio passou a sair pelo despacho único (reservar → enviar → concluir),
   // o mesmo do runner de automações — é ali que o provedor é chamado.
   const iEnvio = rota.indexOf("despachar(");
   ok("cobranca-rota: exige sessão, permissão e destino conhecido ANTES de enviar",
      iSessao > 0 && iPermissao > iSessao && iDestino > iPermissao && iEnvio > iDestino,
      `sessão ${iSessao} · permissão ${iPermissao} · destino ${iDestino} · envio ${iEnvio}`);
+  ok("cobranca-rota: telefone desconhecido, sem autorização ou que pediu SAIR não segue para o envio",
+     /if \(!s\) \{ recusados\+\+; return false; \}/.test(rota) && /if \(s\.saiu\)/.test(rota) && /if \(!s\.autorizado\)/.test(rota)
+     && /if \(error\) return NextResponse\.json\([^\n]*status: 500/.test(rota));
   ok("cobranca-rota: sem sessão responde 401 (não segue para o envio)",
      /if \(!auth\?\.user\) return NextResponse\.json\([^)]*\{ status: 401 \}\)/.test(rota));
   ok("cobranca-rota: em demonstração não chama a Twilio",
@@ -3981,6 +3986,7 @@ const AGOSTO = janelaMes(2026, 7);
     // `CRON_SECRET` por conta própria.
     const rotas = [
       "src/app/api/financial-os/run/route.ts",
+      "src/app/api/automacoes/fluxos/run/route.ts",
       "src/app/api/recorrencias/run/route.ts",
       "src/app/api/openfinance/sync/route.ts",
       "src/app/api/notificacoes/teste/route.ts",

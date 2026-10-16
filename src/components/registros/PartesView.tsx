@@ -32,6 +32,8 @@ import {
   EtiquetaStatus, Campo, BlocoForm, SwitchAtivo, OPCOES_STATUS,
 } from "./kit";
 import type { Party, PartyType } from "@/lib/types";
+import { useSituacaoWhatsapp, useRevogarWhatsapp } from "@/lib/whatsapp-autorizacao";
+import { SeloWhatsapp, ModalAutorizarWhatsapp, BotaoAutorizarWhatsapp } from "./AutorizacaoWhatsapp";
 
 type Lado = "cliente" | "fornecedor";
 
@@ -69,6 +71,11 @@ export function PartesView({ lado }: { lado: Lado }) {
   }, []);
   const [extras, setExtras] = React.useState<Record<string, ExtraParty>>({});
   const { show, node } = useToast();
+  // A autorização de WhatsApp só existe do lado do CLIENTE (é a quem a régua cobra).
+  const ehCliente = lado === "cliente";
+  const { data: situacaoWa } = useSituacaoWhatsapp();
+  const revogarWa = useRevogarWhatsapp();
+  const [autorizando, setAutorizando] = React.useState<string[] | null>(null);
 
   React.useEffect(() => { setExtras(listExtrasParty()); }, []);
 
@@ -146,6 +153,18 @@ export function PartesView({ lado }: { lado: Lado }) {
             ]}
           />
 
+          {ehCliente && (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-label text-muted">
+                Cliente sem autorização registrada não recebe cobrança por WhatsApp; ela segue por e-mail.
+              </span>
+              <BotaoAutorizarWhatsapp
+                onClick={() => setAutorizando([])}
+                pendentes={doLado.filter((p) => p.ativo && p.phone && !situacaoWa?.[p.id]?.autorizado && !situacaoWa?.[p.id]?.saiu).length}
+              />
+            </div>
+          )}
+
           {isLoading ? (
             <div className="text-label text-muted py-8 text-center">Carregando {t.titulo}…</div>
           ) : (
@@ -174,6 +193,7 @@ export function PartesView({ lado }: { lado: Lado }) {
                   </div>
                 ) },
                 { chave: "cat", label: "Categoria padrão", render: (p) => <span className="text-muted">{nomeCat(p.categoriaPadrao) || "—"}</span> },
+                ...(ehCliente ? [{ chave: "whatsapp", label: "WhatsApp", render: (p: (typeof visiveis)[number]) => <SeloWhatsapp telefone={p.phone} situacao={situacaoWa?.[p.id]} /> }] : []),
                 { chave: "status", label: "Status", render: (p) => <EtiquetaStatus ativo={p.ativo} /> },
               ]}
               acoes={(p) => (
@@ -184,6 +204,18 @@ export function PartesView({ lado }: { lado: Lado }) {
                     onClick={() => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: p.id } }))}
                   />
                   <AcaoLinha label="Editar" icone="edit" onClick={() => setEditando(p)} />
+                  {ehCliente && p.phone && !situacaoWa?.[p.id]?.saiu && (situacaoWa?.[p.id]?.autorizado ? (
+                    <AcaoLinha
+                      label="Revogar autorização de WhatsApp"
+                      icone="x"
+                      onClick={async () => {
+                        try { await revogarWa.mutateAsync([p.id]); show(`${p.name} não recebe mais cobrança por WhatsApp.`); }
+                        catch (e) { show(e instanceof Error ? e.message : "Não foi possível revogar."); }
+                      }}
+                    />
+                  ) : (
+                    <AcaoLinha label="Registrar autorização de WhatsApp" icone="check" onClick={() => setAutorizando([p.id])} />
+                  ))}
                 </>
               )}
             />
@@ -202,6 +234,15 @@ export function PartesView({ lado }: { lado: Lado }) {
             setNovo(false); setEditando(null);
             show(msg);
           }}
+        />
+      )}
+      {autorizando && (
+        <ModalAutorizarWhatsapp
+          clientes={doLado}
+          situacao={situacaoWa ?? {}}
+          inicial={autorizando}
+          onClose={() => setAutorizando(null)}
+          onFeito={(msg) => { setAutorizando(null); show(msg); }}
         />
       )}
       {node}
