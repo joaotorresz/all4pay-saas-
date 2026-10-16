@@ -10,7 +10,6 @@ import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
 import { BannerAmostra } from "@/components/app/BannerAmostra";
 import { BannerAssinatura } from "@/components/app/BannerAssinatura";
 import { RouteTracker } from "@/components/app/RouteTracker";
-import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
 import { CriarNovo } from "@/components/app/CriarNovo";
@@ -169,20 +168,9 @@ export function AppShell({
       <TituloDaAba titulo={tituloAba ?? (typeof title === "string" ? title : null)} />
       <RouteTracker />
       <SincronizacaoOrg />
-      {/* ⚠️ O LABORATÓRIO SAIU DE PRODUÇÃO. Ele é um sandbox que repinta o app
-          com valores que ninguém do outro lado escolheu, e o botão flutuante
-          aparecia para TODO usuário em TODA tela — ruído sobre a interface do
-          cliente. Não foi apagado: continua inteiro em `npm run dev`, que é
-          onde o design é feito.
-          `DesignLabStyle` sai JUNTO, e de propósito: ele injeta o CSS salvo no
-          navegador. Deixá-lo montado manteria a repintura de quem já salvou
-          algo, sem existir mais a ferramenta para desfazer. */}
-      {process.env.NODE_ENV !== "production" && (
-        <>
-          <DesignLabStyle />
-          <DesignLab />
-        </>
-      )}
+      {/* ⚠️ O Laboratório de Design e o Editor Visual SAÍRAM (16/10/2026). O
+          design system se edita em Administração › Design system, que salva
+          num PR por `src/design/tokens.json` — a mesma fonte das guardas. */}
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
       <ChatGlobal />

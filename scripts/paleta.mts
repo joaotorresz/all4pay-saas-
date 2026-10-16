@@ -16,9 +16,16 @@
  *     sempre quente e o preto é sempre quente — esta é a regra que o guia
  *     enuncia primeiro, e é a mais fácil de furar sem querer, porque `#fff`
  *     é o que os dedos escrevem sozinhos.
- *  3. O ESPELHO BATE. `:root`, `.ds-visor` e os `DEFAULT_CORES` do
- *     Laboratório têm de carregar os MESMOS valores. Quando divergem, o Lab
- *     repinta o app com valores que ninguém escolheu — já aconteceu.
+ *  3. O ESPELHO BATE. `:root` e `.ds-visor` têm de carregar os MESMOS
+ *     valores. (O Laboratório, que também espelhava, saiu em 16/10/2026.)
+ *
+ * ⚠️ **A PALETA INCLUI TODO HEX DE `src/design/tokens.json`** (16/10/2026).
+ * O arquivo é a fonte única dos valores e é o que o editor do design system
+ * (Administração › Design system) muda por PR — o diff dele É a decisão do
+ * dono, revisada como qualquer outra. Exigir que cada cor nova fosse também
+ * escrita aqui recriaria a segunda fonte que o arquivo existe para matar, e
+ * todo PR do editor nasceria vermelho. O que continua reprovando: hex solto
+ * em COMPONENTE (fora do bloco gerado) que não esteja no arquivo nem abaixo.
  *
  * Não é uma varredura de "cores bonitas": é a diferença entre um sistema e
  * uma coleção de telas parecidas.
@@ -97,17 +104,21 @@ const EXCECOES = new Map<string, string>([
   ["#ec0000", "marca de terceiro: Santander"],
 ]);
 
+/** Os hexes que `tokens.json` declara — a paleta viva (ver o cabeçalho). */
+const DO_ARQUIVO = new Set<string>(
+  Array.from(readFileSync(join(RAIZ, "src/design/tokens.json"), "utf8").matchAll(/#[0-9a-fA-F]{6}\b/g), (m) => m[0].toLowerCase()),
+);
+
 const permitido = (hex: string) =>
-  PALETA.has(hex) || DEGRADE.has(hex) || SUPERFICIES.has(hex) || EXCECOES.has(hex);
+  PALETA.has(hex) || DEGRADE.has(hex) || SUPERFICIES.has(hex) || EXCECOES.has(hex) || DO_ARQUIVO.has(hex);
 
 interface Achado { arquivo: string; linha: number; hex: string; trecho: string }
 
 /** Arquivos que declaram a paleta — nestes o hex é a definição, não um vazamento. */
-// O Editor Visual também espelha os tokens (padrões do sandbox), como o Lab.
 // ⚠️ O E-MAIL das automações também: cliente de e-mail não lê variável CSS, e
 // os tokens entram como hex num espelho DECLARADO (o `cardBg` é o branco do
 // card, a única superfície pura sancionada).
-const DECLARAM = ["src/app/globals.css", "src/components/app/DesignLab.tsx", "src/components/app/VisualEditor.tsx", "src/core/automacoes/email.ts"];
+const DECLARAM = ["src/app/globals.css", "src/core/automacoes/email.ts"];
 
 function varrer(dir: string, saida: string[]) {
   for (const nome of readdirSync(dir)) {
@@ -176,9 +187,8 @@ for (const arquivo of arquivos) {
   });
 }
 
-/* ---- 3. o espelho: :root × .ds-visor × Laboratório ---- */
+/* ---- 3. o espelho: :root × .ds-visor ---- */
 const css = readFileSync(join(SRC, "app/globals.css"), "utf8");
-const lab = readFileSync(join(SRC, "components/app/DesignLab.tsx"), "utf8");
 
 function valorDe(bloco: string, token: string): string | null {
   const m = bloco.match(new RegExp(`${token}\\s*:\\s*(#[0-9a-fA-F]{6})`));
@@ -193,13 +203,6 @@ for (const token of ["--color-ink", "--color-white", "--color-surface-1", "--col
   const a = valorDe(raiz, token);
   const b = valorDe(visor, token);
   if (a && b && a !== b) espelho.push(`${token}: :root=${a} × .ds-visor=${b}`);
-}
-// O Lab tem de conhecer o ink e o acento reais, senão repinta o app.
-for (const [token, esperado] of [["ink", "#1a1a1a"], ["lime", "#ecfd52"]] as const) {
-  const m = lab.match(new RegExp(`${token}\\s*:\\s*"(#[0-9a-fA-F]{6})"`));
-  if (m && m[1].toLowerCase() !== esperado) {
-    espelho.push(`DesignLab DEFAULT_CORES.${token}=${m[1]} × paleta=${esperado}`);
-  }
 }
 
 /* ---- placar ---- */

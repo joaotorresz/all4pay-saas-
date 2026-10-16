@@ -167,6 +167,10 @@ export const SECOES_ADMIN: readonly SecaoAdmin[] = [
   { id: "maquininhas", rotulo: "Maquininhas", href: "/admin/maquininhas", icone: "smartphone", resumo: "Vincular o estabelecimento (EC) da maquininha à empresa, e as vendas que esperam vínculo." },
   { id: "cobranca", rotulo: "Cobrança", href: "/admin/cobranca", icone: "credit-card", resumo: "Quem paga × quem usa, e a receita mês a mês." },
   { id: "acessos", rotulo: "Acessos", href: "/admin/acessos", icone: "shield-check", resumo: "Contas da plataforma e a trilha das ações do administrador." },
+  // A vitrine do design system: cada valor (tokens.json) e cada peça real do
+  // DS numa página só, nos dois temas. Mora aqui porque editar o visual do
+  // produto inteiro é tarefa do dono, atrás do segundo fator obrigatório.
+  { id: "design-system", rotulo: "Design system", href: "/admin/design-system", icone: "palette", resumo: "Cada cor, medida, card, gráfico e tabela do sistema numa página só, nos dois temas." },
   { id: "suporte", rotulo: "Suporte", href: "/admin/suporte", icone: "help-circle", resumo: "Ver e entrar como o cliente, e ferramentas internas." },
 ];
 

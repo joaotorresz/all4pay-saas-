@@ -2148,6 +2148,7 @@ const AGOSTO = janelaMes(2026, 7);
     [/all4pay\/estado-da-organizacao/, "formato de backup antigo: continua aceito na restauração"],
     [/\/all4pay-ai\b/, "endereço antigo da IA: responde 308 para /quattro-ai (favoritos)"],
     [/`all4pay`|`All4Pay`|`All 4 Pay`/, "registro, em core/marca, de qual era a marca anterior"],
+    [/joaotorresz\/all4pay-saas-/, "nome do repositório no GitHub: o editor do design system abre PR nele"],
   ];
   const restos: string[] = [];
   (function varrer(d: string) {
