@@ -504,6 +504,20 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   caixa negativo, primeiro uso) não desce — medido: sem isso "Cobrir o
   caixa" ignorada perdia a vaga do tema para "Fluxo 13 semanas". A IA recebe
   as `ignoradas` e não traz de volta a que chegou ao teto (`cansada`).
+- **"Veja tudo o que eu faço" é um RODÍZIO (16/10/2026, pedido do dono).**
+  O catálogo ganhou 130 perguntas (`core/home/banco-sugestoes`, 118 de
+  empresa + 12 de PF, por tela do sistema) SEM base nem regra: na Home elas
+  só aparecem pelo clique aprendido. No chat, `core/home/rodizio`
+  (`girarPilulas`) escolhe 12 do catálogo inteiro do público: a pílula some
+  quando a RESPOSTA chega (nunca no clique; "carregando" não conta) e fica
+  fora por `DIAS_FORA_RESPONDIDA` dias (`respondidas`); a lista muda a cada
+  resposta (sorteio repetível por rodada e dia + desconto da que estava na
+  tela); e aprende pelo tema (`temas`, contado pela pílula ou pela pergunta
+  digitada via `temaDaPergunta`), pelos cliques, pelas prioridades e pelo
+  assunto da última pergunta. Teto de 3 por tema. As sugestões da Home
+  entram como `prioridade`. `temas`/`respondidas` moram em
+  `a4p_home_preferencias` (cópias `a4p_home_temas`/`a4p_home_respondidas`).
+  Guarda: bloco "rodízio" de `npm run home-sugestoes`.
 - **Chat em TELA CHEIA (14/10/2026, modelo de referência do dono):** clicar num
   chip ou enviar a caixa da Home abre `ia/ChatTelaCheia.tsx` por cima da Home,
   com animação (`.a4p-chat-tela`, para em `prefers-reduced-motion`), já com a

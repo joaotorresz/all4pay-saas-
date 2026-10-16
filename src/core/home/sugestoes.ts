@@ -25,8 +25,9 @@ import type { RiskInput } from "@/core/risk-engine/types";
 import { inadimplencia, temValor, type Indicador } from "@/core/indicadores";
 import type { HomeSnapshot, NumeroHome } from "./snapshot";
 import { redigirSegredos } from "@/core/ajuda/segredos";
+import { BANCO_EMPRESA, BANCO_PESSOAL, type LinhaBanco } from "./banco-sugestoes";
 
-export const SUGESTOES_HOME_VERSION = "home-sugestoes/1.2.0";
+export const SUGESTOES_HOME_VERSION = "home-sugestoes/1.3.0";
 
 /** Quantas sugestões a Home mostra — decisão do dono. */
 export const LIMITE_SUGESTOES = 6;
@@ -34,7 +35,9 @@ export const LIMITE_SUGESTOES = 6;
 export const MAX_POR_TEMA = 2;
 
 export type TemaSugestao =
-  | "fechamento" | "caixa" | "despesa" | "receber" | "pagar" | "recorrencia" | "vendas" | "inicio" | "pessoal";
+  | "fechamento" | "caixa" | "despesa" | "receber" | "pagar" | "recorrencia" | "vendas" | "inicio" | "pessoal"
+  // O banco ampliado do chat (`./banco-sugestoes`, 16/10/2026).
+  | "contabil" | "impostos" | "folha" | "simulacao" | "risco" | "operacao";
 
 export interface PerfilSinais {
   setor?: string;
@@ -302,7 +305,15 @@ export const CATALOGO_SUGESTOES: Sugestao[] = [
     r(0.8, "os gastos mudaram em 30 dias", (s) => n(s.burnVar) && Math.abs(s.burnVar) >= 0.1),
   ] },
   { id: "pf-assinaturas", texto: "Quais assinaturas eu pago todo mês?", tema: "pessoal", publico: "pessoal", base: 0.3, regras: [] },
+
+  // ── o banco ampliado do chat: sem base e sem regra (só sobem à Home pelo uso)
+  ...doBanco(BANCO_EMPRESA, "empresa"),
+  ...doBanco(BANCO_PESSOAL, "pessoal"),
 ];
+
+function doBanco(linhas: LinhaBanco[], publico: Sugestao["publico"]): Sugestao[] {
+  return linhas.map(([id, texto, tema]) => ({ id, texto, tema, publico, base: 0, regras: [] }));
+}
 
 /* ------------------------------ prioridades e uso ------------------------------ */
 
@@ -360,6 +371,7 @@ export const ROTULOS: Record<string, { curto: string; icone: string }> = {
   "pf-guardar": { curto: "Guardar dinheiro", icone: "database" },
   "pf-subiu": { curto: "O que subiu?", icone: "trending-up" },
   "pf-assinaturas": { curto: "Assinaturas", icone: "repeat" },
+  ...Object.fromEntries([...BANCO_EMPRESA, ...BANCO_PESSOAL].map(([id, , , curto, icone]) => [id, { curto, icone }])),
 };
 
 /**

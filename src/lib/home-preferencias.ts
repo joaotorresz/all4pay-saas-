@@ -41,6 +41,8 @@ const LOCAL_INTERESSES = "a4p_home_interesses";
 const LOCAL_CLIQUES = "a4p_home_cliques";
 const LOCAL_EXIBIDAS = "a4p_home_exibidas";
 const LOCAL_LAYOUT = "a4p_home_layout";
+const LOCAL_TEMAS = "a4p_home_temas";
+const LOCAL_RESPONDIDAS = "a4p_home_respondidas";
 const ADIAR_MS = 30_000;
 
 /** O servidor respondeu nesta sessão? Em demonstração não há servidor: o "mapa" é só o cache local. */
@@ -55,15 +57,17 @@ function doDispositivo(): PreferenciasHome | null {
   const cliques = lerPreferencia<unknown>(LOCAL_CLIQUES, null);
   const exibidas = lerPreferencia<unknown>(LOCAL_EXIBIDAS, null);
   const layout = lerPreferencia<unknown>(LOCAL_LAYOUT, null);
-  if (interesses === null && cliques === null && exibidas === null && layout === null) return null;
-  return normalizarPreferencias({ interesses, cliques, exibidas, layout });
+  const temas = lerPreferencia<unknown>(LOCAL_TEMAS, null);
+  const respondidas = lerPreferencia<unknown>(LOCAL_RESPONDIDAS, null);
+  if ([interesses, cliques, exibidas, layout, temas, respondidas].every((x) => x === null)) return null;
+  return normalizarPreferencias({ interesses, cliques, exibidas, layout, temas, respondidas });
 }
 
 /** As preferências de quem está usando: a da sessão, senão servidor + dispositivo. */
 export function lerPreferenciasHome(): PreferenciasHome {
   if (daSessao) return daSessao;
   const servidor = preferenciasDoUsuario(lerOrg<unknown>(KEY, {}), usuario);
-  return mesclarComDispositivo(servidor, doDispositivo()) ?? { interesses: null, cliques: {}, exibidas: {}, layout: null };
+  return mesclarComDispositivo(servidor, doDispositivo()) ?? { interesses: null, cliques: {}, exibidas: {}, layout: null, temas: {}, respondidas: {} };
 }
 
 function enviar(): void {
@@ -82,6 +86,8 @@ export function gravarPreferenciasHome(p: PreferenciasHome, opcoes: { adiar?: bo
   gravarPreferencia(LOCAL_CLIQUES, p.cliques);
   gravarPreferencia(LOCAL_EXIBIDAS, p.exibidas ?? {});
   gravarPreferencia(LOCAL_LAYOUT, p.layout ?? null);
+  gravarPreferencia(LOCAL_TEMAS, p.temas ?? {});
+  gravarPreferencia(LOCAL_RESPONDIDAS, p.respondidas ?? {});
   if (opcoes.adiar) {
     if (!adiado) adiado = setTimeout(enviar, ADIAR_MS);
     return;

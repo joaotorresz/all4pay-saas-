@@ -33,14 +33,26 @@ export interface PreferenciasHome {
    * pessoa arruma arrastando ou pedindo no chat. Ausente = o arranjo padrão.
    */
   layout?: LayoutHome | null;
+  /**
+   * Do que a pessoa mais pergunta no chat, por TEMA (caixa, folha, impostos…):
+   * tema → vezes. Soma o clique numa pílula e a pergunta digitada que se
+   * reconhece num tema (`core/home/rodizio`). É o "com o que ela se preocupa"
+   * que faz o rodízio de pílulas puxar mais do mesmo assunto.
+   */
+  temas?: Record<string, number>;
+  /**
+   * Pílula do chat já respondida → o dia da resposta. Ela some do "Veja tudo
+   * o que eu faço" e só volta depois de alguns dias (`DIAS_FORA_RESPONDIDA`).
+   */
+  respondidas?: Record<string, string>;
 }
 
 export interface Exibicao { dias: number; ultimo: string }
 
 export type MapaPreferencias = Record<string, PreferenciasHome & { atualizadoEm?: string }>;
 
-/** Teto de entradas guardadas (o catálogo tem 47 perguntas e 11 prioridades). */
-const TETO_IDS = 80;
+/** Teto de entradas guardadas (o catálogo tem 177 perguntas e 11 prioridades). */
+const TETO_IDS = 240;
 /** Teto de cliques por sugestão — o peso já para em 4; guardar mais não muda nada. */
 const TETO_CLIQUES = 1000;
 
@@ -61,6 +73,25 @@ function normalizarExibidas(bruto: unknown): Record<string, Exibicao> {
   return out;
 }
 
+function normalizarContagens(bruto: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!bruto || typeof bruto !== "object" || Array.isArray(bruto)) return out;
+  for (const [id, n] of Object.entries(bruto as Record<string, unknown>).slice(0, TETO_IDS)) {
+    if (!idValido(id) || typeof n !== "number" || !Number.isFinite(n) || n < 1) continue;
+    out[id] = Math.min(TETO_CLIQUES, Math.floor(n));
+  }
+  return out;
+}
+
+function normalizarRespondidas(bruto: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!bruto || typeof bruto !== "object" || Array.isArray(bruto)) return out;
+  for (const [id, d] of Object.entries(bruto as Record<string, unknown>).slice(0, TETO_IDS)) {
+    if (idValido(id) && dataValida(d)) out[id] = d;
+  }
+  return out;
+}
+
 /**
  * Normaliza o que veio de fora (servidor, cache, versão antiga): interesses só
  * texto, sem repetir; cliques só contagens inteiras positivas. O que não serve
@@ -73,17 +104,14 @@ export function normalizarPreferencias(bruto: unknown): PreferenciasHome | null 
   const interesses = Array.isArray(b.interesses)
     ? b.interesses.filter(idValido).filter((x, i, a) => a.indexOf(x) === i).slice(0, TETO_IDS)
     : null;
-  const cliques: Record<string, number> = {};
-  if (b.cliques && typeof b.cliques === "object" && !Array.isArray(b.cliques)) {
-    for (const [id, n] of Object.entries(b.cliques as Record<string, unknown>).slice(0, TETO_IDS)) {
-      if (!idValido(id) || typeof n !== "number" || !Number.isFinite(n) || n < 1) continue;
-      cliques[id] = Math.min(TETO_CLIQUES, Math.floor(n));
-    }
-  }
+  const cliques = normalizarContagens(b.cliques);
+  const o = bruto as { exibidas?: unknown; layout?: unknown; temas?: unknown; respondidas?: unknown };
   return {
     interesses, cliques,
-    exibidas: normalizarExibidas((bruto as { exibidas?: unknown }).exibidas),
-    layout: normalizarLayout((bruto as { layout?: unknown }).layout),
+    exibidas: normalizarExibidas(o.exibidas),
+    layout: normalizarLayout(o.layout),
+    temas: normalizarContagens(o.temas),
+    respondidas: normalizarRespondidas(o.respondidas),
   };
 }
 
@@ -96,7 +124,7 @@ export function preferenciasDoUsuario(mapa: unknown, usuario: string | null): Pr
 /** O mapa com a entrada deste usuário trocada — e SÓ ela: os colegas ficam como estavam. */
 export function comPreferencias(mapa: unknown, usuario: string, p: PreferenciasHome, agora: string): MapaPreferencias {
   const base = mapa && typeof mapa === "object" && !Array.isArray(mapa) ? (mapa as MapaPreferencias) : {};
-  return { ...base, [usuario]: { ...(normalizarPreferencias(p) ?? { interesses: null, cliques: {}, exibidas: {}, layout: null }), atualizadoEm: agora } };
+  return { ...base, [usuario]: { ...(normalizarPreferencias(p) ?? { interesses: null, cliques: {}, exibidas: {}, layout: null, temas: {}, respondidas: {} }), atualizadoEm: agora } };
 }
 
 /**
@@ -117,9 +145,15 @@ export function mesmasPreferencias(a: PreferenciasHome | null, b: PreferenciasHo
   const ka = Object.keys(a.cliques).sort(), kb = Object.keys(b.cliques).sort();
   if (ka.join(",") !== kb.join(",") || !ka.every((k) => a.cliques[k] === b.cliques[k])) return false;
   if (!mesmoLayout(a.layout, b.layout)) return false;
+  if (!mesmoMapa(a.temas ?? {}, b.temas ?? {}) || !mesmoMapa(a.respondidas ?? {}, b.respondidas ?? {})) return false;
   const ea = a.exibidas ?? {}, eb = b.exibidas ?? {};
   const xa = Object.keys(ea).sort(), xb = Object.keys(eb).sort();
   return xa.join(",") === xb.join(",") && xa.every((k) => ea[k].dias === eb[k].dias && ea[k].ultimo === eb[k].ultimo);
+}
+
+function mesmoMapa(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const ka = Object.keys(a).sort(), kb = Object.keys(b).sort();
+  return ka.join(",") === kb.join(",") && ka.every((k) => a[k] === b[k]);
 }
 
 /**
@@ -143,7 +177,12 @@ export function mesclarComDispositivo(servidor: PreferenciasHome | null, disposi
   }
   // O arranjo segue a regra das prioridades: o do servidor vence; o do
   // dispositivo só entra quando o servidor ainda não tem nenhum.
-  return { interesses: servidor.interesses ?? dispositivo.interesses, cliques, exibidas, layout: servidor.layout ?? dispositivo.layout ?? null };
+  // Temas: o MAIOR de cada lado (como os cliques). Respondidas: a data mais recente.
+  const temas: Record<string, number> = { ...(servidor.temas ?? {}) };
+  for (const [t, n] of Object.entries(dispositivo.temas ?? {})) temas[t] = Math.max(temas[t] ?? 0, n);
+  const respondidas: Record<string, string> = { ...(servidor.respondidas ?? {}) };
+  for (const [id, d] of Object.entries(dispositivo.respondidas ?? {})) if (!respondidas[id] || d > respondidas[id]) respondidas[id] = d;
+  return { interesses: servidor.interesses ?? dispositivo.interesses, cliques, exibidas, layout: servidor.layout ?? dispositivo.layout ?? null, temas, respondidas };
 }
 
 /**
