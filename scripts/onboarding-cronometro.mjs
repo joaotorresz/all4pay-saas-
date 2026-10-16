@@ -55,6 +55,20 @@ const RITMO = {
 const b = await chromium.launch(OPCOES_NAVEGADOR);
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
+/* A Receita (BrasilAPI) vem de MENTIRA, e de propósito: no CI o runner tem
+   rede, e o CNPJ do teste existe de verdade — a resposta mudava o caminho da
+   conversa (o cartão de confirmação e os campos já preenchidos) conforme a API
+   respondia, demorava ou limitava. O caminho exercitado é o COM a Receita,
+   que é o do cliente; sem a Receita a conversa só pergunta mais. */
+await page.route("**/brasilapi.com.br/api/cnpj/**", (r) => r.fulfill({
+  status: 200, contentType: "application/json",
+  body: JSON.stringify({
+    razao_social: "PADARIA CRONOMETRO LTDA", nome_fantasia: "PADARIA CRONOMETRO",
+    cnae_fiscal: 1091101, cnae_fiscal_descricao: "Fabricação de produtos de panificação industrial",
+    municipio: "SAO PAULO", uf: "SP", cep: "01310100", logradouro: "AVENIDA PAULISTA", numero: "100",
+    bairro: "BELA VISTA", opcao_pelo_simples: true, opcao_pelo_mei: false,
+  }),
+}));
 
 /* ─── A PRÉ-CONDIÇÃO, e ela existe porque eu caí nela ───────────────────────
  * ⚠️ Na primeira execução deste arquivo a fase 4 reprovou com "o DRE abriu sem
@@ -196,7 +210,9 @@ await fase("0. Entrar pelo cadastro pela conversa",
         const c = document.querySelector("form input:not([hidden])");
         const k = ok ? "confirmar" : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
         return k && k !== ant;
-      }, anterior, { timeout: 30000 });
+      }, anterior, { timeout: 30000 }).catch((e) => {
+        throw new Error(`a conversa parou depois de "${anterior || "o CNPJ"}" (${e.name})`);
+      });
       const k = await chave();
       anterior = k;
       if (k === "confirmar") { await page.locator('[data-cartao="documento"] button', { hasText: "Confirmar" }).click(); continue; }

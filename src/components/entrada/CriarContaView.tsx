@@ -580,7 +580,7 @@ export function CriarContaView() {
                       cartao={f.cartao}
                       ativo={
                         (f.cartao.tipo === "conta" && etapa === "tipo" && !ocupadoFala) ||
-                        (f.cartao.tipo === "documento" && etapa === "confirmar" && f.id === ultimaIA?.id)
+                        (f.cartao.tipo === "documento" && etapa === "confirmar" && f.id === ultimaIA?.id && !ocupadoFala)
                       }
                       onTipo={(t) => void escolherTipo(t)}
                       onConfirmar={() => void confirmarDocumento()}
