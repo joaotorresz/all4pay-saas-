@@ -367,20 +367,11 @@
   --radius-bloco: 32px;
   --radius-sm: 8px;
   --radius-pill: 999px;
-  /* Glass — SÓ overlays (popover/sidebar/drawers); cards são sólidos (Ledger).
-     strong = vidro dos overlays · edge = fio de 1px do vidro.
-     O vidro também é QUENTE: rgba do White #FEFDF0, não do branco puro — um
-     vidro branco frio sobre canvas quente lê como uma folha de outro sistema
-     por cima do app. E a sombra é do Black quente, não de um azul-cinza. */
-  --glass-bg: rgba(254, 254, 253, 0.72);
-  --glass-bg-strong: rgba(254, 254, 253, 0.84);
-  --glass-edge: rgba(254, 254, 253, 0.65);
-  --glass-blur: 20px;
   /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta)
      A única sombra do guia Quattro: longa e quase invisível. */
   --shadow-card: none;
-  --shadow-popover: inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(43, 49, 37, 0.24);
+  /* Sem vidro (16/10/2026): popover, menu e gaveta são sólidos, no branco do cartão. */
+  --shadow-popover: 0 24px 64px -16px rgba(43, 49, 37, 0.24);
   --shadow-pill: 0 8px 24px -10px rgba(43, 49, 37, 0.22);
   /* easeOutQuint — limpo, sem overshoot */
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
@@ -477,16 +468,9 @@ html.dark {
   --color-warning: #f0962e;
   --color-positive: #57a877;
   --color-negative: #d8584c;
-  /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline
-     rgba do Black quente e do White quente — o vidro do escuro é a mesma
-     matéria do claro, só invertida. */
-  --glass-bg: rgba(43, 49, 37, 0.68);
-  --glass-bg-strong: rgba(43, 49, 37, 0.86);
-  --glass-edge: rgba(243, 241, 238, 0.1);
   --shadow-card: 0 1px 2px rgba(27, 31, 23, 0.34),
     0 8px 24px -18px rgba(27, 31, 23, 0.55);
-  --shadow-popover: inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(27, 31, 23, 0.68);
+  --shadow-popover: 0 24px 64px -16px rgba(27, 31, 23, 0.68);
   --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
   --a4p-bolha-usuario: var(--color-surface-2);
   --a4p-pilula-fundo: var(--color-white);
@@ -1121,13 +1105,10 @@ h1, h2, h3,
 }
 
 /* ============================================================
-   AURORA GLASS — o canvas do app e as superfícies de vidro.
-   .a4p-canvas (raiz do AppShell): washes de aurora em lime a
-   baixíssima opacidade sobre o fundo do tema (o lime segue sendo
-   tempero — são véus, nunca preenchimentos). As superfícies
-   flutuantes (popovers/menus/palette via .shadow-popover, a
-   Sidebar via .a4p-sidebar e qualquer painel com .a4p-glass)
-   viram vidro forte: translúcidas + blur + fio luminoso.
+   CANVAS do app e as superfícies que flutuam por cima dele.
+   As flutuantes (popovers/menus/paleta via .shadow-popover, a
+   Sidebar via .a4p-sidebar e gaveta/guia com .a4p-sobreposto)
+   são SÓLIDAS, no branco do cartão: o vidro saiu em 16/10/2026.
    Unlayered de propósito (vence as utilities bg-white).
    ============================================================ */
 .a4p-canvas {
@@ -1143,86 +1124,6 @@ h1, h2, h3,
   color: var(--a4p-chrome-mut);
 }
 
-/* ============================================================
-   LIQUID GLASS — o fundo das abas do menu superior.
-   ------------------------------------------------------------
-   Técnica da referência (freefrontend "Liquid Glass Distortion Card"):
-   `backdrop-filter` combinando desfoque com um filtro SVG de
-   `feDisplacementMap`, que curva o que está ATRÁS do elemento como um
-   vidro grosso curva a luz.
-
-   ⚠️ O QUE O EFEITO PODE E NÃO PODE FAZER AQUI. Ele refrata o fundo — na
-   demo original, uma foto de montanha, cheia de detalhe para entortar.
-   A barra da Quattro é um near-black CHAPADO: não há textura por baixo, e
-   distorcer uma cor sólida devolve a mesma cor sólida. Por isso o realce
-   não vem só do deslocamento; vem também do fio de luz na borda e do
-   brilho superior, que é o que faz a pílula ler como vidro sobre um fundo
-   liso. Sem eles o filtro estaria ligado e invisível.
-
-   ⚠️ `backdrop-filter: url()` só funciona no Chromium. O `@supports` abaixo
-   é a ordem certa: a versão SEM distorção vem primeiro e vale para todos;
-   quem suporta ganha o deslocamento por cima. Ao contrário, Safari e
-   Firefox ficariam com a pílula sem fundo nenhum.
-   ============================================================ */
-/* A LÓGICA DO iOS 26 (print de referência): o que define a peça é o ARO
-   BRANCO NÍTIDO em volta — uma linha contínua e clara que contorna a pílula
-   inteira —, não o desfoque. O miolo é quase transparente; a leitura de vidro
-   vem da borda acesa somada ao halo interno logo abaixo dela.
-
-   Foi essa a correção em relação à primeira versão: eu tinha um fio de luz só
-   no topo (0.28 de opacidade) e paredes a 0.10, o que dá um vidro tímido. No
-   iOS 26 o aro é forte e FECHA a volta toda. */
-.a4p-glass-pill {
-  position: relative;
-  isolation: isolate;
-  border: 1px solid rgb(255 255 255 / 0.55);
-  background: linear-gradient(
-    145deg,
-    rgb(255 255 255 / 0.18) 0%,
-    rgb(255 255 255 / 0.07) 45%,
-    rgb(255 255 255 / 0.12) 100%
-  );
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  backdrop-filter: blur(18px) saturate(180%);
-  box-shadow:
-    /* halo interno logo abaixo do aro — a espessura do vidro */
-    inset 0 1px 1px rgb(255 255 255 / 0.45),
-    inset 0 -1px 1px rgb(255 255 255 / 0.18),
-    /* sombra de contato: sem ela a pílula flutua sem peso */
-    0 4px 14px -6px rgb(0 0 0 / 0.65);
-}
-/* O brilho especular que escorre do topo — junto com o aro, é o que faz a
-   peça ler como vidro mesmo sobre um fundo sem textura. */
-.a4p-glass-pill::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.30) 0%, transparent 58%);
-  pointer-events: none;
-  z-index: -1;
-}
-@supports (backdrop-filter: url("#a4p-liquid-glass")) {
-  .a4p-glass-pill {
-    -webkit-backdrop-filter: blur(4px) saturate(150%) url("#a4p-liquid-glass");
-    backdrop-filter: blur(4px) saturate(150%) url("#a4p-liquid-glass");
-  }
-}
-/* Vidro é uma superfície, não uma animação: quem pede menos movimento
-   continua vendo a pílula, só sem a transição de estado. */
-@media (prefers-reduced-motion: reduce) {
-  .a4p-glass-pill { transition: none; }
-}
-/* `prefers-reduced-transparency`: a mesma regra que o resto do DS já segue
-   para vidro — vira sólido em vez de sumir. */
-@media (prefers-reduced-transparency: reduce) {
-  .a4p-glass-pill {
-    background: var(--a4p-chrome-field);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .a4p-glass-pill::before { display: none; }
-}
 /* A faixa de abas rola na horizontal quando não cabe. A barra de rolagem é
    escondida de propósito: ela apareceria SOBRE o sublinhado lima do item ativo
    e leria como um segundo marcador. O conteúdo continua alcançável por arrasto,
@@ -1276,11 +1177,13 @@ html.dark .a4p-canvas {
     radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.05), transparent 62%),
     var(--color-surface-1);
 }
-.a4p-glass,
+/* ⚠️ SEM VIDRO (dono, 16/10/2026). Popover, menu, paleta, gaveta e guia são
+   SÓLIDOS, no branco do cartão: translúcido + desfoque deixava o conteúdo
+   passar por baixo e lia como uma segunda linguagem por cima do design
+   system. Nenhum desfoque de fundo no app (guarda `vidro:` na consistência). */
+.a4p-sobreposto,
 .shadow-popover {
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  background: var(--color-white);
 }
 /* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
    outro faz a moldura do app parecer duas peças de sistemas diferentes.
@@ -1316,19 +1219,9 @@ html.dark .a4p-canvas {
 .a4p-topo-tela {
   background: linear-gradient(to bottom, var(--a4p-app-bg) calc(100% - 18px), transparent);
 }
-@media (prefers-reduced-transparency: reduce) {
-  .ds-visor [data-card="1"],
-  .a4p-glass,
-  .shadow-popover {
-    background: var(--color-white);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-}
 
 /* ============================================================
-   Sidebar lateral — segue o tema (vidro claro no claro, fumê no
-   escuro). Texto/itens ink, ícones monocromáticos. O lime fica só
+   Sidebar lateral — segue o tema (sólida nos dois). Texto/itens ink, ícones monocromáticos. O lime fica só
    nos acentos pontuais (marca, "Nova transação", etc.).
    ============================================================ */
 

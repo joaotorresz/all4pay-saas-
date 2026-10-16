@@ -109,7 +109,7 @@ export function SeletorOrganizacao({
         <div
           role="listbox"
           className={cn(
-            "absolute w-[260px] max-h-[320px] overflow-y-auto rounded-card p-1 z-[60] bg-glass-strong shadow-popover",
+            "absolute w-[260px] max-h-[320px] overflow-y-auto rounded-card p-1 z-[60] bg-white shadow-popover",
             // Na barra escura ele abre para BAIXO e ancora à direita; para cima
             // sairia da janela, e à esquerda passaria por cima das abas.
             noChrome ? "top-full right-0 mt-2" : "bottom-full left-0 mb-2",

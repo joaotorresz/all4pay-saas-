@@ -54,6 +54,11 @@ from its tokens and its components.
   centavos no MESMO corpo e cor** do inteiro. Isto inverte o "a moeda encosta"
   e o "centavos à metade em cinza" das seções abaixo, que viraram histórico.
   Valor em linha (`.a4p-valor-texto`) continua Roobert 500.
+- **Sem vidro (16/10/2026).** Popover, menu, paleta, gaveta, guia e modal são
+  SÓLIDOS, no branco do cartão: os tokens `--glass-*`, o `bg-glass` do
+  Tailwind, o `.a4p-glass` (agora `.a4p-sobreposto`), a pílula "liquid glass"
+  e todo `backdrop-blur` saíram. As menções a vidro abaixo são histórico.
+  Guarda `vidro:` (teto ZERO) em `npm run consistencia`.
 
 ### ⚠️ OS VALORES TÊM UMA FONTE SÓ: `src/design/tokens.json` (16/10/2026)
 

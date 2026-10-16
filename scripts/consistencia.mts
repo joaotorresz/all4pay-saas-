@@ -3687,6 +3687,38 @@ const AGOSTO = janelaMes(2026, 7);
 }
 
 /* ========================================================================== */
+/* SEM VIDRO (decisão do dono, 16/10/2026) — teto ZERO.                       */
+/* ========================================================================== */
+/**
+ * Popover, menu, paleta, gaveta e modal são SÓLIDOS, no branco do cartão. O
+ * vidro (translúcido + `backdrop-filter`) era uma segunda linguagem por cima do
+ * design system e deixava o conteúdo passar por baixo. A guarda varre `src` e o
+ * Tailwind atrás de desfoque de fundo, das classes do vidro e dos tokens
+ * `--glass-*`; comentário explica, não pinta.
+ */
+{
+  const VIDRO = /backdrop-filter|backdrop-blur|bg-glass|a4p-glass|--glass-/;
+  const achados: string[] = [];
+  const arquivos = [
+    ...varrerArquivos("src", /\.(tsx?|css|json)$/),
+    "tailwind.config.ts",
+  ];
+  for (const caminho of arquivos) {
+    readFileSync(caminho, "utf8").split("\n").forEach((linha, i) => {
+      if (/^\s*(\/\/|\*|\/\*)/.test(linha)) return;
+      if (VIDRO.test(linha)) achados.push(`${caminho}:${i + 1}`);
+    });
+  }
+  ok("vidro: teto ZERO de desfoque de fundo e de superfície translúcida no app",
+     achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("vidro: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
+     VIDRO.test('className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"')
+     && VIDRO.test("  backdrop-filter: blur(20px);")
+     && VIDRO.test('"bg-glass-strong shadow-popover"')
+     && !VIDRO.test('className="fixed inset-0 bg-black/30"'));
+}
+
+/* ========================================================================== */
 /* O DINHEIRO TAMBÉM NÃO LEVA A COR DO STATUS (07/10/2026) — teto ZERO.       */
 /* ========================================================================== */
 /**
