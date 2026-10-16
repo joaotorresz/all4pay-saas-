@@ -316,9 +316,11 @@ export function BlocosProporcao({ fatias, ariaLabel, altura = 200 }: { fatias: F
 
 /* ============================== "Estatística" ============================== */
 /** Radar com duas séries (entradas e saídas) sobre os mesmos eixos. */
-export function RadarSeries({ dados, ariaLabel, altura = 240, series }: {
+export function RadarSeries({ dados, ariaLabel, altura = 240, series, formatar }: {
   dados: Record<string, string | number>[]; ariaLabel: string; altura?: number;
   series?: { chave: string; nome: string; cor: string }[];
+  /** Valor da dica (padrão: reais); notas de 0 a 100 passam o seu. */
+  formatar?: (v: number) => React.ReactNode;
 }) {
   const ss = series ?? [{ chave: "entrada", nome: "Entradas", cor: COR_ENTRADA }, { chave: "saida", nome: "Saídas", cor: COR_SAIDA }];
   return (
@@ -331,7 +333,7 @@ export function RadarSeries({ dados, ariaLabel, altura = 240, series }: {
           <Tooltip content={({ active, payload, label }) => {
             if (!active || !payload?.length) return null;
             const p = payload[0].payload as Record<string, number>;
-            return <DicaGrafico rotulo={String(label ?? p.label)} linhas={ss.map((s) => ({ cor: s.cor, nome: s.nome, valor: Number(p[s.chave] ?? 0) }))} />;
+            return <DicaGrafico rotulo={String(label ?? p.label)} linhas={ss.map((s) => { const v = Number(p[s.chave] ?? 0); return { cor: s.cor, nome: s.nome, valor: formatar ? formatar(v) : v }; })} />;
           }} />
           {ss.map((s, i) => (
             <Radar key={s.chave} dataKey={s.chave} name={s.nome} stroke={s.cor} fill={s.cor} fillOpacity={0.35} {...chartAnim(i * 120)} />
@@ -468,9 +470,11 @@ export function ListaProgresso({ itens, ariaLabel }: {
 
 /* ============================== "Saldo em conta" ============================== */
 /** Linha reta com PONTOS em cada período, área em degradê e a base tracejada. */
-export function LinhaPontos({ dados, ariaLabel, altura = 220, id, rotuloBase = "Comparação", formatar }: {
+export function LinhaPontos({ dados, ariaLabel, altura = 220, id, rotuloBase = "Comparação", formatar, eixo = tickBRL, dominio }: {
   dados: { label: string; valor: number; base?: number }[]; ariaLabel: string; altura?: number; id: string;
   rotuloBase?: string; formatar?: (v: number) => React.ReactNode;
+  /** Rótulo do eixo Y (padrão: reais curtos); score e contagem passam o seu. */
+  eixo?: (v: number) => string; dominio?: [number, number];
 }) {
   const gid = `bib-sc-${id}`;
   const temBase = dados.some((d) => d.base != null);
@@ -481,7 +485,7 @@ export function LinhaPontos({ dados, ariaLabel, altura = 220, id, rotuloBase = "
           <defs><DegradeArea id={gid} /></defs>
           <CartesianGrid stroke={GRADE} vertical={false} />
           <XAxis dataKey="label" tick={EIXO} tickLine={false} axisLine={false} minTickGap={20} />
-          <YAxis tick={EIXO} tickLine={false} axisLine={false} width={64} tickFormatter={tickBRL} />
+          <YAxis tick={EIXO} tickLine={false} axisLine={false} width={eixo === tickBRL ? 64 : 36} tickFormatter={eixo} domain={dominio} />
           <Tooltip cursor={{ stroke: "var(--erp-graf-comparacao)", strokeWidth: 1 }} content={({ active, payload, label }) => {
             if (!active || !payload?.length) return null;
             const i = dados.findIndex((d) => d.label === label);

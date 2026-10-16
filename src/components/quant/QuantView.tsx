@@ -2,21 +2,7 @@
 
 import * as React from "react";
 import { infoDaMetodologia } from "@/core/metodologia";
-import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
-  ResponsiveContainer,
-  LineChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
-import { BRL, Card, Skeleton, Icon, InfoHint, DicaGrafico, DegradeArea } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint, RadarSeries, LinhaPontos } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useQuantitativo } from "@/components/visao-geral/hooks";
@@ -26,7 +12,6 @@ import {
   type IndicadoresFinanceiros,
   type BenchmarkLinha,
 } from "@/core/quant/types";
-import { chartAnim } from "@/lib/chart-anim";
 import { rotuloRunway } from "@/core/quant/score";
 import { pctDeInteiro, pct, comSinal, MENOS } from "@/lib/format";
 
@@ -119,15 +104,12 @@ export function QuantView() {
         }}
       >
         <span className="text-label font-medium text-muted">Radar executivo</span>
-        <div role="img" aria-label={`Radar: ${radar.map((d) => `${d.dimensao} ${d.valor}`).join(", ")}`}>
-          <ResponsiveContainer width="100%" height={240}>
-            <RadarChart data={radar} outerRadius="78%">
-              <PolarGrid stroke="var(--color-border-soft)" />
-              <PolarAngleAxis dataKey="dimensao" tick={{ fontSize: 13, fill: "var(--color-text-secondary)" }} />
-              <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={1.4} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
+        <RadarSeries
+          dados={radar.map((d) => ({ label: d.dimensao, valor: d.valor }))}
+          series={[{ chave: "valor", nome: "Nota de 0 a 100", cor: "var(--erp-graf-serie-1)" }]}
+          formatar={(v) => String(Math.round(v))}
+          ariaLabel={`Radar: ${radar.map((d) => `${d.dimensao} ${d.valor}`).join(", ")}`}
+        />
       </Card>
 
       {/* Narrativa executiva (CFO digital) */}
@@ -193,28 +175,15 @@ export function QuantView() {
         }}
       >
         <span className="text-label font-medium text-muted">Evolução do score</span>
-        <div role="img" aria-label={`Evolução do score: ${scoreTemporal.map((m) => `${m.label} ${m.score}`).join(", ")}`}>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={scoreTemporal} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-              <defs>
-                <DegradeArea id="quantGlow" />
-              </defs>
-              <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={32} />
-              <Tooltip
-                cursor={{ stroke: "var(--color-border)" }}
-                content={({ active, payload, label }: any) =>
-                  active && payload?.length ? (
-                    <DicaGrafico rotulo={label} valor={`Score ${payload[0].value}`} />
-                  ) : null
-                }
-              />
-              <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" {...chartAnim()} />
-              <Line type="monotone" dataKey="score" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <LinhaPontos
+          id="quant-score"
+          dados={scoreTemporal.map((m) => ({ label: m.label, valor: m.score }))}
+          altura={200}
+          eixo={(v) => String(v)}
+          dominio={[0, 100]}
+          formatar={(v) => `Score ${Math.round(v)}`}
+          ariaLabel={`Evolução do score: ${scoreTemporal.map((m) => `${m.label} ${m.score}`).join(", ")}`}
+        />
       </Card>
 
       {/* Cenários preditivos */}

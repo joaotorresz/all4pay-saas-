@@ -2,18 +2,7 @@
 
 import * as React from "react";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  ResponsiveContainer,
-} from "recharts";
-import { BRL, Card, Skeleton, Icon, InfoHint, DicaGrafico, DegradeArea } from "@/components/ui";
-import { formatBRLCompact } from "@/lib/format";
+import { BRL, Card, Skeleton, Icon, InfoHint, AreaComparada, BlocosProporcao } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
 import type { Nivel, PilarResult, LiquidezPonto, StressCenario, Alerta } from "@/core/risk-engine/types";
@@ -191,17 +180,18 @@ export function RiscoView() {
       >
         <span className="text-label font-medium text-muted">Concentração de receita</span>
         {data.concentracao.top.length === 0 && <span className="text-caption text-faint">Sem dados.</span>}
-        {data.concentracao.top.map((c) => (
-          <div key={c.id} className="flex flex-col gap-1">
-            <div className="flex justify-between text-caption">
-              <span className="text-ink truncate">{c.name}</span>
-              <span className="text-muted tabular-nums">{pctDeInteiro((c.share * 100))}</span>
-            </div>
-            <div className="h-[6px] rounded-pill bg-surface-2 overflow-hidden">
-              <div className="h-full rounded-pill bg-ink" style={{ width: `${c.share * 100}%` }} />
-            </div>
-          </div>
-        ))}
+        {data.concentracao.top.length > 0 && (
+          // Blocos sobre a receita INTEIRA: o resto vai em "Demais clientes",
+          // senão os maiores pareceriam somar 100% da receita.
+          <BlocosProporcao
+            altura={200}
+            ariaLabel={`Concentração de receita: ${data.concentracao.top.map((c) => `${c.name} ${pctDeInteiro(c.share * 100)}`).join(", ")}`}
+            fatias={[
+              ...data.concentracao.top.slice(0, 4).map((c) => ({ chave: c.id, nome: c.name, valor: c.share })),
+              { chave: "demais", nome: "Demais clientes", valor: Math.max(0, 1 - data.concentracao.top.slice(0, 4).reduce((t, c) => t + c.share, 0)) },
+            ]}
+          />
+        )}
       </Card>
 
       {/* Stress testing */}
@@ -323,28 +313,14 @@ function AlertaRow({ a }: { a: Alerta }) {
 function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; rupturaDia: number | null }) {
   const rupturaLabel = rupturaDia !== null ? pontos[rupturaDia]?.label : null;
   return (
-    <div role="img" aria-label={`Projeção de liquidez para 60 dias. ${rupturaDia !== null ? `Ruptura projetada em ${rupturaDia} dias.` : "Sem ruptura no horizonte."}`}>
-      <ResponsiveContainer width="100%" height={220}>
-        <AreaChart data={pontos} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-          <defs>
-            <DegradeArea id="liq" />
-          </defs>
-          <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={9} />
-          <YAxis tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatBRLCompact(v)} />
-          <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="4 3" />
-          {rupturaLabel && <ReferenceLine x={rupturaLabel} stroke="var(--color-negative)" strokeWidth={1} />}
-          <Tooltip
-            cursor={{ stroke: "var(--color-border)" }}
-            content={({ active, payload, label }: any) =>
-              active && payload?.length ? (
-                <DicaGrafico rotulo={`Dia ${label}`} valor={Number(payload[0].value)} />
-              ) : null
-            }
-          />
-          <Area type="monotone" dataKey="saldo" stroke="var(--color-chart-line)" strokeWidth={1.4} fill="url(#liq)" dot={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    <AreaComparada
+      id="risco-liquidez"
+      dados={pontos.map((p) => ({ label: p.label, valor: p.saldo }))}
+      altura={220}
+      zero
+      marcaX={rupturaLabel}
+      sufixoRotulo="saldo projetado"
+      ariaLabel={`Projeção de liquidez para 60 dias. ${rupturaDia !== null ? `Ruptura projetada em ${rupturaDia} dias.` : "Sem ruptura no horizonte."}`}
+    />
   );
 }

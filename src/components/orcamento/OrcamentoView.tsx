@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, StatusBadge, Button, Icon, CurrencyInput, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
+import { Card, BRL, StatusBadge, Button, Icon, CurrencyInput, Skeleton, InfoHint, MetaCirculo, type InfoConteudo } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { periodoPreset } from "@/core/dre";
 import type { Regime } from "@/core/dre/types";
@@ -109,7 +109,7 @@ export function OrcamentoVarianciaView() {
 
           {/* Resumo: Receita · EBITDA · Lucro (orçado vs realizado) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} info={{ titulo: "Receita realizada × orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" comMeta orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} info={{ titulo: "Receita realizada × orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
             <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} info={{ titulo: "EBITDA realizado × orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
             <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} info={{ titulo: "Lucro líquido × orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
           </div>
@@ -202,7 +202,7 @@ export function OrcamentoVarianciaView() {
   );
 }
 
-function ResumoCard({ titulo, orcado, realizado, baseline, info }: { titulo: string; orcado: number; realizado: number; baseline?: boolean; info?: InfoConteudo }) {
+function ResumoCard({ titulo, orcado, realizado, baseline, info, comMeta }: { titulo: string; orcado: number; realizado: number; baseline?: boolean; info?: InfoConteudo; comMeta?: boolean }) {
   const delta = realizado - orcado;
   const tone = Math.abs(delta) < 1 ? "text-muted" : "text-ink";
   // ⚠️ Quando o "orçado" é BASELINE AUTOMÁTICO (média da janela anterior), o
@@ -225,6 +225,15 @@ function ResumoCard({ titulo, orcado, realizado, baseline, info }: { titulo: str
       <span className={`text-caption font-medium tabular-nums ${tone}`}>
         {delta >= 0 ? "+" : "−"}<span className="tabular-nums"><BRL value={Math.abs(delta)} /></span> × {rotulo}
       </span>
+      {/* "Dinheiro poupado 2": quanto da receita orçada já entrou. Só com META digitada
+          e positiva — o baseline automático é a média de antes, não uma meta. */}
+      {comMeta && !baseline && orcado > 0 && (
+        <div className="mt-3">
+          <MetaCirculo atual={Math.max(0, realizado)} meta={orcado} tamanho={88}
+            rotuloAtual="Realizado" rotuloResto="Falta para o orçado"
+            ariaLabel={`Receita realizada: ${Math.round((Math.max(0, realizado) / orcado) * 100)}% do orçado`} />
+        </div>
+      )}
     </Card>
   );
 }

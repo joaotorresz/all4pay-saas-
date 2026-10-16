@@ -22,13 +22,8 @@
  */
 import * as React from "react";
 import { rotuloSituacao, type Situacao } from "@/core/central";
-import {
-  ResponsiveContainer, PieChart, Pie, Sector, Tooltip, Cell,
-} from "recharts";
-import type { PieSectorDataItem } from "recharts/types/polar/Pie";
-import { Card, BRL, Icon, Select, DateField, AneisConcentricos } from "@/components/ui";
+import { Card, BRL, Icon, Select, DateField, AneisConcentricos, RoscaFatias } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
-import { chartAnim } from "@/lib/chart-anim";
 import type { Periodo, TipoPeriodo } from "@/core/contas-pagar";
 
 /* ========================================================================== */
@@ -265,35 +260,8 @@ export function CardExpansivel({
 }
 
 /* ========================================================================== */
-/* Distribuição por situação (donut ativo)                                     */
+/* Distribuição por situação (anéis em receber, rosca em fatias em pagar)                                     */
 /* ========================================================================== */
-
-const tooltipStyle = {
-  background: "var(--color-white)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 10,
-  fontSize: 12,
-} as const;
-
-/**
- * O SETOR ATIVO — o padrão "donut active".
- *
- * ⚠️ Ele não é enfeite de hover: com três fatias de cores semânticas, a fatia
- * apontada precisa se declarar sem depender só do tooltip, que some no toque e
- * cobre o próprio gráfico. O setor cresce para fora e ganha um arco fino
- * destacado — dois sinais de forma, nenhum de cor, porque a cor aqui já carrega
- * o significado e usá-la também para "selecionado" faria a mesma dimensão dizer
- * duas coisas.
- */
-function SetorAtivo(props: PieSectorDataItem) {
-  const { outerRadius = 0, ...resto } = props;
-  return (
-    <g>
-      <Sector {...resto} outerRadius={outerRadius + 8} />
-      <Sector {...resto} outerRadius={outerRadius + 14} innerRadius={outerRadius + 10} />
-    </g>
-  );
-}
 
 export function DistribuicaoDonut({
   titulo, fatias, vazioTexto, info, variante = "rosca",
@@ -315,11 +283,6 @@ export function DistribuicaoDonut({
   // acontecido. A legenda continua listando todas, com o zero.
   const dados = fatias.filter((d) => d.valor > 0);
   const vazio = dados.length === 0;
-
-  // A fatia em foco: a maior por padrão — abrir com nada em foco desperdiça o
-  // centro do donut, que é o lugar de maior leitura do desenho.
-  const [ativo, setAtivo] = React.useState(0);
-  const foco = dados[Math.min(ativo, Math.max(0, dados.length - 1))];
 
   const resumo = fatias
     .map((d) => `${d.rotulo}: ${formatBRL(d.valor)} (${pct(d.fracao)})`)
@@ -345,73 +308,16 @@ export function DistribuicaoDonut({
     );
   }
 
+  // "Histórico de transferências 2" da Biblioteca: a rosca em fatias
+  // separadas, com a % sobre cada uma e a legenda à esquerda.
   return (
     <Card className="flex flex-col gap-3" info={info}>
-      <span className="text-h3 text-ink pr-8">{titulo}</span>
-
+      <span className="text-[13px] font-medium pr-8" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
       {vazio ? (
         <p className="m-0 text-body text-muted py-10 text-center">{vazioTexto}</p>
       ) : (
-        <>
-          <div className="h-[230px]" role="img" aria-label={`${titulo}. ${resumo}`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={dados}
-                  dataKey="valor"
-                  nameKey="rotulo"
-                  innerRadius="55%"
-                  outerRadius="72%"
-                  paddingAngle={2}
-                  stroke="none"
-                  activeIndex={Math.min(ativo, dados.length - 1)}
-                  activeShape={SetorAtivo}
-                  onMouseEnter={(_, k) => setAtivo(k)}
-                  {...chartAnim()}
-                >
-                  {dados.map((d) => <Cell key={d.chave} fill={d.cor} />)}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatBRL(v)} />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* O CENTRO responde pela fatia em foco. Um donut com o buraco
-                vazio gasta o ponto de maior leitura do desenho. */}
-            <div className="relative -mt-[150px] mb-[110px] flex flex-col items-center pointer-events-none">
-              <span className="a4p-num text-[19px] leading-none text-ink">
-                <BRL value={foco?.valor ?? 0} showDecimals={false} />
-              </span>
-              <span className="text-caption text-muted mt-1">{foco?.rotulo}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {fatias.map((d) => {
-              const k = dados.findIndex((x) => x.chave === d.chave);
-              const emFoco = k >= 0 && k === Math.min(ativo, dados.length - 1);
-              return (
-                <button
-                  key={d.chave}
-                  type="button"
-                  disabled={k < 0}
-                  onMouseEnter={() => k >= 0 && setAtivo(k)}
-                  onFocus={() => k >= 0 && setAtivo(k)}
-                  onClick={() => k >= 0 && setAtivo(k)}
-                  className={`flex items-center gap-2 text-caption text-left rounded-md px-2 py-1 -mx-2 transition-colors ${
-                    emFoco ? "bg-surface-2" : ""
-                  } ${k < 0 ? "opacity-50" : "hover:bg-surface-2"}`}
-                >
-                  <span aria-hidden className="inline-block w-2 h-2 rounded-pill shrink-0"
-                    style={{ background: d.cor }} />
-                  <span className="text-muted flex-1 truncate">
-                    {d.rotulo}<span className="text-faint"> · {d.quantidade}</span>
-                  </span>
-                  <span className="a4p-num text-faint tabular-nums">{pct(d.fracao)}</span>
-                  <span className="a4p-num text-ink"><BRL value={d.valor} /></span>
-                </button>
-              );
-            })}
-          </div>
-        </>
+        <RoscaFatias ariaLabel={`${titulo}. ${resumo}`}
+          fatias={dados.map((d) => ({ chave: d.chave, nome: d.rotulo, valor: d.valor, cor: d.cor }))} />
       )}
     </Card>
   );

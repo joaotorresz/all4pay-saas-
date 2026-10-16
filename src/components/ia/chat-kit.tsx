@@ -13,12 +13,9 @@ import * as React from "react";
 import Link from "next/link";
 import { valorDoTexto, type NumeroResposta } from "@/core/assistant/numero";
 import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Icon, DegradeArea } from "@/components/ui";
+import { Icon, AreaComparada, BarrasHorizontais } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
-import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
-import { RAIO_DIREITA } from "@/lib/grafico";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -126,56 +123,24 @@ export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: num
 
 /**
  * O gráfico da resposta. O motor devolve só os dados (`GraficoResposta`); a
- * escolha visual mora aqui, seguindo o DS: **linha na cor da marca** com glow
- * em degradê (séries temporais) e **barras neutras** (entrada em ink · saída
- * em areia), a 70%. Número não tem cor por sinal (decisão de 30/09/2026): a
- * entrada e a saída se distinguem por intensidade, não por verde × vermelho.
- * Entra animado via `chartAnim()`.
+ * escolha visual mora aqui, com as peças da Biblioteca do canvas: série no
+ * tempo → "Estatística de saldo 1" (`AreaComparada`); ranking por categoria →
+ * "Receita 3" (`BarrasHorizontais`). Número não tem cor por sinal (decisão de
+ * 30/09/2026): as barras ficam na tinta, qualquer que seja o lado.
  */
 export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
-  const id = React.useId();
-  const base = g.tom === "entrada" ? "var(--color-ink)" : g.tom === "saida" ? "var(--color-areia)" : "var(--color-lime)";
-  const cor = `color-mix(in srgb, ${base} 70%, transparent)`;
+  const id = React.useId().replace(/:/g, "");
   const resumo = g.dados.map((d) => `${d.nome}: ${formatBRL(d.valor)}`).join(", ");
   return (
-    <figure className="m-0 flex flex-col gap-1 pt-1" role="img" aria-label={`${g.titulo}. ${resumo}`}>
+    <figure className="m-0 flex flex-col gap-2 pt-1" aria-label={`${g.titulo}. ${resumo}`}>
       <figcaption className="text-[11px] text-faint">{g.titulo}</figcaption>
-      <div style={{ height: g.tipo === "linha" ? 108 : Math.max(72, g.dados.length * 26) }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {g.tipo === "linha" ? (
-            <AreaChart data={g.dados} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <defs>
-                <DegradeArea id={`${id}-glow`} />
-              </defs>
-              <XAxis dataKey="nome" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
-              <YAxis hide />
-              <Tooltip
-                cursor={{ stroke: "var(--color-border)" }}
-                contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}
-                formatter={(v: number | string) => formatBRL(Number(v))}
-              />
-              <Area type="monotone" dataKey="valor" stroke="var(--color-lime)" strokeWidth={1.4}
-                fill={`url(#${id}-glow)`} activeDot={{ r: 3 }} {...chartAnim()} />
-            </AreaChart>
-          ) : (
-            <BarChart data={g.dados} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
-              <XAxis type="number" hide />
-              {/* `interval={0}` é obrigatório: por padrão o Recharts OMITE ticks
-                  que julga colidir, e some com o rótulo do meio. Nomes longos
-                  são reticenciados aqui em vez de vazar da faixa. */}
-              <YAxis type="category" dataKey="nome" width={96} interval={0} tickLine={false} axisLine={false}
-                tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-                tickFormatter={(v: string) => (v.length > 13 ? `${v.slice(0, 12)}…` : v)} />
-              <Tooltip
-                cursor={{ fill: "var(--color-surface-2)" }}
-                contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}
-                formatter={(v: number | string) => formatBRL(Number(v))}
-              />
-              <Bar dataKey="valor" fill={cor} radius={RAIO_DIREITA} barSize={10} {...chartAnim()} />
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-      </div>
+      {g.tipo === "linha" ? (
+        <AreaComparada id={`ia-${id}`} altura={120} ariaLabel={`${g.titulo}. ${resumo}`}
+          dados={g.dados.map((d) => ({ label: d.nome, valor: d.valor }))} />
+      ) : (
+        <BarrasHorizontais ariaLabel={`${g.titulo}. ${resumo}`}
+          itens={g.dados.map((d, i) => ({ chave: d.nome + i, nome: d.nome, valor: d.valor }))} />
+      )}
     </figure>
   );
 }
