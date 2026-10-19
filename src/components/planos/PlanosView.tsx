@@ -28,6 +28,9 @@ const NOME_DA_ROTA: Record<string, string> = {
   "/inadimplencia": "Inteligência de inadimplência",
   "/investidores": "Relatório ao investidor",
   "/contratacoes": "Plano de contratações",
+  "/simuladores": "Plano de contratações",
+  "/central": "Solicitações, alçadas e papéis",
+  "/dashboard/reports/dre-multi": "Consolidado multiempresa",
   "/impostos": "Apuração de impostos",
   "/aprovacoes": "Solicitações e aprovações",
   "/governanca": "Governança e auditoria",
@@ -40,8 +43,9 @@ const NOME_DA_ROTA: Record<string, string> = {
 
 function rotuloDe(rota: string | null): string | null {
   if (!rota) return null;
-  const base = `/${rota.split("?")[0].split("/").filter(Boolean)[0] ?? ""}`;
-  return NOME_DA_ROTA[base] ?? null;
+  const caminho = rota.split("?")[0];
+  const base = `/${caminho.split("/").filter(Boolean)[0] ?? ""}`;
+  return NOME_DA_ROTA[caminho] ?? NOME_DA_ROTA[base] ?? null;
 }
 
 export function PlanosView() {

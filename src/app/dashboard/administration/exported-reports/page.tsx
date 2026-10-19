@@ -4,7 +4,7 @@ import { RelatoriosExportadosView } from "@/components/administracao/Administrac
 
 export default function Page() {
   return (
-    <AppShell title="Relatórios exportados" crumb="Administração">
+    <AppShell title="Arquivos gerados" crumb="Configurações">
       <Suspense fallback={null}>
         <RelatoriosExportadosView />
       </Suspense>

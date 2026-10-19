@@ -5,12 +5,9 @@ import { AppShell } from "@/components/app/AppShell";
 import { HubShell, type AbaHub } from "@/components/app/HubShell";
 import { RazaoView } from "@/components/razao/RazaoView";
 import { ReceitaReconhecimentoView } from "@/components/receita/ReceitaView";
-import { RelatoriosRazaoView } from "@/components/relatorios/RelatoriosRazaoView";
 import { DimensoesView } from "@/components/dimensoes/DimensoesView";
+import { RelatoriosRazaoView } from "@/components/relatorios/RelatoriosRazaoView";
 import { CronogramasView } from "@/components/cronogramas/CronogramasView";
-import { EnvioNFsView } from "@/components/contabilidade-export/EnvioNFsView";
-import { DominioExportView } from "@/components/contabilidade-export/DominioExportView";
-import { ConsolidadoView } from "@/components/consolidado/ConsolidadoView";
 
 /**
  * Hub de Contabilidade — telas irmãs viram abas de UM destino de menu.
@@ -23,20 +20,30 @@ import { ConsolidadoView } from "@/components/consolidado/ConsolidadoView";
  * endereço para a mesma tela. Os endereços das abas desviam para elas
  * (`ALIASES_DE_ABA`).
  */
+/**
+ * O Razão e o que é dele (reorganização dos menus, 19/10/2026). Relatórios do
+ * razão, envio das NFs, TXT Domínio e consolidado saíram: o DRE e o balanço
+ * moram em Relatórios, os arquivos do contador em "Enviar ao contador", o
+ * consolidado em Multiempresas — e o pivot por dimensão veio para Dimensões.
+ */
 const ABAS: AbaHub[] = [
-  { id: "razao", label: "Razão contábil", render: () => <RazaoView /> },
+  { id: "razao", label: "Lançamentos", render: () => <RazaoView /> },
   { id: "receita", label: "Reconhecimento de receita", render: () => <ReceitaReconhecimentoView /> },
-  { id: "relatorios", label: "Relatórios", render: () => <RelatoriosRazaoView /> },
-  { id: "dimensoes", label: "Dimensões & tags", render: () => <DimensoesView /> },
   { id: "cronogramas", label: "Cronogramas", render: () => <CronogramasView /> },
-  { id: "envio", label: "Envio das NFs", render: () => <EnvioNFsView /> },
-  { id: "txt-dominio", label: "TXT Domínio", render: () => <DominioExportView /> },
-  { id: "consolidado", label: "Consolidado", render: () => <ConsolidadoView /> },
+  {
+    id: "dimensoes", label: "Dimensões",
+    render: () => (
+      <div className="flex flex-col gap-5">
+        <DimensoesView />
+        <RelatoriosRazaoView soPivot />
+      </div>
+    ),
+  },
 ];
 
 export default function ContabilidadePage() {
   return (
-    <AppShell title="Contabilidade" crumb="Contabilidade">
+    <AppShell title="Razão contábil" crumb="Contabilidade">
       <Suspense fallback={null}>
         <HubShell abas={ABAS} />
       </Suspense>

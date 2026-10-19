@@ -33,7 +33,7 @@ export default async function iaReceita(navegador) {
   v.ok([antes.gasto, antes.fat, antes.entrou].every((x) => Number.isFinite(x) && x > 0), "a IA responde gasto, faturamento e entradas do mês", JSON.stringify({ g: antes.gasto, f: antes.fat, e: antes.entrou }));
 
   // CRIAR: transferência de R$ 1.234,56 entre duas contas da empresa
-  await u.ir("/dashboard/financial/accounts-and-transfers?novo=1");
+  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
   await u.page.locator('select[aria-label="Selecione uma conta"]').nth(0).selectOption({ index: 1 });
   await u.page.locator('select[aria-label="Selecione uma conta"]').nth(1).selectOption({ index: 2 });
   await u.page.locator('input[placeholder="0,00"]').first().fill("123456");

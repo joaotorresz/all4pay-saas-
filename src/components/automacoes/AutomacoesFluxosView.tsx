@@ -73,7 +73,7 @@ export function AutomacoesFluxosView() {
       )}
     >
       <div className="flex flex-col gap-5 pb-8">
-        <AtalhosTela atalhos={[{ label: "Alertas do sistema", href: "/configuracoes?aba=automacoes", icon: "bell" }]} />
+        <AtalhosTela atalhos={[{ label: "Alertas do sistema", href: "/automacoes?aba=alertas", icon: "bell" }]} />
         {aberto
           ? <EditorFluxo key={aberto.id} fluxo={aberto} onVoltar={() => setAbertoId(null)} />
           : <ListaFluxos fluxos={fluxos} pedido={pedido} onAbrir={setAbertoId} onModelo={(id) => {

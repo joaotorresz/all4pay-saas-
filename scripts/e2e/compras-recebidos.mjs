@@ -51,7 +51,7 @@ export default async function comprasRecebidos(navegador) {
   const antesOut = (await titulosDoMes(u, "2026-10")).filter((l) => l.includes("842,17")).length;
 
   /* ---- boleto: a linha errada não entra ---- */
-  await u.ir("/dashboard/purchases/received-boletos");
+  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
   const campo = p.getByPlaceholder("00000.00000 00000.000000 00000.000000 0 00000000000000");
   const errada = LINHA.slice(0, 12) + (LINHA[12] === "9" ? "0" : "9") + LINHA.slice(13);
   await campo.fill(errada);
@@ -99,7 +99,7 @@ export default async function comprasRecebidos(navegador) {
   await p.getByRole("button", { name: "Salvar" }).last().click();
   await p.waitForTimeout(2500);
   v.ok(!p.url().includes("/new"), "salvar sai do formulário", p.url());
-  await u.ir("/dashboard/purchases/received-boletos");
+  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
   v.ok(/Lançado/.test(await linhaCom(p, "Gráfica Aurora")),
     "a linha do boleto passa a dizer 'Lançado' (e não oferece lançar de novo)");
 
@@ -112,7 +112,7 @@ export default async function comprasRecebidos(navegador) {
   v.ok(Math.abs((saidas1 - saidas0) - esperado) < 0.011, "o fluxo de caixa sobe o valor do boleto", `${saidas0} → ${saidas1}`);
 
   /* ---- o mesmo boleto de novo: nada muda ---- */
-  await u.ir("/dashboard/purchases/received-boletos");
+  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
   await p.getByPlaceholder("00000.00000 00000.000000 00000.000000 0 00000000000000").fill(LINHA);
   await p.waitForTimeout(300);
   await p.getByRole("button", { name: "Adicionar" }).click();
@@ -126,7 +126,7 @@ export default async function comprasRecebidos(navegador) {
   v.ok(out2.filter((l) => l.includes("842,17") && l.includes("20/10/2026")).length === antesOut + 1, "e nenhum segundo título");
 
   /* ---- NF-e pela chave ---- */
-  await u.ir("/dashboard/purchases/received-invoices");
+  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs");
   const campoChave = p.getByPlaceholder("Chave de acesso (44 dígitos)");
   await campoChave.fill(CHAVE.slice(0, 43) + String((Number(CHAVE[43]) + 1) % 10));
   await p.waitForTimeout(300);

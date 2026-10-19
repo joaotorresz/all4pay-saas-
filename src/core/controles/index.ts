@@ -61,7 +61,7 @@ export interface Controle {
 export const CONTROLES: Controle[] = [
   /* ------------------------------- chrome -------------------------------- */
   { id: "topbar.marca", tela: "Início", rotulo: "Quattro", tipo: "navegacao", destino: "/" },
-  { id: "topbar.config", tela: "Início", rotulo: "Configurações", tipo: "navegacao", destino: "/dashboard/administration" },
+  { id: "topbar.config", tela: "Início", rotulo: "Configurações", tipo: "navegacao", destino: "/dashboard/administration/company-data" },
   { id: "topbar.anuncios", tela: "Início", rotulo: "Anúncios", tipo: "navegacao", destino: "/dashboard/help" },
   { id: "topbar.mais", tela: "Início", rotulo: "Mais", tipo: "acao", efeito: "abre o menu de conta, busca, tema e sair", fechaPorEsc: true },
   {
@@ -97,7 +97,7 @@ export const CONTROLES: Controle[] = [
   { id: "criar.venda", tela: "Início", rotulo: "Nova venda", tipo: "navegacao", destino: "/dashboard/sales-invoices/new" },
   { id: "criar.compra", tela: "Início", rotulo: "Nova compra", tipo: "navegacao", destino: "/dashboard/purchases/new" },
   { id: "criar.nf", tela: "Início", rotulo: "Nova nota fiscal", tipo: "navegacao", destino: "/dashboard/sales-invoices/invoices" },
-  { id: "criar.link", tela: "Início", rotulo: "Novo link de pagamento", tipo: "navegacao", destino: "/dashboard/sales-invoices/payment-links" },
+  { id: "criar.link", tela: "Início", rotulo: "Novo link de pagamento", tipo: "navegacao", destino: "/dashboard/sales-invoices?aba=links" },
   { id: "criar.assinatura", tela: "Início", rotulo: "Nova assinatura / recorrência", tipo: "navegacao", destino: "/dashboard/sales-invoices/subscriptions" },
   { id: "criar.usuario", tela: "Início", rotulo: "Novo usuário", tipo: "navegacao", destino: "/dashboard/administration/users" },
   {

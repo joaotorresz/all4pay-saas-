@@ -44,13 +44,17 @@ const DECISAO: Record<DecisaoPolitica, { label: string; cor: string }> = {
 const nivelCor = (n: string) =>
   n === "critico" ? "var(--color-negative)" : n === "atencao" ? "var(--color-warning)" : "var(--color-text-secondary)";
 
-export function InstitutionalView() {
+/**
+ * `semTrilha`: a trilha de auditoria mora em Configurações › Logs (a MESMA
+ * cadeia assinada); na aba "Alçadas e papéis" ela sairia duplicada.
+ */
+export function InstitutionalView({ semTrilha = false }: { semTrilha?: boolean } = {}) {
   const { data, isLoading, isError } = useAuditTrail();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Auditoria imutável */}
-      <div className="lg:col-span-3">
+      {!semTrilha && <div className="lg:col-span-3">
         {isLoading ? (
           <Skeleton className="h-[280px]" rounded="card" />
         ) : isError || !data ? (
@@ -58,7 +62,7 @@ export function InstitutionalView() {
         ) : (
           <AuditCard eventos={data.eventos} intacta={data.integridade.intacta} total={data.integridade.total} origem={data.origem} />
         )}
-      </div>
+      </div>}
 
       {/* Policy engine (interativo) */}
       <PolicyEngineCard />
@@ -161,7 +165,7 @@ export function InstitutionalView() {
             icon="list-checks"
             title="Nenhuma solicitação aguardando"
             hint="Pagamentos acima da alçada entram aqui para aprovação. A fila completa, com o painel de decidir, fica em Aprovações."
-            action={<Button variant="secondary" onClick={() => { window.location.href = "/aprovacoes"; }}>Abrir aprovações</Button>}
+            action={<Button variant="secondary" onClick={() => { window.location.href = "/central?aba=solicitacoes"; }}>Abrir aprovações</Button>}
           />
         )}
       </Card>

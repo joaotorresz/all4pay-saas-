@@ -15,7 +15,8 @@ import { AppShell } from "@/components/app/AppShell";
 
 const isoDia = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export function RelatoriosRazaoView() {
+/** `soPivot`: só o pivot por dimensão (a aba Dimensões do Razão). */
+export function RelatoriosRazaoView({ soPivot = false }: { soPivot?: boolean } = {}) {
   const [entries, setEntries] = React.useState<RazaoLancamento[] | null>(null);
   const [ate, setAte] = React.useState(isoDia(new Date()));
   const [de, setDe] = React.useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1); return isoDia(d); });
@@ -45,6 +46,7 @@ export function RelatoriosRazaoView() {
           </Card>
         ) : (
           <>
+            {!soPivot && <>
             {/* DRE unificado: vive em /dre (razão = projeção dos movimentos, números reconciliam) */}
             <Card className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex flex-col">
@@ -86,6 +88,8 @@ export function RelatoriosRazaoView() {
                 ))}
               </div>
             </Card>
+
+            </>}
 
             {/* Pivot por dimensão */}
             <Card className="flex flex-col gap-3">

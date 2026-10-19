@@ -38,7 +38,7 @@ export default async function lixeira(navegador) {
 
   // Materializa o dataset local da demonstração (uma transferência entre contas
   // próprias: não mexe em "Contas a pagar").
-  await u.ir("/dashboard/financial/accounts-and-transfers?novo=1");
+  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
   const contas = u.page.locator('select[aria-label="Selecione uma conta"]');
   await contas.nth(0).selectOption({ index: 1 });
   await contas.nth(1).selectOption({ index: 2 });

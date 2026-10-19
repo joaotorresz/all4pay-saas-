@@ -132,7 +132,7 @@ export function niveisDaEstrutura(e: EntradaEstrutura): NivelEstrutura[] {
       porque: "O compromisso que se repete — usa a parte, o produto, a conta e a categoria de cima.",
       itens: [{
         rotulo: "Contratos", quantidade: e.contratos, resumo: plural(e.contratos, "contrato", "contratos"),
-        href: "/dashboard/registrations/contracts",
+        href: "/dashboard/sales-invoices/subscriptions?aba=contratos-cliente",
       }],
     },
   ];
