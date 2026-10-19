@@ -927,6 +927,23 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   cortado em qualquer ponto diz "chegou CORTADO". `/api/admin/saida-fixa` prova
   os 2 IPs de dentro da função.
 
+## ⚠️ A CONVERSA LANÇA, MAS SÓ NO "CONFIRMAR" (decisão do dono, 19/10/2026)
+
+Amplia a regra "a IA sugere, não executa" da Rodada 9: no chat da Quattro AI a
+pessoa FALA ("gastei 100 de gasolina", microfone pela Web Speech API do
+navegador, pt-BR, sem áudio sair para servidor) ou ENVIA uma foto/PDF (boleto,
+nota, comprovante) e a IA PROPÕE o lançamento num cartão editável (o que fazer,
+valor, data, categoria, cadastrar contato). ⚠️ Nada grava antes do clique em
+**Confirmar**, e quem grava é o escritor único de documento avulso
+(`confirmarDocumento`, `lib/upload-doc`) — a conversa não ganhou caminho de
+escrita próprio. Leitura da frase em `core/assistant/lancamento-falado`
+(pergunta nunca vira lançamento; "25 não, 100" vale o último; compromisso
+"vou pagar dia 10" fica a pagar), cartão em `ia/ConfirmarNoChat.tsx`, ponte em
+`lib/ia-registro`. Lançamento FALADO nunca dá baixa sozinho num título aberto
+(casar só por valor é arriscado); a FOTO usa o casamento do `analisarDocumento`.
+O desfecho ("Feito: …") fica salvo na conversa. Guarda: bloco "lançamento pela
+conversa" do `npm run ia-eval`.
+
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
 - **A origem do número é DITA por quem calcula** (`core/assistant/numero`):

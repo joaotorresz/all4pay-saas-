@@ -17,6 +17,7 @@ import { Icon, AreaComparada, BarrasHorizontais } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import type { GraficoResposta } from "@/core/assistant/engine";
 import type { AcaoIA } from "@/core/assistant/acoes";
+import type { PropostaChat } from "@/lib/ia-registro";
 import { DigitandoIA, atrasoDaPalavra, duracaoRevelar } from "./conversa";
 
 /**
@@ -80,6 +81,11 @@ export interface Turno {
    * próximo seguimento parte dela, não da frase curta.
    */
   consulta?: string;
+  /**
+   * Um lançamento proposto pela conversa (frase dita ou foto lida), com o que
+   * a pessoa ajustou e o desfecho do "Confirmar" (`lib/ia-registro`).
+   */
+  proposta?: PropostaChat;
 }
 
 /* A marca da IA mora em `./marca` (sem Recharts: a abertura de conta também a usa). */

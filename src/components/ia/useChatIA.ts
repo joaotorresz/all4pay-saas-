@@ -10,6 +10,7 @@
  * passa TUDO pelas etapas visíveis de análise — nenhuma resposta é instantânea.
  */
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
@@ -19,14 +20,17 @@ import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
 import { perguntaComAssuntoNovo, perguntaComPeriodoNovo } from "@/core/assistant/seguimento";
 import { acoesDasTelas, acoesDeSeguimento, type AcaoIA } from "@/core/assistant/acoes";
-
-const acoesOuNada = (a: AcaoIA[]) => (a.length ? a : undefined);
 import { ehPedidoDeAutomacao } from "@/core/automacoes/pedido";
+import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
+import { fraseDaProposta, gravarProposta, lerArquivoNoChat, propostaDaFala, type PropostaChat } from "@/lib/ia-registro";
+import { formatBRL } from "@/lib/format";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
 import { ETAPAS, RITMO, espera, CURADAS, copiarTexto, type Turno, type EstadoCopia } from "./chat-kit";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
+
+const acoesOuNada = (a: AcaoIA[]) => (a.length ? a : undefined);
 
 /**
  * Pede ao Claude só a REDAÇÃO de uma resposta que o motor já calculou. Sem
@@ -58,6 +62,7 @@ export function useChatIA({ inicial = [], onMudou }: {
   const anomalias = intel?.anomalias;
   const insights = intel?.insights;
 
+  const qc = useQueryClient();
   const [texto, setTexto] = React.useState("");
   const [turnos, setTurnos] = React.useState<Turno[]>(inicial);
   const [pensando, setPensando] = React.useState(false);
@@ -144,6 +149,19 @@ export function useChatIA({ inicial = [], onMudou }: {
       return;
     }
 
+    // 0b) Um LANÇAMENTO dito ("gastei 100 de gasolina", falado ou digitado):
+    // a conversa propõe tipo, data e categoria, e só grava no "Confirmar".
+    const fala = interpretarLancamento(q, input?.hoje ?? new Date().toISOString().slice(0, 10));
+    if (fala) {
+      const proposta = propostaDaFala(fala);
+      const resposta = fraseDaProposta(proposta, false);
+      await analisar(null);
+      setPergunta(null);
+      registrar({ id, q, resposta, fontes: ["Lançamento pela conversa"], fonte: "motor", proposta });
+      void logAcaoIA({ kind: "chat", titulo: q, detalhe: resposta, status: "lida" });
+      return;
+    }
+
     // Recorte de seguimento ("e só a última semana?"): herda o assunto da
     // última pergunta que o motor respondeu. Vale antes da base de
     // conhecimento, que leria "semana" como conceito.
@@ -221,6 +239,56 @@ export function useChatIA({ inicial = [], onMudou }: {
     } finally { setPensando(false); setPergunta(null); }
   }, [pensando, input, ctx, anomalias, insights, turnos, analisar, registrar]);
 
+  /** Muda um turno e salva a conversa (o desfecho da proposta entra no histórico). */
+  const mudarTurno = React.useCallback((id: number, f: (t: Turno) => Turno) => {
+    setTurnos((arr) => { const novo = arr.map((x) => (x.id === id ? f(x) : x)); mudouRef.current?.(novo); return novo; });
+  }, []);
+
+  /** A foto ou o PDF enviado na conversa: lê e propõe, como a frase dita. */
+  const enviarArquivo = React.useCallback(async (file: File) => {
+    if (pensando) return;
+    const id = ++idRef.current;
+    const q = `Arquivo enviado: ${file.name}`;
+    setPergunta(q);
+    const leitura = await analisar(lerArquivoNoChat(file).catch((e) => ({ kind: "erro" as const, motivo: e instanceof Error ? e.message : "falha na leitura" })));
+    setPergunta(null);
+    if (leitura.kind === "doc") {
+      registrar({ id, q, resposta: fraseDaProposta(leitura.proposta, true), fontes: ["Leitura do documento"], fonte: "motor", proposta: leitura.proposta });
+    } else if (leitura.kind === "lote") {
+      registrar({ id, q, resposta: `É um extrato com **${leitura.linhas}** lançamentos. A conferência linha a linha fica na entrada de dados, antes de gravar.`, fonte: "motor", acoes: acoesDasTelas(["enviar"]) });
+    } else {
+      registrar({ id, q, resposta: `Não consegui ler este arquivo (${leitura.motivo}). Tente uma foto mais nítida, com o documento inteiro no quadro, ou envie o PDF.`, fonte: "motor", acoes: acoesDasTelas(["enviar"]) });
+    }
+  }, [pensando, analisar, registrar]);
+
+  const ajustarProposta = React.useCallback((id: number, patch: Partial<PropostaChat>) => {
+    mudarTurno(id, (t) => (t.proposta && (t.proposta.estado === "aberta" || t.proposta.estado === "falhou") ? { ...t, proposta: { ...t.proposta, ...patch } } : t));
+  }, [mudarTurno]);
+
+  const cancelarProposta = React.useCallback((id: number) => {
+    mudarTurno(id, (t) => (t.proposta ? { ...t, proposta: { ...t.proposta, estado: "cancelada", desfecho: "Cancelado: nada foi lançado." } } : t));
+  }, [mudarTurno]);
+
+  const confirmarProposta = React.useCallback(async (t: Turno) => {
+    const pc = t.proposta;
+    if (!pc || (pc.estado !== "aberta" && pc.estado !== "falhou")) return;
+    if (!(pc.valor > 0)) { mudarTurno(t.id, (x) => ({ ...x, proposta: { ...pc, desfecho: "Informe o valor antes de confirmar." } })); return; }
+    mudarTurno(t.id, (x) => ({ ...x, proposta: { ...pc, estado: "gravando", desfecho: undefined } }));
+    try {
+      const r = await gravarProposta(pc);
+      const ok = r.movimento || r.baixa;
+      const desfecho = ok
+        ? r.baixa
+          ? `Feito: baixa dada na conta agendada${pc.arquivo ? ", com o comprovante anexado" : ""}.`
+          : `Feito: ${formatBRL(pc.valor)} lançado em ${pc.categoria}${pc.arquivo ? ", com o arquivo anexado" : ""}${r.contatoCriado ? ", e o contato cadastrado" : ""}.`
+        : `Não foi possível gravar${r.erro ? `: ${r.erro}` : "."}`;
+      mudarTurno(t.id, (x) => ({ ...x, proposta: { ...pc, estado: ok ? "gravada" : "falhou", desfecho } }));
+      if (ok) await qc.invalidateQueries();
+    } catch (e) {
+      mudarTurno(t.id, (x) => ({ ...x, proposta: { ...pc, estado: "falhou", desfecho: `Não foi possível gravar: ${e instanceof Error ? e.message : "erro desconhecido"}` } }));
+    }
+  }, [mudarTurno, qc]);
+
   /** Troca a conversa aberta (retomar do histórico / começar do zero). */
   const carregar = React.useCallback((ts: Turno[]) => {
     setTurnos(ts);
@@ -234,6 +302,7 @@ export function useChatIA({ inicial = [], onMudou }: {
     turnos, pensando, etapa, pergunta,
     copia, copiar, darFeedback,
     responder, carregar,
+    enviarArquivo, ajustarProposta, confirmarProposta, cancelarProposta,
     sugeridas: mesclarSugestoes(CURADAS, 4),
     pronto: !!input,
   };

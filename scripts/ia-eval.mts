@@ -26,6 +26,7 @@ import { perguntaComAssuntoNovo } from "@/core/assistant/seguimento";
 import { INVENTARIO } from "@/core/rotas/inventario";
 import { destinoDe } from "@/core/rotas/aliases";
 import { numerosInventados } from "@/core/assistant/redacao";
+import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
   janelaHoje, janelaMes, janelaUltimosDias,
@@ -246,7 +247,29 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
   ok("seguimento de assunto: frase com período próprio não herda", perguntaComAssuntoNovo("quanto gastei na semana passada?", "e as receitas de março?") === null);
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8;
+// ═══ LANÇAMENTO PELA CONVERSA (19/10/2026, decisão do dono) ═══
+// "Gastei 100 de gasolina" (falado ou digitado) vira PROPOSTA; gravar é só no
+// "Confirmar". O que se cobra aqui é a LEITURA: valor, lado, data e categoria —
+// e que pergunta nenhuma vire lançamento.
+{
+  const somaDias = (d: string, n: number) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  const g = interpretarLancamento("Gastei R$ 25, 25 não, vai, R$ 100 com gasolina, combustível", HOJE);
+  ok("lançamento falado: a correção falada vale (100, não 25), em Combustível", g?.valor === 100 && g.categoria === "Combustível" && g.tipo === "saida" && g.pago, JSON.stringify(g));
+  const l = interpretarLancamento("paguei 350 de luz ontem", HOJE);
+  ok("lançamento falado: 'ontem' e a conta de luz", l?.valor === 350 && l.data === somaDias(HOJE, -1) && l.categoria === "Utilidades", JSON.stringify(l));
+  const a = interpretarLancamento("vou pagar o aluguel de 2.500 dia 10", HOJE);
+  ok("lançamento falado: compromisso fica a pagar, no próximo dia 10", a?.valor === 2500 && !a.pago && a.data > HOJE && a.data.endsWith("-10") && a.categoria === "Aluguel", JSON.stringify(a));
+  const m = interpretarLancamento("comprei 2,5 mil em insumos", HOJE);
+  ok("lançamento falado: '2,5 mil' é 2500", m?.valor === 2500, JSON.stringify(m));
+  const r = interpretarLancamento("recebi 1.200 do cliente Alpha", HOJE);
+  ok("lançamento falado: recebi é entrada", r?.tipo === "entrada" && r.valor === 1200, JSON.stringify(r));
+  const perguntas = ["quanto gastei de gasolina?", "quanto gastei nos últimos 3 meses", "qual meu saldo", "posso comprar um carro de 150 mil em 48x?", "quanto recebi em maio", "paguei mais em maio ou junho?"];
+  const capturadas = perguntas.filter((q) => interpretarLancamento(q, HOJE) !== null);
+  ok("lançamento falado: pergunta nunca vira lançamento", capturadas.length === 0, capturadas.join(" | "));
+  ok("lançamento falado: sem valor não há proposta", interpretarLancamento("gastei com gasolina", HOJE) === null);
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8 + 7;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);
