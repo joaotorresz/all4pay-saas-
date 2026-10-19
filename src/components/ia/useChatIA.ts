@@ -17,6 +17,7 @@ import { responderLocal, graficoDoCatalogo } from "@/core/assistant/engine";
 import { numerosInventados } from "@/core/assistant/redacao";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
+import { perguntaComPeriodoNovo } from "@/core/assistant/seguimento";
 import { ehPedidoDeAutomacao } from "@/core/automacoes/pedido";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
@@ -140,8 +141,14 @@ export function useChatIA({ inicial = [], onMudou }: {
       return;
     }
 
+    // Recorte de seguimento ("e só a última semana?"): herda o assunto da
+    // última pergunta que o motor respondeu. Vale antes da base de
+    // conhecimento, que leria "semana" como conceito.
+    const anterior = [...turnos].reverse().find((t) => t.fonte === "motor");
+    const consulta = perguntaComPeriodoNovo(anterior?.consulta ?? anterior?.q, q);
+
     // 1) Conceitual → base de conhecimento (sem chave)
-    const kb = buscarKB(q);
+    const kb = consulta ? null : buscarKB(q);
     if (kb) {
       const turno: Turno = { id, q, resposta: kb.texto, fontes: [`Base: ${kb.titulo}`], fonte: "kb", rota: kb.rota, rotaLabel: kb.titulo };
       await analisar(null);
@@ -158,16 +165,19 @@ export function useChatIA({ inicial = [], onMudou }: {
       return;
     }
 
-    // 2) Sobre os NÚMEROS → motor NATIVO (resposta factual, offline)
-    const local = responderLocal(q, input, ctx);
+    // 2) Sobre os NÚMEROS → motor NATIVO (resposta factual, offline).
+    // "e só a última semana?" logo depois de uma pergunta respondida herda o
+    // assunto dela: o motor responde a pergunta inteira com o período novo.
+    const viaConsulta = consulta ? responderLocal(consulta, input, ctx) : null;
+    const local = viaConsulta ?? responderLocal(q, input, ctx);
     if (local) {
       // O número é do motor; o TOM é da IA. Se a reescrita não chegar, ou
       // trouxer um número que o motor não calculou, fica o texto do motor.
-      const j = await analisar(redigir(q, local.resposta, local.numeros));
+      const j = await analisar(redigir(viaConsulta && consulta ? consulta : q, local.resposta, local.numeros));
       const fiel = j?.ok && typeof j.resposta === "string" && j.resposta.trim()
         && numerosInventados(j.resposta, [local.resposta, ...local.numeros.map((n) => `${n.label} ${n.valor}`)]).length === 0;
       setPergunta(null);
-      registrar({ id, q, resposta: fiel ? j.resposta : local.resposta, redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico });
+      registrar({ id, q, resposta: fiel ? j.resposta : local.resposta, redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico, acoes: local.acoes, ...(viaConsulta && consulta ? { consulta } : {}) });
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: local.resposta, status: "lida" });
       force();
       return;

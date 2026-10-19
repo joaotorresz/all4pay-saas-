@@ -19,7 +19,9 @@
  * Determinístico: a fixture compartilhada, sem rede e sem relógio.
  */
 import { INPUT, INPUT_QUEIMANDO, HOJE } from "./fixture.mts";
-import { responderLocal, graficoDoCatalogo, GRAFICOS_DA_IA } from "@/core/assistant/engine";
+import { responderLocal, graficoDoCatalogo, GRAFICOS_DA_IA, janela } from "@/core/assistant/engine";
+import { perguntaComPeriodoNovo, ehSeguimentoDePeriodo } from "@/core/assistant/seguimento";
+import { acoesParaVazio, dataDoPeriodo } from "@/core/assistant/acoes";
 import { numerosInventados } from "@/core/assistant/redacao";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
@@ -182,7 +184,43 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
      Object.keys(GRAFICOS_DA_IA).every((id) => { const g = graficoDoCatalogo(id, INPUT); return !g || g.dados.length >= 2; }));
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6 + 5;
+// ═══ RECORTES DE TEMPO E SEGUIMENTO (19/10/2026) ═══
+// "Meu fluxo de caixa dos últimos 3 meses" e depois "e só a última semana?":
+// a segunda caía na IA genérica, sem recorte. E "última semana", "semana
+// passada" e "últimos três meses" (por extenso) liam todos o período errado.
+{
+  const j = (p: string) => { const w = janela(p, HOJE); return `${w.from}..${w.to}`; };
+  ok("janela: \"última semana\" = 7 dias até hoje", j("quanto gastei na última semana") === "2026-08-09..2026-08-15", j("quanto gastei na última semana"));
+  ok("janela: \"semana passada\" = segunda a domingo anteriores", j("quanto gastei semana passada") === "2026-08-03..2026-08-09", j("quanto gastei semana passada"));
+  ok("janela: \"três meses\" por extenso = 3 meses", j("gastos dos últimos três meses") === "2026-06-01..2026-08-15", j("gastos dos últimos três meses"));
+  ok("janela: \"últimos 12 meses\" é rolante, não o ano", j("receita dos últimos 12 meses") === "2025-09-01..2026-08-15", j("receita dos últimos 12 meses"));
+
+  const r3 = responderLocal("fluxo de caixa dos últimos 3 meses", INPUT);
+  ok("fluxo de caixa com período responde no motor", !!r3 && /últimos 3 meses/.test(r3.resposta), r3?.resposta);
+
+  ok("seguimento: frase só de período é seguimento", ehSeguimentoDePeriodo("e só a última semana?") && ehSeguimentoDePeriodo("agora um recorte da última semana"));
+  ok("seguimento: pergunta com assunto próprio NÃO herda", !ehSeguimentoDePeriodo("quanto recebi na última semana?"));
+  const c = perguntaComPeriodoNovo("meu fluxo de caixa dos últimos 3 meses", "e só a última semana?");
+  const rc = c ? responderLocal(c, INPUT) : null;
+  ok("seguimento: herda o assunto e troca o período", !!rc && /últimos 7 dias/.test(rc.resposta) && !/3 meses/.test(rc.resposta), `${c} → ${rc?.resposta}`);
+  // O número do recorte é o da janela nova, não o do período anterior.
+  const rs = responderLocal("meu fluxo de caixa da última semana", INPUT);
+  ok("seguimento: mesmo número da pergunta escrita inteira", !!rc && !!rs && rc.resposta === rs.resposta);
+
+  // Resposta vazia leva ação; resposta com número não.
+  const vazia = responderLocal("quanto gastei em dezembro", INPUT);
+  ok("vazio: \"não há\" no lugar de R$ 0,00", !!vazia && /^Não há gastos/.test(vazia.resposta), vazia?.resposta);
+  ok("vazio: traz o botão de lançar despesa NO período", !!vazia?.acoes?.some((a) => a.rota === "/dashboard/financial/payables/new?vencimento=2025-12-31"), JSON.stringify(vazia?.acoes));
+  ok("vazio: traz o caminho de enviar extrato", !!vazia?.acoes?.some((a) => a.rota.startsWith("/upload")));
+  ok("cheia: resposta com número não ganha ação de vazio", !responderLocal("quanto gastei nos últimos 3 meses", INPUT)?.acoes);
+  ok("vazio: lado da receita lança receita", acoesParaVazio("quanto recebi", { from: "2026-03-01", to: "2026-03-31" }, HOJE)[0].rota.includes("/receivables/new"));
+  ok("data do período: passado = último dia, corrente = hoje, futuro = primeiro dia",
+     dataDoPeriodo({ from: "2026-03-01", to: "2026-03-31" }, HOJE) === "2026-03-31"
+     && dataDoPeriodo({ from: "2026-08-01", to: "2026-08-31" }, HOJE) === HOJE
+     && dataDoPeriodo({ from: "2026-09-01", to: "2026-09-30" }, HOJE) === "2026-09-01");
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);
