@@ -22,6 +22,8 @@ import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { BolhaResposta, EtapasAnalise, type Turno } from "./chat-kit";
 import { useChatIA } from "./useChatIA";
+import { useFala } from "./useFala";
+import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
 /** O que vem depois de um texto que surge entra quando ele termina de surgir. */
@@ -146,6 +148,12 @@ export function ChatTelaCheia({
   const [saindo, setSaindo] = React.useState(false);
   const rolagemRef = React.useRef<HTMLDivElement>(null);
   const campoRef = React.useRef<HTMLInputElement>(null);
+  const arquivoRef = React.useRef<HTMLInputElement>(null);
+  // A fala vai ao campo enquanto a pessoa fala e, no fim da frase, à conversa.
+  const fala = useFala({
+    onParcial: (t) => chat.setTexto(t),
+    onFinal: (t) => { if (!chat.pensando) void chat.responder(t); },
+  });
 
   // A primeira pergunta sai sozinha, uma vez (o modo estrito do React monta
   // duas vezes em desenvolvimento) — e só quando os dados chegaram, senão a
@@ -408,6 +416,16 @@ export function ChatTelaCheia({
                     onFeedback={chat.darFeedback}
                     onNavegar={fechar}
                   />
+                  {t.proposta && (
+                    <div className="mt-4">
+                      <ConfirmarNoChat
+                        pc={t.proposta}
+                        onAjustar={(patch) => chat.ajustarProposta(t.id, patch)}
+                        onConfirmar={() => void chat.confirmarProposta(t)}
+                        onCancelar={() => chat.cancelarProposta(t.id)}
+                      />
+                    </div>
+                  )}
                 </div>
               </React.Fragment>
             ))}
@@ -449,6 +467,25 @@ export function ChatTelaCheia({
         style={{ background: "var(--color-white)" }}
       >
         <input
+          ref={arquivoRef}
+          type="file"
+          accept="image/*,application/pdf,.ofx,.csv,.txt"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f && !chat.pensando) void chat.enviarArquivo(f); }}
+        />
+        <button
+          type="button"
+          aria-label="Enviar foto ou arquivo (boleto, nota, comprovante)"
+          title="Foto ou arquivo: boleto, nota, comprovante"
+          disabled={chat.pensando}
+          onClick={() => arquivoRef.current?.click()}
+          className="w-9 h-9 flex-none rounded-pill flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2 disabled:opacity-50"
+        >
+          <Icon name="paperclip" size={18} strokeWidth={1.5} />
+        </button>
+        <input
           ref={campoRef}
           value={chat.texto}
           onChange={(e) => chat.setTexto(e.target.value)}
@@ -456,6 +493,19 @@ export function ChatTelaCheia({
           aria-label="Pergunte à Quattro AI"
           className="a4p-ia-campo flex-1 min-w-0 pl-3 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
         />
+        {fala.suportado && (
+          <button
+            type="button"
+            aria-label={fala.ouvindo ? "Parar de gravar" : "Falar com a Quattro AI"}
+            aria-pressed={fala.ouvindo}
+            title={fala.ouvindo ? "Ouvindo… toque para parar" : "Falar: \"gastei 100 de gasolina\""}
+            disabled={chat.pensando && !fala.ouvindo}
+            onClick={() => (fala.ouvindo ? fala.parar() : fala.ouvir())}
+            className={`w-9 h-9 flex-none rounded-pill flex items-center justify-center disabled:opacity-50 ${fala.ouvindo ? "bg-surface-2 text-ink animate-pulse" : "text-muted hover:text-ink hover:bg-surface-2"}`}
+          >
+            <Icon name={fala.ouvindo ? "square" : "mic"} size={18} strokeWidth={1.5} />
+          </button>
+        )}
         <button
           type="submit"
           aria-label="Enviar pergunta"
@@ -466,6 +516,7 @@ export function ChatTelaCheia({
           <Icon name="arrow-up" size={18} strokeWidth={1.5} />
         </button>
       </form>
+      {fala.erro && <p role="alert" className="flex-none m-0 mb-1 text-center text-[13px] text-negative">{fala.erro}</p>}
       </>)}
       <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
     </div>,

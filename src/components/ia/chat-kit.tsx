@@ -16,6 +16,8 @@ import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/ki
 import { Icon, AreaComparada, BarrasHorizontais } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import type { GraficoResposta } from "@/core/assistant/engine";
+import type { AcaoIA } from "@/core/assistant/acoes";
+import type { PropostaChat } from "@/lib/ia-registro";
 import { DigitandoIA, atrasoDaPalavra, duracaoRevelar } from "./conversa";
 
 /**
@@ -71,6 +73,19 @@ export interface Turno {
   grafico?: GraficoResposta;
   /** O número veio do motor e o texto foi reescrito pela IA, com os mesmos números. */
   redigida?: boolean;
+  /** Botões de ação da resposta (lançar no período, enviar extrato…). */
+  acoes?: AcaoIA[];
+  /**
+   * A pergunta que o motor DE FATO respondeu, quando ela herdou o assunto da
+   * anterior ("e só a última semana?" → "fluxo de caixa última semana"). O
+   * próximo seguimento parte dela, não da frase curta.
+   */
+  consulta?: string;
+  /**
+   * Um lançamento proposto pela conversa (frase dita ou foto lida), com o que
+   * a pessoa ajustou e o desfecho do "Confirmar" (`lib/ia-registro`).
+   */
+  proposta?: PropostaChat;
 }
 
 /* A marca da IA mora em `./marca` (sem Recharts: a abertura de conta também a usa). */
@@ -199,6 +214,19 @@ export function BolhaResposta({
           Abrir {t.rotaLabel || "no sistema"}
           <Icon name="arrow-up-right" size={13} color="currentColor" />
         </Link>
+      )}
+      {/* As ações abrem a TELA que faz (o formulário já com a data do período,
+          a entrada de dados); o chat continua sem caminho de escrita. */}
+      {t.acoes && t.acoes.length > 0 && (
+        <div data-ia="acoes" className="flex flex-wrap gap-2">
+          {t.acoes.map((a, i) => (
+            <Link key={a.rota} href={a.rota} onClick={onNavegar}
+              className={`inline-flex items-center gap-1 text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${i === 0 ? "bg-ink text-white hover:bg-ink-soft" : "text-ink bg-surface-2 hover:bg-surface-3"}`}>
+              <Icon name={a.icone} size={13} color="currentColor" />
+              {a.label}
+            </Link>
+          ))}
+        </div>
       )}
       {t.contatoId && (
         <button onClick={() => { window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: t.contatoId } })); onNavegar?.(); }}

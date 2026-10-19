@@ -19,8 +19,14 @@
  * Determinístico: a fixture compartilhada, sem rede e sem relógio.
  */
 import { INPUT, INPUT_QUEIMANDO, HOJE } from "./fixture.mts";
-import { responderLocal, graficoDoCatalogo, GRAFICOS_DA_IA } from "@/core/assistant/engine";
+import { responderLocal, graficoDoCatalogo, GRAFICOS_DA_IA, janela } from "@/core/assistant/engine";
+import { perguntaComPeriodoNovo, ehSeguimentoDePeriodo } from "@/core/assistant/seguimento";
+import { acoesParaVazio, dataDoPeriodo, acoesDasTelas, acoesDeSeguimento, TELAS_DA_IA } from "@/core/assistant/acoes";
+import { perguntaComAssuntoNovo } from "@/core/assistant/seguimento";
+import { INVENTARIO } from "@/core/rotas/inventario";
+import { destinoDe } from "@/core/rotas/aliases";
 import { numerosInventados } from "@/core/assistant/redacao";
+import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
   janelaHoje, janelaMes, janelaUltimosDias,
@@ -182,7 +188,88 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
      Object.keys(GRAFICOS_DA_IA).every((id) => { const g = graficoDoCatalogo(id, INPUT); return !g || g.dados.length >= 2; }));
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6 + 5;
+// ═══ RECORTES DE TEMPO E SEGUIMENTO (19/10/2026) ═══
+// "Meu fluxo de caixa dos últimos 3 meses" e depois "e só a última semana?":
+// a segunda caía na IA genérica, sem recorte. E "última semana", "semana
+// passada" e "últimos três meses" (por extenso) liam todos o período errado.
+{
+  const j = (p: string) => { const w = janela(p, HOJE); return `${w.from}..${w.to}`; };
+  ok("janela: \"última semana\" = 7 dias até hoje", j("quanto gastei na última semana") === "2026-08-09..2026-08-15", j("quanto gastei na última semana"));
+  ok("janela: \"semana passada\" = segunda a domingo anteriores", j("quanto gastei semana passada") === "2026-08-03..2026-08-09", j("quanto gastei semana passada"));
+  ok("janela: \"três meses\" por extenso = 3 meses", j("gastos dos últimos três meses") === "2026-06-01..2026-08-15", j("gastos dos últimos três meses"));
+  ok("janela: \"últimos 12 meses\" é rolante, não o ano", j("receita dos últimos 12 meses") === "2025-09-01..2026-08-15", j("receita dos últimos 12 meses"));
+
+  const r3 = responderLocal("fluxo de caixa dos últimos 3 meses", INPUT);
+  ok("fluxo de caixa com período responde no motor", !!r3 && /últimos 3 meses/.test(r3.resposta), r3?.resposta);
+
+  ok("seguimento: frase só de período é seguimento", ehSeguimentoDePeriodo("e só a última semana?") && ehSeguimentoDePeriodo("agora um recorte da última semana"));
+  ok("seguimento: pergunta com assunto próprio NÃO herda", !ehSeguimentoDePeriodo("quanto recebi na última semana?"));
+  const c = perguntaComPeriodoNovo("meu fluxo de caixa dos últimos 3 meses", "e só a última semana?");
+  const rc = c ? responderLocal(c, INPUT) : null;
+  ok("seguimento: herda o assunto e troca o período", !!rc && /últimos 7 dias/.test(rc.resposta) && !/3 meses/.test(rc.resposta), `${c} → ${rc?.resposta}`);
+  // O número do recorte é o da janela nova, não o do período anterior.
+  const rs = responderLocal("meu fluxo de caixa da última semana", INPUT);
+  ok("seguimento: mesmo número da pergunta escrita inteira", !!rc && !!rs && rc.resposta === rs.resposta);
+
+  // Resposta vazia leva ação; resposta com número não.
+  const vazia = responderLocal("quanto gastei em dezembro", INPUT);
+  ok("vazio: \"não há\" no lugar de R$ 0,00", !!vazia && /^Não há gastos/.test(vazia.resposta), vazia?.resposta);
+  ok("vazio: traz o botão de lançar despesa NO período", !!vazia?.acoes?.some((a) => a.rota === "/dashboard/financial/payables/new?vencimento=2025-12-31"), JSON.stringify(vazia?.acoes));
+  ok("vazio: traz o caminho de enviar extrato", !!vazia?.acoes?.some((a) => a.rota.startsWith("/upload")));
+  const cheia = responderLocal("quanto gastei nos últimos 3 meses", INPUT);
+  ok("cheia: resposta com número não ganha ação de vazio", !!cheia && !cheia.acoes?.some((a) => a.rota.includes("/new?")), JSON.stringify(cheia?.acoes));
+  ok("vazio: lado da receita lança receita", acoesParaVazio("quanto recebi", { from: "2026-03-01", to: "2026-03-31" }, HOJE)[0].rota.includes("/receivables/new"));
+  ok("data do período: passado = último dia, corrente = hoje, futuro = primeiro dia",
+     dataDoPeriodo({ from: "2026-03-01", to: "2026-03-31" }, HOJE) === "2026-03-31"
+     && dataDoPeriodo({ from: "2026-08-01", to: "2026-08-31" }, HOJE) === HOJE
+     && dataDoPeriodo({ from: "2026-09-01", to: "2026-09-30" }, HOJE) === "2026-09-01");
+}
+
+// ═══ PRÓXIMO PASSO E MAPA DAS TELAS (19/10/2026) ═══
+// Toda resposta com número leva à tela onde se age sobre ele; o Claude indica
+// telas por id, e id inventado não vira botão.
+{
+  const cheia = responderLocal("quanto gastei nos últimos 3 meses", INPUT);
+  ok("próximo passo: gasto leva a contas a pagar", !!cheia?.acoes?.some((a) => a.rota === "/contas-a-pagar"), JSON.stringify(cheia?.acoes));
+  const venc = acoesDeSeguimento("quem está me devendo?", ["recebíveis vencidos"]);
+  ok("próximo passo: vencido de cliente leva a cobrar", venc[0]?.rota === "/dashboard/financial/overdue", JSON.stringify(venc));
+  ok("próximo passo: calculadora não leva a tela de dados", acoesDeSeguimento("2% ao mês quanto dá ao ano", ["conversão de taxa"]).length === 0);
+  ok("próximo passo: no máximo dois botões", acoesDeSeguimento("saldo, receita, gastos, margem e vencidos", []).length <= 2);
+  ok("telas: id inventado ou repetido não vira botão", acoesDasTelas(["dre", "inventada", "dre", 7]).length === 1);
+  // Toda tela do mapa existe no inventário e não é um desvio (308) de outra.
+  const vivas = new Set(INVENTARIO.map((r) => r.rota));
+  const mortas = Object.values(TELAS_DA_IA).map((t) => t.rota).filter((r) => !vivas.has(r.split("?")[0]) || destinoDe(r) !== null);
+  ok("telas: toda rota do mapa existe e não é alias", mortas.length === 0, mortas.join(", "));
+
+  const a = perguntaComAssuntoNovo("quanto gastei na semana passada?", "e as receitas?");
+  const ra = a ? responderLocal(a, INPUT) : null;
+  ok("seguimento de assunto: herda o período, troca o assunto", !!ra && /receb|receit/i.test(ra.resposta), `${a} → ${ra?.resposta}`);
+  ok("seguimento de assunto: frase com período próprio não herda", perguntaComAssuntoNovo("quanto gastei na semana passada?", "e as receitas de março?") === null);
+}
+
+// ═══ LANÇAMENTO PELA CONVERSA (19/10/2026, decisão do dono) ═══
+// "Gastei 100 de gasolina" (falado ou digitado) vira PROPOSTA; gravar é só no
+// "Confirmar". O que se cobra aqui é a LEITURA: valor, lado, data e categoria —
+// e que pergunta nenhuma vire lançamento.
+{
+  const somaDias = (d: string, n: number) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  const g = interpretarLancamento("Gastei R$ 25, 25 não, vai, R$ 100 com gasolina, combustível", HOJE);
+  ok("lançamento falado: a correção falada vale (100, não 25), em Combustível", g?.valor === 100 && g.categoria === "Combustível" && g.tipo === "saida" && g.pago, JSON.stringify(g));
+  const l = interpretarLancamento("paguei 350 de luz ontem", HOJE);
+  ok("lançamento falado: 'ontem' e a conta de luz", l?.valor === 350 && l.data === somaDias(HOJE, -1) && l.categoria === "Utilidades", JSON.stringify(l));
+  const a = interpretarLancamento("vou pagar o aluguel de 2.500 dia 10", HOJE);
+  ok("lançamento falado: compromisso fica a pagar, no próximo dia 10", a?.valor === 2500 && !a.pago && a.data > HOJE && a.data.endsWith("-10") && a.categoria === "Aluguel", JSON.stringify(a));
+  const m = interpretarLancamento("comprei 2,5 mil em insumos", HOJE);
+  ok("lançamento falado: '2,5 mil' é 2500", m?.valor === 2500, JSON.stringify(m));
+  const r = interpretarLancamento("recebi 1.200 do cliente Alpha", HOJE);
+  ok("lançamento falado: recebi é entrada", r?.tipo === "entrada" && r.valor === 1200, JSON.stringify(r));
+  const perguntas = ["quanto gastei de gasolina?", "quanto gastei nos últimos 3 meses", "qual meu saldo", "posso comprar um carro de 150 mil em 48x?", "quanto recebi em maio", "paguei mais em maio ou junho?"];
+  const capturadas = perguntas.filter((q) => interpretarLancamento(q, HOJE) !== null);
+  ok("lançamento falado: pergunta nunca vira lançamento", capturadas.length === 0, capturadas.join(" | "));
+  ok("lançamento falado: sem valor não há proposta", interpretarLancamento("gastei com gasolina", HOJE) === null);
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8 + 7;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);
