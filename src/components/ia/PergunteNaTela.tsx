@@ -111,7 +111,7 @@ export function PergunteNaTela({ nomeTela }: { nomeTela?: string | null }) {
           aria-label={`Pergunte à ${MARCA_IA} sobre ${ctx.nome}`}
           aria-busy={!!lendo}
           data-ia="pergunte-tela"
-          className="a4p-ondas-ia a4p-pergunte-tela w-full p-[5px] rounded-pill text-left"
+          className="a4p-ondas-ia a4p-pergunte-tela w-full p-[3px] rounded-pill text-left"
         >
           <span
             className="h-12 flex items-center gap-3 pl-4 pr-[6px] rounded-pill"
