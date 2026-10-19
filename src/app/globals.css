@@ -1037,7 +1037,8 @@ h1, h2, h3,
    — aparece, sobe 24px e desfoca de volta ao nítido; sai no sentido inverso
    (260ms, o `SAIDA_MS` do componente). Para em `prefers-reduced-motion`.
    ============================================================ */
-.a4p-chat-tela { animation: a4p-chat-entra 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* Abertura mais lenta (pedido do dono, 19/10/2026): era 420ms. */
+.a4p-chat-tela { animation: a4p-chat-entra 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .a4p-chat-tela[data-saindo] { animation: a4p-chat-sai 260ms ease-in both; }
 @keyframes a4p-chat-entra {
   from { opacity: 0; transform: translateY(24px) scale(0.985); filter: blur(6px); }
