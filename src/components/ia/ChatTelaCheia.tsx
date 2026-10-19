@@ -40,6 +40,7 @@ import { useTipoConta } from "@/components/app/useTipoConta";
 import { girarPilulas, pilulaDaPergunta, temaDaPergunta } from "@/core/home/rodizio";
 import { CATALOGO_SUGESTOES, type TemaSugestao } from "@/core/home/sugestoes";
 import type { PreferenciasHome } from "@/core/home/preferencias";
+import type { CaminhoTela } from "@/core/ia/contexto-tela";
 
 /** `texto` é a pergunta que vai para a conversa; `curto` + `icone`, o chip. */
 export interface SugestaoChat { id: string; texto: string; curto: string; icone: string; motivo?: string }
@@ -67,6 +68,19 @@ export interface AjusteChat {
   responder: (texto: string) => Promise<RespostaChatAjuste>;
 }
 
+/**
+ * O CONTEXTO DA TELA (botão "Pergunte à Quattro AI" do rodapé, 19/10/2026): a
+ * conversa abre no assunto da tela de onde veio, com o que a varredura leu e
+ * os caminhos dela (`core/ia/contexto-tela`). Saber e ver falhas perguntam na
+ * mesma conversa; adicionar fecha o chat e abre a tela que cria.
+ */
+export interface TelaChat {
+  nome: string;
+  abertura: string;
+  leitura?: string;
+  caminhos: CaminhoTela[];
+}
+
 /** Quanto dura a saída (tem de bater com `.a4p-chat-tela[data-saindo]` no CSS). */
 const SAIDA_MS = 260;
 
@@ -87,8 +101,10 @@ function usePrimeiroNome(): string | null {
 }
 
 export function ChatTelaCheia({
-  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste,
+  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela,
 }: {
+  /** Aberto pelo botão do rodapé: a conversa começa no assunto da tela. */
+  tela?: TelaChat;
   /** Abre no modo ajuste da Home em vez da conversa sobre os números. */
   ajuste?: AjusteChat;
   /** A primeira pergunta — do chip ou do campo da Home. Sem ela, a saudação. */
@@ -266,6 +282,7 @@ export function ChatTelaCheia({
     void chat.responder(q);
   };
   const vazio = chat.turnos.length === 0 && !chat.pergunta && !chat.pensando;
+  const perguntadas = new Set([...chat.turnos.map((t) => t.q), ...(chat.pergunta ? [chat.pergunta] : [])]);
 
   return createPortal(
     <div
@@ -370,7 +387,12 @@ export function ChatTelaCheia({
             {vazio && !pergunta && (
               <div className="a4p-entra flex flex-col gap-2 pt-6" data-ia="saudacao">
                 <h2 className="m-0 text-[28px] text-ink">{nome ? `Olá, ${nome}.` : "Olá."}</h2>
-                <p className="m-0 text-[16px] text-muted">Pergunte sobre os seus números, ou escolha um caminho abaixo.</p>
+                {tela ? (<>
+                  <p className="m-0 text-[18px] text-ink" data-ia="abertura-tela">{tela.abertura}</p>
+                  {tela.leitura && <p className="m-0 text-[14px] text-muted">{tela.leitura}</p>}
+                </>) : (
+                  <p className="m-0 text-[16px] text-muted">Pergunte sobre os seus números, ou escolha um caminho abaixo.</p>
+                )}
               </div>
             )}
             {chat.turnos.map((t) => (
@@ -391,6 +413,8 @@ export function ChatTelaCheia({
             ))}
             {chat.pergunta && <Pergunta texto={chat.pergunta} />}
             {chat.pensando && <EtapasAnalise etapa={chat.etapa} className="self-start" />}
+
+            {tela && <CaminhosDaTela tela={tela} feitas={perguntadas} pensando={chat.pensando} perguntar={perguntar} fechar={fechar} />}
 
             {chips.length > 0 && (
               <section className="flex flex-col gap-4 pt-6">
@@ -590,5 +614,69 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
         </button>
       </form>
     </>
+  );
+}
+
+/** Os grupos dos caminhos da tela, na ordem da conversa que o dono descreveu. */
+const GRUPOS_TELA: { tipo: CaminhoTela["tipo"]; rotulo: string }[] = [
+  { tipo: "saber", rotulo: "Saber" },
+  { tipo: "falhas", rotulo: "Ver falhas" },
+  { tipo: "adicionar", rotulo: "Adicionar" },
+];
+
+/**
+ * Os caminhos da tela de onde o chat foi aberto. A pergunta já feita sai da
+ * lista (a resposta está logo acima); "Adicionar" é link de verdade, que fecha
+ * o chat e abre a tela que cria.
+ */
+function CaminhosDaTela({ tela, feitas, pensando, perguntar, fechar }: {
+  tela: TelaChat;
+  feitas: Set<string>;
+  pensando: boolean;
+  perguntar: (q: string) => void;
+  fechar: () => void;
+}) {
+  const restantes = tela.caminhos.filter((c) => !c.pergunta || !feitas.has(c.pergunta));
+  if (!restantes.length) return null;
+  return (
+    <section className="a4p-entra flex flex-col gap-4 pt-2" data-ia="caminhos-tela" aria-label={`Sobre ${tela.nome}`}>
+      {GRUPOS_TELA.map((g) => {
+        const itens = restantes.filter((c) => c.tipo === g.tipo);
+        if (!itens.length) return null;
+        return (
+          <div key={g.tipo} className="flex flex-col gap-2">
+            <span className="text-[13px] text-muted">{g.rotulo}</span>
+            <div className="flex flex-wrap gap-3">
+              {itens.map((c) => c.href ? (
+                <Link
+                  key={c.id}
+                  href={c.href}
+                  onClick={fechar}
+                  data-caminho={c.id}
+                  className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula"
+                >
+                  <Icon name={c.icone} size={16} strokeWidth={1.5} />
+                  {c.curto}
+                </Link>
+              ) : (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => c.pergunta && perguntar(c.pergunta)}
+                  disabled={pensando}
+                  title={c.pergunta}
+                  aria-label={c.pergunta}
+                  data-caminho={c.id}
+                  className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula disabled:opacity-50"
+                >
+                  <Icon name={c.icone} size={16} strokeWidth={1.5} />
+                  {c.curto}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </section>
   );
 }

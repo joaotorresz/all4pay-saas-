@@ -3,6 +3,7 @@ import { ShellGate } from "@/components/app/shell-nesting";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
 import { ChatGlobal } from "@/components/ia/ChatGlobal";
+import { PergunteNaTela } from "@/components/ia/PergunteNaTela";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { TituloDaAba } from "@/components/app/TituloDaAba";
@@ -173,6 +174,9 @@ export function AppShell({
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
       <ChatGlobal />
+      {/* "Pergunte à Quattro AI" no rodapé de toda tela (menos a Home, que já
+          tem a caixa no alto): varre a tela e abre a conversa no assunto dela. */}
+      <PergunteNaTela nomeTela={tituloAba ?? (typeof title === "string" ? title : null)} />
       <ContatoDrawer />
       <NovaTransacao />
       <CriarNovo />
