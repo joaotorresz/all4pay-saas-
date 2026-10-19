@@ -67,3 +67,29 @@ export function perguntaComPeriodoNovo(anterior: string | undefined, pergunta: s
   if (!assunto || !periodo) return null;
   return `${assunto} ${periodo}`;
 }
+
+/**
+ * O SEGUIMENTO DE ASSUNTO: "quanto gastei na semana passada?" e, logo depois,
+ * "e as receitas?". A frase nova troca o ASSUNTO e não diz período — ele vem
+ * da pergunta anterior. Só vale para frase curta começando por "e" e sem
+ * período próprio: com período, ela já é uma pergunta inteira.
+ */
+export function perguntaComAssuntoNovo(anterior: string | undefined, pergunta: string): string | null {
+  if (!anterior) return null;
+  const q = pergunta.toLowerCase().trim().replace(/[?!.]+$/, "");
+  const m = q.match(/^e\s+(?:(?:o|a|os|as|d[oa]s?|n[oa]s?|quanto a[os]?)\s+)?(.+)$/);
+  if (!m || periodoCitado(q)) return null;
+  const assunto = comoPergunta(m[1].trim());
+  if (!assunto || assunto.split(/\s+/).length > 4) return null;
+  const periodo = periodoCitado(anterior);
+  if (!periodo) return null;
+  return `${assunto} ${periodo}`;
+}
+
+/** O assunto solto vira a pergunta que o motor entende ("receitas" → "quanto recebi"). */
+function comoPergunta(assunto: string): string {
+  if (/^(receitas?|recebimentos?|entradas?|faturamento|vendas?)$/.test(assunto)) return "quanto recebi";
+  if (/^(gastos?|despesas?|sa[íi]das?|pagamentos?|custos?)$/.test(assunto)) return "quanto gastei";
+  if (/^(resultado|lucro|sobra)$/.test(assunto)) return "resultado";
+  return assunto;
+}

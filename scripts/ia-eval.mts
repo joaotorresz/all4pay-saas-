@@ -21,7 +21,10 @@
 import { INPUT, INPUT_QUEIMANDO, HOJE } from "./fixture.mts";
 import { responderLocal, graficoDoCatalogo, GRAFICOS_DA_IA, janela } from "@/core/assistant/engine";
 import { perguntaComPeriodoNovo, ehSeguimentoDePeriodo } from "@/core/assistant/seguimento";
-import { acoesParaVazio, dataDoPeriodo } from "@/core/assistant/acoes";
+import { acoesParaVazio, dataDoPeriodo, acoesDasTelas, acoesDeSeguimento, TELAS_DA_IA } from "@/core/assistant/acoes";
+import { perguntaComAssuntoNovo } from "@/core/assistant/seguimento";
+import { INVENTARIO } from "@/core/rotas/inventario";
+import { destinoDe } from "@/core/rotas/aliases";
 import { numerosInventados } from "@/core/assistant/redacao";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
@@ -212,7 +215,8 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
   ok("vazio: \"não há\" no lugar de R$ 0,00", !!vazia && /^Não há gastos/.test(vazia.resposta), vazia?.resposta);
   ok("vazio: traz o botão de lançar despesa NO período", !!vazia?.acoes?.some((a) => a.rota === "/dashboard/financial/payables/new?vencimento=2025-12-31"), JSON.stringify(vazia?.acoes));
   ok("vazio: traz o caminho de enviar extrato", !!vazia?.acoes?.some((a) => a.rota.startsWith("/upload")));
-  ok("cheia: resposta com número não ganha ação de vazio", !responderLocal("quanto gastei nos últimos 3 meses", INPUT)?.acoes);
+  const cheia = responderLocal("quanto gastei nos últimos 3 meses", INPUT);
+  ok("cheia: resposta com número não ganha ação de vazio", !!cheia && !cheia.acoes?.some((a) => a.rota.includes("/new?")), JSON.stringify(cheia?.acoes));
   ok("vazio: lado da receita lança receita", acoesParaVazio("quanto recebi", { from: "2026-03-01", to: "2026-03-31" }, HOJE)[0].rota.includes("/receivables/new"));
   ok("data do período: passado = último dia, corrente = hoje, futuro = primeiro dia",
      dataDoPeriodo({ from: "2026-03-01", to: "2026-03-31" }, HOJE) === "2026-03-31"
@@ -220,7 +224,29 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
      && dataDoPeriodo({ from: "2026-09-01", to: "2026-09-30" }, HOJE) === "2026-09-01");
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15;
+// ═══ PRÓXIMO PASSO E MAPA DAS TELAS (19/10/2026) ═══
+// Toda resposta com número leva à tela onde se age sobre ele; o Claude indica
+// telas por id, e id inventado não vira botão.
+{
+  const cheia = responderLocal("quanto gastei nos últimos 3 meses", INPUT);
+  ok("próximo passo: gasto leva a contas a pagar", !!cheia?.acoes?.some((a) => a.rota === "/contas-a-pagar"), JSON.stringify(cheia?.acoes));
+  const venc = acoesDeSeguimento("quem está me devendo?", ["recebíveis vencidos"]);
+  ok("próximo passo: vencido de cliente leva a cobrar", venc[0]?.rota === "/dashboard/financial/overdue", JSON.stringify(venc));
+  ok("próximo passo: calculadora não leva a tela de dados", acoesDeSeguimento("2% ao mês quanto dá ao ano", ["conversão de taxa"]).length === 0);
+  ok("próximo passo: no máximo dois botões", acoesDeSeguimento("saldo, receita, gastos, margem e vencidos", []).length <= 2);
+  ok("telas: id inventado ou repetido não vira botão", acoesDasTelas(["dre", "inventada", "dre", 7]).length === 1);
+  // Toda tela do mapa existe no inventário e não é um desvio (308) de outra.
+  const vivas = new Set(INVENTARIO.map((r) => r.rota));
+  const mortas = Object.values(TELAS_DA_IA).map((t) => t.rota).filter((r) => !vivas.has(r.split("?")[0]) || destinoDe(r) !== null);
+  ok("telas: toda rota do mapa existe e não é alias", mortas.length === 0, mortas.join(", "));
+
+  const a = perguntaComAssuntoNovo("quanto gastei na semana passada?", "e as receitas?");
+  const ra = a ? responderLocal(a, INPUT) : null;
+  ok("seguimento de assunto: herda o período, troca o assunto", !!ra && /receb|receit/i.test(ra.resposta), `${a} → ${ra?.resposta}`);
+  ok("seguimento de assunto: frase com período próprio não herda", perguntaComAssuntoNovo("quanto gastei na semana passada?", "e as receitas de março?") === null);
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);

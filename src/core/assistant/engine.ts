@@ -47,7 +47,7 @@ import { periodoSemana } from "@/core/contas-pagar";
 // somava ao "a receber" e à lista de devedores, e a tela não.
 import { ehContaAReceber } from "@/core/contas-receber";
 
-import { acoesParaVazio, respostaVazia, type AcaoIA } from "@/core/assistant/acoes";
+import { acoesDeSeguimento, acoesParaVazio, respostaVazia, type AcaoIA } from "@/core/assistant/acoes";
 import { deLancamentos as L, sobreLancamentos as B, naTela as T, simulado, completarPorRotulo, type NumeroResposta } from "@/core/assistant/numero";
 
 import { formatBRL, decimalBR, pct as pctBR } from "@/lib/format";
@@ -376,7 +376,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (!r) return null;
   // ⚠️ Resposta vazia nunca termina em "não há": ela leva o caminho para
   // preencher o vazio (lançar no período, enviar extrato, conectar o banco).
-  const acoes = r.acoes ?? (respostaVazia(r) ? acoesParaVazio(pergunta, janela(pergunta, input.hoje), input.hoje) : undefined);
+  // A resposta COM número leva o próximo passo: a tela onde se age sobre ele.
+  const acoes = r.acoes ?? (respostaVazia(r)
+    ? acoesParaVazio(pergunta, janela(pergunta, input.hoje), input.hoje)
+    : acoesDeSeguimento(pergunta, r.fontes ?? []));
   return { ...r, numeros: completarPorRotulo(r.numeros), ...(acoes?.length ? { acoes } : {}) };
 }
 

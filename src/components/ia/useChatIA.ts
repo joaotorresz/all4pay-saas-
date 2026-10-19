@@ -17,7 +17,10 @@ import { responderLocal, graficoDoCatalogo } from "@/core/assistant/engine";
 import { numerosInventados } from "@/core/assistant/redacao";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
-import { perguntaComPeriodoNovo } from "@/core/assistant/seguimento";
+import { perguntaComAssuntoNovo, perguntaComPeriodoNovo } from "@/core/assistant/seguimento";
+import { acoesDasTelas, acoesDeSeguimento, type AcaoIA } from "@/core/assistant/acoes";
+
+const acoesOuNada = (a: AcaoIA[]) => (a.length ? a : undefined);
 import { ehPedidoDeAutomacao } from "@/core/automacoes/pedido";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
@@ -145,7 +148,7 @@ export function useChatIA({ inicial = [], onMudou }: {
     // última pergunta que o motor respondeu. Vale antes da base de
     // conhecimento, que leria "semana" como conceito.
     const anterior = [...turnos].reverse().find((t) => t.fonte === "motor");
-    const consulta = perguntaComPeriodoNovo(anterior?.consulta ?? anterior?.q, q);
+    const consulta = perguntaComPeriodoNovo(anterior?.consulta ?? anterior?.q, q) ?? perguntaComAssuntoNovo(anterior?.consulta ?? anterior?.q, q);
 
     // 1) Conceitual → base de conhecimento (sem chave)
     const kb = consulta ? null : buscarKB(q);
@@ -200,12 +203,13 @@ export function useChatIA({ inicial = [], onMudou }: {
 
       let turno: Turno;
       if (j?.ok) {
-        turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: numerosDeFora(j.numeros), fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia", grafico: graficoDoCatalogo(j.grafico, input) };
+        turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: numerosDeFora(j.numeros), fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia", grafico: graficoDoCatalogo(j.grafico, input), acoes: acoesOuNada(acoesDasTelas(j.telas)) };
       } else if (ctx) {
         const exec: RespostaCopiloto = copilotoFinanceiro(q, ctx);
-        turno = { id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" };
+        turno = { id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor", acoes: acoesOuNada(acoesDeSeguimento(q, exec.fontes)) };
       } else {
-        turno = { id, q, resposta: "Esta consulta cobre saldo, gastos, receita, contas a receber e a pagar, vencimentos, inadimplência, clientes, runway e saúde financeira. Reformule a pergunta nesses termos.", fonte: "motor" };
+        // Sem dado nenhum para responder: o caminho para ter dado, nunca só "reformule".
+        turno = { id, q, resposta: "Ainda não há lançamentos suficientes para responder. Envie um extrato ou conecte o banco e a resposta sai dos seus números.", fonte: "motor", acoes: acoesDasTelas(["enviar", "conectar"]) };
       }
       registrar(turno);
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: turno.resposta ?? "", status: "lida" });
