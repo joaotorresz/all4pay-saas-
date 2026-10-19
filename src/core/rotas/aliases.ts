@@ -50,7 +50,7 @@ export const ALIASES: Alias[] = [
   // atalhos (um deles apontava para um alias), e `/governanca` repetia a
   // alçada e a trilha das aprovações com um item de menu próprio.
   { de: "/dashboard", para: "/", motivo: "segunda tela de início aposentada no enxugamento do menu (30/09/2026)" },
-  { de: "/governanca", para: "/aprovacoes?painel=governanca", motivo: "alçadas, papéis e trilha viraram painel das Aprovações (mapa, item 10)" },
+  { de: "/governanca", para: "/central?aba=alcadas", motivo: "alçadas, papéis e trilha viraram painel das Aprovações (mapa, item 10)" },
   { de: "/all4pay-ai", para: "/quattro-ai", motivo: "a marca virou Quattro (30/09/2026); o endereço antigo está em favoritos" },
 
   // — hub CADASTROS —
@@ -65,7 +65,7 @@ export const ALIASES: Alias[] = [
   { de: "/razao", para: "/contabilidade?aba=razao", motivo: "consolidado no hub de contabilidade" },
   { de: "/fechamento", para: "/dashboard/reports/monthly-closing", motivo: "o fechamento mensal tem UMA tela canônica" },
   { de: "/receita", para: "/contabilidade?aba=receita", motivo: "consolidado no hub de contabilidade" },
-  { de: "/relatorios", para: "/contabilidade?aba=relatorios", motivo: "consolidado no hub de contabilidade" },
+  { de: "/relatorios", para: "/dashboard/reports/dre", motivo: "consolidado no hub de contabilidade" },
   { de: "/dimensoes", para: "/contabilidade?aba=dimensoes", motivo: "consolidado no hub de contabilidade" },
   { de: "/cronogramas", para: "/contabilidade?aba=cronogramas", motivo: "consolidado no hub de contabilidade" },
 
@@ -82,7 +82,7 @@ export const ALIASES: Alias[] = [
   // — hub RECEBER / PAGAR —
   { de: "/recorrencias", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa de consolidação, item 7)" },
   { de: "/inadimplencia", para: "/dashboard/financial/overdue", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
-  { de: "/boletos", para: "/dashboard/financial/boletos", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
+  { de: "/boletos", para: "/dashboard/sales-invoices?aba=boletos", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
   { de: "/reembolsos", para: "/dashboard/financial/reimbursements", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
 
   // — hub ENTRADA DE DADOS —
@@ -120,7 +120,7 @@ export const ALIASES: Alias[] = [
   { de: "/decisao", para: "/quattro-ai?aba=decisao", motivo: "motor de decisão virou aba do copiloto" },
   { de: "/autonomo", para: "/quattro-ai?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
   { de: "/inteligencia", para: "/quattro-ai?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
-  { de: "/consolidado", para: "/contabilidade?aba=consolidado", motivo: "consolidado virou aba de contabilidade" },
+  { de: "/consolidado", para: "/dashboard/reports/dre-multi?aba=consolidado", motivo: "consolidado virou aba de contabilidade" },
 
   // — PAINÉIS CURADOS aposentados (corte de superfície, 05/08/2026) —
   //
@@ -140,6 +140,25 @@ export const ALIASES: Alias[] = [
   { de: "/dashboard/dashboards/payables", para: "/contas-a-pagar/titulos", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/dashboards/receivables", para: "/contas-a-receber/titulos", motivo: "títulos a receber têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/financial/calendar", para: "/fluxo-caixa", motivo: "o calendário diário já é um bloco do fluxo de caixa" },
+  // — REMODELAÇÃO DO MENU (19/10/2026): telas irmãs viraram ABAS de uma tela só —
+  { de: "/dashboard/financial/boletos", para: "/dashboard/sales-invoices?aba=boletos", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
+  { de: "/dashboard/sales-invoices/payment-links", para: "/dashboard/sales-invoices?aba=links", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
+  { de: "/pos/venda", para: "/dashboard/sales-invoices?aba=maquininha", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
+  { de: "/pos/taxas", para: "/dashboard/sales-invoices?aba=taxas", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
+  { de: "/dashboard/registrations/contracts", para: "/dashboard/sales-invoices/subscriptions?aba=contratos-cliente", motivo: "remodelação do menu (19/10/2026): virou aba de Assinaturas e contratos (cliente) e de Contas recorrentes (fornecedor)" },
+  { de: "/dashboard/purchases/received-invoices", para: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs", motivo: "remodelação do menu (19/10/2026): virou aba da caixa de entrada dos títulos a pagar" },
+  { de: "/dashboard/purchases/received-boletos", para: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos", motivo: "remodelação do menu (19/10/2026): virou aba da caixa de entrada dos títulos a pagar" },
+  { de: "/dashboard/financial/credit-card-invoices", para: "/dashboard/registrations/bank-accounts?aba=faturas", motivo: "remodelação do menu (19/10/2026): virou aba de Contas e cartões" },
+  { de: "/dashboard/financial/accounts-and-transfers", para: "/dashboard/registrations/bank-accounts?aba=transferencias", motivo: "remodelação do menu (19/10/2026): virou aba de Contas e cartões" },
+  { de: "/aprovacoes", para: "/central?aba=solicitacoes", motivo: "remodelação do menu (19/10/2026): virou aba de Aprovações e baixas" },
+  { de: "/dashboard/accounting/dominio-export", para: "/exportar?aba=dominio", motivo: "remodelação do menu (19/10/2026): virou aba de Enviar ao contador" },
+  { de: "/dashboard/accounting/nfe-export", para: "/exportar?aba=nfs", motivo: "remodelação do menu (19/10/2026): virou aba de Enviar ao contador" },
+  { de: "/dashboard/reports/cash-flow", para: "/dashboard/reports/dfc?aba=mensal", motivo: "remodelação do menu (19/10/2026): virou aba do DFC" },
+  { de: "/dashboard/reports/dfc-multi", para: "/dashboard/reports/dre-multi?aba=dfc", motivo: "remodelação do menu (19/10/2026): virou aba de Multiempresas" },
+  { de: "/dashboard/registrations/budgets", para: "/orcamento?aba=orcamentos", motivo: "remodelação do menu (19/10/2026): virou aba do Orçamento" },
+  { de: "/contratacoes", para: "/simuladores?aba=contratacoes", motivo: "remodelação do menu (19/10/2026): virou aba dos Simuladores" },
+  { de: "/dashboard/reports", para: "/dashboard/reports/dre", motivo: "hub de relatórios aposentado: cada relatório é um item do menu" },
+  { de: "/dashboard/administration", para: "/dashboard/administration/company-data", motivo: "hub de administração aposentado: cada seção é um item de Configurações" },
 ];
 
 /**
@@ -158,7 +177,7 @@ export const ROTAS_REMOVIDAS: Alias[] = [
   { de: "/infraestrutura", para: "/", motivo: "removida — vitrine técnica sem uso operacional" },
   { de: "/orquestracao", para: "/", motivo: "removida — vitrine técnica sem uso operacional" },
   { de: "/dados", para: "/upload", motivo: "removida — a entrada de dados assumiu o papel" },
-  { de: "/plataforma", para: "/aprovacoes?painel=governanca", motivo: "removida — hub esvaziado; a governança mora nas Aprovações" },
+  { de: "/plataforma", para: "/central?aba=alcadas", motivo: "removida — hub esvaziado; a governança mora nas Aprovações" },
 ];
 
 /**
@@ -181,7 +200,7 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/copiloto?aba=risco", para: "/quattro-ai?aba=risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/copiloto?aba=autonomo", para: "/quattro-ai?aba=autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
-  { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/recebimentos?aba=boletos", para: "/dashboard/sales-invoices?aba=boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   /**
    * ⚠️ As duas apontavam para as ABAS do hub de títulos, e agora apontam para
@@ -251,12 +270,12 @@ export const ALIASES_DE_ABA: Alias[] = [
   },
   {
     de: "/cadastros?aba=contratos",
-    para: "/dashboard/registrations/contracts",
+    para: "/dashboard/sales-invoices/subscriptions?aba=contratos-cliente",
     motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
   },
   {
     de: "/cadastros?aba=orcamento",
-    para: "/dashboard/registrations/budgets",
+    para: "/orcamento?aba=orcamentos",
     motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
   },
 
@@ -296,8 +315,27 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/vendas?aba=painel", para: "/dashboard/sales-invoices", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
   { de: "/vendas?aba=nova", para: "/dashboard/sales-invoices/new", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
   { de: "/vendas?aba=notas", para: "/dashboard/sales-invoices/invoices?aba=nfse", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
-  { de: "/vendas?aba=pos", para: "/pos/venda", motivo: "a maquininha voltou para a rota própria (mapa, item 9)" },
-  { de: "/vendas?aba=pos-taxas", para: "/pos/taxas", motivo: "as taxas da maquininha voltaram para a rota própria (mapa, item 9)" },
+  { de: "/vendas?aba=pos", para: "/dashboard/sales-invoices?aba=maquininha", motivo: "a maquininha voltou para a rota própria (mapa, item 9)" },
+  { de: "/vendas?aba=pos-taxas", para: "/dashboard/sales-invoices?aba=taxas", motivo: "as taxas da maquininha voltaram para a rota própria (mapa, item 9)" },
+  // — REMODELAÇÃO DO MENU (19/10/2026) —
+  { de: "/aprovacoes?painel=governanca", para: "/central?aba=alcadas", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/orcamento?aba=simulador", para: "/simuladores", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/configuracoes?aba=automacoes", para: "/automacoes?aba=alertas", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/reports?aba=dfc", para: "/dashboard/reports/dfc", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/reports?aba=balanco", para: "/dashboard/reports/balance-sheet", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/reports?aba=variacao", para: "/dashboard/reports/variance", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/reports?aba=dre-multi", para: "/dashboard/reports/dre-multi", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/reports?aba=dfc-multi", para: "/dashboard/reports/dre-multi?aba=dfc", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/administration?aba=assinatura", para: "/dashboard/administration/subscription", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/administration?aba=empresa", para: "/dashboard/administration/company-data", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/administration?aba=usuarios", para: "/dashboard/administration/users", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/administration?aba=logs", para: "/dashboard/administration/audit-logs", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/administration?aba=integracoes", para: "/dashboard/administration/integrations", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/dashboard/administration?aba=exportados", para: "/dashboard/administration/exported-reports", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/contabilidade?aba=relatorios", para: "/dashboard/reports/dre", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/contabilidade?aba=envio", para: "/exportar?aba=nfs", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/contabilidade?aba=txt-dominio", para: "/exportar?aba=dominio", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
+  { de: "/contabilidade?aba=consolidado", para: "/dashboard/reports/dre-multi?aba=consolidado", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
 ];
 
 /** Tudo que o middleware transforma em 308. */

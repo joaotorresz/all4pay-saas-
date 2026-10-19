@@ -61,7 +61,7 @@ const RELATORIOS = [
   { nome: "DRE", href: "/dashboard/reports/dre" },
   { nome: "Balanço patrimonial", href: "/dashboard/reports/balance-sheet" },
   { nome: "Razão", href: "/contabilidade?aba=razao" },
-  { nome: "Fluxo de caixa", href: "/dashboard/reports/cash-flow" },
+  { nome: "Fluxo de caixa", href: "/dashboard/reports/dfc?aba=mensal" },
 ];
 
 /** "Em 14 out 2026, 09:00" — o instante da leitura, no relógio de quem olha. */
@@ -713,8 +713,8 @@ function PrecisaDeAcao({ p }: { p: Pendencias }) {
     { nome: "Transações a conciliar", qtd: p.conciliar, href: "/dashboard/financial/reconciliation" },
     { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices" },
     { nome: "Compras a aprovar", qtd: p.compras, href: "/dashboard/purchases" },
-    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/aprovacoes" },
-    { nome: "Boletos a pagar", qtd: p.boletos, href: "/dashboard/purchases/received-boletos" },
+    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/central?aba=solicitacoes" },
+    { nome: "Boletos a pagar", qtd: p.boletos, href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos" },
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
@@ -782,7 +782,7 @@ function RelatoriosFixados() {
           </span>
         </Link>
       ))}
-      <Link href="/dashboard/reports" className="pt-3 border-t text-[14px] text-muted" style={{ borderColor: "var(--color-border)" }}>
+      <Link href="/dashboard/reports/dre" className="pt-3 border-t text-[14px] text-muted" style={{ borderColor: "var(--color-border)" }}>
         + Adicionar relatório
       </Link>
     </div>

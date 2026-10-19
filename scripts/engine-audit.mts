@@ -2826,8 +2826,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // as telas irmãs. Este guard cobre as rotas principais de cada módulo.
   const PRINCIPAIS = [
     "/", "/quattro-ai", "/orcamento", "/dashboard/help", "/comece",
-    "/dashboard/purchases", "/dashboard/purchases/received-boletos",
-    "/dashboard/sales-invoices", "/dashboard/accounting/dominio-export",
+    "/dashboard/purchases", "/contas-a-pagar/titulos", "/central", "/simuladores",
+    "/dashboard/sales-invoices", "/exportar",
     "/dashboard/administration/users", "/fluxo-caixa", "/upload",
     "/dashboard/financial/reconciliation", "/dashboard/registrations/bank-accounts",
     "/configuracoes/seguranca",

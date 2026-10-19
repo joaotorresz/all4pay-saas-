@@ -13,12 +13,25 @@ import * as React from "react";
 import { HubShell, type AbaHub } from "@/components/app/HubShell";
 import { TitulosView } from "@/components/movimentacoes/TitulosView";
 import { CaixaEntradaView, useContadorCaixa } from "./CaixaEntradaView";
+import { NFsRecebidasView, BoletosView } from "@/components/compras/RecebidosViews";
+
+/**
+ * A caixa de entrada reúne as TRÊS portas por onde uma conta a pagar chega
+ * antes de existir: o documento lido (OCR/e-mail), a NF da SEFAZ e o boleto
+ * do DDA. NFs e boletos eram rotas próprias a um atalho de Compras; o
+ * parâmetro é `caixa` porque a aba de fora já usa `aba`.
+ */
+const CAIXAS: AbaHub[] = [
+  { id: "documentos", label: "Documentos lidos", render: () => <CaixaEntradaView /> },
+  { id: "nfs", label: "NFs da SEFAZ", render: () => <NFsRecebidasView /> },
+  { id: "boletos", label: "Boletos do DDA", render: () => <BoletosView /> },
+];
 
 export function TitulosAPagarHub() {
   const n = useContadorCaixa();
   const abas: AbaHub[] = React.useMemo(() => [
     { id: "titulos", label: "Títulos", render: () => <TitulosView direcao="pagar" /> },
-    { id: "caixa-de-entrada", label: `Caixa de entrada (${n})`, render: () => <CaixaEntradaView /> },
+    { id: "caixa-de-entrada", label: `Caixa de entrada (${n})`, render: () => <HubShell abas={CAIXAS} param="caixa" /> },
   ], [n]);
   return <HubShell abas={abas} />;
 }

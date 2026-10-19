@@ -110,6 +110,23 @@ campos, cards e valores, gráficos, tabelas, menu e moldura), nos dois temas.
 
 ---
 
+## ⚠️ MENU REMODELADO (19/10/2026, decisão do dono)
+
+Uma pergunta, uma tela: telas irmãs viraram ABAS de uma tela só, e o menu
+segue o ciclo do dinheiro. Grupos: Visão geral · Vender e receber · Comprar e
+pagar · Caixa e bancos · Contabilidade · Relatórios · Inteligência (+
+Configurações). Fusões: Vendas (pedidos · boletos · links · maquininha ·
+taxas), Contas e cartões (contas · faturas · transferências), Aprovações e
+baixas em `/central` (a confirmar · solicitações · alçadas e papéis), Enviar ao
+contador em `/exportar` (razão e DRE · Domínio · NFs), DFC com aba mensal,
+Multiempresas (DRE · DFC · consolidado), Orçamento (orçamentos · variância),
+Simuladores (posso comprar? · plano de contratações), contratos de cliente em
+Assinaturas e de fornecedor em Contas recorrentes, NFs e boletos recebidos na
+caixa de entrada dos títulos a pagar. Todo endereço antigo responde 308
+(`core/rotas/aliases`). ⚠️ As telas Pro que viraram aba seguem Pro por
+`ABAS_PRO` (`/central` solicitações e alçadas, `/simuladores` contratações,
+dre-multi consolidado) — guarda em `npm run consistencia`.
+
 ## ⚠️ A MARCA É QUATTRO (desde 30/09/2026)
 
 O produto se chamava **all4pay** e passou a se chamar **Quattro**; o assistente,

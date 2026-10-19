@@ -22,8 +22,8 @@ import { FilaRevisaoView } from "@/components/revisao/FilaRevisaoView";
 type Aba = "conectar" | "enviar" | "regras" | "limpeza" | "revisao";
 const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
   { id: "conectar", label: "Conectar", icon: "building", desc: "Open Finance — bancos e posição por conta" },
-  { id: "enviar", label: "Enviar", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
-  { id: "regras", label: "Regras", icon: "workflow", desc: "Categorização automática — escreva uma vez, vale sempre" },
+  { id: "enviar", label: "Enviar extrato", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
+  { id: "regras", label: "Regras de categoria", icon: "workflow", desc: "Categorização automática — escreva uma vez, vale sempre" },
   // A idempotência resolve daqui para a frente; esta aba resolve o passado —
   // as cópias que entraram antes de a chave existir.
   { id: "limpeza", label: "Duplicatas", icon: "scan-line", desc: "Encontra e remove as cópias já gravadas na base" },

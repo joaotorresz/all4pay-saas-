@@ -49,7 +49,7 @@ export default async function automacoes(navegador) {
   const saldoHome = mh ? brl(`${mh[1]},${mh[2] ?? "00"}`) : NaN;
   v.ok(Number.isFinite(saldoHome), "a Visão geral mostra o saldo em conta", String(saldoHome));
 
-  await u.ir("/configuracoes?aba=automacoes");
+  await u.ir("/automacoes?aba=alertas");
   await cartao(u, "resumo_diario").waitFor({ timeout: 20000 });
   const tela = await u.texto();
   v.ok(/Resumo do caixa do dia/.test(tela) && /Régua de cobrança automática/.test(tela), "a aba Automações abre com as automações");
@@ -100,7 +100,7 @@ export default async function automacoes(navegador) {
     `${itens.length} conferida(s)${faltando.length ? ` · faltando: ${faltando.slice(0, 3).map((l) => `${l.quem} R$${l.valor} (${l.mes})`).join(" | ")}` : ""}`);
 
   // A gravação ficou: recarregar mostra as duas ligadas.
-  await u.ir("/configuracoes?aba=automacoes");
+  await u.ir("/automacoes?aba=alertas");
   await cartao(u, "resumo_diario").waitFor({ timeout: 20000 });
   for (const t of ["resumo_diario", "lembrete_pagar"]) {
     v.ok((await cartao(u, t).locator(`#sw-automacao-${t}`).getAttribute("aria-checked")) === "true", `${t} continua ligada depois de recarregar`);

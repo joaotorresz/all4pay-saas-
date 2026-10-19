@@ -98,7 +98,11 @@ const SEMPRE_ABERTAS = [
  * trava é pelo par rota+aba.
  */
 const ABAS_PRO: { rota: string; param: string; valores: string[] }[] = [
-  { rota: "/contabilidade", param: "aba", valores: ["consolidado"] },
+  // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
+  // aberta continuam Pro pelo par rota+aba.
+  { rota: "/dashboard/reports/dre-multi", param: "aba", valores: ["consolidado"] },
+  { rota: "/central", param: "aba", valores: ["solicitacoes", "alcadas"] },
+  { rota: "/simuladores", param: "aba", valores: ["contratacoes"] },
   // ⚠️ A CONVERSA é Simples — é a porta da frente do produto. Os quatro
   // MOTORES (quant, decisão, risco, autônomo) são Pro, e desde a fusão do
   // item 6 eles são abas dela. Trancar `/quattro-ai` inteiro esconderia o chat

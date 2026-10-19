@@ -38,8 +38,14 @@ const hoje = () => hojeLocal();
 
 const METODOS = ["Pix", "Boleto", "Cartão de crédito", "Transferência", "Dinheiro"];
 
-export function ContratosView() {
-  const [lado, setLado] = React.useState<"fornecedor" | "cliente">("fornecedor");
+/**
+ * `lado` fixo: a tela mora como aba de Assinaturas (cliente) ou de Contas
+ * recorrentes (fornecedor) e não mostra o seletor de lado. Sem ele, as duas
+ * listas na mesma tela, como antes.
+ */
+export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "cliente" } = {}) {
+  const [ladoEscolhido, setLado] = React.useState<"fornecedor" | "cliente">(ladoFixo ?? "fornecedor");
+  const lado = ladoFixo ?? ladoEscolhido;
   const [itens, setItens] = React.useState<Contrato[]>([]);
   const [busca, setBusca] = React.useState("");
   const [vigencia, setVigencia] = React.useState<Vigencia>("todos");
@@ -48,8 +54,8 @@ export function ContratosView() {
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazio("fornecedor"));
-  }, []);
+    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazio(ladoFixo ?? "fornecedor"));
+  }, [ladoFixo]);
   const { show, node } = useToast();
 
   React.useEffect(() => { setItens(listContratos()); }, []);
@@ -81,7 +87,7 @@ export function ContratosView() {
         exportar={{ nomeArquivo: `contratos-${lado}`, aba: "Contratos", linhas }}
       />
 
-      <div className="flex items-center gap-1 border-b border-border-soft">
+      {!ladoFixo && <div className="flex items-center gap-1 border-b border-border-soft">
         {(["fornecedor", "cliente"] as const).map((l) => (
           <button
             key={l}
@@ -92,7 +98,7 @@ export function ContratosView() {
             {lado === l && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}
           </button>
         ))}
-      </div>
+      </div>}
 
       <FiltrosRegistro
         busca={busca} onBusca={setBusca}

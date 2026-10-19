@@ -65,22 +65,6 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=relatorios": {
-    titulo: "Relatórios (Razão)",
-    intro: "Relatórios calculados direto do razão de dupla entrada: DRE gerencial, Balanço patrimonial, Orçado × Realizado e pivot por dimensão. O razão é a fonte da verdade.",
-    comoUsar: "Escolha o intervalo (De / Até). Para o orçamento, abra 'Editar orçamento' e informe o valor mensal por conta. Troque a dimensão do pivot (contraparte/centro).",
-    exemplo: "Para ver se o mês fechou no azul: ajuste De/Até para o mês e veja a linha 'Resultado' do DRE e o selo 'Ativo = Passivo + PL'.",
-    secoes: [
-      blocos([
-        { nome: "DRE do razão", desc: "Receita − despesa por conta no período.", match: "DRE gerencial · do razão" },
-        { nome: "Orçado × Realizado", desc: "Variância R$/% por conta + narrativa (flux); realizado vem do razão.", match: "Orçado × Realizado", exemplo: "Orçou R$ 10k de marketing e gastou R$ 13k → desvio +30% desfavorável." },
-        { nome: "Balanço patrimonial", desc: "Ativo = Passivo + PL + resultado, com selo de fechamento.", match: "Balanço patrimonial" },
-        { nome: "Pivot por dimensão", desc: "Resultado por contraparte ou centro de custo.", match: "Pivot por dimensão" },
-      ]),
-    ],
-  },
-
-  /* ----------------------------- Relatórios gerenciais ----------------------------- */
   "/dashboard/reports/balance-sheet": {
     titulo: "Balanço patrimonial comparativo",
     intro: "O que a empresa tem (ativo) e deve (passivo), e o que é dos sócios (patrimônio líquido), em duas datas lado a lado, com a variação de cada conta. Sai do razão de dupla entrada.",
@@ -283,7 +267,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/dashboard/financial/boletos": {
+  "/dashboard/sales-invoices?aba=boletos": {
     titulo: "Boleto",
     intro: "Boletos colados ao recebível (no jsonb do movimento): gera/registra o boleto vinculado à entrada.",
     comoUsar: "Emita ou cole o boleto no recebível correspondente; o pagamento concilia e fecha o ciclo receita → caixa.",
@@ -311,7 +295,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/aprovacoes": {
+  "/central?aba=solicitacoes": {
     titulo: "Solicitações & aprovações",
     intro: "Gate de alçada de nível bancário: títulos acima do limite precisam de aprovação, com sugestão de IA, trilha e segregação de funções.",
     comoUsar: "Nas abas (fila/minhas/todas), abra uma solicitação e Aprove / Rejeite / Devolva. A IA sugere com base no histórico do favorecido.",
@@ -354,14 +338,14 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Central POS ----------------------------- */
-  "/pos/taxas": {
+  "/dashboard/sales-invoices?aba=taxas": {
     titulo: "Configuração de taxas Quattro",
     intro: "Simulador POS (maquininha): modela MDR + antecipação + online por MCC × range × bandeira, com o spread (margem) editável. Salva a configuração da sua operação.",
     comoUsar: "Escolha MCC, range, SELIC e ligue antecipação/online; edite o spread por grupo. A taxa final ao EC recalcula por parcela.",
     exemplo: "Restaurante (MCC 5812), range 1, com antecipação → veja a taxa final de crédito em 12x.",
     secoes: [],
   },
-  "/pos/venda": {
+  "/dashboard/sales-invoices?aba=maquininha": {
     titulo: "Simulador de venda (POS)",
     intro: "Simula uma venda na maquininha usando as taxas configuradas: calcula o líquido ao EC e registra o recebível líquido (e a tarifa como custo no DRE).",
     comoUsar: "Informe valor, bandeira e parcelas; veja o líquido e conclua para gerar o recebível (e a 'Tarifa de adquirência' como custo).",
@@ -424,7 +408,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Equipe / Plataforma ----------------------------- */
-  "/aprovacoes?painel=governanca": {
+  "/central?aba=alcadas": {
     titulo: "Governança institucional",
     intro: "Governança de nível bancário: trilha de auditoria imutável (hash-chain), RBAC + policy engine e fluxo de aprovação.",
     comoUsar: "Teste a adulteração da trilha, simule o policy engine (usuário/valor/método/país/hora/IP) e veja a escada de aprovação por faixa de valor.",
@@ -544,7 +528,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Consolidado multiempresa ----------------------------- */
-  "/contabilidade?aba=consolidado": {
+  "/dashboard/reports/dre-multi?aba=consolidado": {
     titulo: "Consolidado (multiempresa)",
     intro: "A posição agregada das organizações em que você é membro: saldo, receita, despesa e resultado lado a lado (sem eliminações intercompany na v1).",
     comoUsar: "Compare as empresas e clique numa linha para entrar no contexto dela.",
@@ -581,7 +565,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Plano de contratações ----------------------------- */
-  "/contratacoes": {
+  "/simuladores?aba=contratacoes": {
     titulo: "Plano de contratações",
     intro: "Headcount planning × runway: monte o plano de vagas e veja o impacto REAL no caixa antes de contratar — cada vaga entra com salário + 13º + férias com 1/3 + FGTS (~1,3× o salário).",
     comoUsar: "Adicione as vagas (cargo, salário, quantidade, mês de início). O painel ao lado recalcula custo do plano, runway e score antes/depois, e projeta o caixa mês a mês por 12 meses.",
@@ -662,7 +646,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/dashboard/purchases/received-boletos": {
+  "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos": {
     titulo: "Boletos recebidos (DDA)",
     intro: "Os boletos emitidos contra o seu CNPJ. O DDA depende de adesão bancária, mas o boleto não depende de ninguém: a linha digitável carrega banco, valor e vencimento.",
     comoUsar: "Cole a linha digitável (47 dígitos) ou o código de barras (44) em 'Adicionar boleto pelo número': o sistema lê tudo e confere os quatro dígitos verificadores. Depois use a seta para lançar em contas a pagar.",
@@ -678,7 +662,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/dashboard/purchases/received-invoices": {
+  "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs": {
     titulo: "NFs recebidas (SEFAZ)",
     intro: "As notas fiscais emitidas contra a sua empresa. A captura automática exige certificado digital; a chave de acesso impressa no DANFE, não.",
     comoUsar: "Cole a chave de 44 dígitos em 'Lançar nota pela chave de acesso': o sistema lê UF, mês, CNPJ do emitente, modelo, série e número, e confere o dígito. Use os filtros e clique em Aplicar — com volume de SEFAZ, refiltrar a cada tecla custa caro.",
@@ -693,7 +677,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/dashboard/accounting/nfe-export": {
+  "/exportar?aba=nfs": {
     titulo: "Envio de NFs ao contador",
     intro: "O pacote mensal com os XMLs das notas de entrada e de saída, enviado para os e-mails do contador no dia 1º.",
     comoUsar: "Adicione o e-mail do contador; ele precisa clicar no link de confirmação para começar a receber. Enquanto não houver um e-mail verificado o envio fica Inativo — e nada é arquivado.",
@@ -709,7 +693,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/dashboard/accounting/dominio-export": {
+  "/exportar?aba=dominio": {
     titulo: "Gerar TXT contábil — Domínio",
     intro: "Exporta o extrato bancário no formato Partidas Simples (lanctos.txt) para importação direta no Domínio. É o consumidor do 'Código contábil (Domínio)' das contas e centros de custo.",
     comoUsar: "Escolha a conta bancária e o mês, clique em Carregar lançamentos e confira a lista e a prévia do arquivo antes de gerar. O que estiver sem código contábil aparece como pendência e fica FORA do arquivo.",
