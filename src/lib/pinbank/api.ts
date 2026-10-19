@@ -11,6 +11,14 @@ import {
   type ResumoExtratoPos,
 } from "@/core/pinbank/extrato-pos";
 import type { MotivoConferenciaIndisponivel } from "@/core/pinbank/conferencia";
+import {
+  lerRespostaCobranca,
+  pedidoBoleto,
+  pedidoQrCodeDinamico,
+  type ReservaCobranca,
+  type ResultadoCobranca,
+  type TipoCobranca,
+} from "@/core/pinbank/cobranca";
 
 /**
  * O CLIENTE DA API DA PINBANK (token OAuth2 + métodos `…Encrypted`). SERVER-ONLY.
@@ -26,11 +34,13 @@ import type { MotivoConferenciaIndisponivel } from "@/core/pinbank/conferencia";
  *                          não vai, e a recusa diz que é ele que falta)
  *   PINBANK_CODIGO_CANAL = o código do canal (ex.: 1919)
  *
- * ⚠️ **SÓ LEITURA.** A credencial emitida pela Pinbank também PAGA conta e
- * tributo, faz Pix e TED e transfere entre contas. Este cliente só sabe chamar
- * o que está em `METODOS_LEITURA` — acrescentar um método que move dinheiro é
- * decisão do dono, com fluxo de aprovação, nunca uma linha a mais aqui (há
- * guarda com teto ZERO).
+ * ⚠️ **SÓ LEITURA E COBRANÇA.** A credencial emitida pela Pinbank também PAGA
+ * conta e tributo, faz Pix e TED e transfere entre contas. Este cliente só sabe
+ * chamar o que está em `METODOS_LEITURA` e, desde 20/10/2026, os dois métodos
+ * de `METODOS_COBRANCA` — que CRIAM uma cobrança para a conta da empresa
+ * RECEBER, nunca mandam dinheiro para fora. Acrescentar um método que move
+ * dinheiro é decisão do dono, com fluxo de aprovação, nunca uma linha a mais
+ * aqui (há guarda com teto ZERO).
  *
  * ⚠️ **O token vencido antes da hora é renovado UMA vez.** A Pinbank avisa que o
  * prazo do token "pode mudar sem aviso". Um 401 com o token do cache pede um
@@ -81,6 +91,18 @@ const CAMINHOS_LEITURA: readonly string[] = Object.freeze([
   "ContaDigital/ExtratoContaDigital",
   "ContaDigital/ConsultarComprovante",
 ]);
+
+/**
+ * O que este cliente pode CRIAR: cobrança (Pix dinâmico e boleto) para a conta
+ * da empresa RECEBER. Nenhum caminho de `CashOut`, `Transferencia` ou Pix de
+ * saída — o `engine-audit` confere a lista à parte.
+ */
+export const METODOS_COBRANCA = Object.freeze({
+  QrCodeDinamico: "Pix/SolicitarDynamicQrCode",
+  Boleto: "CashIn/GerarBoleto",
+} as const);
+export type MetodoCobranca = keyof typeof METODOS_COBRANCA;
+const CAMINHOS_COBRANCA: readonly string[] = Object.freeze(["Pix/SolicitarDynamicQrCode", "CashIn/GerarBoleto"]);
 
 export type AmbienteApi = keyof typeof BASES_API_PINBANK;
 
@@ -161,6 +183,25 @@ export function lerCredencialPinbank(env: Ambiente = process.env): CredencialPin
 export function conferenciaPinbankLiberada(env: Ambiente = process.env):
   { liberada: true } | { liberada: false; codigo: MotivoConferenciaIndisponivel } {
   if (env.PINBANK_CONFERENCIA !== "ligado") return { liberada: false, codigo: "desligada" };
+  if (variaveisFaltando(env).length) return { liberada: false, codigo: "sem_configuracao" };
+  if ((env.PINBANK_API_AMBIENTE ?? "").trim() !== "producao") return { liberada: false, codigo: "ambiente_teste" };
+  return { liberada: true };
+}
+
+/** Por que a cobrança não está disponível (códigos; a tela traduz). */
+export type MotivoCobrancaIndisponivel = "desligada" | "sem_configuracao" | "ambiente_teste";
+
+/**
+ * A COBRANÇA pela conta pode ser emitida? As mesmas três perguntas da
+ * conferência: `PINBANK_COBRANCA=ligado` (nasce DESLIGADA), a credencial
+ * configurada e `PINBANK_API_AMBIENTE=producao` — com a credencial de teste o
+ * QR iria para o cliente de verdade e seria pago numa conta de teste.
+ *
+ * ⚠️ É o ÚNICO lugar que lê `PINBANK_COBRANCA` (guarda no `engine-audit`).
+ */
+export function cobrancaPinbankLiberada(env: Ambiente = process.env):
+  { liberada: true } | { liberada: false; codigo: MotivoCobrancaIndisponivel } {
+  if (env.PINBANK_COBRANCA !== "ligado") return { liberada: false, codigo: "desligada" };
   if (variaveisFaltando(env).length) return { liberada: false, codigo: "sem_configuracao" };
   if ((env.PINBANK_API_AMBIENTE ?? "").trim() !== "producao") return { liberada: false, codigo: "ambiente_teste" };
   return { liberada: true };
@@ -436,6 +477,93 @@ export async function chamarLeituraPinbank(metodo: MetodoLeitura, dados: Record<
   }
   // Inalcançável: a segunda volta sempre retorna ou lança.
   throw new ErroApiPinbank("metodo", `${metodo}: a credencial foi recusada.`, 401);
+}
+
+/* ─────────────────────────────── a cobrança ─────────────────────────────── */
+
+/**
+ * Emite a cobrança RESERVADA (Pix dinâmico ou boleto) e devolve o resultado
+ * para `pinbank_cobranca_registrar`. NUNCA lança: toda saída é um resultado.
+ *
+ * ⚠️ **A diferença com a leitura é o que fazer quando não se sabe.** Repetir
+ * um extrato não move nada; repetir uma cobrança pode criar DUAS para o mesmo
+ * título, e o cliente pagaria as duas. Então:
+ *   · não saiu (configuração, conexão recusada, token recusado) → `falhou`;
+ *   · a Pinbank respondeu 4xx (exceto o 401 do token do cache, refeito UMA vez
+ *     — a Pinbank recusou na porta, nada foi criado) → `falhou`;
+ *   · saiu e a resposta não chegou, chegou 5xx ou chegou ilegível → `incerta`,
+ *     e o banco segura o título até a conferência.
+ */
+export async function emitirCobrancaPinbank(r: Extract<ReservaCobranca, { existente: false }>, o: OpcoesApi = {}): Promise<ResultadoCobranca> {
+  const metodo: MetodoCobranca = r.tipo === "pix" ? "QrCodeDinamico" : "Boleto";
+  const caminho: string = METODOS_COBRANCA[metodo];
+  if (!CAMINHOS_COBRANCA.includes(caminho)) return { situacao: "falhou", motivo: `Caminho fora da lista de cobrança: ${caminho}.` };
+  let cred: CredencialPinbank;
+  let corpo: string;
+  try {
+    cred = o.credencial ?? lerCredencialPinbank();
+    const dados = r.tipo === "pix" ? pedidoQrCodeDinamico(r, cred.canal) : pedidoBoleto(r, cred.canal);
+    corpo = JSON.stringify({ Data: { Json: cifrarPinbank(JSON.stringify({ Data: dados }), cred.chave) } });
+  } catch (e) {
+    return { situacao: "falhou", motivo: e instanceof ErroApiPinbank ? e.message : "A credencial da Pinbank não está pronta." };
+  }
+  const url = `${cred.base}/api/${caminho}Encrypted`;
+  const tipo: TipoCobranca = r.tipo;
+
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    let cabecalho: string;
+    let tokenNovo: boolean;
+    try {
+      const t = await obterToken(cred, o, tentativa > 0);
+      cabecalho = t.cabecalho;
+      tokenNovo = t.novo;
+    } catch (e) {
+      // O token é pedido ANTES da cobrança: nada foi criado.
+      const d = descreverErroApi(e);
+      return { situacao: "falhou", motivo: semSegredo(`Sem token da Pinbank (${d.motivo}).`, cred).slice(0, 500) };
+    }
+    let resp: RespostaPinbank;
+    try {
+      resp = await requisicaoPinbank({
+        url,
+        metodo: "POST",
+        corpo,
+        cabecalhos: {
+          "content-type": "application/json",
+          accept: "application/json",
+          Authorization: cabecalho,
+          UserName: cred.usuario,
+          ...(cred.origem ? { RequestOrigin: cred.origem } : {}),
+        },
+        proxies: o.proxies,
+        caDestino: o.caDestino,
+        timeoutTotalMs: 25_000,
+        maxBytesResposta: 2 * 1024 * 1024,
+      });
+    } catch (e) {
+      if (e instanceof ErroSaida && e.fase === "apos_envio") {
+        return { situacao: "incerta", motivo: `O pedido saiu e a resposta não chegou (${e.message}).`.slice(0, 500) };
+      }
+      return { situacao: "falhou", motivo: `O pedido não saiu (${descreverErroApi(e).motivo}).`.slice(0, 500) };
+    }
+    if (resp.status === 401 && !tokenNovo && tentativa === 0) {
+      tokens.delete(`${cred.base}|${cred.usuario}`);
+      continue;
+    }
+    if (resp.status >= 500) {
+      return { situacao: "incerta", motivo: `A Pinbank respondeu ${motivoDaPinbank(resp, cred)}; a cobrança pode ter sido criada.`.slice(0, 500) };
+    }
+    if (resp.status !== 200) {
+      return { situacao: "falhou", motivo: `A Pinbank respondeu ${motivoDaPinbank(resp, cred)}.`.slice(0, 500) };
+    }
+    try {
+      const { aberto } = abrirCorpoPinbank(resp.corpo.toString("utf8"), cred.chave);
+      return lerRespostaCobranca(tipo, aberto);
+    } catch (e) {
+      return { situacao: "incerta", motivo: semSegredo(`A resposta da Pinbank não abriu (${(e as Error).message}).`, cred).slice(0, 500) };
+    }
+  }
+  return { situacao: "falhou", motivo: "A credencial da Pinbank foi recusada." };
 }
 
 /* ─────────────────────────────── o ExtratoPos ─────────────────────────────── */

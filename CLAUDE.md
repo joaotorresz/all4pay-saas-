@@ -927,6 +927,21 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   cortado em qualquer ponto diz "chegou CORTADO". `/api/admin/saida-fixa` prova
   os 2 IPs de dentro da função.
 
+- ⚠️ **COBRANÇA POR PIX E BOLETO PELA CONTA PINBANK** (19/10/2026,
+  `docs/rodada-10/cobranca.md`, etapas 2 e 3 de 7). No modal da baixa de um
+  título a receber, "Gerar Pix" e "Gerar boleto" (`/api/pinbank/cobranca`).
+  Duas chaves: a PLATAFORMA põe o código da conta no vínculo, a EMPRESA liga
+  (`pinbank_cobranca_configurar`, administrar). A reserva é do BANCO, como a
+  pessoa (`pinbank_cobranca_reservar`, lançar): o pedido só diz título e
+  tipo; valor, vencimento e pagador saem de lá. O resultado só o servidor
+  grava (`pinbank_cobranca_registrar`, `service_role`). ⚠️ Resultado
+  `incerta` (5xx, enviado sem resposta) TRAVA o título — gerar outra cobraria
+  duas vezes; título alterado depois leva a cobrança a `a_cancelar`. Só CRIA
+  cobrança para receber, nenhum `CashOut` (bloco `cobranca-pinbank:` do
+  `engine-audit`). Nasce DESLIGADA (`PINBANK_COBRANCA=ligado` + produção).
+  Guarda `scripts/pinbank-cobranca.sql` no CI (10 defeitos plantados).
+  Link público, régua e baixa automática pelo webhook são as próximas etapas.
+
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
 - **A origem do número é DITA por quem calcula** (`core/assistant/numero`):

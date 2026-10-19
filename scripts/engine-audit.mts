@@ -11856,9 +11856,21 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // comentário) é um dos de leitura — pega o nome inocente apontando para
   // CashOut/Pix/Transacoes, e o módulo novo que monte a URL por conta própria.
   const CAMINHO_PB = /\b(?:CashOut|CashIn|PixAutomatico|Transacoes|Pix|ContaDigital)\/[A-Z][A-Za-z]*/g;
+  // A COBRANÇA (Pix dinâmico e boleto, para a empresa RECEBER) é a única
+  // criação liberada, e só no cliente da API: nenhum caminho de CashOut.
+  const CAMINHOS_COBRANCA_OK = ["Pix/SolicitarDynamicQrCode", "CashIn/GerarBoleto"];
   const caminhosFora = (ler: (p: string) => string) =>
-    arqsF.flatMap((p) => [...semComF(ler(p)).matchAll(CAMINHO_PB)].map((m) => m[0]).filter((c) => !CAMINHOS_LEITURA_OK.includes(c)).map((c) => `${p}: ${c}`));
-  ok("extrato-pos: TETO ZERO de caminho da Pinbank que não seja de leitura (pagamento, Pix, TED, cobrança)", caminhosFora(lerF).length === 0, caminhosFora(lerF).join(", "));
+    arqsF.flatMap((p) => [...semComF(ler(p)).matchAll(CAMINHO_PB)].map((m) => m[0])
+      .filter((c) => !CAMINHOS_LEITURA_OK.includes(c) && !(p === P_API && CAMINHOS_COBRANCA_OK.includes(c)))
+      .map((c) => `${p}: ${c}`));
+  ok("extrato-pos: TETO ZERO de caminho da Pinbank que não seja de leitura (fora a cobrança, só no cliente)", caminhosFora(lerF).length === 0, caminhosFora(lerF).join(", "));
+  ok("cobranca-pinbank: o cliente só CRIA os dois caminhos de cobrança (nenhum CashOut)",
+     Object.values(API.METODOS_COBRANCA).length === 2 && Object.values(API.METODOS_COBRANCA).every((c) => CAMINHOS_COBRANCA_OK.includes(c)),
+     Object.values(API.METODOS_COBRANCA).join(", "));
+  ok("cobranca-pinbank: (defeito plantado) a cobrança apontando para CashOut/AprovarTed é ACUSADA",
+     caminhosFora((p) => (p === P_API ? lerF(p).replace('Boleto: "CashIn/GerarBoleto",', 'Boleto: "CashOut/AprovarTed",') : lerF(p))).some((x) => x.includes("CashOut/AprovarTed")));
+  ok("cobranca-pinbank: (defeito plantado) caminho de cobrança montado FORA do cliente é ACUSADO",
+     caminhosFora((p) => (p === P_PROC ? lerF(p) + '\nconst u = "Pix/SolicitarDynamicQrCode";' : lerF(p))).some((x) => x.startsWith(P_PROC)));
   const plantaAprovarTed = (p: string) => (p === P_API ? lerF(p).replace('ExtratoPos: "ContaDigital/ExtratoPos",', 'ExtratoPos: "ContaDigital/ExtratoPos",\n  Saldo: "CashOut/AprovarTed",') : lerF(p));
   ok("extrato-pos: (defeito plantado) um nome de leitura apontando para CashOut/AprovarTed é ACUSADO",
      caminhosFora(plantaAprovarTed).some((x) => x.includes("CashOut/AprovarTed")));
@@ -11909,6 +11921,37 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: o aviso de RequestOrigin só diz 'aceitou' quando a rota diz ok", aceitouSoComOk(rotaExt));
   ok("extrato-pos: (defeito plantado) 'aceitou' em toda resposta sem RequestOrigin é REPROVADO",
      !aceitouSoComOk(rotaExt.replace(/avisoOrigem: ok\s*\?\s*("[^"]*")\s*:\s*"[^"]*",/, "avisoOrigem: $1,")));
+  /* ── cobranca-pinbank: a rota que CRIA cobrança pela conta da empresa ─── */
+  const ROTA_COB = "src/app/api/pinbank/cobranca/route.ts";
+  const rotaCob = lerF(ROTA_COB);
+  // Ordem do POST: sem banco → sessão → interruptor → reserva no banco (como a
+  // pessoa) → só então a Pinbank → o registro pela chave de serviço.
+  const ordemCob = (t: string) => {
+    const x = semComF(t).slice(semComF(t).indexOf("export async function POST"));
+    const iDemo = x.indexOf("NEXT_PUBLIC_SUPABASE_URL");
+    const iUser = x.indexOf("auth.getUser()");
+    const iLib = x.indexOf("cobrancaPinbankLiberada()");
+    const iRes = x.indexOf('s.rpc("pinbank_cobranca_reservar"');
+    const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+    const iReg = x.indexOf("pinbank_cobranca_registrar");
+    return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
+  };
+  ok("cobranca-pinbank: a rota recusa sem banco → sessão → interruptor → reserva no banco → só então a Pinbank", ordemCob(rotaCob));
+  ok("cobranca-pinbank: (defeito plantado) chamar a Pinbank antes da reserva é REPROVADO",
+     !ordemCob(rotaCob.replace("export async function POST(req: Request) {", "export async function POST(req: Request) {\n  await emitirCobrancaPinbank(reserva);")));
+  // A reserva é como a PESSOA (o banco confere empresa e papel); o registro, só o servidor.
+  const reservaComoPessoa = (t: string) => /s\.rpc\("pinbank_cobranca_reservar"/.test(semComF(t)) && !/admin\.rpc\("pinbank_cobranca_reservar"/.test(semComF(t));
+  ok("cobranca-pinbank: a reserva roda com a sessão da pessoa, nunca com a chave de serviço", reservaComoPessoa(rotaCob));
+  ok("cobranca-pinbank: (defeito plantado) reservar pela chave de serviço é ACUSADO",
+     !reservaComoPessoa(rotaCob.replace('s.rpc("pinbank_cobranca_reservar"', 'admin.rpc("pinbank_cobranca_reservar"')));
+  const regFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== ROTA_COB && /pinbank_cobranca_registrar/.test(semComF(ler(p))));
+  ok("cobranca-pinbank: só a rota grava o resultado (pinbank_cobranca_registrar)", regFora(lerF).length === 0, regFora(lerF).join(", "));
+  // O interruptor mora numa casa só.
+  const leInterruptor = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_COBRANCA\b/.test(semComF(ler(p))));
+  ok("cobranca-pinbank: PINBANK_COBRANCA só é lida pelo cliente da API", leInterruptor(lerF).length === 0 && /PINBANK_COBRANCA\b/.test(semComF(lerF(P_API))), leInterruptor(lerF).join(", "));
+  ok("cobranca-pinbank: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
+     leInterruptor((p) => (p === ROTA_COB ? lerF(p) + "\nconst l = process.env.PINBANK_COBRANCA;" : lerF(p))).includes(ROTA_COB));
+  ok("cobranca-pinbank: o interruptor está no .env.example", /^#?\s*PINBANK_COBRANCA=/m.test(docEnv));
   const semDocApi = API.VARIAVEIS_API_PINBANK.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }

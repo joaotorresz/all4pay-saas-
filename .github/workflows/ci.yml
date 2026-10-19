@@ -336,6 +336,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-limite-ec.sql
+      # A cobrança por Pix e boleto pela conta Pinbank: só a plataforma põe o
+      # código da conta, só quem administra a liga, só quem lança reserva, só o
+      # servidor grava o resultado; a incerta trava o título e o título mudado
+      # leva a cobrança a "a cancelar". 10 defeitos plantados, lendo a mensagem.
+      - name: Guarda da cobrança Pinbank (reserva, registro e título travado)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-cobranca.sql
       # ⚠️ O PRIMEIRO passo deste job a falar com o Auth (GoTrue/Kong), não só
       # com o Postgres: arreio novo, declarado no PR. Prova que o config.toml
       # commitado LIGA o aplicativo autenticador (o padrão local é desligado),

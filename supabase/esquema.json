@@ -163,7 +163,22 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261020120000_pinbank_cobranca",
+        "objetos_ausentes": [
+          "colunas pinbank_vinculos.cobranca_ativa/cobranca_ativada_por/cobranca_ativada_em + check pinbank_vinculo_cobranca_tem_codigo",
+          "tabela pinbank_cobrancas (RLS por empresa, só leitura para authenticated, gatilho de trilha) + sequência pinbank_cobranca_nsu_seq + índice único da cobrança viva por título e tipo",
+          "função pinbank_cobranca_configurar(uuid,boolean) — a empresa liga, exige administrar",
+          "função pinbank_cobranca_reservar(uuid,text) — exige lançar, confere o título",
+          "função pinbank_cobranca_registrar(uuid,jsonb) — execute só para service_role",
+          "gatilho pinbank_cobranca_titulo_mudou em movements (título alterado → cobrança a cancelar)"
+        ],
+        "impacto": "Até ser aplicada, a cobrança por Pix e boleto não existe: a rota responde erro ao reservar e o botão no título não aparece (o interruptor PINBANK_COBRANCA também nasce desligado). Nada que já existe muda.",
+        "resolver_ate": "2026-10-30",
+        "origem": "sessão Claude de 19/10/2026 (cobrança Pix e boleto pela conta Pinbank, etapas 2 e 3) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
