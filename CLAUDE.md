@@ -603,6 +603,18 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   Sugestões) seguem como abas de `/quattro-ai`. ⚠️ Pedido de abertura feito
   antes de o anfitrião montar fica na fila (`pendente`): os efeitos do React
   rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
+- **"Pergunte à Quattro AI" no RODAPÉ de toda tela (19/10/2026, pedido do
+  dono).** `ia/PergunteNaTela` (montado no `AppShell`; some na Home, na
+  própria IA e na plataforma): a barra da Home em miniatura, fixa e
+  centralizada embaixo. O clique VARRE a área de trabalho (linha lime descendo,
+  1,4s, para em `prefers-reduced-motion`) e abre o chat com
+  `abrirChat({ tela })`: a pergunta da tela ("O que você quer saber sobre o
+  seu fluxo de caixa?"), o que a varredura leu (cartões de conteúdo, gráficos,
+  tabelas e os nomes dos cartões — filtro e dia de calendário não contam) e
+  os caminhos Saber · Ver falhas · Adicionar de `core/ia/contexto-tela`. ⚠️ A
+  leitura só entra na SAUDAÇÃO; os números da resposta seguem do motor. ⚠️
+  Toda pergunta sugerida é respondida pelo motor nativo e todo "adicionar"
+  aponta para rota do inventário — guarda `npm run ia-contexto`.
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
   ou setas do teclado; só a alça inicia, porque o card é link), dentro do
