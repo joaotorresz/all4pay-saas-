@@ -148,6 +148,7 @@ export const SECTIONS: Section[] = [
       { label: "Painel de contas a receber", desc: "Recebido, a vencer e vencido no período", href: "/contas-a-receber", icon: "gauge" },
       { label: "Vendas", desc: "Pedidos, boletos, links e maquininha", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
       { label: "Títulos a receber", desc: "O que os clientes ainda devem, título a título", href: "/contas-a-receber/titulos", icon: "arrow-up" },
+      { label: "Maquininha Quattro", desc: "Vendas, taxas e recebíveis da maquininha Pinbank", href: "/contas-a-receber/maquininha", icon: "smartphone" },
       { label: "Notas fiscais", desc: "Notas das vendas e emissão de NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
       { label: "Cobrança e inadimplência", desc: "Régua de cobrança e risco por cliente", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
       { label: "Assinaturas e contratos", desc: "Receita recorrente, churn e contratos de cliente", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },

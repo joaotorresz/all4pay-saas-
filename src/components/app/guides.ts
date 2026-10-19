@@ -244,6 +244,13 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Recebeu 3 boletos hoje → selecione-os e confirme o recebimento para o saldo refletir.",
     secoes: [],
   },
+  "/contas-a-receber/maquininha": {
+    titulo: "Maquininha Quattro",
+    intro: "Os relatórios da maquininha Pinbank: quanto vendeu, quanto sobra depois das taxas, quando o dinheiro cai e quando você mais vende. Só leitura.",
+    comoUsar: "Escolha Hoje, Semana ou Mês no alto. Os gráficos de forma e bandeira, a lista de transações e o custo seguem o período; o mapa de calor olha as últimas 4 semanas. Exporte a planilha do período pelo botão do alto.",
+    exemplo: "Na semana, R$ 8.400 vendidos com 2,1% de custo: o líquido a receber mostra R$ 8.223, e a agenda diz em que dia cada repasse cai.",
+    secoes: [],
+  },
   "/dashboard/sales-invoices/subscriptions": {
     titulo: "Assinaturas e recorrência",
     intro: "A lista dos contratos recorrentes (MRR): cada contrato (cliente + itens + ciclo) projeta as próximas faturas como entradas previstas.",

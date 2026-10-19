@@ -17,7 +17,12 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { motivoDaRecusa } from "@/lib/erros";
-import { falhaDaConferenciaSemCorpo, type PrazosPinbank, type RelatorioParaEmpresa, type TaxasPinbank, type VendaMaquininhaBruta } from "@/core/pinbank";
+import {
+  falhaDaConferenciaSemCorpo, planejarTitulosDemo, type PrazosPinbank, type RelatorioParaEmpresa, type TaxasPinbank,
+  type TituloMaquininhaBruto, type VendaRelatorioBruta,
+} from "@/core/pinbank";
+import { comTeto, semAmostra } from "@/lib/supabase/filtros";
+import { conferirTeto } from "@/lib/supabase/consulta";
 
 export interface VinculoTela {
   id: string;
@@ -169,61 +174,141 @@ export async function conferirComExtrato(p: { vinculoId: string; de: string; ate
  */
 export interface LeituraVendasMaquininha {
   temMaquininha: boolean;
-  linhas: VendaMaquininhaBruta[];
+  linhas: VendaRelatorioBruta[];
   exemplo: boolean;
 }
 
-/** Vendas de exemplo da demonstração, sempre de hoje e de ontem. */
-function vendasDeExemplo(agora = new Date()): VendaMaquininhaBruta[] {
-  const base: [number, string, number, string | null, number, string | null][] = [
-    // minutos atrás, status, valor, forma, parcelas, bandeira
-    [6, "Aprovada", 189.9, "AVISTA", 1, "VISA"],
-    [27, "Aprovada", 64.5, "DEBITO", 1, "ELO"],
-    [48, "Aprovada", 42, null, 1, null],
-    [71, "Negada", 320, "AVISTA", 1, "MASTERCARD"],
-    [96, "Aprovada", 1250, "PARCELADO_LOJA", 3, "MASTERCARD"],
-    [140, "Aprovada", 37.8, "DEBITO", 1, "VISA"],
-    [1500, "Aprovada", 98, "AVISTA", 1, "AMEX"],
-  ];
-  return base.map(([min, status, valor, forma, parcelas, bandeira], i) => ({
-    nsu: 900100 + i, status, valor, ocorridoEm: new Date(agora.getTime() - min * 60_000).toISOString(),
-    formaPagamento: forma, numeroParcelas: parcelas, bandeira, ehPix: forma === null,
-  }));
+/**
+ * Vendas de exemplo da demonstração: 62 dias, sempre terminando agora, com a
+ * mesma semente (a tela não muda a cada recarga). Pix, débito, crédito e
+ * parcelado em quatro bandeiras, mais algumas negadas e uma cancelada.
+ */
+function vendasDeExemplo(agora = new Date()): VendaRelatorioBruta[] {
+  let semente = 20261019;
+  const rnd = () => { semente = (semente * 1103515245 + 12345) % 2147483648; return semente / 2147483648; };
+  const formas: [string | null, number][] = [[null, 0.22], ["DEBITO", 0.3], ["AVISTA", 0.3], ["PARCELADO_LOJA", 0.18]];
+  const bandeiras = ["VISA", "MASTERCARD", "ELO", "AMEX"];
+  const horas = [8, 9, 10, 11, 11, 12, 12, 12, 13, 14, 15, 16, 17, 17, 18, 18, 19, 20];
+  const out: VendaRelatorioBruta[] = [];
+  let nsu = 900000;
+  for (let d = 61; d >= 0; d--) {
+    const dia = new Date(agora.getTime() - d * 86_400_000);
+    const semana = new Date(`${diaEHoraLocal(dia)}T12:00:00Z`).getUTCDay();
+    const n = semana === 0 ? 3 : semana === 6 ? 9 : 6 + Math.floor(rnd() * 6);
+    for (let i = 0; i < n; i++) {
+      const h = horas[Math.floor(rnd() * horas.length)];
+      const ocorrido = new Date(`${diaEHoraLocal(dia)}T${String(h).padStart(2, "0")}:${String(Math.floor(rnd() * 60)).padStart(2, "0")}:00-03:00`);
+      if (ocorrido > agora) continue;
+      let x = rnd(); let forma: string | null = null;
+      for (const [f, p] of formas) { if ((x -= p) <= 0) { forma = f; break; } }
+      const parcelas = forma === "PARCELADO_LOJA" ? 2 + Math.floor(rnd() * 5) : 1;
+      const base = forma === "PARCELADO_LOJA" ? 300 + rnd() * 1400 : 15 + rnd() * 240;
+      const r = rnd();
+      out.push({
+        nsu: nsu++, status: r < 0.05 ? "Negada" : r < 0.06 ? "Cancelada" : "Aprovada",
+        valor: Math.round(base * 100) / 100, ocorridoEm: ocorrido.toISOString(),
+        formaPagamento: forma, numeroParcelas: parcelas, bandeira: forma ? bandeiras[Math.floor(rnd() * (rnd() < 0.85 ? 3 : 4))] : null,
+        ehPix: forma === null, vinculoId: rnd() < 0.7 ? "demo-balcao" : "demo-delivery",
+      });
+    }
+  }
+  return out;
 }
 
-export async function lerVendasMaquininha(limite = 100): Promise<LeituraVendasMaquininha> {
-  if (isDemo) return { temMaquininha: true, linhas: vendasDeExemplo(), exemplo: true };
-  const s = createClient();
-  const [v, t] = await Promise.all([
-    s.from("pinbank_vinculos").select("id").eq("ativo", true).limit(1),
-    s.from("pinbank_transacoes")
-      .select("nsu, status, valor, ocorrido_em")
-      .order("ocorrido_em", { ascending: false }).limit(limite),
-  ]);
-  if (v.error) throw new Error(motivoDaRecusa(v.error));
-  if (t.error) throw new Error(motivoDaRecusa(t.error));
-  const trans = (t.data ?? []) as { nsu: number; status: string; valor: number | string; ocorrido_em: string }[];
-  const nsus = trans.map((x) => x.nsu);
+/** O dia de São Paulo de um instante (`YYYY-MM-DD`). */
+function diaEHoraLocal(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+/** Lê os eventos das vendas em lotes (uma URL com 2.000 NSUs não cabe). */
+async function formasDasVendas(s: ReturnType<typeof createClient>, nsus: number[]) {
   const porNsu = new Map<number, { forma: string | null; parcelas: string | null; bandeira: string | null; pix: boolean }>();
-  if (nsus.length) {
+  for (let i = 0; i < nsus.length; i += 200) {
+    const lote = nsus.slice(i, i + 200);
     const e = await s.from("pinbank_eventos")
       .select("nsu, event_type, ocorrido_em, forma:payload->>formaPagamento, parcelas:payload->>numeroParcelas, bandeira:payload->cartao->>bandeira")
-      .in("nsu", nsus).order("ocorrido_em", { ascending: false }).limit(limite * 4);
+      .in("nsu", lote).order("ocorrido_em", { ascending: false }).limit(lote.length * 6);
     if (e.error) throw new Error(motivoDaRecusa(e.error));
     for (const ev of (e.data ?? []) as { nsu: number; event_type: string; forma: string | null; parcelas: string | null; bandeira: string | null }[]) {
       // O primeiro de cada NSU é o mais recente (a lista vem do mais novo ao mais velho).
       if (!porNsu.has(ev.nsu)) porNsu.set(ev.nsu, { forma: ev.forma, parcelas: ev.parcelas, bandeira: ev.bandeira, pix: /^compra\.pix/i.test(ev.event_type) });
     }
   }
+  return porNsu;
+}
+
+/**
+ * As vendas da maquininha desde `desde` (`YYYY-MM-DD`, dia de São Paulo; sem
+ * ele, as `limite` mais recentes). Pela sessão: a política recorta pela empresa.
+ */
+export async function lerVendasMaquininha(limite = 100, desde?: string): Promise<LeituraVendasMaquininha> {
+  if (isDemo) {
+    const todas = vendasDeExemplo();
+    return { temMaquininha: true, exemplo: true, linhas: desde ? todas.filter((v) => diaEHoraLocal(new Date(v.ocorridoEm)) >= desde) : todas.slice(-limite) };
+  }
+  const s = createClient();
+  const [v, t] = await Promise.all([
+    s.from("pinbank_vinculos").select("id").eq("ativo", true).limit(1),
+    s.from("pinbank_transacoes").select("nsu, status, valor, ocorrido_em, vinculo_id")
+      .gte("ocorrido_em", `${desde ?? "2000-01-01"}T00:00:00-03:00`)
+      .order("ocorrido_em", { ascending: false }).limit(limite),
+  ]);
+  if (v.error) throw new Error(motivoDaRecusa(v.error));
+  if (t.error) throw new Error(motivoDaRecusa(t.error));
+  const trans = (t.data ?? []) as { nsu: number; status: string; valor: number | string; ocorrido_em: string; vinculo_id: string | null }[];
+  conferirTeto("pinbank_transacoes", trans.length, limite);
+  const porNsu = trans.length ? await formasDasVendas(s, trans.map((x) => x.nsu)) : new Map();
   return {
     temMaquininha: (v.data ?? []).length > 0 || trans.length > 0,
     exemplo: false,
     linhas: trans.map((x) => {
       const ev = porNsu.get(x.nsu);
       return {
-        nsu: x.nsu, status: x.status, valor: Number(x.valor), ocorridoEm: x.ocorrido_em,
+        nsu: x.nsu, status: x.status, valor: Number(x.valor), ocorridoEm: x.ocorrido_em, vinculoId: x.vinculo_id,
         formaPagamento: ev?.forma ?? null, numeroParcelas: ev?.parcelas ?? null, bandeira: ev?.bandeira ?? null, ehPix: ev?.pix ?? false,
       };
     }),
+  };
+}
+
+/* ------------------------ o relatório da maquininha ------------------------ */
+
+export interface LeituraRelatorioMaquininha extends LeituraVendasMaquininha {
+  /** Os títulos que as vendas geraram (receita, taxa, tarifa, antecipação, estorno). */
+  titulos: TituloMaquininhaBruto[];
+  /** Nome de cada maquininha (vínculo), para "vendas por maquininha". */
+  maquininhas: { id: string; nome: string }[];
+}
+
+/**
+ * O que a página "Maquininha Quattro" lê: as vendas desde `desde` e os títulos
+ * delas (e os que ainda vão cair). Só leitura, pela sessão da pessoa.
+ */
+export async function lerRelatorioMaquininha(desde: string): Promise<LeituraRelatorioMaquininha> {
+  const vendas = await lerVendasMaquininha(5000, desde);
+  if (isDemo) {
+    return {
+      ...vendas,
+      titulos: planejarTitulosDemo(vendas.linhas, diaEHoraLocal(new Date())),
+      maquininhas: [{ id: "demo-balcao", nome: "Balcão" }, { id: "demo-delivery", nome: "Delivery" }],
+    };
+  }
+  const s = createClient();
+  const [m, vin] = await Promise.all([
+    comTeto(semAmostra(
+      s.from("movements").select("chave, type, amount, due_date, situacao, status")
+        .like("chave", "pinbank:%").gte("due_date", desde),
+    )),
+    s.from("pinbank_vinculos").select("id, nome, estabelecimento_id").order("criado_em").limit(50),
+  ]);
+  if (m.error) throw new Error(motivoDaRecusa(m.error));
+  if (vin.error) throw new Error(motivoDaRecusa(vin.error));
+  const titulos = (m.data ?? []) as TituloMaquininhaBruto[];
+  conferirTeto("movements (maquininha)", titulos.length);
+  return {
+    ...vendas,
+    titulos: titulos.map((x) => ({ ...x, amount: Number(x.amount) })),
+    maquininhas: ((vin.data ?? []) as { id: string; nome: string | null; estabelecimento_id: number | null }[])
+      .map((x) => ({ id: x.id, nome: x.nome?.trim() || (x.estabelecimento_id ? `Maquininha ${x.estabelecimento_id}` : "Maquininha") })),
   };
 }

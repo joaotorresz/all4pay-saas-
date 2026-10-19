@@ -31,3 +31,4 @@ export * from "./extrato-pos";
 export * from "./conferencia";
 export * from "./conferencia-portoes";
 export * from "./recentes";
+export * from "./relatorio";

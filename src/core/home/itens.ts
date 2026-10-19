@@ -57,7 +57,7 @@ export interface ItemHome {
 
 export const ITENS_HOME: ItemHome[] = [
   // Primeiro na esquerda (pedido do dono, 16/10/2026): as vendas que a Pinbank avisou pelo webhook.
-  { id: "maquininha", nome: "Transações recentes na maquininha", grupo: "painel", tamanho: "grande", descricao: "as últimas vendas da maquininha Pinbank e o total aprovado hoje",
+  { id: "maquininha", nome: "Transações recentes na maquininha", grupo: "painel", tamanho: "grande", descricao: "as últimas vendas da maquininha Pinbank, com o dia da semana, e o total aprovado no dia, na semana ou no mês",
     sinonimos: ["transacoes recentes na maquininha", "transacoes da maquininha", "vendas da maquininha", "vendas na maquininha", "maquininha", "maquina de cartao", "pinbank", "vendas no cartao"] },
   { id: "caixa", nome: "Caixa consolidado", grupo: "painel", tamanho: "grande", descricao: "o saldo de todas as contas hoje, com a curva de 7 meses",
     sinonimos: ["caixa consolidado", "caixa", "saldo", "saldos", "dinheiro em conta", "dinheiro no banco", "quanto tenho", "banco", "bancos"] },
