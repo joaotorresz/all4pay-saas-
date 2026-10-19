@@ -89,6 +89,7 @@ const ROUTES: RouteItem[] = [
   { label: "Nova compra", href: "/dashboard/purchases/new", icon: "plus", kw: "nova compra pedido fornecedor parcelado competencia vencimento rateio anexo" },
   { label: "Boletos recebidos", href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos", icon: "file-text", kw: "boleto dda linha digitavel codigo de barras vencido a vencer beneficiario" },
   { label: "NFs recebidas", href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs", icon: "receipt", kw: "nota fiscal recebida sefaz xml chave de acesso danfe fornecedor validacao" },
+  { label: "Maquininha Quattro", href: "/contas-a-receber/maquininha", icon: "smartphone", kw: "maquininha pinbank vendas cartao pix debito credito parcelado bandeira taxa mdr recebiveis agenda repasse transacoes relatorio" },
   { label: "Venda na maquininha (POS)", href: "/dashboard/sales-invoices?aba=maquininha", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
   { label: "Taxas da maquininha (POS)", href: "/dashboard/sales-invoices?aba=taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
   { label: "Produtos e serviços", href: "/dashboard/registrations/products", icon: "credit-card", kw: "produtos estoque sku servico servicos catalogo" },
