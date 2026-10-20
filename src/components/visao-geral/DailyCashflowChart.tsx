@@ -19,6 +19,7 @@ import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { EmptyState, VisuallyHidden } from "./shared";
+import { tx } from "@/design/escala-texto";
 
 // Número não tem cor por sinal (decisão de 30/09/2026): entradas em ink,
 // saídas em areia; o sinal escrito diz a direção do resultado.
@@ -141,7 +142,7 @@ export function DailyCashflowChart() {
                   leitura é o tooltip. */}
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 13, fill: FAINT }}
+                tick={{ fontSize: tx(13), fill: FAINT }}
                 axisLine={false}
                 tickMargin={10}
                 tickLine={false}

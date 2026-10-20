@@ -4,6 +4,7 @@ import * as React from "react";
 import { Money, Icon } from "@/components/ui";
 import { Sparkline } from "./Sparkline";
 import { VisuallyHidden } from "./shared";
+import { tx } from "@/design/escala-texto";
 
 /**
  * The "Saldo total" hero treatment, generalized.
@@ -46,7 +47,7 @@ export function HeroValue({
     <div>
       <div className="flex items-start justify-between gap-3">
         {/* Rótulo do herói (Laboratório): Roobert Variable 12, peso 200. */}
-        <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12, fontWeight: 200 }}>{label}</div>
+        <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: tx(12), fontWeight: 200 }}>{label}</div>
         {rightSlot}
       </div>
 

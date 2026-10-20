@@ -20,6 +20,7 @@ import {
   type Transferencia, type StatusFatura,
 } from "@/core/movimentacoes";
 import { hojeLocal } from "@/lib/aggregations";
+import { tx } from "@/design/escala-texto";
 
 const hoje = () => new Date();
 const mesCorrente = () => `${hoje().getFullYear()}-${String(hoje().getMonth() + 1).padStart(2, "0")}`;
@@ -443,7 +444,7 @@ function Kpi({ label, valor, cor, forte }: { label: string; valor: number; cor?:
       <span className="inline-flex items-center gap-[6px] text-[11px] font-medium tracking-[0.08em] text-faint">{label}<PontoStatus cor={cor} /></span>
       <span
         className={`block mt-2 text-[${forte ? 24 : 22}px] leading-none font-semibold tabular-nums text-ink`}
-        style={{ fontSize: forte ? 24 : 22 }}
+        style={{ fontSize: tx(forte ? 24 : 22) }}
       >
         <BRL value={valor} />
       </span>

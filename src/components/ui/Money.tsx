@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { tx } from "@/design/escala-texto";
 
 /**
  * Quattro DS — Money  ★ the product's signature treatment
@@ -73,15 +74,15 @@ export function Money({
           entre a moeda e o número, e a vírgula com os centavos no MESMO corpo,
           peso e cor do inteiro — o número é uma peça só, não inteiro + nota. */}
       <span
-        style={{ fontSize: curPx, fontWeight: prefixWeight ?? integerWeight, color: prefixColor ?? color }}
+        style={{ fontSize: tx(curPx), fontWeight: prefixWeight ?? integerWeight, color: prefixColor ?? color }}
       >
         {currency}{"\u00A0"}
       </span>
-      <span style={{ fontSize: px, color, fontWeight: integerWeight }}>
+      <span style={{ fontSize: tx(px), color, fontWeight: integerWeight }}>
         {integer}
       </span>
       {showDecimals && (
-        <span data-cents="" style={{ fontSize: px, color, fontWeight: integerWeight }}>
+        <span data-cents="" style={{ fontSize: tx(px), color, fontWeight: integerWeight }}>
           {decimalSep}
           {decimals}
         </span>

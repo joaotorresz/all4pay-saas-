@@ -32,6 +32,7 @@ import { PeriodFilter } from "@/components/visao-geral/PeriodFilter";
 import { NovoDeposito } from "@/components/visao-geral/NovoDeposito";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { isDemo } from "@/lib/demo";
+import { tx } from "@/design/escala-texto";
 
 const ORANGE = "var(--color-warning)";
 /** Receita é ENTRADA e saía em verde; número não tem cor por sinal (decisão de
@@ -250,8 +251,8 @@ export function VendasDashboardView() {
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={calc.semana} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
-                      <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-                      <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
+                      <XAxis dataKey="dia" tick={{ fontSize: tx(12), fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+                      <YAxis tick={{ fontSize: tx(12), fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                       <Tooltip content={<DiaTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
                       <Line type="monotone" dataKey="receita" stroke={INK} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: INK, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
@@ -263,8 +264,8 @@ export function VendasDashboardView() {
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={calc.serieAno} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
-                      <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
-                      <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
+                      <XAxis dataKey="mes" tick={{ fontSize: tx(12), fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
+                      <YAxis tick={{ fontSize: tx(12), fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                       <Tooltip content={<DiaTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
                       <Line type="monotone" dataKey="receita" stroke={INK} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: INK, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
@@ -285,10 +286,10 @@ export function VendasDashboardView() {
                     <DegradeArea id="recGlow" />
                   </defs>
                   <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
-                  <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
+                  <XAxis dataKey="mes" tick={{ fontSize: tx(12), fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
+                  <YAxis tick={{ fontSize: tx(12), fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                   <Tooltip content={<RmeTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} iconType="plainline" />
+                  <Legend wrapperStyle={{ fontSize: tx(12) }} iconType="plainline" />
                   <Area type="monotone" dataKey="receita" name="Receita bruta" stroke={INK} strokeWidth={2.2} fill="url(#recGlow)" activeDot={{ r: 5 }} {...chartAnim()} />
                   <Line type="monotone" dataKey="mc" name="Margem de contribuição" stroke={ORANGE} strokeWidth={2} dot={false} activeDot={{ r: 5 }} {...chartAnim(120)} />
                   <Line type="monotone" dataKey="ebitda" name="EBITDA" stroke={INK} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{ r: 5 }} {...chartAnim(240)} />

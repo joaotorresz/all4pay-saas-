@@ -32,7 +32,9 @@ import { cn } from "@/lib/utils";
  */
 const STORAGE_KEY = "a4p_sidebar_expandida";
 const LARGURA_KEY = "a4p_sidebar_width";
-const LARGURA_PADRAO = 260;
+// 312 (era 260): o texto do sistema cresceu 20% em 20/10/2026 e o menu acompanha,
+// senão "Vender e receber" e "Comprar e pagar" saíam cortados com reticências.
+const LARGURA_PADRAO = 312;
 const LARGURA_MIN = 200;
 const LARGURA_MAX = 420;
 const LIMIAR_RECOLHER = 160;

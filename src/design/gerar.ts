@@ -296,7 +296,12 @@ const PREFIXOS_ESCALA: Record<string, (k: string) => { classes: string[]; prop: 
  * definitivo aparece depois do PR publicado. O `!important` existe porque a
  * classe compilada tem a mesma especificidade e vem antes.
  */
-export function cssDaPreviaDeEscalas(arq: ArquivoTokens, r: Rascunho): string {
+export function cssDaPreviaDeEscalas(arq: ArquivoTokens, r: Rascunho, escalaTexto = 1): string {
+  // ⚠️ A prévia não passa pelo PostCSS: o fator da escala de texto
+  // (`escala-texto.json`) entra aqui, senão a vitrine mostraria o tipo 20%
+  // menor que o resto do app.
+  const px = (v: string | undefined) =>
+    v?.replace(/(-?\d*\.?\d+)px\b/g, (_, n: string) => `${Math.round(Number(n) * escalaTexto * 100) / 100}px`);
   const novo = aplicarRascunho(arq, r);
   const e = novo.escalas as Record<string, Record<string, unknown>>;
   const mudou = new Set(Object.keys(r.escalas ?? {}).map((c) => c.split(".").slice(0, 2).join(".")));
@@ -310,7 +315,7 @@ export function cssDaPreviaDeEscalas(arq: ArquivoTokens, r: Rascunho): string {
       for (const c of classes) s += `.ds-previa .${c}{${prop}:${v}!important}\n`;
     } else if (escala === "fontSize" && Array.isArray(v)) {
       const [tam, extra] = v as [string, Record<string, string>?];
-      s += `.ds-previa .text-${nome}{font-size:${tam}!important;${extra?.lineHeight ? `line-height:${extra.lineHeight}!important;` : ""}${extra?.letterSpacing ? `letter-spacing:${extra.letterSpacing}!important;` : ""}}\n`;
+      s += `.ds-previa .text-${nome}{font-size:${px(tam)}!important;${extra?.lineHeight ? `line-height:${px(extra.lineHeight)}!important;` : ""}${extra?.letterSpacing ? `letter-spacing:${px(extra.letterSpacing)}!important;` : ""}}\n`;
     } else if (escala === "spacingNomeado" && typeof v === "string") {
       for (const [p, prop] of [["px", "padding-inline"], ["py", "padding-block"], ["w", "width"]] as const)
         s += `.ds-previa .${p}-${nome}{${prop}:${v}!important}\n`;

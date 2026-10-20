@@ -11,6 +11,7 @@ import { BRL } from "./BRL";
 import { chartAnim } from "@/lib/chart-anim";
 import { RAIO_TOPO, SERIES, COMPARACAO, tickBRL } from "@/lib/grafico";
 import { COR_ENTRADA, COR_SAIDA } from "./GraficosBiblioteca";
+import { tx } from "@/design/escala-texto";
 
 /**
  * O resto da Biblioteca do canvas "Quattro ERP · Gráficos e tabelas"
@@ -39,7 +40,7 @@ import { COR_ENTRADA, COR_SAIDA } from "./GraficosBiblioteca";
  * velas a cor é da SÉRIE — a vela de alta e a de baixa chegam separadas.
  */
 
-const EIXO = { fontSize: 11, fill: "var(--color-text-secondary)" };
+const EIXO = { fontSize: tx(11), fill: "var(--color-text-secondary)" };
 const GRADE = "var(--erp-graf-grade)";
 const CURSOR = { fill: "rgba(127,127,127,0.06)" };
 const TRILHO = "var(--color-surface-2)";
@@ -143,7 +144,7 @@ function rotuloPct(props: { cx: number; cy: number; midAngle: number; innerRadiu
   return (
     <g>
       <rect x={x - 15} y={y - 8} width={30} height={16} rx={8} fill="var(--color-white)" />
-      <text x={x} y={y + 3.5} textAnchor="middle" fontSize={9} fill="var(--color-ink)" className="tabular-nums">{pctTexto(fracao)}</text>
+      <text x={x} y={y + 3.5} textAnchor="middle" fontSize={tx(9)} fill="var(--color-ink)" className="tabular-nums">{pctTexto(fracao)}</text>
     </g>
   );
 }
@@ -432,7 +433,7 @@ export function MetaCirculo({ atual, meta, ariaLabel, rotuloAtual = "Até agora"
           <g clipPath={`url(#mc-${uid})`}>
             <path d={`M0 ${y} Q ${tamanho * 0.25} ${y - 8} ${r} ${y} T ${tamanho} ${y} V ${tamanho} H 0 Z`} fill="var(--erp-graf-serie-1)" />
           </g>
-          <text x={r} y={r + 5} textAnchor="middle" fontSize={13} fill={f > 0.5 ? "var(--color-white)" : "var(--color-ink)"} className="tabular-nums">
+          <text x={r} y={r + 5} textAnchor="middle" fontSize={tx(13)} fill={f > 0.5 ? "var(--color-white)" : "var(--color-ink)"} className="tabular-nums">
             {Math.round(f * 100)}%
           </text>
         </svg>

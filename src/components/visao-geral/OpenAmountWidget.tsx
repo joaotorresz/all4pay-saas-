@@ -8,6 +8,7 @@ import { brlParts, formatBRL } from "@/lib/format";
 import type { ReceivablesSummary } from "@/lib/types";
 import { WidgetHeader, EmptyState } from "./shared";
 import { HeroValue } from "./HeroValue";
+import { tx } from "@/design/escala-texto";
 
 /**
  * Mirrored "A Receber" / "A Pagar" widget.
@@ -84,7 +85,7 @@ export function OpenAmountWidget({
         {/* Secondary stats */}
         <div className="flex gap-3 pt-1 border-t border-border-soft">
           <div className="flex-1 pt-3">
-            <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12 }}>
+            <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: tx(12) }}>
               {weekLabel}
             </div>
             <div className="mt-1">
@@ -96,7 +97,7 @@ export function OpenAmountWidget({
             </div>
           </div>
           <div className="flex-1 pt-3">
-            <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12 }}>
+            <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: tx(12) }}>
               {monthLabel}
             </div>
             <div className="mt-1">

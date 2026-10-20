@@ -2,6 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "./bancos-icones";
+import { tx } from "@/design/escala-texto";
 
 /**
  * Quattro DS — BancoLogo
@@ -45,7 +46,7 @@ export function BancoLogo({
         "rounded-sm bg-surface-2 text-ink font-medium leading-none",
         className,
       )}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.36), ...style }}
+      style={{ width: size, height: size, fontSize: tx(Math.round(size * 0.36)), ...style }}
       {...a11y}
       {...rest}
     >

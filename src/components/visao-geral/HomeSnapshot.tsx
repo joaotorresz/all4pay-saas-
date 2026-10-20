@@ -36,6 +36,7 @@ import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import type { RespostaChatAjuste, SugestaoChat } from "@/components/ia/ChatTelaCheia";
 import { abrirChat } from "@/components/ia/ChatGlobal";
+import { tx } from "@/design/escala-texto";
 
 /**
  * A HOME "SNAPSHOT" — a prancheta "Home · proposta snapshot" do canvas
@@ -642,7 +643,7 @@ function CardGrande({ n, curva, carimbo }: { n: NumeroHome; curva: CurvaHome; ca
     >
       <span className="text-[15px] text-ink">{n.rotulo}</span>
       <div className="flex items-center gap-[13.8px] flex-wrap">
-        <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><Valor n={n} /></span>
+        <span className="a4p-heroi" style={{ fontSize: tx(36), lineHeight: 1 }}><Valor n={n} /></span>
         <Pilula v={n.variacao} />
       </div>
       <GraficoDoCard id={n.id} curva={curva} />
@@ -664,7 +665,7 @@ function CardPequeno({ n, carimbo }: { n: NumeroHome; carimbo: string }) {
     >
       <span className="text-[15px] text-muted">{n.rotulo}</span>
       <div className="flex items-center gap-3 flex-wrap">
-        <span style={{ fontSize: 30, lineHeight: 1 }}><Valor n={n} compacto /></span>
+        <span style={{ fontSize: tx(30), lineHeight: 1 }}><Valor n={n} compacto /></span>
         <Pilula v={n.variacao} />
       </div>
       <span className="text-[12px] text-muted">{carimbo}</span>
@@ -755,7 +756,7 @@ function Fechamento({ mes, tarefas }: { mes: string; tarefas: TarefaFechamento[]
     <Link href="/dashboard/reports/monthly-closing" className={`${COLUNA} gap-3`} style={colunaStyle}>
       <span className="a4p-titulo-secao text-[15px] text-muted">Fechamento de {MESES_LONGOS[Number(mes.slice(5, 7)) - 1]}</span>
       <div className="flex items-baseline justify-between">
-        <span className="a4p-num tabular-nums" style={{ fontSize: 30, lineHeight: 1 }}>{tarefas ? pct(fracao, 0) : "—"}</span>
+        <span className="a4p-num tabular-nums" style={{ fontSize: tx(30), lineHeight: 1 }}>{tarefas ? pct(fracao, 0) : "—"}</span>
         <span className="text-[13px] text-muted tabular-nums">{feitas} / {total} concluídas</span>
       </div>
       <div className="h-[6px] rounded-[3px]" style={{ background: "var(--color-border)" }}>

@@ -70,9 +70,13 @@ export function AppShell({
               e a margem negativa desfaz o deslocamento, então a entrelinha
               documentada e o ritmo do cabeçalho continuam os mesmos. Fica no
               `style` porque precisa sobreviver a qualquer fonte que o
-              Laboratório injete — inclusive uma mais alta que a Roobert. */}
+              Laboratório injete — inclusive uma mais alta que a Roobert.
+
+              ⚠️ No celular o título QUEBRA linha em vez de cortar: com o texto
+              20% maior (20/10/2026), "Painel de contas a receber" virava
+              "Painel de contas a ...". O corte com reticências fica do `sm` em diante. */}
           <h1
-            className="m-0 text-[30px] text-ink truncate"
+            className="m-0 text-[30px] text-ink break-words sm:truncate"
             style={{
               // Título de tela em Roobert 500, caixa de frase ("Aa"),
               // espaçamento 0, 30px (design system de 16/10/2026).

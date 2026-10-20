@@ -11,6 +11,7 @@ import { Card } from "./Card";
 import { InfoHint } from "./InfoHint";
 import { chartAnim } from "@/lib/chart-anim";
 import { RAIO_TOPO, RAIO_BASE, tickBRL } from "@/lib/grafico";
+import { tx } from "@/design/escala-texto";
 
 /**
  * Os modelos da prancheta "Biblioteca" do canvas "Quattro ERP · Gráficos e
@@ -80,7 +81,7 @@ export function CartaoBiblioteca({
 
 export const COR_ENTRADA = "var(--erp-graf-entrada)";
 export const COR_SAIDA = "var(--erp-graf-saida)";
-const EIXO = { fontSize: 11, fill: "var(--color-text-secondary)" };
+const EIXO = { fontSize: tx(11), fill: "var(--color-text-secondary)" };
 const GRADE = "var(--erp-graf-grade)";
 const CURSOR = { fill: "rgba(127,127,127,0.06)" };
 
@@ -478,10 +479,10 @@ export function AneisConcentricos({
         })}
         {maior && (
           <>
-            <text x={c} y={c + 2} textAnchor="middle" fontSize={22} fill="var(--color-ink)" className="tabular-nums">
+            <text x={c} y={c + 2} textAnchor="middle" fontSize={tx(22)} fill="var(--color-ink)" className="tabular-nums">
               {Math.round(maior.fracao * 100)}%
             </text>
-            <text x={c} y={c + 18} textAnchor="middle" fontSize={10} fill="var(--color-text-secondary)">do total</text>
+            <text x={c} y={c + 18} textAnchor="middle" fontSize={tx(10)} fill="var(--color-text-secondary)">do total</text>
           </>
         )}
       </svg>

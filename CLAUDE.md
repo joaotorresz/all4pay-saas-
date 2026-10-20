@@ -60,6 +60,24 @@ from its tokens and its components.
   e todo `backdrop-blur` saíram. As menções a vidro abaixo são histórico.
   Guarda `vidro:` (teto ZERO) em `npm run consistencia`.
 
+### ⚠️ TODO TEXTO +20% — A ESCALA DE TEXTO (decisão do dono, 20/10/2026)
+
+O tamanho de TODO texto do sistema sai de UM número: `ESCALA_TEXTO = 1.2`
+em **`src/design/escala-texto.ts`**. Os valores em px do `tokens.json`, do
+`globals.css` e das classes `text-[Npx]` das telas continuam escritos como
+foram desenhados; quem multiplica é o PostCSS
+(`src/design/postcss-escala-texto.cjs`, depois do Tailwind): todo
+`font-size`, `line-height` e `letter-spacing` em px do CSS gerado, e o
+`font-size` que vem de variável. Espaçamento, raio e largura NÃO mudam.
+
+- O que nasce em JS (eixo do Recharts, `<text>` de SVG, `Money`, estilo
+  inline) passa por `tx(px)`. Teto ZERO de `fontSize` numérico fora dele.
+- A prévia do editor do DS não passa pelo PostCSS e recebe o fator por
+  parâmetro (`cssDaPreviaDeEscalas`).
+- O menu cresceu junto (`sidebar` 288px no celular, 312px padrão no
+  computador) e o título de tela quebra linha no celular em vez de cortar.
+- Guarda: `npm run escala-texto` (no `npm test`).
+
 ### ⚠️ OS VALORES TÊM UMA FONTE SÓ: `src/design/tokens.json` (16/10/2026)
 
 Toda variável de tema (cor, raio, sombra, fonte, gráfico, tabela, dica,

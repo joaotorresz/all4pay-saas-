@@ -21,6 +21,7 @@
 import * as React from "react";
 import { Button, Textarea } from "@/components/ui";
 import tokensJson from "@/design/tokens.json";
+import { ESCALA_TEXTO } from "@/design/escala-texto";
 import {
   aplicarRascunho, contextosEditaveis, cssDaPreviaDeEscalas, folhasDeEscala, gerarDeclaracoes,
   mudancasDoRascunho, problemaDoValor, serializarTokens, validarRascunho,
@@ -130,7 +131,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       el.id = "ds-rascunho";
     }
     document.head.appendChild(el); // sempre o ÚLTIMO: é o que faz a prévia vencer
-    el.textContent = gerarDeclaracoes(aplicarRascunho(ARQ, valido), false) + cssDaPreviaDeEscalas(ARQ, valido);
+    el.textContent = gerarDeclaracoes(aplicarRascunho(ARQ, valido), false) + cssDaPreviaDeEscalas(ARQ, valido, ESCALA_TEXTO);
   }, [rascunho, mudancas.length]);
 
   React.useEffect(() => () => document.getElementById("ds-rascunho")?.remove(), []);

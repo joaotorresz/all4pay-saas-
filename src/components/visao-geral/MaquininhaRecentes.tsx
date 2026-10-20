@@ -21,6 +21,7 @@ import { BRL, Icon } from "@/components/ui";
 import { diaEHora } from "@/core/pinbank/recentes";
 import { janelaMaquininha, montarRelatorioMaquininha, PERIODOS_MAQUININHA, type PeriodoMaquininha } from "@/core/pinbank/relatorio";
 import { lerVendasMaquininha } from "@/lib/pinbank/cliente";
+import { tx } from "@/design/escala-texto";
 
 const LINK_INTEGRACAO = "/dashboard/administration/integrations?cartao=maquininha-pinbank";
 export const LINK_MAQUININHA = "/contas-a-receber/maquininha";
@@ -102,7 +103,7 @@ export function MaquininhaRecentes() {
       ) : rel && (
         <>
           <div className="flex items-baseline gap-3 flex-wrap">
-            <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><BRL value={rel.resumo.vendido} /></span>
+            <span className="a4p-heroi" style={{ fontSize: tx(36), lineHeight: 1 }}><BRL value={rel.resumo.vendido} /></span>
             <span className="text-[13px] text-muted tabular-nums">
               {rel.resumo.quantidade} {QUANTIDADE[periodo][rel.resumo.quantidade === 1 ? 0 : 1]}
             </span>

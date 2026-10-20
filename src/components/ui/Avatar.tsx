@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { tx } from "@/design/escala-texto";
 
 /**
  * Quattro DS — Avatar
@@ -38,7 +39,7 @@ export function Avatar({
         square ? "rounded-sm" : "rounded-pill",
         className,
       )}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.4), ...style }}
+      style={{ width: size, height: size, fontSize: tx(Math.round(size * 0.4)), ...style }}
       {...rest}
     >
       {src ? (

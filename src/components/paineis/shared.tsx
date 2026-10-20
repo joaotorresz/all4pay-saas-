@@ -13,6 +13,7 @@ import { Card, Icon, Select, BRL, InfoHint, PontoStatus } from "@/components/ui"
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { deslocarMes, rotuloMesAno, type FiltroPainel } from "@/core/paineis";
 import { pctDeInteiro, decimalBR } from "@/lib/format";
+import { tx } from "@/design/escala-texto";
 
 /* ------------------------------- subtítulo ------------------------------- */
 
@@ -292,7 +293,7 @@ export const tooltipPainel: React.CSSProperties = {
   borderRadius: 12,
   border: "1px solid var(--color-border)",
   background: "var(--color-white)",
-  fontSize: 13,
+  fontSize: tx(13),
 };
 
 /* ------------------------------ cards com anel ------------------------------ */
@@ -325,7 +326,7 @@ export function CardAnel({ c, onClick }: { c: DadosAnel; onClick?: () => void })
             cx="26" cy="26" r={r} fill="none" stroke={cor} strokeWidth="4" strokeLinecap="round"
             strokeDasharray={`${(circ * c.percentual) / 100} ${circ}`} transform="rotate(-90 26 26)"
           />
-          <text x="26" y="29" textAnchor="middle" className="tabular-nums" style={{ fontSize: 10, fill: "var(--color-text-secondary)" }}>
+          <text x="26" y="29" textAnchor="middle" className="tabular-nums" style={{ fontSize: tx(10), fill: "var(--color-text-secondary)" }}>
             {pctDeInteiro(c.percentual)}
           </text>
         </svg>
