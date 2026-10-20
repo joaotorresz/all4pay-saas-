@@ -34,7 +34,13 @@ const BASE = process.env.ALVO ?? "http://127.0.0.1:3117";
  * reprova por infraestrutura treina quem a lê a ignorar a reprovação.
  */
 const CAMINHO_CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
-const OPCOES_NAVEGADOR = existsSync(CAMINHO_CHROME) ? { executablePath: CAMINHO_CHROME } : {};
+// CAMERA_FALSA=1: câmera simulada do Chromium, para provar que o vídeo do
+// facial liga de verdade (no CI, sem ela, o caminho é o da câmera indisponível).
+const CAMERA_FALSA = process.env.CAMERA_FALSA === "1";
+const OPCOES_NAVEGADOR = {
+  ...(existsSync(CAMINHO_CHROME) ? { executablePath: CAMINHO_CHROME } : {}),
+  ...(CAMERA_FALSA ? { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] } : {}),
+};
 const META_S = 600; // 10 minutos
 
 /**
@@ -53,7 +59,7 @@ const RITMO = {
 };
 
 const b = await chromium.launch(OPCOES_NAVEGADOR);
-const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, ...(CAMERA_FALSA ? { permissions: ["camera"] } : {}) });
 const page = await ctx.newPage();
 /* A Receita (BrasilAPI) vem de MENTIRA, e de propósito: no CI o runner tem
    rede, e o CNPJ do teste existe de verdade — a resposta mudava o caminho da
@@ -180,7 +186,7 @@ await fase("0. Entrar pelo cadastro pela conversa",
     await pj.click();
     const campoDoc = page.locator("form input:not([hidden])").first();
     await campoDoc.waitFor({ state: "visible", timeout: 20000 });
-    await page.waitForFunction(() => !document.querySelector("form input:not([hidden])")?.disabled, null, { timeout: 20000 });
+    await page.waitForFunction(() => (() => { const c = document.querySelector("form input:not([hidden])"); return !!c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado"); })(), null, { timeout: 20000 });
     await campoDoc.pressSequentially("11222333000181");
     const mascarado = await campoDoc.inputValue();
     if (mascarado !== "11.222.333/0001-81") { falhas++; return `REPROVA: o CNPJ não ganha máscara enquanto se digita ("${mascarado}")`; }
@@ -202,7 +208,7 @@ await fase("0. Entrar pelo cadastro pela conversa",
       const op = document.querySelector("[data-opcoes]");
       if (op) return `op:${op.getAttribute("data-opcoes")}`;
       const c = document.querySelector("form input:not([hidden])");
-      return c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
+      return c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado") ? `campo:${c.getAttribute("aria-label")}` : "";
     });
     const perguntas = [];
     let anterior = "";
@@ -213,7 +219,7 @@ await fase("0. Entrar pelo cadastro pela conversa",
           : ["facial", "docIdentidade", "senhaTransacional"].find((id) => document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) ?? "";
         const op = document.querySelector("[data-opcoes]");
         const c = document.querySelector("form input:not([hidden])");
-        const k = passo ? passo : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
+        const k = passo ? passo : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado") ? `campo:${c.getAttribute("aria-label")}` : "";
         return k && k !== ant;
       }, anterior, { timeout: 30000 }).catch((e) => {
         throw new Error(`a conversa parou depois de "${anterior || "o CNPJ"}" (${e.name})`);
@@ -246,7 +252,15 @@ await fase("0. Entrar pelo cadastro pela conversa",
         const depois = page.getByRole("button", { name: "Validar depois" });
         const capturar = page.getByRole("button", { name: "Capturar" });
         await Promise.race([depois.waitFor({ timeout: 15000 }), capturar.waitFor({ timeout: 15000 })]);
-        if (await depois.isVisible()) await depois.click(); else await capturar.click();
+        if (await depois.isVisible()) {
+          // Sem câmera ao vivo, a câmera NATIVA do celular continua oferecida.
+          if (!(await page.locator('[data-facial="erro"] input[type="file"][capture="user"]').count())) throw new Error("facial sem a câmera nativa do celular");
+          await depois.click();
+        } else {
+          // O vídeo tem de estar TOCANDO: o defeito era o oval vazio com a câmera ligada.
+          await page.waitForFunction(() => { const v = document.querySelector('[data-facial="camera"] video'); return !!v && v.videoWidth > 0 && !v.paused; }, null, { timeout: 10000 });
+          await capturar.click();
+        }
         continue;
       }
       if (k === "docIdentidade") {

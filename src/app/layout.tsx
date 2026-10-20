@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
 // ⚠️ TIPOGRAFIA: ROOBERT TRIAL EM TUDO.
 //
@@ -21,6 +21,14 @@ export const metadata: Metadata = {
   // "Quattro — Tesouraria" em toda aba.
   title: "Quattro",
   description: "ERP + gestão financeira. Construído sobre o Design System Quattro.",
+};
+
+// O teclado do celular ENCOLHE a tela (Android): a barra de digitar fica
+// colada nele em vez de ser coberta, e os `100dvh` acompanham.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
