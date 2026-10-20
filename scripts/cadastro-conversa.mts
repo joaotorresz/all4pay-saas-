@@ -10,6 +10,7 @@
 import {
   CADASTRO_VAZIO, PERGUNTAS, aplicarReceita, cnpjConfere, cpfConfere, faltandoParaCriar, mascararCEP,
   mascararCNPJ, mascararCPF, mascararTelefone, montarCadastro, nomeDaOrganizacao, proximoPasso, FAIXAS_FATURAMENTO, FAIXAS_RENDA,
+  lerDocumentoIdentidade, problemaDaSenhaTransacional, passosEspeciais,
   type Cadastro, type Pergunta,
 } from "../src/core/cadastro/conversa.ts";
 
@@ -51,6 +52,8 @@ function conversar(inicio: Cadastro, pular?: string): { c: Cadastro; feitas: str
       if (id === "termos") c = { ...c, aceiteTermos: "2026-10-20T12:00:00.000Z" };
       if (id === "infos") c = { ...c, faturamento: FAIXAS_FATURAMENTO[1].rotulo, rendaRepresentante: FAIXAS_RENDA[1] };
       if (id === "facial") c = { ...c, biometria: "capturada" };
+      if (id === "docIdentidade") c = { ...c, docTipo: "rg", documento: "enviado" };
+      if (id === "senhaTransacional") c = { ...c, senhaTransacional: "definida" };
       continue;
     }
     const p = passo.pergunta;
@@ -95,7 +98,30 @@ ok("PJ: pede regime, representante, perfil e estrutura",
   ["regime", "repNome", "repTelefone", "repEmail", "limite", "setor", "infos", "facial", "bancos", "contaTipos", "dre", "fluxoCaixa"].every((id) => pjReceita.feitas.includes(id)));
 
 /* A ORDEM DOS PRINTS: Open Finance, termos, WhatsApp, e-mail, informações, rosto */
-ok("PJ: a ordem dos prints vem primeiro", pjReceita.feitas.slice(0, 6).join(",") === "openfinance,termos,repTelefone,repEmail,infos,facial");
+ok("PJ: a ordem dos prints vem primeiro", pjReceita.feitas.slice(0, 8).join(",") === "openfinance,termos,repTelefone,repEmail,infos,facial,docIdentidade,senhaTransacional");
+ok("PF: rosto, documento e senha transacional depois dos termos", pfOrdem().slice(0, 5).join(",") === "openfinance,termos,facial,docIdentidade,senhaTransacional");
+ok("passos de cartão: PJ 6, PF 5", passosEspeciais({ ...CADASTRO_VAZIO, tipo: "pj" }) === 6 && passosEspeciais({ ...CADASTRO_VAZIO, tipo: "pf" }) === 5);
+ok("PJ: sem documento de identidade o portão fica fechado", faltandoParaCriar({ ...pjReceita.c, documento: "" }).length > 0);
+ok("PJ: sem senha transacional o portão fica fechado", faltandoParaCriar({ ...pjReceita.c, senhaTransacional: "" }).length > 0);
+ok("documento pendente não impede a conta", faltandoParaCriar({ ...pjReceita.c, documento: "pendente" }).length === 0);
+
+/* a leitura do documento: confere pelo CPF em qualquer formatação, ou pelo nome num documento reconhecido */
+const pfDoc = { tipo: "pf" as const, cpf: "529.982.247-25", nome: "Carlos Lima", repNome: "" };
+ok("RG com o CPF pontuado confere", lerDocumentoIdentidade("REPUBLICA FEDERATIVA DO BRASIL CARTEIRA DE IDENTIDADE CPF 529.982.247-25", pfDoc).conferido);
+ok("CNH com o CPF sem pontuação confere", lerDocumentoIdentidade("CARTEIRA NACIONAL DE HABILITACAO 52998224725", pfDoc).conferido);
+ok("nome sem acento num RG reconhecido confere", lerDocumentoIdentidade("CARTEIRA DE IDENTIDADE NOME CARLOS LIMA", pfDoc).conferido);
+ok("nome solto, fora de documento, não confere", !lerDocumentoIdentidade("carlos lima comprou pão", pfDoc).conferido);
+ok("CPF de outra pessoa não confere", !lerDocumentoIdentidade("CARTEIRA DE IDENTIDADE CPF 111.444.777-35 NOME JOAO", pfDoc).conferido);
+ok("texto vazio não confere (e não quebra)", !lerDocumentoIdentidade("", pfDoc).conferido);
+ok("PJ confere pelo nome do representante", lerDocumentoIdentidade("CNH HABILITACAO ANA SOUZA", { tipo: "pj", cpf: "", nome: "", repNome: "Ana Souza" }).conferido);
+
+/* a senha transacional */
+ok("senha boa salva", problemaDaSenhaTransacional("482913", "482913") === null);
+ok("senha com menos de 6 dígitos é recusada", problemaDaSenhaTransacional("48291", "48291") !== null);
+ok("senha com letra é recusada", problemaDaSenhaTransacional("48291a", "48291a") !== null);
+ok("senha repetida é recusada", problemaDaSenhaTransacional("111111", "111111") !== null);
+ok("sequência crescente e decrescente são recusadas", problemaDaSenhaTransacional("123456", "123456") !== null && problemaDaSenhaTransacional("654321", "654321") !== null);
+ok("confirmação diferente é recusada", problemaDaSenhaTransacional("482913", "482914") !== null);
 ok("PJ: o faturamento das informações não é perguntado de novo", pjReceita.feitas.filter((id) => id === "faturamento").length === 0);
 ok("PJ: sem aceite dos termos o portão fica fechado", faltandoParaCriar({ ...pjReceita.c, aceiteTermos: "" }).length > 0);
 ok("PJ: sem reconhecimento facial o portão fica fechado", faltandoParaCriar({ ...pjReceita.c, biometria: "" }).length > 0);
@@ -109,6 +135,7 @@ const furosPJ = obrigatoriasPJ.filter((id) => faltandoParaCriar(conversar(pjInic
 ok(`PJ: pular qualquer uma das ${obrigatoriasPJ.length} obrigatórias fecha o portão${furosPJ.length ? ` (furos: ${furosPJ.join(", ")})` : ""}`, furosPJ.length === 0);
 
 /* PF */
+function pfOrdem() { return conversar({ ...CADASTRO_VAZIO, tipo: "pf", cpf: "529.982.247-25" }).feitas; }
 const pfInicio: Cadastro = { ...CADASTRO_VAZIO, tipo: "pf", cpf: "529.982.247-25" };
 const pfFim = conversar(pfInicio);
 ok("PF: completa o cadastro", faltandoParaCriar(pfFim.c).length === 0);

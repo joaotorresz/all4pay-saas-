@@ -6,7 +6,7 @@ import {
   ListChecks, Mail, Menu, Mic, Square, Minus, Moon, Network, Palette, Paperclip, Pencil, Pentagon, Plus,
   Package, Receipt, Repeat, RotateCcw, ScanLine, Search, Settings, ShieldCheck, ShoppingCart, SlidersHorizontal,
   Smartphone, Smile, Sparkles, Sun, Target, Trash2, TrendingDown, TrendingUp, TriangleAlert, Upload,
-  User, Users, Workflow, X, Camera, ScanFace, Glasses, Lock, Landmark, Coins, type LucideIcon,
+  User, Users, Workflow, X, Camera, ScanFace, Glasses, Lock, Landmark, Coins, Lightbulb, IdCard, Table2, KeyRound, type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -28,6 +28,10 @@ export const LUCIDE_ICONS = {
   lock: Lock,
   landmark: Landmark,
   coins: Coins,
+  lightbulb: Lightbulb,
+  "id-card": IdCard,
+  table: Table2,
+  "key-round": KeyRound,
   "arrow-down": ArrowDown,
   "arrow-down-to-line": ArrowDownToLine,
   "arrow-left": ArrowLeft,

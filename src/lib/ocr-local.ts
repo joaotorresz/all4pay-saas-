@@ -274,3 +274,15 @@ export async function itensDoPdf(file: File): Promise<ItemPdf[]> {
   }
   return itens;
 }
+
+/**
+ * O TEXTO cru de um documento de identidade (RG ou CNH), foto ou PDF, para a
+ * conferência do cadastro (`core/cadastro.lerDocumentoIdentidade`). Roda no
+ * navegador: a imagem não sai do aparelho.
+ */
+export async function textoDoDocumento(file: File): Promise<string> {
+  const Tesseract = (await import("tesseract.js")).default;
+  const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  const { data } = await Tesseract.recognize(pdf ? await rasterizarPdf(file) : file, "por");
+  return data.text || "";
+}
