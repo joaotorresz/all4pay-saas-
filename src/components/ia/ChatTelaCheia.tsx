@@ -670,12 +670,8 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
   );
 }
 
-/** Os grupos dos caminhos da tela, na ordem da conversa que o dono descreveu. */
-const GRUPOS_TELA: { tipo: CaminhoTela["tipo"]; rotulo: string }[] = [
-  { tipo: "saber", rotulo: "Saber" },
-  { tipo: "falhas", rotulo: "Ver falhas" },
-  { tipo: "adicionar", rotulo: "Adicionar" },
-];
+/** A ordem dos caminhos da tela: saber, ver falhas, adicionar. */
+const ORDEM_TELA: CaminhoTela["tipo"][] = ["saber", "falhas", "adicionar"];
 
 /**
  * Os caminhos da tela de onde o chat foi aberto. A pergunta já feita sai da
@@ -692,44 +688,34 @@ function CaminhosDaTela({ tela, feitas, pensando, perguntar, fechar }: {
   const restantes = tela.caminhos.filter((c) => !c.pergunta || !feitas.has(c.pergunta));
   if (!restantes.length) return null;
   return (
-    <section className="a4p-entra flex flex-col gap-4 pt-2" data-ia="caminhos-tela" aria-label={`Sobre ${tela.nome}`}>
-      {GRUPOS_TELA.map((g) => {
-        const itens = restantes.filter((c) => c.tipo === g.tipo);
-        if (!itens.length) return null;
-        return (
-          <div key={g.tipo} className="flex flex-col gap-2">
-            <span className="text-[13px] text-muted">{g.rotulo}</span>
-            <div className="flex flex-wrap gap-3">
-              {itens.map((c) => c.href ? (
-                <Link
-                  key={c.id}
-                  href={c.href}
-                  onClick={fechar}
-                  data-caminho={c.id}
-                  className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula"
-                >
-                  <Icon name={c.icone} size={16} strokeWidth={1.5} />
-                  {c.curto}
-                </Link>
-              ) : (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => c.pergunta && perguntar(c.pergunta)}
-                  disabled={pensando}
-                  title={c.pergunta}
-                  aria-label={c.pergunta}
-                  data-caminho={c.id}
-                  className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula disabled:opacity-50"
-                >
-                  <Icon name={c.icone} size={16} strokeWidth={1.5} />
-                  {c.curto}
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+    // Todas as pílulas juntas, sem título de categoria (pedido do dono, 20/10/2026).
+    <section className="a4p-entra flex flex-wrap gap-3 pt-2" data-ia="caminhos-tela" aria-label={`Sobre ${tela.nome}`}>
+      {ORDEM_TELA.flatMap((t) => restantes.filter((c) => c.tipo === t)).map((c) => c.href ? (
+        <Link
+          key={c.id}
+          href={c.href}
+          onClick={fechar}
+          data-caminho={c.id}
+          className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula"
+        >
+          <Icon name={c.icone} size={16} strokeWidth={1.5} />
+          {c.curto}
+        </Link>
+      ) : (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => c.pergunta && perguntar(c.pergunta)}
+          disabled={pensando}
+          title={c.pergunta}
+          aria-label={c.pergunta}
+          data-caminho={c.id}
+          className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula disabled:opacity-50"
+        >
+          <Icon name={c.icone} size={16} strokeWidth={1.5} />
+          {c.curto}
+        </button>
+      ))}
     </section>
   );
 }
