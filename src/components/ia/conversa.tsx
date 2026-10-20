@@ -38,6 +38,12 @@ export function atrasoDaPalavra(n: number): number {
   return Math.min(n * PASSO_MS, TETO_MS);
 }
 
+/** `**CNPJ**` vira negrito; a pontuação colada fica fora. */
+function Negrito({ p }: { p: string }) {
+  const m = /^\*\*(.+?)\*\*([^*]*)$/.exec(p);
+  return m ? <><strong className="font-semibold">{m[1]}</strong>{m[2]}</> : <>{p}</>;
+}
+
 export function TextoRevelado({
   texto, animar = true, atrasoMs = 0,
 }: {
@@ -47,8 +53,8 @@ export function TextoRevelado({
   /** Começa depois deste atraso (ex.: o texto que segue outro bloco). */
   atrasoMs?: number;
 }) {
-  if (!animar) return <>{texto}</>;
   const pedacos = texto.split(/(\s+)/);
+  if (!animar) return <>{pedacos.map((p, i) => <Negrito key={i} p={p} />)}</>;
   let n = 0;
   return (
     <>
@@ -57,7 +63,7 @@ export function TextoRevelado({
         const atraso = atrasoMs + atrasoDaPalavra(n++);
         return (
           <span key={i} className="a4p-palavra" style={{ "--a4p-atraso": `${atraso}ms` } as React.CSSProperties}>
-            {p}
+            <Negrito p={p} />
           </span>
         );
       })}
