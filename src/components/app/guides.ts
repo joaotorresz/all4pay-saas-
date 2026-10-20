@@ -237,6 +237,13 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
   /* ----------------------------- Receber ----------------------------- */
+  "/contas-a-receber/painel-de-vendas": {
+    titulo: "Painel de vendas",
+    intro: "O período, o calendário das vendas a receber, o status e os títulos numa tela só.",
+    comoUsar: "Escolha Esse mês, Essa semana ou Personalizado no alto. Clique num dos quatro cards de títulos para abrir o filtro e a tabela; clique de novo para fechar.",
+    exemplo: "Quer ver quem atrasou este mês → deixe Esse mês e clique no card de atrasados para abrir a lista e registrar o recebimento.",
+    secoes: [],
+  },
   "/contas-a-receber/titulos": {
     titulo: "Central de recebimentos",
     intro: "Executa as entradas lançadas (dar baixa no que foi recebido), agrupadas por dia/semana/mês, com busca e conta de entrada.",

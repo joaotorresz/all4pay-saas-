@@ -145,6 +145,7 @@ export const SECTIONS: Section[] = [
     id: "contas-a-receber", label: "Vender e receber", icon: "arrow-up",
     acao: { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
     items: [
+      { label: "Painel de vendas", desc: "Calendário, status e títulos a receber numa tela só", href: "/contas-a-receber/painel-de-vendas", icon: "gauge" },
       { label: "Painel de contas a receber", desc: "Recebido, a vencer e vencido no período", href: "/contas-a-receber", icon: "gauge" },
       { label: "Vendas", desc: "Pedidos, boletos, links e maquininha", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
       { label: "Títulos a receber", desc: "O que os clientes ainda devem, título a título", href: "/contas-a-receber/titulos", icon: "arrow-up" },
