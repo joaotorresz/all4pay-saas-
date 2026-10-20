@@ -124,6 +124,8 @@ export interface EntradaRiskInput {
   partes?: readonly { id: unknown; name?: unknown; nome?: unknown }[];
   projetoLocal?: (movimentoId: string) => string | null;
   aberturaVerificada?: RiskInput["aberturaVerificada"];
+  /** As contas com nome e saldo, quando quem lê as trouxe (a IA lista por conta). */
+  contasDetalhe?: readonly { id: unknown; name?: unknown; balance?: unknown }[];
 }
 
 /** O `RiskInput` inteiro, a partir das linhas. */
@@ -142,6 +144,7 @@ export function linhasParaRiskInput(e: EntradaRiskInput): RiskInput {
     movements,
     partyNames,
     horizonDias: 60,
+    ...(e.contasDetalhe?.length ? { contasSaldo: e.contasDetalhe.map((c) => ({ id: String(c.id), nome: texto(c.name) || "Conta", saldo: Number(c.balance ?? 0) })) } : {}),
     ...(e.aberturaVerificada !== undefined ? { aberturaVerificada: e.aberturaVerificada } : {}),
   };
 }

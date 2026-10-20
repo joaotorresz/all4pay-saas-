@@ -138,6 +138,10 @@ export function buscarKB(q: string): KBEntry | null {
   // um boleto de 1000 vencido há 30 dias?" tem "boleto" (termo forte) mas é mora,
   // não o verbete "boleto"; "o que é boleto?" (conceitual) segue vindo à KB.
   const temNumero = /\d/.test(s);
+  // Pergunta sobre os DADOS da empresa ("quais boletos vencem essa semana",
+  // "tenho pix a receber?") não é conceito, mesmo citando um termo forte: o
+  // verbete respondia a definição de boleto a quem pediu a lista dos boletos.
+  const sobreOsDados = /\b(quais|quantos?|quantas|meus|minhas|tenho|temos|devo|vence[mr]?|venc\w+|pagar|receber|paguei|recebi|hoje|amanh[ãa]|semana|m[êe]s|lista|mostr\w*)\b/i.test(s);
   for (const e of KB) {
     if (e.termos.test(s)) {
       // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual.
@@ -145,7 +149,7 @@ export function buscarKB(q: string): KBEntry | null {
       // concentração, ponto de equilíbrio, EBITDA, runway, burn, score, receita
       // líquida, carga tributária. Para esses, "qual meu X?" cai no motor (número);
       // só respondem como CONCEITO quando a pergunta é explicitamente conceitual.
-      if (conceitual || (!temNumero && /ltv|cac|mrr|dre|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s))) return e;
+      if (conceitual || (!temNumero && !sobreOsDados && /ltv|cac|mrr|dre|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s))) return e;
     }
   }
   return null;

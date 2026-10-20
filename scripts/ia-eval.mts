@@ -26,6 +26,7 @@ import { perguntaComAssuntoNovo } from "@/core/assistant/seguimento";
 import { INVENTARIO } from "@/core/rotas/inventario";
 import { destinoDe } from "@/core/rotas/aliases";
 import { numerosInventados } from "@/core/assistant/redacao";
+import { buscarKB } from "@/lib/assistant-kb";
 import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
@@ -269,7 +270,27 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
   ok("lançamento falado: sem valor não há proposta", interpretarLancamento("gastei com gasolina", HOJE) === null);
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8 + 7;
+// ═══ CORRELAÇÃO: a pergunta recorta, a resposta LISTA (20/10/2026) ═══
+// "quais são as contas que tenho para pagar nessa semana" devolvia o total da
+// carteira inteira, sem a semana e sem as contas; reescrito pelo Claude, virava
+// "não tenho acesso". O recorte (período, contraparte, lista) é do motor.
+{
+  const sem = responderLocal("quais são as contas que tenho para pagar nessa semana", INPUT);
+  ok("recorte: a pagar da semana diz a semana e o vencido à parte", !!sem && /semana/i.test(sem.resposta) && /2\.400,00/.test(sem.resposta) && /vencid/i.test(sem.resposta), sem?.resposta);
+  const mes = responderLocal("o que tenho para receber este mês", INPUT);
+  ok("recorte: a receber do mês lista cada título com a contraparte", !!mes && /18\.000,00/.test(mes.resposta) && /- 14\/08 · Gama/.test(mes.resposta) && /- 20\/08 · Alpha/.test(mes.resposta), mes?.resposta);
+  const bol = responderLocal("quais boletos vencem este mês", INPUT);
+  ok("recorte: 'quais boletos vencem' é a lista, não o verbete", !!bol && /- 01\/08 · Forn/.test(bol.resposta), bol?.resposta);
+  const lan = responderLocal("me mostra os lançamentos de hoje", INPUT);
+  ok("extrato na conversa: os lançamentos de hoje, nomeados", !!lan && /7\.000,00/.test(lan.resposta) && /Delta/.test(lan.resposta), lan?.resposta);
+  const contas = responderLocal("qual o saldo de cada conta", { ...INPUT, contasSaldo: [{ id: "x", nome: "Itaú", saldo: 1000 }, { id: "y", nome: "Inter", saldo: 500 }] });
+  ok("saldo por conta: cada conta com o seu saldo", !!contas && /- Itaú · R\$\s?1\.000,00/.test(contas.resposta) && /- Inter/.test(contas.resposta), contas?.resposta);
+  const fixo = responderLocal("quais despesas fixas eu tenho", INPUT);
+  ok("KB: pergunta sobre os dados não cai no verbete", buscarKB("quais boletos vencem essa semana") === null && buscarKB("o que é boleto?") !== null);
+  ok("custo fixo: sem histórico não afirma custo fixo, diz por quê", !!fixo && /custo fixo/i.test(fixo.resposta) && !/custo fixo mensal estimado é R\$\s?0/.test(fixo.resposta), fixo?.resposta);
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8 + 7 + 7;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);
