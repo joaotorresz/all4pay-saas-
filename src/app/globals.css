@@ -1879,3 +1879,13 @@ html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
 .ds-visor [data-card="1"] .text-h3 {
   color: var(--color-text-secondary);
 }
+
+/* Celular: campo abaixo de 16px faz o iOS dar zoom sozinho ao focar, e a tela
+   fica ampliada depois do envio. Vale para todo campo do sistema. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

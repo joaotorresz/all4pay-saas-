@@ -195,6 +195,17 @@ export function CriarContaView() {
     return () => cancelAnimationFrame(id);
   }, [falas, digitando, atual, ocupadoFala, etapa]);
 
+  // O teclado do celular encolhe a tela: a última fala volta a ficar à vista.
+  const rolarAoFim = React.useCallback(() => {
+    setTimeout(() => fimRef.current?.scrollIntoView({ behavior: "auto", block: "end" }), 250);
+  }, []);
+  React.useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv) return;
+    vv.addEventListener("resize", rolarAoFim);
+    return () => vv.removeEventListener("resize", rolarAoFim);
+  }, [rolarAoFim]);
+
   const campo = campoDe(etapa, cad, atual);
   const temCampo = !!campo;
   React.useEffect(() => { if (temCampo && !ocupadoFala) campoRef.current?.focus(); }, [temCampo, ocupadoFala, etapa, atual]);
@@ -917,17 +928,21 @@ export function CriarContaView() {
       {campo && (
         <form
           onSubmit={responder}
+          data-ocupado={ocupadoFala ? "" : undefined}
           className="flex-none mx-auto mb-2 w-[calc(100%-40px)] max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
           style={{ background: "var(--a4p-pilula-fundo)" }}
         >
           {/* O gerenciador de senhas guarda a senha junto do e-mail certo. */}
           {etapa === "senha" && <input type="email" name="email" autoComplete="username" value={cad.email} readOnly hidden />}
           {etapa === "pergunta" && atual?.tipo === "telefone" && (
-            <span aria-hidden className="pl-3 text-[15px] text-muted tabular-nums">+55</span>
+            <span aria-hidden className="pl-3 text-[16px] md:text-[15px] text-muted tabular-nums">+55</span>
           )}
           <input
             ref={campoRef}
-            key={`${etapa}:${atual?.id ?? ""}`}
+            // ⚠️ O campo só renasce quando o TECLADO muda (tipo ou modo): renascer a
+            // cada pergunta tirava o foco e, no celular, o teclado fechava depois de
+            // cada envio — e o iOS não o reabre por foco programático.
+            key={`${campo.tipo}:${campo.modo ?? ""}`}
             name={etapa === "pergunta" ? atual?.id : etapa}
             type={etapa === "senha" && verSenha ? "text" : campo.tipo}
             inputMode={campo.modo}
@@ -938,8 +953,12 @@ export function CriarContaView() {
             aria-label={campo.rotulo}
             aria-invalid={erroEmpresa ? true : undefined}
             aria-describedby={erroEmpresa ? "erro-empresa" : undefined}
-            disabled={ocupadoFala}
-            className="a4p-ia-campo flex-1 min-w-0 pl-3 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted tabular-nums"
+            enterKeyHint="send"
+            onFocus={rolarAoFim}
+            // Sem `disabled` enquanto a IA fala: desabilitar fecha o teclado do
+            // celular. Quem segura o envio é o botão e o `responder`.
+            // 16px no celular: abaixo disso o iOS dá zoom sozinho ao focar.
+            className="a4p-ia-campo flex-1 min-w-0 pl-3 bg-transparent outline-none text-[16px] md:text-[15px] text-ink placeholder:text-muted tabular-nums"
           />
           {etapa === "senha" && (
             <button type="button" onClick={() => setVerSenha((v) => !v)} aria-label={verSenha ? "Esconder a senha" : "Mostrar a senha"} aria-pressed={verSenha}
@@ -1326,6 +1345,10 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
   const [dica, setDica] = React.useState(0);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const fluxoRef = React.useRef<MediaStream | null>(null);
+  // A câmera nativa do celular (input com `capture="user"`): o caminho quando o
+  // navegador não entrega a câmera ao vivo — navegador embutido do Instagram e
+  // do WhatsApp, permissão negada, aparelho antigo.
+  const nativaRef = React.useRef<HTMLInputElement>(null);
 
   const parar = React.useCallback(() => { fluxoRef.current?.getTracks().forEach((t) => t.stop()); fluxoRef.current = null; }, []);
   React.useEffect(() => parar, [parar]);
@@ -1340,16 +1363,33 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
     return () => clearInterval(t);
   }, [modo]);
 
+  // ⚠️ O vídeo só existe DEPOIS de o modo virar "camera". Ligar o fluxo num
+  // requestAnimationFrame logo após o setState corria contra a renderização: no
+  // celular o quadro chegava antes do <video>, o fluxo não era ligado a nada e a
+  // câmera "não abria" (oval vazio, luz da câmera acesa).
+  React.useEffect(() => {
+    const v = videoRef.current;
+    if (modo !== "camera" || !v || !fluxoRef.current) return;
+    v.srcObject = fluxoRef.current;
+    void v.play().catch(() => {});
+  }, [modo]);
+
   const abrirCamera = async () => {
+    // Sem câmera ao vivo no navegador: a câmera nativa, ainda no mesmo toque
+    // (abrir o seletor de arquivo exige o gesto da pessoa, antes de qualquer await).
+    if (!navigator.mediaDevices?.getUserMedia) { nativaRef.current?.click(); return; }
     try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("sem câmera");
-      const fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      const fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "user" } }, audio: false });
       fluxoRef.current = fluxo;
       setModo("camera");
-      requestAnimationFrame(() => { if (videoRef.current) { videoRef.current.srcObject = fluxo; void videoRef.current.play().catch(() => {}); } });
     } catch {
       setModo("erro");
     }
+  };
+  const fotoNativa = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const tirou = !!e.target.files?.length;
+    e.target.value = "";
+    if (tirou) { parar(); onConcluir("capturada"); }
   };
   const capturar = () => { parar(); onConcluir("capturada"); };
   const fechar = () => { parar(); onFechar(); };
@@ -1383,7 +1423,7 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         {modo === "camera" && (
           <>
             <div className="w-[260px] h-[340px] rounded-[50%] overflow-hidden" style={{ background: "var(--color-white)", outline: "3px solid var(--color-lime)", outlineOffset: 6 }}>
-              <video ref={videoRef} playsInline muted className="w-full h-full object-cover -scale-x-100" />
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
             </div>
             <p className="m-0 text-[17px] text-ink">Centralize o rosto no contorno</p>
           </>
@@ -1395,7 +1435,7 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
             </span>
             <div className="flex flex-col gap-2 max-w-[340px]">
               <p className="m-0 text-[22px] font-medium text-ink">Não consegui abrir a câmera</p>
-              <p className="m-0 text-[15px] text-muted">Libere o acesso à câmera no navegador e tente de novo, ou siga e valide depois, pelo celular.</p>
+              <p className="m-0 text-[15px] text-muted">Tire a foto pela câmera do celular, ou libere o acesso à câmera no navegador e tente de novo.</p>
             </div>
           </>
         )}
@@ -1405,10 +1445,12 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         {modo === "camera" && <button type="button" onClick={capturar} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Capturar</button>}
         {modo === "erro" && (
           <>
-            <button type="button" onClick={() => void abrirCamera()} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Tentar de novo</button>
+            <button type="button" onClick={() => nativaRef.current?.click()} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Abrir a câmera do celular</button>
+            <button type="button" onClick={() => void abrirCamera()} className="h-12 rounded-pill text-[15px] font-medium text-ink a4p-pilula">Tentar de novo</button>
             <button type="button" onClick={() => { parar(); onConcluir("pendente"); }} className="h-12 rounded-pill text-[15px] text-ink">Validar depois</button>
           </>
         )}
+        <input ref={nativaRef} type="file" accept="image/*" capture="user" hidden aria-label="Foto do rosto" onChange={fotoNativa} />
       </div>
     </div>
   );
