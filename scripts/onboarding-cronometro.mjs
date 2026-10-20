@@ -171,7 +171,7 @@ async function fase(nome, humano, fn) {
    ⚠️ **A criação da conta em si NÃO é exercitada, e fica dito.** Ela fala com
    o Supabase, e o build de demonstração não tem projeto nenhum atrás. */
 await fase("0. Entrar pelo cadastro pela conversa",
-  RITMO.telaNova + RITMO.campoFormatado * 3 + RITMO.campoCurto * 6 + RITMO.escolha * 20 + RITMO.clique * 2,
+  RITMO.telaNova + RITMO.campoFormatado * 3 + RITMO.campoCurto * 6 + RITMO.escolha * 20 + RITMO.clique * 10, // + Open Finance, termos, faturamento, renda e rosto
   async () => {
     await page.goto(`${BASE}/criar-conta`, { waitUntil: "networkidle", timeout: 60000 });
     await abortarSeAmbienteQuebrou(page, "abrir o cadastro");
@@ -194,8 +194,9 @@ await fase("0. Entrar pelo cadastro pela conversa",
     };
     /* A "chave" do passo atual: o cartão de confirmação, as opções ou o campo. */
     const chave = () => page.evaluate(() => {
-      const ok = [...document.querySelectorAll('[data-cartao="documento"] button')].find((b) => b.textContent.trim() === "Confirmar");
-      if (ok) return "confirmar";
+      const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
+      if (rod === "confirmar" || rod === "openfinance" || rod === "termos" || rod === "infos") return rod;
+      if (document.querySelector('[data-cartao="facial"]:not([data-recolhido]) button:not([disabled])')) return "facial";
       const op = document.querySelector("[data-opcoes]");
       if (op) return `op:${op.getAttribute("data-opcoes")}`;
       const c = document.querySelector("form input:not([hidden])");
@@ -205,17 +206,47 @@ await fase("0. Entrar pelo cadastro pela conversa",
     let anterior = "";
     for (let i = 0; i < 60; i++) {
       await page.waitForFunction((ant) => {
-        const ok = [...document.querySelectorAll('[data-cartao="documento"] button')].some((b) => b.textContent.trim() === "Confirmar");
+        const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
+        const passo = ["confirmar", "openfinance", "termos", "infos"].includes(rod ?? "") ? rod
+          : document.querySelector('[data-cartao="facial"]:not([data-recolhido]) button:not([disabled])') ? "facial" : "";
         const op = document.querySelector("[data-opcoes]");
         const c = document.querySelector("form input:not([hidden])");
-        const k = ok ? "confirmar" : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
+        const k = passo ? passo : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
         return k && k !== ant;
       }, anterior, { timeout: 30000 }).catch((e) => {
         throw new Error(`a conversa parou depois de "${anterior || "o CNPJ"}" (${e.name})`);
       });
       const k = await chave();
       anterior = k;
-      if (k === "confirmar") { await page.locator('[data-cartao="documento"] button', { hasText: "Confirmar" }).click(); continue; }
+      /* Os passos de cartão dos prints: confirmar a Receita, Open Finance, termos, informações e rosto. */
+      if (k === "confirmar") { await page.locator('[data-rodape="confirmar"] button', { hasText: "Confirmar" }).click(); continue; }
+      if (k === "openfinance") { perguntas.push(k); await page.getByRole("button", { name: "Prefiro preencher manualmente" }).click(); continue; }
+      if (k === "termos") {
+        perguntas.push(k);
+        await page.locator('[data-cartao="termos"] label span[aria-hidden]').first().click();
+        await page.locator('[data-rodape="termos"] button').click();
+        continue;
+      }
+      if (k === "infos") {
+        perguntas.push(k);
+        for (const q of ["faturamento", "renda"]) {
+          await page.locator(`[data-faixa="${q}"]`).click();
+          await page.getByRole("option").nth(1).click();
+        }
+        await page.locator('[data-rodape="infos"] button').click();
+        continue;
+      }
+      if (k === "facial") {
+        // O CI não tem câmera: a validação fica pendente, e a conta segue.
+        perguntas.push(k);
+        await page.getByRole("button", { name: "Validar Identidade" }).click();
+        await page.getByRole("button", { name: "Tirar foto" }).click();
+        const depois = page.getByRole("button", { name: "Validar depois" });
+        const capturar = page.getByRole("button", { name: "Capturar" });
+        await Promise.race([depois.waitFor({ timeout: 15000 }), capturar.waitFor({ timeout: 15000 })]);
+        if (await depois.isVisible()) await depois.click(); else await capturar.click();
+        continue;
+      }
       if (k.startsWith("op:")) {
         const id = k.slice(3);
         perguntas.push(id);
@@ -247,7 +278,7 @@ await fase("0. Entrar pelo cadastro pela conversa",
       await campo.fill(valor);
       await campo.press("Enter");
     }
-    const exigidas = ["regime", "limite", "setor", "faturamento", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
+    const exigidas = ["regime", "limite", "setor", "openfinance", "termos", "infos", "facial", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
     const faltou = exigidas.filter((x) => !perguntas.includes(x));
     if (faltou.length) { falhas++; return `REPROVA: a conversa chegou à senha sem perguntar ${faltou.join(", ")} — ela tem de pedir o cadastro inteiro`; }
     return `${perguntas.length} perguntas, uma por vez, CNPJ com máscara · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
