@@ -177,6 +177,19 @@ export interface Cadastro {
   orcamento: number | null;
   /* acesso */
   email: string;
+  /* a abertura de conta (o roteiro dos prints de 20/10/2026) */
+  /** O banco escolhido para o Open Finance ("" = preencheu à mão). A conexão só acontece com a conta criada. */
+  openFinanceBanco: string;
+  /** Quando a pessoa marcou "Li e aceito os termos" (ISO). Vazio = não aceitou. */
+  aceiteTermos: string;
+  /** A faixa da renda do representante (PJ). */
+  rendaRepresentante: string;
+  /**
+   * O reconhecimento facial: `capturada` = a foto foi tirada; `pendente` = o
+   * aparelho não deu acesso à câmera e a validação fica para depois. A
+   * verificação contra a base biométrica ainda não existe (não há provedor).
+   */
+  biometria: "" | "capturada" | "pendente";
 }
 
 export const CADASTRO_VAZIO: Cadastro = {
@@ -191,6 +204,7 @@ export const CADASTRO_VAZIO: Cadastro = {
   contaTipos: [], centrosCusto: [], unidades: [], dre: [], fluxoCaixa: "",
   cpf: "", nome: "", rendaMensal: null, saldoInicial: null, carteiras: [], categorias: [], orcamento: null,
   email: "",
+  openFinanceBanco: "", aceiteTermos: "", rendaRepresentante: "", biometria: "",
 };
 
 /** O que a Receita devolve (o subconjunto de `lib/cnpj.DadosCNPJ` que o cadastro usa). */
@@ -373,7 +387,7 @@ export const PERGUNTAS: Pergunta[] = [
   {
     id: "repTelefone", tipo: "telefone", grupo: "Representante", rotulo: "WhatsApp", placeholder: "(00) 00000-0000",
     quando: pj,
-    falas: () => ["Qual é o seu WhatsApp? É por ele que mando os avisos do caixa."],
+    falas: () => ["Qual número de telefone você usa no **Whatsapp**?"],
     validar: (v) => (telefoneConfere(v) ? null : "O número tem DDD e 8 ou 9 dígitos. Confere pra mim?"),
     aplicar: (c, v) => ({ ...c, repTelefone: mascararTelefone(v) }),
     eco: mascararTelefone,
@@ -381,7 +395,7 @@ export const PERGUNTAS: Pergunta[] = [
   {
     id: "repEmail", tipo: "email", grupo: "Representante", rotulo: "E-mail", placeholder: "voce@suaempresa.com.br",
     quando: pj,
-    falas: () => ["E o seu e-mail? Ele também vai ser o seu login."],
+    falas: () => ["Qual é o seu e-mail?", "Usaremos para enviar notificações importantes sobre sua conta."],
     validar: (v) => (EMAIL_VALIDO.test(v.trim()) ? null : "Esse e-mail parece incompleto. Algo como voce@suaempresa.com.br."),
     aplicar: (c, v) => ({ ...c, repEmail: v.trim(), email: v.trim() }),
   },
@@ -418,7 +432,7 @@ export const PERGUNTAS: Pergunta[] = [
     aplicar: (c, v) => ({ ...c, funcionarios: v }),
   },
   {
-    id: "faturamento", tipo: "escolha", grupo: "Perfil", rotulo: "Faturamento anual", quando: pj, opcoes: () => FAT,
+    id: "faturamento", tipo: "escolha", grupo: "Perfil", rotulo: "Faturamento anual", quando: (c) => pj(c) && !c.faturamento, opcoes: () => FAT,
     falas: () => ["E o faturamento anual, mais ou menos?"],
     aplicar: (c, v) => ({ ...c, faturamento: v }),
   },
@@ -540,6 +554,77 @@ export const PERGUNTAS: Pergunta[] = [
   },
 ];
 
+/* ─── o roteiro da abertura de conta ─────────────────────────────────────── */
+/** As faixas do cartão "Informações da empresa" (o porte entre parênteses é o da lei). */
+export const FAIXAS_FATURAMENTO: { rotulo: string; porte: string }[] = [
+  { rotulo: "Até R$ 81.000", porte: "MEI" },
+  { rotulo: "R$ 81.001 - R$ 360.000", porte: "Microempresa" },
+  { rotulo: "R$ 360.001 - R$ 4.800.000", porte: "EPP" },
+  { rotulo: "R$ 4.800.001 - R$ 78.000.000", porte: "Média Empresa" },
+  { rotulo: "Acima de R$ 78.000.000", porte: "Grande Empresa" },
+];
+export const FAIXAS_RENDA = ["Até R$ 5.000", "R$ 5.001 - R$ 10.000", "R$ 10.001 - R$ 30.000", "R$ 30.001 - R$ 100.000", "Acima de R$ 100.000"];
+
+/** Os bancos da lista do Open Finance (nome como aparece na tela; o logo sai de `BancoLogo`). */
+export const BANCOS_OPEN_FINANCE = [
+  "Banco do Brasil", "Banco Inter PJ", "Banrisul", "Bradesco PJ", "BTG Pactual", "C6 Bank", "Caixa", "InfinitePay",
+  "Itaú Empresas", "Mercado Pago", "Nubank PJ", "PagBank", "Santander Empresas", "Sicoob", "Sicredi", "Stone",
+];
+
+export const DUVIDAS_OPEN_FINANCE: { pergunta: string; resposta: string }[] = [
+  {
+    pergunta: "É seguro conectar meu banco?",
+    resposta: "Sim. O Open Finance é regulado pelo Banco Central, e os seus dados viajam protegidos por medidas de segurança robustas. Com ele você tem uma visão mais ampla das suas finanças, num lugar só, e fica mais fácil acompanhar e comparar os seus serviços.",
+  },
+  {
+    pergunta: "Como faço pra conectar meu banco?",
+    resposta: "Você escolhe o banco, é levado ao aplicativo dele e autoriza o compartilhamento por lá. Leva cerca de um minuto, e você pode cancelar a autorização quando quiser, no próprio banco.",
+  },
+  {
+    pergunta: "Ao conectar meu banco, vocês poderão mexer no dinheiro da minha conta?",
+    resposta: "Não. A autorização é só de leitura: saldo, extrato e lançamentos. Nenhum pagamento ou transferência sai da sua conta por esta conexão.",
+  },
+  {
+    pergunta: "O que fazer se der erro ao ser redirecionado do outro banco pra cá?",
+    resposta: "Volte para esta tela e tente de novo. Se o erro continuar, siga preenchendo à mão: você conecta o banco depois, em Contas e bancos, sem perder nada do que já respondeu.",
+  },
+];
+
+export const DICAS_FACIAL: { titulo: string; icone: string }[] = [
+  { titulo: "Procure um lugar iluminado", icone: "sun" },
+  { titulo: "Retire acessórios como óculos e bonés", icone: "glasses" },
+  { titulo: "Posicione o rosto no centro da tela", icone: "scan-face" },
+];
+
+/** Os passos que não são pergunta de campo: cada um tem o seu cartão. */
+export type PassoEspecial = "openfinance" | "termos" | "infos" | "facial";
+export type Passo = { especial: PassoEspecial } | { pergunta: Pergunta };
+
+/**
+ * ⚠️ **A ORDEM DOS PRINTS vem primeiro**: depois do documento, Open Finance →
+ * termos → WhatsApp → e-mail → faturamento e renda → reconhecimento facial
+ * (na PF: Open Finance → termos → reconhecimento facial). Só então o resto do
+ * cadastro, na ordem de `PERGUNTAS`. O portão (`faltandoParaCriar`) continua
+ * o mesmo, e cobra os passos novos também.
+ */
+export function proximoPasso(c: Cadastro, feitos: ReadonlySet<string>): Passo | null {
+  const roteiro = c.tipo === "pj"
+    ? ["openfinance", "termos", "repTelefone", "repEmail", "infos", "facial"]
+    : c.tipo === "pf" ? ["openfinance", "termos", "facial"] : [];
+  for (const id of roteiro) {
+    if (feitos.has(id)) continue;
+    const p = PERGUNTAS.find((x) => x.id === id);
+    return p ? { pergunta: p } : { especial: id as PassoEspecial };
+  }
+  const p = proximaPergunta(c, feitos);
+  return p ? { pergunta: p } : null;
+}
+
+/** Quantos passos especiais valem para este cadastro (para o "x de y"). */
+export function passosEspeciais(c: Cadastro): number {
+  return c.tipo === "pj" ? 4 : c.tipo === "pf" ? 3 : 0;
+}
+
 /**
  * A próxima pergunta: a primeira que vale para este cadastro e ainda não foi
  * respondida. `null` = acabaram (falta só a senha).
@@ -562,6 +647,8 @@ export function faltandoParaCriar(c: Cadastro): string[] {
   const f: string[] = [];
   const vazio = (s: string) => !s.trim();
   if (!EMAIL_VALIDO.test(c.email.trim())) f.push("e-mail de acesso");
+  if (c.tipo && !c.aceiteTermos) f.push("aceite dos termos de uso");
+  if (c.tipo && !c.biometria) f.push("reconhecimento facial");
   if (c.tipo === "pj") {
     if (!cnpjConfere(c.cnpj)) f.push("CNPJ");
     if (vazio(c.razaoSocial)) f.push("razão social");
@@ -575,6 +662,7 @@ export function faltandoParaCriar(c: Cadastro): string[] {
     if (vazio(c.repCargo)) f.push("função do representante");
     if (!telefoneConfere(c.repTelefone)) f.push("WhatsApp");
     if (vazio(c.limite)) f.push("limite de aprovação");
+    if (vazio(c.rendaRepresentante)) f.push("renda do representante");
     for (const [k, rot] of [["setor", "setor"], ["modelo", "modelo de negócio"], ["receitaPrincipal", "receita principal"], ["frequencia", "frequência da receita"], ["funcionarios", "número de funcionários"], ["faturamento", "faturamento anual"], ["fluxoCaixa", "visão do fluxo de caixa"]] as const) {
       if (vazio(c[k])) f.push(rot);
     }
@@ -616,7 +704,10 @@ export function montarCadastro(c: Cadastro): CadastroMontado {
   if (c.tipo === "pf") {
     const nome = c.nome.trim();
     return {
-      db: { tipoConta: "pessoal", tipoPessoa: "fisica", cpf: mascararCPF(c.cpf), repNome: nome, repEmail: c.email.trim(), razaoSocial: nome, fantasia: nome },
+      db: {
+        tipoConta: "pessoal", tipoPessoa: "fisica", cpf: mascararCPF(c.cpf), repNome: nome, repEmail: c.email.trim(), razaoSocial: nome, fantasia: nome,
+        aceiteTermos: c.aceiteTermos, biometria: c.biometria, ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
+      },
       perfil: {
         setor: "Pessoal", modelo: "B2C", receitaPrincipal: "Salário", frequencia: "Mensal",
         funcionarios: "1-10", faturamento: "", bancos: c.carteiras, meiosRecebimento: ["PIX"], despesas: c.categorias,
@@ -649,6 +740,8 @@ export function montarCadastro(c: Cadastro): CadastroMontado {
       cep: c.cep, rua: c.rua, numero: c.numero, bairro: c.bairro, cidade: c.cidade, estado: c.estado, pais: "Brasil",
       regime: c.regime, contribuinteIcms: !!c.contribuinteIcms, ie: c.ie, im: c.im, exportadora: !!c.exportadora,
       repNome: c.repNome.trim(), repCargo: c.repCargo, repTelefone: c.repTelefone, repEmail: c.repEmail.trim(),
+      repRenda: c.rendaRepresentante, aceiteTermos: c.aceiteTermos, biometria: c.biometria,
+      ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
     },
     perfil: {
       setor: c.setor, modelo: c.modelo, receitaPrincipal: c.receitaPrincipal, frequencia: c.frequencia,

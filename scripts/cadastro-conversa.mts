@@ -9,7 +9,7 @@
  */
 import {
   CADASTRO_VAZIO, PERGUNTAS, aplicarReceita, cnpjConfere, cpfConfere, faltandoParaCriar, mascararCEP,
-  mascararCNPJ, mascararCPF, mascararTelefone, montarCadastro, nomeDaOrganizacao, proximaPergunta,
+  mascararCNPJ, mascararCPF, mascararTelefone, montarCadastro, nomeDaOrganizacao, proximoPasso, FAIXAS_FATURAMENTO, FAIXAS_RENDA,
   type Cadastro, type Pergunta,
 } from "../src/core/cadastro/conversa.ts";
 
@@ -41,8 +41,19 @@ function conversar(inicio: Cadastro, pular?: string): { c: Cadastro; feitas: str
   let c = inicio;
   const feitas = new Set<string>();
   for (let i = 0; i < 200; i++) {
-    const p = proximaPergunta(c, feitas);
-    if (!p) break;
+    const passo = proximoPasso(c, feitas);
+    if (!passo) break;
+    if ("especial" in passo) {
+      // Os passos de cartão da tela (Open Finance, termos, informações, rosto).
+      const id = passo.especial;
+      feitas.add(id);
+      if (id === pular) continue;
+      if (id === "termos") c = { ...c, aceiteTermos: "2026-10-20T12:00:00.000Z" };
+      if (id === "infos") c = { ...c, faturamento: FAIXAS_FATURAMENTO[1].rotulo, rendaRepresentante: FAIXAS_RENDA[1] };
+      if (id === "facial") c = { ...c, biometria: "capturada" };
+      continue;
+    }
+    const p = passo.pergunta;
     feitas.add(p.id);
     if (p.id === pular) continue;
     const v = resposta(p, c);
@@ -81,10 +92,19 @@ const pjReceita = conversar(comReceita);
 ok("PJ com Receita: completa o cadastro", faltandoParaCriar(pjReceita.c).length === 0);
 ok("PJ com Receita: não repete razão social nem CEP", !pjReceita.feitas.includes("razaoSocial") && !pjReceita.feitas.includes("cep"));
 ok("PJ: pede regime, representante, perfil e estrutura",
-  ["regime", "repNome", "repTelefone", "repEmail", "limite", "setor", "faturamento", "bancos", "contaTipos", "dre", "fluxoCaixa"].every((id) => pjReceita.feitas.includes(id)));
+  ["regime", "repNome", "repTelefone", "repEmail", "limite", "setor", "infos", "facial", "bancos", "contaTipos", "dre", "fluxoCaixa"].every((id) => pjReceita.feitas.includes(id)));
+
+/* A ORDEM DOS PRINTS: Open Finance, termos, WhatsApp, e-mail, informações, rosto */
+ok("PJ: a ordem dos prints vem primeiro", pjReceita.feitas.slice(0, 6).join(",") === "openfinance,termos,repTelefone,repEmail,infos,facial");
+ok("PJ: o faturamento das informações não é perguntado de novo", pjReceita.feitas.filter((id) => id === "faturamento").length === 0);
+ok("PJ: sem aceite dos termos o portão fica fechado", faltandoParaCriar({ ...pjReceita.c, aceiteTermos: "" }).length > 0);
+ok("PJ: sem reconhecimento facial o portão fica fechado", faltandoParaCriar({ ...pjReceita.c, biometria: "" }).length > 0);
+ok("validação facial pendente não impede a conta", faltandoParaCriar({ ...pjReceita.c, biometria: "pendente" }).length === 0);
+ok("Open Finance é opcional: preencher à mão completa o cadastro", !pjReceita.c.openFinanceBanco && faltandoParaCriar(pjReceita.c).length === 0);
 
 /* ⚠️ O PORTÃO: pular qualquer pergunta obrigatória deixa o portão fechado */
-const obrigatoriasPJ = pjManual.feitas.filter((id) => !PERGUNTAS.find((p) => p.id === id)?.opcional);
+const opcional = (id: string) => id === "openfinance" || !!PERGUNTAS.find((p) => p.id === id)?.opcional;
+const obrigatoriasPJ = pjManual.feitas.filter((id) => !opcional(id));
 const furosPJ = obrigatoriasPJ.filter((id) => faltandoParaCriar(conversar(pjInicio, id).c).length === 0);
 ok(`PJ: pular qualquer uma das ${obrigatoriasPJ.length} obrigatórias fecha o portão${furosPJ.length ? ` (furos: ${furosPJ.join(", ")})` : ""}`, furosPJ.length === 0);
 
@@ -93,7 +113,7 @@ const pfInicio: Cadastro = { ...CADASTRO_VAZIO, tipo: "pf", cpf: "529.982.247-25
 const pfFim = conversar(pfInicio);
 ok("PF: completa o cadastro", faltandoParaCriar(pfFim.c).length === 0);
 ok("PF: não pergunta nada de empresa", !pfFim.feitas.some((id) => ["regime", "repNome", "setor", "razaoSocial"].includes(id)));
-const obrigatoriasPF = pfFim.feitas.filter((id) => !PERGUNTAS.find((p) => p.id === id)?.opcional);
+const obrigatoriasPF = pfFim.feitas.filter((id) => !opcional(id));
 const furosPF = obrigatoriasPF.filter((id) => faltandoParaCriar(conversar(pfInicio, id).c).length === 0);
 ok(`PF: pular qualquer uma das ${obrigatoriasPF.length} obrigatórias fecha o portão${furosPF.length ? ` (furos: ${furosPF.join(", ")})` : ""}`, furosPF.length === 0);
 

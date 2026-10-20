@@ -39,7 +39,7 @@ import { aplicarEstrutura } from "@/lib/onboarding";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
 import { reportar } from "@/lib/erros";
-import { consultarCNPJ } from "@/lib/cnpj";
+import { consultarCNPJ, type DadosCNPJ } from "@/lib/cnpj";
 import { lookupCep } from "@/lib/viacep";
 import { setTipoConta } from "@/components/app/useTipoConta";
 import { analisarImportacao } from "@/core/fdip";
@@ -47,7 +47,10 @@ import type { FDIPReport } from "@/core/fdip/types";
 import { alcadaDoOnboarding } from "@/core/seguranca/alcada";
 import { calcularMaturidade, type Maturidade } from "@/core/onboarding";
 import { MIN_SENHA } from "@/core/recuperacao";
+import { BancoLogo } from "@/components/ui/BancoLogo";
 import {
+  BANCOS_OPEN_FINANCE, DICAS_FACIAL, DUVIDAS_OPEN_FINANCE, FAIXAS_FATURAMENTO, FAIXAS_RENDA,
+  passosEspeciais, proximoPasso, type PassoEspecial,
   CADASTRO_VAZIO, aplicarReceita, cnpjConfere, cpfConfere, faltandoParaCriar, mascararCEP, mascararCNPJ,
   mascararCPF, mascararTelefone, montarCadastro, nomeDaOrganizacao, perguntasDoCadastro, proximaPergunta,
   type Cadastro, type DadosReceita, type Pergunta,
@@ -56,11 +59,13 @@ import { DigitandoIA, TextoRevelado, duracaoRevelar } from "@/components/ia/conv
 
 type Etapa =
   | "tipo" | "documento" | "buscando" | "confirmar" | "pergunta" | "extrato" | "senha"
+  | "openfinance" | "termos" | "infos" | "facial"
   | "criando" | "confirme" | "erro" | "pronto";
 
 type Cartao =
   | { tipo: "conta" }
-  | { tipo: "documento"; rotulo: string; documento: string; nome: string; detalhe?: string }
+  | { tipo: "documento"; rotulo: string; documento: string; nome: string; detalhe?: string; linhas?: { rotulo: string; valor: string }[] }
+  | { tipo: PassoEspecial }
   | { tipo: "analise"; maturidade: Maturidade };
 
 interface Acao { rotulo: string; icone?: string; href?: string; fazer?: () => void }
@@ -116,7 +121,7 @@ export function CriarContaView() {
   const [marcos, setMarcos] = React.useState<Marco[]>([]);
   const [atual, setAtual] = React.useState<Pergunta | null>(null);
   const [marcadas, setMarcadas] = React.useState<string[]>([]);
-  const [receita, setReceita] = React.useState<DadosReceita | null>(null);
+  const [receita, setReceita] = React.useState<DadosCNPJ | null>(null);
   const [report, setReport] = React.useState<FDIPReport | null>(null);
   const [digitando, setDigitando] = React.useState(false);
   /**
@@ -136,6 +141,12 @@ export function CriarContaView() {
    * digitada) ou o nome de quem abre a conta pessoal.
    */
   const [erroEmpresa, setErroEmpresa] = React.useState<string | null>(null);
+  /* os cartões da abertura de conta (os prints de 20/10/2026) */
+  const [aceite, setAceite] = React.useState(false);
+  const [faixaFat, setFaixaFat] = React.useState("");
+  const [faixaRenda, setFaixaRenda] = React.useState("");
+  const [folha, setFolha] = React.useState<null | "duvidas" | "bancos" | "faturamento" | "renda">(null);
+  const [facialAberto, setFacialAberto] = React.useState(false);
 
   const vivoRef = React.useRef(true);
   const campoRef = React.useRef<HTMLInputElement>(null);
@@ -170,11 +181,15 @@ export function CriarContaView() {
     return () => { vivoRef.current = false; };
   }, [falar]);
 
-  React.useEffect(() => {
-    fimRef.current?.scrollIntoView({ behavior: semMovimento.current ? "auto" : "smooth", block: "end" });
-  }, [falas, digitando, atual]);
-
   const ocupadoFala = digitando || falando > 0;
+  // O cartão e o rodapé entram DEPOIS da fala: rolar só quando a fala muda
+  // deixava o cartão do Open Finance escondido atrás do botão de baixo.
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      fimRef.current?.scrollIntoView({ behavior: semMovimento.current ? "auto" : "smooth", block: "end" }));
+    return () => cancelAnimationFrame(id);
+  }, [falas, digitando, atual, ocupadoFala, etapa]);
+
   const campo = campoDe(etapa, cad, atual);
   const temCampo = !!campo;
   React.useEffect(() => { if (temCampo && !ocupadoFala) campoRef.current?.focus(); }, [temCampo, ocupadoFala, etapa, atual]);
@@ -187,7 +202,20 @@ export function CriarContaView() {
   /* ─── a próxima pergunta ─────────────────────────────────────────────── */
   const perguntar = async (c: Cadastro, ms: Marco[], prefixo: string[] = []) => {
     const feitas = feitasDe(ms);
-    const p = proximaPergunta(c, feitas);
+    const passo = proximoPasso(c, feitas);
+    if (passo && "especial" in passo) {
+      const id = passo.especial;
+      setAtual(null);
+      if (id === "termos") setAceite(!!c.aceiteTermos);
+      if (id === "infos") {
+        setFaixaFat(FAIXAS_FATURAMENTO.some((f) => f.rotulo === c.faturamento) ? c.faturamento : "");
+        setFaixaRenda(c.rendaRepresentante);
+      }
+      setEtapa(id);
+      await falar([...prefixo, ...FALAS_DO_PASSO[id]], { pergunta: id, cartao: { tipo: id } });
+      return;
+    }
+    const p = passo ? passo.pergunta : null;
     if (p) {
       setAtual(p);
       setMarcadas(p.inicial ? p.inicial(c) : []);
@@ -255,6 +283,7 @@ export function CriarContaView() {
         cartao: {
           tipo: "documento", rotulo: "CNPJ", documento: mascararCNPJ(valor), nome: r.razaoSocial,
           detalhe: [r.nomeFantasia, lugar].filter(Boolean).join(" · ") || undefined,
+          linhas: linhasDaReceita(r, mascararCNPJ(valor)),
         },
       });
       return;
@@ -292,6 +321,36 @@ export function CriarContaView() {
     setEtapa("documento");
     await falar([cad.tipo === "pj" ? "Sem problema. Qual é o **CNPJ** certo?" : "Sem problema. Qual é o **CPF** certo?"], { pergunta: "documento" });
   };
+
+  /* ─── os cartões da abertura: Open Finance, termos, informações, rosto ─── */
+  const concluirPasso = async (id: PassoEspecial, eco: string, novo: Cadastro, prefixo: string[] = []) => {
+    if (etapa !== id || ocupadoFala) return;
+    setFolha(null);
+    setFacialAberto(false);
+    voce(eco, id);
+    const ms = [...marcos, { id, antes: cad, report }];
+    setMarcos(ms);
+    setCad(novo);
+    await perguntar(novo, ms, prefixo);
+  };
+
+  /**
+   * ⚠️ O banco é ANOTADO, não conectado: a conexão do Open Finance (Pluggy)
+   * pede uma organização com sessão, e a conta ainda não existe. Criada a
+   * conta, a pessoa vai direto para "Conectar" e autoriza no app do banco.
+   */
+  const escolherBanco = (banco: string) =>
+    void concluirPasso("openfinance", `Conectar ${banco}`, { ...cad, openFinanceBanco: banco },
+      [`Anotei o ${banco}. Assim que a conta estiver criada, eu te levo ao app do banco para autorizar, e o extrato entra sozinho.`]);
+  const preencherManual = () =>
+    void concluirPasso("openfinance", "Prefiro preencher manualmente", { ...cad, openFinanceBanco: "" }, ["Sem problema, a gente preenche junto."]);
+  const aceitarTermos = () =>
+    void concluirPasso("termos", "Li e aceito os termos e condições", { ...cad, aceiteTermos: new Date().toISOString() });
+  const enviarInfos = () =>
+    void concluirPasso("infos", "Continuar", { ...cad, faturamento: faixaFat, rendaRepresentante: faixaRenda });
+  const concluirFacial = (status: "capturada" | "pendente") =>
+    void concluirPasso("facial", status === "capturada" ? "Foto enviada" : "Validar depois", { ...cad, biometria: status },
+      [status === "capturada" ? "Recebi a sua foto. Obrigado!" : "Tudo bem: a validação fica pendente e eu te lembro dela lá dentro."]);
 
   /* ─── 3. as perguntas ────────────────────────────────────────────────── */
   const responderPergunta = async (valor: string) => {
@@ -445,9 +504,11 @@ export function CriarContaView() {
       setEtapa("pronto");
       await falar([
         ...(falhaAlcada ? [`Os limites de aprovação não foram gravados (${falhaAlcada}); até alguém ajustar em Aprovações, vale o padrão.`] : []),
-        "Pronto! A sua conta está criada e completa. Já vou te levar para dentro.",
+        c.openFinanceBanco
+          ? `Pronto! A sua conta está criada. Agora vou te levar para conectar o ${c.openFinanceBanco}.`
+          : "Pronto! A sua conta está criada e completa. Já vou te levar para dentro.",
       ]);
-      router.push("/");
+      router.push(c.openFinanceBanco ? "/upload?aba=conectar" : "/");
       router.refresh();
     } catch (e) {
       // ⚠️ SEMPRE uma saída: a conta existe, e "Tentar de novo" refaz só o resto
@@ -505,6 +566,14 @@ export function CriarContaView() {
       return;
     }
     if (id === "extrato") { setAtual(null); setEtapa("extrato"); return; }
+    if (id === "openfinance" || id === "termos" || id === "infos" || id === "facial") {
+      setAtual(null);
+      setAceite(!!marco.antes.aceiteTermos);
+      setFaixaFat(cad.faturamento);
+      setFaixaRenda(cad.rendaRepresentante);
+      setEtapa(id);
+      return;
+    }
     const p = perguntasDoCadastro(marco.antes).find((x) => x.id === id) ?? null;
     setAtual(p);
     setMarcadas(p?.tipo === "multi" ? lerLista(p, cad) : p?.inicial ? p.inicial(marco.antes) : []);
@@ -525,28 +594,47 @@ export function CriarContaView() {
     if (etapa === "pergunta") await enviarTexto();
   };
 
+  /** O "voltar" do cabeçalho reabre a última resposta (o mesmo "Alterar" do balão). */
+  const ultimoMarco = marcos[marcos.length - 1];
+  const podeVoltar = !!ultimoMarco && !ocupadoFala && !["criando", "pronto", "confirme", "buscando"].includes(etapa);
+  const voltar = () => { if (podeVoltar) alterar(ultimoMarco.id); };
+
   const ocupado = etapa === "criando" || etapa === "pronto" || etapa === "confirme" || etapa === "buscando";
   const ultimaIA = [...falas].reverse().find((f) => f.de === "ia");
   const opcoes = etapa === "pergunta" && atual && (atual.tipo === "escolha" || atual.tipo === "multi") ? (atual.opcoes?.(cad) ?? []) : [];
   const destaque = atual?.destaque?.(cad) ?? null;
   // tipo + documento + perguntas + (extrato, na PJ) + senha
-  const total = cad.tipo ? 2 + perguntasDoCadastro(cad).length + (cad.tipo === "pj" ? 1 : 0) + 1 : 0;
+  const total = cad.tipo ? 2 + passosEspeciais(cad) + perguntasDoCadastro(cad).length + (cad.tipo === "pj" ? 1 : 0) + 1 : 0;
   const passoAtual = Math.min(marcos.length + 1, total);
   const atrasoDe = (t: string) => ({ "--a4p-atraso": `${Math.max(0, duracaoRevelar(t) - 200)}ms` } as React.CSSProperties);
 
   return (
     <div className="a4p-chat-tela h-[100dvh] flex flex-col" style={{ background: "var(--color-surface-1)" }}>
-      <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
+      {/* O cabeçalho dos prints: voltar · marca · fechar. */}
+      <header className="flex-none grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 md:px-10 pt-6 pb-3">
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={voltar}
+            disabled={!podeVoltar}
+            aria-label="Voltar à resposta anterior"
+            className="w-10 h-10 rounded-pill flex items-center justify-center text-ink disabled:opacity-30"
+          >
+            <Icon name="chevron-left" size={22} />
+          </button>
+        </div>
         <Link href="/" aria-label="Início"><span role="img" aria-label="Quattro" className="a4p-logo-mono block w-[125px] h-[24px]" /></Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-end gap-3">
           {total > 0 && etapa !== "pronto" && (
-            <span className="hidden sm:inline text-[13px] text-muted tabular-nums" data-progresso>
+            <span className="hidden md:inline text-[13px] text-muted tabular-nums" data-progresso>
               Passo {passoAtual} de {total}
             </span>
           )}
-          <Link href="/login" className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] a4p-pilula">
-            <Icon name="user" size={16} />
+          <Link href="/login" className="hidden sm:inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula">
             Já tenho conta
+          </Link>
+          <Link href="/login" aria-label="Sair do cadastro" className="w-10 h-10 rounded-pill flex items-center justify-center text-ink">
+            <Icon name="x" size={20} />
           </Link>
         </div>
       </header>
@@ -580,11 +668,19 @@ export function CriarContaView() {
                       cartao={f.cartao}
                       ativo={
                         (f.cartao.tipo === "conta" && etapa === "tipo" && !ocupadoFala) ||
-                        (f.cartao.tipo === "documento" && etapa === "confirmar" && f.id === ultimaIA?.id && !ocupadoFala)
+                        (f.cartao.tipo === "documento" && etapa === "confirmar" && f.id === ultimaIA?.id && !ocupadoFala) ||
+                        (f.cartao.tipo === etapa && f.id === ultimaIA?.id && !ocupadoFala)
                       }
+                      cad={cad}
+                      aceite={aceite}
+                      faixaFat={faixaFat}
+                      faixaRenda={faixaRenda}
                       onTipo={(t) => void escolherTipo(t)}
-                      onConfirmar={() => void confirmarDocumento()}
-                      onOutro={() => void outroDocumento()}
+                      onConectar={() => setFolha("bancos")}
+                      onDuvidas={() => setFolha("duvidas")}
+                      onAceite={() => setAceite((a) => !a)}
+                      onFaixa={(q) => setFolha(q)}
+                      onFacial={() => setFacialAberto(true)}
                     />
                   </div>
                 )}
@@ -679,6 +775,77 @@ export function CriarContaView() {
         </div>
       </main>
 
+      {!ocupadoFala && ["confirmar", "openfinance", "termos", "infos"].includes(etapa) && (
+        <div className="a4p-entra flex-none mx-auto mb-4 w-[calc(100%-40px)] max-w-[480px] flex flex-col items-stretch gap-2" data-rodape={etapa}>
+          {etapa === "confirmar" && (
+            <>
+              <button type="button" onClick={() => void confirmarDocumento()} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Confirmar</button>
+              <button type="button" onClick={() => void outroDocumento()} className="h-12 rounded-pill text-[15px] text-ink">
+                Usar outro {cad.tipo === "pj" ? "CNPJ" : "CPF"}
+              </button>
+            </>
+          )}
+          {etapa === "openfinance" && (
+            <button type="button" onClick={preencherManual} className="h-14 rounded-pill text-[15px] font-medium text-ink a4p-pilula">
+              Prefiro preencher manualmente
+            </button>
+          )}
+          {etapa === "termos" && (
+            <button type="button" disabled={!aceite} onClick={aceitarTermos} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Continuar</button>
+          )}
+          {etapa === "infos" && (
+            <button type="button" disabled={!faixaFat || !faixaRenda} onClick={enviarInfos} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Continuar</button>
+          )}
+        </div>
+      )}
+
+      {folha === "duvidas" && (
+        <Folha titulo="Quero entender mais" onFechar={() => setFolha(null)}>
+          <Duvidas />
+        </Folha>
+      )}
+      {folha === "bancos" && (
+        <Folha titulo="Escolha seu banco" onFechar={() => setFolha(null)}>
+          <ul className="m-0 p-0 list-none flex flex-col" data-folha="bancos">
+            {BANCOS_OPEN_FINANCE.map((b) => (
+              <li key={b}>
+                <button type="button" onClick={() => escolherBanco(b)} className="w-full flex items-center gap-4 py-3 text-left text-[15px] font-medium text-ink">
+                  <BancoLogo banco={b} size={36} />
+                  {b}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Folha>
+      )}
+      {(folha === "faturamento" || folha === "renda") && (
+        <Folha titulo={folha === "faturamento" ? "Faturamento anual" : "Renda do representante"} onFechar={() => setFolha(null)}>
+          <ul className="m-0 p-0 list-none flex flex-col" role="listbox" aria-label={folha === "faturamento" ? "Faturamento anual" : "Renda do representante"} data-folha={folha}>
+            {(folha === "faturamento" ? FAIXAS_FATURAMENTO : FAIXAS_RENDA.map((r) => ({ rotulo: r, porte: "" }))).map((f) => {
+              const marcada = (folha === "faturamento" ? faixaFat : faixaRenda) === f.rotulo;
+              return (
+                <li key={f.rotulo}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={marcada}
+                    onClick={() => { if (folha === "faturamento") setFaixaFat(f.rotulo); else setFaixaRenda(f.rotulo); setFolha(null); }}
+                    className="w-full flex items-center justify-between gap-3 py-3 text-left"
+                  >
+                    <span className="flex flex-col">
+                      <span className="text-[15px] font-medium text-ink tabular-nums">{f.rotulo}</span>
+                      {f.porte && <span className="text-[13px] text-muted">{f.porte}</span>}
+                    </span>
+                    {marcada && <Icon name="check" size={18} />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Folha>
+      )}
+      {facialAberto && <ReconhecimentoFacial onFechar={() => setFacialAberto(false)} onConcluir={concluirFacial} />}
+
       {campo && (
         <form
           onSubmit={responder}
@@ -687,6 +854,9 @@ export function CriarContaView() {
         >
           {/* O gerenciador de senhas guarda a senha junto do e-mail certo. */}
           {etapa === "senha" && <input type="email" name="email" autoComplete="username" value={cad.email} readOnly hidden />}
+          {etapa === "pergunta" && atual?.tipo === "telefone" && (
+            <span aria-hidden className="pl-3 text-[15px] text-muted tabular-nums">+55</span>
+          )}
           <input
             ref={campoRef}
             key={`${etapa}:${atual?.id ?? ""}`}
@@ -737,27 +907,92 @@ function lerLista(p: Pergunta, c: Cadastro): string[] {
   return Array.isArray(v) && v.length ? (v as string[]) : (p.inicial ? p.inicial(c) : []);
 }
 
-/* ─── os cartões da conversa (o desenho do Jota: card branco, ícone lima) ─── */
+/* ─── as falas, os botões e o cartão da Receita ──────────────────────────── */
+const FALAS_DO_PASSO: Record<PassoEspecial, string[]> = {
+  openfinance: ["Agora, o jeito mais rápido de seguir."],
+  termos: ["Antes de abrir sua conta, confirme que você aceita os **Termos** **de** **Uso**."],
+  infos: ["Precisamos de algumas informações suas sobre renda, ocupação e seu patrimônio."],
+  facial: ["Para sua segurança, vamos validar sua identidade com **reconhecimento** **facial**."],
+};
+
+const BOTAO_PRIMARIO = "inline-flex items-center justify-center w-full h-14 rounded-pill text-[16px] font-medium disabled:opacity-40";
+const ESTILO_PRIMARIO: React.CSSProperties = { background: "var(--erp-num-cor)", color: "var(--color-surface-1)" };
+
+/** As linhas do cartão "Verifique se os dados estão corretos" (o print 0816). */
+function linhasDaReceita(r: DadosCNPJ, cnpj: string): { rotulo: string; valor: string }[] {
+  const data = r.dataAbertura && /^\d{4}-\d{2}-\d{2}/.test(r.dataAbertura)
+    ? `${r.dataAbertura.slice(8, 10)}/${r.dataAbertura.slice(5, 7)}/${r.dataAbertura.slice(0, 4)}` : "";
+  const cnae = (r.cnaePrincipal ?? "").replace(/\D/g, "");
+  const codigo = cnae.length === 7 ? `${cnae.slice(0, 4)}-${cnae.slice(4, 5)}/${cnae.slice(5)}` : cnae;
+  const ramo = [codigo, r.cnaeDescricao].filter(Boolean).join(" - ");
+  return [
+    { rotulo: "Razão social", valor: r.razaoSocial },
+    { rotulo: "CNPJ", valor: cnpj },
+    { rotulo: "Data de abertura", valor: data },
+    { rotulo: "Tipo de empresa", valor: r.porte ?? "" },
+    { rotulo: "Ramo de atividade", valor: ramo },
+  ].filter((l) => l.valor);
+}
+
+/* ─── os cartões da conversa (card branco, ícone num quadrado lima) ──────── */
+const RECOLHIDO: Record<string, (c: Cadastro) => { icone: string; rotulo: string }> = {
+  conta: () => ({ icone: "smile", rotulo: "Tipo de conta" }),
+  openfinance: (c) => ({ icone: "landmark", rotulo: c.openFinanceBanco ? `Open Finance · ${c.openFinanceBanco}` : "Preenchimento manual" }),
+  termos: () => ({ icone: "file-text", rotulo: "Termos de uso aceitos" }),
+  infos: () => ({ icone: "building", rotulo: "Informações da empresa enviadas" }),
+  facial: (c) => ({ icone: "scan-face", rotulo: c.biometria === "capturada" ? "Identidade enviada" : "Validação de identidade pendente" }),
+};
+
+function Ladrilho({ icone }: { icone: string }) {
+  return (
+    <span aria-hidden className="w-11 h-11 flex-none rounded-[12px] flex items-center justify-center bg-lime text-on-lime">
+      <Icon name={icone} size={22} color="currentColor" />
+    </span>
+  );
+}
+
 function CartaoDaConversa({
-  cartao, ativo, onTipo, onConfirmar, onOutro,
+  cartao, ativo, cad, aceite, faixaFat, faixaRenda, onTipo, onConectar, onDuvidas, onAceite, onFaixa, onFacial,
 }: {
   cartao: Cartao;
   ativo: boolean;
+  cad: Cadastro;
+  aceite: boolean;
+  faixaFat: string;
+  faixaRenda: string;
   onTipo: (t: "pf" | "pj") => void;
-  onConfirmar: () => void;
-  onOutro: () => void;
+  onConectar: () => void;
+  onDuvidas: () => void;
+  onAceite: () => void;
+  onFaixa: (q: "faturamento" | "renda") => void;
+  onFacial: () => void;
 }) {
+  const caixa = "w-full max-w-[420px] rounded-card p-5 flex flex-col gap-4";
+  const fundo = { background: "var(--color-white)" };
+  const titulo = "m-0 text-[24px] leading-[1.15] font-medium text-ink";
+
+  // Respondido, o cartão vira uma pílula com o que foi decidido (como nos prints).
+  if (!ativo && cartao.tipo in RECOLHIDO && (cartao.tipo !== "conta" || !!cad.tipo)) {
+    const r = RECOLHIDO[cartao.tipo](cad);
+    return (
+      <div data-cartao={cartao.tipo} data-recolhido className="inline-flex items-center gap-3 h-11 pl-2 pr-5 rounded-pill" style={fundo}>
+        <span aria-hidden className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-lime text-on-lime">
+          <Icon name={r.icone} size={14} color="currentColor" />
+        </span>
+        <span className="text-[14px] text-muted">{r.rotulo}</span>
+      </div>
+    );
+  }
+
   if (cartao.tipo === "conta") {
     return (
-      <div data-cartao="conta" className="w-full max-w-[420px] rounded-card p-5 flex flex-col gap-4" style={{ background: "var(--color-white)" }}>
-        <span aria-hidden className="w-11 h-11 rounded-[12px] flex items-center justify-center bg-lime text-on-lime">
-          <Icon name="smile" size={22} color="currentColor" />
-        </span>
-        <p className="m-0 text-[17px] font-medium text-ink">Que tipo de conta você gostaria de abrir?</p>
-        <div className="flex flex-wrap gap-2">
+      <div data-cartao="conta" className={caixa} style={fundo}>
+        <Ladrilho icone="smile" />
+        <p className={titulo}>Que tipo de conta você gostaria de abrir?</p>
+        <div className="flex flex-col gap-2">
           {(["pf", "pj"] as const).map((t) => (
             <button key={t} type="button" disabled={!ativo} onClick={() => onTipo(t)}
-              className="inline-flex items-center h-11 px-6 rounded-pill text-[15px] text-ink disabled:opacity-60"
+              className="inline-flex items-center justify-center h-12 px-6 rounded-pill text-[15px] font-medium text-ink disabled:opacity-60"
               style={{ background: "var(--color-surface-1)" }}>
               {t === "pf" ? "Conta PF" : "Conta PJ"}
             </button>
@@ -766,40 +1001,143 @@ function CartaoDaConversa({
       </div>
     );
   }
+
   if (cartao.tipo === "documento") {
     return (
-      <div data-cartao="documento" className="w-full max-w-[420px] flex flex-col gap-4">
-        <div className="rounded-card p-5 flex items-center gap-4" style={{ background: "var(--color-white)" }}>
-          <span aria-hidden className="w-11 h-11 flex-none rounded-[12px] flex items-center justify-center bg-lime text-on-lime">
-            <Icon name="user" size={22} color="currentColor" />
-          </span>
+      <div data-cartao="documento" className={caixa} style={fundo}>
+        <Ladrilho icone={cartao.rotulo === "CNPJ" ? "building" : "user"} />
+        {cartao.linhas?.length ? (
+          <dl className="m-0 flex flex-col gap-3">
+            {cartao.linhas.map((l) => (
+              <div key={l.rotulo} className="flex flex-col">
+                <dt className="text-[14px] font-medium text-ink">{l.rotulo}</dt>
+                <dd className="m-0 text-[15px] text-ink tabular-nums break-words">{l.valor}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
           <div className="min-w-0 flex flex-col">
             <span className="text-[13px] text-muted tabular-nums">{cartao.rotulo} {cartao.documento}</span>
             <span className="text-[16px] font-medium text-ink break-words">{cartao.nome}</span>
             {cartao.detalhe && <span className="text-[13px] text-muted">{cartao.detalhe}</span>}
           </div>
-        </div>
-        {ativo && (
-          <div className="flex flex-col items-start gap-3">
-            <button type="button" onClick={onConfirmar} className="inline-flex items-center h-11 px-7 rounded-pill text-[15px]"
-              style={{ background: "var(--erp-num-cor)", color: "var(--color-surface-1)" }}>
-              Confirmar
-            </button>
-            <button type="button" onClick={onOutro} className="text-[14px] text-ink underline underline-offset-2">
-              Usar outro {cartao.rotulo}
-            </button>
-          </div>
         )}
       </div>
     );
   }
+
+  if (cartao.tipo === "openfinance") {
+    return (
+      <div data-cartao="openfinance" className={caixa} style={fundo}>
+        <span className="self-start inline-flex items-center gap-1.5 h-7 px-3 rounded-pill text-[12px] text-muted" style={{ background: "var(--color-surface-1)" }}>
+          <span aria-hidden className="w-1.5 h-1.5 rounded-pill bg-lime" />
+          Recomendado · Leva 1 min
+        </span>
+        <Ladrilho icone="landmark" />
+        <div className="flex flex-col gap-2">
+          <p className={titulo}>Sua conta já nasce organizada</p>
+          <p className="m-0 text-[14px] leading-[1.45] text-muted">
+            Você autoriza no app do seu banco e eu preencho tudo sozinho, via Open Finance regulado pelo Banco Central.
+          </p>
+        </div>
+        <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
+          {[
+            "Saldo de todas as suas contas em um lugar só",
+            "Eu acompanho seus gastos e te aviso quando algo fugir do padrão",
+            "Você só confere e confirma, sem preencher nada",
+          ].map((t) => (
+            <li key={t} className="flex items-start gap-2.5 text-[14px] text-ink">
+              <Icon name="check" size={16} className="mt-0.5 flex-none" />
+              {t}
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col gap-1">
+          <button type="button" disabled={!ativo} onClick={onConectar} className="inline-flex items-center justify-center h-12 rounded-pill text-[15px] font-medium disabled:opacity-50" style={ESTILO_PRIMARIO}>
+            Conectar meu banco
+          </button>
+          <button type="button" onClick={onDuvidas} className="h-11 rounded-pill text-[15px] font-medium text-ink">
+            Quero entender mais
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (cartao.tipo === "termos") {
+    return (
+      <div data-cartao="termos" className={caixa} style={fundo}>
+        <Ladrilho icone="file-text" />
+        <p className={titulo}>Termos e Condições de Uso</p>
+        <label className="flex items-center gap-2.5 text-[14px] text-ink cursor-pointer">
+          <input type="checkbox" checked={aceite} onChange={onAceite} disabled={!ativo} className="sr-only peer" />
+          <span aria-hidden className="w-5 h-5 flex-none rounded-[6px] flex items-center justify-center border border-border peer-focus-visible:ring-2 peer-focus-visible:ring-ink"
+            style={aceite ? { background: "var(--erp-num-cor)", color: "var(--color-surface-1)", borderColor: "transparent" } : undefined}>
+            {aceite && <Icon name="check" size={13} color="currentColor" />}
+          </span>
+          <span>
+            Li e aceito os{" "}
+            <Link href="/privacidade" target="_blank" className="underline underline-offset-2">termos e condições</Link>
+          </span>
+        </label>
+      </div>
+    );
+  }
+
+  if (cartao.tipo === "infos") {
+    const linha = (q: "faturamento" | "renda", icone: string, rotulo: string, valor: string) => (
+      <button type="button" disabled={!ativo} onClick={() => onFaixa(q)} data-faixa={q}
+        className="w-full flex items-center gap-3 py-3 text-left disabled:opacity-60">
+        <Icon name={icone} size={18} className="flex-none" />
+        <span className="min-w-0 flex-1 flex flex-col">
+          <span className="text-[14px] font-medium text-ink">{rotulo}</span>
+          <span className={`text-[14px] tabular-nums ${valor ? "text-ink" : "text-muted"}`}>{valor || "Clique para preencher"}</span>
+        </span>
+        <Icon name="chevron-down" size={16} className="flex-none text-muted" />
+      </button>
+    );
+    return (
+      <div data-cartao="infos" className="w-full max-w-[420px] flex flex-col gap-3">
+        <div className={caixa} style={fundo}>
+          <Ladrilho icone="building" />
+          <div className="flex flex-col gap-1">
+            <p className={titulo}>Informações da empresa</p>
+            <p className="m-0 text-[14px] text-muted">Clique no botão ao lado para preencher</p>
+          </div>
+          <div className="flex flex-col divide-y divide-border-soft">
+            {linha("faturamento", "coins", "Faturamento anual", faixaFat)}
+            {linha("renda", "trending-up", "Renda do representante", faixaRenda)}
+          </div>
+        </div>
+        <p className="m-0 flex items-start gap-2 px-1 text-[13px] text-muted">
+          <Icon name="lock" size={14} className="mt-0.5 flex-none" />
+          Seus dados ficam protegidos e são usados apenas para essa finalidade.
+        </p>
+      </div>
+    );
+  }
+
+  if (cartao.tipo === "facial") {
+    return (
+      <div data-cartao="facial" className={caixa} style={fundo}>
+        <Ladrilho icone="scan-face" />
+        <div className="flex flex-col gap-2">
+          <p className={titulo}>Reconhecimento facial</p>
+          <p className="m-0 text-[14px] leading-[1.45] text-muted">Para continuar, você precisará liberar o acesso à câmera do celular.</p>
+        </div>
+        <button type="button" disabled={!ativo} onClick={onFacial} className="inline-flex items-center justify-center h-12 rounded-pill text-[15px] font-medium disabled:opacity-50" style={ESTILO_PRIMARIO}>
+          Validar Identidade
+        </button>
+      </div>
+    );
+  }
+
+  if (cartao.tipo !== "analise") return null;
   const m = cartao.maturidade;
   return (
-    <div data-cartao="analise" className="w-full max-w-[480px] rounded-card p-5 flex flex-col gap-3" style={{ background: "var(--color-white)" }}>
+    <div data-cartao="analise" className="w-full max-w-[480px] rounded-card p-5 flex flex-col gap-3" style={fundo}>
       <div className="flex items-center gap-4">
-        <span aria-hidden className="w-11 h-11 flex-none rounded-[12px] flex items-center justify-center bg-lime text-on-lime">
-          <Icon name="sparkles" size={22} color="currentColor" />
-        </span>
+        <Ladrilho icone="sparkles" />
         <div className="flex flex-col">
           <span className="text-[13px] text-muted">Maturidade financeira</span>
           <span className="text-[22px] font-medium text-ink tabular-nums">{Math.round(m.score)} de 100</span>
@@ -808,6 +1146,156 @@ function CartaoDaConversa({
       {m.fortes.length > 0 && <p className="m-0 text-[14px] text-ink"><span className="text-muted">Pontos fortes: </span>{m.fortes.slice(0, 2).join(" · ")}</p>}
       {m.atencao.length > 0 && <p className="m-0 text-[14px] text-ink"><span className="text-muted">Atenção: </span>{m.atencao.slice(0, 2).join(" · ")}</p>}
       {m.recomendacoes[0] && <p className="m-0 text-[14px] text-muted">{m.recomendacoes[0]}</p>}
+    </div>
+  );
+}
+
+/* ─── a folha que sobe de baixo (sólida, como todo sobreposto do sistema) ── */
+function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
+  React.useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onFechar]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={onFechar}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        onClick={(e) => e.stopPropagation()}
+        className="a4p-folha w-full max-w-[560px] max-h-[85dvh] overflow-y-auto rounded-t-[24px] sm:rounded-[24px] sm:mb-6 px-6 pt-5 pb-8"
+        style={{ background: "var(--color-white)" }}
+      >
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="m-0 text-[17px] font-medium text-ink">{titulo}</h2>
+          <button type="button" onClick={onFechar} aria-label="Fechar" autoFocus
+            className="w-8 h-8 rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-surface-1)" }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Duvidas() {
+  const [aberta, setAberta] = React.useState(0);
+  return (
+    <div className="flex flex-col" data-folha="duvidas">
+      {DUVIDAS_OPEN_FINANCE.map((d, i) => (
+        <div key={d.pergunta} className="py-3">
+          <button type="button" aria-expanded={aberta === i} onClick={() => setAberta(aberta === i ? -1 : i)}
+            className="w-full flex items-start justify-between gap-3 text-left text-[15px] font-medium text-ink">
+            {d.pergunta}
+            <Icon name={aberta === i ? "chevron-up" : "chevron-down"} size={16} className="mt-1 flex-none" />
+          </button>
+          {aberta === i && <p className="m-0 mt-2 text-[14px] leading-[1.5] text-muted">{d.resposta}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * RECONHECIMENTO FACIAL — as dicas em carrossel e a câmera frontal.
+ *
+ * ⚠️ **A verificação biométrica ainda não existe** (não há provedor
+ * contratado). A tela pede a câmera de verdade e tira a foto, mas a foto NÃO
+ * sai do aparelho: o cadastro guarda só que ela foi tirada (`capturada`). Sem
+ * câmera, a validação fica `pendente` — ninguém é impedido de abrir a conta
+ * por estar num computador sem câmera.
+ */
+function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; onConcluir: (s: "capturada" | "pendente") => void }) {
+  const [modo, setModo] = React.useState<"dicas" | "camera" | "erro">("dicas");
+  const [dica, setDica] = React.useState(0);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const fluxoRef = React.useRef<MediaStream | null>(null);
+
+  const parar = React.useCallback(() => { fluxoRef.current?.getTracks().forEach((t) => t.stop()); fluxoRef.current = null; }, []);
+  React.useEffect(() => parar, [parar]);
+  React.useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onFechar]);
+  React.useEffect(() => {
+    if (modo !== "dicas") return;
+    const t = setInterval(() => setDica((d) => (d + 1) % DICAS_FACIAL.length), 2800);
+    return () => clearInterval(t);
+  }, [modo]);
+
+  const abrirCamera = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("sem câmera");
+      const fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      fluxoRef.current = fluxo;
+      setModo("camera");
+      requestAnimationFrame(() => { if (videoRef.current) { videoRef.current.srcObject = fluxo; void videoRef.current.play().catch(() => {}); } });
+    } catch {
+      setModo("erro");
+    }
+  };
+  const capturar = () => { parar(); onConcluir("capturada"); };
+  const fechar = () => { parar(); onFechar(); };
+  const d = DICAS_FACIAL[dica];
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Reconhecimento facial" className="a4p-chat-tela fixed inset-0 z-50 flex flex-col" style={{ background: "var(--color-surface-1)" }} data-facial={modo}>
+      <div className="flex-none flex justify-end px-4 pt-6">
+        <button type="button" onClick={fechar} aria-label="Fechar" className="w-10 h-10 rounded-pill flex items-center justify-center text-ink">
+          <Icon name="x" size={20} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-8 px-6 text-center">
+        {modo === "dicas" && (
+          <>
+            <span aria-hidden className="relative w-[200px] h-[200px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
+              <Icon name={d.icone} size={88} strokeWidth={1.25} />
+              <span className="absolute top-3 right-3 w-11 h-11 rounded-pill flex items-center justify-center bg-lime text-on-lime">
+                <Icon name={d.icone === "glasses" ? "x" : "check"} size={20} color="currentColor" />
+              </span>
+            </span>
+            <p className="m-0 max-w-[320px] text-[28px] leading-[1.15] font-medium text-ink" aria-live="polite">{d.titulo}</p>
+            <div className="flex gap-2" role="tablist" aria-label="Dicas">
+              {DICAS_FACIAL.map((x, i) => (
+                <button key={x.titulo} type="button" role="tab" aria-selected={i === dica} aria-label={x.titulo} onClick={() => setDica(i)}
+                  className="h-1.5 rounded-pill transition-all" style={{ width: i === dica ? 24 : 8, background: i === dica ? "var(--erp-num-cor)" : "var(--color-text-tertiary)" }} />
+              ))}
+            </div>
+          </>
+        )}
+        {modo === "camera" && (
+          <>
+            <div className="w-[260px] h-[340px] rounded-[50%] overflow-hidden" style={{ background: "var(--color-white)", outline: "3px solid var(--color-lime)", outlineOffset: 6 }}>
+              <video ref={videoRef} playsInline muted className="w-full h-full object-cover -scale-x-100" />
+            </div>
+            <p className="m-0 text-[17px] text-ink">Centralize o rosto no contorno</p>
+          </>
+        )}
+        {modo === "erro" && (
+          <>
+            <span aria-hidden className="w-[120px] h-[120px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
+              <Icon name="camera" size={52} strokeWidth={1.25} />
+            </span>
+            <div className="flex flex-col gap-2 max-w-[340px]">
+              <p className="m-0 text-[22px] font-medium text-ink">Não consegui abrir a câmera</p>
+              <p className="m-0 text-[15px] text-muted">Libere o acesso à câmera no navegador e tente de novo, ou siga e valide depois, pelo celular.</p>
+            </div>
+          </>
+        )}
+      </div>
+      <div className="flex-none mx-auto w-[calc(100%-40px)] max-w-[480px] mb-6 flex flex-col gap-2">
+        {modo === "dicas" && <button type="button" onClick={() => void abrirCamera()} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Tirar foto</button>}
+        {modo === "camera" && <button type="button" onClick={capturar} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Capturar</button>}
+        {modo === "erro" && (
+          <>
+            <button type="button" onClick={() => void abrirCamera()} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Tentar de novo</button>
+            <button type="button" onClick={() => { parar(); onConcluir("pendente"); }} className="h-12 rounded-pill text-[15px] text-ink">Validar depois</button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
