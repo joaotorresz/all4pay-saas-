@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 import { GRAFICOS_DA_IA } from "@/core/assistant/engine";
+import { telasParaPrompt } from "@/core/assistant/acoes";
 
 /**
  * Copiloto financeiro "Ember-style" (Campfire) — SERVER-ONLY. Recebe o CONTEXTO
@@ -80,6 +81,8 @@ REGRAS DE CONTEÚDO (obrigatórias):
 - "probRuptura" é a chance de ruptura em 60 DIAS.
 - Projeção fica no condicional ("no ritmo atual, …"), nunca como fato.
 
+O SISTEMA: a pessoa usa o Quattro, um ERP financeiro. Quando faltar dado, nunca pare em "não há": diga o que lançar ou enviar e aponte a tela. As telas que você pode indicar (por id): ${telasParaPrompt()}.
+
 GRÁFICO: se um gráfico ajuda a entender a resposta, escolha UM id desta lista (os dados vêm do sistema, não de você): ${graficos}. Senão, null.
 
 CONTEXTO (JSON):
@@ -97,7 +100,8 @@ As mensagens anteriores da conversa (se houver) servem para resolver referência
   "fontes": string[],                       // motores/números do contexto usados
   "numeros": [{ "label": string, "valor": string }],  // 0-4 destaques (valor já formatado, ex.: "R$ 12.500" ou "4,2 meses")
   "grafico": string | null,                 // um id da lista de gráficos, ou null
-  "acao": string | null                     // 1 ação concreta sugerida, curta, ou null
+  "acao": string | null,                    // 1 ação concreta sugerida, curta, ou null
+  "telas": string[]                         // 0-2 ids da lista de telas onde a pessoa age sobre a resposta
 }`;
 
   const messages = base ? [{ role: "user" as const, content: pergunta }] : [

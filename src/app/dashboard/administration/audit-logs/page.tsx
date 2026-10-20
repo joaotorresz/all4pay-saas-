@@ -4,7 +4,7 @@ import { LogsView } from "@/components/administracao/AdministracaoViews";
 
 export default function Page() {
   return (
-    <AppShell title="Logs" crumb="Administração">
+    <AppShell title="Logs" crumb="Configurações">
       <Suspense fallback={null}>
         <LogsView />
       </Suspense>

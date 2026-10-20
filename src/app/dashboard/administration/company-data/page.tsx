@@ -4,7 +4,7 @@ import { DadosEmpresaView } from "@/components/administracao/DadosEmpresaView";
 
 export default function Page() {
   return (
-    <AppShell title="Empresa" crumb="Administração">
+    <AppShell title="Empresa" crumb="Configurações">
       <Suspense fallback={null}>
         <DadosEmpresaView />
       </Suspense>

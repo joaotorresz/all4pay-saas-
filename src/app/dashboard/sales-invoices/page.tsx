@@ -1,24 +1,34 @@
+"use client";
+
+import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
-import { AtalhosTela } from "@/components/app/AtalhosTela";
+import { HubShell, type AbaHub } from "@/components/app/HubShell";
 import { VendasView } from "@/components/vendas-nf/VendasView";
+import { BoletosView } from "@/components/boletos/BoletosView";
+import { LinksPagamentoView } from "@/components/vendas-nf/OutrasViews";
+import { PosVendaView } from "@/components/pos/PosVendaView";
+import { CentralPosTaxasView } from "@/components/pos/CentralPosTaxasView";
+
+/**
+ * Vendas — o pedido e as formas de COBRÁ-lo, numa tela só (reorganização dos
+ * menus, 19/10/2026). Boletos e PIX, links de pagamento, a maquininha e as
+ * taxas dela eram quatro rotas soltas a um atalho daqui; viraram abas, e os
+ * endereços antigos respondem 308 para a aba certa (`core/rotas/aliases`).
+ */
+const ABAS: AbaHub[] = [
+  { id: "pedidos", label: "Pedidos", render: () => <VendasView /> },
+  { id: "boletos", label: "Boletos e PIX", render: () => <BoletosView /> },
+  { id: "links", label: "Links de pagamento", render: () => <LinksPagamentoView /> },
+  { id: "maquininha", label: "Maquininha", render: () => <PosVendaView /> },
+  { id: "taxas", label: "Taxas da maquininha", render: () => <CentralPosTaxasView /> },
+];
 
 export default function VendasPage() {
   return (
-    <AppShell title="Painel de vendas" crumb="Vendas e NFs">
-      <div className="flex flex-col gap-5">
-        {/* As formas de COBRAR a venda saíram do menu e moram aqui, a um clique. */}
-        <AtalhosTela
-          rotulo="Cobrar e vender"
-          atalhos={[
-            { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
-            { label: "Boletos e PIX", href: "/dashboard/financial/boletos", icon: "file-text" },
-            { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
-            { label: "Maquininha (POS)", href: "/pos/venda", icon: "credit-card" },
-            { label: "Taxas da maquininha", href: "/pos/taxas", icon: "credit-card" },
-          ]}
-        />
-        <VendasView />
-      </div>
+    <AppShell title="Vendas" crumb="Vender e receber">
+      <Suspense fallback={null}>
+        <HubShell abas={ABAS} />
+      </Suspense>
     </AppShell>
   );
 }

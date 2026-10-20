@@ -84,7 +84,7 @@ export const FUSOES: Fusao[] = [
   {
     id: "titulos",
     assunto: "Contas a receber e a pagar",
-    canonico: "/dashboard/financial/accounts-and-transfers",
+    canonico: "/contas-a-receber/titulos",
     aposentar: ["/recebimentos", "/pagamentos"],
     porque:
       "A tela canônica trata receber, pagar e transferir como o mesmo problema espelhado, com abas — que é o que eles são. As duas legadas duplicam metade disso cada uma.",
@@ -341,7 +341,7 @@ export const FUSOES: Fusao[] = [
   {
     id: "governanca",
     assunto: "Alçadas, papéis e trilha de auditoria",
-    canonico: "/aprovacoes",
+    canonico: "/central",
     aposentar: ["/governanca"],
     porque:
       "A fila de aprovações e as regras que a governam respondiam a mesma pergunta em duas telas e dois menus; quem aprova precisa ver a alçada no mesmo lugar em que decide.",

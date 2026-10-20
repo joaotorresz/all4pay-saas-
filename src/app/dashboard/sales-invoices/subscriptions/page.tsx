@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { HubShell, type AbaHub } from "@/components/app/HubShell";
 import { AssinaturasVendasView } from "@/components/vendas-nf/OutrasViews";
 import { RecorrenciasView } from "@/components/recorrencias/RecorrenciasView";
+import { ContratosView } from "@/components/registros/ContratosView";
 
 /**
  * Assinaturas — a porta ÚNICA para criar, ativar, pausar e cancelar.
@@ -20,11 +21,13 @@ import { RecorrenciasView } from "@/components/recorrencias/RecorrenciasView";
 const ABAS: AbaHub[] = [
   { id: "contratos", label: "Contratos e MRR", render: () => <RecorrenciasView /> },
   { id: "lista", label: "Lista e exportação", render: () => <AssinaturasVendasView /> },
+  // Os contratos de CLIENTE moram aqui; os de fornecedor, em Contas recorrentes.
+  { id: "contratos-cliente", label: "Contratos de cliente", render: () => <ContratosView lado="cliente" /> },
 ];
 
 export default function AssinaturasPage() {
   return (
-    <AppShell title="Assinaturas e recorrência" crumb="Vendas e NFs">
+    <AppShell title="Assinaturas e contratos" crumb="Vender e receber">
       <Suspense fallback={null}>
         <HubShell abas={ABAS} />
       </Suspense>

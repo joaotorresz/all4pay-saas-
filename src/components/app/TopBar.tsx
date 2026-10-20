@@ -104,7 +104,7 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration")} />
+      <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration/company-data")} />
       <AcaoTopo
         icone="bell"
         rotulo={naoLidos > 0 ? `Anúncios (${naoLidos} não lidos)` : "Anúncios"}

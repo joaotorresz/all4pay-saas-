@@ -16,14 +16,14 @@ export default async function venderPos(navegador) {
   const u = await novoUsuario(navegador);
 
   // A taxa final ao estabelecimento, Mastercard, 3x — o que a tabela promete.
-  await u.ir("/pos/taxas");
+  await u.ir("/dashboard/sales-invoices?aba=taxas");
   const tabela = norm(await u.texto());
   const taxaTabela = Number(((tabela.match(/Taxa final para o estabelecimento[^]*?\b3X (\d+,\d\d)%/) || [])[1] ?? "NaN").replace(",", ".")) / 100;
   v.ok(taxaTabela > 0, "a tabela de taxas mostra a taxa de 3x", `${(taxaTabela * 100).toFixed(2)}%`);
 
   const antes = await u.page.evaluate(() => (JSON.parse(localStorage.getItem("a4p_imported_dataset") ?? "{}").movements ?? []).length);
 
-  await u.ir("/pos/venda");
+  await u.ir("/dashboard/sales-invoices?aba=maquininha");
   await u.page.locator('button[title="Adicionar"]', { hasText: "Monitor 27 4K" }).click();
   await u.page.getByRole("button", { name: /Avançar para o pagamento/ }).click();
   await u.page.getByRole("button", { name: "Crédito parcelado" }).click();

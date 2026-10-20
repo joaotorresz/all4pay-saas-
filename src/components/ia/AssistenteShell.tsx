@@ -32,10 +32,12 @@ import { AutonomoView } from "@/components/autonomo/AutonomoView";
 
 type Aba = "quant" | "decisao" | "risco" | "autonomo";
 
+// Ordem e nome do menu "Análises da IA" (19/10/2026): risco primeiro;
+// "Quant" era o nome do motor, a pessoa lê "Saúde".
 const ABAS: { id: Aba; label: string; descricao: string }[] = [
-  { id: "quant", label: "Quant", descricao: "score de saúde, radar e cenários" },
-  { id: "decisao", label: "Decisão", descricao: "Monte Carlo e recomendações com impacto" },
   { id: "risco", label: "Risco", descricao: "runway, ruptura e stress de caixa" },
+  { id: "decisao", label: "Decisão", descricao: "Monte Carlo e recomendações com impacto" },
+  { id: "quant", label: "Saúde", descricao: "score de saúde, radar e cenários" },
   // ⚠️ Chamava-se "Autônomo" e prometia autonomia que não existe: a aba
   // PROPÕE, e quem age é uma pessoa no card de sugestões. O identificador
   // (`autonomo`) fica — ele é endereço, e mudá-lo quebraria o link antigo e o

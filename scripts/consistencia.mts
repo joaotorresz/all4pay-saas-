@@ -2116,9 +2116,18 @@ const AGOSTO = janelaMes(2026, 7);
      `${vazamentos.map((a) => `${a.de}→${a.para}`).join(", ")}`);
 
   // E a aba paga dentro de hub do Simples continua trancada, sem trancar o hub.
-  ok("rotas: a aba paga do hub exige Pro", exigePro("/contabilidade?aba=consolidado"));
-  ok("rotas: o hub em si continua aberto", !exigePro("/contabilidade"));
-  ok("rotas: outra aba do mesmo hub continua aberta", !exigePro("/contabilidade?aba=razao"));
+  // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
+  // aberta seguem Pro pelo par rota+aba, e a tela continua aberta.
+  for (const [hub, paga, aberta] of [
+    ["/dashboard/reports/dre-multi", "consolidado", "dre"],
+    ["/central", "solicitacoes", "confirmar"],
+    ["/central", "alcadas", "confirmar"],
+    ["/simuladores", "contratacoes", "posso-comprar"],
+  ]) {
+    ok(`rotas: a aba paga exige Pro (${hub}?aba=${paga})`, exigePro(`${hub}?aba=${paga}`));
+    ok(`rotas: a tela em si continua aberta (${hub})`, !exigePro(hub));
+    ok(`rotas: outra aba continua aberta (${hub}?aba=${aberta})`, !exigePro(`${hub}?aba=${aberta}`));
+  }
 }
 
 /* ========================================================================== */

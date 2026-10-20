@@ -4,7 +4,7 @@ import { UsuariosView } from "@/components/administracao/AdministracaoViews";
 
 export default function Page() {
   return (
-    <AppShell title="Usuários e papéis" crumb="Administração">
+    <AppShell title="Usuários e papéis" crumb="Configurações">
       <Suspense fallback={null}>
         <UsuariosView />
       </Suspense>

@@ -3,7 +3,7 @@ import { SegurancaView } from "@/components/administracao/SegurancaView";
 
 export default function Page() {
   return (
-    <AppShell title="Segurança" crumb="Administração">
+    <AppShell title="Segurança da plataforma" crumb="Plataforma">
       <SegurancaView />
     </AppShell>
   );

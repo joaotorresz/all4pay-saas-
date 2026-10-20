@@ -47,7 +47,7 @@ async function pedir(u, colaborador, itens) {
 
 async function decidir(u, colaborador, acao) {
   const p = u.page;
-  await u.ir("/aprovacoes");
+  await u.ir("/central?aba=solicitacoes");
   const item = p.locator("main button", { hasText: colaborador });
   if (!(await item.count())) return false;
   await item.first().click();

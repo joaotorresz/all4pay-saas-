@@ -1,20 +1,30 @@
-import { AppShell } from "@/components/app/AppShell";
-import { AtalhosTela } from "@/components/app/AtalhosTela";
-import { ContasBancariasView } from "@/components/registros/ContasBancariasView";
+"use client";
 
-export default function ContasBancariasPage() {
+import { Suspense } from "react";
+import { AppShell } from "@/components/app/AppShell";
+import { HubShell, type AbaHub } from "@/components/app/HubShell";
+import { ContasBancariasView } from "@/components/registros/ContasBancariasView";
+import { FaturaCartaoView } from "@/components/movimentacoes/CaixaViews";
+import { TransferenciasView } from "@/components/movimentacoes/TransferenciasView";
+
+/**
+ * Contas e cartões — a conta, a fatura do cartão cadastrado nela e o dinheiro
+ * que anda entre contas próprias, numa tela (reorganização dos menus,
+ * 19/10/2026). Fatura e transferências eram rotas próprias; os endereços
+ * antigos respondem 308 para a aba certa.
+ */
+const ABAS: AbaHub[] = [
+  { id: "contas", label: "Contas", render: () => <ContasBancariasView /> },
+  { id: "faturas", label: "Faturas do cartão", render: () => <FaturaCartaoView /> },
+  { id: "transferencias", label: "Transferências", render: () => <TransferenciasView /> },
+];
+
+export default function ContasECartoesPage() {
   return (
-    <AppShell title="Contas bancárias" crumb="Estrutura e cadastros">
-      <div className="flex flex-col gap-5">
-        {/* A fatura é do cartão cadastrado aqui — saiu do menu e mora a um clique. */}
-        <AtalhosTela
-          atalhos={[
-            { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
-            { label: "Transferências entre contas", href: "/dashboard/financial/accounts-and-transfers", icon: "repeat" },
-          ]}
-        />
-        <ContasBancariasView />
-      </div>
+    <AppShell title="Contas e cartões" crumb="Caixa e bancos">
+      <Suspense fallback={null}>
+        <HubShell abas={ABAS} />
+      </Suspense>
     </AppShell>
   );
 }

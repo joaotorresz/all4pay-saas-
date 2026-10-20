@@ -47,6 +47,7 @@ import { periodoSemana } from "@/core/contas-pagar";
 // somava ao "a receber" e à lista de devedores, e a tela não.
 import { ehContaAReceber } from "@/core/contas-receber";
 
+import { acoesDeSeguimento, acoesParaVazio, respostaVazia, type AcaoIA } from "@/core/assistant/acoes";
 import { deLancamentos as L, sobreLancamentos as B, naTela as T, simulado, completarPorRotulo, type NumeroResposta } from "@/core/assistant/numero";
 
 import { formatBRL, decimalBR, pct as pctBR } from "@/lib/format";
@@ -58,9 +59,27 @@ const dia = (ds: string) => ds.slice(0, 10).split("-").reverse().join("/");
 /** Dias corridos de a → b (positivo = b depois de a). */
 const diasEntre = (a: string, b: string) => Math.round((new Date(b.slice(0, 10) + "T00:00:00").getTime() - new Date(a.slice(0, 10) + "T00:00:00").getTime()) / 86400000);
 
-interface Janela { label: string; from: string; to: string }
+export interface Janela { label: string; from: string; to: string }
 
-function janela(p: string, hojeISO: string): Janela {
+/**
+ * "três meses" → "3 meses", "duas semanas" → "2 semanas". Quem fala com a IA
+ * escreve o número por extenso tanto quanto em algarismo, e a janela só lia o
+ * algarismo: "últimos três meses" caía no mês corrente, calado.
+ */
+const POR_EXTENSO: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, "três": 3, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, quinze: 15, trinta: 30, sessenta: 60, noventa: 90 };
+export function numerosPorExtenso(p: string): string {
+  return p.replace(/(^|[^a-zà-ú])(um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|trinta|sessenta|noventa)\s+(dias?|semanas?|m[êe]s(?:es)?|anos?)\b/g,
+    (_, a: string, n: string, u: string) => `${a}${POR_EXTENSO[n]} ${u}`);
+}
+
+/**
+ * A janela de tempo que a pergunta pede. Exportada porque o recorte de
+ * seguimento ("e só a última semana?") e as ações da resposta vazia ("lançar
+ * neste período") usam a MESMA leitura — duas leituras de "última semana"
+ * dariam dois períodos na mesma conversa.
+ */
+export function janela(pBruto: string, hojeISO: string): Janela {
+  const p = numerosPorExtenso(pBruto);
   const hoje = new Date(hojeISO + "T00:00:00");
   const y = hoje.getFullYear(), m = hoje.getMonth(), d = hoje.getDate();
   const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
@@ -69,13 +88,34 @@ function janela(p: string, hojeISO: string): Janela {
   if (/amanh[ãa]/.test(p)) { const o = new Date(y, m, d + 1); return { label: "amanhã", from: iso(o), to: iso(o) }; }
   const ult = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+dias/);
   if (ult) { const n = +ult[1]; const a = new Date(y, m, d - n + 1); return { label: `nos últimos ${n} dias`, from: iso(a), to: hojeISO }; }
+  if (/quinzena/.test(p)) { const a = new Date(y, m, d - 14); return { label: "nos últimos 15 dias", from: iso(a), to: hojeISO }; }
+  // ⚠️ "última semana" é JANELA ROLANTE (7 dias até hoje), e "semana passada"
+  // é a semana de calendário anterior (segunda a domingo). As duas caíam em
+  // "nesta semana": pedir o recorte da última semana devolvia a semana que
+  // começou na segunda, que na segunda de manhã é um dia só.
+  const ultSem = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+semanas?/);
+  if (ultSem) { const n = +ultSem[1]; const a = new Date(y, m, d - 7 * n + 1); return { label: `nas últimas ${n} semanas`, from: iso(a), to: hojeISO }; }
+  if (/[úu]ltima semana|[úu]ltimos sete dias/.test(p)) { const a = new Date(y, m, d - 6); return { label: "nos últimos 7 dias", from: iso(a), to: hojeISO }; }
+  if (/semana (passada|anterior)/.test(p)) {
+    const sem = periodoSemana(hojeISO);
+    const ini = new Date(sem.de + "T00:00:00"); ini.setDate(ini.getDate() - 7);
+    const fim = new Date(sem.de + "T00:00:00"); fim.setDate(fim.getDate() - 1);
+    return { label: "na semana passada", from: iso(ini), to: iso(fim) };
+  }
+  if (/semana que vem|pr[óo]xima semana/.test(p)) {
+    const sem = periodoSemana(hojeISO);
+    const ini = new Date(sem.ate + "T00:00:00"); ini.setDate(ini.getDate() + 1);
+    const fim = new Date(sem.ate + "T00:00:00"); fim.setDate(fim.getDate() + 7);
+    return { label: "na próxima semana", from: iso(ini), to: iso(fim) };
+  }
   if (/semana/.test(p)) { const sem = periodoSemana(hojeISO); return { label: "nesta semana", from: sem.de, to: sem.ate }; }
-  if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
-  if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
   // "últimos N meses" = janela ROLANTE (N meses até hoje), não trimestre/semestre
-  // calendário (que seria quase todo futuro no começo do trimestre).
+  // calendário (que seria quase todo futuro no começo do trimestre). Vem antes
+  // de "ano": "últimos 12 meses" é rolante, não o ano de calendário.
   const ultMes = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+m(?:es|eses)\b/);
   if (ultMes) { const n = +ultMes[1]; const a = new Date(y, m - n + 1, 1); return { label: `nos últimos ${n} meses`, from: iso(a), to: hojeISO }; }
+  if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
+  if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
   // trimestre/semestre = janela TRAILING (últimos 3/6 meses até hoje). O trimestre
   // CALENDÁRIO seria quase todo futuro no começo do período (ex.: em julho, Q3 =
   // jul–set → só julho tem dado), devolvendo um número enganosamente pequeno para
@@ -204,6 +244,8 @@ export interface GraficoResposta {
 /** Resposta do motor nativo — `RespostaCopiloto` + os extras da camada local. */
 export type RespostaLocal = Omit<RespostaCopiloto, "numeros"> & {
   numeros: NumeroResposta[];
+  /** Botões de ação: o que a pessoa pode FAZER a partir da resposta (`./acoes`). */
+  acoes?: AcaoIA[];
   contatoId?: string;
   grafico?: GraficoResposta;
 };
@@ -332,7 +374,13 @@ const SAUDE_NA_FRASE: Record<ClassificacaoSaude, string> = {
 export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
   const r = responderBruto(pergunta, input, ctx);
   if (!r) return null;
-  return { ...r, numeros: completarPorRotulo(r.numeros) };
+  // ⚠️ Resposta vazia nunca termina em "não há": ela leva o caminho para
+  // preencher o vazio (lançar no período, enviar extrato, conectar o banco).
+  // A resposta COM número leva o próximo passo: a tela onde se age sobre ele.
+  const acoes = r.acoes ?? (respostaVazia(r)
+    ? acoesParaVazio(pergunta, janela(pergunta, input.hoje), input.hoje)
+    : acoesDeSeguimento(pergunta, r.fontes ?? []));
+  return { ...r, numeros: completarPorRotulo(r.numeros), ...(acoes?.length ? { acoes } : {}) };
 }
 
 function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
@@ -1391,6 +1439,9 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const transf = pagos.filter((m) => !ehGastoReal(m)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
     const top = topCategorias(sai, 3);
+    // Período sem gasto nenhum é AUSÊNCIA, não "R$ 0,00 em 0 pagamento(s)":
+    // a frase curta deixa a resposta vazia ganhar as ações de lançar/enviar.
+    if (!sai.length && transf <= 0) return R(`Não há gastos pagos ${w.label}.`, [], ["despesas realizadas"]);
     return R(
       `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}${transf > 0 ? ` Não entram ${fmt(transf)} transferidos entre contas da própria empresa — o dinheiro só mudou de conta (no caixa saíram ${fmt(tot + transf)} ao todo).` : ""}`,
       [L(`Gasto ${w.label}`, fmt(tot), sai, "extrato"), ...top.slice(0, 2).map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato"))],
@@ -1518,6 +1569,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const topC = topCategorias(ent, 3);
     const fora = pagas.filter((m) => !ehReceitaDeVenda(m));
     const totCaixa = pagas.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (!pagas.length) return R(`Não há recebimentos ${w.label}.`, [], ["receita realizada"]);
     // "Quanto recebi/entrou?" é pergunta de CAIXA (o "Entradas" da Visão geral,
     // toda entrada liquidada); "faturei/receita/vendi" é pergunta de RECEITA.
     // As duas respostas citam os dois números, com o nome certo em cada um.
@@ -1648,13 +1700,14 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
   }
 
   // ——— RESUMO DO PERÍODO (mês/trimestre/semestre/ano) ———
-  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa/.test(p)) {
+  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa|^(o |e o |qual (o|é o) )?fluxo de caixa\b(?! (livre|projetad|futur|previst))|\bfluxo de caixa (d[oa]s?|n[oa]s?|em|deste|desse|dest[ea]) /.test(p)) {
     const w = janela(p, hoje);
     const lEntrou = pagosNa(movs, "entrada", w), lSaiu = pagosNa(movs, "saida", w);
     const entrou = somaAbs(lEntrou), saiu = somaAbs(lSaiu);
     const res = entrou - saiu;
     const aVencer = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && m.due_date.slice(0, 10) >= hoje);
     const aVencerVal = aVencer.reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
+    if (!lEntrou.length && !lSaiu.length && !aVencer.length) return R(`Não há lançamentos ${w.label}.`, [], ["fluxo de caixa realizado"]);
     return R(
       `${cap(w.label)}: entraram ${fmt(entrou)} e saíram ${fmt(saiu)} — ${res >= 0 ? `sobrou ${fmt(res)}` : `faltou ${fmt(-res)}`}.${aVencer.length ? ` Ainda vencem ${aVencer.length} título(s) (líquido ${fmt(aVencerVal)}).` : ""}`,
       [L("Recebido", fmt(entrou), lEntrou, "extrato"), L("Gasto", fmt(saiu), lSaiu, "extrato"), L("Resultado", fmt(res), [...lEntrou, ...lSaiu], "extrato")],

@@ -16,7 +16,7 @@
  * evento sem ninguém ouvindo — e o pedido sumiria calado.
  */
 import * as React from "react";
-import { ChatTelaCheia, type AjusteChat, type SugestaoChat } from "./ChatTelaCheia";
+import { ChatTelaCheia, type AjusteChat, type SugestaoChat, type TelaChat } from "./ChatTelaCheia";
 
 export const EVENTO_CHAT = "a4p:open-ia";
 
@@ -29,6 +29,8 @@ export interface AbrirChat {
   aoClicarSugestao?: (id: string) => void;
   /** "Ajustar prioridades" da Home: a conversa arruma a Home em vez de responder números. */
   ajuste?: AjusteChat;
+  /** "Pergunte à Quattro AI" do rodapé: a conversa abre no assunto da tela. */
+  tela?: TelaChat;
 }
 
 let ouvindo = false;
@@ -60,6 +62,7 @@ export function ChatGlobal() {
       sugestoes={aberto.sugestoes}
       aoClicarSugestao={aberto.aoClicarSugestao}
       ajuste={aberto.ajuste}
+      tela={aberto.tela}
       aoFechar={() => setAberto(null)}
     />
   );

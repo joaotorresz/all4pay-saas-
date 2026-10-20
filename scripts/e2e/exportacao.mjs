@@ -60,7 +60,7 @@ export default async function exportacao(navegador) {
     "o CSV do razão tem uma linha por lançamento da tela", `${dados.length} × ${antes.lancamentos}`);
 
   // Uma transferência entre contas: entra no razão, fica FORA do DRE, e o resultado não se move.
-  await u.ir("/dashboard/financial/accounts-and-transfers?novo=1");
+  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
   const sel = u.page.locator('select[aria-label="Selecione uma conta"]');
   await sel.nth(0).selectOption({ index: 1 });
   await sel.nth(1).selectOption({ index: 2 });

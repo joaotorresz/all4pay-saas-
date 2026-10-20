@@ -110,6 +110,23 @@ campos, cards e valores, gráficos, tabelas, menu e moldura), nos dois temas.
 
 ---
 
+## ⚠️ MENU REMODELADO (19/10/2026, decisão do dono)
+
+Uma pergunta, uma tela: telas irmãs viraram ABAS de uma tela só, e o menu
+segue o ciclo do dinheiro. Grupos: Visão geral · Vender e receber · Comprar e
+pagar · Caixa e bancos · Contabilidade · Relatórios · Inteligência (+
+Configurações). Fusões: Vendas (pedidos · boletos · links · maquininha ·
+taxas), Contas e cartões (contas · faturas · transferências), Aprovações e
+baixas em `/central` (a confirmar · solicitações · alçadas e papéis), Enviar ao
+contador em `/exportar` (razão e DRE · Domínio · NFs), DFC com aba mensal,
+Multiempresas (DRE · DFC · consolidado), Orçamento (orçamentos · variância),
+Simuladores (posso comprar? · plano de contratações), contratos de cliente em
+Assinaturas e de fornecedor em Contas recorrentes, NFs e boletos recebidos na
+caixa de entrada dos títulos a pagar. Todo endereço antigo responde 308
+(`core/rotas/aliases`). ⚠️ As telas Pro que viraram aba seguem Pro por
+`ABAS_PRO` (`/central` solicitações e alçadas, `/simuladores` contratações,
+dre-multi consolidado) — guarda em `npm run consistencia`.
+
 ## ⚠️ A MARCA É QUATTRO (desde 30/09/2026)
 
 O produto se chamava **all4pay** e passou a se chamar **Quattro**; o assistente,
@@ -586,6 +603,18 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   Sugestões) seguem como abas de `/quattro-ai`. ⚠️ Pedido de abertura feito
   antes de o anfitrião montar fica na fila (`pendente`): os efeitos do React
   rodam do filho para o pai. Guarda no `engine-audit` (bloco `ia:`).
+- **"Pergunte à Quattro AI" no RODAPÉ de toda tela (19/10/2026, pedido do
+  dono).** `ia/PergunteNaTela` (montado no `AppShell`; some na Home, na
+  própria IA e na plataforma): a barra da Home em miniatura, fixa e
+  centralizada embaixo. O clique VARRE a área de trabalho (linha lime descendo,
+  1,4s, para em `prefers-reduced-motion`) e abre o chat com
+  `abrirChat({ tela })`: a pergunta da tela ("O que você quer saber sobre o
+  seu fluxo de caixa?"), o que a varredura leu (cartões de conteúdo, gráficos,
+  tabelas e os nomes dos cartões — filtro e dia de calendário não contam) e
+  os caminhos Saber · Ver falhas · Adicionar de `core/ia/contexto-tela`, todos juntos numa fileira de pílulas, sem título de categoria (sem o "Veja tudo o que eu faço": só o assunto da tela). ⚠️ A
+  leitura só entra na SAUDAÇÃO; os números da resposta seguem do motor. ⚠️
+  Toda pergunta sugerida é respondida pelo motor nativo e todo "adicionar"
+  aponta para rota do inventário — guarda `npm run ia-contexto`.
 - **Ajustes do dono (14/10/2026):** a caixa da IA não ganha o anel escuro de
   foco (`.a4p-ia-campo`); os cards do painel se REORDENAM pela alça (arraste
   ou setas do teclado; só a alça inicia, porque o card é link), dentro do
@@ -909,6 +938,26 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   credencial, nunca. O túnel não come a reserva do envio (1 s). Launch script
   cortado em qualquer ponto diz "chegou CORTADO". `/api/admin/saida-fixa` prova
   os 2 IPs de dentro da função.
+
+## ⚠️ A CONVERSA LANÇA, MAS SÓ NO "CONFIRMAR" (decisão do dono, 19/10/2026)
+
+Amplia a regra "a IA sugere, não executa" da Rodada 9: no chat da Quattro AI a
+pessoa FALA ("gastei 100 de gasolina", microfone pela Web Speech API do
+navegador, pt-BR, sem áudio sair para servidor) ou ENVIA uma foto/PDF (boleto,
+nota, comprovante) e a IA PROPÕE o lançamento num cartão editável (o que fazer,
+valor, data, categoria, cadastrar contato). ⚠️ Nada grava antes do clique em
+**Confirmar**, e quem grava é o escritor único de documento avulso
+(`confirmarDocumento`, `lib/upload-doc`) — a conversa não ganhou caminho de
+escrita próprio. Leitura da frase em `core/assistant/lancamento-falado`
+(pergunta nunca vira lançamento; "25 não, 100" vale o último; compromisso
+"vou pagar dia 10" fica a pagar), cartão em `ia/ConfirmarNoChat.tsx`, ponte em
+`lib/ia-registro`. Lançamento FALADO nunca dá baixa sozinho num título aberto
+(casar só por valor é arriscado); a FOTO usa o casamento do `analisarDocumento`.
+O desfecho ("Feito: …") fica salvo na conversa. ⚠️ **O microfone (20/10/2026)** grava CONTÍNUO até Concluir ou Cancelar, mostra
+a ONDA pelo nível real do microfone (`ia/OndaDeVoz.tsx`) e o texto ao vivo; o
+botão aparece sempre e, sem reconhecimento no navegador, EXPLICA em vez de
+sumir. A primeira versão parava na primeira pausa e não dava sinal nenhum. Guarda: bloco "lançamento pela
+conversa" do `npm run ia-eval`.
 
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 

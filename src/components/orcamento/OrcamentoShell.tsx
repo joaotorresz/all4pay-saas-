@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { OrcamentoVarianciaView } from "./OrcamentoView";
-import { SimuladorView } from "./SimuladorView";
+import { OrcamentosView } from "@/components/registros/OrcamentosView";
 
 /**
  * Hub de Orçamento — duas perguntas, um destino de menu:
@@ -12,15 +12,18 @@ import { SimuladorView } from "./SimuladorView";
  *                              com o meu caixa daqui pra frente (futuro).
  * Só a aba ativa renderiza → só ela consome dados.
  */
-type Aba = "variancia" | "simulador";
+// "Posso comprar?" foi para Inteligência › Simuladores (19/10/2026); o
+// cadastro dos orçamentos veio para cá — o previsto e o confronto com o real
+// moravam em duas telas.
+type Aba = "orcamentos" | "variancia";
 const ABAS: { id: Aba; label: string }[] = [
+  { id: "orcamentos", label: "Orçamentos" },
   { id: "variancia", label: "Planejado × Realizado" },
-  { id: "simulador", label: "Posso comprar?" },
 ];
 
 export function OrcamentoShell() {
   const sp = useSearchParams();
-  const [aba, setAba] = React.useState<Aba>("variancia");
+  const [aba, setAba] = React.useState<Aba>("orcamentos");
 
   // Deep-link reativo (/orcamento?aba=simulador) — a IA e a busca linkam direto.
   React.useEffect(() => {
@@ -47,8 +50,8 @@ export function OrcamentoShell() {
         })}
       </div>
 
+      {aba === "orcamentos" && <OrcamentosView />}
       {aba === "variancia" && <OrcamentoVarianciaView />}
-      {aba === "simulador" && <SimuladorView />}
     </div>
   );
 }

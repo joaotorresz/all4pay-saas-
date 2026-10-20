@@ -18,7 +18,7 @@ export default function FluxoCaixaPage() {
         <AtalhosTela
           rotulo="Relatórios de caixa"
           atalhos={[
-            { label: "Fluxo de caixa do mês (planilha)", href: "/dashboard/reports/cash-flow", icon: "arrow-down-to-line" },
+            { label: "Fluxo de caixa do mês (planilha)", href: "/dashboard/reports/dfc?aba=mensal", icon: "arrow-down-to-line" },
             { label: "DFC", href: "/dashboard/reports/dfc", icon: "trending-up" },
           ]}
         />

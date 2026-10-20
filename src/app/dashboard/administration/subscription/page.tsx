@@ -4,7 +4,7 @@ import { AssinaturaView } from "@/components/administracao/AdministracaoViews";
 
 export default function Page() {
   return (
-    <AppShell title="Assinatura e plano" crumb="Administração">
+    <AppShell title="Assinatura e plano" crumb="Configurações">
       <Suspense fallback={null}>
         <AssinaturaView />
       </Suspense>

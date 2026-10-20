@@ -3,7 +3,7 @@ import { InventarioRotasView } from "@/components/administracao/InventarioRotasV
 
 export default function Page() {
   return (
-    <AppShell title="Inventário de rotas" crumb="Administração">
+    <AppShell title="Inventário de rotas" crumb="Configurações">
       <InventarioRotasView />
     </AppShell>
   );

@@ -41,7 +41,7 @@ export default async function campfireB(navegador) {
   const { page } = u;
 
   /* ── 1. caixa de entrada ─────────────────────────────────────────────── */
-  await u.ir("/dashboard/purchases/received-boletos");
+  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
   for (const [linha, benef] of [[LINHA_1234, "Energia Campfire SA"], [LINHA_777, "Gráfica Campfire"]]) {
     await page.locator('input[placeholder^="00000.00000"]').fill(linha);
     await page.locator('input[placeholder="Beneficiário (opcional)"]').fill(benef);
@@ -171,7 +171,7 @@ export default async function campfireB(navegador) {
   }
 
   /* ── 5. consolidado com eliminações ──────────────────────────────────── */
-  await u.ir("/contabilidade?aba=consolidado");
+  await u.ir("/dashboard/reports/dre-multi?aba=consolidado");
   await page.waitForTimeout(1500);
   t = plano(await u.texto());
   v.ok(/Eliminações entre empresas/.test(t) && /Critério conservador/.test(t), "o consolidado mostra as eliminações e o critério");

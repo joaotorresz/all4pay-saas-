@@ -53,8 +53,8 @@ export const ACOES_CADASTROS: Acao[] = [
   { label: "Nova categoria", icon: "database", rota: "/dashboard/registrations/chart-of-accounts?novo=1", forma: "pagina" },
   { label: "Novo projeto", icon: "target", rota: "/dashboard/registrations/projects?novo=1", forma: "pagina" },
   { label: "Novo centro de custo", icon: "network", rota: "/dashboard/registrations/cost-centers?novo=1", forma: "pagina" },
-  { label: "Novo contrato", icon: "file-text", rota: "/dashboard/registrations/contracts?novo=1", forma: "modal", modal: "contrato" },
-  { label: "Novo orçamento", icon: "target", rota: "/dashboard/registrations/budgets?novo=1", forma: "pagina" },
+  { label: "Novo contrato", icon: "file-text", rota: "/dashboard/sales-invoices/subscriptions?aba=contratos-cliente&novo=1", forma: "modal", modal: "contrato" },
+  { label: "Novo orçamento", icon: "target", rota: "/orcamento?aba=orcamentos&novo=1", forma: "pagina" },
   { label: "Novo painel", icon: "layers", rota: "/dashboard/dashboards/custom?novo=1", forma: "pagina" },
   // — lacunas que a auditoria apontou: existiam no produto e não aqui —
   { label: "Novo usuário", icon: "users", rota: "/dashboard/administration/users?novo=1", forma: "pagina" },
@@ -63,7 +63,7 @@ export const ACOES_CADASTROS: Acao[] = [
 export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova conta a receber", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", modal: "receita" },
   { label: "Nova conta a pagar", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/accounts-and-transfers?novo=1", forma: "modal", modal: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/registrations/bank-accounts?aba=transferencias&novo=1", forma: "modal", modal: "transferencia" },
   { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new", forma: "pagina" },
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "pagina" },
   // — lacunas apontadas —
@@ -73,7 +73,7 @@ export const ACOES_MOVIMENTACOES: Acao[] = [
   // cria na aba "Contratos e MRR" da própria tela, que tem itens do catálogo,
   // ciclo e a ativação que lança as faturas previstas.
   { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/dashboard/sales-invoices/subscriptions", forma: "pagina" },
-  { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices/payment-links?novo=1", forma: "pagina" },
+  { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices?aba=links&novo=1", forma: "pagina" },
 ];
 
 /**
@@ -95,6 +95,6 @@ export const ACOES_CADASTROS_PF: Acao[] = [
 export const ACOES_MOVIMENTACOES_PF: Acao[] = [
   { label: "Nova receita", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", modal: "receita" },
   { label: "Nova despesa", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/accounts-and-transfers?novo=1", forma: "modal", modal: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/registrations/bank-accounts?aba=transferencias&novo=1", forma: "modal", modal: "transferencia" },
 ];
 
