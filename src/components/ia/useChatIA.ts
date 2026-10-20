@@ -17,6 +17,7 @@ import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { responderLocal, graficoDoCatalogo } from "@/core/assistant/engine";
 import { numerosInventados } from "@/core/assistant/redacao";
+import { explicarTermos } from "@/core/assistant/termos";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
 import { buscarKB } from "@/lib/assistant-kb";
 import { perguntaComAssuntoNovo, perguntaComPeriodoNovo } from "@/core/assistant/seguimento";
@@ -231,7 +232,7 @@ export function useChatIA({ inicial = [], onMudou }: {
       const fiel = j?.ok && typeof j.resposta === "string" && j.resposta.trim()
         && numerosInventados(j.resposta, [local.resposta, ...local.numeros.map((n) => `${n.label} ${n.valor}`)]).length === 0;
       setPergunta(null);
-      registrar({ id, q, resposta: fiel ? j.resposta : local.resposta, redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico, acoes: local.acoes, ...(viaConsulta && consulta ? { consulta } : {}) });
+      registrar({ id, q, resposta: fiel ? j.resposta : explicarTermos(local.resposta), redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico, acoes: local.acoes, ...(viaConsulta && consulta ? { consulta } : {}) });
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: local.resposta, status: "lida" });
       force();
       return;
@@ -257,7 +258,7 @@ export function useChatIA({ inicial = [], onMudou }: {
         turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: numerosDeFora(j.numeros), fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia", grafico: graficoDoCatalogo(j.grafico, input), acoes: acoesOuNada(acoesDasTelas(j.telas)) };
       } else if (ctx) {
         const exec: RespostaCopiloto = copilotoFinanceiro(q, ctx);
-        turno = { id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor", acoes: acoesOuNada(acoesDeSeguimento(q, exec.fontes)) };
+        turno = { id, q, resposta: explicarTermos(exec.resposta), numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor", acoes: acoesOuNada(acoesDeSeguimento(q, exec.fontes)) };
       } else {
         // Sem dado nenhum para responder: o caminho para ter dado, nunca só "reformule".
         turno = { id, q, resposta: "Ainda não há lançamentos suficientes para responder. Envie um extrato ou conecte o banco e a resposta sai dos seus números.", fonte: "motor", acoes: acoesDasTelas(["enviar", "conectar"]) };
@@ -267,7 +268,7 @@ export function useChatIA({ inicial = [], onMudou }: {
       force();
     } catch {
       setPergunta(null);
-      if (ctx) { const exec = copilotoFinanceiro(q, ctx); registrar({ id, q, resposta: exec.resposta, numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" }); }
+      if (ctx) { const exec = copilotoFinanceiro(q, ctx); registrar({ id, q, resposta: explicarTermos(exec.resposta), numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" }); }
       else { registrar({ id, q, resposta: "Não foi possível processar a consulta. Tente novamente.", fonte: "motor" }); }
     } finally { setPensando(false); setPergunta(null); }
   }, [pensando, input, ctx, anomalias, insights, turnos, analisar, registrar]);

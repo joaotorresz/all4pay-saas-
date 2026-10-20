@@ -878,7 +878,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const arred = Math.round(media);
     const frase = arred <= 0
       ? `Os clientes pagam em dia: ${emMediaAoVencimento(arred)}. ${pctPrazo}% dos títulos foram pagos no prazo.`
-      : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Recomenda-se intensificar a cobrança.`;
+      : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Vale apertar a cobrança desses clientes.`;
     return R(frase, [B("Atraso médio", `${arred} d`, pagos, "receber"), B("Pagos no prazo", `${pctPrazo}%`, pagos, "receber"), B("Títulos", String(atrasos.length), pagos, "receber")], ["comportamento de pagamento dos clientes"], 0.88);
   }
 
@@ -1495,7 +1495,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const pct = Math.round(((a - b) / b) * 100);
     const dir = a > b ? "crescendo" : a < b ? "caindo" : "estável";
     return R(
-      `A receita está ${dir}: ${fmt(a)} ${atual.label} contra ${fmt(b)} ${ant.label} — variação de ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Recomenda-se manter o ritmo comercial." : "Recomenda-se investigar a origem da queda."}`,
+      `A receita está ${dir}: ${fmt(a)} ${atual.label} contra ${fmt(b)} ${ant.label} — variação de ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Bom sinal: vale manter o ritmo de vendas." : "Vale olhar de onde veio essa queda."}`,
       [L(cap(atual.label), fmt(a), la, "extrato"), L(cap(ant.label), fmt(b), lb, "extrato"), B("Crescimento", `${pct >= 0 ? "+" : ""}${pct}%`, [...la, ...lb], "extrato")],
       ["receita realizada (mês vs. mês)"], 0.9,
       { tipo: "linha", titulo: "Receita mensal · últimos 6 meses", tom: "entrada", dados: serieMensal(movs, hoje, 6, "receita") });
@@ -1934,7 +1934,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
    * runway canônico de 90 dias — o do Fluxo de caixa.
    */
   if (/quando (vou |eu )?(fico|ficar[ei]?|vou ficar|fica) (sem (dinheiro|caixa|grana|saldo)|no vermelho|negativ)|quando (acaba|zera|termina|some) (o |meu )?(caixa|dinheiro|saldo)|quando (o |meu )?(caixa|dinheiro|saldo) (acaba|zera|termina|some|vai acabar)|data (de|da) ruptura|quando (quebro|vou quebrar|estouro)|\bvou quebrar\b|vou falir|t[ôo] quebrando|at[ée] quando (o |meu )?(dinheiro|saldo|caixa) (dura|aguenta|vai durar)|risco de (eu |a gente |a empresa )?(quebrar|falir|fechar|quebra|insolv)|(perto|beira|risco) de (eu )?(quebrar|falir|fechar|ficar sem|acabar o (caixa|dinheiro))|(t[ôo]|to|estou) (quase | quase )?(perto de )?(ficar |ficando )?sem (dinheiro|caixa|grana)|vou aguentar|consigo sobreviver/.test(p)) {
-    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora, e não há fôlego a projetar (runway não se aplica). Recomenda-se priorizar entradas e conter saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Runway", valor: `— ${formaCurta({ codigo: "caixa_negativo", motivo: "" })}` }], ["saldo", "runway (média dos últimos 90 dias)"]);
+    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora, e não há fôlego a projetar (runway não se aplica). O ideal agora é puxar os recebimentos e segurar os gastos.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Runway", valor: `— ${formaCurta({ codigo: "caixa_negativo", motivo: "" })}` }], ["saldo", "runway (média dos últimos 90 dias)"]);
     const rt = leituraRitmo(input);
     if (rt.meses === null) {
       if (rt.codigo === "sem_queima") {
@@ -1963,7 +1963,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     // ⚠️ Sem conta cadastrada não há saldo — a IA diz a MESMA ausência que a
     // tela, nunca "R$ 0,00" (Rodada 5).
     if (input.contas === 0) {
-      return R("A empresa ainda não tem conta bancária cadastrada, então não há saldo para informar. Recomenda-se cadastrar a conta em Cadastros › Contas bancárias ou conectar o banco em Entrada de dados.",
+      return R("A empresa ainda não tem conta bancária cadastrada, então não há saldo para informar. Para eu enxergar isso, cadastre a conta em Cadastros › Contas bancárias ou conecte o banco em Entrada de dados.",
         [{ label: "Saldo", valor: `— ${formaCurta({ codigo: "sem_conta", motivo: "" })}` }], ["contas bancárias cadastradas"], 0.95);
     }
     // ⚠️ O runway ao lado do saldo é o CANÔNICO (o do Fluxo de caixa). Vinha do

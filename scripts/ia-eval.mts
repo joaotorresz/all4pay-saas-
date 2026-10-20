@@ -28,6 +28,7 @@ import { destinoDe } from "@/core/rotas/aliases";
 import { numerosInventados } from "@/core/assistant/redacao";
 import { buscarKB } from "@/lib/assistant-kb";
 import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
+import { explicarTermos, termosNoTexto } from "@/core/assistant/termos";
 import {
   saldo, entradas, saidas, resultado, runway, burn, inadimplencia,
   janelaHoje, janelaMes, janelaUltimosDias,
@@ -290,7 +291,21 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
   ok("custo fixo: sem histórico não afirma custo fixo, diz por quê", !!fixo && /custo fixo/i.test(fixo.resposta) && !/custo fixo mensal estimado é R\$\s?0/.test(fixo.resposta), fixo?.resposta);
 }
 
-const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8 + 7 + 7;
+// ═══ TOM HUMANO: o jargão vem explicado (20/10/2026) ═══
+// O dono nem sempre sabe o que é runway ou EBITDA. A resposta do motor ganha,
+// no fim, a explicação curta de até dois termos, sem número nenhum novo.
+{
+  const r = explicarTermos("Seu runway é de **4 meses** e o EBITDA ficou em R$ 10.000,00. A margem caiu.");
+  ok("termos: explica o runway e o EBITDA, nessa ordem", /Para entender: \*\*Runway\*\*.*\*\*EBITDA\*\*/.test(r), r);
+  ok("termos: no máximo dois termos explicados", !/\*\*Margem\*\*/.test(r), r);
+  ok("termos: a explicação não traz número novo", numerosInventados(r, ["Seu runway é de 4 meses e o EBITDA ficou em R$ 10.000,00."]).length === 0, r);
+  ok("termos: texto sem jargão volta igual", explicarTermos("Hoje entraram R$ 7.000,00.") === "Hoje entraram R$ 7.000,00.");
+  ok("termos: termo já explicado no texto não repete", termosNoTexto("O runway (por quanto tempo o caixa aguenta) é de 4 meses.").length === 0);
+  const inad = responderLocal("qual meu runway", INPUT);
+  ok("termos: resposta real do motor ganha a explicação", !!inad && /Para entender: \*\*Runway/.test(explicarTermos(inad.resposta)), inad?.resposta);
+}
+
+const total = 5 + 3 + 2 + 7 + 8 + 6 + 5 + 15 + 8 + 7 + 7 + 6;
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} FALHA(S) — a IA regrediu.\n`);
   process.exit(1);
