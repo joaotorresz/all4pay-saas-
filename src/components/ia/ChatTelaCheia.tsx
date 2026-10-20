@@ -434,7 +434,9 @@ export function ChatTelaCheia({
 
             {tela && <CaminhosDaTela tela={tela} feitas={perguntadas} pensando={chat.pensando} perguntar={perguntar} fechar={fechar} />}
 
-            {chips.length > 0 && (
+            {/* Aberto pelo rodapé de uma tela, a conversa fica SÓ no assunto
+                dela (pedido do dono, 20/10/2026): sem o "Veja tudo". */}
+            {!tela && chips.length > 0 && (
               <section className="flex flex-col gap-4 pt-6">
                 <span className="text-[15px] text-ink">Veja tudo o que eu faço:</span>
                 <div className="flex flex-wrap gap-3">
