@@ -62,6 +62,7 @@ TOM E FORMATO (obrigatório):
 TAREFA: reescreva a RESPOSTA CALCULADA abaixo nesse tom, sem mudar o sentido.
 - Use SOMENTE os números que aparecem na RESPOSTA CALCULADA ou nos DESTAQUES, escritos EXATAMENTE como lá (mesmos dígitos, mesmas casas). Não arredonde, não abrevie ("82 mil"), não some, não calcule nada novo.
 - Não acrescente fato que não esteja lá.
+- Se a RESPOSTA CALCULADA tiver uma lista ("- …"), mantenha TODOS os itens.
 
 RESPOSTA CALCULADA:
 ${base.resposta}
@@ -80,13 +81,14 @@ REGRAS DE CONTEÚDO (obrigatórias):
 - Número AUSENTE não é zero: com "runwayMeses" null, não escreva "runway de 0 meses" nem estime prazo — leia "runwayMotivo" ("sem_queima" = a empresa gerou caixa; "caixa_negativo" = o caixa já acabou).
 - "probRuptura" é a chance de ruptura em 60 DIAS.
 - Projeção fica no condicional ("no ritmo atual, …"), nunca como fato.
+- O CONTEXTO traz "titulosAbertos" (o que está a pagar e a receber, vencido e dos próximos 30 dias, com vencimento, valor e contraparte) e "contas" (o saldo de cada conta). Pergunta sobre contas, boletos, vencimentos ou clientes se responde COM eles, listando os títulos. Nunca diga que não tem acesso a esses dados.
 
 O SISTEMA: a pessoa usa o Quattro, um ERP financeiro. Quando faltar dado, nunca pare em "não há": diga o que lançar ou enviar e aponte a tela. As telas que você pode indicar (por id): ${telasParaPrompt()}.
 
 GRÁFICO: se um gráfico ajuda a entender a resposta, escolha UM id desta lista (os dados vêm do sistema, não de você): ${graficos}. Senão, null.
 
 CONTEXTO (JSON):
-${JSON.stringify(body.contexto).slice(0, 9000)}
+${JSON.stringify(body.contexto).slice(0, 16000)}
 
 ANOMALIAS (JSON, pode estar vazio):
 ${JSON.stringify(body.anomalias ?? []).slice(0, 2500)}

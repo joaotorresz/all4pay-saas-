@@ -171,6 +171,12 @@ export interface RiskInput {
   contas?: number;
   movements: RiskMovement[];
   partyNames?: Record<string, string>;
+  /**
+   * O saldo de CADA conta, com o nome — para a IA responder "qual o saldo de
+   * cada conta" com a lista da tela Contas bancárias, não só o consolidado.
+   * Opcional: quem monta o `RiskInput` sem ele segue só com `saldoAtual`.
+   */
+  contasSaldo?: { id: string; nome: string; saldo: number }[];
   horizonDias?: number; // padrão 60
 }
 

@@ -9,6 +9,7 @@
  * Claude ancorado (com o `copilotoFinanceiro` determinístico de fallback), e
  * passa TUDO pelas etapas visíveis de análise — nenhuma resposta é instantânea.
  */
+import type { RiskInput } from "@/core/risk-engine/types";
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
@@ -37,6 +38,34 @@ const acoesOuNada = (a: AcaoIA[]) => (a.length ? a : undefined);
  * chave, sem rede ou demorando mais de 9 s, devolve `null` e a resposta do
  * motor segue como está — a conversa nunca espera pela reescrita.
  */
+/**
+ * Os TÍTULOS e as CONTAS, para o Claude responder pergunta aberta sobre eles.
+ * ⚠️ O contexto ia só com os indicadores (saldo, runway, burn): perguntado
+ * "quais contas vencem até sexta?" de um jeito que o motor não reconhecia, o
+ * Claude respondia que não tinha acesso às contas — e não tinha. Vai o
+ * vencido mais os próximos 30 dias, no máximo 40 títulos, sem documento nem id.
+ */
+function dadosDaEmpresa(input: RiskInput | null | undefined) {
+  if (!input) return {};
+  const hoje = input.hoje;
+  const ate = new Date(`${hoje}T00:00:00`);
+  ate.setDate(ate.getDate() + 30);
+  const limite = `${ate.getFullYear()}-${String(ate.getMonth() + 1).padStart(2, "0")}-${String(ate.getDate()).padStart(2, "0")}`;
+  const titulosAbertos = input.movements
+    .filter((m) => m.status === "pendente" && m.due_date <= limite)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
+    .slice(0, 40)
+    .map((m) => ({
+      tipo: m.type === "entrada" ? "a receber" : "a pagar",
+      vencimento: m.due_date,
+      vencido: m.due_date < hoje,
+      valor: Math.round(Math.abs(m.amount) * 100) / 100,
+      contraparte: (m.party_id && input.partyNames?.[m.party_id]) || m.descricao || m.category || "",
+      categoria: m.category ?? "",
+    }));
+  return { hoje, titulosAbertos, contas: input.contasSaldo?.map((c) => ({ nome: c.nome, saldo: c.saldo })) ?? [] };
+}
+
 async function redigir(pergunta: string, resposta: string, numeros: { label: string; valor: string }[]): Promise<{ ok?: boolean; resposta?: string } | null> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 9000);
@@ -194,7 +223,11 @@ export function useChatIA({ inicial = [], onMudou }: {
     if (local) {
       // O número é do motor; o TOM é da IA. Se a reescrita não chegar, ou
       // trouxer um número que o motor não calculou, fica o texto do motor.
-      const j = await analisar(redigir(viaConsulta && consulta ? consulta : q, local.resposta, local.numeros));
+      // Resposta com LISTA (as contas da semana, os lançamentos de hoje) não vai
+      // para a reescrita: o limite de tópicos dela cortava a lista que a pessoa
+      // pediu. O motor já escreve no tom; só a encenação das etapas roda.
+      const temLista = /\n- /.test(local.resposta);
+      const j = await analisar(temLista ? Promise.resolve(null) : redigir(viaConsulta && consulta ? consulta : q, local.resposta, local.numeros));
       const fiel = j?.ok && typeof j.resposta === "string" && j.resposta.trim()
         && numerosInventados(j.resposta, [local.resposta, ...local.numeros.map((n) => `${n.label} ${n.valor}`)]).length === 0;
       setPergunta(null);
@@ -214,7 +247,7 @@ export function useChatIA({ inicial = [], onMudou }: {
       const j = await analisar(
         fetch("/api/ai/copiloto", {
           method: "POST", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ pergunta: q, contexto: ctx, anomalias, insights, historico }),
+          body: JSON.stringify({ pergunta: q, contexto: ctx ? { ...ctx, ...dadosDaEmpresa(input) } : ctx, anomalias, insights, historico }),
         }).then((r) => r.json()).catch(() => null),
       );
       setPergunta(null);
