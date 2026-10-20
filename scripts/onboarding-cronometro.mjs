@@ -196,7 +196,9 @@ await fase("0. Entrar pelo cadastro pela conversa",
     const chave = () => page.evaluate(() => {
       const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
       if (rod === "confirmar" || rod === "openfinance" || rod === "termos" || rod === "infos") return rod;
-      if (document.querySelector('[data-cartao="facial"]:not([data-recolhido]) button:not([disabled])')) return "facial";
+      for (const id of ["facial", "docIdentidade", "senhaTransacional"]) {
+        if (document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) return id;
+      }
       const op = document.querySelector("[data-opcoes]");
       if (op) return `op:${op.getAttribute("data-opcoes")}`;
       const c = document.querySelector("form input:not([hidden])");
@@ -208,7 +210,7 @@ await fase("0. Entrar pelo cadastro pela conversa",
       await page.waitForFunction((ant) => {
         const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
         const passo = ["confirmar", "openfinance", "termos", "infos"].includes(rod ?? "") ? rod
-          : document.querySelector('[data-cartao="facial"]:not([data-recolhido]) button:not([disabled])') ? "facial" : "";
+          : ["facial", "docIdentidade", "senhaTransacional"].find((id) => document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) ?? "";
         const op = document.querySelector("[data-opcoes]");
         const c = document.querySelector("form input:not([hidden])");
         const k = passo ? passo : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled ? `campo:${c.getAttribute("aria-label")}` : "";
@@ -247,6 +249,36 @@ await fase("0. Entrar pelo cadastro pela conversa",
         if (await depois.isVisible()) await depois.click(); else await capturar.click();
         continue;
       }
+      if (k === "docIdentidade") {
+        // As dicas e as duas portas (foto e anexo). Um arquivo que não é foto
+        // nem PDF é recusado na hora; o CI não lê documento (o OCR baixaria
+        // o modelo de idioma), então segue por "Validar depois".
+        perguntas.push(k);
+        await page.getByRole("button", { name: "Validar RG" }).click();
+        await page.getByRole("button", { name: "Tirar foto" }).waitFor();
+        await page.getByRole("button", { name: "Anexar arquivo" }).waitFor();
+        await page.locator('input[aria-label="Arquivo do RG"]').setInputFiles({ name: "rg.txt", mimeType: "text/plain", buffer: Buffer.from("x") });
+        await page.getByRole("alert").filter({ hasText: "foto (JPG ou PNG) ou um PDF" }).waitFor({ timeout: 5000 })
+          .catch(() => { throw new Error("o anexo que não é foto nem PDF não foi recusado"); });
+        await page.locator('[data-documento="rg"]').getByRole("button", { name: "Validar depois" }).click();
+        continue;
+      }
+      if (k === "senhaTransacional") {
+        // A folha sobe sozinha; sequência é recusada, e uma senha boa salva.
+        perguntas.push(k);
+        const senha = page.locator('[data-pin="Senha"]');
+        const conf = page.locator('[data-pin="Confirmar senha"]');
+        await senha.waitFor();
+        await senha.fill("123456");
+        await conf.fill("123456");
+        await page.locator('[data-folha="senhaTransacional"]').getByRole("button", { name: "Salvar" }).click();
+        await page.getByRole("alert").filter({ hasText: "sequências" }).waitFor({ timeout: 5000 })
+          .catch(() => { throw new Error("a senha transacional 123456 não foi recusada"); });
+        await senha.fill("482913");
+        await conf.fill("482913");
+        await page.locator('[data-folha="senhaTransacional"]').getByRole("button", { name: "Salvar" }).click();
+        continue;
+      }
       if (k.startsWith("op:")) {
         const id = k.slice(3);
         perguntas.push(id);
@@ -278,7 +310,7 @@ await fase("0. Entrar pelo cadastro pela conversa",
       await campo.fill(valor);
       await campo.press("Enter");
     }
-    const exigidas = ["regime", "limite", "setor", "openfinance", "termos", "infos", "facial", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
+    const exigidas = ["regime", "limite", "setor", "openfinance", "termos", "infos", "facial", "docIdentidade", "senhaTransacional", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
     const faltou = exigidas.filter((x) => !perguntas.includes(x));
     if (faltou.length) { falhas++; return `REPROVA: a conversa chegou à senha sem perguntar ${faltou.join(", ")} — ela tem de pedir o cadastro inteiro`; }
     return `${perguntas.length} perguntas, uma por vez, CNPJ com máscara · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;

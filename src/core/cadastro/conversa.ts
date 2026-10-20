@@ -190,6 +190,21 @@ export interface Cadastro {
    * verificação contra a base biométrica ainda não existe (não há provedor).
    */
   biometria: "" | "capturada" | "pendente";
+  /** O documento de identidade escolhido na validação (RG ou CNH). */
+  docTipo: "" | "rg" | "cnh";
+  /**
+   * O envio do documento: `conferido` = a leitura no navegador achou o CPF ou o
+   * nome do cadastro; `enviado` = a foto entrou mas a leitura não confirmou
+   * (fica para conferência); `pendente` = a pessoa deixou para depois. A foto
+   * NÃO sai do aparelho: não há provedor de validação documental ainda.
+   */
+  documento: "" | "conferido" | "enviado" | "pendente";
+  /**
+   * A senha transacional de 6 dígitos. ⚠️ Só a MARCA de que foi definida: o
+   * número não é guardado em lugar nenhum (um PIN de 6 dígitos no perfil ou no
+   * navegador se quebra em segundos), e Pix e pagamentos ainda não a pedem.
+   */
+  senhaTransacional: "" | "definida";
 }
 
 export const CADASTRO_VAZIO: Cadastro = {
@@ -205,6 +220,7 @@ export const CADASTRO_VAZIO: Cadastro = {
   cpf: "", nome: "", rendaMensal: null, saldoInicial: null, carteiras: [], categorias: [], orcamento: null,
   email: "",
   openFinanceBanco: "", aceiteTermos: "", rendaRepresentante: "", biometria: "",
+  docTipo: "", documento: "", senhaTransacional: "",
 };
 
 /** O que a Receita devolve (o subconjunto de `lib/cnpj.DadosCNPJ` que o cadastro usa). */
@@ -596,21 +612,82 @@ export const DICAS_FACIAL: { titulo: string; icone: string }[] = [
   { titulo: "Posicione o rosto no centro da tela", icone: "scan-face" },
 ];
 
+export const DICAS_DOCUMENTO: { titulo: string; icone: string }[] = [
+  { titulo: "Procure um lugar iluminado", icone: "lightbulb" },
+  { titulo: "Retire o documento do plástico", icone: "id-card" },
+  { titulo: "Posicione seu documento em uma mesa plana", icone: "table" },
+];
+
+export const TIPOS_DOCUMENTO: Record<"rg" | "cnh", string> = { rg: "RG", cnh: "CNH" };
+
+export interface LeituraDocumento {
+  /** O texto parece de um RG ou de uma CNH? */
+  reconhecido: boolean;
+  /** O CPF do cadastro aparece no documento (`null` = o cadastro não tem CPF para comparar). */
+  cpfConfere: boolean | null;
+  /** O nome do cadastro aparece no documento (`null` = sem nome para comparar). */
+  nomeConfere: boolean | null;
+  /** Conferido = achou o CPF, ou o nome inteiro num documento reconhecido. */
+  conferido: boolean;
+}
+
+const semAcento = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Lê o texto (do OCR) de um RG ou de uma CNH contra o cadastro. ⚠️ É uma
+ * CONFERÊNCIA local, não uma validação documental: nenhuma base oficial é
+ * consultada. Por isso o que ela não confirma não reprova — o documento segue
+ * como "enviado", para conferência depois.
+ *
+ * O CPF é comparado pelos 11 dígitos em QUALQUER formatação (o RG imprime
+ * "123.456.789-09", a CNH às vezes sem pontuação). O nome casa quando TODAS as
+ * palavras de 3+ letras do cadastro aparecem no texto, sem acento — o OCR
+ * troca "Ç" e perde acentos com frequência.
+ */
+export function lerDocumentoIdentidade(texto: string, c: Pick<Cadastro, "tipo" | "cpf" | "nome" | "repNome">): LeituraDocumento {
+  const t = semAcento(texto);
+  const digitos = texto.replace(/\D/g, "");
+  const reconhecido = /(carteira de identidade|registro geral|identidade|habilitacao|cnh|renach|secretaria de seguranca|detran|documento de identificacao)/.test(t);
+  const cpf = c.tipo === "pf" ? c.cpf.replace(/\D/g, "") : "";
+  const cpfConfere = cpf.length === 11 ? digitos.includes(cpf) : null;
+  const nome = (c.tipo === "pf" ? c.nome : c.repNome).trim();
+  const palavras = semAcento(nome).split(/\s+/).filter((w) => w.length >= 3);
+  const nomeConfere = palavras.length ? palavras.every((w) => t.includes(w)) : null;
+  const conferido = cpfConfere === true || (reconhecido && nomeConfere === true);
+  return { reconhecido, cpfConfere, nomeConfere, conferido };
+}
+
+/**
+ * A senha transacional: exatamente 6 dígitos, as duas iguais, e nada trivial
+ * (todos iguais, ou sequência como 123456 / 654321) — é a primeira tentativa
+ * de quem rouba o celular. `null` = pode salvar.
+ */
+export function problemaDaSenhaTransacional(senha: string, confirmar: string): string | null {
+  if (!/^\d{6}$/.test(senha)) return "A senha tem 6 dígitos, só números.";
+  if (/^(\d)\1{5}$/.test(senha)) return "Evite repetir o mesmo número.";
+  const d = senha.split("").map(Number);
+  const passo = d[1] - d[0];
+  if ((passo === 1 || passo === -1) && d.every((x, i) => i === 0 || x - d[i - 1] === passo)) return "Evite sequências como 123456.";
+  if (senha !== confirmar) return "As duas senhas não são iguais.";
+  return null;
+}
+
 /** Os passos que não são pergunta de campo: cada um tem o seu cartão. */
-export type PassoEspecial = "openfinance" | "termos" | "infos" | "facial";
+export type PassoEspecial = "openfinance" | "termos" | "infos" | "facial" | "docIdentidade" | "senhaTransacional";
 export type Passo = { especial: PassoEspecial } | { pergunta: Pergunta };
 
 /**
  * ⚠️ **A ORDEM DOS PRINTS vem primeiro**: depois do documento, Open Finance →
  * termos → WhatsApp → e-mail → faturamento e renda → reconhecimento facial
- * (na PF: Open Finance → termos → reconhecimento facial). Só então o resto do
+ * → documento de identidade (RG ou CNH) → senha transacional (na PF: Open
+ * Finance → termos → facial → documento → senha transacional). Só então o resto do
  * cadastro, na ordem de `PERGUNTAS`. O portão (`faltandoParaCriar`) continua
  * o mesmo, e cobra os passos novos também.
  */
 export function proximoPasso(c: Cadastro, feitos: ReadonlySet<string>): Passo | null {
   const roteiro = c.tipo === "pj"
-    ? ["openfinance", "termos", "repTelefone", "repEmail", "infos", "facial"]
-    : c.tipo === "pf" ? ["openfinance", "termos", "facial"] : [];
+    ? ["openfinance", "termos", "repTelefone", "repEmail", "infos", "facial", "docIdentidade", "senhaTransacional"]
+    : c.tipo === "pf" ? ["openfinance", "termos", "facial", "docIdentidade", "senhaTransacional"] : [];
   for (const id of roteiro) {
     if (feitos.has(id)) continue;
     const p = PERGUNTAS.find((x) => x.id === id);
@@ -622,7 +699,7 @@ export function proximoPasso(c: Cadastro, feitos: ReadonlySet<string>): Passo | 
 
 /** Quantos passos especiais valem para este cadastro (para o "x de y"). */
 export function passosEspeciais(c: Cadastro): number {
-  return c.tipo === "pj" ? 4 : c.tipo === "pf" ? 3 : 0;
+  return c.tipo === "pj" ? 6 : c.tipo === "pf" ? 5 : 0;
 }
 
 /**
@@ -649,6 +726,8 @@ export function faltandoParaCriar(c: Cadastro): string[] {
   if (!EMAIL_VALIDO.test(c.email.trim())) f.push("e-mail de acesso");
   if (c.tipo && !c.aceiteTermos) f.push("aceite dos termos de uso");
   if (c.tipo && !c.biometria) f.push("reconhecimento facial");
+  if (c.tipo && !c.documento) f.push("documento de identidade");
+  if (c.tipo && !c.senhaTransacional) f.push("senha transacional");
   if (c.tipo === "pj") {
     if (!cnpjConfere(c.cnpj)) f.push("CNPJ");
     if (vazio(c.razaoSocial)) f.push("razão social");
@@ -706,7 +785,9 @@ export function montarCadastro(c: Cadastro): CadastroMontado {
     return {
       db: {
         tipoConta: "pessoal", tipoPessoa: "fisica", cpf: mascararCPF(c.cpf), repNome: nome, repEmail: c.email.trim(), razaoSocial: nome, fantasia: nome,
-        aceiteTermos: c.aceiteTermos, biometria: c.biometria, ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
+        aceiteTermos: c.aceiteTermos, biometria: c.biometria,
+        documentoIdentidade: c.documento, ...(c.docTipo ? { documentoTipo: c.docTipo } : {}), senhaTransacional: c.senhaTransacional,
+        ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
       },
       perfil: {
         setor: "Pessoal", modelo: "B2C", receitaPrincipal: "Salário", frequencia: "Mensal",
@@ -741,6 +822,7 @@ export function montarCadastro(c: Cadastro): CadastroMontado {
       regime: c.regime, contribuinteIcms: !!c.contribuinteIcms, ie: c.ie, im: c.im, exportadora: !!c.exportadora,
       repNome: c.repNome.trim(), repCargo: c.repCargo, repTelefone: c.repTelefone, repEmail: c.repEmail.trim(),
       repRenda: c.rendaRepresentante, aceiteTermos: c.aceiteTermos, biometria: c.biometria,
+      documentoIdentidade: c.documento, ...(c.docTipo ? { documentoTipo: c.docTipo } : {}), senhaTransacional: c.senhaTransacional,
       ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
     },
     perfil: {

@@ -39,6 +39,7 @@ import { aplicarEstrutura } from "@/lib/onboarding";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
 import { reportar } from "@/lib/erros";
+import { textoDoDocumento } from "@/lib/ocr-local";
 import { consultarCNPJ, type DadosCNPJ } from "@/lib/cnpj";
 import { lookupCep } from "@/lib/viacep";
 import { setTipoConta } from "@/components/app/useTipoConta";
@@ -49,7 +50,7 @@ import { calcularMaturidade, type Maturidade } from "@/core/onboarding";
 import { MIN_SENHA } from "@/core/recuperacao";
 import { BancoLogo } from "@/components/ui/BancoLogo";
 import {
-  BANCOS_OPEN_FINANCE, DICAS_FACIAL, DUVIDAS_OPEN_FINANCE, FAIXAS_FATURAMENTO, FAIXAS_RENDA,
+  BANCOS_OPEN_FINANCE, DICAS_DOCUMENTO, DICAS_FACIAL, DUVIDAS_OPEN_FINANCE, TIPOS_DOCUMENTO, lerDocumentoIdentidade, problemaDaSenhaTransacional, FAIXAS_FATURAMENTO, FAIXAS_RENDA,
   passosEspeciais, proximoPasso, type PassoEspecial,
   CADASTRO_VAZIO, aplicarReceita, cnpjConfere, cpfConfere, faltandoParaCriar, mascararCEP, mascararCNPJ,
   mascararCPF, mascararTelefone, montarCadastro, nomeDaOrganizacao, perguntasDoCadastro, proximaPergunta,
@@ -59,7 +60,7 @@ import { DigitandoIA, TextoRevelado, duracaoRevelar } from "@/components/ia/conv
 
 type Etapa =
   | "tipo" | "documento" | "buscando" | "confirmar" | "pergunta" | "extrato" | "senha"
-  | "openfinance" | "termos" | "infos" | "facial"
+  | "openfinance" | "termos" | "infos" | "facial" | "docIdentidade" | "senhaTransacional"
   | "criando" | "confirme" | "erro" | "pronto";
 
 type Cartao =
@@ -145,8 +146,12 @@ export function CriarContaView() {
   const [aceite, setAceite] = React.useState(false);
   const [faixaFat, setFaixaFat] = React.useState("");
   const [faixaRenda, setFaixaRenda] = React.useState("");
-  const [folha, setFolha] = React.useState<null | "duvidas" | "bancos" | "faturamento" | "renda">(null);
+  const [folha, setFolha] = React.useState<null | "duvidas" | "bancos" | "faturamento" | "renda" | "senhaTransacional">(null);
   const [facialAberto, setFacialAberto] = React.useState(false);
+  /** O documento escolhido no cartão "Validação de documentos" (abre as dicas e a foto). */
+  const [docAberto, setDocAberto] = React.useState<null | "rg" | "cnh">(null);
+  /** A leitura do documento no navegador (OCR) em andamento. */
+  const [lendoDoc, setLendoDoc] = React.useState(false);
 
   const vivoRef = React.useRef(true);
   const campoRef = React.useRef<HTMLInputElement>(null);
@@ -181,7 +186,7 @@ export function CriarContaView() {
     return () => { vivoRef.current = false; };
   }, [falar]);
 
-  const ocupadoFala = digitando || falando > 0;
+  const ocupadoFala = digitando || falando > 0 || lendoDoc;
   // O cartão e o rodapé entram DEPOIS da fala: rolar só quando a fala muda
   // deixava o cartão do Open Finance escondido atrás do botão de baixo.
   React.useEffect(() => {
@@ -213,6 +218,8 @@ export function CriarContaView() {
       }
       setEtapa(id);
       await falar([...prefixo, ...FALAS_DO_PASSO[id]], { pergunta: id, cartao: { tipo: id } });
+      // Como no print: a folha da senha sobe sozinha (o cartão fica para reabrir).
+      if (id === "senhaTransacional" && vivoRef.current) setFolha("senhaTransacional");
       return;
     }
     const p = passo ? passo.pergunta : null;
@@ -327,6 +334,7 @@ export function CriarContaView() {
     if (etapa !== id || ocupadoFala) return;
     setFolha(null);
     setFacialAberto(false);
+    setDocAberto(null);
     voce(eco, id);
     const ms = [...marcos, { id, antes: cad, report }];
     setMarcos(ms);
@@ -351,6 +359,45 @@ export function CriarContaView() {
   const concluirFacial = (status: "capturada" | "pendente") =>
     void concluirPasso("facial", status === "capturada" ? "Foto enviada" : "Validar depois", { ...cad, biometria: status },
       [status === "capturada" ? "Recebi a sua foto. Obrigado!" : "Tudo bem: a validação fica pendente e eu te lembro dela lá dentro."]);
+
+  /**
+   * O DOCUMENTO DE IDENTIDADE: foto (câmera traseira) ou arquivo anexado,
+   * lido no navegador e conferido contra o CPF e o nome do cadastro.
+   * ⚠️ Não é validação documental (não há provedor): o que a leitura não
+   * confirma segue como "enviado", para conferência — nunca reprova.
+   */
+  const enviarDocumento = async (tipo: "rg" | "cnh", arquivo: File, origem: "foto" | "anexo") => {
+    if (etapa !== "docIdentidade" || ocupadoFala) return;
+    setDocAberto(null);
+    const nome = TIPOS_DOCUMENTO[tipo];
+    voce(origem === "foto" ? `Foto do ${nome} enviada` : `${nome} anexado`, "docIdentidade");
+    setLendoDoc(true);
+    let conferido = false;
+    try {
+      const texto = await Promise.race([
+        textoDoDocumento(arquivo),
+        new Promise<string>((_, rej) => setTimeout(() => rej(new Error("leitura demorou")), 60_000)),
+      ]);
+      conferido = lerDocumentoIdentidade(texto, cad).conferido;
+    } catch (e) {
+      reportar("criar-conta.documento", e, "o documento de identidade não foi lido no navegador; ele segue como enviado, para conferência", true);
+    } finally {
+      if (vivoRef.current) setLendoDoc(false);
+    }
+    if (!vivoRef.current) return;
+    const ms = [...marcos, { id: "docIdentidade", antes: cad, report }];
+    const novo: Cadastro = { ...cad, docTipo: tipo, documento: conferido ? "conferido" : "enviado" };
+    setMarcos(ms);
+    setCad(novo);
+    await perguntar(novo, ms, [conferido
+      ? `Conferi o seu ${nome}: os dados batem com o cadastro.`
+      : `Recebi o seu ${nome}. Não consegui ler tudo agora, então ele fica para conferência e você segue normalmente.`]);
+  };
+  const documentoDepois = (tipo: "rg" | "cnh") =>
+    void concluirPasso("docIdentidade", "Validar depois", { ...cad, docTipo: tipo, documento: "pendente" },
+      ["Tudo bem: a validação do documento fica pendente e eu te lembro dela lá dentro."]);
+  const salvarSenhaTransacional = () =>
+    void concluirPasso("senhaTransacional", "Senha transacional criada", { ...cad, senhaTransacional: "definida" });
 
   /* ─── 3. as perguntas ────────────────────────────────────────────────── */
   const responderPergunta = async (valor: string) => {
@@ -566,7 +613,7 @@ export function CriarContaView() {
       return;
     }
     if (id === "extrato") { setAtual(null); setEtapa("extrato"); return; }
-    if (id === "openfinance" || id === "termos" || id === "infos" || id === "facial") {
+    if (id === "openfinance" || id === "termos" || id === "infos" || id === "facial" || id === "docIdentidade" || id === "senhaTransacional") {
       setAtual(null);
       setAceite(!!marco.antes.aceiteTermos);
       setFaixaFat(cad.faturamento);
@@ -681,6 +728,8 @@ export function CriarContaView() {
                       onAceite={() => setAceite((a) => !a)}
                       onFaixa={(q) => setFolha(q)}
                       onFacial={() => setFacialAberto(true)}
+                      onDocumento={(t) => setDocAberto(t)}
+                      onSenha={() => setFolha("senhaTransacional")}
                     />
                   </div>
                 )}
@@ -760,6 +809,12 @@ export function CriarContaView() {
             </div>
           )}
 
+          {lendoDoc && (
+            <div className="a4p-entra self-start flex flex-col gap-2" data-lendo-documento>
+              <p className="m-0 text-[17px] leading-[1.5] text-ink">Estamos validando seu documento...</p>
+              <DigitandoIA rotulo="Pensando na melhor resposta" />
+            </div>
+          )}
           {digitando && (
             <DigitandoIA
               rotulo={etapa === "criando" ? "Criando a sua conta" : etapa === "buscando" ? "Buscando na Receita" : "Digitando"}
@@ -845,6 +900,19 @@ export function CriarContaView() {
         </Folha>
       )}
       {facialAberto && <ReconhecimentoFacial onFechar={() => setFacialAberto(false)} onConcluir={concluirFacial} />}
+      {docAberto && (
+        <ValidacaoDocumento
+          tipo={docAberto}
+          onFechar={() => setDocAberto(null)}
+          onArquivo={(a, origem) => void enviarDocumento(docAberto, a, origem)}
+          onDepois={() => documentoDepois(docAberto)}
+        />
+      )}
+      {folha === "senhaTransacional" && (
+        <Folha titulo="Senha transacional" onFechar={() => setFolha(null)}>
+          <SenhaTransacional onSalvar={salvarSenhaTransacional} />
+        </Folha>
+      )}
 
       {campo && (
         <form
@@ -913,6 +981,8 @@ const FALAS_DO_PASSO: Record<PassoEspecial, string[]> = {
   termos: ["Antes de abrir sua conta, confirme que você aceita os **Termos** **de** **Uso**."],
   infos: ["Precisamos de algumas informações suas sobre renda, ocupação e seu patrimônio."],
   facial: ["Para sua segurança, vamos validar sua identidade com **reconhecimento** **facial**."],
+  docIdentidade: ["Estamos validando sua identidade...", "Para sua segurança, vamos validar sua **documentação**."],
+  senhaTransacional: ["Agora, crie a sua **senha** **transacional**."],
 };
 
 const BOTAO_PRIMARIO = "inline-flex items-center justify-center w-full h-14 rounded-pill text-[16px] font-medium disabled:opacity-40";
@@ -940,7 +1010,13 @@ const RECOLHIDO: Record<string, (c: Cadastro) => { icone: string; rotulo: string
   openfinance: (c) => ({ icone: "landmark", rotulo: c.openFinanceBanco ? `Open Finance · ${c.openFinanceBanco}` : "Preenchimento manual" }),
   termos: () => ({ icone: "file-text", rotulo: "Termos de uso aceitos" }),
   infos: () => ({ icone: "building", rotulo: "Informações da empresa enviadas" }),
-  facial: (c) => ({ icone: "scan-face", rotulo: c.biometria === "capturada" ? "Identidade enviada" : "Validação de identidade pendente" }),
+  facial: (c) => ({ icone: "scan-face", rotulo: c.biometria === "capturada" ? "Autenticado" : "Validação de identidade pendente" }),
+  docIdentidade: (c) => ({
+    icone: "id-card",
+    rotulo: c.documento === "conferido" ? "Documento validado" : c.documento === "enviado" ? "Documento enviado para conferência"
+      : c.documento === "pendente" ? "Validação de documento pendente" : "Validando documento",
+  }),
+  senhaTransacional: () => ({ icone: "key-round", rotulo: "Senha transacional criada" }),
 };
 
 function Ladrilho({ icone }: { icone: string }) {
@@ -952,7 +1028,7 @@ function Ladrilho({ icone }: { icone: string }) {
 }
 
 function CartaoDaConversa({
-  cartao, ativo, cad, aceite, faixaFat, faixaRenda, onTipo, onConectar, onDuvidas, onAceite, onFaixa, onFacial,
+  cartao, ativo, cad, aceite, faixaFat, faixaRenda, onTipo, onConectar, onDuvidas, onAceite, onFaixa, onFacial, onDocumento, onSenha,
 }: {
   cartao: Cartao;
   ativo: boolean;
@@ -966,6 +1042,8 @@ function CartaoDaConversa({
   onAceite: () => void;
   onFaixa: (q: "faturamento" | "renda") => void;
   onFacial: () => void;
+  onDocumento: (t: "rg" | "cnh") => void;
+  onSenha: () => void;
 }) {
   const caixa = "w-full max-w-[420px] rounded-card p-5 flex flex-col gap-4";
   const fundo = { background: "var(--color-white)" };
@@ -1127,6 +1205,42 @@ function CartaoDaConversa({
         </div>
         <button type="button" disabled={!ativo} onClick={onFacial} className="inline-flex items-center justify-center h-12 rounded-pill text-[15px] font-medium disabled:opacity-50" style={ESTILO_PRIMARIO}>
           Validar Identidade
+        </button>
+      </div>
+    );
+  }
+
+  if (cartao.tipo === "docIdentidade") {
+    return (
+      <div data-cartao="docIdentidade" className={caixa} style={fundo}>
+        <Ladrilho icone="id-card" />
+        <div className="flex flex-col gap-2">
+          <p className={titulo}>Validação de documentos</p>
+          <p className="m-0 text-[14px] leading-[1.45] text-muted">Para continuar, você precisará liberar o acesso à câmera do celular, ou anexar uma foto ou PDF do documento.</p>
+          <p className="m-0 text-[14px] leading-[1.45] text-muted">Os documentos podem ser: CNH, RG</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          {(["rg", "cnh"] as const).map((t) => (
+            <button key={t} type="button" disabled={!ativo} onClick={() => onDocumento(t)}
+              className="inline-flex items-center justify-center h-12 rounded-pill text-[15px] font-medium disabled:opacity-50" style={ESTILO_PRIMARIO}>
+              Validar {TIPOS_DOCUMENTO[t]}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (cartao.tipo === "senhaTransacional") {
+    return (
+      <div data-cartao="senhaTransacional" className={caixa} style={fundo}>
+        <Ladrilho icone="key-round" />
+        <div className="flex flex-col gap-2">
+          <p className={titulo}>Senha transacional</p>
+          <p className="m-0 text-[14px] leading-[1.45] text-muted">Digite 6 dígitos para autorizar Pix e pagamentos.</p>
+        </div>
+        <button type="button" disabled={!ativo} onClick={onSenha} className="inline-flex items-center justify-center h-12 rounded-pill text-[15px] font-medium disabled:opacity-50" style={ESTILO_PRIMARIO}>
+          Criar senha
         </button>
       </div>
     );
@@ -1297,5 +1411,132 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * VALIDAÇÃO DO DOCUMENTO — as dicas em carrossel e as duas portas: "Tirar
+ * foto" (câmera traseira no celular, `capture="environment"`) e "Anexar
+ * arquivo" (foto ou PDF já guardados). No computador as duas abrem o seletor
+ * de arquivos. A imagem não sai do aparelho: quem a lê é o OCR do navegador.
+ */
+function ValidacaoDocumento({ tipo, onFechar, onArquivo, onDepois }: {
+  tipo: "rg" | "cnh";
+  onFechar: () => void;
+  onArquivo: (a: File, origem: "foto" | "anexo") => void;
+  onDepois: () => void;
+}) {
+  const [dica, setDica] = React.useState(0);
+  const [erro, setErro] = React.useState<string | null>(null);
+  const fotoRef = React.useRef<HTMLInputElement>(null);
+  const anexoRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onFechar]);
+  React.useEffect(() => {
+    const t = setInterval(() => setDica((d) => (d + 1) % DICAS_DOCUMENTO.length), 2800);
+    return () => clearInterval(t);
+  }, []);
+  const receber = (e: React.ChangeEvent<HTMLInputElement>, origem: "foto" | "anexo") => {
+    const a = e.target.files?.[0];
+    e.target.value = "";
+    if (!a) return;
+    const ok = a.type.startsWith("image/") || a.type === "application/pdf" || /\.(pdf|png|jpe?g|webp|heic)$/i.test(a.name);
+    if (!ok) { setErro("Envie uma foto (JPG ou PNG) ou um PDF do documento."); return; }
+    if (a.size > 10 * 1024 * 1024) { setErro("O arquivo passa de 10 MB. Tire outra foto ou envie um PDF menor."); return; }
+    onArquivo(a, origem);
+  };
+  const d = DICAS_DOCUMENTO[dica];
+  const nome = TIPOS_DOCUMENTO[tipo];
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label={`Validar ${nome}`} className="a4p-chat-tela fixed inset-0 z-50 flex flex-col" style={{ background: "var(--color-surface-1)" }} data-documento={tipo}>
+      <div className="flex-none flex justify-end px-4 pt-6">
+        <button type="button" onClick={onFechar} aria-label="Fechar" className="w-10 h-10 rounded-pill flex items-center justify-center text-ink">
+          <Icon name="x" size={20} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-8 px-6 text-center">
+        <span aria-hidden className="relative w-[200px] h-[200px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
+          <Icon name={d.icone} size={88} strokeWidth={1.25} />
+          <span className="absolute top-3 right-3 w-11 h-11 rounded-pill flex items-center justify-center bg-lime text-on-lime">
+            <Icon name="check" size={20} color="currentColor" />
+          </span>
+        </span>
+        <p className="m-0 max-w-[320px] text-[28px] leading-[1.15] font-medium text-ink" aria-live="polite">{d.titulo}</p>
+        <div className="flex gap-2" role="tablist" aria-label="Dicas">
+          {DICAS_DOCUMENTO.map((x, i) => (
+            <button key={x.titulo} type="button" role="tab" aria-selected={i === dica} aria-label={x.titulo} onClick={() => setDica(i)}
+              className="h-1.5 rounded-pill transition-all" style={{ width: i === dica ? 24 : 8, background: i === dica ? "var(--erp-num-cor)" : "var(--color-text-tertiary)" }} />
+          ))}
+        </div>
+        {erro && <p role="alert" className="m-0 max-w-[340px] text-[15px] text-ink">{erro}</p>}
+      </div>
+      <div className="flex-none mx-auto w-[calc(100%-40px)] max-w-[480px] mb-6 flex flex-col gap-2">
+        <button type="button" onClick={() => fotoRef.current?.click()} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>
+          Tirar foto
+        </button>
+        <button type="button" onClick={() => anexoRef.current?.click()} className="inline-flex items-center justify-center gap-2 h-14 rounded-pill text-[15px] font-medium text-ink a4p-pilula">
+          <Icon name="paperclip" size={18} />
+          Anexar arquivo
+        </button>
+        <button type="button" onClick={onDepois} className="h-11 rounded-pill text-[15px] text-muted">Validar depois</button>
+        <input ref={fotoRef} type="file" accept="image/*" capture="environment" hidden aria-label={`Foto do ${nome}`} onChange={(e) => receber(e, "foto")} />
+        <input ref={anexoRef} type="file" accept="image/*,application/pdf" hidden aria-label={`Arquivo do ${nome}`} onChange={(e) => receber(e, "anexo")} />
+      </div>
+    </div>
+  );
+}
+
+/** Seis bolinhas sobre um campo numérico de verdade (o teclado e o leitor de tela continuam funcionando). */
+function CampoPin({ rotulo, valor, onMudar, autoFocus }: { rotulo: string; valor: string; onMudar: (v: string) => void; autoFocus?: boolean }) {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="text-[14px] text-muted">{rotulo}</label>
+      <div className="relative h-14 rounded-[14px] flex items-center gap-3 px-4" style={{ background: "var(--color-surface-1)" }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} aria-hidden className="w-3 h-3 rounded-pill"
+            style={{ background: i < valor.length ? "var(--erp-num-cor)" : "var(--color-text-tertiary)", opacity: i < valor.length ? 1 : 0.45 }} />
+        ))}
+        <input
+          id={id}
+          type="password"
+          inputMode="numeric"
+          autoComplete="new-password"
+          maxLength={6}
+          autoFocus={autoFocus}
+          value={valor}
+          onChange={(e) => onMudar(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+          data-pin={rotulo}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A senha transacional (o print 0840). ⚠️ O número NÃO é guardado: o cadastro
+ * leva só que ela foi definida, e Pix e pagamentos ainda não a pedem — guardar
+ * um PIN de 6 dígitos no perfil ou no navegador seria pior que não ter.
+ */
+function SenhaTransacional({ onSalvar }: { onSalvar: () => void }) {
+  const [senha, setSenha] = React.useState("");
+  const [confirmar, setConfirmar] = React.useState("");
+  const [tentou, setTentou] = React.useState(false);
+  const problema = problemaDaSenhaTransacional(senha, confirmar);
+  const completo = senha.length === 6 && confirmar.length === 6;
+  return (
+    <form className="flex flex-col gap-4" data-folha="senhaTransacional"
+      onSubmit={(e) => { e.preventDefault(); setTentou(true); if (!problema) onSalvar(); }}>
+      <p className="m-0 text-[14px] text-muted">Digite 6 dígitos para autorizar Pix e pagamentos</p>
+      <CampoPin rotulo="Senha" valor={senha} onMudar={setSenha} autoFocus />
+      <CampoPin rotulo="Confirmar senha" valor={confirmar} onMudar={setConfirmar} />
+      {(tentou || completo) && problema && <p role="alert" className="m-0 text-[14px] text-ink">{problema}</p>}
+      <button type="submit" disabled={!completo} className={BOTAO_PRIMARIO} style={ESTILO_PRIMARIO}>Salvar</button>
+    </form>
   );
 }
