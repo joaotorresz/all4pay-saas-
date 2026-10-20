@@ -953,7 +953,10 @@ escrita próprio. Leitura da frase em `core/assistant/lancamento-falado`
 "vou pagar dia 10" fica a pagar), cartão em `ia/ConfirmarNoChat.tsx`, ponte em
 `lib/ia-registro`. Lançamento FALADO nunca dá baixa sozinho num título aberto
 (casar só por valor é arriscado); a FOTO usa o casamento do `analisarDocumento`.
-O desfecho ("Feito: …") fica salvo na conversa. Guarda: bloco "lançamento pela
+O desfecho ("Feito: …") fica salvo na conversa. ⚠️ **O microfone (20/10/2026)** grava CONTÍNUO até Concluir ou Cancelar, mostra
+a ONDA pelo nível real do microfone (`ia/OndaDeVoz.tsx`) e o texto ao vivo; o
+botão aparece sempre e, sem reconhecimento no navegador, EXPLICA em vez de
+sumir. A primeira versão parava na primeira pausa e não dava sinal nenhum. Guarda: bloco "lançamento pela
 conversa" do `npm run ia-eval`.
 
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)

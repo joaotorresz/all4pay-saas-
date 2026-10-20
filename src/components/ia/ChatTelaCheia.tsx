@@ -23,6 +23,7 @@ import { Icon } from "@/components/ui";
 import { BolhaResposta, EtapasAnalise, type Turno } from "./chat-kit";
 import { useChatIA } from "./useChatIA";
 import { useFala } from "./useFala";
+import { OndaDeVoz, TempoDeGravacao } from "./OndaDeVoz";
 import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
@@ -461,6 +462,41 @@ export function ChatTelaCheia({
         </div>
       </div>
 
+      {fala.ouvindo ? (
+        <div
+          role="group"
+          aria-label="Gravando a sua fala"
+          className="flex-none mx-auto mb-2 w-[calc(100%-40px)] max-w-[720px] flex flex-col gap-2 px-[10px] pt-3 pb-[10px] rounded-[28px]"
+          style={{ background: "var(--color-white)" }}
+        >
+          <p aria-live="polite" className={`m-0 px-3 text-[15px] leading-[22px] line-clamp-3 ${chat.texto ? "text-ink" : "text-muted"}`}>
+            {chat.texto || "Ouvindo… pode falar"}
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              aria-label="Cancelar gravação"
+              title="Cancelar"
+              onClick={fala.cancelar}
+              className="w-9 h-9 flex-none rounded-pill flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2"
+            >
+              <Icon name="x" size={18} strokeWidth={1.5} />
+            </button>
+            <OndaDeVoz stream={fala.stream} />
+            <TempoDeGravacao inicio={fala.inicio} />
+            <button
+              type="button"
+              aria-label="Concluir e enviar"
+              title="Concluir e enviar"
+              onClick={fala.parar}
+              className="w-9 h-9 flex-none rounded-pill flex items-center justify-center"
+              style={{ background: "var(--erp-num-cor)", color: "var(--color-surface-1)" }}
+            >
+              <Icon name="check" size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
+      ) : (
       <form
         onSubmit={(e) => { e.preventDefault(); perguntar(chat.texto); }}
         className="flex-none mx-auto mb-2 w-[calc(100%-40px)] max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
@@ -493,19 +529,16 @@ export function ChatTelaCheia({
           aria-label="Pergunte à Quattro AI"
           className="a4p-ia-campo flex-1 min-w-0 pl-3 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
         />
-        {fala.suportado && (
-          <button
-            type="button"
-            aria-label={fala.ouvindo ? "Parar de gravar" : "Falar com a Quattro AI"}
-            aria-pressed={fala.ouvindo}
-            title={fala.ouvindo ? "Ouvindo… toque para parar" : "Falar: \"gastei 100 de gasolina\""}
-            disabled={chat.pensando && !fala.ouvindo}
-            onClick={() => (fala.ouvindo ? fala.parar() : fala.ouvir())}
-            className={`w-9 h-9 flex-none rounded-pill flex items-center justify-center disabled:opacity-50 ${fala.ouvindo ? "bg-surface-2 text-ink animate-pulse" : "text-muted hover:text-ink hover:bg-surface-2"}`}
-          >
-            <Icon name={fala.ouvindo ? "square" : "mic"} size={18} strokeWidth={1.5} />
-          </button>
-        )}
+        <button
+          type="button"
+          aria-label="Falar com a Quattro AI"
+          title='Falar: "gastei 100 de gasolina"'
+          disabled={chat.pensando}
+          onClick={fala.ouvir}
+          className="w-9 h-9 flex-none rounded-pill flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2 disabled:opacity-50"
+        >
+          <Icon name="mic" size={18} strokeWidth={1.5} />
+        </button>
         <button
           type="submit"
           aria-label="Enviar pergunta"
@@ -516,6 +549,7 @@ export function ChatTelaCheia({
           <Icon name="arrow-up" size={18} strokeWidth={1.5} />
         </button>
       </form>
+      )}
       {fala.erro && <p role="alert" className="flex-none m-0 mb-1 text-center text-[13px] text-negative">{fala.erro}</p>}
       </>)}
       <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
