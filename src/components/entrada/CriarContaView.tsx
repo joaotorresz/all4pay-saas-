@@ -182,7 +182,7 @@ export function CriarContaView() {
   React.useEffect(() => {
     vivoRef.current = true;
     semMovimento.current = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    void falar(["Bora cuidar das suas finanças e vender pelo celular, sem maquininha."], { cartao: { tipo: "conta" } });
+    void falar(["Bora organizar as finanças da sua empresa num lugar só: caixa, contas e relatórios, com a Quattro AI do seu lado."], { cartao: { tipo: "conta" } });
     return () => { vivoRef.current = false; };
   }, [falar]);
 
