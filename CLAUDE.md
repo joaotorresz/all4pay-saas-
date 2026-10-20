@@ -611,7 +611,7 @@ Vence a seção da Home logo abaixo. `src/app/page.tsx` renderiza
   `abrirChat({ tela })`: a pergunta da tela ("O que você quer saber sobre o
   seu fluxo de caixa?"), o que a varredura leu (cartões de conteúdo, gráficos,
   tabelas e os nomes dos cartões — filtro e dia de calendário não contam) e
-  os caminhos Saber · Ver falhas · Adicionar de `core/ia/contexto-tela`. ⚠️ A
+  os caminhos Saber · Ver falhas · Adicionar de `core/ia/contexto-tela`, todos juntos numa fileira de pílulas, sem título de categoria (sem o "Veja tudo o que eu faço": só o assunto da tela). ⚠️ A
   leitura só entra na SAUDAÇÃO; os números da resposta seguem do motor. ⚠️
   Toda pergunta sugerida é respondida pelo motor nativo e todo "adicionar"
   aponta para rota do inventário — guarda `npm run ia-contexto`.
