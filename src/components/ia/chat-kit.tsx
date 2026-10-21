@@ -149,12 +149,13 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
 
 /**
  * A resposta da IA: texto, gráfico (quando o motor devolve), números, ação
- * sugerida, atalhos (rota / ficha do contato) e o rodapé de fontes + feedback.
+ * sugerida, atalhos (rota / ficha do contato); sem rodapé de
+ * fontes, cópia ou feedback (saiu a pedido do dono, 21/10/2026).
  * `onNavegar` deixa o painel flutuante fechar ao navegar; a página inteira não
  * precisa fazer nada.
  */
 export function BolhaResposta({
-  t, copia, onCopiar, onFeedback, onNavegar, variante = "bolha", animar = false,
+  t, onNavegar, variante = "bolha", animar = false,
 }: {
   t: Turno;
   /**
@@ -169,10 +170,6 @@ export function BolhaResposta({
    * no modelo que o dono escolheu. O conteúdo é o mesmo nos dois.
    */
   variante?: "bolha" | "aberta";
-  /** `undefined` = nada pedido; "ok" = copiou; "falhou" = o navegador recusou. */
-  copia?: EstadoCopia;
-  onCopiar: (t: Turno) => void;
-  onFeedback: (t: Turno, dir: "up" | "down") => void;
   onNavegar?: () => void;
 }) {
   const aberta = variante === "aberta";
@@ -235,51 +232,12 @@ export function BolhaResposta({
           <Icon name="arrow-up-right" size={13} color="currentColor" />
         </button>
       )}
-      {(t.fontes?.length || t.fonte !== "carregando") && (
-        <div className="flex items-center gap-2 text-[11px] text-faint">
-          {t.fonte !== "carregando" && (
-            <span data-ia="origem" className="shrink-0 rounded-pill bg-surface-2 px-2 py-[2px] text-muted"
-              title={ORIGEM[origemDe(t)].dica}>{ORIGEM[origemDe(t)].rotulo}</span>
-          )}
-          {t.fontes && t.fontes.length > 0 && <span className="truncate">Fontes: {t.fontes.join(" · ")}</span>}
-          {t.fonte !== "carregando" && (
-            <span className="ml-auto inline-flex items-center gap-1 shrink-0">
-              <button onClick={() => onCopiar(t)} aria-label="Copiar resposta" className={`h-6 px-2 rounded-sm inline-flex items-center hover:bg-surface-2 hover:text-ink transition-colors ${copia === "falhou" ? "text-negative" : "text-faint"}`}>
-                {copia === "ok" ? "Copiado" : copia === "falhou" ? "Não copiou — selecione o texto" : "Copiar"}
-              </button>
-              <span className="sr-only" aria-live="polite">{copia === "ok" ? "Resposta copiada." : copia === "falhou" ? "O navegador não permitiu copiar." : ""}</span>
-              {t.fonte !== "kb" && <>
-                <button onClick={() => onFeedback(t, "up")} aria-label="Resposta útil" aria-pressed={t.feedback === "up"} className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "up" ? "text-positive" : "text-faint"}`}><Icon name="check" size={13} color="currentColor" /></button>
-                <button onClick={() => onFeedback(t, "down")} aria-label="Resposta ruim" aria-pressed={t.feedback === "down"} className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "down" ? "text-negative" : "text-faint"}`}><Icon name="minus" size={13} color="currentColor" /></button>
-              </>}
-            </span>
-          )}
-        </div>
-      )}
       </div>
     </div>
   );
 }
 
 /* ======================== TEXTO DA RESPOSTA ======================== */
-
-/**
- * De onde veio a resposta — dito em toda bolha, para ninguém precisar
- * adivinhar se a IA está ligada. "Redigida" = o número é do motor do sistema
- * e o texto foi reescrito pela IA com os MESMOS números (`numerosInventados`).
- */
-type Origem = "ia" | "redigida" | "sistema" | "ajuda";
-function origemDe(t: Turno): Origem {
-  if (t.fonte === "ia") return "ia";
-  if (t.fonte === "kb") return "ajuda";
-  return t.redigida ? "redigida" : "sistema";
-}
-const ORIGEM: Record<Origem, { rotulo: string; dica: string }> = {
-  ia: { rotulo: "Análise da IA", dica: "Respondida pela IA (Claude) a partir dos números desta empresa." },
-  redigida: { rotulo: "Calculado pelo sistema · escrito pela IA", dica: "Os números vêm do motor do sistema; a IA (Claude) só escreveu o texto, sem mudar nenhum valor." },
-  sistema: { rotulo: "Calculado pelo sistema", dica: "Resposta do motor do sistema, sem passar pela IA." },
-  ajuda: { rotulo: "Central de ajuda", dica: "Resposta da base de conhecimento do sistema." },
-};
 
 /** "**trecho**" vira negrito; sem nenhum, os valores em R$ e % ganham negrito sozinhos. */
 function emLinha(linha: string, auto: boolean, passo?: { n: number }): React.ReactNode[] {

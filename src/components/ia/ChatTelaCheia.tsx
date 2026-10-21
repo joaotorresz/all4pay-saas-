@@ -412,9 +412,6 @@ export function ChatTelaCheia({
                     t={t}
                     variante="aberta"
                     animar={t.id === novoId}
-                    copia={chat.copia?.id === t.id ? chat.copia.estado : undefined}
-                    onCopiar={chat.copiar}
-                    onFeedback={chat.darFeedback}
                     onNavegar={fechar}
                   />
                   {t.proposta && (
