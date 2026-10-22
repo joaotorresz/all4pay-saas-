@@ -67,12 +67,20 @@ export async function GET(req: Request) {
   if (!liberada.liberada) return resposta(200, { ok: true, liberada: false, ligada: false, cobrancas: [] });
 
   // Como a pessoa: a política só devolve o que é da empresa aberta.
-  const [{ data: vinculos }, { data: cobrancas, error }] = await Promise.all([
+  const [{ data: vinculos }, { data: cobrancas, error }, { data: links }] = await Promise.all([
     s.from("pinbank_vinculos").select("id").eq("cobranca_ativa", true).is("excluido_em", null).limit(1),
     s.from("pinbank_cobrancas").select(COLUNAS).eq("movement_id", movementId).order("criado_em", { ascending: false }).limit(20),
+    // O link de pagamento vivo (etapa 4). Sem a migration a leitura falha e o link some, nada mais.
+    s.from("pinbank_checkout_links").select("token").eq("movement_id", movementId).is("revogado_em", null).limit(1),
   ]);
   if (error) return resposta(500, { ok: false, codigo: "leitura_falhou", motivo: "Não foi possível ler as cobranças deste título." });
-  return resposta(200, { ok: true, liberada: true, ligada: (vinculos ?? []).length > 0, cobrancas: cobrancas ?? [] });
+  return resposta(200, {
+    ok: true,
+    liberada: true,
+    ligada: (vinculos ?? []).length > 0,
+    cobrancas: cobrancas ?? [],
+    link: (links ?? [])[0]?.token ?? null,
+  });
 }
 
 export async function POST(req: Request) {

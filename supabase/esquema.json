@@ -177,6 +177,17 @@
         "impacto": "Até ser aplicada, a cobrança por Pix e boleto não existe: a rota responde erro ao reservar e o botão no título não aparece (o interruptor PINBANK_COBRANCA também nasce desligado). Nada que já existe muda.",
         "resolver_ate": "2026-10-30",
         "origem": "sessão Claude de 19/10/2026 (cobrança Pix e boleto pela conta Pinbank, etapas 2 e 3) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
+      },
+      {
+        "nome": "20261022120000_pinbank_checkout",
+        "objetos_ausentes": [
+          "tabela pinbank_checkout_links (RLS por empresa, só leitura para authenticated, gatilho de trilha) + índice único do link vivo por título",
+          "função pinbank_checkout_link_criar(uuid) — exige lançar e cobrança emitida",
+          "função pinbank_checkout_ler(text) — execute só para service_role"
+        ],
+        "impacto": "Até ser aplicada, o link de pagamento não existe: o botão Criar link responde erro e a página /pagar diz que o pagamento está indisponível. Nada que já existe muda.",
+        "resolver_ate": "2026-10-30",
+        "origem": "sessão Claude de 22/10/2026 (MVP do checkout Pix e boleto, etapa 4) — o job migrar do CI aplica no merge, que espera o OK do dono"
       }
     ],
     "objetos_sem_migration": [

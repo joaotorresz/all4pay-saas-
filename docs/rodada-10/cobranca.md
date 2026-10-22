@@ -11,7 +11,7 @@ sozinho no título.
 | 1 | Alinhar com a Pinbank (perguntas abaixo) | com o dono |
 | 2 | Vincular a conta BaaS à empresa | **feito neste PR** |
 | 3 | Gerar a cobrança a partir do título a receber | **feito neste PR** |
-| 4 | Página pública de pagamento (o link) | próxima |
+| 4 | Página pública de pagamento (o link) | **MVP neste PR** |
 | 5 | A régua manda o link | próxima |
 | 6 | Baixa automática pelo webhook de liquidação | depende da resposta da Pinbank |
 | 7 | Piloto com uma empresa, desligado por padrão | depois da 6 |
@@ -56,6 +56,34 @@ plantados lendo a mensagem) e o bloco `cobranca-pinbank:` do `engine-audit`
 (caminhos permitidos só no cliente, ordem da rota, reserva como a pessoa,
 registro só pela rota, interruptor numa casa só).
 
+## O MVP do checkout (etapa 4, 22/10/2026)
+
+Pedido do dono: um produto de teste só com Pix e boleto, para mostrar à
+Pinbank e pedir a liberação do cartão.
+
+- **"Criar link"** no mesmo bloco da cobrança, depois de ao menos um Pix ou
+  boleto EMITIDO. Copia `https://<app>/pagar?t=<token>`; o segundo clique
+  copia o mesmo link (um vivo por título).
+- **A página `/pagar`** é pública (sem login): nome da empresa, valor,
+  vencimento, o QR do Pix com o copia-e-cola e a linha do boleto, cada um com
+  botão de copiar. Título recebido mostra "Pagamento recebido"; título mudado
+  ou cancelado mostra "indisponível" e esconde o Pix velho.
+- ⚠️ **O token é o único segredo** (64 hexadecimais, 244 bits). A leitura é
+  `pinbank_checkout_ler`, que só a chave de serviço executa, e só depois do
+  interruptor `PINBANK_COBRANCA`. Ela devolve o mínimo: nada do cadastro do
+  pagador, da conta ou de outro título.
+- ⚠️ **A baixa ainda é manual.** Quando o dinheiro cai na conta Pinbank, a
+  empresa dá a baixa no título; a baixa automática é a etapa 6 (webhook).
+- O QR passou a ir até a versão 20: o Pix copia-e-cola passa dos 211 bytes
+  que a versão 10 comportava.
+
+Como testar: aplicar as duas migrations, ligar `PINBANK_COBRANCA=ligado` com a
+credencial de produção, vincular a conta de UMA empresa no `/admin`, ligar a
+cobrança na empresa, gerar o Pix e o boleto de um título e mandar o link.
+
+Guardas: `scripts/pinbank-checkout.sql` no CI (8 casos, 9 defeitos plantados)
+e o bloco `checkout-pinbank:` do `engine-audit`.
+
 ## Perguntas para a Pinbank (etapa 1)
 
 1. Os métodos `Pix/SolicitarDynamicQrCode` e `CashIn/GerarBoleto` seguem o
@@ -74,7 +102,7 @@ registro só pela rota, interruptor numa casa só).
 
 ## Pendências
 
-- Aplicar a migration `20261020120000_pinbank_cobranca` (o job `migrar` faz no
-  merge).
+- Aplicar as migrations `20261020120000_pinbank_cobranca` e
+  `20261022120000_pinbank_checkout` (o job `migrar` faz no merge).
 - Ligar `PINBANK_COBRANCA=ligado` só depois das respostas 1 a 3 e de um teste
   com uma empresa.

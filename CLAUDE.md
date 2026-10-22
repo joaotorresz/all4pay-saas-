@@ -940,7 +940,13 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   cobrança para receber, nenhum `CashOut` (bloco `cobranca-pinbank:` do
   `engine-audit`). Nasce DESLIGADA (`PINBANK_COBRANCA=ligado` + produção).
   Guarda `scripts/pinbank-cobranca.sql` no CI (10 defeitos plantados).
-  Link público, régua e baixa automática pelo webhook são as próximas etapas.
+  ⚠️ **O link de pagamento (MVP, 22/10/2026, etapa 4):** "Criar link" depois
+  de uma cobrança emitida → `/pagar?t=<token>` PÚBLICA, com o QR do Pix e a
+  linha do boleto. Lida SÓ pelo servidor (`pinbank_checkout_ler`, service_role,
+  depois do interruptor), com o mínimo. A baixa segue manual até o webhook.
+  Guarda `scripts/pinbank-checkout.sql` (9 defeitos) e bloco
+  `checkout-pinbank:` do `engine-audit`. Régua e baixa automática são as
+  próximas etapas.
 
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 

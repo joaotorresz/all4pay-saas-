@@ -30,7 +30,7 @@ type Cobranca = {
   motivo: string | null;
 };
 
-type Estado = { liberada: boolean; ligada: boolean; cobrancas: Cobranca[] };
+type Estado = { liberada: boolean; ligada: boolean; cobrancas: Cobranca[]; link: string | null };
 
 const TOM: Record<SituacaoCobranca, "warning" | "neutral" | "positive" | "ink"> = {
   reservada: "neutral",
@@ -55,13 +55,19 @@ const VIVAS: SituacaoCobranca[] = ["reservada", "emitida", "incerta", "a_cancela
 export function CobrancaPinbank({ movementId, show }: { movementId: string; show: (m: string) => void }) {
   const [estado, setEstado] = React.useState<Estado | null>(null);
   const [gerando, setGerando] = React.useState<TipoCobranca | null>(null);
+  const [criandoLink, setCriandoLink] = React.useState(false);
 
   const carregar = React.useCallback(async () => {
     try {
       const r = await fetch(`/api/pinbank/cobranca?movementId=${encodeURIComponent(movementId)}`, { cache: "no-store" });
       if (!r.ok) return setEstado(null);
       const j = (await r.json()) as Partial<Estado>;
-      setEstado({ liberada: !!j.liberada, ligada: !!j.ligada, cobrancas: Array.isArray(j.cobrancas) ? j.cobrancas : [] });
+      setEstado({
+        liberada: !!j.liberada,
+        ligada: !!j.ligada,
+        cobrancas: Array.isArray(j.cobrancas) ? j.cobrancas : [],
+        link: typeof j.link === "string" ? j.link : null,
+      });
     } catch {
       setEstado(null);
     }
@@ -98,6 +104,28 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
       show(`${o_que} copiado.`);
     } catch {
       show("Não foi possível copiar. Selecione o texto e copie à mão.");
+    }
+  };
+
+  const urlDoLink = (token: string) => `${window.location.origin}/pagar?t=${token}`;
+
+  // O link de pagamento: uma página pública com o Pix e o boleto já emitidos.
+  const criarLink = async () => {
+    setCriandoLink(true);
+    try {
+      const r = await fetch("/api/pinbank/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ movementId }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { token?: string; motivo?: string };
+      if (r.ok && j.token) await copiar(urlDoLink(j.token), "Link de pagamento");
+      else show(j.motivo ?? "Não foi possível criar o link agora.");
+    } catch {
+      show("Não foi possível falar com o servidor.");
+    } finally {
+      setCriandoLink(false);
+      await carregar();
     }
   };
 
@@ -166,6 +194,24 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
           </div>
         );
       })}
+
+      {estado.cobrancas.some((c) => c.situacao === "emitida") && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-label text-ink">Link de pagamento</span>
+            <Button
+              variant="secondary"
+              onClick={() => void (estado.link ? copiar(urlDoLink(estado.link), "Link de pagamento") : criarLink())}
+              disabled={criandoLink}
+            >
+              {criandoLink ? "Criando…" : estado.link ? "Copiar link" : "Criar link"}
+            </Button>
+          </div>
+          <span className="text-caption text-muted leading-[1.5]">
+            Uma página para o cliente pagar pelo Pix ou pelo boleto, sem entrar no sistema. A baixa ainda é feita aqui quando o dinheiro cair.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

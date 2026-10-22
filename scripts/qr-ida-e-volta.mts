@@ -77,7 +77,7 @@ ok(new TextEncoder().encode(REAL).length === 133, "o link de teste tem o tamanho
 
 const casos: string[] = [REAL, "otpauth://Q", "otpauth://totp/Q:a@b.co?secret=JBSWY3DPEHPK3PXP"];
 // Um texto por versão de 1 a 10: o tamanho cresce até cada versão aparecer.
-for (let n = 4; n <= 210; n += 6) casos.push(`otpauth://totp/${"x".repeat(n)}`);
+for (let n = 4; n <= 640; n += 6) casos.push(`otpauth://totp/${"x".repeat(n)}`);
 
 const versoesVistas = new Set<number>();
 for (const texto of casos) {
@@ -91,8 +91,20 @@ for (const texto of casos) {
   }
   if (lido === texto) versoesVistas.add(qr.versao * 100); // marca "lida"
 }
-for (let v = 1; v <= 10; v++) {
+for (let v = 1; v <= 20; v++) {
   ok(versoesVistas.has(v) && versoesVistas.has(v * 100), `versão ${v}: gerada e lida de volta`);
+}
+
+/* ── o Pix copia e cola (formato EMV do BC, dados FALSOS) ─────────────────── */
+// O checkout desenha o QR do texto que a Pinbank devolve. Um copia e cola de
+// cobrança dinâmica passa de 211 bytes (o teto da versão 10): sem as versões
+// 11+, a página de pagamento não teria QR.
+{
+  const PIX = "00020101021226930014br.gov.bcb.pix2571qrcode-h.pinbank.com.br/pix/v2/cobv/" + "9".repeat(32)
+    + "5204000053039865406123.455802BR5925EMPRESA DE TESTE LTDA ME6009SAO PAULO62070503***6304ABCD";
+  const qr = gerarQR(PIX);
+  const lido = ler(rasterizar(qrParaSVG(qr, (qr.tamanho + 8) * 4)));
+  ok(lido === PIX, `Pix copia e cola de ${new TextEncoder().encode(PIX).length} bytes volta ao texto`, `versão ${qr.versao}`);
 }
 
 /* ── cor e margem ───────────────────────────────────────────────────────── */
