@@ -85,7 +85,7 @@ export interface OpcaoDeFiltro {
 }
 
 export function FiltrosPeriodo({
-  titulo, tipo, onTipo, custom, onCustom, periodo, invalido, filtros,
+  titulo, tipo, onTipo, custom, onCustom, periodo, invalido, filtros, rotulos,
 }: {
   titulo: string;
   tipo: TipoPeriodo;
@@ -95,6 +95,8 @@ export function FiltrosPeriodo({
   periodo: Periodo | null;
   invalido: boolean;
   filtros: OpcaoDeFiltro[];
+  /** Troca o texto de cada botão de período sem mudar o que ele seleciona. */
+  rotulos?: Partial<Record<TipoPeriodo, string>>;
 }) {
   return (
     <Card className="flex flex-col gap-5">
@@ -119,7 +121,7 @@ export function FiltrosPeriodo({
                     : "bg-transparent text-muted hover:text-ink")
                 }
               >
-                {p.rotulo}
+                {rotulos?.[p.tipo] ?? p.rotulo}
               </button>
             ))}
           </div>

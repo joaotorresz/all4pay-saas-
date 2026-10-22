@@ -1241,6 +1241,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     });
     return {
       hoje, saldoAtual, movements, partyNames, horizonDias: 60, contas: seedAccounts().length,
+      contasSaldo: seedAccounts().map((a) => ({ id: a.id, nome: a.name, saldo: a.balance })),
       aberturaVerificada: resolverAberturaVerificada(true, seedAccounts().map((a) => contaDaLinha(a as LinhaConta))),
     };
   }
@@ -1323,7 +1324,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     return [];
   };
   const [accRes, movRes, partyRes, conferidas] = await Promise.all([
-    supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
+    supabase.from("financial_accounts").select("id,name,balance").limit(TETO_LINHAS),
     movimentos(),
     supabase.from("parties").select("id,name").limit(TETO_LINHAS),
     contasConferidas(),
@@ -1340,6 +1341,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
   return linhasParaRiskInput({
     hoje,
     saldosDasContas: ((accRes.data ?? []) as { balance: number }[]).map((a) => a.balance),
+    contasDetalhe: (accRes.data ?? []) as { id: string; name: string; balance: number }[],
     linhas: (movRes.data ?? []) as unknown as LinhaMovimento[],
     partes: (partyRes.data ?? []) as { id: string; name: string }[],
     // Em live só a fonte "informada" (cadastro) alimenta a abertura — o

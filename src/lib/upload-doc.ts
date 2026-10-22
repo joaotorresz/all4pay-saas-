@@ -199,6 +199,10 @@ export interface ConfirmacaoInput {
   valor?: number;
   vencimento?: string;
   acaoOverride?: AcaoFinal; // correção manual da ação (leitura errada)
+  /** Procedência: o documento lido é importação; o dito na conversa é manual. */
+  origem?: "importacao" | "manual";
+  /** Descrição digitada/dita; sem ela, o nome da contraparte. */
+  descricao?: string;
 }
 
 export interface ResultadoConfirmacao {
@@ -206,6 +210,10 @@ export interface ResultadoConfirmacao {
   contatoCriado: boolean;
   baixa: boolean;
   simulado: boolean;
+  /** O lançamento criado (ou o baixado), para anexar o comprovante a ele. */
+  id?: string;
+  /** Por que o banco recusou — a tela mostra, em vez de "tente novamente". */
+  erro?: string;
 }
 
 const ACC_FALLBACK = "acc-import";
@@ -223,6 +231,7 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   const venc = input.vencimento ?? f.vencimento ?? f.data ?? hoje;
   const categoria = input.categoria ?? f.categoria ?? analise.fields.tipo;
   const nome = analise.contraparte ?? f.tipo;
+  const descricao = input.descricao?.trim() || nome;
 
   // Ação efetiva: correção manual do usuário sobrepõe a leitura automática.
   const override = input.acaoOverride && input.acaoOverride !== "Transferência" ? ACAO_MAP[input.acaoOverride] : null;
@@ -243,8 +252,9 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
         } as Party
       : undefined;
     const partyId = analise.contato?.id ?? party?.id;
+    const movId = `up-doc-${Date.now()}`;
     const movement: Movement = {
-      id: `up-doc-${Date.now()}`,
+      id: movId,
       account_id: ACC_FALLBACK,
       type: tipoMov,
       status: pago ? "pago" : "pendente",
@@ -257,11 +267,11 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       competence_date: f.data ?? venc,
       paid_date: pago ? (f.data ?? hoje) : null,
       reconciled: pago,
-      description: nome,
+      description: descricao,
     } as Movement;
     appendImported({ movement, party, baixaDe: baixaDe?.id });
     await new Promise((r) => setTimeout(r, 350));
-    return { movimento: !baixaDe, contatoCriado: !!party, baixa: !!baixaDe, simulado: true };
+    return { movimento: !baixaDe, contatoCriado: !!party, baixa: !!baixaDe, simulado: true, id: baixaDe?.id ?? movId };
   }
 
   // ---- Live (Supabase) ----
@@ -290,7 +300,7 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       .from("movements")
       .update({ situacao: "baixado", paid_date: f.data ?? hoje, reconciled: true })
       .eq("id", baixaDe.id);
-    if (!error) { out.baixa = true; return out; }
+    if (!error) { out.baixa = true; out.id = baixaDe.id; return out; }
   }
 
   // Caso geral: cria o lançamento (precisa de uma conta).
@@ -305,9 +315,11 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
     accId = (created as { id: string } | null)?.id;
   }
   if (accId) {
-    const { error } = await supabase.from("movements").insert({
-      // ⚠️ ONDA 5: documento avulso lido por OCR é IMPORTAÇÃO.
-      origem: "importacao" as const,
+    const { data: criado, error } = await supabase.from("movements").insert({
+      // ⚠️ ONDA 5: documento avulso lido por OCR é IMPORTAÇÃO; o lançamento
+      // dito na conversa é MANUAL (alguém digitou ou falou o valor).
+      origem: input.origem ?? ("importacao" as const),
+      especie: "titulo",
       account_id: accId,
       type: tipoMov,
       // ⚠️ `situacao`, nunca `status`: a coluna é GERADA e o insert que a
@@ -321,10 +333,11 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       competence_date: f.data ?? venc,
       paid_date: pago ? (f.data ?? hoje) : null,
       reconciled: pago,
-      description: nome,
+      description: descricao,
       party_id: partyId,
-    });
-    if (!error) out.movimento = true;
+    }).select("id").single();
+    if (!error) { out.movimento = true; out.id = (criado as { id: string } | null)?.id; }
+    else out.erro = error.message;
   }
   return out;
 }

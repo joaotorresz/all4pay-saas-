@@ -1033,11 +1033,38 @@ h1, h2, h3,
 }
 
 /* ============================================================
+   "PERGUNTE À QUATTRO AI" NO RODAPÉ (`ia/PergunteNaTela`, 19/10/2026): a
+   barra da Home em miniatura, e a VARREDURA da tela no clique — uma linha de
+   luz lime desce pela área de trabalho (1,4s, o `VARREDURA_MS` do
+   componente) com um véu que some atrás dela. Só tokens; para em
+   `prefers-reduced-motion` (o componente nem a monta).
+   ============================================================ */
+.a4p-pergunte-tela { box-shadow: var(--shadow-popover); transition: transform 160ms ease-out; }
+.a4p-pergunte-tela:hover { transform: translateY(-2px); }
+.a4p-pergunte-tela:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; }
+.a4p-varredura {
+  background: color-mix(in srgb, var(--color-lime) 6%, transparent);
+  animation: a4p-varredura-veu 1400ms ease-in-out both;
+}
+.a4p-varredura-feixe {
+  position: absolute; left: 0; right: 0; height: 120px; top: -120px;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-lime) 35%, transparent) 85%, var(--color-lime) 100%);
+  border-bottom: 2px solid var(--color-lime);
+  animation: a4p-varredura-desce 1400ms cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+@keyframes a4p-varredura-desce { from { top: -120px; } to { top: 100%; } }
+@keyframes a4p-varredura-veu { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .a4p-varredura, .a4p-varredura-feixe, .a4p-pergunte-tela { animation: none; transition: none; }
+}
+
+/* ============================================================
    CHAT EM TELA CHEIA da Quattro AI (`ia/ChatTelaCheia`): a conversa sobe da caixa
    — aparece, sobe 24px e desfoca de volta ao nítido; sai no sentido inverso
    (260ms, o `SAIDA_MS` do componente). Para em `prefers-reduced-motion`.
    ============================================================ */
-.a4p-chat-tela { animation: a4p-chat-entra 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* Abertura mais lenta (pedido do dono, 19/10/2026): era 420ms. */
+.a4p-chat-tela { animation: a4p-chat-entra 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .a4p-chat-tela[data-saindo] { animation: a4p-chat-sai 260ms ease-in both; }
 @keyframes a4p-chat-entra {
   from { opacity: 0; transform: translateY(24px) scale(0.985); filter: blur(6px); }
@@ -1851,4 +1878,14 @@ html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
 .ds-visor [data-card="1"] .text-h2,
 .ds-visor [data-card="1"] .text-h3 {
   color: var(--color-text-secondary);
+}
+
+/* Celular: campo abaixo de 16px faz o iOS dar zoom sozinho ao focar, e a tela
+   fica ampliada depois do envio. Vale para todo campo do sistema. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

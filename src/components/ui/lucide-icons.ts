@@ -3,10 +3,10 @@ import {
   Bell, Building2, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
   ChevronsUpDown, CircleHelp, Cpu, CreditCard, Database, Download, EllipsisVertical, Eye,
   EyeOff, FileText, Gauge, GripVertical, House, Inbox, Info, Layers, LayoutDashboard, Link,
-  ListChecks, Mail, Menu, Minus, Moon, Network, Palette, Paperclip, Pencil, Pentagon, Plus,
+  ListChecks, Mail, Menu, Mic, Square, Minus, Moon, Network, Palette, Paperclip, Pencil, Pentagon, Plus,
   Package, Receipt, Repeat, RotateCcw, ScanLine, Search, Settings, ShieldCheck, ShoppingCart, SlidersHorizontal,
-  Smartphone, Sparkles, Sun, Target, Trash2, TrendingDown, TrendingUp, TriangleAlert, Upload,
-  User, Users, Workflow, X, type LucideIcon,
+  Smartphone, Smile, Sparkles, Sun, Target, Trash2, TrendingDown, TrendingUp, TriangleAlert, Upload,
+  User, Users, Workflow, X, Camera, ScanFace, Glasses, Lock, Landmark, Coins, Lightbulb, IdCard, Table2, KeyRound, type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -22,6 +22,16 @@ import {
  */
 export const LUCIDE_ICONS = {
   activity: Activity,
+  camera: Camera,
+  "scan-face": ScanFace,
+  glasses: Glasses,
+  lock: Lock,
+  landmark: Landmark,
+  coins: Coins,
+  lightbulb: Lightbulb,
+  "id-card": IdCard,
+  table: Table2,
+  "key-round": KeyRound,
   "arrow-down": ArrowDown,
   "arrow-down-to-line": ArrowDownToLine,
   "arrow-left": ArrowLeft,
@@ -76,6 +86,7 @@ export const LUCIDE_ICONS = {
   "shield-check": ShieldCheck,
   "shopping-cart": ShoppingCart,
   smartphone: Smartphone,
+  smile: Smile,
   sparkles: Sparkles,
   sun: Sun,
   target: Target,
@@ -88,6 +99,8 @@ export const LUCIDE_ICONS = {
   users: Users,
   workflow: Workflow,
   x: X,
+  mic: Mic,
+  square: Square,
 } satisfies Record<string, LucideIcon>;
 
 export type LucideIconKey = keyof typeof LUCIDE_ICONS;

@@ -45,7 +45,21 @@ const COR_STATUS: Record<StatusTitulo, string> = {
   atrasado: "var(--color-negative)",
 };
 
-export function TitulosView({ direcao }: { direcao: Direcao }) {
+/**
+ * O recorte que o PAINEL DE VENDAS entrega pronto. Com ele a tela some com o
+ * carrossel (o período vem do filtro de cima), desenha os cards no padrão dos
+ * painéis (total primeiro) e só abre filtro e tabela depois que um card é
+ * escolhido. Sem ele, a tela é a de sempre.
+ */
+export interface RecorteDoPainel {
+  de: string;
+  ate: string;
+  rotulo: string;
+  /** Cliente, projeto e centro do filtro de cima — a regra é a do motor de receber. */
+  incluir?: (m: RiskMovement) => boolean;
+}
+
+export function TitulosView({ direcao, painel }: { direcao: Direcao; painel?: RecorteDoPainel }) {
   const router = useRouter();
   const qc = useQueryClient();
   const { data: input, isLoading } = useRiscoInput();
@@ -64,6 +78,8 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const [filtro, setFiltro] = React.useState<FiltroTitulos>({ status: "todos" });
   const [abrirFiltro, setAbrirFiltro] = React.useState(false);
   const [porPagina, setPorPagina] = React.useState(50);
+  // No painel, filtro e tabela só aparecem depois de um card escolhido.
+  const [cardEscolhido, setCardEscolhido] = React.useState<string | null>(null);
   const [pagina, setPagina] = React.useState(1);
   const [marcados, setMarcados] = React.useState<Set<string>>(new Set());
   // Carrossel de sazonalidade — portado do extrato.
@@ -169,6 +185,13 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   }, [avisou, query, show]);
 
   const janela = React.useMemo(() => {
+    if (painel) {
+      return {
+        de: filtro.de ?? painel.de,
+        ate: filtro.ate ?? painel.ate,
+        rotulo: filtro.de || filtro.ate ? null : painel.rotulo,
+      };
+    }
     const p = periodos.find((x) => x.key === selPeriodo);
     // As datas digitadas à mão continuam podendo sobrepor — quem abriu o painel
     // de filtro e escreveu um intervalo quis exatamente aquele intervalo.
@@ -177,7 +200,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
       ate: filtro.ate ?? p?.ate ?? null,
       rotulo: filtro.de || filtro.ate ? null : (p?.label ?? null),
     };
-  }, [periodos, selPeriodo, filtro.de, filtro.ate]);
+  }, [painel, periodos, selPeriodo, filtro.de, filtro.ate]);
+
+  const incluir = painel?.incluir;
 
   /**
    * ⚠️ **OS CARDS NÃO OLHAM A LISTA JÁ FILTRADA PELO STATUS.**
@@ -194,8 +219,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const baseDosCards = React.useMemo(
     () => (input
       ? filtrarTitulos(input, direcao, { ...filtro, de: janela.de, ate: janela.ate, status: "todos", busca })
+          .filter((m) => !incluir || incluir(m))
       : []),
-    [input, direcao, filtro, janela, busca],
+    [input, direcao, filtro, janela, busca, incluir],
   );
 
   const cards = React.useMemo(
@@ -206,8 +232,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const titulos = React.useMemo(
     () => (input
       ? filtrarTitulos(input, direcao, { ...filtro, de: janela.de, ate: janela.ate, busca })
+          .filter((m) => !incluir || incluir(m))
       : []),
-    [input, direcao, filtro, janela, busca],
+    [input, direcao, filtro, janela, busca, incluir],
   );
 
   const totalPaginas = Math.max(1, Math.ceil(titulos.length / porPagina));
@@ -308,6 +335,19 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
+      {painel ? (
+        <CardsDoPainel
+          cards={cards} carregando={isLoading} direcao={direcao}
+          escolhido={cardEscolhido}
+          onEscolher={(id) => {
+            // Clicar no card já escolhido fecha filtro e tabela de novo.
+            const fechar = cardEscolhido === id;
+            setCardEscolhido(fechar ? null : id);
+            setFiltro((f) => ({ ...f, status: fechar || id === "total" ? "todos" : (id as StatusTitulo) }));
+            setPagina(1);
+          }}
+        />
+      ) : (<>
       {/* ⚠️ PORTE do extrato (mapa de consolidação, item 2). Esta tela mostra
           ESTOQUE de títulos e não tinha noção de tempo — o carrossel é a única
           superfície que responde "como este mês se compara aos onze
@@ -341,6 +381,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           />
         </CarrosselSazonalidade>
       </Card>
+      </>)}
+
+      {(!painel || cardEscolhido) && (<>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <span />
@@ -369,7 +412,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
       </div>
 
       {/* --------------------------------- cards --------------------------------- */}
-      {isLoading ? (
+      {painel ? null : isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[0, 1, 2, 3].map((k) => <Card key={k}><Skeleton className="h-[70px]" /></Card>)}
         </div>
@@ -404,6 +447,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           {janela.rotulo
             ? <> em <b className="text-ink">{janela.rotulo}</b></>
             : <> entre {janela.de ? dataBR(janela.de) : "o início"} e {janela.ate ? dataBR(janela.ate) : "hoje"}</>}
+          {!painel && (<>
           {" · "}
           <button
             type="button"
@@ -412,6 +456,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           >
             ver todo o período
           </button>
+          </>)}
         </p>
       )}
 
@@ -615,6 +660,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           </div>
         )}
       </Card>
+      </>)}
       {baixa && (
         <ModalBaixa
           baixa={baixa}
@@ -726,6 +772,82 @@ function CardTitulo({
       </div>
       </button>
     </Card>
+  );
+}
+
+/**
+ * Os quatro cards do Painel de Vendas, no padrão dos painéis de títulos
+ * (ponto da situação, título, valor grande, quantidade) e com o TOTAL primeiro.
+ *
+ * ⚠️ É um `<button>` dentro do card, como o `CardTitulo`: ele abre filtro e
+ * tabela, então precisa de foco e Enter. A seleção é uma BORDA na tinta do
+ * texto — o fundo cinza se confunde com o canvas da página.
+ */
+function CardsDoPainel({
+  cards, carregando, direcao, escolhido, onEscolher,
+}: {
+  cards: CardResumo[];
+  carregando: boolean;
+  direcao: Direcao;
+  escolhido: string | null;
+  onEscolher: (id: string) => void;
+}) {
+  if (carregando) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[0, 1, 2, 3].map((k) => <Skeleton key={k} className="h-[136px]" />)}
+      </div>
+    );
+  }
+  const ordem = [...cards.filter((c) => c.id === "total"), ...cards.filter((c) => c.id !== "total")];
+  const titulo: Record<string, string> = {
+    total: `Total a ${direcao}`,
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {ordem.map((c) => {
+          const ativo = escolhido === c.id;
+          const cor = c.id === "total" ? "var(--color-ink)" : COR_STATUS[c.id as StatusTitulo];
+          const nome = titulo[c.id] ?? c.label;
+          return (
+            <Card key={c.id} padded={false}>
+              <button
+                type="button"
+                aria-pressed={ativo}
+                aria-label={`${ativo ? "Fechar a tabela de" : "Abrir a tabela de"} ${nome}`}
+                onClick={() => onEscolher(c.id)}
+                className={`w-full text-left p-6 rounded-card border transition-colors flex flex-col gap-3 ${
+                  ativo ? "border-ink" : "border-transparent hover:bg-surface-2/40"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span aria-hidden className="inline-block w-2 h-2 rounded-pill shrink-0" style={{ background: cor }} />
+                  <span className="text-h3 text-ink">{nome}</span>
+                </span>
+                <span className="flex items-end justify-between gap-3">
+                  <span className="flex flex-col gap-1">
+                    <span className="a4p-num leading-none text-[28px] text-ink"><BRL value={c.valor} /></span>
+                    <span className="text-caption text-muted">
+                      {c.quantidade === 1 ? "1 título" : `${c.quantidade} títulos`}
+                      {c.id !== "total" && <> · {pctDeInteiro(c.percentual)} do total</>}
+                    </span>
+                  </span>
+                  <span aria-hidden className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-surface-2 text-muted">
+                    <span className={"transition-transform " + (ativo ? "rotate-180" : "")}>
+                      <Icon name="chevron-down" size={16} color="currentColor" />
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </Card>
+          );
+        })}
+      </div>
+      {!escolhido && (
+        <p className="m-0 text-caption text-muted">Escolha um card para abrir o filtro e a tabela dos títulos.</p>
+      )}
+    </div>
   );
 }
 

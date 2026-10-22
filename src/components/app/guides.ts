@@ -237,11 +237,25 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
   /* ----------------------------- Receber ----------------------------- */
+  "/contas-a-receber/painel-de-vendas": {
+    titulo: "Painel de vendas",
+    intro: "O período, o calendário das vendas a receber, o status e os títulos numa tela só.",
+    comoUsar: "Escolha Esse mês, Essa semana ou Personalizado no alto. Clique num dos quatro cards de títulos para abrir o filtro e a tabela; clique de novo para fechar.",
+    exemplo: "Quer ver quem atrasou este mês → deixe Esse mês e clique no card de atrasados para abrir a lista e registrar o recebimento.",
+    secoes: [],
+  },
   "/contas-a-receber/titulos": {
     titulo: "Central de recebimentos",
     intro: "Executa as entradas lançadas (dar baixa no que foi recebido), agrupadas por dia/semana/mês, com busca e conta de entrada.",
     comoUsar: "Filtre/agrupe, selecione os títulos recebidos e dê baixa; o saldo da conta só sobe na liquidação.",
     exemplo: "Recebeu 3 boletos hoje → selecione-os e confirme o recebimento para o saldo refletir.",
+    secoes: [],
+  },
+  "/contas-a-receber/maquininha": {
+    titulo: "Maquininha Quattro",
+    intro: "Os relatórios da maquininha Pinbank: quanto vendeu, quanto sobra depois das taxas, quando o dinheiro cai e quando você mais vende. Só leitura.",
+    comoUsar: "Escolha Hoje, Semana ou Mês no alto. Os gráficos de forma e bandeira, a lista de transações e o custo seguem o período; o mapa de calor olha as últimas 4 semanas. Exporte a planilha do período pelo botão do alto.",
+    exemplo: "Na semana, R$ 8.400 vendidos com 2,1% de custo: o líquido a receber mostra R$ 8.223, e a agenda diz em que dia cada repasse cai.",
     secoes: [],
   },
   "/dashboard/sales-invoices/subscriptions": {

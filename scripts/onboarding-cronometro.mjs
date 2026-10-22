@@ -34,7 +34,13 @@ const BASE = process.env.ALVO ?? "http://127.0.0.1:3117";
  * reprova por infraestrutura treina quem a lê a ignorar a reprovação.
  */
 const CAMINHO_CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
-const OPCOES_NAVEGADOR = existsSync(CAMINHO_CHROME) ? { executablePath: CAMINHO_CHROME } : {};
+// CAMERA_FALSA=1: câmera simulada do Chromium, para provar que o vídeo do
+// facial liga de verdade (no CI, sem ela, o caminho é o da câmera indisponível).
+const CAMERA_FALSA = process.env.CAMERA_FALSA === "1";
+const OPCOES_NAVEGADOR = {
+  ...(existsSync(CAMINHO_CHROME) ? { executablePath: CAMINHO_CHROME } : {}),
+  ...(CAMERA_FALSA ? { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] } : {}),
+};
 const META_S = 600; // 10 minutos
 
 /**
@@ -53,8 +59,22 @@ const RITMO = {
 };
 
 const b = await chromium.launch(OPCOES_NAVEGADOR);
-const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, ...(CAMERA_FALSA ? { permissions: ["camera"] } : {}) });
 const page = await ctx.newPage();
+/* A Receita (BrasilAPI) vem de MENTIRA, e de propósito: no CI o runner tem
+   rede, e o CNPJ do teste existe de verdade — a resposta mudava o caminho da
+   conversa (o cartão de confirmação e os campos já preenchidos) conforme a API
+   respondia, demorava ou limitava. O caminho exercitado é o COM a Receita,
+   que é o do cliente; sem a Receita a conversa só pergunta mais. */
+await page.route("**/brasilapi.com.br/api/cnpj/**", (r) => r.fulfill({
+  status: 200, contentType: "application/json",
+  body: JSON.stringify({
+    razao_social: "PADARIA CRONOMETRO LTDA", nome_fantasia: "PADARIA CRONOMETRO",
+    cnae_fiscal: 1091101, cnae_fiscal_descricao: "Fabricação de produtos de panificação industrial",
+    municipio: "SAO PAULO", uf: "SP", cep: "01310100", logradouro: "AVENIDA PAULISTA", numero: "100",
+    bairro: "BELA VISTA", opcao_pelo_simples: true, opcao_pelo_mei: false,
+  }),
+}));
 
 /* ─── A PRÉ-CONDIÇÃO, e ela existe porque eu caí nela ───────────────────────
  * ⚠️ Na primeira execução deste arquivo a fase 4 reprovou com "o DRE abriu sem
@@ -144,61 +164,170 @@ async function fase(nome, humano, fn) {
   fases.push({ nome, maquina, humano, detalhe });
 }
 
-/* ─── 0. A PORTA DE ENTRADA: O CADASTRO DE TRÊS CAMPOS ─────────────────────
-   ⚠️ **O caminho ouro mudou de porta, e o cronômetro tem de medir a porta
-   nova.** Até aqui ele começava em `/comecar` — o assistente de sete passos,
-   quinze campos — porque era ali que se criava a conta. A entrada agora é
-   `/criar-conta`: e-mail, senha e nome da empresa. Medir a porta velha
-   publicaria um tempo que ninguém mais gasta, e para o lado errado: o número
-   sairia PIOR do que a realidade, e um cronômetro que erra para pior é
-   desligado com a mesma facilidade que um que erra para melhor.
-
-   ⚠️ **TRÊS CAMPOS É A DECISÃO, e por isso é o que se reprova.** Conferir que
-   a tela "abre" não protege nada — ela abriria igual com quinze campos de
-   volta. A asserção é sobre o NÚMERO, que é o que foi decidido e o que se
-   perde por acréscimo: cada campo novo aqui é tempo cobrado de todo mundo que
-   entra, e ninguém percebe um campo entrando um de cada vez.
+/* ─── 0. A PORTA DE ENTRADA: O CADASTRO PELA CONVERSA ──────────────────────
+   ⚠️ **(16/10/2026) A conversa pede o cadastro INTEIRO, e é isso que se
+   reprova.** A versão de três perguntas deixava o cliente entrar sem CNPJ,
+   regime, representante, perfil e estrutura. Agora a conversa abre com o
+   cartão "Que tipo de conta…", pede o CNPJ com máscara, confere na Receita
+   (no CI, sem rede, cai nas perguntas à mão) e segue pergunta a pergunta até
+   a senha. O que reprova: mais de um campo por vez, CNPJ sem máscara, a senha
+   fora de campo de senha, e a conversa chegar à senha sem ter perguntado o
+   regime, o representante, o perfil e a estrutura.
 
    ⚠️ **A criação da conta em si NÃO é exercitada, e fica dito.** Ela fala com
-   o Supabase, e o build de demonstração não tem projeto nenhum atrás — é a
-   mesma condição do `smoke-rotas` (`configured: false`). Exercitá-la exigiria
-   um projeto de verdade no CI, criando conta a cada execução. O que o
-   cronômetro mede aqui é o CUSTO HUMANO da porta (ler a tela, digitar três
-   campos, apertar um botão); o que ele não mede está declarado, não suposto. */
-await fase("0. Entrar pelo cadastro de três campos",
-  RITMO.telaNova + RITMO.campoCurto * 3 + RITMO.clique,
+   o Supabase, e o build de demonstração não tem projeto nenhum atrás. */
+await fase("0. Entrar pelo cadastro pela conversa",
+  RITMO.telaNova + RITMO.campoFormatado * 3 + RITMO.campoCurto * 6 + RITMO.escolha * 20 + RITMO.clique * 10, // + Open Finance, termos, faturamento, renda e rosto
   async () => {
     await page.goto(`${BASE}/criar-conta`, { waitUntil: "networkidle", timeout: 60000 });
     await abortarSeAmbienteQuebrou(page, "abrir o cadastro");
-    /* (16/10/2026) O cadastro virou CONVERSA com a Quattro AI: as três
-       perguntas vêm uma de cada vez, num campo só que troca de tipo. O que se
-       reprova é o mesmo — mais de três perguntas, mais de um campo por vez, e
-       a senha fora de um campo de senha. A última resposta NÃO é enviada (não
-       há Supabase atrás do build de demonstração). */
-    const RESPOSTAS = { "Nome da empresa": "Padaria Cronômetro", "E-mail": "cronometro@exemplo.com.br", Senha: "senha-forte-1" };
-    const tipos = [];
-    for (let i = 0; i < 4; i++) {
-      const campo = page.locator("form input:not([hidden])").first();
-      if (!(await campo.count())) break;
-      await campo.waitFor({ state: "visible", timeout: 15000 });
-      await page.waitForFunction(() => !document.querySelector("form input:not([hidden])")?.disabled, null, { timeout: 15000 });
+    const pj = page.locator('[data-cartao="conta"] button', { hasText: "Conta PJ" });
+    await pj.waitFor({ state: "visible", timeout: 20000 });
+    await pj.click();
+    const campoDoc = page.locator("form input:not([hidden])").first();
+    await campoDoc.waitFor({ state: "visible", timeout: 20000 });
+    await page.waitForFunction(() => (() => { const c = document.querySelector("form input:not([hidden])"); return !!c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado"); })(), null, { timeout: 20000 });
+    await campoDoc.pressSequentially("11222333000181");
+    const mascarado = await campoDoc.inputValue();
+    if (mascarado !== "11.222.333/0001-81") { falhas++; return `REPROVA: o CNPJ não ganha máscara enquanto se digita ("${mascarado}")`; }
+    await campoDoc.press("Enter");
+
+    const TEXTOS = {
+      "Razão social": "Padaria Cronômetro Ltda", "Nome fantasia": "Padaria Cronômetro", CEP: "01310100",
+      "Cidade e UF": "São Paulo / SP", Número: "100", "Inscrição estadual": "123456789", "Inscrição municipal": "",
+      "Seu nome": "Ana Cronômetro", WhatsApp: "11987654321", "E-mail": "cronometro@exemplo.com.br",
+      "Conte com suas palavras": "",
+    };
+    /* A "chave" do passo atual: o cartão de confirmação, as opções ou o campo. */
+    const chave = () => page.evaluate(() => {
+      const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
+      if (rod === "confirmar" || rod === "openfinance" || rod === "termos" || rod === "infos") return rod;
+      for (const id of ["facial", "docIdentidade", "senhaTransacional"]) {
+        if (document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) return id;
+      }
+      const op = document.querySelector("[data-opcoes]");
+      if (op) return `op:${op.getAttribute("data-opcoes")}`;
+      const c = document.querySelector("form input:not([hidden])");
+      return c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado") ? `campo:${c.getAttribute("aria-label")}` : "";
+    });
+    const perguntas = [];
+    let anterior = "";
+    for (let i = 0; i < 60; i++) {
+      await page.waitForFunction((ant) => {
+        const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
+        const passo = ["confirmar", "openfinance", "termos", "infos"].includes(rod ?? "") ? rod
+          : ["facial", "docIdentidade", "senhaTransacional"].find((id) => document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) ?? "";
+        const op = document.querySelector("[data-opcoes]");
+        const c = document.querySelector("form input:not([hidden])");
+        const k = passo ? passo : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado") ? `campo:${c.getAttribute("aria-label")}` : "";
+        return k && k !== ant;
+      }, anterior, { timeout: 30000 }).catch((e) => {
+        throw new Error(`a conversa parou depois de "${anterior || "o CNPJ"}" (${e.name})`);
+      });
+      const k = await chave();
+      anterior = k;
+      /* Os passos de cartão dos prints: confirmar a Receita, Open Finance, termos, informações e rosto. */
+      if (k === "confirmar") { await page.locator('[data-rodape="confirmar"] button', { hasText: "Confirmar" }).click(); continue; }
+      if (k === "openfinance") { perguntas.push(k); await page.getByRole("button", { name: "Prefiro preencher manualmente" }).click(); continue; }
+      if (k === "termos") {
+        perguntas.push(k);
+        await page.locator('[data-cartao="termos"] label span[aria-hidden]').first().click();
+        await page.locator('[data-rodape="termos"] button').click();
+        continue;
+      }
+      if (k === "infos") {
+        perguntas.push(k);
+        for (const q of ["faturamento", "renda"]) {
+          await page.locator(`[data-faixa="${q}"]`).click();
+          await page.getByRole("option").nth(1).click();
+        }
+        await page.locator('[data-rodape="infos"] button').click();
+        continue;
+      }
+      if (k === "facial") {
+        // O CI não tem câmera: a validação fica pendente, e a conta segue.
+        perguntas.push(k);
+        await page.getByRole("button", { name: "Validar Identidade" }).click();
+        await page.getByRole("button", { name: "Tirar foto" }).click();
+        const depois = page.getByRole("button", { name: "Validar depois" });
+        const capturar = page.getByRole("button", { name: "Capturar" });
+        await Promise.race([depois.waitFor({ timeout: 15000 }), capturar.waitFor({ timeout: 15000 })]);
+        if (await depois.isVisible()) {
+          // Sem câmera ao vivo, a câmera NATIVA do celular continua oferecida.
+          if (!(await page.locator('[data-facial="erro"] input[type="file"][capture="user"]').count())) throw new Error("facial sem a câmera nativa do celular");
+          await depois.click();
+        } else {
+          // O vídeo tem de estar TOCANDO: o defeito era o oval vazio com a câmera ligada.
+          await page.waitForFunction(() => { const v = document.querySelector('[data-facial="camera"] video'); return !!v && v.videoWidth > 0 && !v.paused; }, null, { timeout: 10000 });
+          await capturar.click();
+        }
+        continue;
+      }
+      if (k === "docIdentidade") {
+        // As dicas e as duas portas (foto e anexo). Um arquivo que não é foto
+        // nem PDF é recusado na hora; o CI não lê documento (o OCR baixaria
+        // o modelo de idioma), então segue por "Validar depois".
+        perguntas.push(k);
+        await page.getByRole("button", { name: "Validar RG" }).click();
+        await page.getByRole("button", { name: "Tirar foto" }).waitFor();
+        await page.getByRole("button", { name: "Anexar arquivo" }).waitFor();
+        await page.locator('input[aria-label="Arquivo do RG"]').setInputFiles({ name: "rg.txt", mimeType: "text/plain", buffer: Buffer.from("x") });
+        await page.getByRole("alert").filter({ hasText: "foto (JPG ou PNG) ou um PDF" }).waitFor({ timeout: 5000 })
+          .catch(() => { throw new Error("o anexo que não é foto nem PDF não foi recusado"); });
+        await page.locator('[data-documento="rg"]').getByRole("button", { name: "Validar depois" }).click();
+        continue;
+      }
+      if (k === "senhaTransacional") {
+        // A folha sobe sozinha; sequência é recusada, e uma senha boa salva.
+        perguntas.push(k);
+        const senha = page.locator('[data-pin="Senha"]');
+        const conf = page.locator('[data-pin="Confirmar senha"]');
+        await senha.waitFor();
+        await senha.fill("123456");
+        await conf.fill("123456");
+        await page.locator('[data-folha="senhaTransacional"]').getByRole("button", { name: "Salvar" }).click();
+        await page.getByRole("alert").filter({ hasText: "sequências" }).waitFor({ timeout: 5000 })
+          .catch(() => { throw new Error("a senha transacional 123456 não foi recusada"); });
+        await senha.fill("482913");
+        await conf.fill("482913");
+        await page.locator('[data-folha="senhaTransacional"]').getByRole("button", { name: "Salvar" }).click();
+        continue;
+      }
+      if (k.startsWith("op:")) {
+        const id = k.slice(3);
+        perguntas.push(id);
+        const opcoes = page.locator(`[data-opcoes="${id}"]`);
+        if (id === "extrato") { await opcoes.getByRole("button", { name: "Agora não" }).click(); continue; }
+        const continuar = opcoes.getByRole("button", { name: "Continuar" });
+        if (await continuar.count()) {
+          if (await continuar.isDisabled()) await opcoes.locator("button[aria-pressed]").first().click();
+          await continuar.click();
+        } else {
+          const sim = opcoes.locator('[role="group"] button', { hasText: /^Sim$/ });
+          const alvo = (await sim.count()) ? sim.first() : opcoes.locator('[role="group"] button').filter({ hasNotText: /não aprovo/i }).first();
+          await alvo.click();
+        }
+        continue;
+      }
+      const rotulo = k.slice(6);
       const visiveis = await page.evaluate(() => [...document.querySelectorAll("input")]
-        .filter((x) => !x.hidden && !["hidden", "submit", "button"].includes(x.type)).length);
+        .filter((x) => !x.hidden && !["hidden", "submit", "button", "file"].includes(x.type)).length);
       if (visiveis > 1) { falhas++; return `REPROVA: a conversa mostra ${visiveis} campos ao mesmo tempo — a regra é UMA pergunta por vez`; }
-      const rotulo = await campo.getAttribute("aria-label");
-      tipos.push(await campo.getAttribute("type"));
-      if (!(rotulo in RESPOSTAS)) { falhas++; return `REPROVA: pergunta inesperada no cadastro ("${rotulo}") — a decisão é TRÊS`; }
-      await campo.fill(RESPOSTAS[rotulo]);
-      if (rotulo === "Senha") break;
+      const campo = page.locator("form input:not([hidden])").first();
+      if (rotulo === "Senha") {
+        if ((await campo.getAttribute("type")) !== "password") { falhas++; return "REPROVA: a senha não é campo de senha"; }
+        break;
+      }
+      perguntas.push(rotulo);
+      const valor = TEXTOS[rotulo] ?? "Teste";
+      if (!valor) { await page.getByRole("button", { name: "Pular esta pergunta" }).click(); continue; }
+      await campo.fill(valor);
       await campo.press("Enter");
-      await page.waitForFunction((r) => document.querySelector("form input:not([hidden])")?.getAttribute("aria-label") !== r, rotulo, { timeout: 15000 });
     }
-    if (tipos.length === 0) { falhas++; return "REPROVA: o cadastro não tem campo nenhum"; }
-    if (tipos.length > 3) { falhas++; return `REPROVA: o cadastro voltou a ter ${tipos.length} perguntas — a decisão é TRÊS`; }
-    /* ⚠️ E a senha tem de ser senha: um `type="text"` aqui expõe o que a pessoa
-       digita na frente de quem estiver ao lado. */
-    if (!tipos.includes("password")) { falhas++; return "REPROVA: a senha não é campo de senha"; }
-    return `${tipos.length} perguntas, uma por vez (${tipos.join(", ")}) · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
+    const exigidas = ["regime", "limite", "setor", "openfinance", "termos", "infos", "facial", "docIdentidade", "senhaTransacional", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
+    const faltou = exigidas.filter((x) => !perguntas.includes(x));
+    if (faltou.length) { falhas++; return `REPROVA: a conversa chegou à senha sem perguntar ${faltou.join(", ")} — ela tem de pedir o cadastro inteiro`; }
+    return `${perguntas.length} perguntas, uma por vez, CNPJ com máscara · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
   });
 
 /* ─── 1. CRIAR A EMPRESA + DECLARAR O REGIME ───────────────────────────────

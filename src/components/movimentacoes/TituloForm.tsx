@@ -135,6 +135,18 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
     setOrigemEntrada({ fornecedor: qs.get("fornecedor") ?? "", doc: (qs.get("doc") ?? "").replace(/\D/g, "") });
   }, [entrada, qs]);
 
+  /*
+   * A Quattro AI abre este formulário a partir de uma resposta vazia ("Não há
+   * gastos pagos na semana passada" → "Lançar despesa neste período") com
+   * `?vencimento=` no endereço: o lançamento já nasce no período da pergunta.
+   * Só a data: o resto a pessoa preenche.
+   */
+  const dataDaIA = !entrada ? qs.get("vencimento") : null;
+  React.useEffect(() => {
+    if (!dataDaIA || !/^\d{4}-\d{2}-\d{2}$/.test(dataDaIA)) return;
+    setF((s) => ({ ...s, vencimento: dataDaIA, competencia: dataDaIA }));
+  }, [dataDaIA]);
+
   /**
    * ⚠️ As categorias são ESTADO, não `useMemo` — a pessoa pode criar uma sem
    * sair do formulário, e uma lista memoizada não veria a nova.

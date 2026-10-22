@@ -303,6 +303,9 @@ function CaixaIA({ sugestoes, extras, prefs }: {
         <input
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
+          // Duplo clique no campo abre o chat (pedido do dono, 19/10/2026),
+          // levando o que já estiver digitado; vazio, abre na saudação.
+          onDoubleClick={() => perguntar(texto)}
           placeholder="Pergunte à Quattro AI ou crie um fluxo"
           aria-label="Pergunte à Quattro AI"
           className="a4p-ia-campo flex-1 min-w-0 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"

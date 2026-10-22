@@ -41,12 +41,14 @@ import { avisoDeSaturacao } from "@/core/metodologia";
 // receber. A IA usava domingo a sábado: "o que vence esta semana?" deixava de
 // fora o título do domingo que a tela "Essa semana" mostrava.
 import { periodoSemana } from "@/core/contas-pagar";
+import { montarPainelRecorrentes } from "@/core/contas-pagar/recorrentes";
 // "A receber" é CONTA a receber — a mesma regra do painel de Contas a receber.
 // Transferência entre contas próprias, resgate, empréstimo e rendimento entram
 // no extrato como ENTRADA e não são algo que alguém deve à empresa: a IA os
 // somava ao "a receber" e à lista de devedores, e a tela não.
 import { ehContaAReceber } from "@/core/contas-receber";
 
+import { acoesDeSeguimento, acoesParaVazio, respostaVazia, type AcaoIA } from "@/core/assistant/acoes";
 import { deLancamentos as L, sobreLancamentos as B, naTela as T, simulado, completarPorRotulo, type NumeroResposta } from "@/core/assistant/numero";
 
 import { formatBRL, decimalBR, pct as pctBR } from "@/lib/format";
@@ -58,9 +60,27 @@ const dia = (ds: string) => ds.slice(0, 10).split("-").reverse().join("/");
 /** Dias corridos de a → b (positivo = b depois de a). */
 const diasEntre = (a: string, b: string) => Math.round((new Date(b.slice(0, 10) + "T00:00:00").getTime() - new Date(a.slice(0, 10) + "T00:00:00").getTime()) / 86400000);
 
-interface Janela { label: string; from: string; to: string }
+export interface Janela { label: string; from: string; to: string }
 
-function janela(p: string, hojeISO: string): Janela {
+/**
+ * "três meses" → "3 meses", "duas semanas" → "2 semanas". Quem fala com a IA
+ * escreve o número por extenso tanto quanto em algarismo, e a janela só lia o
+ * algarismo: "últimos três meses" caía no mês corrente, calado.
+ */
+const POR_EXTENSO: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, "três": 3, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, quinze: 15, trinta: 30, sessenta: 60, noventa: 90 };
+export function numerosPorExtenso(p: string): string {
+  return p.replace(/(^|[^a-zà-ú])(um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|trinta|sessenta|noventa)\s+(dias?|semanas?|m[êe]s(?:es)?|anos?)\b/g,
+    (_, a: string, n: string, u: string) => `${a}${POR_EXTENSO[n]} ${u}`);
+}
+
+/**
+ * A janela de tempo que a pergunta pede. Exportada porque o recorte de
+ * seguimento ("e só a última semana?") e as ações da resposta vazia ("lançar
+ * neste período") usam a MESMA leitura — duas leituras de "última semana"
+ * dariam dois períodos na mesma conversa.
+ */
+export function janela(pBruto: string, hojeISO: string): Janela {
+  const p = numerosPorExtenso(pBruto);
   const hoje = new Date(hojeISO + "T00:00:00");
   const y = hoje.getFullYear(), m = hoje.getMonth(), d = hoje.getDate();
   const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
@@ -69,13 +89,34 @@ function janela(p: string, hojeISO: string): Janela {
   if (/amanh[ãa]/.test(p)) { const o = new Date(y, m, d + 1); return { label: "amanhã", from: iso(o), to: iso(o) }; }
   const ult = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+dias/);
   if (ult) { const n = +ult[1]; const a = new Date(y, m, d - n + 1); return { label: `nos últimos ${n} dias`, from: iso(a), to: hojeISO }; }
+  if (/quinzena/.test(p)) { const a = new Date(y, m, d - 14); return { label: "nos últimos 15 dias", from: iso(a), to: hojeISO }; }
+  // ⚠️ "última semana" é JANELA ROLANTE (7 dias até hoje), e "semana passada"
+  // é a semana de calendário anterior (segunda a domingo). As duas caíam em
+  // "nesta semana": pedir o recorte da última semana devolvia a semana que
+  // começou na segunda, que na segunda de manhã é um dia só.
+  const ultSem = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+semanas?/);
+  if (ultSem) { const n = +ultSem[1]; const a = new Date(y, m, d - 7 * n + 1); return { label: `nas últimas ${n} semanas`, from: iso(a), to: hojeISO }; }
+  if (/[úu]ltima semana|[úu]ltimos sete dias/.test(p)) { const a = new Date(y, m, d - 6); return { label: "nos últimos 7 dias", from: iso(a), to: hojeISO }; }
+  if (/semana (passada|anterior)/.test(p)) {
+    const sem = periodoSemana(hojeISO);
+    const ini = new Date(sem.de + "T00:00:00"); ini.setDate(ini.getDate() - 7);
+    const fim = new Date(sem.de + "T00:00:00"); fim.setDate(fim.getDate() - 1);
+    return { label: "na semana passada", from: iso(ini), to: iso(fim) };
+  }
+  if (/semana que vem|pr[óo]xima semana/.test(p)) {
+    const sem = periodoSemana(hojeISO);
+    const ini = new Date(sem.ate + "T00:00:00"); ini.setDate(ini.getDate() + 1);
+    const fim = new Date(sem.ate + "T00:00:00"); fim.setDate(fim.getDate() + 7);
+    return { label: "na próxima semana", from: iso(ini), to: iso(fim) };
+  }
   if (/semana/.test(p)) { const sem = periodoSemana(hojeISO); return { label: "nesta semana", from: sem.de, to: sem.ate }; }
-  if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
-  if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
   // "últimos N meses" = janela ROLANTE (N meses até hoje), não trimestre/semestre
-  // calendário (que seria quase todo futuro no começo do trimestre).
+  // calendário (que seria quase todo futuro no começo do trimestre). Vem antes
+  // de "ano": "últimos 12 meses" é rolante, não o ano de calendário.
   const ultMes = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+m(?:es|eses)\b/);
   if (ultMes) { const n = +ultMes[1]; const a = new Date(y, m - n + 1, 1); return { label: `nos últimos ${n} meses`, from: iso(a), to: hojeISO }; }
+  if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
+  if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
   // trimestre/semestre = janela TRAILING (últimos 3/6 meses até hoje). O trimestre
   // CALENDÁRIO seria quase todo futuro no começo do período (ex.: em julho, Q3 =
   // jul–set → só julho tem dado), devolvendo um número enganosamente pequeno para
@@ -150,7 +191,7 @@ function topCategorias(ms: RiskMovement[], n = 5) {
 }
 function topClientes(ms: RiskMovement[], nomes: Record<string, string> | undefined, n = 5) {
   return agrupar(ms, (m) => m.party_id || "—")
-    .map(([id, g]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : "Cliente"), ...g })).sort((a, b) => b.valor - a.valor).slice(0, n);
+    .map(([id, g]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : g.movs.find((m) => m.descricao?.trim())?.descricao?.trim() || "Cliente"), ...g })).sort((a, b) => b.valor - a.valor).slice(0, n);
 }
 /**
  * Série mensal dos últimos `n` meses (do mais antigo ao atual), em ordem
@@ -189,6 +230,68 @@ function topId(ms: RiskMovement[]): string | undefined {
   return Array.from(map.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 /**
+ * A pergunta cita um PERÍODO? ("essa semana", "hoje", "em março"…). Sem ele,
+ * a lista de títulos é a carteira inteira; com ele, só o que vence na janela.
+ * ⚠️ "quais contas tenho para pagar nessa semana" respondia a carteira inteira
+ * (R$ 191 mil em 9 títulos) — a semana era ignorada, e a IA reescrita acabava
+ * dizendo que não tinha o dado da semana.
+ */
+function citaPeriodo(p: string): boolean {
+  return /hoje|ontem|amanh|semana|m[êe]s|\bano\b|trimestre|semestre|\bdias\b|passad|anterior|[úu]ltim/.test(p)
+    || MES.some((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
+}
+
+/** O cliente ou fornecedor citado pelo NOME (palavra inteira, 4+ letras). */
+function contraparteCitada(p: string, nomes: Record<string, string> | undefined): [string, string] | undefined {
+  if (!nomes) return undefined;
+  return Object.entries(nomes).find(([, n]) => {
+    const t = (n || "").toLowerCase().trim();
+    if (t.length < 4) return false;
+    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-zà-ú0-9])${esc}([^a-zà-ú0-9]|$)`, "i").test(p);
+  });
+}
+
+/** Como um título se chama numa lista: a contraparte, senão a descrição, senão a categoria. */
+function nomeDoTitulo(m: RiskMovement, nomes: Record<string, string> | undefined): string {
+  return (m.party_id && nomes?.[m.party_id]) || m.descricao?.trim() || m.party_id || (m.category ? cap(m.category) : "") || "Sem descrição";
+}
+
+/**
+ * Os títulos em TÓPICOS ("- 20/10 · Energia Sudeste · R$ 1.200,00"), até `n`,
+ * e quantos ficaram de fora. Quem pergunta "QUAIS contas" quer os nomes, não
+ * só a soma.
+ */
+function listaDeTitulos(ms: readonly RiskMovement[], nomes: Record<string, string> | undefined, n = 6): string {
+  if (!ms.length) return "";
+  const linhas = ms.slice(0, n).map((m) => `- ${dia(m.due_date).slice(0, 5)} · ${nomeDoTitulo(m, nomes)} · ${fmt(Math.abs(m.amount))}`);
+  const resto = ms.length - n;
+  return `\n${linhas.join("\n")}${resto > 0 ? `\n- e mais ${resto} título(s)` : ""}`;
+}
+
+/**
+ * A carteira em aberto de um lado (a pagar ou a receber), recortada pelo que a
+ * pergunta cita: período (pelo VENCIMENTO), contraparte e ordem ("maiores").
+ * UMA leitura para as perguntas de títulos, para "a pagar desta semana", "o que
+ * vence esta semana" e "quanto devo à Energia Sudeste" não discordarem.
+ */
+function titulosDaPergunta(
+  p: string, input: RiskInput, lado: "pagar" | "receber",
+): { abertos: RiskMovement[]; vencidos: RiskMovement[]; w: Janela | null; alvo?: [string, string] } {
+  const hoje = input.hoje;
+  let abertos = ativos(input.movements).filter((m) => m.status === "pendente" && (lado === "pagar" ? m.type === "saida" : ehContaAReceber(m)));
+  const alvo = contraparteCitada(p, input.partyNames);
+  if (alvo) abertos = abertos.filter((m) => m.party_id === alvo[0]);
+  const vencidos = abertos.filter((m) => m.due_date.slice(0, 10) < hoje);
+  const w = citaPeriodo(p) ? janela(p, hoje) : null;
+  if (w) abertos = abertos.filter((m) => within(m.due_date, w));
+  const maiores = /maior(es)?|mais (alt|car)/.test(p);
+  abertos.sort((a, b) => (maiores ? Math.abs(b.amount) - Math.abs(a.amount) : a.due_date.localeCompare(b.due_date)));
+  vencidos.sort((a, b) => a.due_date.localeCompare(b.due_date));
+  return { abertos, vencidos, w, alvo };
+}
+
+/**
  * Série opcional que acompanha uma resposta — quando a pergunta é sobre uma
  * DISTRIBUIÇÃO (por categoria, por contraparte) ou uma EVOLUÇÃO (mês a mês),
  * o número sozinho conta metade da história. Puro dado: quem desenha é o chat.
@@ -204,6 +307,8 @@ export interface GraficoResposta {
 /** Resposta do motor nativo — `RespostaCopiloto` + os extras da camada local. */
 export type RespostaLocal = Omit<RespostaCopiloto, "numeros"> & {
   numeros: NumeroResposta[];
+  /** Botões de ação: o que a pessoa pode FAZER a partir da resposta (`./acoes`). */
+  acoes?: AcaoIA[];
   contatoId?: string;
   grafico?: GraficoResposta;
 };
@@ -332,7 +437,13 @@ const SAUDE_NA_FRASE: Record<ClassificacaoSaude, string> = {
 export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
   const r = responderBruto(pergunta, input, ctx);
   if (!r) return null;
-  return { ...r, numeros: completarPorRotulo(r.numeros) };
+  // ⚠️ Resposta vazia nunca termina em "não há": ela leva o caminho para
+  // preencher o vazio (lançar no período, enviar extrato, conectar o banco).
+  // A resposta COM número leva o próximo passo: a tela onde se age sobre ele.
+  const acoes = r.acoes ?? (respostaVazia(r)
+    ? acoesParaVazio(pergunta, janela(pergunta, input.hoje), input.hoje)
+    : acoesDeSeguimento(pergunta, r.fontes ?? []));
+  return { ...r, numeros: completarPorRotulo(r.numeros), ...(acoes?.length ? { acoes } : {}) };
 }
 
 function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
@@ -391,11 +502,12 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
       rotulo = "no mês que vem";
     }
     const tipo: "entrada" | "saida" = /pagar|\bpag\b|pagament|gast/.test(p) ? "saida" : "entrada";
-    const ab = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date >= from && m.due_date <= to);
+    const ab = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date >= from && m.due_date <= to && (tipo === "saida" || ehContaAReceber(m)))
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const verbo = tipo === "entrada" ? "receber" : "pagar";
     if (!ab.length) return R(`Nada previsto para ${verbo} ${rotulo} (sem títulos pendentes nesse intervalo).`, [T("Previsto", fmt(0), tipo === "entrada" ? "receber" : "pagar")], ["previsto futuro"]);
-    return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s).`, [L(`A ${verbo}`, fmt(total), ab, tipo === "entrada" ? "receber" : "pagar"), B("Títulos", String(ab.length), ab, tipo === "entrada" ? "receber" : "pagar")], ["previsto futuro"]);
+    return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s):${listaDeTitulos(ab, nomes)}`, [L(`A ${verbo}`, fmt(total), ab, tipo === "entrada" ? "receber" : "pagar"), B("Títulos", String(ab.length), ab, tipo === "entrada" ? "receber" : "pagar")], ["previsto futuro"]);
   }
 
   // ——— POSSO COMPRAR? (decisão de aquisição sobre o MEU caixa) ———
@@ -766,7 +878,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const arred = Math.round(media);
     const frase = arred <= 0
       ? `Os clientes pagam em dia: ${emMediaAoVencimento(arred)}. ${pctPrazo}% dos títulos foram pagos no prazo.`
-      : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Recomenda-se intensificar a cobrança.`;
+      : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Vale apertar a cobrança desses clientes.`;
     return R(frase, [B("Atraso médio", `${arred} d`, pagos, "receber"), B("Pagos no prazo", `${pctPrazo}%`, pagos, "receber"), B("Títulos", String(atrasos.length), pagos, "receber")], ["comportamento de pagamento dos clientes"], 0.88);
   }
 
@@ -783,6 +895,129 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
       ? `Os pagamentos são feitos em dia: ${emMediaAoVencimento(arred)} (${pctPrazo}% no prazo). Disciplina adequada; ainda assim, pagar exatamente no vencimento preserva mais caixa.`
       : `Os pagamentos saem com ${arred} dia(s) de atraso em média (${pctPrazo}% no prazo). Atrasos recorrentes geram multa e juros e comprometem o relacionamento com fornecedores.`;
     return R(frase, [B("Atraso médio", `${arred} d`, pagos, "pagar"), B("Pagos no prazo", `${pctPrazo}%`, pagos, "pagar"), B("Títulos", String(atrasos.length), pagos, "pagar")], ["comportamento de pagamento a fornecedores"], 0.88);
+  }
+
+  // ——— SALDO DE CADA CONTA ———
+  // O consolidado esconde em que banco o dinheiro está; a pergunta "de cada
+  // conta" quer a lista, a mesma da tela Contas bancárias.
+  if (/(saldo|quanto (tenho|tem|h[áa])).*(cada|por|das?|nas?|em cada) (conta|banco)s?|(contas?|bancos?) (e|com) (os |seus )?saldos?|saldo (de|em) cada|quanto (tenho|tem) em cada/.test(p) && input.contasSaldo?.length) {
+    const cs = [...input.contasSaldo].sort((a, b) => b.saldo - a.saldo);
+    return R(
+      `O saldo consolidado é ${fmt(input.saldoAtual)}, em ${cs.length} conta(s):\n${cs.map((c) => `- ${c.nome} · ${fmt(c.saldo)}`).join("\n")}`,
+      [{ label: "Saldo consolidado", valor: fmt(input.saldoAtual) }, ...cs.slice(0, 3).map((c) => ({ label: c.nome, valor: fmt(c.saldo) }))],
+      ["saldo por conta"]);
+  }
+
+  // ——— CONTAS RECORRENTES / CUSTO FIXO — o mesmo motor da tela "Contas recorrentes" ———
+  // ⚠️ "quais despesas fixas eu tenho" casava a CATEGORIA "Despesa" e
+  // respondia o gasto pago no mês; "quanto tenho em contas recorrentes" caía no
+  // saldo. O custo fixo é o que se REPETE (contraparte + categoria em 3 de 6
+  // meses), e quem sabe disso é `montarPainelRecorrentes`.
+  if (/recorrent|(despesas?|custos?|gastos?|contas?) fix[oa]s?|custo fixo|pago todo m[êe]s|todo m[êe]s (eu )?pago|assinaturas? (que )?(eu )?pago/.test(p) && !/receb|receita|client|simul|unidade|empat|aument|reajust|contrat/.test(p)) {
+    const painel = montarPainelRecorrentes(input);
+    if (painel.custoFixoIndisponivel) {
+      // Sem histórico para separar o fixo, o que há de concreto são os maiores
+      // gastos do mês — ditos como gasto, nunca como custo fixo.
+      const maiores = topCategorias(movs.filter((m) => m.type === "saida" && within(m.due_date, janela("este mês", hoje))), 4);
+      return R(`Ainda não dá para separar o custo fixo: ${painel.custoFixoIndisponivel.motivo} ${painel.custoFixoIndisponivel.comoResolver}${maiores.length ? `\nEnquanto isso, os maiores gastos do mês:\n${maiores.map((c) => `- ${c.nome} · ${fmt(c.valor)}`).join("\n")}` : ""}`.trim(),
+        [T("Contas a pagar do mês", fmt(painel.totalDoMes), "recorrentes")], ["contas recorrentes"]);
+    }
+    const fixos = painel.grupos.filter((g) => g.especie === "fixa").sort((a, b) => b.mediaMensal - a.mediaMensal);
+    const variaveis = painel.grupos.filter((g) => g.especie === "variavel").sort((a, b) => b.mediaMensal - a.mediaMensal);
+    const linhas = [...fixos, ...variaveis].slice(0, 6).map((g) => `- ${g.contraparte} · ${g.categoria} · ${fmt(g.mediaMensal)}/mês${g.especie === "variavel" ? " (varia)" : ""}`);
+    if (!fixos.length) {
+      return R(`Nenhum gasto se repetiu com o mesmo valor nos últimos meses, então não há custo fixo a apontar.${linhas.length ? ` Estes se repetem, mas com valor variável:\n${linhas.join("\n")}` : ""}`,
+        [T("Recorrentes variáveis", String(variaveis.length), "recorrentes")], ["contas recorrentes"]);
+    }
+    return R(
+      `Seu custo fixo mensal estimado é ${fmt(painel.custoFixoMensal)}, em ${painel.compromissosFixos} gasto(s) que se repetem todo mês${variaveis.length ? `, mais ${variaveis.length} recorrente(s) de valor variável` : ""}:${linhas.length ? `\n${linhas.join("\n")}` : ""}`,
+      [T("Custo fixo mensal", fmt(painel.custoFixoMensal), "recorrentes"), T("Compromissos fixos", String(painel.compromissosFixos), "recorrentes")],
+      ["contas recorrentes"]);
+  }
+
+  // ——— LANÇAMENTOS / MOVIMENTAÇÕES de um período (o extrato na conversa) ———
+  if (/(lan[çc]amentos|movimenta[çc](ões|oes)|transa[çc](ões|oes)|extrato)\b/.test(p) && /(mostr|list|quais|ver|me d[áa]|tem|teve|houve|fiz|foram|de |do |da )/.test(p) && !/quant(os|as)|import|envi|conect|concili|duplic/.test(p)) {
+    const w = janela(p, hoje);
+    const doPeriodo = movs.filter((m) => within(m.status === "pago" ? cashDate(m) : m.due_date, w))
+      .sort((a, b) => (b.paid_date || b.due_date).localeCompare(a.paid_date || a.due_date));
+    if (!doPeriodo.length) return R(`Não há lançamentos ${w.label}.`, [], ["extrato"]);
+    const ent = doPeriodo.filter((m) => m.type === "entrada"), sai = doPeriodo.filter((m) => m.type === "saida");
+    const linhas = doPeriodo.slice(0, 8).map((m) => `- ${dia(m.status === "pago" ? cashDate(m) : m.due_date).slice(0, 5)} · ${nomeDoTitulo(m, nomes)} · ${m.type === "entrada" ? "+" : "−"}${fmt(Math.abs(m.amount))}${m.status === "pago" ? "" : " (previsto)"}`);
+    return R(
+      `${cap(w.label)} há ${doPeriodo.length} lançamento(s): ${fmt(somaAbs(ent))} de entradas e ${fmt(somaAbs(sai))} de saídas.\n${linhas.join("\n")}${doPeriodo.length > 8 ? `\n- e mais ${doPeriodo.length - 8}` : ""}`,
+      [L("Entradas", fmt(somaAbs(ent)), ent, "extrato"), L("Saídas", fmt(somaAbs(sai)), sai, "extrato")],
+      ["extrato"]);
+  }
+
+  // ——— TENHO DINHEIRO PARA PAGAR AS CONTAS (da semana, do mês…)? ———
+  // Cruza o SALDO de hoje com o que vence na janela (e o que já venceu).
+  if (/(tenho|terei|vou ter|d[áa]|tem) (dinheiro|saldo|caixa|grana)[^?]*(pra|para) pagar|(d[áa]|consigo) (pra |para )?pagar (as |todas as |minhas )?contas|o (saldo|caixa) (d[áa]|cobre|aguenta)/.test(p)) {
+    const { abertos, vencidos, w } = titulosDaPergunta(p, input, "pagar");
+    const jw = w ?? { label: "nesta semana", ...semanaDe(hoje) };
+    const naJanela = w ? abertos : abertos.filter((m) => within(m.due_date, jw));
+    const devido = [...vencidos, ...naJanela.filter((m) => !vencidos.includes(m))];
+    const total = somaAbs(devido);
+    const sobra = input.saldoAtual - total;
+    const frase = devido.length === 0
+      ? `Não há contas a pagar ${jw.label} nem vencidas. O saldo de hoje é ${fmt(input.saldoAtual)}.`
+      : sobra >= 0
+        ? `Sim. As contas ${jw.label}${vencidos.length ? " (com as já vencidas)" : ""} somam ${fmt(total)} e o saldo de hoje é ${fmt(input.saldoAtual)}: sobram ${fmt(sobra)} depois de pagar tudo.`
+        : `Não, faltam ${fmt(-sobra)}. As contas ${jw.label}${vencidos.length ? " (com as já vencidas)" : ""} somam ${fmt(total)} e o saldo de hoje é ${fmt(input.saldoAtual)}.`;
+    return R(frase + listaDeTitulos(devido, nomes, 5),
+      [L(`A pagar ${jw.label}`, fmt(total), devido, "pagar"), T("Saldo hoje", fmt(input.saldoAtual), "inicio")],
+      ["contas a pagar em aberto", "saldo consolidado"]);
+  }
+
+  // ——— TÍTULOS RECORTADOS: "quais contas tenho para pagar nessa semana",
+  // "a receber de hoje", "quanto devo à Energia Sudeste", "maiores contas a
+  // pagar", "a pagar por categoria". Os blocos de total abaixo respondem a
+  // carteira inteira; quando a pergunta recorta (período, contraparte, lista,
+  // categoria), a resposta é o RECORTE com os títulos nomeados.
+  {
+    const ladoPagar = /a pagar|para pagar|pra pagar|(tenho|preciso|vou|devo) (que |de )?pagar|pag[áa]veis|boletos?\b|contas?\b|devo (a|ao|à|para|pro|pra)(\s|$)|fornecedor\b/.test(p);
+    const ladoReceber = /a receber|para receber|pra receber|(tenho|vou) (que |de )?receber|receb[íi]veis|me (pagam|pagar|paga)\b|me devem|me deve\b|clientes? (que )?(v[ãa]o )?(me )?pag/.test(p);
+    const lado: "pagar" | "receber" | null = ladoReceber ? "receber" : ladoPagar ? "pagar" : null;
+    const recorta = citaPeriodo(p) || !!contraparteCitada(p, nomes) || /\bquais\b|\blist(a|ar|e)\b|mostr|maior(es)?\b|por categoria|detalh|quem s[ãa]o|quem (me )?pag/.test(p);
+    const fora = /paguei|recebi|\bpag[oa]s?\b|recebid|gastei|j[áa] (pag|receb|entr|sa)|vencid|atrasad|em atraso|inadimpl|venceu|m[êe]s que vem|pr[óo]ximo m[êe]s|semana que vem|pr[óo]xima semana|recorrent|fix[oa]s|\bcontas? (banc|corrent)|cada conta|saldo|quant(os|as)\b|parcel|financ|empr[ée]st|simul|posso|consigo|vale a pena|(maior(es)?|principa(l|is)|top) (\d+ )?fornecedor/.test(p)
+      // "vence" sozinho é do bloco de vencimentos; "QUAIS boletos vencem
+      // essa semana" pede a lista do recorte.
+      || (/vence\b|vencem|vencer|vencimento/.test(p) && !(citaPeriodo(p) && /\bquais\b|list|mostr/.test(p)));
+    if (lado && recorta && !fora) {
+      const { abertos, vencidos, w, alvo } = titulosDaPergunta(p, input, lado);
+      const palavra = lado === "pagar" ? "a pagar" : "a receber";
+      const destino = lado === "pagar" ? "pagar" : "receber";
+      const total = somaAbs(abertos);
+      const totVenc = somaAbs(vencidos);
+      const de = alvo ? ` com ${alvo[1]}` : "";
+      const quando = w ? ` ${w.label}` : "";
+      // O vencido fica FORA da janela futura e é dito à parte: "esta semana"
+      // não esconde o boleto que venceu ontem.
+      const vencFora = vencidos.filter((m) => !abertos.includes(m));
+      const notaVenc = vencFora.length ? ` Além disso, ${fmt(somaAbs(vencFora))} já estão vencidos (${vencFora.length} título(s))${vencFora.length <= 3 ? `: ${vencFora.map((m) => `${nomeDoTitulo(m, nomes)} (${dia(m.due_date).slice(0, 5)})`).join(", ")}` : ""}.` : "";
+      if (/por categoria/.test(p) && abertos.length) {
+        const cats = topCategorias(abertos, 6);
+        return R(
+          `As contas ${palavra}${quando}${de} somam ${fmt(total)} em ${abertos.length} título(s), por categoria:\n${cats.map((c) => `- ${c.nome} · ${fmt(c.valor)} (${c.movs.length})`).join("\n")}`,
+          cats.slice(0, 4).map((c) => L(c.nome, fmt(c.valor), c.movs, destino)),
+          [lado === "pagar" ? "contas a pagar em aberto" : "recebíveis em aberto"], 0.9,
+          barras(`${cap(palavra)} por categoria`, lado === "pagar" ? "saida" : "entrada", cats));
+      }
+      if (!abertos.length) {
+        return R(
+          `Não há nada ${palavra}${de}${quando || " em aberto"}.${notaVenc}`,
+          vencFora.length ? [L("Vencido", fmt(somaAbs(vencFora)), vencFora, destino)] : [T(`${cap(palavra)}${quando}`, fmt(0), destino)],
+          [lado === "pagar" ? "contas a pagar em aberto" : "recebíveis em aberto"]);
+      }
+      const abre = w
+        ? `${cap(w.label)} ${abertos.length === 1 ? "vence 1 conta" : `vencem ${abertos.length} contas`} ${palavra}${de}, somando ${fmt(total)}:`
+        : `Há ${fmt(total)} ${palavra}${de} em ${abertos.length} título(s)${totVenc > 0 ? `, ${fmt(totVenc)} já vencidos` : ""}:`;
+      return {
+        ...R(`${abre}${listaDeTitulos(abertos, nomes)}${w ? `\n${notaVenc.trim()}` : ""}`.trim(),
+          [L(`${cap(palavra)}${quando}`, fmt(total), abertos, destino), ...(vencFora.length && w ? [L("Já vencido", fmt(somaAbs(vencFora)), vencFora, destino)] : []), B("Títulos", String(abertos.length), abertos, destino)],
+          [lado === "pagar" ? "contas a pagar em aberto" : "recebíveis em aberto"]),
+        ...(alvo ? { contatoId: alvo[0] } : {}),
+      };
+    }
   }
 
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
@@ -849,14 +1084,36 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const receb = lRec.reduce((s, m) => s + Math.abs(m.amount), 0);
     const pagar = lPag.reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R(`Nada vence ${w.label}. Sem títulos pendentes nesse intervalo.`, [], ["agenda de vencimentos"]);
+    // "quais contas/boletos vencem" pergunta pelos NOMES: a lista vai junto.
+    const soPagar = /pagar|boleto|conta|fornecedor/.test(p) && !/receb|client/.test(p);
+    const soReceber = /receb|client/.test(p) && !/pagar|boleto|fornecedor/.test(p);
+    const listados = soPagar ? lPag : soReceber ? lRec : venc;
     return R(
-      `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} vencem ${venc.length} título(s): ${fmt(receb)} a receber e ${fmt(pagar)} a pagar — resultado de ${fmt(receb - pagar)} no caixa.`,
+      `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} vencem ${venc.length} título(s): ${fmt(receb)} a receber e ${fmt(pagar)} a pagar — resultado de ${fmt(receb - pagar)} no caixa.${listaDeTitulos(listados, nomes)}`,
       [L("A receber", fmt(receb), lRec, "receber"), L("A pagar", fmt(pagar), lPag, "pagar"), L("Líquido", fmt(receb - pagar), venc, "fluxoMes")],
       ["agenda de vencimentos"]);
   }
 
   // ——— INADIMPLÊNCIA / quem está atrasado ———
   if (/inadimpl|em atraso|atrasad|quem.*dev|devendo|devedor|clientes? devendo|vencid|caloteir|pior (cliente|pagador)|cliente que (mais )?(atrasa|deve)/.test(p)) {
+    // ⚠️ "quais PAGAMENTOS estão vencidos" é o que EU devo, não o que me devem:
+    // respondia a carteira de clientes. "Contas atrasadas" sem lado são as duas.
+    const ehPagar = /pagament|pagar|fornecedor|boleto|eu devo|que devo|minhas? (contas|d[íi]vidas)/.test(p) && !/receb|client|me dev/.test(p);
+    const ehAmbos = !ehPagar && /\bcontas?\b|t[íi]tulos?/.test(p) && !/receb|client|me dev|quem/.test(p);
+    if (ehPagar || ehAmbos) {
+      const vp = movs.filter((m) => m.type === "saida" && m.status === "pendente" && m.due_date.slice(0, 10) < hoje).sort((a, b) => a.due_date.localeCompare(b.due_date));
+      const vr = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente" && m.due_date.slice(0, 10) < hoje).sort((a, b) => a.due_date.localeCompare(b.due_date));
+      if (ehPagar) {
+        if (!vp.length) return R("Nenhuma conta a pagar está vencida: tudo o que venceu foi pago.", [T("A pagar vencido", fmt(0), "pagar")], ["contas a pagar vencidas"]);
+        return R(`Há ${fmt(somaAbs(vp))} a pagar vencidos, em ${vp.length} título(s):${listaDeTitulos(vp, nomes)}`,
+          [L("A pagar vencido", fmt(somaAbs(vp)), vp, "pagar"), B("Títulos", String(vp.length), vp, "pagar")], ["contas a pagar vencidas"]);
+      }
+      if (!vp.length && !vr.length) return R("Nada está vencido: não há títulos em atraso a pagar nem a receber.", [T("Em atraso", fmt(0), "vencidos")], ["títulos vencidos"]);
+      return R(
+        `Estão vencidos ${fmt(somaAbs(vp))} a pagar (${vp.length}) e ${fmt(somaAbs(vr))} a receber (${vr.length}).${vp.length ? `\nA pagar:${listaDeTitulos(vp, nomes, 4)}` : ""}${vr.length ? `\nA receber:${listaDeTitulos(vr, nomes, 4)}` : ""}`,
+        [L("A pagar vencido", fmt(somaAbs(vp)), vp, "pagar"), L("A receber vencido", fmt(somaAbs(vr)), vr, "vencidos")],
+        ["contas a pagar vencidas", "recebíveis vencidos"]);
+    }
     const venc = movs.filter((m) => ehContaAReceber(m) && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
     const total = venc.reduce((s, m) => s + Math.abs(m.amount), 0);
     if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [T("Em atraso", fmt(0), "vencidos")], ["recebíveis vencidos"]);
@@ -1238,7 +1495,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const pct = Math.round(((a - b) / b) * 100);
     const dir = a > b ? "crescendo" : a < b ? "caindo" : "estável";
     return R(
-      `A receita está ${dir}: ${fmt(a)} ${atual.label} contra ${fmt(b)} ${ant.label} — variação de ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Recomenda-se manter o ritmo comercial." : "Recomenda-se investigar a origem da queda."}`,
+      `A receita está ${dir}: ${fmt(a)} ${atual.label} contra ${fmt(b)} ${ant.label} — variação de ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Bom sinal: vale manter o ritmo de vendas." : "Vale olhar de onde veio essa queda."}`,
       [L(cap(atual.label), fmt(a), la, "extrato"), L(cap(ant.label), fmt(b), lb, "extrato"), B("Crescimento", `${pct >= 0 ? "+" : ""}${pct}%`, [...la, ...lb], "extrato")],
       ["receita realizada (mês vs. mês)"], 0.9,
       { tipo: "linha", titulo: "Receita mensal · últimos 6 meses", tom: "entrada", dados: serieMensal(movs, hoje, 6, "receita") });
@@ -1391,6 +1648,9 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const transf = pagos.filter((m) => !ehGastoReal(m)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
     const top = topCategorias(sai, 3);
+    // Período sem gasto nenhum é AUSÊNCIA, não "R$ 0,00 em 0 pagamento(s)":
+    // a frase curta deixa a resposta vazia ganhar as ações de lançar/enviar.
+    if (!sai.length && transf <= 0) return R(`Não há gastos pagos ${w.label}.`, [], ["despesas realizadas"]);
     return R(
       `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}${transf > 0 ? ` Não entram ${fmt(transf)} transferidos entre contas da própria empresa — o dinheiro só mudou de conta (no caixa saíram ${fmt(tot + transf)} ao todo).` : ""}`,
       [L(`Gasto ${w.label}`, fmt(tot), sai, "extrato"), ...top.slice(0, 2).map((c) => L(c.nome, fmt(c.valor), c.movs, "extrato"))],
@@ -1518,6 +1778,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const topC = topCategorias(ent, 3);
     const fora = pagas.filter((m) => !ehReceitaDeVenda(m));
     const totCaixa = pagas.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (!pagas.length) return R(`Não há recebimentos ${w.label}.`, [], ["receita realizada"]);
     // "Quanto recebi/entrou?" é pergunta de CAIXA (o "Entradas" da Visão geral,
     // toda entrada liquidada); "faturei/receita/vendi" é pergunta de RECEITA.
     // As duas respostas citam os dois números, com o nome certo em cada um.
@@ -1537,15 +1798,18 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
   }
 
   // ——— PREVISÃO: quanto vai sobrar no mês (antes do RESULTADO realizado) ———
-  if (/(vai sobrar|vou sobrar|sobra prevista|previs[ãa]o|proje[çc][ãa]o|fech(a|ar|arei|o) o m[êe]s|fim do m[êe]s|vou conseguir pagar|(vou|vai) (fechar|terminar) o m[êe]s|fechar no (azul|positivo)|(t[ôo]|to|estou) conseguindo pagar|consigo pagar (as )?contas)/.test(p)) {
+  if (/(vai sobrar|vou sobrar|sobra prevista|previs[ãa]o|proje[çc][ãa]o|fech(a|ar|arei|o) o m[êe]s|fim do m[êe]s|vou conseguir pagar|(vou|vai) (fechar|terminar) o m[êe]s|fechar no (azul|positivo)|(t[ôo]|to|estou) conseguindo pagar|consigo pagar (as )?contas|(vou|vai|vamos) (ficar|fechar|terminar) no (vermelho|azul|negativo|positivo)[^?]*m[êe]s)/.test(p)) {
     const w = janela("mês", hoje);
     const lRealRec = pagosNa(movs, "entrada", w), lRealPag = pagosNa(movs, "saida", w);
     const lPrevRec = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && within(m.due_date, w));
     const lPrevPag = movs.filter((m) => m.type === "saida" && m.status === "pendente" && within(m.due_date, w));
     const realRec = somaAbs(lRealRec), realPag = somaAbs(lRealPag), prevRec = somaAbs(lPrevRec), prevPag = somaAbs(lPrevPag);
     const ent = realRec + prevRec, sai = realPag + prevPag, proj = ent - sai;
+    // O saldo de hoje mais o que ainda falta entrar e sair no mês: a pergunta
+    // "vou ficar no vermelho?" é sobre o SALDO, não só sobre o resultado.
+    const saldoFim = input.saldoAtual + prevRec - prevPag;
     return R(
-      `Projeção do mês: entradas ${fmt(ent)} (${fmt(realRec)} já entraram + ${fmt(prevRec)} previstas) e saídas ${fmt(sai)} — deve ${proj >= 0 ? `sobrar ${fmt(proj)}` : `faltar ${fmt(-proj)}`} no fim do mês.`,
+      `Projeção do mês: entradas ${fmt(ent)} (${fmt(realRec)} já entraram + ${fmt(prevRec)} previstas) e saídas ${fmt(sai)} — deve ${proj >= 0 ? `sobrar ${fmt(proj)}` : `faltar ${fmt(-proj)}`} no fim do mês. Com o que ainda vence, o saldo terminaria o mês em ${fmt(saldoFim)}${saldoFim < 0 ? " (no vermelho)" : ""}.`,
       [L("Entradas (mês)", fmt(ent), [...lRealRec, ...lPrevRec], "fluxoMes"), L("Saídas (mês)", fmt(sai), [...lRealPag, ...lPrevPag], "fluxoMes"),
         L("Projeção", fmt(proj), [...lRealRec, ...lPrevRec, ...lRealPag, ...lPrevPag], "fluxoMes")],
       ["realizado + previsto do mês"]);
@@ -1648,13 +1912,14 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
   }
 
   // ——— RESUMO DO PERÍODO (mês/trimestre/semestre/ano) ———
-  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa/.test(p)) {
+  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa|^(o |e o |qual (o|é o) )?fluxo de caixa\b(?! (livre|projetad|futur|previst))|\bfluxo de caixa (d[oa]s?|n[oa]s?|em|deste|desse|dest[ea]) /.test(p)) {
     const w = janela(p, hoje);
     const lEntrou = pagosNa(movs, "entrada", w), lSaiu = pagosNa(movs, "saida", w);
     const entrou = somaAbs(lEntrou), saiu = somaAbs(lSaiu);
     const res = entrou - saiu;
     const aVencer = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && m.due_date.slice(0, 10) >= hoje);
     const aVencerVal = aVencer.reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
+    if (!lEntrou.length && !lSaiu.length && !aVencer.length) return R(`Não há lançamentos ${w.label}.`, [], ["fluxo de caixa realizado"]);
     return R(
       `${cap(w.label)}: entraram ${fmt(entrou)} e saíram ${fmt(saiu)} — ${res >= 0 ? `sobrou ${fmt(res)}` : `faltou ${fmt(-res)}`}.${aVencer.length ? ` Ainda vencem ${aVencer.length} título(s) (líquido ${fmt(aVencerVal)}).` : ""}`,
       [L("Recebido", fmt(entrou), lEntrou, "extrato"), L("Gasto", fmt(saiu), lSaiu, "extrato"), L("Resultado", fmt(res), [...lEntrou, ...lSaiu], "extrato")],
@@ -1669,7 +1934,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
    * runway canônico de 90 dias — o do Fluxo de caixa.
    */
   if (/quando (vou |eu )?(fico|ficar[ei]?|vou ficar|fica) (sem (dinheiro|caixa|grana|saldo)|no vermelho|negativ)|quando (acaba|zera|termina|some) (o |meu )?(caixa|dinheiro|saldo)|quando (o |meu )?(caixa|dinheiro|saldo) (acaba|zera|termina|some|vai acabar)|data (de|da) ruptura|quando (quebro|vou quebrar|estouro)|\bvou quebrar\b|vou falir|t[ôo] quebrando|at[ée] quando (o |meu )?(dinheiro|saldo|caixa) (dura|aguenta|vai durar)|risco de (eu |a gente |a empresa )?(quebrar|falir|fechar|quebra|insolv)|(perto|beira|risco) de (eu )?(quebrar|falir|fechar|ficar sem|acabar o (caixa|dinheiro))|(t[ôo]|to|estou) (quase | quase )?(perto de )?(ficar |ficando )?sem (dinheiro|caixa|grana)|vou aguentar|consigo sobreviver/.test(p)) {
-    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora, e não há fôlego a projetar (runway não se aplica). Recomenda-se priorizar entradas e conter saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Runway", valor: `— ${formaCurta({ codigo: "caixa_negativo", motivo: "" })}` }], ["saldo", "runway (média dos últimos 90 dias)"]);
+    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora, e não há fôlego a projetar (runway não se aplica). O ideal agora é puxar os recebimentos e segurar os gastos.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Runway", valor: `— ${formaCurta({ codigo: "caixa_negativo", motivo: "" })}` }], ["saldo", "runway (média dos últimos 90 dias)"]);
     const rt = leituraRitmo(input);
     if (rt.meses === null) {
       if (rt.codigo === "sem_queima") {
@@ -1698,7 +1963,7 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     // ⚠️ Sem conta cadastrada não há saldo — a IA diz a MESMA ausência que a
     // tela, nunca "R$ 0,00" (Rodada 5).
     if (input.contas === 0) {
-      return R("A empresa ainda não tem conta bancária cadastrada, então não há saldo para informar. Recomenda-se cadastrar a conta em Cadastros › Contas bancárias ou conectar o banco em Entrada de dados.",
+      return R("A empresa ainda não tem conta bancária cadastrada, então não há saldo para informar. Para eu enxergar isso, cadastre a conta em Cadastros › Contas bancárias ou conecte o banco em Entrada de dados.",
         [{ label: "Saldo", valor: `— ${formaCurta({ codigo: "sem_conta", motivo: "" })}` }], ["contas bancárias cadastradas"], 0.95);
     }
     // ⚠️ O runway ao lado do saldo é o CANÔNICO (o do Fluxo de caixa). Vinha do

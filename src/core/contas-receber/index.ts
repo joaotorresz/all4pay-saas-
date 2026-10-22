@@ -113,7 +113,8 @@ export function naoEhRecebivel(m: RiskMovement): boolean {
   return !LANCADO_COMO_TITULO.has((m.origem ?? "").trim().toLowerCase());
 }
 
-function passaNosFiltros(
+/** Exportada para o Painel de Vendas recortar os títulos pelos MESMOS filtros do painel. */
+export function passaNosFiltros(
   m: RiskMovement, f: FiltroContasReceber, nomes: Record<string, string> | undefined,
 ): boolean {
   if (f.projeto && m.projeto !== f.projeto) return false;

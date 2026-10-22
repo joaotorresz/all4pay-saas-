@@ -57,6 +57,7 @@ import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/hom
 import { iconeExiste } from "@/components/ui/lucide-icons";
 import { readFileSync } from "node:fs";
 import { montarPainelMaquininha, diaEHora } from "@/core/pinbank/recentes";
+import * as RM from "@/core/pinbank/relatorio";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -589,6 +590,62 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("maquininha: a forma escrita como se lê", p.vendas[0].descricao === "Crédito 3x · Elo" && p.vendas[2].descricao === "Débito · Visa" && montarPainelMaquininha([V(9, "Aprovada", 1, "2026-10-16T12:00:00Z", { ehPix: true, bandeira: "VISA" })], "2026-10-16").vendas[0].descricao === "Pix");
   ok("maquininha: sem venda, lista vazia e zero (não quebra)", montarPainelMaquininha([], "2026-10-16").hoje.total === 0);
   ok("maquininha: valor inválido não entra", montarPainelMaquininha([V(5, "Aprovada", Number.NaN, "2026-10-16T12:00:00Z")], "2026-10-16").vendas.length === 0);
+}
+
+
+// ── A página "Maquininha Quattro" e o filtro do card (19/10/2026) ──
+{
+  const V = (nsu: number, status: string, valor: number, quando: string, extra: Record<string, unknown> = {}) =>
+    ({ nsu, status, valor, ocorridoEm: new Date(`${quando}-03:00`).toISOString(), ...extra });
+  const vendas = [
+    V(1, "Aprovada", 100, "2026-10-15T10:00:00", { formaPagamento: "DEBITO", bandeira: "VISA", vinculoId: "A" }),
+    V(2, "Aprovada", 200, "2026-10-13T15:00:00", { formaPagamento: "AVISTA", bandeira: "MASTERCARD", vinculoId: "B" }),
+    V(3, "Negada", 50, "2026-10-14T11:00:00", { formaPagamento: "DEBITO", bandeira: "ELO", vinculoId: "A" }),
+    V(4, "Pendente", 70, "2026-10-15T11:00:00", { formaPagamento: "DEBITO", vinculoId: "A" }),
+    V(5, "Aprovada", 150, "2026-10-08T09:00:00", { ehPix: true, vinculoId: "A" }),
+    V(6, "Aprovada", 999, "2026-10-09T09:00:00", { ehPix: true, vinculoId: "A" }),
+    V(7, "Aprovada", 400, "2026-09-20T09:00:00", { formaPagamento: "PARCELADO_LOJA", numeroParcelas: "2", bandeira: "VISA", vinculoId: "A" }),
+  ];
+  const T = (chave: string, type: "entrada" | "saida", amount: number, due_date: string, situacao = "previsto") => ({ chave, type, amount, due_date, situacao });
+  const titulos = [
+    T("pinbank:1:1:r", "entrada", 100, "2026-10-16"), T("pinbank:1:1:t", "saida", 1.49, "2026-10-16"), T("pinbank:1:1:f", "saida", 1, "2026-10-16"),
+    T("pinbank:2:1:r", "entrada", 200, "2026-11-12"), T("pinbank:2:1:t", "saida", 5.98, "2026-11-12"),
+    T("pinbank:2:1:a", "saida", 99, "2026-11-12", "cancelado"),
+    T("pinbank:5:1:r", "entrada", 150, "2026-10-10"),
+    T("outra:1", "entrada", 5000, "2026-10-20"),
+  ];
+  const hoje = "2026-10-15"; // quinta-feira
+  const sem = RM.montarRelatorioMaquininha(vendas, titulos, hoje, "semana");
+  ok("relatório: a semana vai de segunda a domingo", sem.janela.de === "2026-10-12" && sem.janela.fim === "2026-10-18" && RM.janelaMaquininha("semana", "2026-10-18").de === "2026-10-12");
+  // Defeito plantado: somar a negada e a pendente daria 420.
+  ok("relatório: o vendido soma só as APROVADAS do período", sem.resumo.vendido === 300 && sem.resumo.quantidade === 2 && sem.resumo.ticketMedio === 150, JSON.stringify(sem.resumo));
+  // Defeito plantado: comparar com a semana passada INTEIRA daria 1.149 (a sexta entraria).
+  ok("relatório: compara com o mesmo trecho da semana passada", sem.resumo.vendidoAnterior === 150 && sem.resumo.variacao === 1, JSON.stringify(sem.janela.anterior));
+  ok("relatório: a pendente fica fora da taxa de aprovação", sem.resumo.tentativas === 3 && Math.abs((sem.resumo.aprovacao ?? 0) - 2 / 3) < 1e-9 && sem.resumo.recusadas[0]?.status === "Negada");
+  ok("relatório: formas e bandeiras somam o vendido", sem.porForma.map((f) => `${f.chave}:${f.valor}`).join() === "debito:100,credito_vista:200" && sem.porBandeira.reduce((s, f) => s + f.valor, 0) === 300);
+  ok("relatório: a evolução traz a semana inteira, com os dias futuros marcados", sem.evolucao.length === 7 && sem.evolucao.filter((p) => p.futuro).length === 3 && sem.evolucao[0].label === "Seg 12");
+  // Defeito plantado: somar o título cancelado levaria a antecipação a 99 e o líquido a 192,53.
+  ok("relatório: custo e líquido saem dos títulos VIVOS das vendas do período", !!sem.custos && sem.custos.taxa === 7.47 && sem.custos.tarifa === 1 && sem.custos.antecipacao === 0 && sem.custos.liquido === 291.53 && sem.custos.vendasComTitulo === 2, JSON.stringify(sem.custos));
+  ok("relatório: a agenda é líquida, por dia, e o vencido não baixado fica à parte", sem.agenda.dias.length === 2 && sem.agenda.dias[0].valor === 97.51 && sem.agenda.dias[0].rotulo === "Amanhã" && sem.agenda.total === 291.53 && sem.agenda.atrasado === 150, JSON.stringify(sem.agenda));
+  ok("relatório: sem título, o custo é AUSENTE (nunca zero)", RM.montarRelatorioMaquininha(vendas, [], hoje, "semana").custos === null);
+  const dia = RM.montarRelatorioMaquininha(vendas, titulos, hoje, "dia");
+  ok("relatório: hoje, sem venda ontem, a variação é ausente", dia.resumo.vendido === 100 && dia.resumo.variacao === null && dia.evolucao.length === 12);
+  const mes = RM.montarRelatorioMaquininha(vendas, titulos, hoje, "mes");
+  ok("relatório: o mês vai do dia 1 até hoje", mes.resumo.vendido === 1449 && mes.janela.anterior.de === "2026-09-01" && mes.janela.anterior.ate === "2026-09-15" && mes.evolucao.length === 31);
+  ok("relatório: dia 31 compara com o último dia do mês curto", RM.janelaMaquininha("mes", "2026-03-31").anterior.ate === "2026-02-28");
+  const linhaQui = mes.calor.linhas.indexOf("Qui");
+  ok("relatório: o mapa de calor olha 4 semanas, por dia e horário", mes.calor.de === "2026-09-18" && mes.calor.valores[linhaQui][2] === 100 && mes.calor.maximo === 999);
+  ok("relatório: vendas por maquininha", sem.porMaquininha.map((m) => `${m.vinculoId}:${m.valor}`).sort().join() === "A:100,B:200");
+  ok("relatório: o dia da semana de cada venda", sem.vendas.find((v) => v.nsu === 1)?.semana === "Qui" && RM.diaDaSemana("2026-10-19") === "Seg");
+  ok("relatório: a chave do título é lida pelo papel", RM.lerChaveTitulo("pinbank:12:3:a")?.papel === "antecipacao" && RM.lerChaveTitulo("pinbank:12:estorno:1")?.papel === "estorno" && RM.lerChaveTitulo("outra:1") === null);
+  const plan = RM.linhasPlanilhaMaquininha(sem, (id) => id ?? "?");
+  ok("relatório: a planilha leva todas as vendas do período, da mais antiga à mais nova", plan.length === 1 + sem.vendas.length && plan[1][3] === 2 && plan[0][0] === "Data");
+  const demo = RM.planejarTitulosDemo([V(8, "Aprovada", 100, "2026-10-15T10:00:00", { formaPagamento: "PARCELADO_LOJA", numeroParcelas: "3" })], hoje);
+  const rec = demo.filter((t) => t.chave?.endsWith(":r"));
+  ok("relatório: (demonstração) o parcelado fecha ao centavo", rec.length === 3 && Math.round(rec.reduce((s, t) => s + t.amount * 100, 0)) === 10000);
+  ok("relatório: sem venda nenhuma não quebra", RM.montarRelatorioMaquininha([], [], hoje, "mes").resumo.ticketMedio === null);
+  const CARD = readFileSync(new URL("../src/components/visao-geral/MaquininhaRecentes.tsx", import.meta.url), "utf8");
+  ok("card: o filtro Hoje/Semana/Mês e o total do período", /SeletorPeriodoMaquininha/.test(CARD) && /montarRelatorioMaquininha\(/.test(CARD) && /v\.semana/.test(CARD));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
