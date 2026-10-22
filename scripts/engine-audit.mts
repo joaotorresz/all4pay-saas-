@@ -2052,10 +2052,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("qr: texto maior escolhe versão maior",
     gerarQR("x".repeat(120)).versao > qr.versao);
   ok("qr: acento e travessão não quebram", gerarQR("Pagamento à QUATTRO — R$ 1,00").tamanho > 0);
-  // Acima da versão 10 a função AVISA em vez de gerar um código que o leitor
+  // Acima da versão 20 a função AVISA em vez de gerar um código que o leitor
   // recusaria.
   ok("qr: conteúdo grande demais é recusado com mensagem", (() => {
-    try { gerarQR("x".repeat(400)); return false; } catch { return true; }
+    try { gerarQR("x".repeat(1000)); return false; } catch { return true; }
   })());
   const svg = qrParaSVG(qr, 200);
   ok("qr: SVG traz a zona silenciosa de 4 módulos",
@@ -9445,8 +9445,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     return /(?<![\w-])\/pagar\//.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
   });
   const comPagar = semPagar("src");
-  ok("vender/links: nenhum href/URL para /pagar/ (página pública não existe; decisão do dono)",
-     comPagar.length === 0 && !fsV.existsSync("src/app/pagar"), comPagar.join(" "));
+  // ⚠️ A página `/pagar` passou a existir em 22/10/2026 (decisão do dono: o
+  // checkout Pix/boleto da conta Pinbank), mas só pelo TOKEN do link
+  // (`?t=`), lendo `pinbank_checkout_ler`. O link de VENDA continua entregando
+  // o PIX estático: nenhum endereço `/pagar/<id>` existe.
+  const paginaPagar = fsV.existsSync("src/app/pagar/page.tsx") ? semComentario(fsV.readFileSync("src/app/pagar/page.tsx", "utf8")) : "";
+  ok("vender/links: nenhum href/URL para /pagar/<id>; a página /pagar só abre pelo token do checkout",
+     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /pinbank_checkout_ler/.test(paginaPagar)), comPagar.join(" "));
   ok("vender/links: o QR e o botão copiam o PIX (pixDoLink), não uma URL",
      /qrParaSVG\(gerarQR\(pix\)/.test(outras) && /writeText\(pix\)/.test(outras) && !/urlDoLink|window\.location\.origin/.test(outras));
   const formLink = fnDe(outras, "function FormLink(");
@@ -11856,9 +11861,21 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // comentário) é um dos de leitura — pega o nome inocente apontando para
   // CashOut/Pix/Transacoes, e o módulo novo que monte a URL por conta própria.
   const CAMINHO_PB = /\b(?:CashOut|CashIn|PixAutomatico|Transacoes|Pix|ContaDigital)\/[A-Z][A-Za-z]*/g;
+  // A COBRANÇA (Pix dinâmico e boleto, para a empresa RECEBER) é a única
+  // criação liberada, e só no cliente da API: nenhum caminho de CashOut.
+  const CAMINHOS_COBRANCA_OK = ["Pix/SolicitarDynamicQrCode", "CashIn/GerarBoleto"];
   const caminhosFora = (ler: (p: string) => string) =>
-    arqsF.flatMap((p) => [...semComF(ler(p)).matchAll(CAMINHO_PB)].map((m) => m[0]).filter((c) => !CAMINHOS_LEITURA_OK.includes(c)).map((c) => `${p}: ${c}`));
-  ok("extrato-pos: TETO ZERO de caminho da Pinbank que não seja de leitura (pagamento, Pix, TED, cobrança)", caminhosFora(lerF).length === 0, caminhosFora(lerF).join(", "));
+    arqsF.flatMap((p) => [...semComF(ler(p)).matchAll(CAMINHO_PB)].map((m) => m[0])
+      .filter((c) => !CAMINHOS_LEITURA_OK.includes(c) && !(p === P_API && CAMINHOS_COBRANCA_OK.includes(c)))
+      .map((c) => `${p}: ${c}`));
+  ok("extrato-pos: TETO ZERO de caminho da Pinbank que não seja de leitura (fora a cobrança, só no cliente)", caminhosFora(lerF).length === 0, caminhosFora(lerF).join(", "));
+  ok("cobranca-pinbank: o cliente só CRIA os dois caminhos de cobrança (nenhum CashOut)",
+     Object.values(API.METODOS_COBRANCA).length === 2 && Object.values(API.METODOS_COBRANCA).every((c) => CAMINHOS_COBRANCA_OK.includes(c)),
+     Object.values(API.METODOS_COBRANCA).join(", "));
+  ok("cobranca-pinbank: (defeito plantado) a cobrança apontando para CashOut/AprovarTed é ACUSADA",
+     caminhosFora((p) => (p === P_API ? lerF(p).replace('Boleto: "CashIn/GerarBoleto",', 'Boleto: "CashOut/AprovarTed",') : lerF(p))).some((x) => x.includes("CashOut/AprovarTed")));
+  ok("cobranca-pinbank: (defeito plantado) caminho de cobrança montado FORA do cliente é ACUSADO",
+     caminhosFora((p) => (p === P_PROC ? lerF(p) + '\nconst u = "Pix/SolicitarDynamicQrCode";' : lerF(p))).some((x) => x.startsWith(P_PROC)));
   const plantaAprovarTed = (p: string) => (p === P_API ? lerF(p).replace('ExtratoPos: "ContaDigital/ExtratoPos",', 'ExtratoPos: "ContaDigital/ExtratoPos",\n  Saldo: "CashOut/AprovarTed",') : lerF(p));
   ok("extrato-pos: (defeito plantado) um nome de leitura apontando para CashOut/AprovarTed é ACUSADO",
      caminhosFora(plantaAprovarTed).some((x) => x.includes("CashOut/AprovarTed")));
@@ -11909,6 +11926,63 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("extrato-pos: o aviso de RequestOrigin só diz 'aceitou' quando a rota diz ok", aceitouSoComOk(rotaExt));
   ok("extrato-pos: (defeito plantado) 'aceitou' em toda resposta sem RequestOrigin é REPROVADO",
      !aceitouSoComOk(rotaExt.replace(/avisoOrigem: ok\s*\?\s*("[^"]*")\s*:\s*"[^"]*",/, "avisoOrigem: $1,")));
+  /* ── cobranca-pinbank: a rota que CRIA cobrança pela conta da empresa ─── */
+  const ROTA_COB = "src/app/api/pinbank/cobranca/route.ts";
+  const rotaCob = lerF(ROTA_COB);
+  // Ordem do POST: sem banco → sessão → interruptor → reserva no banco (como a
+  // pessoa) → só então a Pinbank → o registro pela chave de serviço.
+  const ordemCob = (t: string) => {
+    const x = semComF(t).slice(semComF(t).indexOf("export async function POST"));
+    const iDemo = x.indexOf("NEXT_PUBLIC_SUPABASE_URL");
+    const iUser = x.indexOf("auth.getUser()");
+    const iLib = x.indexOf("cobrancaPinbankLiberada()");
+    const iRes = x.indexOf('s.rpc("pinbank_cobranca_reservar"');
+    const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+    const iReg = x.indexOf("pinbank_cobranca_registrar");
+    return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
+  };
+  ok("cobranca-pinbank: a rota recusa sem banco → sessão → interruptor → reserva no banco → só então a Pinbank", ordemCob(rotaCob));
+  ok("cobranca-pinbank: (defeito plantado) chamar a Pinbank antes da reserva é REPROVADO",
+     !ordemCob(rotaCob.replace("export async function POST(req: Request) {", "export async function POST(req: Request) {\n  await emitirCobrancaPinbank(reserva);")));
+  // A reserva é como a PESSOA (o banco confere empresa e papel); o registro, só o servidor.
+  const reservaComoPessoa = (t: string) => /s\.rpc\("pinbank_cobranca_reservar"/.test(semComF(t)) && !/admin\.rpc\("pinbank_cobranca_reservar"/.test(semComF(t));
+  ok("cobranca-pinbank: a reserva roda com a sessão da pessoa, nunca com a chave de serviço", reservaComoPessoa(rotaCob));
+  ok("cobranca-pinbank: (defeito plantado) reservar pela chave de serviço é ACUSADO",
+     !reservaComoPessoa(rotaCob.replace('s.rpc("pinbank_cobranca_reservar"', 'admin.rpc("pinbank_cobranca_reservar"')));
+  const regFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== ROTA_COB && /pinbank_cobranca_registrar/.test(semComF(ler(p))));
+  ok("cobranca-pinbank: só a rota grava o resultado (pinbank_cobranca_registrar)", regFora(lerF).length === 0, regFora(lerF).join(", "));
+  // O interruptor mora numa casa só.
+  const leInterruptor = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_COBRANCA\b/.test(semComF(ler(p))));
+  ok("cobranca-pinbank: PINBANK_COBRANCA só é lida pelo cliente da API", leInterruptor(lerF).length === 0 && /PINBANK_COBRANCA\b/.test(semComF(lerF(P_API))), leInterruptor(lerF).join(", "));
+  ok("cobranca-pinbank: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
+     leInterruptor((p) => (p === ROTA_COB ? lerF(p) + "\nconst l = process.env.PINBANK_COBRANCA;" : lerF(p))).includes(ROTA_COB));
+  ok("cobranca-pinbank: o interruptor está no .env.example", /^#?\s*PINBANK_COBRANCA=/m.test(docEnv));
+  /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
+  const PG_PAGAR = "src/app/pagar/page.tsx";
+  const pagPagar = lerF(PG_PAGAR);
+  // A leitura pública só pela chave de serviço, DEPOIS do interruptor e do token conferido.
+  const leituraPublica = (t: string) => {
+    const x = semComF(t);
+    const iTok = x.indexOf("TOKEN.test(token)");
+    const iLib = x.indexOf("cobrancaPinbankLiberada()");
+    const iRpc = x.indexOf('admin.rpc("pinbank_checkout_ler"');
+    return iTok > 0 && iLib > iTok && iRpc > iLib && /export const dynamic = "force-dynamic"/.test(t);
+  };
+  ok("checkout-pinbank: a página confere token → interruptor → só então lê pela chave de serviço", leituraPublica(pagPagar));
+  ok("checkout-pinbank: (defeito plantado) ler antes do interruptor é REPROVADO",
+     !leituraPublica(pagPagar.replace("  if (!cobrancaPinbankLiberada().liberada) return \"fora_do_ar\";\n", "")));
+  const leFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== PG_PAGAR && /pinbank_checkout_ler/.test(semComF(ler(p))));
+  ok("checkout-pinbank: só a página pública chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
+  ok("checkout-pinbank: (defeito plantado) o modal chamando a leitura pública é ACUSADO",
+     leFora((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\nfetch("pinbank_checkout_ler");' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
+  const ROTA_LINK = "src/app/api/pinbank/checkout/route.ts";
+  const rotaLink = lerF(ROTA_LINK);
+  const linkComoPessoa = (t: string) => /s\.rpc\("pinbank_checkout_link_criar"/.test(semComF(t)) && !/createAdmin|admin\.rpc/.test(semComF(t));
+  ok("checkout-pinbank: o link nasce com a sessão da pessoa, nunca com a chave de serviço", linkComoPessoa(rotaLink));
+  ok("checkout-pinbank: (defeito plantado) criar o link pela chave de serviço é ACUSADO",
+     !linkComoPessoa(rotaLink.replace('s.rpc("pinbank_checkout_link_criar"', 'admin.rpc("pinbank_checkout_link_criar"')));
+  const mw = lerF("src/middleware.ts");
+  ok("checkout-pinbank: /pagar é pública no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)));
   const semDocApi = API.VARIAVEIS_API_PINBANK.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }

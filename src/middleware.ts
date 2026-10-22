@@ -107,6 +107,9 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     // de login só é lida por quem já comprou, e é ANTES de comprar que alguém
     // precisa saber o que entra em cada linha e onde o sistema para.
     pathname.startsWith("/metodologia") ||
+    // O link de pagamento (`/pagar?t=<token>`) é aberto pelo CLIENTE da empresa,
+    // que não tem conta. O que ele vê sai só pelo servidor, pelo token.
+    pathname === "/pagar" ||
     pathname.startsWith("/api");
 
   if (!user && !isPublic) {

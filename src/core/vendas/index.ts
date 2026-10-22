@@ -526,11 +526,12 @@ export function validarLink(l: Partial<LinkPagamento>): Record<string, string> {
  * O que o link ENTREGA hoje: o PIX copia-e-cola (BR Code estático) da empresa,
  * com o valor do link e o id dele como identificador da transação.
  *
- * ⚠️ NÃO há página pública de pagamento. A versão anterior devolvia
+ * ⚠️ Este link NÃO tem página pública. A versão anterior devolvia
  * `<origem>/pagar/<id>`, rota que nunca existiu (404) — e o link mora em
  * `org_state`, que um pagador anônimo não lê. Um BR Code estático vale por si,
- * sem página e sem provedor: é o que funciona sem decisão nova. Página pública
- * ou PIX dinâmico (cobrança com vencimento) é decisão do dono, pendente.
+ * sem página e sem provedor. A página `/pagar?t=` (22/10/2026) é OUTRA coisa:
+ * o checkout do título a receber cobrado pela conta Pinbank
+ * (`docs/rodada-10/cobranca.md`, etapa 4).
  *
  * Sem dados do recebedor (chave = CNPJ cadastrado) devolve `null`: inventar
  * uma chave produziria um QR que paga a ninguém.

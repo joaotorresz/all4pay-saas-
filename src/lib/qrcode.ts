@@ -77,12 +77,26 @@ const VERSOES_M: Record<number, [number, number, number, number, number, number]
   8: [154, 22, 2, 38, 2, 39],
   9: [182, 22, 3, 36, 2, 37],
   10: [216, 26, 4, 43, 1, 44],
+  // 11 a 20 (19/10/2026): o Pix copia e cola da Pinbank passa de 211 bytes,
+  // o teto da versão 10, e o checkout precisa desenhar o QR dele.
+  11: [254, 30, 1, 50, 4, 51],
+  12: [290, 22, 6, 36, 2, 37],
+  13: [334, 22, 8, 37, 1, 38],
+  14: [365, 24, 4, 40, 5, 41],
+  15: [415, 24, 5, 41, 5, 42],
+  16: [453, 28, 7, 45, 3, 46],
+  17: [507, 28, 10, 46, 1, 47],
+  18: [563, 26, 9, 43, 4, 44],
+  19: [627, 26, 3, 44, 11, 45],
+  20: [669, 26, 3, 41, 13, 42],
 };
 
 /** Centros dos padrões de alinhamento por versão. */
 const ALINHAMENTO: Record<number, number[]> = {
   1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30],
   6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50],
+  11: [6, 30, 54], 12: [6, 32, 58], 13: [6, 34, 62], 14: [6, 26, 46, 66], 15: [6, 26, 48, 70],
+  16: [6, 26, 50, 74], 17: [6, 30, 54, 78], 18: [6, 30, 56, 82], 19: [6, 30, 58, 86], 20: [6, 34, 62, 90],
 };
 
 /** Bits de formato já prontos (nível M + máscara 0..7), com a máscara XOR aplicada. */
@@ -221,12 +235,12 @@ export function gerarQR(texto: string): QRCode {
 
   // Menor versão que comporta o conteúdo (4 bits de modo + 8/16 de tamanho).
   let versao = 0;
-  for (let v = 1; v <= 10; v++) {
+  for (let v = 1; v <= 20; v++) {
     const capacidade = VERSOES_M[v][0] - 2 - (v >= 10 ? 1 : 0);
     if (bytes.length <= capacidade) { versao = v; break; }
   }
   if (!versao) {
-    throw new Error(`Conteúdo de ${bytes.length} bytes não cabe num QR versão 10 (nível M).`);
+    throw new Error(`Conteúdo de ${bytes.length} bytes não cabe num QR versão 20 (nível M).`);
   }
 
   const [totalDados, ecPorBloco, b1, d1, b2, d2] = VERSOES_M[versao];

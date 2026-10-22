@@ -939,6 +939,27 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   cortado em qualquer ponto diz "chegou CORTADO". `/api/admin/saida-fixa` prova
   os 2 IPs de dentro da função.
 
+- ⚠️ **COBRANÇA POR PIX E BOLETO PELA CONTA PINBANK** (19/10/2026,
+  `docs/rodada-10/cobranca.md`, etapas 2 e 3 de 7). No modal da baixa de um
+  título a receber, "Gerar Pix" e "Gerar boleto" (`/api/pinbank/cobranca`).
+  Duas chaves: a PLATAFORMA põe o código da conta no vínculo, a EMPRESA liga
+  (`pinbank_cobranca_configurar`, administrar). A reserva é do BANCO, como a
+  pessoa (`pinbank_cobranca_reservar`, lançar): o pedido só diz título e
+  tipo; valor, vencimento e pagador saem de lá. O resultado só o servidor
+  grava (`pinbank_cobranca_registrar`, `service_role`). ⚠️ Resultado
+  `incerta` (5xx, enviado sem resposta) TRAVA o título — gerar outra cobraria
+  duas vezes; título alterado depois leva a cobrança a `a_cancelar`. Só CRIA
+  cobrança para receber, nenhum `CashOut` (bloco `cobranca-pinbank:` do
+  `engine-audit`). Nasce DESLIGADA (`PINBANK_COBRANCA=ligado` + produção).
+  Guarda `scripts/pinbank-cobranca.sql` no CI (10 defeitos plantados).
+  ⚠️ **O link de pagamento (MVP, 22/10/2026, etapa 4):** "Criar link" depois
+  de uma cobrança emitida → `/pagar?t=<token>` PÚBLICA, com o QR do Pix e a
+  linha do boleto. Lida SÓ pelo servidor (`pinbank_checkout_ler`, service_role,
+  depois do interruptor), com o mínimo. A baixa segue manual até o webhook.
+  Guarda `scripts/pinbank-checkout.sql` (9 defeitos) e bloco
+  `checkout-pinbank:` do `engine-audit`. Régua e baixa automática são as
+  próximas etapas.
+
 ## ⚠️ A CONVERSA LANÇA, MAS SÓ NO "CONFIRMAR" (decisão do dono, 19/10/2026)
 
 Amplia a regra "a IA sugere, não executa" da Rodada 9: no chat da Quattro AI a
