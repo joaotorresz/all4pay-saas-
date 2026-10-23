@@ -55,15 +55,10 @@ export default async function iaHistorico(navegador) {
   v.ok(/Hoje/.test(t1) && /Brightwell/.test(t1), "a conversa aparece no histórico, em \"Hoje\"");
   await chat().getByRole("button", { name: "Conversas" }).click();
 
-  // 2) útil + copiar: o estado é o que aconteceu
+  // 2) o rodapé (origem, fontes, copiar, útil/ruim) saiu a pedido do dono (21/10/2026)
   const bolha = u.page.locator('[data-ia="resposta"]').first();
-  await bolha.getByRole("button", { name: "Resposta útil" }).click();
-  v.ok(await bolha.getByRole("button", { name: "Resposta útil" }).getAttribute("aria-pressed") === "true", "marcar como útil fica marcado");
-  await bolha.getByRole("button", { name: "Copiar resposta" }).click();
-  await u.page.waitForTimeout(300);
-  const rotuloCopia = await bolha.getByRole("button", { name: "Copiar resposta" }).innerText();
-  const area = await u.page.evaluate(() => navigator.clipboard.readText()).catch(() => "");
-  v.ok(rotuloCopia === "Copiado" && area.includes("Brightwell") && area.includes("Recebido"), "\"Copiado\" só com o texto na área de transferência", `${rotuloCopia} · ${area.slice(0, 60)}`);
+  const txtBolha = await bolha.innerText();
+  v.ok(!/Copiar|Fontes:|Calculado pelo sistema|escrito pela IA/.test(txtBolha) && await bolha.getByRole("button", { name: "Resposta útil" }).count() === 0, "a resposta não tem mais o rodapé de origem, fontes e feedback");
 
   // 3) a ficha do contato: o "Recebido" da ficha é o número da IA
   await bolha.getByRole("button", { name: /Abrir ficha do contato/ }).click();
@@ -81,7 +76,6 @@ export default async function iaHistorico(navegador) {
   await u.page.waitForTimeout(500);
   const retomada = u.page.locator('[data-ia="resposta"]').first();
   v.ok(await retomada.count() === 1 && /Brightwell/.test(await retomada.innerText()), "retomar a conversa recarrega a resposta");
-  v.ok(await retomada.getByRole("button", { name: "Resposta útil" }).getAttribute("aria-pressed") === "true", "a marca de útil sobrevive à retomada (era só estado de tela)");
 
   // 5) nova conversa → duas conversas na lista
   await (await abrirHistorico()).getByRole("button", { name: "Nova conversa" }).click();
