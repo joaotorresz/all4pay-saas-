@@ -237,7 +237,8 @@ export function useToast() {
   const [toast, setToast] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
+    // Mensagem longa (o motivo de uma recusa) precisa de tempo para ser lida.
+    const t = setTimeout(() => setToast(null), Math.max(3200, toast.length * 70));
     return () => clearTimeout(t);
   }, [toast]);
   // Portal no <body>: o toast é `fixed`, e qualquer ancestral com `transform`
