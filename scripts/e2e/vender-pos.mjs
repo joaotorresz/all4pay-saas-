@@ -48,7 +48,7 @@ export default async function venderPos(navegador) {
   v.ok(saidas.every((s) => entradas.some((e) => e.venc === s.venc)), "cada taxa vence com o repasse da sua parcela");
   v.ok(novos.every((m) => m.status === "pendente"), "tudo nasce previsto (o repasse ainda não caiu)");
 
-  await u.ir("/contas-a-receber/titulos");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   v.ok(norm(await u.texto()).includes("R$ 730,00"), "a parcela de R$ 730,00 aparece em Títulos a receber");

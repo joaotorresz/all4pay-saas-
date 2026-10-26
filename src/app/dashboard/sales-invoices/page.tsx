@@ -25,7 +25,7 @@ const ABAS: AbaHub[] = [
 
 export default function VendasPage() {
   return (
-    <AppShell title="Vendas" crumb="Vender e receber">
+    <AppShell title="Vendas" crumb="Central de vendas">
       <Suspense fallback={null}>
         <HubShell abas={ABAS} />
       </Suspense>

@@ -244,13 +244,6 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Quer ver quem atrasou este mês → deixe Esse mês e clique no card de atrasados para abrir a lista e registrar o recebimento.",
     secoes: [],
   },
-  "/contas-a-receber/titulos": {
-    titulo: "Central de recebimentos",
-    intro: "Executa as entradas lançadas (dar baixa no que foi recebido), agrupadas por dia/semana/mês, com busca e conta de entrada.",
-    comoUsar: "Filtre/agrupe, selecione os títulos recebidos e dê baixa; o saldo da conta só sobe na liquidação.",
-    exemplo: "Recebeu 3 boletos hoje → selecione-os e confirme o recebimento para o saldo refletir.",
-    secoes: [],
-  },
   "/contas-a-receber/maquininha": {
     titulo: "Maquininha Quattro",
     intro: "Os relatórios da maquininha Pinbank: quanto vendeu, quanto sobra depois das taxas, quando o dinheiro cai e quando você mais vende. Só leitura.",
@@ -621,7 +614,6 @@ const PADRAO_DO_HUB: Record<string, string> = {
   "/contabilidade": "razao",
   "/dashboard/registrations/clients": "contatos",
   "/dashboard/sales-invoices/invoices": "vendas",
-  "/contas-a-receber/titulos": "titulos",
   "/contas-a-pagar/titulos": "titulos",
 };
 

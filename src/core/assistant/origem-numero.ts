@@ -21,7 +21,7 @@ const REGRAS: { re: RegExp; origem: OrigemNumero }[] = [
   { re: /^(receita bruta|receita l[ií]quida|ebitda|margem ebitda|lucro l[ií]quido|margem (bruta|l[ií]quida)|carga tribut[aá]ria)$/i,
     origem: { rota: "/dashboard/reports/dre", tela: "DRE" } },
   { re: /^(total a receber|recebido no m[eê]s|total recebido|a receber)$/i,
-    origem: { rota: "/contas-a-receber", tela: "Contas a receber" } },
+    origem: { rota: "/contas-a-receber/painel-de-vendas", tela: "Painel de vendas" } },
   { re: /^(total a pagar|total pago|a pagar)$/i,
     origem: { rota: "/contas-a-pagar", tela: "Contas a pagar" } },
   { re: /^(t[ií]tulos vencidos|total em atraso)$/i,

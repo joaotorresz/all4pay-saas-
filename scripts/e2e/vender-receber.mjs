@@ -16,7 +16,7 @@ const r2 = (n) => Math.round(n * 100) / 100;
 const pega = (t, re) => { const m = t.match(re); return m ? brl(m[1]) : NaN; };
 
 async function painel(u) {
-  await u.ir("/contas-a-receber");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   const t = norm(await u.texto());
   const idade = t.slice(t.indexOf("Idade do atraso"), t.indexOf("Exposição por cliente"));
   const expo = t.slice(t.indexOf("Exposição por cliente"));
@@ -36,7 +36,7 @@ async function painel(u) {
 }
 
 async function cardsTitulos(u) {
-  await u.ir("/contas-a-receber/titulos");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   const t = norm(await u.texto());
   return {
     recebido: pega(t, /Contas recebidas \(\d+\) (R\$[\d.]+,\d\d)/),

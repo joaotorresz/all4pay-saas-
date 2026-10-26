@@ -142,19 +142,15 @@ export const SECTIONS: Section[] = [
     // ⚠️ O painel e a lista de vendas ficam SEPARADOS de propósito: o painel
     // olha o recebível (vencimento e caixa), Vendas olha o pedido (competência)
     // — juntá-los poria lado a lado dois números que a intuição soma.
-    id: "contas-a-receber", label: "Vender e receber", icon: "arrow-up",
+    id: "contas-a-receber", label: "Central de vendas", icon: "arrow-up",
     acao: { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
     items: [
       { label: "Painel de vendas", desc: "Calendário, status e títulos a receber numa tela só", href: "/contas-a-receber/painel-de-vendas", icon: "gauge" },
-      { label: "Painel de contas a receber", desc: "Recebido, a vencer e vencido no período", href: "/contas-a-receber", icon: "gauge" },
       { label: "Vendas", desc: "Pedidos, boletos, links e maquininha", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
-      { label: "Títulos a receber", desc: "O que os clientes ainda devem, título a título", href: "/contas-a-receber/titulos", icon: "arrow-up" },
       { label: "Maquininha Quattro", desc: "Vendas, taxas e recebíveis da maquininha Pinbank", href: "/contas-a-receber/maquininha", icon: "smartphone" },
       { label: "Notas fiscais", desc: "Notas das vendas e emissão de NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
       { label: "Cobrança e inadimplência", desc: "Régua de cobrança e risco por cliente", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
       { label: "Assinaturas e contratos", desc: "Receita recorrente, churn e contratos de cliente", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
-      { label: "Clientes", desc: "Quem compra, e o risco", href: "/dashboard/registrations/clients", icon: "users" },
-      { label: "Produtos e serviços", desc: "O que você vende", href: "/dashboard/registrations/products", icon: "shopping-cart" },
     ],
   },
   {
@@ -170,7 +166,6 @@ export const SECTIONS: Section[] = [
       { label: "Contas recorrentes", desc: "O que se repete, e os contratos de fornecedor", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
       { label: "Reembolsos", desc: "Despesa do colaborador", href: "/dashboard/financial/reimbursements", icon: "receipt" },
-      { label: "Fornecedores", desc: "Quem recebe, e como pagar", href: "/dashboard/registrations/suppliers", icon: "building" },
     ],
   },
   {
@@ -193,9 +188,6 @@ export const SECTIONS: Section[] = [
       { label: "Fechamento mensal", desc: "Checklist, provisões, trava e relatório do mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
       { label: "Enviar ao contador", desc: "Razão e DRE, TXT Domínio e as NFs do mês", href: "/exportar", icon: "download" },
-      { label: "Plano de contas", desc: "A árvore que classifica tudo", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
-      { label: "Centros de custo", desc: "Onde o gasto é alocado", href: "/dashboard/registrations/cost-centers", icon: "network" },
-      { label: "Projetos", desc: "O recorte por iniciativa", href: "/dashboard/registrations/projects", icon: "target" },
     ],
   },
   {
@@ -223,6 +215,24 @@ export const SECTIONS: Section[] = [
       { label: "Análises da IA", desc: "Risco, decisão, saúde e sugestões", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
       { label: "Simuladores", desc: "Posso comprar? e plano de contratações", href: "/simuladores", icon: "target" },
       { label: "Automações", desc: "Mensagens no WhatsApp e alertas do sistema", href: "/automacoes", icon: "workflow" },
+    ],
+  },
+  {
+    // ⚠️ CADASTROS (26/10/2026, pedido do dono): quem e o que a empresa
+    // registra, num grupo só. Clientes, produtos e serviços saíram da Central
+    // de vendas, fornecedores de Comprar e pagar, e plano de contas, centros
+    // de custo e projetos de Contabilidade — eram cadastros espalhados pelos
+    // grupos onde são USADOS, e o dono os procurava num lugar com esse nome.
+    // Contas bancárias fica em Caixa e bancos: a tela é o hub de contas,
+    // faturas e transferências, não só o cadastro. O hub "Estrutura e
+    // cadastros" continua em Configurações (guarda CAD da consistência).
+    id: "cadastros", label: "Cadastros", icon: "layers", items: [
+      { label: "Clientes", desc: "Quem compra, e o risco", href: "/dashboard/registrations/clients", icon: "users" },
+      { label: "Produtos e serviços", desc: "O que você vende", href: "/dashboard/registrations/products", icon: "shopping-cart" },
+      { label: "Fornecedores", desc: "Quem recebe, e como pagar", href: "/dashboard/registrations/suppliers", icon: "building" },
+      { label: "Plano de contas", desc: "A árvore que classifica tudo", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
+      { label: "Centros de custo", desc: "Onde o gasto é alocado", href: "/dashboard/registrations/cost-centers", icon: "network" },
+      { label: "Projetos", desc: "O recorte por iniciativa", href: "/dashboard/registrations/projects", icon: "target" },
     ],
   },
 ];
@@ -268,7 +278,7 @@ export const SECTIONS_PESSOAL: Section[] = [
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", desc: "Seu mês em uma tela", href: "/", icon: "house" },
       { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
-      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/contas-a-receber/titulos", icon: "arrow-up" },
+      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/contas-a-receber/painel-de-vendas", icon: "arrow-up" },
     ],
   },
   {

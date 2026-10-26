@@ -35,7 +35,7 @@ export default async function venda(navegador) {
   v.ok(!!numero, "a venda aparece na lista com número do ano", numero ?? "sem número");
   v.ok(/24\.691\s*,34/.test(lista.replace(/\n/g, "")), "a lista mostra o total dos itens");
 
-  await u.ir("/contas-a-receber/titulos");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   const titulos = (await u.texto()).replace(/\n/g, " ");
   v.ok(/24\.691\s*,34/.test(titulos), "a venda virou título a receber com o mesmo valor");
   v.ok(titulos.includes(nomeCategoria), "o título mostra o NOME da categoria", nomeCategoria);

@@ -111,7 +111,7 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
   return (
     <CartaoBiblioteca
       titulo="Receitas"
-      href="/contas-a-receber/titulos"
+      href="/contas-a-receber/painel-de-vendas"
       valor={<BRL value={s.total} />}
       subtitulo={<Subtitulo c={c} s={s} />}
       info={{

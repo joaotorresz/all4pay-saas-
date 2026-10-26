@@ -414,7 +414,7 @@ function AbaMoldura() {
     <div className="flex flex-col gap-8">
       <Secao titulo="Menu">
         <Card className="max-w-[280px] flex flex-col gap-1" style={{ background: "var(--erp-menu-fundo)" }}>
-          {[["house", "Visão geral", true], ["credit-card", "Caixa e bancos", false], ["receipt", "Vender e receber", false], ["file-text", "Relatórios", false]].map(([ic, r, on]) => (
+          {[["house", "Visão geral", true], ["credit-card", "Caixa e bancos", false], ["receipt", "Central de vendas", false], ["file-text", "Relatórios", false]].map(([ic, r, on]) => (
             <span key={r as string} className="flex items-center gap-[15px] min-h-[40px] rounded-[12px] px-3 text-[14px] text-ink"
               style={on ? { background: "var(--erp-menu-ativo)" } : undefined}>
               <Icon name={ic as string} size={18} color="var(--color-text-secondary)" />{r as string}
