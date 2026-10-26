@@ -203,3 +203,86 @@ export const resultadoDoPeriodo = (input: RiskInput, p: PeriodoSazonal): number 
     })
     .reduce((s, m) => s + assinado(m), 0);
 
+
+/**
+ * OS PERÍODOS DE UM INTERVALO ESCOLHIDO — a mesma soma por vencimento de
+ * `periodosPorVencimento`, mas cortada no intervalo que a pessoa filtrou em vez
+ * dos doze meses terminando em hoje.
+ *
+ * Existe para o Painel de vendas (pedido do dono, 26/10/2026): com três meses
+ * ou mais no filtro, o calendário dia a dia vira a faixa mensal da tela de
+ * títulos. A faixa tem de falar do MESMO intervalo dos cards logo abaixo — uma
+ * faixa de doze meses ao lado de cards de agosto a outubro faria os dois
+ * números parecerem discordar.
+ *
+ * ⚠️ O primeiro e o último período são RECORTADOS no intervalo: com o filtro de
+ * 15/08 a 15/11, "Agosto" soma só a partir do dia 15. Sem o recorte a soma das
+ * cápsulas passaria do total dos cards, pelos títulos de fora do filtro.
+ *
+ * `incluir` aplica os filtros de cliente, projeto e centro — a mesma regra que
+ * desce para os cards (`passaNosFiltros`), recebida pronta para não haver uma
+ * segunda leitura dos filtros aqui.
+ */
+export function periodosNoIntervalo(
+  input: RiskInput | undefined,
+  de: string,
+  ate: string,
+  gran: Granularidade,
+  direcao: Direcao,
+  incluir?: (m: RiskInput["movements"][number]) => boolean,
+): PeriodoSazonal[] {
+  if (!de || !ate || de > ate) return [];
+  const ps: PeriodoSazonal[] = [];
+  const anoFim = Number(ate.slice(0, 4));
+  if (gran === "mes") {
+    let a = Number(de.slice(0, 4)), m = Number(de.slice(5, 7)) - 1;
+    while (ps.length < TETO_INTERVALO) {
+      const ini = iso(new Date(a, m, 1));
+      if (ini > ate) break;
+      const fim = iso(new Date(a, m + 1, 0));
+      ps.push({
+        key: `${a}-${pad(m + 1)}`,
+        label: `${MESES[m]}${a !== anoFim ? ` '${String(a).slice(2)}` : ""}`,
+        de: ini < de ? de : ini, ate: fim > ate ? ate : fim,
+        entradas: 0, saidas: 0, resultado: 0, total: 0,
+      });
+      m++; if (m > 11) { m = 0; a++; }
+    }
+  } else {
+    const dom = parse(de); dom.setDate(dom.getDate() - dom.getDay());
+    while (ps.length < TETO_INTERVALO && iso(dom) <= ate) {
+      const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
+      const ini = iso(dom), fim = iso(sab);
+      ps.push({
+        key: `w-${ini}`,
+        label: `${dom.getDate()}/${MES_ABBR[dom.getMonth()]} – ${sab.getDate()}/${MES_ABBR[sab.getMonth()]}`,
+        de: ini < de ? de : ini, ate: fim > ate ? ate : fim,
+        entradas: 0, saidas: 0, resultado: 0, total: 0,
+      });
+      dom.setDate(dom.getDate() + 7);
+    }
+  }
+  if (!input) return ps;
+  for (const m of filtrarTitulos(input, direcao, { de, ate })) {
+    if (incluir && !incluir(m)) continue;
+    const d = m.due_date?.slice(0, 10);
+    if (!d) continue;
+    const p = ps.find((x) => d >= x.de && d <= x.ate);
+    if (p) p.total = (p.total ?? 0) + magnitude(m);
+  }
+  return ps;
+}
+
+/** Teto de períodos de um intervalo digitado (um "2099" não vira mil cápsulas). */
+const TETO_INTERVALO = 120;
+
+/**
+ * O intervalo pede a faixa mensal? Sim a partir de TRÊS MESES: do dia inicial
+ * até o mesmo dia três meses depois, menos um — 01/08 a 31/10 já conta.
+ */
+export function intervaloDeTresMeses(de: string, ate: string): boolean {
+  if (!de || !ate || de > ate) return false;
+  const a = Number(de.slice(0, 4)), m = Number(de.slice(5, 7)) - 1, d = Number(de.slice(8, 10));
+  const limite = new Date(a, m + 3, d - 1);
+  return ate >= iso(limite);
+}

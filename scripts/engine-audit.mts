@@ -75,7 +75,7 @@ import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { rotuloSituacao } from "@/core/movimentacoes";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
-import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
+import { periodosPorVencimento, periodosComValores, periodosNoIntervalo, intervaloDeTresMeses } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
 import {
   projetarRecorrentes, datasDaRegra, porMes, tempoDoIntervalo, fraseDoCusto, fraseDaProporcao,
@@ -3281,6 +3281,28 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const semFuturo = periodosPorVencimento(
       { ...futuro, movements: [futuro.movements[0]] }, futuro.hoje, "mes", "pagar");
     ok("t9: sem título futuro a faixa não cresce", semFuturo.length === 12, String(semFuturo.length));
+  }
+
+  // ── painel de vendas: a faixa mensal do INTERVALO filtrado (26/10/2026) ──
+  // ⚠️ Com três meses ou mais o calendário vira a faixa mensal; ela tem de
+  // falar do MESMO intervalo dos cards, cortado nas pontas.
+  {
+    ok("pvendas: 01/08 a 31/10 já é três meses", intervaloDeTresMeses("2026-08-01", "2026-10-31"));
+    ok("pvendas: 01/08 a 30/10 ainda não é", !intervaloDeTresMeses("2026-08-01", "2026-10-30"));
+    ok("pvendas: intervalo invertido não vira faixa", !intervaloDeTresMeses("2026-10-31", "2026-08-01"));
+    const fx = periodosNoIntervalo(INPUT, "2026-06-15", "2026-08-31", "mes", "receber");
+    ok("pvendas: um período por mês do intervalo, do primeiro ao último",
+       fx.map((x) => x.key).join(",") === "2026-06,2026-07,2026-08", fx.map((x) => x.key).join(","));
+    ok("pvendas: a ponta é recortada no dia filtrado", fx[0]?.de === "2026-06-15");
+    // A MESMA soma da faixa de títulos no mês inteiro que cabe no intervalo.
+    ok("pvendas: o mês soma o mesmo que a faixa de títulos",
+       fx.find((x) => x.key === "2026-08")?.total
+         === periodosPorVencimento(INPUT, INPUT.hoje, "mes", "receber").find((x) => x.key === "2026-08")?.total);
+    // O filtro de cima (cliente/projeto/centro) recorta a faixa — sem ele a
+    // faixa somaria títulos que os cards de baixo não mostram.
+    ok("pvendas: o filtro recorta a faixa",
+       periodosNoIntervalo(INPUT, "2026-06-15", "2026-08-31", "mes", "receber", () => false).every((x) => x.total === 0));
+    ok("pvendas: intervalo invertido não monta período", periodosNoIntervalo(INPUT, "2026-09-01", "2026-08-01", "mes", "receber").length === 0);
   }
 
   // ── a faixa de períodos: TOTAL a pagar, nunca resultado, nunca negativo ──
