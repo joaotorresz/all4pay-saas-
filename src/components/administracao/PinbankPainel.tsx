@@ -28,7 +28,7 @@ import { isDemo } from "@/lib/demo";
 import { useContasBancarias } from "@/components/registros/hooks";
 import { usePermissoes } from "@/components/app/usePermissoes";
 import {
-  lerPinbank, configurarVinculo, reprocessarPinbank, SITUACOES_PENDENTES,
+  lerPinbank, configurarVinculo, configurarCobranca, reprocessarPinbank, SITUACOES_PENDENTES,
   type EstadoPinbank, type VinculoTela,
 } from "@/lib/pinbank/cliente";
 import { PRAZOS_PADRAO, TARIFA_FIXA_MAXIMA, ANTECIPACAO_MENSAL_MAXIMA, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
@@ -345,8 +345,56 @@ function VinculoForm({
           <span className="text-caption text-muted">Só quem administra a empresa ativa e configura a maquininha.</span>
         )}
 
+        <CobrancaDaConta vinculo={vinculo} administra={administra} toast={toast} onSalvo={() => onSalvo(false)} />
+
         {administra && <PinbankConferencia vinculo={vinculo} />}
       </div>
     </Card>
+  );
+}
+
+/**
+ * A segunda chave da cobrança por Pix e boleto: a plataforma cadastra o código
+ * da conta (EC) no `/admin`; aqui quem administra a empresa liga. A recusa vem
+ * do banco com a frase (maquininha inativa, código não cadastrado).
+ */
+function CobrancaDaConta({
+  vinculo, administra, toast, onSalvo,
+}: {
+  vinculo: VinculoTela;
+  administra: boolean;
+  toast: (s: string) => void;
+  onSalvo: () => Promise<void>;
+}) {
+  const [salvando, setSalvando] = React.useState(false);
+  const pendencia = !vinculo.ativo
+    ? "Ative a maquininha antes de ligar a cobrança."
+    : vinculo.codigo_cliente == null
+      ? "O código da conta Pinbank desta empresa ainda não foi cadastrado pela plataforma."
+      : null;
+
+  async function alternar(ativa: boolean) {
+    setSalvando(true);
+    try {
+      await configurarCobranca({ id: vinculo.id, ativa });
+      toast(ativa ? "Cobrança por Pix e boleto ligada. Os botões aparecem na baixa dos títulos a receber." : "Cobrança por Pix e boleto desligada.");
+      await onSalvo();
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="a4p-label text-muted">Cobrança por Pix e boleto</span>
+      <Switch checked={vinculo.cobranca_ativa} onChange={alternar}
+        disabled={!administra || salvando || (!vinculo.cobranca_ativa && pendencia != null)}
+        label="Cobrar títulos a receber por Pix e boleto pela conta Pinbank" />
+      {!vinculo.cobranca_ativa && pendencia && (
+        <span className="text-caption text-muted max-w-[80ch]">{pendencia}</span>
+      )}
+    </div>
   );
 }
