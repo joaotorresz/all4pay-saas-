@@ -150,6 +150,7 @@ import {
 import { planejarLancamento } from "@/core/contas-pagar/lancamento";
 import {
   montarPainelContasReceber, naoEhRecebivel, ponteVendaRecebimento, opcoesDeFiltroReceber, faixaDoAtraso,
+  modalidadeDoTitulo, type ModalidadeVenda,
 } from "@/core/contas-receber";
 import { montarPainelRecorrentes, deslocarMes as deslocarMesCP } from "@/core/contas-pagar/recorrentes";
 import {
@@ -4352,6 +4353,43 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      && ops.clientes.includes("Cliente Beta")
      && !ops.clientes.includes("Transferência entre contas"),
      ops.clientes.join(" | "));
+
+  /* ---- A modalidade da venda (Painel de vendas, 26/10/2026) -------------- */
+  {
+    const base = { type: "entrada" as const, status: "pendente" as const, due_date: "2026-08-20", amount: 100, category: "Vendas" };
+    const tit = (id: string, extra: Partial<RiskMovement>): RiskMovement => ({ id, ...base, ...extra });
+    // O CANAL vence a forma: Pix na maquininha é maquininha; Pix por plataforma é link.
+    ok("modalidade: NSU é maquininha mesmo com forma Pix",
+       modalidadeDoTitulo(tit("a", { nsu: "123", formaPagamento: "pix" })) === "maquininha");
+    ok("modalidade: venda de plataforma de checkout é link",
+       modalidadeDoTitulo(tit("b", { venda: { metodo: "pix", plataforma: "Hotmart" } })) === "link");
+    ok("modalidade: plataforma da maquininha não é link",
+       modalidadeDoTitulo(tit("c", { venda: { metodo: "credito", plataforma: "Maquininha Pinbank" } })) === "maquininha");
+    ok("modalidade: plataforma \"Outros\" não vira link, cai no método",
+       modalidadeDoTitulo(tit("d", { venda: { metodo: "boleto", plataforma: "Outros" } })) === "boleto");
+    ok("modalidade: forma do título decide Pix e boleto",
+       modalidadeDoTitulo(tit("e", { formaPagamento: "pix" })) === "pix"
+       && modalidadeDoTitulo(tit("f", { formaPagamento: "boleto" })) === "boleto");
+    // ⚠️ Sem nada que diga, fica SEM modalidade — nunca um palpite.
+    ok("modalidade: título sem sinal não ganha modalidade",
+       modalidadeDoTitulo(tit("g", { formaPagamento: "transferencia" })) === null);
+    const lista = [
+      tit("p", { formaPagamento: "pix", amount: 100 }),
+      tit("q", { formaPagamento: "boleto", amount: 200 }),
+      tit("r", { nsu: "9", amount: 400 }),
+      tit("s", { amount: 800 }),
+    ];
+    const inp = { ...INPUT, movements: lista };
+    const total = (mods: ModalidadeVenda[] | null) =>
+      montarPainelContasReceber(inp, { ...AGOSTO, modalidades: mods }).aVencer.total
+      + montarPainelContasReceber(inp, { ...AGOSTO, modalidades: mods }).vencidas.total;
+    ok("modalidade: mais de uma ao mesmo tempo soma as duas", total(["pix", "maquininha"]) === 500, String(total(["pix", "maquininha"])));
+    ok("modalidade: lista vazia é o filtro desligado", total([]) === 1_500 && total(null) === 1_500, String(total([])));
+    ok("modalidade: uma só recorta", total(["boleto"]) === 200, String(total(["boleto"])));
+    const cont = opcoesDeFiltroReceber(inp).modalidades;
+    ok("modalidade: o filtro conta os títulos de cada modalidade",
+       cont.pix === 1 && cont.boleto === 1 && cont.maquininha === 1 && cont.link === 0, JSON.stringify(cont));
+  }
 
   /* ---- Período vazio, sem divisão por zero ------------------------------- */
   const semNada = montarPainelContasReceber(

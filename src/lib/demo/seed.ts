@@ -173,7 +173,26 @@ function buildMovements(): Movement[] {
   return out;
 }
 
-export const DEMO_MOVEMENTS: Movement[] = buildMovements();
+/**
+ * A modalidade das entradas da demonstração (Pix, boleto, link, maquininha),
+ * para o filtro do Painel de vendas ter o que mostrar. ⚠️ Atribuída DEPOIS do
+ * sorteio, por posição e sem chamar `rand()`: consumir o gerador mudaria todo
+ * valor da demonstração, e as guardas conferem esses valores.
+ */
+function comModalidade(lista: Movement[]): Movement[] {
+  let k = 0;
+  return lista.map((m) => {
+    if (m.type !== "entrada") return m;
+    const n = k++ % 5;
+    if (n === 0) return { ...m, payment_method: "pix" };
+    if (n === 1) return { ...m, payment_method: "boleto" };
+    if (n === 2) return { ...m, venda_plataforma: "Stripe" };
+    if (n === 3) return { ...m, nsu: `DEMO${String(k).padStart(6, "0")}` };
+    return m; // a que ninguém classificou: fica sem modalidade
+  });
+}
+
+export const DEMO_MOVEMENTS: Movement[] = comModalidade(buildMovements());
 
 /**
  * As REGRAS de recorrência da demonstração — a fonte da projeção de contas

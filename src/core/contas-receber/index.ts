@@ -43,6 +43,11 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { magnitude, liquidado, previsto, cancelado, dataDe, ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
 import { foraDaBaseTributavel } from "@/core/indicadores";
+import { passaNaModalidade, modalidadeDoTitulo, type ModalidadeVenda } from "./modalidade";
+
+export {
+  MODALIDADES_VENDA, modalidadeDoTitulo, passaNaModalidade, type ModalidadeVenda,
+} from "./modalidade";
 
 export const CONTAS_RECEBER_VERSION = "contas-receber/1.0.0";
 
@@ -61,6 +66,11 @@ export interface FiltroContasReceber {
   centro?: string | null;
   /** Nome do cliente. `null`/ausente = todos. */
   cliente?: string | null;
+  /**
+   * As modalidades da venda (Pix, boleto, link, maquininha) — mais de uma ao
+   * mesmo tempo. Vazia ou ausente = todas.
+   */
+  modalidades?: readonly ModalidadeVenda[] | null;
 }
 
 /**
@@ -120,6 +130,7 @@ export function passaNosFiltros(
   if (f.projeto && m.projeto !== f.projeto) return false;
   if (f.centro && m.costCenter !== f.centro) return false;
   if (f.cliente && nomeDaContraparte(m, nomes) !== f.cliente) return false;
+  if (!passaNaModalidade(m, f.modalidades)) return false;
   return true;
 }
 
@@ -582,7 +593,8 @@ export {
 
 export function opcoesDeFiltroReceber(
   input: RiskInput,
-): { projetos: string[]; centros: string[]; clientes: string[] } {
+): { projetos: string[]; centros: string[]; clientes: string[]; modalidades: Record<ModalidadeVenda, number> } {
+  const modalidades: Record<ModalidadeVenda, number> = { pix: 0, boleto: 0, link: 0, maquininha: 0 };
   const projetos = new Set<string>();
   const centros = new Set<string>();
   const clientes = new Set<string>();
@@ -593,7 +605,9 @@ export function opcoesDeFiltroReceber(
     // Só quem tem título EM ABERTO ou recebido entra — a lista de filtro que
     // oferece o que não devolve nada ensina a não confiar no filtro.
     clientes.add(nomeDaContraparte(m, input.partyNames));
+    const mod = modalidadeDoTitulo(m);
+    if (mod) modalidades[mod] += 1;
   }
   const ordenar = (s: Set<string>) => Array.from(s).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  return { projetos: ordenar(projetos), centros: ordenar(centros), clientes: ordenar(clientes) };
+  return { projetos: ordenar(projetos), centros: ordenar(centros), clientes: ordenar(clientes), modalidades };
 }

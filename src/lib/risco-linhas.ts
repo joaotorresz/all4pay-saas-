@@ -64,6 +64,10 @@ export interface LinhaMovimento {
   category_id?: unknown;
   cost_center_id?: unknown;
   project_id?: unknown;
+  payment_method?: unknown;
+  nsu?: unknown;
+  /** O método e a plataforma da venda (`sales_docs.detalhe`), quando quem lê os trouxe. */
+  venda?: { metodo?: unknown; plataforma?: unknown } | null;
   /** As fatias do rateio (`movement_splits`), quando o caminho as traz. */
   rateio?: { percent?: unknown; amount?: unknown; projeto?: unknown; centro?: unknown }[] | null;
 }
@@ -113,6 +117,9 @@ export function linhaParaRiskMovement(
     referenceCode: texto(r.reference_code),
     origem: texto(r.origem),
     lancadoPor: texto(r.lancado_por),
+    formaPagamento: texto(r.payment_method),
+    nsu: texto(r.nsu),
+    venda: r.venda ? { metodo: texto(r.venda.metodo), plataforma: texto(r.venda.plataforma) } : null,
   };
 }
 

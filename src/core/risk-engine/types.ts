@@ -125,6 +125,19 @@ export interface RiskMovement {
    * fica honesta; inventar autoria é pior que não ter autoria.
    */
   lancadoPor?: string | null;
+  /**
+   * A FORMA DE PAGAMENTO do título (`movements.payment_method`: pix, boleto,
+   * cartao, dinheiro, transferencia), quando quem lançou a disse.
+   */
+  formaPagamento?: string | null;
+  /** O NSU da maquininha (`movements.nsu`) — só a venda de POS o tem. */
+  nsu?: string | null;
+  /**
+   * O método e a plataforma da VENDA que gerou o título (`sales_docs.detalhe`,
+   * pela chave `movements.sale_doc_id`). É o que separa a venda da maquininha
+   * e a venda por link (checkout de plataforma) de um recebível qualquer.
+   */
+  venda?: { metodo: string | null; plataforma: string | null } | null;
 }
 
 export interface RiskInput {
