@@ -96,5 +96,8 @@ export async function comFalha<T>(
 export function motivoDaRecusa(err: unknown): string {
   const e = err as { message?: string; details?: string | null; hint?: string | null } | null;
   const partes = [e?.message, e?.details, e?.hint].filter((x): x is string => !!x && !!x.trim());
-  return partes.length ? partes.join(" ") : String(err ?? "erro desconhecido");
+  if (partes.length) return partes.join(" ");
+  // ⚠️ Nunca "[object Object]": um objeto sem texto vira a frase genérica.
+  if (typeof err === "string" && err.trim()) return err;
+  return "erro desconhecido";
 }

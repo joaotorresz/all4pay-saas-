@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import type { PerfilEmpresa, Participante, Estrutura } from "@/core/onboarding";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
-import { reportar } from "@/lib/erros";
+import { reportar, motivoDaRecusa } from "@/lib/erros";
 import { ler as lerOrg, gravar as gravarOrg, organizacaoAtivaDoServidor } from "@/lib/store-org";
 
 const KEY = "a4p_company";
@@ -108,15 +108,23 @@ export async function persistCompany(c: StoredCompany): Promise<void> {
   saveCompany(perfil);
   if (isDemo) return;
   const s = createClient();
-  const { data, error } = await s
-    .from("company_profiles")
-    .update({ profile: perfil, updated_at: new Date().toISOString() })
-    .select("org_id").limit(TETO_LINHAS);
-  if (error) throw error;
-  let orgId = (data as { org_id?: string }[] | null)?.[0]?.org_id ?? null;
-  if (!data || data.length === 0) {
+  // ⚠️ O UPDATE precisa de filtro: o banco (safeupdate) RECUSA "UPDATE requires
+  // a WHERE clause" — sem ele, todo cadastro terminava em erro (medido em
+  // 26/10/2026, no fim do cadastro conversacional). A empresa é a ABERTA.
+  const orgAtiva = await organizacaoAtivaDoServidor();
+  let orgId: string | null = null;
+  if (orgAtiva) {
+    const { data, error } = await s
+      .from("company_profiles")
+      .update({ profile: perfil, updated_at: new Date().toISOString() })
+      .eq("org_id", orgAtiva)
+      .select("org_id").limit(TETO_LINHAS);
+    if (error) throw new Error(motivoDaRecusa(error));
+    orgId = (data as { org_id?: string }[] | null)?.[0]?.org_id ?? null;
+  }
+  if (!orgId) {
     const { data: ins, error: insErr } = await s.from("company_profiles").insert({ profile: perfil }).select("org_id").maybeSingle();
-    if (insErr) throw insErr;
+    if (insErr) throw new Error(motivoDaRecusa(insErr));
     orgId = (ins as { org_id?: string } | null)?.org_id ?? null;
   }
   saveCompany({ ...perfil, ...(orgId ? { orgId } : {}) });

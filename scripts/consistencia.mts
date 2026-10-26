@@ -4972,5 +4972,51 @@ const AGOSTO = janelaMes(2026, 7);
   ok("aut-tela: a rota de teste não devolve nome de variável ao navegador", !ENV_DE_PROVEDOR.test(rotaTeste.replace(/process\.env\.[A-Z_]+/g, "")));
 }
 
+/* ========================================================================== */
+/* UPDATE/DELETE SEM FILTRO (26/10/2026) — teto ZERO.                         */
+/* ========================================================================== */
+/**
+ * O banco tem `safeupdate`: UPDATE ou DELETE sem WHERE pelo PostgREST é
+ * RECUSADO ("UPDATE requires a WHERE clause"). O `persistCompany` fazia
+ * `update` sem `.eq` e todo fim de cadastro dava "[object Object]". A RLS
+ * escopa a empresa, mas não supre o WHERE que o banco exige.
+ */
+{
+  const FILTRO = /\.(eq|in|match|neq|filter|is|lt|gt|lte|gte|or|not)\(/;
+  const semFiltro = (texto: string): string[] => {
+    const linhas = texto.split("\n");
+    const out: string[] = [];
+    linhas.forEach((l, i) => {
+      if (/^\s*(\/\/|\*)/.test(l)) return;
+      if (!/\.from\(|^\s*\.(update|delete)\(/.test(l) && !/\)\s*\.(update|delete)\(/.test(l)) return;
+      if (!/\.(update\(|delete\(\))/.test(l)) return;
+      if (/createHash|createHmac|\bc\.update|\bd\.update/.test(l)) return;
+      // A instrução inteira, até o ";" (o corpo do update pode ter várias linhas).
+      let f = i;
+      while (f < linhas.length - 1 && f < i + 30 && !/;\s*$/.test(linhas[f])) f++;
+      const bloco = linhas.slice(i, f + 1).join(" ");
+      if (!FILTRO.test(bloco)) out.push(String(i + 1));
+    });
+    return out;
+  };
+  const achados: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      for (const n of semFiltro(readFileSync(caminho, "utf8"))) achados.push(`${caminho}:${n}`);
+    }
+  };
+  varrer("src");
+  ok("safeupdate: teto ZERO de update/delete do PostgREST sem filtro", achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("safeupdate: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
+     semFiltro('  const { data } = await s\n    .from("company_profiles")\n    .update({ profile })\n    .select("org_id");').length === 1
+     && semFiltro('  await s.from("x").update({ a: 1 }).eq("id", id);').length === 0);
+  // E a mensagem: um erro do banco é OBJETO, e String(objeto) é "[object Object]".
+  const criar = readFileSync(join("src", "components", "entrada", "CriarContaView.tsx"), "utf8");
+  ok("safeupdate: o fim do cadastro não formata erro com String(e)", !/String\(e\)/.test(criar) && criar.includes("motivoDaRecusa("));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
 if (fails > 0) process.exit(1);
