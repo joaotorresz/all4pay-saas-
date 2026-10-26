@@ -52,9 +52,9 @@ export interface NumeroResposta {
 export const TELAS = {
   inicio: { rota: "/", tela: "Visão geral" },
   extrato: { rota: "/dashboard/financial/statement", tela: "Extrato" },
-  receber: { rota: "/contas-a-receber/titulos", tela: "Títulos a receber" },
+  receber: { rota: "/contas-a-receber/painel-de-vendas", tela: "Painel de vendas" },
   pagar: { rota: "/contas-a-pagar/titulos", tela: "Títulos a pagar" },
-  painelReceber: { rota: "/contas-a-receber", tela: "Painel de contas a receber" },
+  painelReceber: { rota: "/contas-a-receber/painel-de-vendas", tela: "Painel de vendas" },
   painelPagar: { rota: "/contas-a-pagar", tela: "Painel de contas a pagar" },
   vencidos: { rota: "/dashboard/financial/overdue", tela: "Inadimplência e cobrança" },
   dre: { rota: "/dashboard/reports/dre", tela: "DRE" },

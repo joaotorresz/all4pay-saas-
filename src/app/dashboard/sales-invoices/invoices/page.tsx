@@ -21,7 +21,7 @@ const ABAS: AbaHub[] = [
 
 export default function NotasFiscaisPage() {
   return (
-    <AppShell title="Notas fiscais" crumb="Vender e receber">
+    <AppShell title="Notas fiscais" crumb="Central de vendas">
       <Suspense fallback={null}>
         <HubShell abas={ABAS} />
       </Suspense>

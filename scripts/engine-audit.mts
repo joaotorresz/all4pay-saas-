@@ -5265,7 +5265,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // ⚠️ Simetria: é o MESMO componente nos dois lados — se algum dia virar dois,
   // as duas listas de dinheiro divergem no primeiro ajuste.
   const pagar = readFileSync("src/app/contas-a-pagar/titulos/page.tsx", "utf8");
-  const receber = readFileSync("src/app/contas-a-receber/titulos/page.tsx", "utf8");
+  const receber = readFileSync("src/components/painel-vendas/PainelVendas.tsx", "utf8");
   ok("a4p045: pagar e receber usam a MESMA TitulosView (código compartilhado)",
      /TitulosView/.test(pagar) && /TitulosView/.test(receber));
 }

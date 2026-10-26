@@ -22,7 +22,7 @@ const PAINEIS: AbaHub[] = [
 
 export default function Page() {
   return (
-    <AppShell title="Cobrança e inadimplência" crumb="Vender e receber">
+    <AppShell title="Cobrança e inadimplência" crumb="Central de vendas">
       <Suspense fallback={null}>
         <HubShell abas={PAINEIS} param="painel" />
       </Suspense>

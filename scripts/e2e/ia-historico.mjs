@@ -84,13 +84,13 @@ export default async function iaHistorico(navegador) {
   v.ok(botoesHist.some((t) => /Brightwell/.test(t)) && botoesHist.some((t) => /margem/i.test(t)), "a nova conversa entra ao lado da primeira", botoesHist.join(" | ").slice(0, 160));
 
   // 6) o MENU de outra tela abre o MESMO chat, e ele grava no MESMO histórico
-  await u.ir("/contas-a-receber");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   v.ok((await u.page.locator(".a4p-ia-fab, aside.a4p-ia").count()) === 0, "o botão flutuante e o painel lateral não existem mais");
   const menu = u.page.locator(".a4p-sidebar");
   if (!(await menu.locator('a[href="/quattro-ai"]').count())) await menu.getByRole("button", { name: /Inteligência/ }).first().click();
   await menu.locator('a[href="/quattro-ai"]').first().click();
   await campoDoChat(u).waitFor({ timeout: 8000 });
-  v.ok(new URL(u.page.url()).pathname === "/contas-a-receber", "o menu abre o chat por cima da tela, sem sair dela", u.page.url());
+  v.ok(new URL(u.page.url()).pathname === "/contas-a-receber/painel-de-vendas", "o menu abre o chat por cima da tela, sem sair dela", u.page.url());
   await perguntar(u, "quanto tenho a receber?");
   const depois = await (await abrirHistorico()).locator("button").allInnerTexts();
   v.ok(depois.some((t) => /a receber/i.test(t)) && depois.some((t) => /Brightwell/.test(t)), "a conversa aberta pelo menu entra no mesmo histórico", depois.join(" | ").slice(0, 200));

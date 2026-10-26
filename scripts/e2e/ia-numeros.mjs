@@ -98,7 +98,7 @@ export default async function iaNumeros(navegador) {
   const semIA = rSemana.match(new RegExp(`${RS} a receber e ${RS} a pagar`));
   const recIA = semIA ? brl(semIA[1]) : NaN, pagIA = semIA ? brl(semIA[2]) : NaN;
   const pagTela = await semanaDoPainel(u, "/contas-a-pagar", ["Contas atrasadas", "Contas a vencer"]);
-  const recTela = await semanaDoPainel(u, "/contas-a-receber", ["Contas a vencer", "Contas vencidas"]);
+  const recTela = await semanaDoPainel(u, "/contas-a-receber/painel-de-vendas", ["Contas a vencer", "Contas vencidas"]);
   v.ok(Math.abs(pagIA - pagTela) < 0.005, "o que vence a pagar na semana é o do painel de contas a pagar", `IA ${pagIA} · tela ${pagTela}`);
   v.ok(Math.abs(recIA - recTela) < 0.005, "o que vence a receber na semana é o do painel de contas a receber", `IA ${recIA} · tela ${recTela}`);
 

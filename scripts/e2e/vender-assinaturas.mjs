@@ -77,7 +77,7 @@ export default async function venderAssinaturas(navegador) {
   v.ok(meses.every((m, i) => i === 0 || m - meses[i - 1] === 3), "as faturas da trimestral vêm de 3 em 3 meses", tri.map((f) => f.venc).join(" "));
   v.ok(anual.every((f) => f.valor === 3200), "a fatura da anual (quando cai na janela) é de R$ 3.200", `${anual.length}`);
 
-  await u.ir("/contas-a-receber/titulos");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const tit = norm(await u.texto());
@@ -113,7 +113,7 @@ export default async function venderAssinaturas(navegador) {
 
   v.ok(Math.abs(await entradasProjetadas(u) - fluxoAntes) < 0.006, "depois de pausar e cancelar, o fluxo volta ao que era");
 
-  await u.ir("/contas-a-receber/titulos");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const tit2 = norm(await u.texto());
   v.ok(!tit2.includes("R$ 1.200,00") && !tit2.includes("R$ 3.200,00"), "depois de pausar e cancelar, nenhuma fatura sobra em Títulos a receber");

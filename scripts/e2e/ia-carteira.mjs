@@ -22,7 +22,7 @@ const RS = "R\\$\\s?(-?[\\d.]+,\\d{2})";
 const aReceberDaIA = (r) => { const m = r.match(new RegExp(`Há ${RS} a receber`)); return m ? brl(m[1]) : NaN; };
 
 async function carteiraDoPainel(u) {
-  await u.ir("/contas-a-receber");
+  await u.ir("/contas-a-receber/painel-de-vendas");
   const t = (await u.texto()).replace(/\s+/g, " ");
   const m = t.match(/Exposição por cliente carteira inteira R\$\s*([\d.]+)\s*,?\s*(\d{2})?\s*em aberto/);
   return m ? brl(`${m[1]},${m[2] ?? "00"}`) : NaN;

@@ -84,7 +84,7 @@ export const FUSOES: Fusao[] = [
   {
     id: "titulos",
     assunto: "Contas a receber e a pagar",
-    canonico: "/contas-a-receber/titulos",
+    canonico: "/contas-a-receber/painel-de-vendas",
     aposentar: ["/recebimentos", "/pagamentos"],
     porque:
       "A tela canônica trata receber, pagar e transferir como o mesmo problema espelhado, com abas — que é o que eles são. As duas legadas duplicam metade disso cada uma.",
@@ -126,7 +126,7 @@ export const FUSOES: Fusao[] = [
          * `feito` porque a PREMISSA dele morreu, não porque alguém desistiu.
          *
          * Ela existia para reconciliar DUAS telas de "a receber" que mostravam
-         * números diferentes. As duas viraram uma (`/contas-a-receber/titulos`),
+         * números diferentes. As duas viraram uma (`/contas-a-receber/painel-de-vendas`),
          * então não há mais um segundo número para explicar — e uma faixa fixa
          * explicando uma divergência que não existe mais é ruído no topo da
          * tela que a pessoa usa todo dia. O componente saiu junto; o motor

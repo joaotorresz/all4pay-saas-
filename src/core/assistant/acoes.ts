@@ -69,7 +69,7 @@ export function acoesParaVazio(pergunta: string, w: Pick<Janela, "from" | "to">,
 export const TELAS_DA_IA = {
   fluxo: { label: "Abrir fluxo de caixa", icone: "trending-up", rota: "/fluxo-caixa", serve: "saldo, entradas e saídas, projeção, runway e burn" },
   dre: { label: "Abrir DRE", icone: "file-text", rota: "/dashboard/reports/dre", serve: "receita, custos, margem, EBITDA e lucro por mês" },
-  receber: { label: "Abrir contas a receber", icone: "arrow-down", rota: "/contas-a-receber", serve: "o que clientes devem, por vencimento e situação" },
+  receber: { label: "Abrir contas a receber", icone: "arrow-down", rota: "/contas-a-receber/painel-de-vendas", serve: "o que clientes devem, por vencimento e situação" },
   pagar: { label: "Abrir contas a pagar", icone: "arrow-up", rota: "/contas-a-pagar", serve: "o que vence para pagar, fornecedores e contas atrasadas" },
   cobrar: { label: "Cobrar vencidos", icone: "bell", rota: "/dashboard/financial/overdue", serve: "inadimplência e régua de cobrança dos títulos vencidos" },
   recorrentes: { label: "Ver contas recorrentes", icone: "repeat", rota: "/contas-a-pagar/recorrentes", serve: "custo fixo e contas que se repetem todo mês" },

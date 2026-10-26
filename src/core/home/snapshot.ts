@@ -129,7 +129,7 @@ export function montarHomeSnapshot(input: RiskInput, pontos = 7): HomeSnapshot {
     num("pagar", "Contas a pagar", previstoNaJanela(input, proximos30(hoje), "saida"),
         vencendoNaJanela(input, proximos30(d30), "saida", d30), "brl", "/contas-a-pagar"),
     num("receber", "Contas a receber", previstoNaJanela(input, proximos30(hoje), "entrada"),
-        vencendoNaJanela(input, proximos30(d30), "entrada", d30), "brl", "/contas-a-receber"),
+        vencendoNaJanela(input, proximos30(d30), "entrada", d30), "brl", "/contas-a-receber/painel-de-vendas"),
   ];
 
   return { hoje, caixa: { ...caixa, curva: curvaCaixa }, arr: { ...arrCard, curva: curvaArr }, pequenos };

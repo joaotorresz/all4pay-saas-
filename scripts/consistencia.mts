@@ -1314,7 +1314,7 @@ const AGOSTO = janelaMes(2026, 7);
    * reprovaria o estado correto, o que a faria ser desligada em vez de
    * corrigida. O que ela protege continua igual: UMA porta por leitura.
    */
-  const PORTAS_DE_RECEBER = ["/recebimentos", "/contas-a-receber/titulos"];
+  const PORTAS_DE_RECEBER = ["/recebimentos", "/contas-a-receber/painel-de-vendas"];
   const rotulos = SECTIONS
     .flatMap((sec) => sec.items)
     .filter((i) => PORTAS_DE_RECEBER.includes(i.href ?? "") || i.href?.includes("tab=receivables"))
@@ -2815,7 +2815,7 @@ const AGOSTO = janelaMes(2026, 7);
    * escondida atrás de um ícone no canto de outra tela é garantia que ninguém
    * encontra no dia em que precisa dela.
    */
-  const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Contas a receber · Pagar · Contas a pagar · Contábil e fiscal · Análise e relatórios · Inteligência
+  const TETO_GRUPOS = 8;            // Visão geral · Central de vendas · Comprar e pagar · Caixa e bancos · Contabilidade · Relatórios · Inteligência · Cadastros (26/10/2026: o oitavo, que reúne os cadastros espalhados; o teto não subiu)
   const TETO_ITENS_POR_GRUPO = 13;  // Contábil e fiscal, o maior — +1: Exportar para o contador
   const TETO_ITENS_TOTAL = 71;      // +1: Central financeira (P-10) · +1: Exportar para o contador
 
