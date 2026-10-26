@@ -960,6 +960,24 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `checkout-pinbank:` do `engine-audit`. Régua e baixa automática são as
   próximas etapas.
 
+## ⚠️ A PÁGINA MAQUININHA QUATTRO VENDE A MAQUININHA (26/10/2026, pedido do dono)
+
+- **Sem maquininha vinculada** a página vira a OFERTA (`maquininha/OfertaMaquininha.tsx`):
+  pedir, simular taxas (venda a venda e "quanto eu economizo") e pedir o vínculo
+  da que a empresa já tem. As contas moram em `core/maquininha/oferta` (puro); as
+  taxas são de REFERÊNCIA do segmento (`lib/maquininha-oferta`, sobre a tabela do
+  simulador do POS, média das bandeiras) e a tela diz isso. Quando a taxa de hoje
+  do cliente é MENOR, a frase diz — nunca "mais barata" à força.
+- **O pedido chega à PLATAFORMA** (`maquininha_pedidos`, migration
+  `20261026120000`, RPC `maquininha_pedido_criar`, só quem administra, teto de 5
+  em aberto) e é atendido em Administração › Maquininhas (`admin_maquininha_pedidos`,
+  situação auditada em `admin_audit`). ⚠️ O pedido de VÍNCULO não vincula: só a
+  plataforma liga EC → empresa. Em demonstração o pedido fica só na memória da aba.
+- **Com maquininha**: cards da Home (sem a caixa da Quattro AI, a pedido do dono) e três
+  interativos (meta do mês com ritmo, antecipar a agenda, quanto cobrar para
+  receber X). `?ver=oferta` mostra a oferta a quem já tem (outro ponto de venda).
+- Guarda: bloco `maquininha-oferta:` do `engine-audit`.
+
 ## ⚠️ A CONVERSA LANÇA, MAS SÓ NO "CONFIRMAR" (decisão do dono, 19/10/2026)
 
 Amplia a regra "a IA sugere, não executa" da Rodada 9: no chat da Quattro AI a

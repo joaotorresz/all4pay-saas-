@@ -84,8 +84,20 @@ export interface OpcaoDeFiltro {
   todos: string;
 }
 
+/**
+ * Um filtro de VÁRIAS escolhas, em pílulas que ligam e desligam (a modalidade
+ * da venda no Painel de vendas). Nenhuma marcada = todas — a pílula "Todas"
+ * diz isso e limpa a seleção.
+ */
+export interface FiltroMultiplo {
+  label: string;
+  selecionados: string[];
+  onChange: (v: string[]) => void;
+  opcoes: { valor: string; rotulo: string; quantidade: number }[];
+}
+
 export function FiltrosPeriodo({
-  titulo, tipo, onTipo, custom, onCustom, periodo, invalido, filtros, rotulos,
+  titulo, tipo, onTipo, custom, onCustom, periodo, invalido, filtros, rotulos, multiplos,
 }: {
   titulo: string;
   tipo: TipoPeriodo;
@@ -97,6 +109,7 @@ export function FiltrosPeriodo({
   filtros: OpcaoDeFiltro[];
   /** Troca o texto de cada botão de período sem mudar o que ele seleciona. */
   rotulos?: Partial<Record<TipoPeriodo, string>>;
+  multiplos?: FiltroMultiplo[];
 }) {
   return (
     <Card className="flex flex-col gap-5">
@@ -166,7 +179,45 @@ export function FiltrosPeriodo({
           />
         ))}
       </div>
+
+      {multiplos?.map((f) => <PilulasMultiplas key={f.label} filtro={f} />)}
     </Card>
+  );
+}
+
+function PilulasMultiplas({ filtro: f }: { filtro: FiltroMultiplo }) {
+  // ⚠️ Cada pílula com fundo próprio, sem trilho em volta: no telefone a lista
+  // quebra em duas linhas, e um trilho arredondado em volta de duas linhas
+  // vira uma bolha.
+  const pilula = (ativo: boolean) =>
+    "inline-flex items-center gap-2 h-9 px-4 rounded-pill text-label transition-colors disabled:opacity-50 disabled:cursor-not-allowed " +
+    (ativo ? "bg-surface-2 text-ink font-medium border border-ink" : "bg-surface-2 text-muted hover:text-ink border border-transparent");
+  const alternar = (v: string) =>
+    f.onChange(f.selecionados.includes(v) ? f.selecionados.filter((x) => x !== v) : [...f.selecionados, v]);
+  return (
+    <div className="flex flex-col gap-[6px]">
+      <span className="text-label text-muted">{f.label}</span>
+      <div role="group" aria-label={f.label} className="flex flex-wrap items-center gap-2">
+        <button type="button" aria-pressed={f.selecionados.length === 0}
+          onClick={() => f.onChange([])} className={pilula(f.selecionados.length === 0)}>
+          Todas
+        </button>
+        {f.opcoes.map((o) => {
+          const ativo = f.selecionados.includes(o.valor);
+          return (
+            <button key={o.valor} type="button" aria-pressed={ativo}
+              // ⚠️ Desabilitada sem título: oferecer o que devolve vazio ensina a
+              // não confiar no filtro. Marcada continua clicável para desmarcar.
+              disabled={o.quantidade === 0 && !ativo}
+              title={o.quantidade === 0 ? "Nenhum título com esta modalidade" : undefined}
+              onClick={() => alternar(o.valor)} className={pilula(ativo)}>
+              {o.rotulo}
+              <span className="tabular-nums text-caption text-muted">{o.quantidade}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

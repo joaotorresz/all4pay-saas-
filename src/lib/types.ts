@@ -82,6 +82,12 @@ export interface Movement {
   project_id?: string | null;
   /** O rateio gravado (`movement_splits`), quando houver mais de uma fatia. */
   splits?: SplitLine[] | null;
+  /** A forma de pagamento (`movements.payment_method`). */
+  payment_method?: PaymentMethod | null;
+  /** O NSU da maquininha (`movements.nsu`). */
+  nsu?: string | null;
+  /** Demonstração: a plataforma da venda que gerou o título (em produção, `sales_docs`). */
+  venda_plataforma?: string | null;
 }
 
 export type BoletoStatus =

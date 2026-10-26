@@ -24,6 +24,12 @@
  * responde de uma vez. A faixa soma pelo VENCIMENTO, cortada no intervalo e
  * nos filtros, como os cards de baixo; escolher um mês recorta os cards nele.
  *
+ * A MODALIDADE (Pix, boleto, link, maquininha — várias ao mesmo tempo, pedido
+ * do dono em 26/10/2026) entra no MESMO filtro dos outros recortes
+ * (`passaNosFiltros`): calendário, status, faixa mensal, cards e tabela mudam
+ * juntos. A regra de qual título é de qual modalidade mora em
+ * `core/contas-receber/modalidade`.
+ *
  * ⚠️ Os dois blocos olham datas diferentes, e a tela diz isso: o calendário e o
  * status contam o RECEBIDO pela data do recebimento e o aberto pelo
  * vencimento; os cards e a tabela recortam os títulos pelo VENCIMENTO.
@@ -39,8 +45,8 @@ import { dataBR } from "@/lib/format";
 import {
   montarPainelContasReceber, opcoesDeFiltroReceber, passaNosFiltros,
   periodoMes, periodoSemana, periodoPersonalizado, periodoInvalido,
-  ROTULO_SITUACAO_RECEBER, TOKEN_SITUACAO_RECEBER,
-  type Periodo, type TipoPeriodo, type SituacaoReceber, type PainelContasReceber,
+  ROTULO_SITUACAO_RECEBER, TOKEN_SITUACAO_RECEBER, MODALIDADES_VENDA,
+  type ModalidadeVenda, type Periodo, type TipoPeriodo, type SituacaoReceber, type PainelContasReceber,
 } from "@/core/contas-receber";
 import { FiltrosPeriodo, DistribuicaoDonut, FaixaDeDias, type ItemDoDia } from "@/components/titulos/kit";
 import { TitulosView, type RecorteDoPainel } from "@/components/movimentacoes/TitulosView";
@@ -61,6 +67,7 @@ export function PainelVendas() {
   const [projeto, setProjeto] = React.useState("");
   const [centro, setCentro] = React.useState("");
   const [cliente, setCliente] = React.useState("");
+  const [modalidades, setModalidades] = React.useState<ModalidadeVenda[]>([]);
 
   React.useEffect(() => {
     if (!hoje || custom.de) return;
@@ -79,15 +86,20 @@ export function PainelVendas() {
   const invalido = !!periodo && periodoInvalido(periodo);
 
   const opcoes = React.useMemo(
-    () => (input ? opcoesDeFiltroReceber(input) : { projetos: [], centros: [], clientes: [] }),
+    () => (input
+      ? opcoesDeFiltroReceber(input)
+      : { projetos: [], centros: [], clientes: [], modalidades: { pix: 0, boleto: 0, link: 0, maquininha: 0 } }),
     [input],
   );
 
   const filtro = React.useMemo(
     () => (periodo && !invalido
-      ? { de: periodo.de, ate: periodo.ate, projeto: projeto || null, centro: centro || null, cliente: cliente || null }
+      ? {
+        de: periodo.de, ate: periodo.ate, projeto: projeto || null, centro: centro || null, cliente: cliente || null,
+        modalidades: modalidades.length ? modalidades : null,
+      }
       : null),
-    [periodo, invalido, projeto, centro, cliente],
+    [periodo, invalido, projeto, centro, cliente, modalidades],
   );
 
   const painel: PainelContasReceber | null = React.useMemo(
@@ -100,7 +112,7 @@ export function PainelVendas() {
   const recorte: RecorteDoPainel | null = React.useMemo(() => {
     if (!filtro || !periodo) return null;
     const nomes = input?.partyNames;
-    const temFiltro = !!(filtro.projeto || filtro.centro || filtro.cliente);
+    const temFiltro = !!(filtro.projeto || filtro.centro || filtro.cliente || filtro.modalidades?.length);
     return {
       de: filtro.de, ate: filtro.ate, rotulo: periodo.rotulo,
       incluir: temFiltro ? (m: RiskMovement) => passaNosFiltros(m, filtro, nomes) : undefined,
@@ -151,6 +163,14 @@ export function PainelVendas() {
           { label: "Centro de custo", valor: centro, onChange: setCentro, opcoes: opcoes.centros,
             todos: "Todos os centros de custo", vazio: "Nenhum centro nos títulos" },
         ]}
+        multiplos={[{
+          label: "Modalidade da venda",
+          selecionados: modalidades,
+          onChange: (v) => setModalidades(v as ModalidadeVenda[]),
+          opcoes: MODALIDADES_VENDA.map((m) => ({
+            valor: m.id, rotulo: m.rotulo, quantidade: opcoes.modalidades[m.id],
+          })),
+        }]}
       />
 
       {invalido && (
