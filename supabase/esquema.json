@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-22",
+  "gerado_em": "2026-10-26",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 83,
-    "funcoes": 145,
-    "politicas": 155,
-    "gatilhos": 103,
-    "indices": 258,
+    "tabelas": 84,
+    "funcoes": 148,
+    "politicas": 156,
+    "gatilhos": 104,
+    "indices": 261,
     "enums": 12,
-    "colunas": 889,
-    "restricoes": 306
+    "colunas": 906,
+    "restricoes": 322
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -151,7 +151,8 @@
     "20261016120000_automacao_fluxos_disparo",
     "20261016130000_whatsapp_autorizacao_saida",
     "20261020120000_pinbank_cobranca",
-    "20261022120000_pinbank_checkout"
+    "20261022120000_pinbank_checkout",
+    "20261026120000_maquininha_pedidos"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -166,18 +167,6 @@
     ],
     "aplicadas_sem_arquivo": [],
     "arquivo_sem_aplicacao": [
-      {
-        "nome": "20261026120000_maquininha_pedidos",
-        "objetos_ausentes": [
-          "tabela maquininha_pedidos (RLS por empresa, só leitura para authenticated, gatilho de trilha zz_auditar_maquininha_pedidos) + 2 índices",
-          "função maquininha_pedido_criar(text,integer,text,numeric,text,text,text,text,text,text) — exige administrar, teto de 5 em aberto",
-          "função admin_maquininha_pedidos() — portão admin_exigir_acesso",
-          "função admin_maquininha_pedido_situacao(uuid,text) — portão admin_exigir_acesso, registra em admin_audit"
-        ],
-        "impacto": "Até ser aplicada, o formulário de pedir ou vincular maquininha recusa com o motivo do banco e a lista de pedidos fica vazia; a oferta, o simulador e a comparação de taxas funcionam. A fila em Administração › Maquininhas mostra erro. Nada que já existe muda.",
-        "resolver_ate": "2026-11-09",
-        "origem": "sessão Claude de 26/10/2026 (página Maquininha Quattro: oferta e pedidos) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
-      },
       {
         "nome": "20261026130000_nfse_focus",
         "motivo": "Emissão real da NFS-e pela Focus NFe: a migration acompanha o PR e o job migrar do CI a aplica no merge.",
