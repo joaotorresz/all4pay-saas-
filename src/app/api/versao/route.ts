@@ -26,8 +26,17 @@ export const dynamic = "force-dynamic";
 export function GET() {
   return NextResponse.json(
     {
-      commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
-      branch: process.env.VERCEL_GIT_COMMIT_REF ?? "local",
+      /*
+       * ⚠️ **`A4P_COMMIT` vem INLINADO do build** (`next.config.mjs`), e não da
+       * variável de runtime. Com a publicação saindo do CI (`vercel build` +
+       * `vercel deploy --prebuilt`), `VERCEL_GIT_COMMIT_SHA` não chega à lambda
+       * e esta rota responderia `"local"` — cegando a única prova direta de
+       * qual commit está no ar, e com ela a guarda `no-ar`. A variável de
+       * runtime fica como segunda opção: ela continua certa quando quem publica
+       * é a integração Git.
+       */
+      commit: process.env.A4P_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || "local",
+      branch: process.env.A4P_BRANCH || process.env.VERCEL_GIT_COMMIT_REF || "local",
       ambiente: process.env.VERCEL_ENV ?? "local",
     },
     // Sem cache: uma resposta guardada na borda responderia pelo build
