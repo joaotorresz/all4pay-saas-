@@ -4,7 +4,9 @@
  *  • live → tabela `public.nfse` (RLS) + receita/ISS em `movements`.
  * N2: nota que decorre de fatura de recorrência liga `recurrence_id`/`movement_id`
  * existentes e NÃO cria 2º movement de receita; nota avulsa cria normalmente.
- * Emissão real é assíncrona/externa (provedor + webservice) — aqui simulada.
+ * Emissão: em produção a nota vai à prefeitura pela Focus NFe (rotas
+ * `/api/nfse/*`, assíncrona: transmitir → processando → consultar); na
+ * demonstração segue simulada.
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
@@ -35,12 +37,19 @@ export interface Nfse {
   numero?: string;
   codigoVerificacao?: string;
   motivoRejeicao?: string;
+  /** DANFSe (PDF) e XML da nota autorizada, vindos da prefeitura. */
+  urlPdf?: string;
+  urlXml?: string;
+  /** homologacao = nota de TESTE, sem valor fiscal. */
+  ambiente?: "homologacao" | "producao";
   movimentos: string[];
   status: StatusNfse;
   criadoEm: string;
 }
 
 const KEY = "a4p_nfse";
+const COLUNAS = "id,tomador_id,movement_id,recurrence_id,service_code,description,amount,iss_rate,municipality,competence,await_payment,numero,codigo_verificacao,status,created_at,parties(name)";
+const COLUNAS_PROVEDOR = "url_pdf,url_xml,ambiente,motivo_rejeicao";
 let cache: Nfse[] | undefined;
 let hydrated = false;
 function loadLocal(): Nfse[] {
@@ -68,6 +77,7 @@ interface NfseRow {
   municipality: string | null; competence: string | null; await_payment: boolean;
   numero: string | null; codigo_verificacao: string | null; status: StatusDB; created_at: string;
   parties?: Embed;
+  url_pdf?: string | null; url_xml?: string | null; ambiente?: string | null; motivo_rejeicao?: string | null;
 }
 function fromRow(r: NfseRow): Nfse {
   return {
@@ -77,6 +87,9 @@ function fromRow(r: NfseRow): Nfse {
     competencia: r.competence ?? isoDay(new Date()), aguardarPagamento: r.await_payment,
     recorrenciaId: r.recurrence_id ?? undefined, numero: r.numero ?? undefined,
     codigoVerificacao: r.codigo_verificacao ?? undefined,
+    motivoRejeicao: r.motivo_rejeicao ?? undefined,
+    urlPdf: r.url_pdf ?? undefined, urlXml: r.url_xml ?? undefined,
+    ambiente: r.ambiente === "producao" || r.ambiente === "homologacao" ? r.ambiente : undefined,
     movimentos: r.movement_id ? [r.movement_id] : [], status: r.status === "substituida" ? "cancelada" : r.status, criadoEm: r.created_at,
     // ⚠️ O vínculo com a receita REAPROVEITADA tem de sobreviver à recarga:
     // sem ele, transmitir um rascunho lançava uma segunda receita e cancelar
@@ -92,9 +105,13 @@ export async function hydrateNfse(force = false): Promise<void> {
   try {
     // ⚠️ O cliente do banco não LANÇA: devolve `error`. Sem ler o erro, uma
     // recusa virava lista vazia ("nenhuma nota") sem aviso nenhum.
-    const { data, error } = await createClient().from("nfse")
-      .select("id,tomador_id,movement_id,recurrence_id,service_code,description,amount,iss_rate,municipality,competence,await_payment,numero,codigo_verificacao,status,created_at,parties(name)")
+    const ler = (colunas: string) => createClient().from("nfse").select(colunas)
       .order("created_at", { ascending: false }).limit(TETO_LINHAS);
+    // ⚠️ As colunas da emissão real nascem numa migration: até ela ser
+    // aplicada, pedi-las derruba a leitura inteira. Sem elas, a lista sai sem
+    // os links do PDF/XML — nunca vazia.
+    let { data, error } = await ler(`${COLUNAS},${COLUNAS_PROVEDOR}`);
+    if (error) ({ data, error } = await ler(COLUNAS));
     if (error) throw new Error(error.message);
     cache = ((data ?? []) as unknown as NfseRow[]).map(fromRow);
     hydrated = true;
@@ -143,8 +160,77 @@ export async function criarNfse(n: NovaNfse): Promise<Nfse> {
   return saved;
 }
 
+/** Uma resposta das rotas `/api/nfse/*`. */
+interface RespostaRota {
+  ok: boolean; codigo?: string; motivo?: string; estado?: string; mudou?: boolean; semProvedor?: boolean;
+  numero?: string; codigoVerificacao?: string; urlPdf?: string; urlXml?: string; ambiente?: string;
+}
+async function rota(metodo: "GET" | "POST", caminho: string, corpo?: unknown): Promise<RespostaRota> {
+  const r = await fetch(caminho, {
+    method: metodo, cache: "no-store",
+    ...(corpo !== undefined ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) } : {}),
+  });
+  const j = (await r.json().catch(() => null)) as RespostaRota | null;
+  return j ?? { ok: false, motivo: `O servidor não respondeu (código ${r.status}). Nada foi alterado.` };
+}
+
+function trocar(id: string, f: (n: Nfse) => Nfse): Nfse | null {
+  const list = [...(cache ?? [])];
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) return null;
+  list[i] = f(list[i]);
+  cache = list;
+  return list[i];
+}
+
+/**
+ * Aplica o desfecho que a consulta trouxe. Só quem VENCEU a gravação (`mudou`)
+ * lança a receita: duas abas consultando juntas não lançam duas.
+ */
+async function aplicarDesfecho(id: string, r: RespostaRota): Promise<Nfse | null> {
+  if (!r.ok) throw new Error(r.motivo ?? "Não foi possível consultar a nota.");
+  const estado = r.estado as StatusNfse | undefined;
+  if (!estado || estado === "processando") return trocar(id, (n) => ({ ...n, status: "processando" }));
+  const nf = trocar(id, (n) => ({
+    ...n, status: estado,
+    ...(r.numero ? { numero: r.numero } : {}), ...(r.codigoVerificacao ? { codigoVerificacao: r.codigoVerificacao } : {}),
+    ...(r.urlPdf ? { urlPdf: r.urlPdf } : {}), ...(r.urlXml ? { urlXml: r.urlXml } : {}),
+    motivoRejeicao: estado === "rejeitada" ? (r.motivo ?? n.motivoRejeicao) : undefined,
+  }));
+  if (!nf || estado !== "autorizada" || !r.mudou) return nf;
+  const movimentos = await refletirNaDRE(nf);
+  const { error } = await createClient().from("nfse").update({ movement_id: movimentos[0] ?? nf.movimentoReceita ?? null }).eq("id", id);
+  if (error) throw new Error(error.message);
+  return trocar(id, (n) => ({ ...n, movimentos }));
+}
+
+/** Pergunta à prefeitura (pela Focus) o desfecho de uma nota processando. */
+export async function atualizarNfse(id: string): Promise<Nfse | null> {
+  if (isDemo) return listNfse().find((n) => n.id === id) ?? null;
+  return aplicarDesfecho(id, await rota("GET", `/api/nfse/consultar?id=${encodeURIComponent(id)}`));
+}
+
+async function transmitirReal(id: string): Promise<Nfse | null> {
+  const r = await rota("POST", "/api/nfse/transmitir", { id });
+  if (!r.ok) {
+    // Recusa do provedor: a nota fica RECUSADA com o motivo (a rota já gravou).
+    if (r.estado === "rejeitada") return trocar(id, (n) => ({ ...n, status: "rejeitada", motivoRejeicao: r.motivo }));
+    throw new Error(r.motivo ?? "Não foi possível transmitir a nota.");
+  }
+  trocar(id, (n) => ({ ...n, status: "processando", motivoRejeicao: undefined, ...(r.ambiente === "producao" || r.ambiente === "homologacao" ? { ambiente: r.ambiente } : {}) }));
+  // A prefeitura costuma responder em segundos; passado ~20 s, a nota fica
+  // processando e o "Atualizar" da lista pergunta de novo.
+  for (let k = 0; k < 8; k++) {
+    await new Promise((res) => setTimeout(res, 2500));
+    const nf = await atualizarNfse(id);
+    if (nf && nf.status !== "processando") return nf;
+  }
+  return listNfse().find((n) => n.id === id) ?? null;
+}
+
 export async function transmitirNfse(id: string): Promise<Nfse | null> {
   await hydrateNfse();
+  if (!isDemo) return transmitirReal(id);
   const list = cache ?? [];
   let i = list.findIndex((x) => x.id === id);
   if (i < 0) return null;
@@ -228,10 +314,16 @@ export async function enviarAoTomador(id: string): Promise<void> {
   if (isDemo) saveLocal(cache); // live: "enviada" é sub-estado de UI; mantém autorizada no banco
 }
 
-export async function cancelarNfse(id: string): Promise<void> {
+export async function cancelarNfse(id: string, justificativa = ""): Promise<void> {
   const list = cache ?? []; const i = list.findIndex((x) => x.id === id);
   if (i < 0) return;
   const nf = list[i];
+  // ⚠️ A prefeitura cancela PRIMEIRO; só então a receita sai do DRE. Ao
+  // contrário, o DRE perderia a receita de uma nota que continua valendo.
+  if (!isDemo) {
+    const r = await rota("POST", "/api/nfse/cancelar", { id, justificativa });
+    if (!r.ok) throw new Error(r.motivo ?? "Não foi possível cancelar a nota.");
+  }
   // N2: não remove a receita reaproveitada (da venda ou da fatura). ⚠️ Em
   // produção a pergunta vai ao banco: a nota pode ter sido carregada de uma
   // sessão anterior, e o título com chave de venda é da VENDA — cancelar a nota

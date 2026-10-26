@@ -7,11 +7,12 @@ import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { listParties } from "@/lib/cadastros";
 import {
-  listNfse, criarNfse, transmitirNfse, enviarAoTomador, cancelarNfse, hydrateNfse,
+  listNfse, criarNfse, transmitirNfse, enviarAoTomador, cancelarNfse, hydrateNfse, atualizarNfse,
   issDe, type Nfse, type StatusNfse,
 } from "@/lib/nfse";
 import type { Party } from "@/lib/types";
-import { refletirCancelamentoNaVenda } from "@/lib/vendas-nf";
+import { refletirCancelamentoNaVenda, refletirNotaNaVenda } from "@/lib/vendas-nf";
+import { isDemo } from "@/lib/demo";
 
 const STATUS: Record<StatusNfse, { label: string; cor: string }> = {
   rascunho: { label: "Rascunho", cor: "var(--color-muted)" },
@@ -70,14 +71,30 @@ export function NfseView() {
     setLista(listNfse().map((n) => (n.id === id ? { ...n, status: "processando" } : n)));
     try {
       const nf = await transmitirNfse(id);
+      if (nf && nf.status !== "processando") await refletirNotaNaVenda(nf);
       await refresh();
       // ⚠️ Dizia "receita e ISS na DRE". O ISS NÃO entra no DRE: ele fica
       // calculado na nota (ver `refletirNaDRE`). A frase afirmava uma dedução
       // que nenhum relatório faz.
       if (nf?.status === "autorizada") show(`NFS-e ${nf.numero} autorizada — receita no DRE e recebimento em Títulos a receber`);
+      else if (nf?.status === "processando") show("A nota está na prefeitura. Toque em Atualizar daqui a pouco para ver o resultado");
       else show(nf?.motivoRejeicao ?? "NFS-e rejeitada");
     } catch (e) {
       await refresh();
+      show(e instanceof Error ? e.message : String(e));
+    } finally { setBusy(null); }
+  };
+
+  const atualizar = async (id: string) => {
+    setBusy(id);
+    try {
+      const nf = await atualizarNfse(id);
+      if (nf && nf.status !== "processando") await refletirNotaNaVenda(nf);
+      await refresh();
+      if (nf?.status === "autorizada") show(`NFS-e ${nf.numero} autorizada — receita no DRE e recebimento em Títulos a receber`);
+      else if (nf?.status === "rejeitada") show(nf.motivoRejeicao ?? "A prefeitura recusou a nota");
+      else show("A prefeitura ainda está processando a nota");
+    } catch (e) {
       show(e instanceof Error ? e.message : String(e));
     } finally { setBusy(null); }
   };
@@ -90,8 +107,15 @@ export function NfseView() {
     // Cancelar uma nota autorizada não tem volta: era um clique num "x" sem
     // pergunta nenhuma.
     if (!window.confirm(`Cancelar a NFS-e${antes?.numero ? ` nº ${antes.numero}` : ""}? O cancelamento não pode ser desfeito.`)) return;
+    // A prefeitura exige o motivo do cancelamento (de 15 a 255 letras).
+    let justificativa = "";
+    if (!isDemo) {
+      const j = window.prompt("Motivo do cancelamento (mínimo de 15 letras), como vai para a prefeitura:");
+      if (j === null) return;
+      justificativa = j;
+    }
     try {
-      await cancelarNfse(id);
+      await cancelarNfse(id, justificativa);
       const venda = antes ? await refletirCancelamentoNaVenda(antes) : null;
       await refresh();
       // ⚠️ Dizia "lançamentos vinculados removidos" também quando a nota era de
@@ -129,7 +153,9 @@ export function NfseView() {
         </div>
         <Checkbox checked={aguardar} onChange={(e) => setAguardar(e.target.checked)} label="Aguardar pagamento para emitir" />
         <Button variant="primary" size="sm" onClick={emitir}>{aguardar ? "Salvar (emite ao pagar)" : "Emitir NFS-e"}</Button>
-        <span className="text-caption text-faint">A transmissão real é assíncrona via provedor + webservice municipal (certificado A1). Aqui é simulada; o estado “processando” espelha a espera da prefeitura.</span>
+        <span className="text-caption text-faint">{isDemo
+          ? "Na demonstração a transmissão é simulada; o estado “processando” espelha a espera da prefeitura."
+          : "A nota vai à prefeitura da sua empresa com o certificado digital dela. A prefeitura calcula o ISS pelo cadastro dela; o valor acima é estimativa. Nota marcada “Teste” não tem valor fiscal."}</span>
       </Card>
 
       {/* Lista de notas */}
@@ -138,29 +164,40 @@ export function NfseView() {
           <span className="text-body font-medium text-ink inline-flex items-center gap-1">Notas fiscais de serviço<InfoHint align="left" titulo="Notas fiscais de serviço" oQue="Lista as NFS-e emitidas e seu andamento, da transmissão à autorização ou cancelamento." comoCalcula="Cada nota autorizada lança a receita bruta no DRE e o recebimento em Títulos a receber. O ISS fica calculado na nota: ele não vira conta a pagar nem dedução no DRE por aqui." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
-        <div className="hidden md:grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
+        <div className="hidden md:grid grid-cols-[1.3fr_0.5fr_0.7fr_0.8fr_0.6fr_1.4fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
           <span>Tomador</span><span>Número</span><span>Competência</span><span className="text-right">Valor</span><span className="text-right">ISS</span><span>Situação</span>
         </div>
         <div className="flex flex-col max-h-[540px] overflow-y-auto">
           {lista.length === 0 ? (
             <p className="text-caption text-faint text-center py-8">Nenhuma nota emitida.</p>
           ) : lista.map((n) => (
-            <div key={n.id} className="grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0">
+            <div key={n.id} className="grid grid-cols-[1.3fr_0.5fr_0.7fr_0.8fr_0.6fr_1.4fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0">
               <span className="min-w-0">
                 <span className="text-[14px] text-ink truncate block">{n.tomadorNome}</span>
                 <span className="text-caption text-faint truncate block">{n.codigoServico.split(" — ")[0]} · {n.municipio}</span>
+                {n.status === "rejeitada" && n.motivoRejeicao && <span className="text-caption text-negative truncate block" title={n.motivoRejeicao}>{n.motivoRejeicao}</span>}
+                {(n.urlPdf || n.urlXml) && (
+                  <span className="text-caption flex gap-2">
+                    {n.urlPdf && <a href={n.urlPdf} target="_blank" rel="noopener noreferrer" className="text-muted underline hover:text-ink">PDF</a>}
+                    {n.urlXml && <a href={n.urlXml} target="_blank" rel="noopener noreferrer" className="text-muted underline hover:text-ink">XML</a>}
+                  </span>
+                )}
               </span>
               <span className="text-caption text-muted tabular-nums">{n.numero ?? "—"}</span>
               <span className="text-caption text-muted tabular-nums">{fmtDia(n.competencia)}</span>
               <span className="text-caption text-ink tabular-nums text-right"><BRL value={n.valorServico} /></span>
               <span className="text-caption text-muted tabular-nums text-right"><BRL value={issDe(n)} /></span>
               <span className="flex items-center justify-between gap-2 min-w-0">
-                <span className="inline-flex items-center gap-1 text-caption truncate" style={{ color: STATUS[n.status].cor }}>
-                  {n.status === "processando" && <span className="inline-block w-3 h-3 rounded-full border-2 border-warning/30 border-t-warning animate-spin" />}
-                  {STATUS[n.status].label}
+                <span className="flex flex-col min-w-0">
+                  <span className="inline-flex items-center gap-1 text-caption whitespace-nowrap" style={{ color: STATUS[n.status].cor }}>
+                    {n.status === "processando" && <span className="inline-block w-3 h-3 rounded-full border-2 border-warning/30 border-t-warning animate-spin" />}
+                    {STATUS[n.status].label}
+                  </span>
+                  {n.ambiente === "homologacao" && <span className="text-caption text-faint whitespace-nowrap" title="Emitida no ambiente de teste da prefeitura: não tem valor fiscal">Teste</span>}
                 </span>
                 <span className="flex items-center gap-1 shrink-0">
                   {(n.status === "rascunho" || n.status === "rejeitada") && <button disabled={busy === n.id} onClick={() => transmitir(n.id)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-2 py-[3px]">{n.status === "rejeitada" ? "Reenviar" : "Transmitir"}</button>}
+                  {n.status === "processando" && !isDemo && <button disabled={busy === n.id} onClick={() => atualizar(n.id)} className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[3px]">Atualizar</button>}
                   {n.status === "autorizada" && <button onClick={() => enviar(n.id)} className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[3px]">Enviar</button>}
                   {(n.status === "autorizada" || n.status === "enviada") && <button onClick={() => cancelar(n.id)} title="Cancelar" className="inline-flex p-[4px] rounded-md hover:bg-surface-2"><Icon name="x" size={12} color="var(--color-text-tertiary)" /></button>}
                 </span>

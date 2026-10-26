@@ -165,7 +165,20 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261026120000_nfse_focus",
+        "motivo": "Emissão real da NFS-e pela Focus NFe: a migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas nfse.provedor_ref, nfse.ambiente, nfse.url_pdf, nfse.url_xml, nfse.url_nota, nfse.motivo_rejeicao",
+          "restrição nfse_ambiente_valido (homologacao | producao)",
+          "índice único parcial nfse_provedor_ref_unico"
+        ],
+        "impacto": "Até ser aplicada, a transmissão real não consegue marcar a nota (a rota responde erro ao gravar) e a lista de notas lê sem os links do PDF/XML — nunca vazia. Sem as variáveis FOCUS_NFE_* a emissão real também fica desligada. Nada que já existe muda.",
+        "resolver_ate": "2026-11-06",
+        "origem": "sessão Claude de 26/10/2026 (NFS-e real pela Focus NFe, etapa 3) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
