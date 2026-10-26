@@ -56,7 +56,10 @@ export function ModalBaixa({
   if (typeof document === "undefined") return null;
   return createPortal(
         <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4" onClick={() => onFechar()}>
-          <div className="w-full max-w-[440px] bg-white rounded-card p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+          {/* ⚠️ Altura limitada à tela, rolando por DENTRO: sem isso a janela
+              crescia com a cobrança e o histórico, o topo e o "Confirmar"
+              ficavam fora da tela e não havia como chegar a eles. */}
+          <div className="w-full max-w-[480px] max-h-[calc(100dvh-32px)] overflow-y-auto overscroll-contain bg-white rounded-card p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-3">
               <span className="text-h3 font-medium text-ink">
                 {baixa.status === "pago"
@@ -165,7 +168,7 @@ export function ModalBaixa({
                     do título, procurá-lo de novo numa lista de milhares e
                     voltar — e por isso ninguém consultaria. */}
                 {!ehSaida && <CobrancaPinbank movementId={baixa.id} show={show} />}
-                <HistoricoRegistro entidade="movements" id={baixa.id} />
+                <HistoricoRegistro entidade="movements" id={baixa.id} recolhido />
 
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="secondary" onClick={() => onFechar()}>Cancelar</Button>
