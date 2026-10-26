@@ -286,6 +286,8 @@ export function VendasView() {
                                 await qc.invalidateQueries();
                                 show(r.autorizada
                                   ? `NF ${r.numero} emitida para a venda ${v.numero} — a receita é o título que a venda já gerou.`
+                                  : r.processando
+                                  ? `A nota da venda ${v.numero} está na prefeitura. Veja o resultado em Notas fiscais › Emitir NFS-e.`
                                   : `A prefeitura recusou a nota da venda ${v.numero}: ${r.motivo ?? "sem motivo informado"}`);
                               } catch (e) {
                                 await qc.invalidateQueries();

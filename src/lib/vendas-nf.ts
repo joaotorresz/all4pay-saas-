@@ -24,7 +24,7 @@ async function tituloDaVenda(v: Venda): Promise<string> {
   return vivo.id;
 }
 
-export interface NotaEmitida { venda: Venda; numero?: string; autorizada: boolean; motivo?: string }
+export interface NotaEmitida { venda: Venda; numero?: string; autorizada: boolean; processando: boolean; motivo?: string }
 
 /** LANÇA quando o banco recusa algum passo, com a mensagem dele. */
 export async function emitirNotaDaVenda(v: Venda): Promise<NotaEmitida> {
@@ -39,7 +39,7 @@ export async function emitirNotaDaVenda(v: Venda): Promise<NotaEmitida> {
   // recusado num mês fechado depois de a nota já estar autorizada.
   if (isDemo) salvarSoDocumento(venda);
   else await gravarNotaDaVendaDoc(venda.id, venda.statusNF, venda.numeroNF);
-  return { venda, numero: nf.numero, autorizada: nf.status === "autorizada", motivo: nf.motivoRejeicao };
+  return { venda, numero: nf.numero, autorizada: nf.status === "autorizada", processando: nf.status === "processando", motivo: nf.motivoRejeicao };
 }
 
 /**
@@ -50,13 +50,23 @@ export async function emitirNotaDaVenda(v: Venda): Promise<NotaEmitida> {
  * ainda precisa de nota. Devolve o id da venda, ou `null` quando a nota não
  * era de venda nenhuma (avulsa ou de assinatura).
  */
-export async function refletirCancelamentoNaVenda(nf: Nfse): Promise<string | null> {
+export const refletirCancelamentoNaVenda = (nf: Nfse): Promise<string | null> =>
+  refletirNotaNaVenda({ ...nf, status: "cancelada" });
+
+/**
+ * O desfecho da nota (autorizada, recusada, cancelada) volta ao documento da
+ * venda. ⚠️ Com a emissão real a prefeitura responde DEPOIS: a venda ficava
+ * "processando" para sempre quando o resultado chegava pelo "Atualizar" da
+ * lista de notas, e era por ela que se decidia se a venda ainda pedia nota.
+ */
+export async function refletirNotaNaVenda(nf: Nfse): Promise<string | null> {
   const titulo = nf.movimentoReceita ?? nf.movimentos[0];
   if (!titulo) return null;
+  const { statusNF, numeroNF } = vendaComNota({ numeroNF: "" } as Venda, nf);
   if (isDemo) {
     const venda = listarVendas().find((x) => idRecebivel(x.id) === titulo);
     if (!venda) return null;
-    salvarSoDocumento({ ...venda, statusNF: "cancelada" });
+    salvarSoDocumento({ ...venda, statusNF, numeroNF: numeroNF || venda.numeroNF });
     return venda.id;
   }
   const { createClient } = await import("@/lib/supabase/client");
@@ -65,6 +75,6 @@ export async function refletirCancelamentoNaVenda(nf: Nfse): Promise<string | nu
   if (error) throw new Error(error.message);
   const vendaId = (data as { sale_doc_id: string | null } | null)?.sale_doc_id;
   if (!vendaId) return null;
-  await gravarNotaDaVendaDoc(vendaId, "cancelada", nf.numero ?? "");
+  await gravarNotaDaVendaDoc(vendaId, statusNF, numeroNF);
   return vendaId;
 }

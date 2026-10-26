@@ -9413,7 +9413,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/nfse: cancelar a nota NÃO apaga o título que tem chave de venda (pergunta ao banco)",
      /select\("sale_doc_id"\)/.test(cancN) && /sale_doc_id\)\s*continue/.test(cancN) && /receitaReaproveitada\(/.test(cancN));
   ok("vender/nfse: a lista do banco lê o erro (lista vazia não pode esconder recusa)",
-     /const \{ data, error \} = await createClient\(\)\.from\("nfse"\)\s*\.select/.test(nfseSem));
+     // A leitura tenta com as colunas da emissão real e cai nas antigas — as
+     // DUAS tentativas leem o erro, e a última sobe.
+     /const ler = \(colunas: string\) => createClient\(\)\.from\("nfse"\)\.select\(colunas\)/.test(nfseSem)
+     && /let \{ data, error \} = await ler\(/.test(nfseSem) && /if \(error\) \(\{ data, error \} = await ler\(COLUNAS\)\);\s*if \(error\) throw new Error/.test(nfseSem));
   // REVISÃO — excluir a venda: nota emitida e recebimento baixado bloqueiam,
   // pela MESMA regra em demonstração e em produção.
   const { bloqueioDeExclusao } = await import("@/core/vendas/nota");
@@ -9430,7 +9433,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      (remV.match(/if \(bloqueio\) throw new Error\(bloqueio\);/g) ?? []).length === 2
      && remV.indexOf("if (bloqueio) throw") < remV.indexOf("removerLocal("));
   ok("vender/nota: cancelar a nota de uma venda leva o status de volta à venda",
-     /refletirCancelamentoNaVenda\(/.test(nfseView) && /statusNF: "cancelada"|"cancelada", nf\.numero/.test(semComentario(lerV("src/lib/vendas-nf.ts"))));
+     /refletirCancelamentoNaVenda\(/.test(nfseView) && /refletirNotaNaVenda\(\{ \.\.\.nf, status: "cancelada" \}\)/.test(semComentario(lerV("src/lib/vendas-nf.ts"))));
 
   /* ---- assinaturas: dá para criar, e o MRR normaliza o ciclo ---- */
   const pagAss = lerV("src/app/dashboard/sales-invoices/subscriptions/page.tsx");
