@@ -1241,9 +1241,12 @@ html.dark .a4p-canvas {
    passar por baixo e lia como uma segunda linguagem por cima do design
    system. Nenhum desfoque de fundo no app (guarda `vidro:` na consistência). */
 .a4p-sobreposto,
-.shadow-popover {
+.shadow-popover:not(.bg-ink) {
   background: var(--color-white);
 }
+/* ⚠️ O aviso flutuante (toast) é ESCURO de propósito: `bg-ink` + texto claro.
+   Sem o `:not(.bg-ink)` a regra acima o pintava de branco e o texto, também
+   claro, sumia (26/10/2026: o erro da emissão de nota saiu ilegível). */
 /* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
    outro faz a moldura do app parecer duas peças de sistemas diferentes.
    E esse material é o do CARTÃO da Home — branco sólido + o mesmo hairline.
