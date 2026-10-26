@@ -8292,8 +8292,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia: a caixa da Home abre o MESMO chat global (nenhum chat próprio montado nela)",
      /abrirChat\(\{/.test(homeIA) && !/<ChatTelaCheia/.test(homeIA) && !/href="\/quattro-ai"/.test(homeIA));
   const kit = srcIA("src/components/ia/chat-kit.tsx"), chat = srcIA("src/components/ia/useChatIA.ts");
-  ok("ia: \"Copiado\" só aparece se copiou (a cópia é AGUARDADA e devolve o resultado)",
-     /await navigator\.clipboard\.writeText/.test(kit) && /const ok = await copiarTexto\(/.test(chat) && /copia === "falhou"/.test(kit));
+  // ⚠️ GUARDA INVERTIDA (21/10/2026, pedido do dono): o rodapé da resposta
+  // (origem, fontes, Copiar, útil/ruim) SAIU do chat. Ela prova que não voltou.
+  const kitSem = semComentIA(kit);
+  ok("ia: a resposta do chat não tem mais o rodapé de origem, fontes, Copiar e útil/ruim",
+     !/Calculado pelo sistema/.test(kitSem) && !/Fontes: /.test(kitSem) && !/Copiar resposta/.test(kitSem) && !/Resposta útil/.test(kitSem));
   const fb = chat.slice(chat.indexOf("const darFeedback"), chat.indexOf("const responder"));
   ok("ia: o feedback entra na conversa salva e não conta duas vezes",
      /if \(t\.feedback === dir\) return;/.test(fb) && /mudouRef\.current\?\.\(novo\)/.test(fb));
