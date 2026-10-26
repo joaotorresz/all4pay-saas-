@@ -37,6 +37,8 @@ export interface VinculoTela {
   antecipado: boolean;
   ativo: boolean;
   ativado_em: string | null;
+  /** A empresa ligou a cobrança por Pix e boleto pela conta Pinbank deste vínculo. */
+  cobranca_ativa: boolean;
 }
 
 export interface EventoTela {
@@ -66,7 +68,7 @@ export async function lerPinbank(): Promise<EstadoPinbank> {
   const s = createClient();
   const [v, e] = await Promise.all([
     s.from("pinbank_vinculos")
-      .select("id, estabelecimento_id, chave_gateway, nome, codigo_cliente, conta_id, taxas, prazos, antecipado, ativo, ativado_em")
+      .select("id, estabelecimento_id, chave_gateway, nome, codigo_cliente, conta_id, taxas, prazos, antecipado, ativo, ativado_em, cobranca_ativa")
       .order("criado_em").limit(50),
     s.from("pinbank_eventos")
       .select("event_id, event_type, nsu, ocorrido_em, recebido_em, situacao, motivo, tentativas, valor_centavos:payload->valor")
@@ -89,6 +91,16 @@ export async function configurarVinculo(p: {
     p_vinculo: p.id, p_conta: p.contaId, p_taxas: p.taxas, p_prazos: p.prazos,
     p_antecipado: p.antecipado, p_ativo: p.ativo,
   });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
+
+/**
+ * Liga ou desliga a cobrança por Pix e boleto pela conta Pinbank. Quem decide é
+ * o banco (`pinbank_cobranca_configurar`): só quem administra, só com a
+ * maquininha ativa e com o código da conta cadastrado pela plataforma.
+ */
+export async function configurarCobranca(p: { id: string; ativa: boolean }): Promise<void> {
+  const { error } = await createClient().rpc("pinbank_cobranca_configurar", { p_vinculo: p.id, p_ativa: p.ativa });
   if (error) throw new Error(motivoDaRecusa(error));
 }
 

@@ -22,6 +22,10 @@ sozinho no título.
   Pinbank no vínculo (`/admin`); a EMPRESA liga a cobrança
   (`pinbank_cobranca_configurar`, papel de administrar). Sem o código, ligar
   é recusado com a frase.
+- **Onde a empresa liga:** Administração › Integrações › Maquininha Pinbank,
+  no cartão do vínculo, a chave "Cobrar títulos a receber por Pix e boleto"
+  (só para quem administra; desabilitada com a frase enquanto a maquininha
+  não está ativa ou a plataforma não cadastrou o código).
 - **Reserva antes da rede.** `pinbank_cobranca_reservar` (como a pessoa, papel
   de lançar) confere o título (da empresa aberta, a receber, em aberto, não é
   amostra nem transferência, valor > 0), escolhe a conta e grava a linha
