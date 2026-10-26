@@ -97,7 +97,7 @@ export const CONTROLES: Controle[] = [
   { id: "criar.venda", tela: "Início", rotulo: "Nova venda", tipo: "navegacao", destino: "/dashboard/sales-invoices/new" },
   { id: "criar.compra", tela: "Início", rotulo: "Nova compra", tipo: "navegacao", destino: "/dashboard/purchases/new" },
   { id: "criar.nf", tela: "Início", rotulo: "Nova nota fiscal", tipo: "navegacao", destino: "/dashboard/sales-invoices/invoices" },
-  { id: "criar.link", tela: "Início", rotulo: "Novo link de pagamento", tipo: "navegacao", destino: "/contas-a-receber/painel-de-vendas?aba=links" },
+  { id: "criar.link", tela: "Início", rotulo: "Novo link de pagamento", tipo: "navegacao", destino: "/dashboard/sales-invoices?aba=links" },
   { id: "criar.assinatura", tela: "Início", rotulo: "Nova assinatura / recorrência", tipo: "navegacao", destino: "/dashboard/sales-invoices/subscriptions" },
   { id: "criar.usuario", tela: "Início", rotulo: "Novo usuário", tipo: "navegacao", destino: "/dashboard/administration/users" },
   {

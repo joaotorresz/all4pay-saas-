@@ -15,7 +15,7 @@ export default async function venderLinks(navegador) {
   const v = verificador("vender-links");
   const u = await novoUsuario(navegador);
 
-  await u.ir("/contas-a-receber/painel-de-vendas?aba=links");
+  await u.ir("/dashboard/sales-invoices?aba=links");
   v.ok(/Nenhum link de pagamento criado/.test(await u.texto()), "sem links, a tela diz que não há nenhum");
   await u.page.getByRole("button", { name: "Novo link" }).click();
   await u.page.waitForTimeout(400);
@@ -38,7 +38,7 @@ export default async function venderLinks(navegador) {
   }
   v.ok(modal.includes("R$ 350,00"), "o modal mostra o valor do link");
 
-  await u.ir("/contas-a-receber/painel-de-vendas?aba=links");
+  await u.ir("/dashboard/sales-invoices?aba=links");
   const lista = norm(await u.texto());
   v.ok(lista.includes("Mentoria outubro") && lista.includes("R$ 350,00"), "o link continua na lista depois de recarregar");
   const guardado = await u.page.evaluate(() => JSON.parse(localStorage.getItem("a4p_links_pagamento") ?? "[]"));

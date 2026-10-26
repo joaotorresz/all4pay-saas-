@@ -148,6 +148,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/reports/dre", nome: "DRE", dono: "relatorios", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/reports/dre-multi", nome: "Multiempresas", dono: "relatorios", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/reports/monthly-closing", nome: "Fechamento mensal", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices", nome: "Vendas", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/sales-invoices/invoices", nome: "Notas fiscais", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/sales-invoices/new", nome: "Nova venda", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas e contratos", dono: "vendas", status: "canonica", criterio: "nucleo" },

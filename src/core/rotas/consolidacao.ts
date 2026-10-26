@@ -314,7 +314,7 @@ export const FUSOES: Fusao[] = [
   {
     id: "vendas",
     assunto: "Vendas e notas fiscais",
-    canonico: "/contas-a-receber/painel-de-vendas",
+    canonico: "/dashboard/sales-invoices",
     aposentar: ["/vendas"],
     porque:
       "É a tela que o menu, o painel Criar e os aliases de painéis já apontavam; o hub /vendas repetia a lista, o painel, a nova venda e as notas com componentes e dados diferentes, e a mesma venda aparecia com números distintos conforme a porta.",
