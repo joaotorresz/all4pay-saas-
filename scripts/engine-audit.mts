@@ -13,6 +13,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
+import { simularVenda as simularVendaMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -12869,6 +12870,53 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("bancos: toda chave de conta com logo aponta para um glifo que EXISTE",
      BANCOS_CONTA.every((b) => { const g = glifoDoBanco(b.id); return g === null || typeof BANCO_GLIFOS[g] === "string"; }));
   ok("bancos: banco sem logo mostra iniciais, nunca vazio", iniciaisDoBanco("C6 Bank") === "C6" && iniciaisDoBanco("Mercado Pago") === "MP" && iniciaisDoBanco("") === "·");
+}
+
+/* ===================== maquininha-oferta: a página que vende a maquininha ===================== */
+{
+  // Taxas fixas e redondas: a guarda confere a CONTA, não a tabela do POS.
+  const taxa: TaxaDeMq = (f, n, ant) => f === "pix" ? 0.01 : f === "debito" ? 0.015 : (n <= 1 ? 0.03 : 0.04) + (ant ? 0.02 : 0);
+  const H = "2026-10-15";
+  const p3 = simularVendaMq({ valor: 1000, forma: "parcelado", parcelas: 3, antecipar: false }, taxa, H);
+  ok("maquininha-oferta: parcelado 3x de 1000 a 4% sobra 960", p3.custo === 40 && p3.liquido === 960, JSON.stringify(p3));
+  ok("maquininha-oferta: as parcelas somam o líquido e caem a cada 30 dias",
+     p3.recebimentos.length === 3 && Math.abs(p3.recebimentos.reduce((a, r) => a + r.valor, 0) - 960) < 0.005
+     && p3.recebimentos.map((r) => r.data).join() === "2026-11-14,2026-12-14,2027-01-13", JSON.stringify(p3.recebimentos));
+  const ant = simularVendaMq({ valor: 1000, forma: "parcelado", parcelas: 3, antecipar: true }, taxa, H);
+  ok("maquininha-oferta: antecipado cai inteiro no dia seguinte, com a antecipação na taxa",
+     ant.recebimentos.length === 1 && ant.recebimentos[0].data === "2026-10-16" && ant.liquido === 940, JSON.stringify(ant));
+  const pix = simularVendaMq({ valor: 200, forma: "pix", parcelas: 9, antecipar: true }, taxa, H);
+  ok("maquininha-oferta: Pix cai no mesmo dia e ignora parcela e antecipação", pix.recebimentos[0].data === H && pix.liquido === 198 && !pix.antecipado);
+
+  const barata = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 1, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxaAtual: 0.02 }, taxa);
+  ok("maquininha-oferta: comparação 150 × 200 por mês, 600 no ano",
+     barata.custoQuattro === 150 && barata.custoAtual === 200 && barata.diferencaMensal === 50 && barata.diferencaAnual === 600, JSON.stringify(barata));
+  const cara = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 1, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxaAtual: 0.01 }, taxa);
+  ok("maquininha-oferta: quando a taxa de hoje é MENOR, a frase diz isso (nunca \"mais barata\")",
+     cara.diferencaMensal < 0 && /menor/.test(cara.frase) && !/mais barata/.test(cara.frase), cara.frase);
+  const mixTorto = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0.8, debito: 0.8, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxaAtual: 0 }, taxa);
+  ok("maquininha-oferta: mix acima de 100% é normalizado (o volume não conta duas vezes)",
+     Math.abs(mixTorto.porForma.reduce((a, f) => a + f.fracao, 0) - 1) < 1e-9 && mixTorto.custoQuattro === 125, JSON.stringify(mixTorto.porForma));
+
+  ok("maquininha-oferta: quanto cobrar arredonda para CIMA (100 líquido a 5% → 105,27)", precoParaReceberMq(100, 0.05) === 105.27, String(precoParaReceberMq(100, 0.05)));
+  ok("maquininha-oferta: taxa de 100% não tem preço", precoParaReceberMq(100, 1) === null);
+
+  const ag = simularAntecipacaoMq([{ dia: H, valor: 500 }, { dia: "2026-11-14", valor: 1000 }, { dia: "2027-03-01", valor: 9999 }], H, 0.019, 30);
+  ok("maquininha-oferta: antecipar até 30 dias pega só o que vence até lá", ag.quantidade === 2 && ag.bruto === 1500, JSON.stringify(ag));
+  ok("maquininha-oferta: o repasse de hoje não paga antecipação; o de 30 dias paga ~1,9%",
+     ag.custo > 18 && ag.custo < 19.5 && ag.liquidoHoje === Math.round((1500 - ag.custo) * 100) / 100, JSON.stringify(ag));
+
+  const m = ritmoDaMetaMq(15_000, 40_000, H);
+  ok("maquininha-oferta: meta — projeção 31.000, falta 25.000, 16 dias, 1.562,50 por dia",
+     m.projecao === 31_000 && m.falta === 25_000 && m.diasRestantes === 16 && m.porDia === 1562.5 && /abaixo/.test(m.frase), JSON.stringify(m));
+  ok("maquininha-oferta: sem meta não há fração (nunca 0%)", ritmoDaMetaMq(15_000, 0, H).fracao === null);
+  ok("maquininha-oferta: meta batida não pede venda por dia", ritmoDaMetaMq(50_000, 40_000, H).porDia === null && ritmoDaMetaMq(50_000, 40_000, H).fracao === 1);
+
+  const eV = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, tipo: "vincular", codigoEstabelecimento: "12ab", contatoNome: "Ana", contatoTelefone: "11999990000" });
+  ok("maquininha-oferta: vínculo exige o número do estabelecimento só com dígitos", !!eV.codigoEstabelecimento && !eV.endereco, JSON.stringify(eV));
+  const eP = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", endereco: "Rua A, 123, Centro" });
+  ok("maquininha-oferta: pedido sem telefone nem e-mail é recusado", !!eP.contatoTelefone, JSON.stringify(eP));
+  ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

@@ -165,7 +165,20 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261026120000_maquininha_pedidos",
+        "objetos_ausentes": [
+          "tabela maquininha_pedidos (RLS por empresa, só leitura para authenticated, gatilho de trilha zz_auditar_maquininha_pedidos) + 2 índices",
+          "função maquininha_pedido_criar(text,integer,text,numeric,text,text,text,text,text,text) — exige administrar, teto de 5 em aberto",
+          "função admin_maquininha_pedidos() — portão admin_exigir_acesso",
+          "função admin_maquininha_pedido_situacao(uuid,text) — portão admin_exigir_acesso, registra em admin_audit"
+        ],
+        "impacto": "Até ser aplicada, o formulário de pedir ou vincular maquininha recusa com o motivo do banco e a lista de pedidos fica vazia; a oferta, o simulador e a comparação de taxas funcionam. A fila em Administração › Maquininhas mostra erro. Nada que já existe muda.",
+        "resolver_ate": "2026-11-09",
+        "origem": "sessão Claude de 26/10/2026 (página Maquininha Quattro: oferta e pedidos) — o job migrar do CI aplica no merge, que espera o OK do dono (muda quem pode chamar o quê)"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",

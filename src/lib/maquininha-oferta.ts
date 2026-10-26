@@ -1,0 +1,166 @@
+/**
+ * A OFERTA DA MAQUININHA — a ponte entre a tela e o resto do sistema:
+ *
+ * - `taxaDeReferencia(segmento)`: a `TaxaDe` do motor puro
+ *   (`core/maquininha/oferta`), montada sobre a MESMA tabela do simulador de
+ *   taxas do POS (`lib/pos-taxas`, faixa 1, sem spread próprio). Média entre
+ *   as bandeiras, porque quem simula não sabe com que cartão o cliente paga.
+ * - `listarPedidos` / `enviarPedido`: o pedido de maquininha (ou de vínculo)
+ *   que chega à plataforma (`maquininha_pedidos`, RPC
+ *   `maquininha_pedido_criar`). Em demonstração fica só na memória desta aba
+ *   — nada vai para o navegador nem para o servidor, e a tela diz isso.
+ */
+import { createClient } from "@/lib/supabase/client";
+import { isDemo } from "@/lib/demo";
+import { motivoDaRecusa, reportar } from "@/lib/erros";
+import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira } from "@/lib/pos-taxas";
+import type { FormaOferta, PedidoMaquininha, SituacaoPedido, TaxaDe } from "@/core/maquininha/oferta";
+
+/** Segmentos que a tabela de referência conhece (MCC da planilha do POS). */
+export const SEGMENTOS: { id: string; nome: string; mcc: string }[] = [
+  { id: "RESTAURANTE", nome: "Restaurante e alimentação", mcc: "5812" },
+  { id: "BARES", nome: "Bar e lanchonete", mcc: "5813" },
+  { id: "SUPERMERCADOS", nome: "Mercado e supermercado", mcc: "5411" },
+  { id: "DROGARIAS E FARMÁCIAS", nome: "Farmácia", mcc: "5912" },
+  { id: "COMÉRCIO GERAL / VARIEDADES", nome: "Comércio e varejo", mcc: "5331" },
+  { id: "LOJAS DE MATERIAL DE CONSTRUÇÃO E FERRAGENS", nome: "Material de construção", mcc: "5211" },
+];
+
+export const SEGMENTO_PADRAO = SEGMENTOS[4].id;
+
+const BANDEIRAS: Bandeira[] = ["master", "visa", "elo"];
+
+/** A taxa de referência do segmento, para o motor da oferta. */
+export function taxaDeReferencia(segmento: string, taxaAntecipMensal = POS_DEFAULT.taxaAntecipMensal): TaxaDe {
+  const custo = custoTable(segmento, "RANGE 1");
+  return (forma: FormaOferta, parcelas: number, antecipado: boolean) => {
+    const id = forma === "pix" ? "pix" : forma === "debito" ? "debito" : parcelas <= 1 ? "cv" : `p${parcelas}`;
+    const row = PARCELAS.find((p) => p.id === id);
+    if (!row) return null;
+    const cfg = { ...POS_DEFAULT, mccDesc: segmento, antecipacao: antecipado, online: false, taxaAntecipMensal };
+    const taxas = BANDEIRAS.map((b) => taxaFinalParcela(cfg, custo, row, b)).filter((t): t is number => typeof t === "number");
+    if (!taxas.length) return null;
+    return taxas.reduce((s, t) => s + t, 0) / taxas.length;
+  };
+}
+
+/* ------------------------------- pedidos ------------------------------- */
+
+export interface PedidoRegistrado {
+  id: string;
+  tipo: PedidoMaquininha["tipo"];
+  quantidade: number;
+  codigoEstabelecimento: string | null;
+  situacao: SituacaoPedido;
+  criadoEm: string;
+}
+
+/** Demonstração: só nesta aba, some ao recarregar. */
+let pedidosDemo: PedidoRegistrado[] = [];
+
+export async function listarPedidos(): Promise<PedidoRegistrado[]> {
+  if (isDemo) return pedidosDemo;
+  const { data, error } = await createClient()
+    .from("maquininha_pedidos")
+    .select("id, tipo, quantidade, codigo_estabelecimento, situacao, criado_em")
+    .order("criado_em", { ascending: false })
+    .limit(20);
+  if (error) {
+    // Sem a migration aplicada a tabela não existe: a oferta continua de pé, só sem a lista.
+    reportar("maquininha.listarPedidos", error, "a lista de pedidos de maquininha não aparece", true);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    tipo: r.tipo as PedidoMaquininha["tipo"],
+    quantidade: Number(r.quantidade),
+    codigoEstabelecimento: (r.codigo_estabelecimento as string | null) ?? null,
+    situacao: r.situacao as SituacaoPedido,
+    criadoEm: r.criado_em as string,
+  }));
+}
+
+/** Envia o pedido. Lança com o motivo do banco quando ele recusa. */
+export async function enviarPedido(p: PedidoMaquininha): Promise<PedidoRegistrado> {
+  const vincular = p.tipo === "vincular";
+  if (isDemo) {
+    const novo: PedidoRegistrado = {
+      id: `demo-${pedidosDemo.length + 1}`,
+      tipo: p.tipo,
+      quantidade: vincular ? 1 : p.quantidade,
+      codigoEstabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
+      situacao: "recebido",
+      criadoEm: new Date().toISOString(),
+    };
+    pedidosDemo = [novo, ...pedidosDemo];
+    return novo;
+  }
+  const { data, error } = await createClient().rpc("maquininha_pedido_criar", {
+    p_tipo: p.tipo,
+    p_quantidade: vincular ? 1 : p.quantidade,
+    p_segmento: p.segmento || null,
+    p_faturamento_mensal: (p.faturamentoMensal ?? 0) > 0 ? p.faturamentoMensal : null,
+    p_codigo_estabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
+    p_contato_nome: p.contatoNome,
+    p_contato_telefone: p.contatoTelefone || null,
+    p_contato_email: p.contatoEmail || null,
+    p_endereco: vincular ? null : p.endereco,
+    p_observacao: p.observacao || null,
+  });
+  if (error) {
+    reportar("maquininha.enviarPedido", error, "o pedido de maquininha não foi enviado");
+    throw new Error(motivoDaRecusa(error).replace(/^A4P-MAQUININHA:\s*/, ""));
+  }
+  return {
+    id: String(data),
+    tipo: p.tipo,
+    quantidade: vincular ? 1 : p.quantidade,
+    codigoEstabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
+    situacao: "recebido",
+    criadoEm: new Date().toISOString(),
+  };
+}
+
+/* ---------------------------- a plataforma ---------------------------- */
+
+export interface PedidoNaFila {
+  id: string;
+  org_id: string;
+  empresa: string;
+  tipo: PedidoMaquininha["tipo"];
+  quantidade: number;
+  segmento: string | null;
+  faturamento_mensal: number | null;
+  codigo_estabelecimento: string | null;
+  contato_nome: string;
+  contato_telefone: string | null;
+  contato_email: string | null;
+  endereco: string | null;
+  observacao: string | null;
+  situacao: SituacaoPedido;
+  criado_em: string;
+  atualizado_em: string | null;
+}
+
+export async function filaDePedidos(): Promise<PedidoNaFila[]> {
+  if (isDemo) {
+    return pedidosDemo.map((p) => ({
+      id: p.id, org_id: "demo", empresa: "Empresa de demonstração", tipo: p.tipo, quantidade: p.quantidade,
+      segmento: null, faturamento_mensal: null, codigo_estabelecimento: p.codigoEstabelecimento,
+      contato_nome: "Contato de demonstração", contato_telefone: null, contato_email: null, endereco: null,
+      observacao: null, situacao: p.situacao, criado_em: p.criadoEm, atualizado_em: null,
+    }));
+  }
+  const { data, error } = await createClient().rpc("admin_maquininha_pedidos");
+  if (error) throw new Error(motivoDaRecusa(error));
+  return (data as PedidoNaFila[] | null) ?? [];
+}
+
+export async function mudarSituacaoPedido(id: string, situacao: SituacaoPedido): Promise<void> {
+  if (isDemo) {
+    pedidosDemo = pedidosDemo.map((p) => (p.id === id ? { ...p, situacao } : p));
+    return;
+  }
+  const { error } = await createClient().rpc("admin_maquininha_pedido_situacao", { p_pedido: id, p_situacao: situacao });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
