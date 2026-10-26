@@ -23,7 +23,7 @@ export default async function venderNota(navegador) {
   await lancarVenda(u, 1_234_500, "completa");   // R$ 12.345,00
   await lancarVenda(u, 300_000, "chargeback");   // R$ 3.000,00 — não houve venda
 
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   const l1 = norm(await u.texto());
   v.ok(card(l1, "Completa")?.n === 1 && card(l1, "Chargeback")?.n === 1, "o painel de status da venda separa completa e chargeback",
     `${JSON.stringify(card(l1, "Completa"))} ${JSON.stringify(card(l1, "Chargeback"))}`);
@@ -37,13 +37,13 @@ export default async function venderNota(navegador) {
   await u.ir("/contas-a-receber/painel-de-vendas");
   const titAntes = (norm(await u.texto()).match(/R\$ 12\.345,00/g) || []).length;
 
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   await u.page.getByRole("button", { name: "Emitir NF" }).first().click();
   await u.page.waitForTimeout(3500);
   const l2 = norm(await u.texto());
   const numeroNF = (l2.match(/NF (\d+) emitida para a venda/) || [])[1];
   v.ok(!!numeroNF, "a tela confirma a nota emitida com número", (l2.match(/NF [^—]{0,60}/) || [])[0]);
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   const l3 = norm(await u.texto());
   v.ok(card(l3, "NFs emitidas")?.n === 1 && card(l3, "NFs emitidas")?.valor === "12.345,00", "a venda passa para 'NFs emitidas' no painel da lista", JSON.stringify(card(l3, "NFs emitidas")));
   v.ok(card(l3, "NFs a emitir")?.n === 0, "e sai de 'NFs a emitir'", JSON.stringify(card(l3, "NFs a emitir")));

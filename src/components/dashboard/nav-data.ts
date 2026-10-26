@@ -139,14 +139,14 @@ export const SECTIONS: Section[] = [
   {
     // O ciclo da RECEITA, do pedido ao dinheiro. Vem primeiro: é por onde o
     // dinheiro entra, e é a pergunta que o dono faz antes de qualquer outra.
-    // ⚠️ O painel e a lista de vendas ficam SEPARADOS de propósito: o painel
-    // olha o recebível (vencimento e caixa), Vendas olha o pedido (competência)
-    // — juntá-los poria lado a lado dois números que a intuição soma.
+    // ⚠️ A tela "Vendas" saiu do menu (pedido do dono, 26/10/2026): os pedidos,
+    // boletos e PIX, links, maquininha e taxas viraram ABAS do Painel de vendas.
+    // O painel olha o recebível (vencimento e caixa) e a aba Pedidos olha o
+    // pedido (competência) — por isso ficam em abas, nunca somados na mesma vista.
     id: "contas-a-receber", label: "Central de vendas", icon: "arrow-up",
     acao: { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
     items: [
-      { label: "Painel de vendas", desc: "Calendário, status e títulos a receber numa tela só", href: "/contas-a-receber/painel-de-vendas", icon: "gauge" },
-      { label: "Vendas", desc: "Pedidos, boletos, links e maquininha", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
+      { label: "Painel de vendas", desc: "Títulos a receber, pedidos, boletos, links e maquininha", href: "/contas-a-receber/painel-de-vendas", icon: "gauge" },
       { label: "Maquininha Quattro", desc: "Vendas, taxas e recebíveis da maquininha Pinbank", href: "/contas-a-receber/maquininha", icon: "smartphone" },
       { label: "Notas fiscais", desc: "Notas das vendas e emissão de NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
       { label: "Cobrança e inadimplência", desc: "Régua de cobrança e risco por cliente", href: "/dashboard/financial/overdue", icon: "triangle-alert" },

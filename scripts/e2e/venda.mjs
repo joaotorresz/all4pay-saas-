@@ -28,7 +28,7 @@ export default async function venda(navegador) {
   const nomeCategoria = await u.select("Selecione a categoria").evaluate((s) => s.options[s.selectedIndex].text);
   await u.page.getByRole("button", { name: "Salvar venda" }).click();
   await u.page.waitForTimeout(2500);
-  v.ok(u.page.url().endsWith("/dashboard/sales-invoices"), "salvar leva de volta à lista", u.page.url());
+  v.ok(u.page.url().endsWith("/contas-a-receber/painel-de-vendas?aba=pedidos"), "salvar leva de volta à lista", u.page.url());
 
   const lista = await u.texto();
   const numero = (lista.match(/20\d\d-\d{4}/) || [])[0];

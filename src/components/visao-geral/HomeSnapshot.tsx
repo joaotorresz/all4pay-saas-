@@ -714,7 +714,7 @@ function usePendencias(): Pendencias {
 function PrecisaDeAcao({ p }: { p: Pendencias }) {
   const itens = [
     { nome: "Transações a conciliar", qtd: p.conciliar, href: "/dashboard/financial/reconciliation" },
-    { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices" },
+    { nome: "Notas a emitir", qtd: p.notas, href: "/contas-a-receber/painel-de-vendas?aba=pedidos" },
     { nome: "Compras a aprovar", qtd: p.compras, href: "/dashboard/purchases" },
     { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/central?aba=solicitacoes" },
     { nome: "Boletos a pagar", qtd: p.boletos, href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos" },

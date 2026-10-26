@@ -32,7 +32,7 @@ export default async function venderNotaCancelar(navegador) {
   u.page.on("dialog", (d) => d.accept());
 
   await lancarVenda(u, 876_540, "completa");
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   await u.page.getByRole("button", { name: "Emitir NF" }).first().click();
   await u.page.waitForTimeout(3500);
   const numeroNF = (norm(await u.texto()).match(/NF (\d+) emitida para a venda/) || [])[1];
@@ -41,13 +41,13 @@ export default async function venderNotaCancelar(navegador) {
   v.ok(tit0.length === 1, "a venda tem UM título a receber de R$ 8.765,40", JSON.stringify(tit0));
 
   // Excluir com a nota emitida: recusado.
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   await u.page.getByRole("button", { name: "Excluir" }).first().click();
   await u.page.waitForTimeout(1500);
   const r1 = norm(await u.texto());
   v.ok(/Cancele a nota no emissor de NFS-e antes de excluir a venda/.test(r1), "excluir a venda com nota emitida é recusado, com o motivo",
     (r1.match(/A venda [^.]{0,80}\./) || [])[0]);
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   const l1 = norm(await u.texto());
   v.ok(card(l1, "NFs emitidas")?.n === 1 && l1.includes(VALOR), "a venda continua na lista, com a nota emitida", JSON.stringify(card(l1, "NFs emitidas")));
   v.ok((await titulosDaVenda(u)).length === 1, "e o título a receber continua lá");
@@ -63,7 +63,7 @@ export default async function venderNotaCancelar(navegador) {
   const tit1 = await titulosDaVenda(u);
   v.ok(tit1.length === 1 && tit1[0].id === tit0[0]?.id, "cancelar a nota NÃO apaga o título da venda", `${JSON.stringify(tit0)} → ${JSON.stringify(tit1)}`);
 
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   const l2 = norm(await u.texto());
   v.ok(card(l2, "NFs emitidas")?.n === 0, "a venda sai de 'NFs emitidas'", JSON.stringify(card(l2, "NFs emitidas")));
   v.ok(/Cancelada · nº/.test(l2), "a lista de vendas mostra a nota CANCELADA, com o número", (l2.match(/(Emitida|Cancelada) · nº \d+/) || [])[0]);
@@ -72,7 +72,7 @@ export default async function venderNotaCancelar(navegador) {
   v.ok(card(n2, "NF canceladas")?.n === 1 && card(n2, "NF canceladas")?.valor === "8.765,40", "a tela de notas conta a nota cancelada", JSON.stringify(card(n2, "NF canceladas")));
 
   // Agora a exclusão passa e o título vai junto.
-  await u.ir("/dashboard/sales-invoices");
+  await u.ir("/contas-a-receber/painel-de-vendas?aba=pedidos");
   await u.page.getByRole("button", { name: "Excluir" }).first().click();
   await u.page.waitForTimeout(1500);
   v.ok(/enviados para a lixeira/.test(norm(await u.texto())), "com a nota cancelada, a exclusão passa");
