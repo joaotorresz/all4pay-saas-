@@ -973,7 +973,7 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   em aberto) e é atendido em Administração › Maquininhas (`admin_maquininha_pedidos`,
   situação auditada em `admin_audit`). ⚠️ O pedido de VÍNCULO não vincula: só a
   plataforma liga EC → empresa. Em demonstração o pedido fica só na memória da aba.
-- **Com maquininha**: caixa da Quattro AI no padrão da Home, cards da Home e três
+- **Com maquininha**: cards da Home (sem a caixa da Quattro AI, a pedido do dono) e três
   interativos (meta do mês com ritmo, antecipar a agenda, quanto cobrar para
   receber X). `?ver=oferta` mostra a oferta a quem já tem (outro ponto de venda).
 - Guarda: bloco `maquininha-oferta:` do `engine-audit`.

@@ -117,7 +117,7 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
           <span className="w-11 h-11 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
             <Icon name="smartphone" size={20} strokeWidth={1.75} />
           </span>
-          <h2 className="text-[24px] text-ink m-0" style={{ fontWeight: 500 }}>Venda com a maquininha Quattro</h2>
+          <h2 className="text-[24px] text-ink m-0" style={{ fontWeight: 500 }}>Peça a maquininha Quattro</h2>
           <p className="text-[14px] text-muted m-0 max-w-[520px]">
             Cada venda entra sozinha no seu financeiro: o recebível, a taxa e o dia em que o dinheiro cai, já no fluxo de caixa e no DRE.
           </p>

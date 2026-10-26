@@ -28,7 +28,6 @@ import {
   BarrasDestaque, BRL, Button, Card, CartaoBiblioteca, CurrencyInput, Icon, InfoHint, ListaProgresso, MapaCalorGrade, MetaCirculo, PizzaFatias, RoscaFatias,
   type CelulaCalor,
 } from "@/components/ui";
-import { abrirChat } from "@/components/ia/ChatGlobal";
 import { OfertaMaquininha } from "@/components/maquininha/OfertaMaquininha";
 import { precoParaReceber, ritmoDaMeta, simularAntecipacao } from "@/core/maquininha/oferta";
 import { SEGMENTO_PADRAO, taxaDeReferencia } from "@/lib/maquininha-oferta";
@@ -73,50 +72,6 @@ function Numero({ titulo, info, valor, detalhe }: {
       <span className="tabular-nums text-ink" style={{ fontSize: 30, lineHeight: 1, fontWeight: 600 }}>{valor}</span>
       <span className="text-[12px] text-muted tabular-nums">{detalhe}</span>
     </div>
-  );
-}
-
-const PERGUNTAS_IA = [
-  { id: "maq-vendas", curto: "Como foram as vendas", icone: "activity", texto: "Como foram as vendas da maquininha neste mês?" },
-  { id: "maq-taxas", curto: "Quanto paguei de taxa", icone: "receipt", texto: "Quanto paguei de taxa da maquininha neste mês?" },
-  { id: "maq-recebiveis", curto: "Quando cai o dinheiro", icone: "calendar", texto: "Quando cai o dinheiro das vendas da maquininha?" },
-  { id: "maq-antecipar", curto: "Vale antecipar?", icone: "coins", texto: "Vale a pena antecipar os recebíveis da maquininha?" },
-];
-
-/** A caixa da Quattro AI da Home, com as perguntas desta página. */
-function CaixaIAMaquininha() {
-  const [texto, setTexto] = React.useState("");
-  const sugestoes = PERGUNTAS_IA.map((p) => ({ id: p.id, texto: p.texto, curto: p.curto, icone: p.icone }));
-  const perguntar = (q?: string) => { setTexto(""); abrirChat({ pergunta: q?.trim() || undefined, sugestoes }); };
-  return (
-    <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-8">
-      <form
-        onSubmit={(e) => { e.preventDefault(); perguntar(texto); }}
-        className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
-        style={{ background: "var(--a4p-pilula-fundo)" }}
-      >
-        <span aria-hidden className="w-9 h-9 flex-none rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)", color: "var(--color-ink)" }}>
-          <Icon name="sparkles" size={18} strokeWidth={1.5} />
-        </span>
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder="Pergunte à Quattro AI sobre a sua maquininha"
-          aria-label="Pergunte à Quattro AI sobre a sua maquininha"
-          className="a4p-ia-campo flex-1 min-w-0 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
-        />
-        <button type="submit" aria-label="Enviar pergunta" className="w-9 h-9 flex-none rounded-pill flex items-center justify-center" style={{ background: "var(--erp-num-cor)", color: "var(--color-surface-1)" }}>
-          <Icon name="arrow-up" size={18} strokeWidth={1.5} />
-        </button>
-      </form>
-      <div className="flex flex-wrap justify-center gap-[10px]">
-        {PERGUNTAS_IA.map((p) => (
-          <button key={p.id} type="button" onClick={() => perguntar(p.texto)} aria-label={p.texto} title={p.texto} className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula">
-            <Icon name={p.icone} size={16} strokeWidth={1.5} /> {p.curto}
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -332,8 +287,6 @@ export function MaquininhaQuattro() {
         </div>
         <Button variant="secondary" onClick={exportar} disabled={r.vendas.length === 0}>Exportar planilha</Button>
       </div>
-
-      <CaixaIAMaquininha />
 
       {/* Os quatro números */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
