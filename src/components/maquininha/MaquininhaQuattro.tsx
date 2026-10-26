@@ -15,14 +15,25 @@
  * ⚠️ A variação contra o período anterior é TEXTO com sinal, na tinta: número
  * não tem cor por sinal (as pílulas coloridas são exceções declaradas de
  * outras telas, e esta não é uma delas).
+ *
+ * DESENHO DA HOME (26/10/2026, pedido do dono): os números nos cards da Home,
+ * a caixa da Quattro AI com perguntas sobre a maquininha, e quatro cards de
+ * mexer — meta do mês, antecipar a agenda, quanto cobrar e pedir mais uma
+ * maquininha. Sem maquininha, a página é a OFERTA (`OfertaMaquininha`): pedir
+ * uma, simular taxas ou pedir o vínculo da que a empresa já tem.
  */
 import * as React from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BarrasDestaque, BRL, Button, Card, CartaoBiblioteca, Icon, InfoHint, ListaProgresso, MapaCalorGrade, PizzaFatias, RoscaFatias,
+  BarrasDestaque, BRL, Button, Card, CartaoBiblioteca, CurrencyInput, Icon, InfoHint, ListaProgresso, MapaCalorGrade, MetaCirculo, PizzaFatias, RoscaFatias,
   type CelulaCalor,
 } from "@/components/ui";
+import { abrirChat } from "@/components/ia/ChatGlobal";
+import { OfertaMaquininha } from "@/components/maquininha/OfertaMaquininha";
+import { precoParaReceber, ritmoDaMeta, simularAntecipacao } from "@/core/maquininha/oferta";
+import { SEGMENTO_PADRAO, taxaDeReferencia } from "@/lib/maquininha-oferta";
+import { POS_DEFAULT } from "@/lib/pos-taxas";
+import { gravarPreferencia, lerPreferencia } from "@/lib/store-org";
 import { usePermissoes } from "@/components/app/usePermissoes";
 import { PinbankConferencia } from "@/components/administracao/PinbankConferencia";
 import { SeletorPeriodoMaquininha } from "@/components/visao-geral/MaquininhaRecentes";
@@ -36,7 +47,6 @@ import { isDemo } from "@/lib/demo";
 import { formatBRL, pct } from "@/lib/format";
 import { baixarXLSX } from "@/lib/xlsx";
 
-const LINK_INTEGRACAO = "/dashboard/administration/integrations?cartao=maquininha-pinbank";
 const LISTA_INICIAL = 12;
 
 const NOME_PERIODO: Record<PeriodoMaquininha, string> = { dia: "hoje", semana: "nesta semana", mes: "neste mês" };
@@ -48,18 +58,170 @@ function fraseVariacao(r: RelatorioMaquininha): string {
   return `${v > 0 ? "+" : ""}${pct(v)} sobre ${r.janela.anterior.rotulo}`;
 }
 
+const cartao = { background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" } as const;
+
+/** O card pequeno da Home: rótulo, número grande e a linha de baixo. */
 function Numero({ titulo, info, valor, detalhe }: {
   titulo: string; info: { oQue: string; comoCalcula?: string }; valor: React.ReactNode; detalhe: React.ReactNode;
 }) {
   return (
-    <Card className="flex flex-col gap-2 min-w-0">
+    <div className="flex flex-col gap-3 px-7 py-[22px] min-w-0" style={cartao}>
       <span className="inline-flex items-center gap-2">
-        <span className="text-[13.5px] font-medium" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
+        <span className="text-[15px] text-muted">{titulo}</span>
         <InfoHint align="left" titulo={titulo} oQue={info.oQue} comoCalcula={info.comoCalcula} />
       </span>
-      <span className="text-[26px] leading-none tabular-nums text-ink" style={{ fontWeight: 600 }}>{valor}</span>
-      <span className="text-[12px] tabular-nums" style={{ color: "var(--color-text-tertiary)" }}>{detalhe}</span>
-    </Card>
+      <span className="tabular-nums text-ink" style={{ fontSize: 30, lineHeight: 1, fontWeight: 600 }}>{valor}</span>
+      <span className="text-[12px] text-muted tabular-nums">{detalhe}</span>
+    </div>
+  );
+}
+
+const PERGUNTAS_IA = [
+  { id: "maq-vendas", curto: "Como foram as vendas", icone: "activity", texto: "Como foram as vendas da maquininha neste mês?" },
+  { id: "maq-taxas", curto: "Quanto paguei de taxa", icone: "receipt", texto: "Quanto paguei de taxa da maquininha neste mês?" },
+  { id: "maq-recebiveis", curto: "Quando cai o dinheiro", icone: "calendar", texto: "Quando cai o dinheiro das vendas da maquininha?" },
+  { id: "maq-antecipar", curto: "Vale antecipar?", icone: "coins", texto: "Vale a pena antecipar os recebíveis da maquininha?" },
+];
+
+/** A caixa da Quattro AI da Home, com as perguntas desta página. */
+function CaixaIAMaquininha() {
+  const [texto, setTexto] = React.useState("");
+  const sugestoes = PERGUNTAS_IA.map((p) => ({ id: p.id, texto: p.texto, curto: p.curto, icone: p.icone }));
+  const perguntar = (q?: string) => { setTexto(""); abrirChat({ pergunta: q?.trim() || undefined, sugestoes }); };
+  return (
+    <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-8">
+      <form
+        onSubmit={(e) => { e.preventDefault(); perguntar(texto); }}
+        className="w-full max-w-[720px] h-14 flex items-center gap-3 px-[10px] rounded-[28px]"
+        style={{ background: "var(--a4p-pilula-fundo)" }}
+      >
+        <span aria-hidden className="w-9 h-9 flex-none rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)", color: "var(--color-ink)" }}>
+          <Icon name="sparkles" size={18} strokeWidth={1.5} />
+        </span>
+        <input
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Pergunte à Quattro AI sobre a sua maquininha"
+          aria-label="Pergunte à Quattro AI sobre a sua maquininha"
+          className="a4p-ia-campo flex-1 min-w-0 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
+        />
+        <button type="submit" aria-label="Enviar pergunta" className="w-9 h-9 flex-none rounded-pill flex items-center justify-center" style={{ background: "var(--erp-num-cor)", color: "var(--color-surface-1)" }}>
+          <Icon name="arrow-up" size={18} strokeWidth={1.5} />
+        </button>
+      </form>
+      <div className="flex flex-wrap justify-center gap-[10px]">
+        {PERGUNTAS_IA.map((p) => (
+          <button key={p.id} type="button" onClick={() => perguntar(p.texto)} aria-label={p.texto} title={p.texto} className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula">
+            <Icon name={p.icone} size={16} strokeWidth={1.5} /> {p.curto}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const CHAVE_META = "a4p_maquininha_meta";
+
+/** Meta de vendas do mês: o círculo enche com o vendido e a frase diz o ritmo. */
+function CardMeta({ vendidoNoMes, hoje }: { vendidoNoMes: number; hoje: string }) {
+  const [meta, setMeta] = React.useState(0);
+  React.useEffect(() => setMeta(lerPreferencia<number>(CHAVE_META, 0)), []);
+  const mudar = (v: number) => { setMeta(v); gravarPreferencia(CHAVE_META, v); };
+  const r = ritmoDaMeta(vendidoNoMes, meta, hoje);
+  return (
+    <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
+      <span className="inline-flex items-center gap-2">
+        <span className="text-[15px] text-ink">Meta do mês</span>
+        <InfoHint align="left" oQue="Um alvo de vendas para o mês, para acompanhar o ritmo. Fica só neste navegador." comoCalcula="Vendido no mês ÷ meta. A projeção é o vendido ÷ dias passados × dias do mês; o por dia é o que falta ÷ os dias que restam." />
+      </span>
+      <CurrencyInput label="Quanto quer vender no mês" value={meta} onValueChange={mudar} />
+      {r.fracao != null ? (
+        <MetaCirculo atual={vendidoNoMes} meta={meta} tamanho={96} ariaLabel={`Vendido ${formatBRL(vendidoNoMes)} de ${formatBRL(meta)}`} rotuloAtual="Vendido" rotuloResto="Falta" />
+      ) : null}
+      <p className="text-[13px] text-ink m-0">{r.frase}</p>
+      <span className="text-[12px] text-muted tabular-nums">
+        {r.projecao != null ? `No ritmo de agora: ${formatBRL(r.projecao)} no mês.` : "Sem vendas no mês ainda."}
+        {r.porDia != null ? ` Para bater: ${formatBRL(r.porDia)} por dia.` : ""}
+      </span>
+    </section>
+  );
+}
+
+/** Antecipar a agenda: escolhe até quando, vê quanto cai amanhã e quanto custa. */
+function CardAntecipar({ dias, hoje }: { dias: { dia: string; valor: number }[]; hoje: string }) {
+  const futuros = dias.filter((d) => d.dia > hoje && d.valor > 0);
+  const ultimo = futuros.length
+    ? Math.max(1, Math.round((Date.parse(`${futuros[futuros.length - 1].dia}T00:00:00Z`) - Date.parse(`${hoje}T00:00:00Z`)) / 86_400_000))
+    : 0;
+  const [ate, setAte] = React.useState(30);
+  const limite = Math.min(Math.max(1, ate), Math.max(1, ultimo));
+  const a = simularAntecipacao(futuros, hoje, POS_DEFAULT.taxaAntecipMensal, limite);
+  return (
+    <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
+      <span className="inline-flex items-center gap-2">
+        <span className="text-[15px] text-ink">Antecipar recebíveis</span>
+        <InfoHint align="left" oQue="Quanto cairia amanhã se você antecipasse os repasses da agenda, e quanto custaria." comoCalcula={`Cada repasse paga ${pct(POS_DEFAULT.taxaAntecipMensal)} ao mês, proporcional aos dias que faltam (taxa de referência; vale a do seu contrato).`} />
+      </span>
+      {ultimo === 0 ? <SemDado>Nenhum repasse futuro para antecipar.</SemDado> : (
+        <>
+          <label className="flex flex-col gap-2">
+            <span className="text-[13px] text-muted">Repasses dos próximos <span className="text-ink tabular-nums">{limite} {limite === 1 ? "dia" : "dias"}</span></span>
+            <input type="range" min={1} max={ultimo} value={limite} onChange={(e) => setAte(Number(e.target.value))} className="w-full accent-ink" aria-label="Antecipar repasses até quantos dias" />
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-[13px] text-muted">Cairia amanhã</span>
+            <span className="tabular-nums text-ink" style={{ fontSize: 30, lineHeight: 1, fontWeight: 600 }}><BRL value={a.liquidoHoje} /></span>
+            <span className="text-[12px] text-muted tabular-nums">
+              {a.quantidade} {a.quantidade === 1 ? "repasse" : "repasses"} · {formatBRL(a.bruto)} na agenda · custo de {formatBRL(a.custo)}{a.fracao != null ? ` (${pct(a.fracao, 2)})` : ""}
+            </span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Quanto cobrar para receber um valor livre de taxa. */
+function CardQuantoCobrar({ observadas }: { observadas: { chave: string; nome: string; taxa: number }[] }) {
+  const opcoes = React.useMemo(() => {
+    if (observadas.length) return observadas;
+    const t = taxaDeReferencia(SEGMENTO_PADRAO);
+    const ref: { chave: string; nome: string; taxa: number | null }[] = [
+      { chave: "pix", nome: "Pix", taxa: t("pix", 0, false) },
+      { chave: "debito", nome: "Débito", taxa: t("debito", 0, false) },
+      { chave: "credito", nome: "Crédito à vista", taxa: t("credito", 1, false) },
+      { chave: "parcelado", nome: "Parcelado em 6x", taxa: t("parcelado", 6, false) },
+    ];
+    return ref.filter((x): x is { chave: string; nome: string; taxa: number } => x.taxa != null);
+  }, [observadas]);
+  const [liquido, setLiquido] = React.useState(100);
+  const [forma, setForma] = React.useState<string>("");
+  const escolhida = opcoes.find((o) => o.chave === forma) ?? opcoes[0];
+  const preco = escolhida ? precoParaReceber(liquido, escolhida.taxa) : null;
+  return (
+    <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
+      <span className="inline-flex items-center gap-2">
+        <span className="text-[15px] text-ink">Quanto cobrar</span>
+        <InfoHint align="left" oQue="O preço que deixa você receber o valor que quer, já descontada a taxa da maquininha." comoCalcula={observadas.length ? "Valor desejado ÷ (1 − taxa). A taxa de cada forma é a que a maquininha cobrou no período (custo ÷ vendido)." : "Valor desejado ÷ (1 − taxa). Sem vendas com título no período, usa a taxa de referência."} />
+      </span>
+      <CurrencyInput label="Quero receber" value={liquido} onValueChange={setLiquido} />
+      <div role="radiogroup" aria-label="Forma de pagamento" className="flex flex-wrap gap-2">
+        {opcoes.map((o) => {
+          const ativo = o.chave === escolhida?.chave;
+          return (
+            <button key={o.chave} type="button" role="radio" aria-checked={ativo} onClick={() => setForma(o.chave)} className="h-9 px-3 rounded-pill text-[13px]"
+              style={ativo ? { background: "var(--erp-num-cor)", color: "var(--color-surface-1)" } : { background: "var(--color-surface-1)", color: "var(--color-ink)" }}>
+              {o.nome}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-[13px] text-muted">Cobre</span>
+        <span className="tabular-nums text-ink" style={{ fontSize: 30, lineHeight: 1, fontWeight: 600 }}>{preco == null ? "—" : <BRL value={preco} />}</span>
+        <span className="text-[12px] text-muted tabular-nums">{escolhida ? `taxa de ${pct(escolhida.taxa, 2)} no ${escolhida.nome.toLowerCase()}` : "sem taxa para calcular"}</span>
+      </div>
+    </section>
   );
 }
 
@@ -75,6 +237,12 @@ function nivelDe(valor: number, maximo: number): CelulaCalor["nivel"] {
 export function MaquininhaQuattro() {
   const [periodo, setPeriodo] = React.useState<PeriodoMaquininha>("semana");
   const [todas, setTodas] = React.useState(false);
+  // `?ver=oferta` abre a oferta mesmo com maquininha (pedir mais uma, ou ver a
+  // página que a empresa sem maquininha vê — útil na demonstração).
+  const [verOferta, setVerOferta] = React.useState(false);
+  React.useEffect(() => {
+    setVerOferta(new URLSearchParams(window.location.search).get("ver") === "oferta");
+  }, []);
   const hoje = diaEHora(new Date().toISOString()).dia;
   // Desde o começo do mês anterior (ou 4 semanas, o que vier antes): cobre os
   // três períodos, a comparação e o mapa de calor.
@@ -99,6 +267,11 @@ export function MaquininhaQuattro() {
     [data, hoje, periodo],
   );
   React.useEffect(() => setTodas(false), [periodo]);
+  // A meta é do MÊS, qualquer que seja o período escolhido.
+  const vendidoNoMes = React.useMemo(
+    () => (data ? montarRelatorioMaquininha(data.linhas, data.titulos, hoje, "mes").resumo.vendido : 0),
+    [data, hoje],
+  );
 
   const nomeMaquininha = React.useCallback(
     (id: string | null) => data?.maquininhas.find((m) => m.id === id)?.nome ?? "Maquininha",
@@ -116,17 +289,18 @@ export function MaquininhaQuattro() {
     return <Card><SemDado>Não foi possível ler as vendas da maquininha agora. Tente de novo em instantes.</SemDado></Card>;
   }
   if (!data?.temMaquininha || !r) {
+    // Vínculo feito pela plataforma e ainda não ativado pela empresa: a oferta
+    // abre com o aviso de ativar em Integrações.
+    return <OfertaMaquininha vinculosPendentes={data?.maquininhas.length ?? 0} />;
+  }
+  if (verOferta) {
     return (
-      <Card className="flex flex-col items-start gap-3">
-        <span className="w-10 h-10 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
-          <Icon name="smartphone" size={18} strokeWidth={1.75} />
-        </span>
-        <p className="text-[15px] text-ink m-0">Sua maquininha ainda não está ligada.</p>
-        <p className="text-[13px] text-muted m-0">Assim que ela estiver ativa em Integrações, as vendas, as taxas e os recebíveis aparecem aqui.</p>
-        <Link href={LINK_INTEGRACAO} className="text-[13px] text-ink inline-flex items-center gap-1 hover:underline">
-          Ligar em Integrações <Icon name="arrow-up-right" size={14} strokeWidth={1.75} />
-        </Link>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <button type="button" onClick={() => setVerOferta(false)} className="self-start text-[13px] text-muted hover:text-ink inline-flex items-center gap-1">
+          <Icon name="arrow-left" size={14} strokeWidth={1.75} /> Voltar aos relatórios da maquininha
+        </button>
+        <OfertaMaquininha />
+      </div>
     );
   }
 
@@ -138,6 +312,10 @@ export function MaquininhaQuattro() {
     chave: `${i}-${j}`, nivel: nivelDe(v, r.calor.maximo),
     titulo: `${r.calor.linhas[i]}, ${r.calor.colunas[j]}: ${formatBRL(v)}`,
   })));
+
+  const taxasObservadas = (custos?.porForma ?? [])
+    .filter((f) => f.percentual != null && f.percentual >= 0 && f.percentual < 1)
+    .map((f) => ({ chave: f.forma, nome: f.nome, taxa: f.percentual as number }));
 
   const exportar = () => {
     baixarXLSX(nomeArquivoMaquininha(r), [{ nome: "Vendas", linhas: linhasPlanilhaMaquininha(r, nomeMaquininha) }]);
@@ -154,6 +332,8 @@ export function MaquininhaQuattro() {
         </div>
         <Button variant="secondary" onClick={exportar} disabled={r.vendas.length === 0}>Exportar planilha</Button>
       </div>
+
+      <CaixaIAMaquininha />
 
       {/* Os quatro números */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -181,6 +361,23 @@ export function MaquininhaQuattro() {
           valor={resumo.aprovacao == null ? "—" : pct(resumo.aprovacao)}
           detalhe={resumo.tentativas === 0 ? "nenhuma tentativa no período" : `${resumo.tentativas - resumo.quantidade} de ${resumo.tentativas} sem aprovação`}
         />
+      </div>
+
+      {/* Os cards de mexer */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <CardMeta vendidoNoMes={vendidoNoMes} hoje={hoje} />
+        <CardAntecipar dias={agenda.dias} hoje={hoje} />
+        <CardQuantoCobrar observadas={taxasObservadas} />
+        <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
+          <span className="text-[15px] text-ink">Mais um ponto de venda?</span>
+          <span className="w-11 h-11 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
+            <Icon name="smartphone" size={20} strokeWidth={1.75} />
+          </span>
+          <p className="text-[13px] text-muted m-0 flex-1">
+            Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
+          </p>
+          <Button variant="secondary" onClick={() => setVerOferta(true)}>Pedir outra maquininha</Button>
+        </section>
       </div>
 
       {/* Evolução */}

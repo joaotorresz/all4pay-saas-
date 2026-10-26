@@ -227,6 +227,10 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_ds_rascunho", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
   "a4p_anuncios_lidos", "a4p_sidebar_expandida",
+  // A meta de vendas do mês na página da maquininha: um alvo que a pessoa
+  // se dá para acompanhar o ritmo, não um orçamento da empresa (que mora em
+  // Orçamento, no servidor).
+  "a4p_maquininha_meta",
   // As prioridades que a pessoa marcou na caixa da IA e quantas vezes clicou
   // em cada sugestão. São de QUEM usa, não da empresa: o sócio que cuida de
   // vendas e o que cuida do caixa veem sugestões diferentes na mesma Home.
