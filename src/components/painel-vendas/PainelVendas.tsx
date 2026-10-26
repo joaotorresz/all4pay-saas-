@@ -17,12 +17,23 @@
  * da tela de títulos, recebendo o período e os filtros de cima. As duas telas
  * antigas continuam no ar até o dono decidir aposentá-las.
  *
+ * ⚠️ Com TRÊS MESES ou mais no filtro (pedido do dono, 26/10/2026), o
+ * calendário dia a dia vira a faixa mensal da tela de títulos — a MESMA peça
+ * (`CarrosselSazonalidade` + `FaixaPeriodos`), não uma cópia. Num trimestre o
+ * carrossel de noventa dias obriga a arrastar até achar o mês; a linha por mês
+ * responde de uma vez. A faixa soma pelo VENCIMENTO, cortada no intervalo e
+ * nos filtros, como os cards de baixo; escolher um mês recorta os cards nele.
+ *
  * ⚠️ Os dois blocos olham datas diferentes, e a tela diz isso: o calendário e o
  * status contam o RECEBIDO pela data do recebimento e o aberto pelo
  * vencimento; os cards e a tabela recortam os títulos pelo VENCIMENTO.
  */
 import * as React from "react";
 import { Card, Skeleton } from "@/components/ui";
+import {
+  CarrosselSazonalidade, FaixaPeriodos, type Granularidade,
+} from "@/components/movimentacoes/CarrosselSazonalidade";
+import { periodosNoIntervalo, intervaloDeTresMeses } from "@/core/movimentacoes/periodos";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { dataBR } from "@/lib/format";
 import {
@@ -96,6 +107,24 @@ export function PainelVendas() {
     };
   }, [filtro, periodo, input]);
 
+  // A faixa mensal: só com três meses ou mais no filtro.
+  const mensal = !!filtro && intervaloDeTresMeses(filtro.de, filtro.ate);
+  const [gran, setGran] = React.useState<Granularidade>("mes");
+  const [selPeriodo, setSelPeriodo] = React.useState<string | null>(null);
+  const periodos = React.useMemo(
+    () => (mensal && filtro ? periodosNoIntervalo(input, filtro.de, filtro.ate, gran, "receber", recorte?.incluir) : []),
+    [mensal, filtro, input, gran, recorte],
+  );
+  // Trocar o filtro invalida o mês escolhido: ele pode nem estar mais na faixa.
+  React.useEffect(() => { setSelPeriodo(null); }, [filtro, gran]);
+
+  // Com um mês escolhido na faixa, os cards e a tabela olham só para ele.
+  const recorteDosCards: RecorteDoPainel | null = React.useMemo(() => {
+    const p = selPeriodo ? periodos.find((x) => x.key === selPeriodo) : null;
+    if (!recorte || !p) return recorte;
+    return { ...recorte, de: p.de, ate: p.ate, rotulo: p.label };
+  }, [recorte, periodos, selPeriodo]);
+
   const itensDoDia = React.useCallback((data: string): ItemDoDia[] => {
     if (!painel) return [];
     const todos: ItemDoDia[] = [
@@ -139,25 +168,44 @@ export function PainelVendas() {
         </div>
       ) : painel ? (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-4 items-start">
-          <FaixaDeDias
-            titulo="Calendário de vendas"
-            rotuloPeriodo={periodo!.rotulo}
-            hoje={hoje}
-            vazioTexto="Nenhuma venda a receber no período selecionado."
-            icone="arrow-up"
-            truncado={painel.diasTruncados}
-            dias={painel.dias.map((d) => ({
-              data: d.data, quantidade: d.quantidade, ehHoje: d.ehHoje,
-              cor: d.situacao ? TOKEN_SITUACAO_RECEBER[d.situacao] : null,
-            }))}
-            itensDoDia={itensDoDia}
-            info={{
-              titulo: "Calendário de vendas",
-              oQue: "Em que dia cada recebimento de venda do período cai.",
-              comoCalcula:
-                "Cada dia soma o que VENCE nele (em aberto) e o que foi RECEBIDO nele. A cor do dia é a situação mais urgente que ele contém — um dia com nove recebidas e uma vencida aparece como vencida.",
-            }}
-          />
+          {mensal ? (
+            <Card padded={false} info={{
+              titulo: "Total a receber por período",
+              oQue: "O total a receber de cada mês (ou semana) do período filtrado, para comparar os meses sem arrastar o calendário dia a dia.",
+              comoCalcula: "Cada período soma os títulos a receber com VENCIMENTO dentro dele, cortado nas datas e nos filtros de cima — o mesmo recorte dos cards abaixo. Cancelados ficam de fora. Escolher um período recorta os cards nele; escolher de novo desfaz.",
+            }}>
+              <CarrosselSazonalidade
+                periodos={periodos} gran={gran} onGran={setGran} recarregarEm={filtro}
+                titulo="Total a receber por período"
+              >
+                <FaixaPeriodos
+                  modo="total"
+                  periodos={periodos} selKey={selPeriodo ?? undefined}
+                  onSelect={(k) => setSelPeriodo((atual) => (atual === k ? null : k))}
+                />
+              </CarrosselSazonalidade>
+            </Card>
+          ) : (
+            <FaixaDeDias
+              titulo="Calendário de vendas"
+              rotuloPeriodo={periodo!.rotulo}
+              hoje={hoje}
+              vazioTexto="Nenhuma venda a receber no período selecionado."
+              icone="arrow-up"
+              truncado={painel.diasTruncados}
+              dias={painel.dias.map((d) => ({
+                data: d.data, quantidade: d.quantidade, ehHoje: d.ehHoje,
+                cor: d.situacao ? TOKEN_SITUACAO_RECEBER[d.situacao] : null,
+              }))}
+              itensDoDia={itensDoDia}
+              info={{
+                titulo: "Calendário de vendas",
+                oQue: "Em que dia cada recebimento de venda do período cai.",
+                comoCalcula:
+                  "Cada dia soma o que VENCE nele (em aberto) e o que foi RECEBIDO nele. A cor do dia é a situação mais urgente que ele contém — um dia com nove recebidas e uma vencida aparece como vencida.",
+              }}
+            />
+          )}
           <DistribuicaoDonut
             variante="aneis"
             titulo="Status"
@@ -177,7 +225,7 @@ export function PainelVendas() {
         </div>
       ) : null}
 
-      {recorte && <TitulosView direcao="receber" painel={recorte} />}
+      {recorteDosCards && <TitulosView direcao="receber" painel={recorteDosCards} />}
     </div>
   );
 }
