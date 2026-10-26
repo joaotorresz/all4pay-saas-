@@ -139,14 +139,14 @@ export const SECTIONS: Section[] = [
   {
     // O ciclo da RECEITA, do pedido ao dinheiro. Vem primeiro: é por onde o
     // dinheiro entra, e é a pergunta que o dono faz antes de qualquer outra.
-    // ⚠️ O painel e a lista de vendas ficam SEPARADOS de propósito: o painel
-    // olha o recebível (vencimento e caixa), Vendas olha o pedido (competência)
-    // — juntá-los poria lado a lado dois números que a intuição soma.
+    // ⚠️ A linha "Vendas" (/dashboard/sales-invoices) saiu do menu a pedido do
+    // dono (26/10/2026), que quer o Painel de vendas enxuto, sem abas internas.
+    // A tela continua no ar (pedidos, boletos e PIX, links, maquininha, taxas):
+    // a busca (⌘K), o Criar e o "Nova venda" levam a ela.
     id: "contas-a-receber", label: "Central de vendas", icon: "arrow-up",
     acao: { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
     items: [
       { label: "Painel de vendas", desc: "Calendário, status e títulos a receber numa tela só", href: "/contas-a-receber/painel-de-vendas", icon: "gauge" },
-      { label: "Vendas", desc: "Pedidos, boletos, links e maquininha", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
       { label: "Maquininha Quattro", desc: "Vendas, taxas e recebíveis da maquininha Pinbank", href: "/contas-a-receber/maquininha", icon: "smartphone" },
       { label: "Notas fiscais", desc: "Notas das vendas e emissão de NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
       { label: "Cobrança e inadimplência", desc: "Régua de cobrança e risco por cliente", href: "/dashboard/financial/overdue", icon: "triangle-alert" },

@@ -2829,7 +2829,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const PRINCIPAIS = [
     "/", "/quattro-ai", "/orcamento", "/dashboard/help", "/comece",
     "/dashboard/purchases", "/contas-a-pagar/titulos", "/central", "/simuladores",
-    "/dashboard/sales-invoices", "/exportar",
+    "/contas-a-receber/painel-de-vendas", "/exportar",
     "/dashboard/administration/users", "/fluxo-caixa", "/upload",
     "/dashboard/financial/reconciliation", "/dashboard/registrations/bank-accounts",
     "/configuracoes/seguranca",
@@ -2856,7 +2856,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // sobra precisa continuar cobrindo o dia a dia. `menuDoPlano` é a MESMA
   // função que a barra lateral usa para montar a lista.
   const simples = menuDoPlano(SECTIONS, false);
-  const DIA_A_DIA = ["/", "/orcamento", "/fluxo-caixa", "/upload", "/dashboard/purchases", "/dashboard/sales-invoices"];
+  const DIA_A_DIA = ["/", "/orcamento", "/fluxo-caixa", "/upload", "/dashboard/purchases", "/contas-a-receber/painel-de-vendas"];
   const fora = DIA_A_DIA.filter(
     (r) => !simples.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
   );
