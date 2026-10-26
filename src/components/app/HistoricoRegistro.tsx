@@ -31,12 +31,19 @@ function quando(iso: string): string {
 }
 
 export function HistoricoRegistro({
-  entidade, id, titulo = "Histórico",
+  entidade, id, titulo = "Histórico", recolhido = false,
 }: {
   entidade: string;
   id: string;
   titulo?: string;
+  /**
+   * Abre fechado, com o título virando o botão. Numa janela de ação (a baixa)
+   * o histórico é consulta, não tarefa: aberto, ele empurrava os botões da
+   * tarefa para fora da tela.
+   */
+  recolhido?: boolean;
 }) {
+  const [aberto, setAberto] = React.useState(!recolhido);
   const q = useQuery({
     queryKey: ["historico", entidade, id],
     queryFn: () => historicoDoRegistro(entidade, id),
@@ -62,9 +69,22 @@ export function HistoricoRegistro({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-label font-medium text-muted">{titulo}</span>
+      {recolhido ? (
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          aria-expanded={aberto}
+          className="self-start inline-flex items-center gap-1 text-label font-medium text-muted hover:text-ink"
+        >
+          {titulo}
+          {eventos && eventos.length > 0 ? ` (${eventos.length})` : ""}
+          <Icon name={aberto ? "chevron-up" : "chevron-down"} size={14} color="currentColor" />
+        </button>
+      ) : (
+        <span className="text-label font-medium text-muted">{titulo}</span>
+      )}
 
-      {q.isLoading ? (
+      {!aberto ? null : q.isLoading ? (
         <span className="text-caption text-faint">Carregando…</span>
       ) : eventos === null ? (
         <p className="m-0 text-caption text-faint max-w-[60ch]">
@@ -101,10 +121,12 @@ export function HistoricoRegistro({
                           {/* ⚠️ Antes → depois na MESMA linha. Duas colunas
                               separadas obrigam o olho a atravessar a tela para
                               comparar dois números que só fazem sentido juntos. */}
-                          <span className="text-muted tabular-nums line-through decoration-1">
-                            {m.antes}
-                          </span>
-                          <span className="text-faint">→</span>
+                          {m.antes !== null && (<>
+                            <span className="text-muted tabular-nums line-through decoration-1">
+                              {m.antes}
+                            </span>
+                            <span className="text-faint">→</span>
+                          </>)}
                           <span className="text-ink tabular-nums">{m.depois}</span>
                         </div>
                       ))}
