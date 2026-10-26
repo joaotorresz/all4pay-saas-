@@ -1231,6 +1231,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
       // (`risco-linhas`). Sem ela a lista de títulos a pagar mostrava a coluna
       // vazia só aqui, e a busca por descrição não achava nada.
       descricao: m.description ?? null,
+      formaPagamento: m.payment_method ?? null,
+      nsu: m.nsu ?? null,
+      venda: m.venda_plataforma ? { metodo: null, plataforma: m.venda_plataforma } : null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…
@@ -1262,7 +1265,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
    * Sem isso, `titulosDaVisao` não teria como separar confirmado de previsto, e
    * o relatório continuaria misturando os dois sem dizer qual é qual.
    */
-  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,origem,lancado_por,reference_code,installment_no,installment_total,category_id,cost_center_id,categoria:category_id(name),centro:cost_center_id(name)";
+  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,origem,lancado_por,reference_code,installment_no,installment_total,category_id,cost_center_id,payment_method,nsu,sale_doc_id,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -1323,14 +1326,36 @@ export async function getRiscoInput(): Promise<RiskInput> {
     colunasCadastroOk = false;
     return [];
   };
-  const [accRes, movRes, partyRes, conferidas] = await Promise.all([
+  /**
+   * O método e a plataforma de cada VENDA (`sales_docs.detalhe`), para a
+   * modalidade do título (Pix, boleto, link, maquininha). ⚠️ Best-effort: sem
+   * eles o título só perde a modalidade, e uma falha aqui REPORTA e segue —
+   * derrubar o caixa inteiro por um filtro seria trocar o menor pelo maior.
+   */
+  const vendasDetalhe = async (): Promise<Record<string, { metodo: string | null; plataforma: string | null }>> => {
+    const r = await semAmostra(supabase.from("sales_docs")
+      .select("id,metodo:detalhe->>metodo,plataforma:detalhe->>plataforma")).limit(TETO_LINHAS);
+    if (r.error) {
+      reportar("movimentos.modalidadeDaVenda", r.error, "o filtro de modalidade fica sem o canal das vendas", true);
+      return {};
+    }
+    const out: Record<string, { metodo: string | null; plataforma: string | null }> = {};
+    for (const d of (r.data ?? []) as unknown as { id: string; metodo: string | null; plataforma: string | null }[]) {
+      out[d.id] = { metodo: d.metodo ?? null, plataforma: d.plataforma ?? null };
+    }
+    return out;
+  };
+  const [accRes, movRes, partyRes, conferidas, vendas] = await Promise.all([
     supabase.from("financial_accounts").select("id,name,balance").limit(TETO_LINHAS),
     movimentos(),
     supabase.from("parties").select("id,name").limit(TETO_LINHAS),
     contasConferidas(),
+    vendasDetalhe(),
   ]);
   if (accRes.error) throw accRes.error;
   if (movRes.error) throw movRes.error;
+  const linhasComVenda = ((movRes.data ?? []) as unknown as (LinhaMovimento & { sale_doc_id?: string | null })[])
+    .map((l) => (l.sale_doc_id && vendas[l.sale_doc_id] ? { ...l, venda: vendas[l.sale_doc_id] } : l));
   // ⚠️ O MAPEADOR ÚNICO (`lib/risco-linhas`). Esta tela, a consolidação e o
   // runner de automações montam o `RiskInput` pela MESMA função — duas cópias
   // do mapeamento divergem na primeira coluna nova, e aí o resumo do caixa que
@@ -1342,7 +1367,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     hoje,
     saldosDasContas: ((accRes.data ?? []) as { balance: number }[]).map((a) => a.balance),
     contasDetalhe: (accRes.data ?? []) as { id: string; name: string; balance: number }[],
-    linhas: (movRes.data ?? []) as unknown as LinhaMovimento[],
+    linhas: linhasComVenda,
     partes: (partyRes.data ?? []) as { id: string; name: string }[],
     // Em live só a fonte "informada" (cadastro) alimenta a abertura — o
     // `<LEDGERBAL>` importado ainda não persiste no servidor (ver lib/abertura).
