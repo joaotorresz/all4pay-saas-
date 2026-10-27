@@ -2110,7 +2110,6 @@ const AGOSTO = janelaMes(2026, 7);
   ok("rotas: alias de rota Pro não desemboca em rota aberta", vazamentos.length === 0,
      `${vazamentos.map((a) => `${a.de}→${a.para}`).join(", ")}`);
 
-<<<<<<< HEAD
   // Etapa 4 do fim das abas internas (27/10/2026): o plano de contratações
   // saiu de Simuladores e virou página Pro; "Posso comprar?" segue aberto.
   ok("rotas: Plano de contratações (ex-aba de Simuladores) exige Pro", exigePro("/contratacoes"));
@@ -2132,17 +2131,6 @@ const AGOSTO = janelaMes(2026, 7);
     };
     varrer("src");
     ok("abas: nenhuma tela usa o componente de abas", quem.length === 0, quem.join(", "));
-=======
-  // E a aba paga dentro de hub do Simples continua trancada, sem trancar o hub.
-  // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
-  // aberta seguem Pro pelo par rota+aba, e a tela continua aberta.
-  for (const [hub, paga, aberta] of [
-    ["/simuladores", "contratacoes", "posso-comprar"],
-  ]) {
-    ok(`rotas: a aba paga exige Pro (${hub}?aba=${paga})`, exigePro(`${hub}?aba=${paga}`));
-    ok(`rotas: a tela em si continua aberta (${hub})`, !exigePro(hub));
-    ok(`rotas: outra aba continua aberta (${hub}?aba=${aberta})`, !exigePro(`${hub}?aba=${aberta}`));
->>>>>>> origin/main
   }
   // O fim das abas internas (27/10/2026): as abas Pro de `/central` viraram
   // telas próprias. Elas seguem Pro pelo prefixo; as baixas seguem abertas.
