@@ -152,7 +152,7 @@ const MOLDES: Molde[] = [
     ],
   },
   {
-    rota: "/dashboard/sales-invoices", nome: "Vendas", assunto: "as suas vendas",
+    rota: "/dashboard/sales-invoices/pedidos", nome: "Pedidos de venda", assunto: "as suas vendas",
     caminhos: [
       saber("ve-faturei", "Quanto faturei", "Quanto eu faturei este mês?", "trending-up"),
       saber("ve-ticket", "Ticket médio", "Qual o meu ticket médio?", "receipt"),

@@ -39,6 +39,7 @@ export const ALIASES: Alias[] = [
   // — telas que viraram a MESMA tela —
   { de: "/visao-geral", para: "/", motivo: "a visão geral virou a Home" },
   { de: "/contas-a-receber", para: "/contas-a-receber/painel-de-vendas", motivo: "o painel de contas a receber saiu do menu (26/10/2026): o Painel de vendas tem os mesmos cards e títulos" },
+  { de: "/dashboard/sales-invoices", para: "/contas-a-receber/painel-de-vendas", motivo: "a tela Vendas foi desativada a pedido do dono (27/10/2026): o Painel de vendas é a tela de vendas; as abas dela voltaram a endereço próprio" },
   { de: "/contas-a-receber/titulos", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos a receber saiu do menu (26/10/2026): a tabela mora no Painel de vendas, a mesma TitulosView" },
   { de: "/criar", para: "/", motivo: "criar virou painel, não rota" },
   { de: "/recebiveis", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
@@ -76,15 +77,15 @@ export const ALIASES: Alias[] = [
   // repetia a lista, o painel, a nova venda e as notas de "Vendas e NFs" com
   // componentes e dados diferentes. Os três endereços que desembocavam nele
   // apontam direto para a tela que ficou — alias não aponta para alias.
-  { de: "/painel-vendas", para: "/dashboard/sales-invoices", motivo: "vendas têm UMA tela canônica (mapa, item 9)" },
+  { de: "/painel-vendas", para: "/contas-a-receber/painel-de-vendas", motivo: "vendas têm UMA tela canônica (mapa, item 9)" },
   { de: "/nova-venda", para: "/dashboard/sales-invoices/new", motivo: "vendas têm UMA tela canônica (mapa, item 9)" },
   { de: "/notas-fiscais", para: "/dashboard/sales-invoices/invoices?aba=nfse", motivo: "o emissor de NFS-e virou aba das notas fiscais (mapa, item 9)" },
-  { de: "/vendas", para: "/dashboard/sales-invoices", motivo: "hub duplicado de vendas aposentado (mapa, item 9)" },
+  { de: "/vendas", para: "/contas-a-receber/painel-de-vendas", motivo: "hub duplicado de vendas aposentado (mapa, item 9)" },
 
   // — hub RECEBER / PAGAR —
   { de: "/recorrencias", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa de consolidação, item 7)" },
   { de: "/inadimplencia", para: "/dashboard/financial/overdue", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
-  { de: "/boletos", para: "/dashboard/sales-invoices?aba=boletos", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
+  { de: "/boletos", para: "/dashboard/financial/boletos", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
   { de: "/reembolsos", para: "/dashboard/financial/reimbursements", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
 
   // — hub ENTRADA DE DADOS —
@@ -137,16 +138,12 @@ export const ALIASES: Alias[] = [
   // função sumiu.
   { de: "/dashboard/dashboards", para: "/dashboard/dashboards/custom", motivo: "hub esvaziado; sobrou o construtor" },
   { de: "/dashboard/dashboards/financial", para: "/fluxo-caixa", motivo: "saldo, geração de caixa e entradas/saídas já são o fluxo de caixa" },
-  { de: "/dashboard/dashboards/sales", para: "/dashboard/sales-invoices", motivo: "a lista de vendas já traz os painéis de status" },
+  { de: "/dashboard/dashboards/sales", para: "/contas-a-receber/painel-de-vendas", motivo: "a lista de vendas já traz os painéis de status" },
   { de: "/dashboard/dashboards/subscriptions", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa, item 7)" },
   { de: "/dashboard/dashboards/payables", para: "/contas-a-pagar/titulos", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/dashboards/receivables", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos a receber têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/financial/calendar", para: "/fluxo-caixa", motivo: "o calendário diário já é um bloco do fluxo de caixa" },
   // — REMODELAÇÃO DO MENU (19/10/2026): telas irmãs viraram ABAS de uma tela só —
-  { de: "/dashboard/financial/boletos", para: "/dashboard/sales-invoices?aba=boletos", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
-  { de: "/dashboard/sales-invoices/payment-links", para: "/dashboard/sales-invoices?aba=links", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
-  { de: "/pos/venda", para: "/dashboard/sales-invoices?aba=maquininha", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
-  { de: "/pos/taxas", para: "/dashboard/sales-invoices?aba=taxas", motivo: "remodelação do menu (19/10/2026): virou aba de Vendas" },
   { de: "/dashboard/registrations/contracts", para: "/dashboard/sales-invoices/subscriptions?aba=contratos-cliente", motivo: "remodelação do menu (19/10/2026): virou aba de Assinaturas e contratos (cliente) e de Contas recorrentes (fornecedor)" },
   { de: "/dashboard/purchases/received-invoices", para: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs", motivo: "remodelação do menu (19/10/2026): virou aba da caixa de entrada dos títulos a pagar" },
   { de: "/dashboard/purchases/received-boletos", para: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos", motivo: "remodelação do menu (19/10/2026): virou aba da caixa de entrada dos títulos a pagar" },
@@ -193,6 +190,11 @@ export const ROTAS_REMOVIDAS: Alias[] = [
  * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
  */
 export const ALIASES_DE_ABA: Alias[] = [
+  { de: "/dashboard/sales-invoices?aba=pedidos", para: "/dashboard/sales-invoices/pedidos", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/dashboard/sales-invoices?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/dashboard/sales-invoices?aba=links", para: "/dashboard/sales-invoices/payment-links", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/dashboard/sales-invoices?aba=maquininha", para: "/pos/venda", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/dashboard/sales-invoices?aba=taxas", para: "/pos/taxas", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/all4pay-ai?aba=quant", para: "/quattro-ai?aba=quant", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
   { de: "/all4pay-ai?aba=decisao", para: "/quattro-ai?aba=decisao", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
   { de: "/all4pay-ai?aba=risco", para: "/quattro-ai?aba=risco", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
@@ -202,7 +204,7 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/copiloto?aba=risco", para: "/quattro-ai?aba=risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/copiloto?aba=autonomo", para: "/quattro-ai?aba=autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
-  { de: "/recebimentos?aba=boletos", para: "/dashboard/sales-invoices?aba=boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   /**
    * ⚠️ As duas apontavam para as ABAS do hub de títulos, e agora apontam para
@@ -293,7 +295,7 @@ export const ALIASES_DE_ABA: Alias[] = [
   // no histórico do navegador como qualquer outro. Sem estes pares o hub
   // desviaria para o construtor levando quem pediu o painel de vendas.
   { de: "/dashboard/dashboards?aba=financeiro", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
-  { de: "/dashboard/dashboards?aba=vendas", para: "/dashboard/sales-invoices", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=vendas", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=assinaturas", para: "/dashboard/sales-invoices/subscriptions", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=pagar", para: "/contas-a-pagar/titulos", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=receber", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de dashboards aposentado" },
@@ -313,12 +315,12 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/contabilidade?aba=plano-de-contas", para: "/dashboard/registrations/chart-of-accounts", motivo: "aba duplicada da tela canônica do plano de contas" },
 
   // — abas do hub `/vendas`, aposentado (mapa, item 9) —
-  { de: "/vendas?aba=lista", para: "/dashboard/sales-invoices", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
-  { de: "/vendas?aba=painel", para: "/dashboard/sales-invoices", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
+  { de: "/vendas?aba=lista", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
+  { de: "/vendas?aba=painel", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
   { de: "/vendas?aba=nova", para: "/dashboard/sales-invoices/new", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
   { de: "/vendas?aba=notas", para: "/dashboard/sales-invoices/invoices?aba=nfse", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },
-  { de: "/vendas?aba=pos", para: "/dashboard/sales-invoices?aba=maquininha", motivo: "a maquininha voltou para a rota própria (mapa, item 9)" },
-  { de: "/vendas?aba=pos-taxas", para: "/dashboard/sales-invoices?aba=taxas", motivo: "as taxas da maquininha voltaram para a rota própria (mapa, item 9)" },
+  { de: "/vendas?aba=pos", para: "/pos/venda", motivo: "a maquininha voltou para a rota própria (mapa, item 9)" },
+  { de: "/vendas?aba=pos-taxas", para: "/pos/taxas", motivo: "as taxas da maquininha voltaram para a rota própria (mapa, item 9)" },
   // — REMODELAÇÃO DO MENU (19/10/2026) —
   { de: "/aprovacoes?painel=governanca", para: "/central?aba=alcadas", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },
   { de: "/orcamento?aba=simulador", para: "/simuladores", motivo: "aba aposentada na remodelação do menu (19/10/2026)" },

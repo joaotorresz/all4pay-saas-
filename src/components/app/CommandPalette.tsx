@@ -79,19 +79,19 @@ const ROUTES: RouteItem[] = [
   { label: "Risco de caixa", href: "/quattro-ai?aba=risco", icon: "trending-up", kw: "liquidez runway ruptura" },
   { label: "Inadimplência e cobrança", href: "/dashboard/financial/overdue", icon: "gauge", kw: "credito clientes atraso cobranca" },
   { label: "Alçadas, papéis e trilha", href: "/central?aba=alcadas", icon: "shield-check", kw: "governanca auditoria rbac aprovacao alcada papeis permissoes trilha integridade sla" },
-  { label: "Painel de vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart", kw: "vendas notas fiscais status venda nf plataforma hotmart taxa liquido dashboard de vendas cac ltv ebitda faturamento reembolso chargeback aquisicao cliente" },
+  { label: "Pedidos de venda", href: "/dashboard/sales-invoices/pedidos", icon: "shopping-cart", kw: "pedidos vendas notas fiscais status venda nf plataforma hotmart taxa liquido dashboard de vendas cac ltv ebitda faturamento reembolso chargeback aquisicao cliente" },
   { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus", kw: "nova venda lancar produto taxa plataforma comissao coprodutor afiliado liquido" },
   { label: "Notas fiscais emitidas", href: "/dashboard/sales-invoices/invoices", icon: "file-text", kw: "nota fiscal nf nfs-e nfse emitir emitida processando cancelada negada download lote iss servico" },
   { label: "Impostos e obrigações", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt", kw: "impostos provisionamento icms pis cofins ipi iss csll inss irpj lucro presumido conta a pagar" },
-  { label: "Links de pagamento", href: "/dashboard/sales-invoices?aba=links", icon: "credit-card", kw: "link de pagamento qr code cobrar cliente pix checkout" },
+  { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "credit-card", kw: "link de pagamento qr code cobrar cliente pix checkout" },
   { label: "Assinaturas e recorrência", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat", kw: "assinaturas recorrentes ciclo status cancelada expirada mrr arr churn assinante recorrencia saas produto dashboard de assinaturas" },
   { label: "Compras", href: "/dashboard/purchases", icon: "shopping-cart", kw: "compras pedido de compra aprovacao aprovada reprovada aguardando fornecedor competencia" },
   { label: "Nova compra", href: "/dashboard/purchases/new", icon: "plus", kw: "nova compra pedido fornecedor parcelado competencia vencimento rateio anexo" },
   { label: "Boletos recebidos", href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos", icon: "file-text", kw: "boleto dda linha digitavel codigo de barras vencido a vencer beneficiario" },
   { label: "NFs recebidas", href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs", icon: "receipt", kw: "nota fiscal recebida sefaz xml chave de acesso danfe fornecedor validacao" },
   { label: "Maquininha Quattro", href: "/contas-a-receber/maquininha", icon: "smartphone", kw: "maquininha pinbank vendas cartao pix debito credito parcelado bandeira taxa mdr recebiveis agenda repasse transacoes relatorio" },
-  { label: "Venda na maquininha (POS)", href: "/dashboard/sales-invoices?aba=maquininha", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
-  { label: "Taxas da maquininha (POS)", href: "/dashboard/sales-invoices?aba=taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
+  { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
+  { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
   { label: "Produtos e serviços", href: "/dashboard/registrations/products", icon: "credit-card", kw: "produtos estoque sku servico servicos catalogo" },
   { label: "Clientes", href: "/dashboard/registrations/clients", icon: "users", kw: "clientes contatos cadastro cpf cnpj categoria padrao receita" },
   { label: "Fornecedores", href: "/dashboard/registrations/suppliers", icon: "users", kw: "fornecedores contatos cadastro cnpj pix dados pj simples nacional" },
@@ -231,7 +231,7 @@ export function CommandPalette() {
       out.push(
         ...cap(
           (sales.data ?? []).filter((s) => match(`${s.party_name} ${s.id} ${s.kind}`)).map((s) => ({
-            key: `sale:${s.id}`, grupo: "Vendas", titulo: `${s.party_name}`, sub: `${s.kind} · ${s.id}`, href: "/dashboard/sales-invoices", icon: "arrow-left-right",
+            key: `sale:${s.id}`, grupo: "Vendas", titulo: `${s.party_name}`, sub: `${s.kind} · ${s.id}`, href: "/dashboard/sales-invoices/pedidos", icon: "arrow-left-right",
           })),
         ),
       );
