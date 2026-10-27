@@ -75,3 +75,48 @@ export function iniciaisDoBanco(nome: string | null | undefined): string {
   if (palavras.length === 1) return palavras[0].slice(0, 2).toUpperCase();
   return (palavras[0][0] + palavras[1][0]).toUpperCase();
 }
+
+/* ─── a MARCA colorida (só a escolha do banco na abertura de conta) ────────── */
+/**
+ * O arquivo da marca colorida em `public/bancos/` (do "Bancos em SVG", de
+ * Thiago Gentil — créditos em `docs/creditos/icones-bancos.md`), ou `null`.
+ *
+ * ⚠️ **Só na abertura de conta** (pedido do dono, 27/10/2026): ali a pessoa
+ * RECONHECE o banco dela numa lista, e a marca colorida é o que ela procura.
+ * No resto do sistema o logo continua monocromático (`glifoDoBanco`) — a cor
+ * das marcas é de terceiro e não entra na paleta. Mesma ordem e mesmas regras
+ * de `POR_NOME`: banco sem arquivo devolve `null`, nunca a marca de outro.
+ */
+export type MarcaBanco =
+  | "itau" | "bradesco" | "santander" | "banco-do-brasil" | "caixa" | "nubank" | "inter"
+  | "c6" | "btg" | "sicoob" | "sicredi" | "mercado-pago" | "pagbank" | "stone" | "safra"
+  | "banrisul" | "cora";
+
+const MARCA_POR_NOME: [RegExp, MarcaBanco][] = [
+  [/\bitau\b/, "itau"],
+  [/\bbradesco\b/, "bradesco"],
+  [/\bsantander\b/, "santander"],
+  [/\bcaixa\b/, "caixa"],
+  [/\bnubank\b|\bnu pagamentos\b/, "nubank"],
+  [/\binter\b/, "inter"],
+  [/\bc6\b/, "c6"],
+  [/\bbtg\b/, "btg"],
+  [/\bsicoob\b|\bbancoob\b/, "sicoob"],
+  [/\bsicredi\b/, "sicredi"],
+  [/\bmercado ?pago\b/, "mercado-pago"],
+  [/\bpagbank\b|\bpagseguro\b/, "pagbank"],
+  [/\bstone\b/, "stone"],
+  [/\bsafra\b/, "safra"],
+  [/\bbanrisul\b/, "banrisul"],
+  [/\bcora\b/, "cora"],
+  [/\bbanco do brasil\b|^bb$/, "banco-do-brasil"],
+];
+
+/** O nome do banco → o caminho público da marca colorida, ou `null`. */
+export function marcaDoBanco(nome: string | null | undefined): string | null {
+  const n = normalizar(nome ?? "").trim().replace(/\s+/g, " ");
+  // BRB, BNB e BASA não têm marca aqui: "brasil" no nome não os faz virar o BB.
+  if (!n || /\bbrasilia\b|\bnordeste\b|\bamazonia\b/.test(n)) return null;
+  for (const [re, m] of MARCA_POR_NOME) if (re.test(n)) return `/bancos/${m}.svg`;
+  return null;
+}

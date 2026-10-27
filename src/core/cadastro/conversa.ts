@@ -16,8 +16,10 @@
  */
 import { FAIXAS_ALCADA } from "@/core/seguranca/alcada";
 import type { Estrutura, Participante, PerfilEmpresa } from "@/core/onboarding";
+import { MIN_SENHA } from "@/core/recuperacao";
+import { PEDIDO_VAZIO, type PedidoMaquininha } from "@/core/maquininha/oferta";
 
-export const CADASTRO_CONVERSA_VERSION = "cadastro-conversa/1.0.0";
+export const CADASTRO_CONVERSA_VERSION = "cadastro-conversa/2.0.0";
 
 /* ─── as opções (as mesmas do cadastro de sete passos) ───────────────────── */
 export const SETORES = ["Aviação", "Serviços", "Indústria", "Construção", "Tecnologia", "E-commerce", "Saúde", "Educação", "Financeiro", "Agronegócio", "Imobiliário", "Logística", "Outro"];
@@ -26,7 +28,7 @@ export const RECEITAS = ["Venda de produto", "Venda de serviço", "Mensalidade",
 export const FREQ = ["Diária", "Semanal", "Mensal", "Sazonal", "Projeto"];
 export const FUNC = ["1-10", "11-50", "51-100", "101-500", "500+"];
 export const FAT = ["até R$360 mil", "R$360 mil – 4,8 mi", "R$4,8 – 20 mi", "R$20 – 50 mi", "R$50 mi+"];
-export const BANCOS = ["Itaú", "Bradesco", "Santander", "Banco do Brasil", "Caixa", "Nubank", "Inter", "C6", "BTG", "Sicoob", "Sicredi", "Mercado Pago"];
+export const BANCOS = ["Itaú", "Bradesco", "Santander", "Banco do Brasil", "Caixa", "Nubank", "Inter", "C6 Bank", "BTG Pactual", "Sicoob", "Sicredi", "Mercado Pago", "PagBank", "Stone", "Safra", "Banrisul", "Cora"];
 export const MEIOS = ["PIX", "Boleto", "Cartão", "TED", "Dinheiro", "Link de pagamento", "Marketplace", "Internacional"];
 export const DESPESAS = ["Folha", "Impostos", "Aluguel", "Marketing", "Combustível", "Fornecedores", "Software", "Logística"];
 export const PORTES = ["MEI", "ME", "EPP", "LTDA", "SA", "Holding", "SPE", "Outro"];
@@ -200,11 +202,22 @@ export interface Cadastro {
    */
   documento: "" | "conferido" | "enviado" | "pendente";
   /**
-   * A senha transacional de 6 dígitos. ⚠️ Só a MARCA de que foi definida: o
-   * número não é guardado em lugar nenhum (um PIN de 6 dígitos no perfil ou no
-   * navegador se quebra em segundos), e Pix e pagamentos ainda não a pedem.
+   * O contrato social ou o comprovante de endereço (OPCIONAL). `depois` = a
+   * pessoa pulou. ⚠️ A foto ainda NÃO sai do aparelho: não há onde guardá-la
+   * com segurança, e a tela diz isso.
    */
-  senhaTransacional: "" | "definida";
+  docEmpresa: "" | "contrato" | "comprovante" | "depois";
+  /**
+   * A senha de ACESSO (a do login): só a marca. A senha mesma nunca entra no
+   * cadastro — a tela a guarda numa referência até o `signUp`. `google` = entrou
+   * pelo Google e não tem senha.
+   */
+  senhaAcesso: "" | "definida" | "google";
+  /** A maquininha da Quattro: vincular a que já tem, pedir uma, ou agora não. */
+  maquininha: "" | "vincular" | "pedir" | "nao";
+  maquininhaEC: string;
+  maquininhaQtd: number;
+  maquininhaEndereco: string;
 }
 
 export const CADASTRO_VAZIO: Cadastro = {
@@ -220,7 +233,8 @@ export const CADASTRO_VAZIO: Cadastro = {
   cpf: "", nome: "", rendaMensal: null, saldoInicial: null, carteiras: [], categorias: [], orcamento: null,
   email: "",
   openFinanceBanco: "", aceiteTermos: "", rendaRepresentante: "", biometria: "",
-  docTipo: "", documento: "", senhaTransacional: "",
+  docTipo: "", documento: "", docEmpresa: "", senhaAcesso: "",
+  maquininha: "", maquininhaEC: "", maquininhaQtd: 1, maquininhaEndereco: "",
 };
 
 /** O que a Receita devolve (o subconjunto de `lib/cnpj.DadosCNPJ` que o cadastro usa). */
@@ -296,6 +310,10 @@ export interface Pergunta {
   eco?: (valor: string) => string;
   /** Em qual grupo do resumo ela aparece. */
   grupo: string;
+  /** Na múltipla: cada opção leva a marca do banco (`BancoLogo marca`). */
+  logos?: boolean;
+  /** Na múltipla: "Meu banco não está na lista" abre um campo para digitar o que falta. */
+  outro?: boolean;
 }
 
 const lista = (v: string) => v.split("\n").map((x) => x.trim()).filter(Boolean);
@@ -304,7 +322,90 @@ const pf = (c: Cadastro) => c.tipo === "pf";
 const primeiro = (nome: string) => nome.trim().split(/\s+/)[0] ?? "";
 const exigir = (msg: string) => (v: string) => (v.trim() ? null : msg);
 
+export const OPCOES_MAQUININHA = { vincular: "Sim, quero vincular a minha", pedir: "Não, quero pedir uma", nao: "Agora não" } as const;
+export const ENTREGA_OUTRO = "Em outro endereço";
+
+/** O endereço da empresa em uma linha ("" = ainda não há rua e cidade). */
+export function enderecoDaEmpresa(c: Cadastro): string {
+  if (!c.rua || !c.cidade) return "";
+  return `${c.rua}, ${c.numero || "S/N"}${c.bairro ? ` · ${c.bairro}` : ""} · ${c.cidade}${c.estado ? ` / ${c.estado}` : ""}`;
+}
+
+/*
+ * ⚠️ O texto livre "me conte sobre a sua empresa" no lugar das duas escolhas
+ * (modelo e receita). A leitura é por palavra ANCORADA, sem acento, e só
+ * PREENCHE: o que ela não acha a conversa pergunta (receita) ou deixa em branco
+ * (modelo) — nunca um palpite com cara de resposta.
+ */
+const RECEITA_POR_PALAVRA: [RegExp, string][] = [
+  [/\b(mensalidade|assinatura|assinante|recorrente)s?\b/, "Mensalidade"],
+  [/\b(aluguel|aluga|locacao|locamos)\b/, "Aluguel"],
+  [/\b(comissao|comissoes)\b/, "Comissão"],
+  [/\b(marketplace|intermedia\w*)\b/, "Intermediação"],
+  [/\b(servico|servicos|consultoria|assessoria|manutencao|prestamos|prestacao)\b/, "Venda de serviço"],
+  [/\b(produto|produtos|loja|revenda|revendemos|vendemos|fabricamos|mercadoria|mercadorias)\b/, "Venda de produto"],
+];
+const MODELO_POR_PALAVRA: [RegExp, string][] = [
+  [/\b(saas|software|aplicativo|plataforma)\b/, "SaaS"],
+  [/\b(assinatura|assinante|mensalidade)s?\b/, "Assinatura"],
+  [/\bmarketplace\b/, "Marketplace"],
+  [/\bholding\b/, "Holding"],
+  [/\b(b2b|para empresas|outras empresas|industrias|clientes corporativos)\b/, "B2B"],
+  [/\b(b2c|varejo|consumidor|consumidores|pessoas fisicas|cliente final)\b/, "B2C"],
+  [/\b(projeto|projetos|obra|obras)\b/, "Projeto"],
+];
+
+export function lerSobreAEmpresa(texto: string): { modelo: string | null; receitaPrincipal: string | null } {
+  const t = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const primeiroQueCasa = (regras: [RegExp, string][]) => {
+    let melhor: { pos: number; valor: string } | null = null;
+    for (const [re, valor] of regras) {
+      const m = re.exec(t);
+      if (m && (!melhor || m.index < melhor.pos)) melhor = { pos: m.index, valor };
+    }
+    return melhor?.valor ?? null;
+  };
+  return { modelo: primeiroQueCasa(MODELO_POR_PALAVRA), receitaPrincipal: primeiroQueCasa(RECEITA_POR_PALAVRA) };
+}
+
 export const PERGUNTAS: Pergunta[] = [
+  /* ── o roteiro da abertura: quem é você e como falar com você ─────────── */
+  {
+    id: "repNome", tipo: "texto", grupo: "Representante", rotulo: "Seu nome", placeholder: "Seu nome completo",
+    quando: pj,
+    falas: () => ["Agora sobre você, que vai representar a empresa.", "Qual é o seu nome completo?"],
+    validar: (v) => (v.trim().split(/\s+/).length >= 2 ? null : "Me passa o nome e o sobrenome, por favor."),
+    aplicar: (c, v) => ({ ...c, repNome: v.trim().replace(/\s+/g, " ") }),
+  },
+  {
+    id: "nome", tipo: "texto", grupo: "Você", rotulo: "Seu nome", placeholder: "Seu nome completo",
+    quando: pf,
+    falas: () => ["E qual é o seu nome completo?"],
+    validar: (v) => (v.trim().split(/\s+/).length >= 2 ? null : "Me passa o nome e o sobrenome, por favor."),
+    aplicar: (c, v) => ({ ...c, nome: v.trim().replace(/\s+/g, " ") }),
+  },
+  {
+    id: "repTelefone", tipo: "telefone", grupo: "Contato", rotulo: "WhatsApp", placeholder: "(00) 00000-0000",
+    quando: (c) => !!c.tipo,
+    falas: (c) => [`Prazer, ${primeiro(c.tipo === "pf" ? c.nome : c.repNome)}!`, "Qual número de telefone você usa no **Whatsapp**?"],
+    validar: (v) => (telefoneConfere(v) ? null : "O número tem DDD e 8 ou 9 dígitos. Confere pra mim?"),
+    aplicar: (c, v) => ({ ...c, repTelefone: mascararTelefone(v) }),
+    eco: mascararTelefone,
+  },
+  {
+    id: "repEmail", tipo: "email", grupo: "Contato", rotulo: "E-mail", placeholder: "voce@suaempresa.com.br",
+    quando: pj,
+    falas: () => ["Qual é o seu e-mail?", "É com ele que você entra no sistema, e é por ele que mandamos os avisos importantes da conta."],
+    validar: (v) => (EMAIL_VALIDO.test(v.trim()) ? null : "Esse e-mail parece incompleto. Algo como voce@suaempresa.com.br."),
+    aplicar: (c, v) => ({ ...c, repEmail: v.trim(), email: v.trim() }),
+  },
+  {
+    id: "emailPf", tipo: "email", grupo: "Contato", rotulo: "E-mail", placeholder: "voce@email.com",
+    quando: pf,
+    falas: () => ["Qual é o seu e-mail?", "É com ele que você entra no sistema."],
+    validar: (v) => (EMAIL_VALIDO.test(v.trim()) ? null : "Esse e-mail parece incompleto. Algo como voce@email.com."),
+    aplicar: (c, v) => ({ ...c, email: v.trim() }),
+  },
   /* ── PJ · quando a Receita não respondeu ──────────────────────────────── */
   {
     id: "razaoSocial", tipo: "texto", grupo: "Empresa", rotulo: "Razão social", placeholder: "Razão social da empresa",
@@ -344,7 +445,7 @@ export const PERGUNTAS: Pergunta[] = [
     validar: exigir("Preciso do número do endereço (pode escrever S/N se não tiver)."),
     aplicar: (c, v) => ({ ...c, numero: c.rua ? v.trim() : c.numero || "S/N", rua: c.rua || v.trim() }),
   },
-  /* ── PJ · fiscal ──────────────────────────────────────────────────────── */
+  /* ── PJ · o regime (o único item fiscal que fica na abertura) ─────────── */
   {
     id: "regime", tipo: "escolha", grupo: "Fiscal", rotulo: "Regime tributário",
     quando: pj,
@@ -353,7 +454,7 @@ export const PERGUNTAS: Pergunta[] = [
     falas: (c) => {
       const s = regimeSugerido(c);
       return [
-        "Agora a parte fiscal, que é a que muda as contas do sistema.",
+        "Agora o regime tributário, que é o que muda as contas do sistema.",
         s ? `A Receita indica que a empresa é ${s === "MEI" ? "MEI" : "optante do Simples Nacional"}. Qual é o regime tributário?`
           : "Qual é o regime tributário da empresa? Se tiver dúvida, é o que o seu contador usa na apuração.",
       ];
@@ -361,86 +462,29 @@ export const PERGUNTAS: Pergunta[] = [
     validar: (v) => (REGIMES_DA_CONVERSA.includes(v) ? null : "Escolhe uma das opções, por favor."),
     aplicar: (c, v) => ({ ...c, regime: v }),
   },
-  {
-    id: "icms", tipo: "escolha", grupo: "Fiscal", rotulo: "Contribuinte de ICMS",
-    quando: pj, opcoes: () => SIM_NAO,
-    falas: () => ["A empresa é contribuinte de ICMS? Normalmente é quem vende mercadoria."],
-    aplicar: (c, v) => ({ ...c, contribuinteIcms: v === "Sim", ie: v === "Sim" ? c.ie : "" }),
-  },
-  {
-    id: "ie", tipo: "texto", grupo: "Fiscal", rotulo: "Inscrição estadual", placeholder: "Inscrição estadual",
-    quando: (c) => pj(c) && c.contribuinteIcms === true,
-    falas: () => ["Qual é a inscrição estadual?"],
-    validar: exigir("Quem recolhe ICMS tem inscrição estadual. Qual é a sua?"),
-    aplicar: (c, v) => ({ ...c, ie: v.trim() }),
-  },
-  {
-    id: "im", tipo: "texto", grupo: "Fiscal", rotulo: "Inscrição municipal", placeholder: "Inscrição municipal", opcional: true,
-    quando: pj,
-    falas: () => ["E a inscrição municipal? Quem presta serviço costuma ter."],
-    aplicar: (c, v) => ({ ...c, im: v.trim() }),
-  },
-  {
-    id: "exportadora", tipo: "escolha", grupo: "Fiscal", rotulo: "Exportadora",
-    quando: pj, opcoes: () => SIM_NAO,
-    falas: () => ["A empresa exporta?"],
-    aplicar: (c, v) => ({ ...c, exportadora: v === "Sim" }),
-  },
-  /* ── PJ · representante ───────────────────────────────────────────────── */
-  {
-    id: "repNome", tipo: "texto", grupo: "Representante", rotulo: "Seu nome", placeholder: "Seu nome completo",
-    quando: pj,
-    falas: () => ["Agora sobre você.", "Qual é o seu nome completo?"],
-    validar: (v) => (v.trim().split(/\s+/).length >= 2 ? null : "Me passa o nome e o sobrenome, por favor."),
-    aplicar: (c, v) => ({ ...c, repNome: v.trim().replace(/\s+/g, " ") }),
-  },
-  {
-    id: "repCargo", tipo: "escolha", grupo: "Representante", rotulo: "Sua função",
-    quando: pj, opcoes: () => FUNCOES,
-    falas: (c) => [`Prazer, ${primeiro(c.repNome)}! Qual é a sua função na empresa?`],
-    aplicar: (c, v) => ({ ...c, repCargo: v }),
-  },
-  {
-    id: "repTelefone", tipo: "telefone", grupo: "Representante", rotulo: "WhatsApp", placeholder: "(00) 00000-0000",
-    quando: pj,
-    falas: () => ["Qual número de telefone você usa no **Whatsapp**?"],
-    validar: (v) => (telefoneConfere(v) ? null : "O número tem DDD e 8 ou 9 dígitos. Confere pra mim?"),
-    aplicar: (c, v) => ({ ...c, repTelefone: mascararTelefone(v) }),
-    eco: mascararTelefone,
-  },
-  {
-    id: "repEmail", tipo: "email", grupo: "Representante", rotulo: "E-mail", placeholder: "voce@suaempresa.com.br",
-    quando: pj,
-    falas: () => ["Qual é o seu e-mail?", "Usaremos para enviar notificações importantes sobre sua conta."],
-    validar: (v) => (EMAIL_VALIDO.test(v.trim()) ? null : "Esse e-mail parece incompleto. Algo como voce@suaempresa.com.br."),
-    aplicar: (c, v) => ({ ...c, repEmail: v.trim(), email: v.trim() }),
-  },
-  {
-    id: "limite", tipo: "escolha", grupo: "Governança", rotulo: "Limite de aprovação",
-    quando: pj, opcoes: () => [...LIMITES, NAO_APROVO],
-    falas: () => ["Você aprova pagamentos? Se sim, até quanto por pagamento?"],
-    aplicar: (c, v) => ({ ...c, limite: v }),
-  },
-  /* ── PJ · perfil ──────────────────────────────────────────────────────── */
+  /* ── o negócio ────────────────────────────────────────────────────────── */
   {
     id: "setor", tipo: "escolha", grupo: "Perfil", rotulo: "Setor", quando: pj, opcoes: () => SETORES,
     falas: () => ["Agora quero entender o negócio, que é o que mais me ajuda a te ajudar.", "Em que setor a empresa atua?"],
     aplicar: (c, v) => ({ ...c, setor: v }),
   },
   {
-    id: "modelo", tipo: "escolha", grupo: "Perfil", rotulo: "Modelo de negócio", quando: pj, opcoes: () => MODELOS,
-    falas: () => ["Qual é o modelo de negócio?"],
-    aplicar: (c, v) => ({ ...c, modelo: v }),
+    id: "sobre", tipo: "texto", grupo: "Perfil", rotulo: "Sobre a empresa", placeholder: "O que a empresa vende, para quem e como cobra",
+    quando: pj,
+    falas: () => ["Me conte mais sobre a sua empresa: o que vocês vendem, para quem e como cobram."],
+    validar: (v) => (v.trim().length < 10 ? "Me conta um pouco mais, com uma ou duas frases."
+      : v.length > 500 ? "Cabe até 500 letras. Dá pra resumir?" : null),
+    aplicar: (c, v) => {
+      const lido = lerSobreAEmpresa(v);
+      return { ...c, descricao: v.trim(), modelo: lido.modelo ?? "", receitaPrincipal: lido.receitaPrincipal ?? "" };
+    },
   },
   {
-    id: "receitaPrincipal", tipo: "escolha", grupo: "Perfil", rotulo: "Receita principal", quando: pj, opcoes: () => RECEITAS,
-    falas: () => ["De onde vem a maior parte da receita?"],
+    // ⚠️ Só quando o texto livre não disse de onde vem a receita (`lerSobreAEmpresa`).
+    id: "receitaPrincipal", tipo: "escolha", grupo: "Perfil", rotulo: "Receita principal",
+    quando: (c) => pj(c) && !c.receitaPrincipal, opcoes: () => RECEITAS,
+    falas: () => ["E de onde vem a maior parte da receita?"],
     aplicar: (c, v) => ({ ...c, receitaPrincipal: v }),
-  },
-  {
-    id: "frequencia", tipo: "escolha", grupo: "Perfil", rotulo: "Frequência da receita", quando: pj, opcoes: () => FREQ,
-    falas: () => ["Com que frequência o dinheiro entra?"],
-    aplicar: (c, v) => ({ ...c, frequencia: v }),
   },
   {
     id: "funcionarios", tipo: "escolha", grupo: "Perfil", rotulo: "Funcionários", quando: pj, opcoes: () => FUNC,
@@ -448,125 +492,76 @@ export const PERGUNTAS: Pergunta[] = [
     aplicar: (c, v) => ({ ...c, funcionarios: v }),
   },
   {
-    id: "faturamento", tipo: "escolha", grupo: "Perfil", rotulo: "Faturamento anual", quando: (c) => pj(c) && !c.faturamento, opcoes: () => FAT,
+    id: "faturamento", tipo: "escolha", grupo: "Perfil", rotulo: "Faturamento anual", quando: pj,
+    opcoes: () => FAIXAS_FATURAMENTO.map((f) => f.rotulo),
     falas: () => ["E o faturamento anual, mais ou menos?"],
     aplicar: (c, v) => ({ ...c, faturamento: v }),
   },
   {
-    id: "bancos", tipo: "multi", grupo: "Perfil", rotulo: "Bancos", quando: pj, opcoes: () => BANCOS,
-    falas: () => ["Em quais bancos a empresa tem conta? Pode marcar mais de um."],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos um banco."),
-    aplicar: (c, v) => ({ ...c, bancos: lista(v) }),
-  },
-  {
-    id: "meios", tipo: "multi", grupo: "Perfil", rotulo: "Meios de recebimento", quando: pj, opcoes: () => MEIOS,
-    falas: () => ["Como os clientes pagam vocês?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos um meio de recebimento."),
-    aplicar: (c, v) => ({ ...c, meiosRecebimento: lista(v) }),
-  },
-  {
-    id: "despesas", tipo: "multi", grupo: "Perfil", rotulo: "Principais despesas", quando: pj, opcoes: () => DESPESAS,
-    falas: () => ["Quais são as principais despesas?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos uma despesa."),
-    aplicar: (c, v) => ({ ...c, despesas: lista(v) }),
-  },
-  {
-    id: "descricao", tipo: "texto", grupo: "Perfil", rotulo: "Conte com suas palavras", placeholder: "O que a empresa faz e o que você quer acompanhar", opcional: true,
-    quando: pj,
-    falas: () => ["Quer me contar com as suas palavras o que a empresa faz e o que você mais quer acompanhar?"],
-    validar: (v) => (v.length <= 500 ? null : "Cabe até 500 letras. Dá pra resumir?"),
+    id: "sobrePf", tipo: "texto", grupo: "Você", rotulo: "O que você quer controlar", placeholder: "Gastos, contas, metas…",
+    quando: pf,
+    falas: () => ["Me conte o que você mais quer controlar no seu dinheiro."],
+    validar: (v) => (v.trim().length < 3 ? "Me conta em poucas palavras, por favor." : v.length > 500 ? "Cabe até 500 letras. Dá pra resumir?" : null),
     aplicar: (c, v) => ({ ...c, descricao: v.trim() }),
   },
-  /* ── PJ · estrutura financeira ────────────────────────────────────────── */
   {
-    id: "contaTipos", tipo: "multi", grupo: "Estrutura", rotulo: "Tipos de conta", quando: pj, opcoes: () => TIPOS_CONTA,
-    inicial: () => ["Operacional"],
-    falas: () => ["Falta pouco: vamos montar a estrutura financeira.", "Que tipos de conta a empresa usa?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos um tipo de conta."),
-    aplicar: (c, v) => ({ ...c, contaTipos: lista(v) }),
-  },
-  {
-    id: "centrosCusto", tipo: "multi", grupo: "Estrutura", rotulo: "Centros de custo", quando: pj, opcoes: () => CENTROS,
-    falas: () => ["Quais centros de custo fazem sentido para vocês?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos um centro de custo."),
-    aplicar: (c, v) => ({ ...c, centrosCusto: lista(v) }),
-  },
-  {
-    id: "unidades", tipo: "multi", grupo: "Estrutura", rotulo: "Unidades de negócio", quando: pj, opcoes: () => UNIDADES,
-    inicial: () => ["Matriz"],
-    falas: () => ["E as unidades de negócio?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos uma unidade."),
-    aplicar: (c, v) => ({ ...c, unidades: lista(v) }),
-  },
-  {
-    id: "dre", tipo: "multi", grupo: "Estrutura", rotulo: "DRE desejado", quando: pj, opcoes: () => DRE_OPTS,
-    inicial: () => ["Gerencial", "Por centro de custo"],
-    falas: () => ["Como você quer ver o resultado (DRE)?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos uma visão do DRE."),
-    aplicar: (c, v) => ({ ...c, dre: lista(v) }),
-  },
-  {
-    id: "fluxoCaixa", tipo: "escolha", grupo: "Estrutura", rotulo: "Fluxo de caixa", quando: pj, opcoes: () => FLUXO_OPTS,
-    destaque: () => "Híbrido",
-    falas: () => ["E o fluxo de caixa, em qual visão?"],
-    aplicar: (c, v) => ({ ...c, fluxoCaixa: v }),
-  },
-  /* ── PF ───────────────────────────────────────────────────────────────── */
-  {
-    id: "nome", tipo: "texto", grupo: "Você", rotulo: "Seu nome", placeholder: "Seu nome completo",
+    id: "rendaMensal", tipo: "moeda", grupo: "Você", rotulo: "Renda mensal", placeholder: "R$ 0,00",
     quando: pf,
-    falas: () => ["E qual é o seu nome completo?"],
-    validar: (v) => (v.trim().split(/\s+/).length >= 2 ? null : "Me passa o nome e o sobrenome, por favor."),
-    aplicar: (c, v) => ({ ...c, nome: v.trim().replace(/\s+/g, " ") }),
-  },
-  {
-    id: "rendaMensal", tipo: "moeda", grupo: "Contas e renda", rotulo: "Renda mensal", placeholder: "R$ 0,00",
-    quando: pf,
-    falas: (c) => [`Prazer, ${primeiro(c.nome)}!`, "Quanto você recebe por mês, mais ou menos?"],
+    falas: () => ["Quanto você recebe por mês, mais ou menos?"],
     validar: (v) => (lerValor(v) != null ? null : "Escreve só o valor, por exemplo 4.500,00."),
     aplicar: (c, v) => ({ ...c, rendaMensal: lerValor(v) }),
   },
   {
-    id: "saldoInicial", tipo: "moeda", grupo: "Contas e renda", rotulo: "Saldo atual", placeholder: "R$ 0,00",
-    quando: pf,
-    falas: () => ["E quanto você tem hoje na conta principal?"],
-    validar: (v) => (lerValor(v) != null ? null : "Escreve só o valor, por exemplo 1.200,00."),
-    aplicar: (c, v) => ({ ...c, saldoInicial: lerValor(v) }),
+    /*
+     * ⚠️ Os bancos com a MARCA (`logos`) e o "Meu banco não está na lista"
+     * (`outro`): o banco digitado entra na mesma lista dos marcados.
+     */
+    id: "bancos", tipo: "multi", grupo: "Bancos", rotulo: "Bancos", quando: (c) => !!c.tipo, opcoes: () => BANCOS,
+    logos: true, outro: true,
+    falas: (c) => [c.tipo === "pf"
+      ? "Em quais bancos você tem conta? Pode marcar mais de um."
+      : "Em quais bancos a empresa tem conta? Pode marcar mais de um."],
+    validar: (v) => (lista(v).length ? null : "Marca pelo menos um banco, ou escreve o seu em \"Meu banco não está na lista\"."),
+    aplicar: (c, v) => ({ ...c, bancos: lista(v), ...(c.tipo === "pf" ? { carteiras: lista(v) } : {}) }),
+    eco: (v) => lista(v).join(", "),
+  },
+  /* ── PJ · a maquininha da Quattro ─────────────────────────────────────── */
+  {
+    id: "maquininha", tipo: "escolha", grupo: "Maquininha", rotulo: "Maquininha da Quattro", quando: pj,
+    opcoes: () => Object.values(OPCOES_MAQUININHA),
+    falas: () => ["Você já tem a **maquininha** **da** **Quattro**?", "Com ela, as vendas no cartão e no Pix entram sozinhas no caixa."],
+    aplicar: (c, v) => {
+      const m = (Object.keys(OPCOES_MAQUININHA) as (keyof typeof OPCOES_MAQUININHA)[]).find((k) => OPCOES_MAQUININHA[k] === v) ?? "nao";
+      return { ...c, maquininha: m, maquininhaEC: m === "vincular" ? c.maquininhaEC : "", maquininhaEndereco: m === "pedir" ? c.maquininhaEndereco : "" };
+    },
   },
   {
-    id: "carteiras", tipo: "multi", grupo: "Contas e renda", rotulo: "Contas e carteiras", quando: pf, opcoes: () => CARTEIRAS,
-    inicial: () => ["Conta corrente"],
-    falas: () => ["Onde fica o seu dinheiro? Pode marcar mais de uma."],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos uma conta."),
-    aplicar: (c, v) => ({ ...c, carteiras: lista(v) }),
+    id: "maquininhaEC", tipo: "texto", grupo: "Maquininha", rotulo: "Número do estabelecimento", placeholder: "Só números", opcional: true,
+    quando: (c) => pj(c) && c.maquininha === "vincular",
+    falas: () => ["Qual é o número do estabelecimento (EC) da sua maquininha?", "Ele aparece no comprovante de venda. Se não tiver agora, pode pular: você vincula depois, em Maquininha."],
+    validar: (v) => (/^\d{3,15}$/.test(v.trim()) ? null : "O número do estabelecimento tem só números, de 3 a 15."),
+    aplicar: (c, v) => ({ ...c, maquininhaEC: v.trim() }),
   },
   {
-    id: "categorias", tipo: "multi", grupo: "Gastos", rotulo: "Categorias de gasto", quando: pf, opcoes: () => CATEGORIAS_PF,
-    inicial: () => ["Moradia", "Mercado", "Transporte", "Lazer"],
-    falas: () => ["Com o que você mais gasta no dia a dia?"],
-    validar: (v) => (lista(v).length ? null : "Marca pelo menos uma categoria."),
-    aplicar: (c, v) => ({ ...c, categorias: lista(v) }),
+    id: "maquininhaQtd", tipo: "escolha", grupo: "Maquininha", rotulo: "Quantas maquininhas",
+    quando: (c) => pj(c) && c.maquininha === "pedir", opcoes: () => ["1", "2", "3", "4", "5"],
+    falas: () => ["Quantas maquininhas você quer?"],
+    aplicar: (c, v) => ({ ...c, maquininhaQtd: Math.max(1, Math.min(5, Number(v) || 1)) }),
   },
   {
-    id: "orcamento", tipo: "moeda", grupo: "Gastos", rotulo: "Orçamento mensal", placeholder: "R$ 0,00",
-    quando: pf,
-    falas: () => ["Quanto você quer gastar no máximo por mês?"],
-    validar: (v) => (lerValor(v) != null ? null : "Escreve só o valor, por exemplo 3.000,00."),
-    aplicar: (c, v) => ({ ...c, orcamento: lerValor(v) }),
+    id: "maquininhaEntrega", tipo: "escolha", grupo: "Maquininha", rotulo: "Onde entregar",
+    quando: (c) => pj(c) && c.maquininha === "pedir" && !!enderecoDaEmpresa(c),
+    opcoes: (c) => [`No endereço da empresa (${enderecoDaEmpresa(c)})`, ENTREGA_OUTRO],
+    falas: () => ["Onde entregamos?"],
+    aplicar: (c, v) => ({ ...c, maquininhaEndereco: v === ENTREGA_OUTRO ? "" : enderecoDaEmpresa(c) }),
+    eco: (v) => (v === ENTREGA_OUTRO ? v : "No endereço da empresa"),
   },
   {
-    id: "descricaoPf", tipo: "texto", grupo: "Gastos", rotulo: "Conte com suas palavras", placeholder: "O que você quer controlar", opcional: true,
-    quando: pf,
-    falas: () => ["Quer me contar com as suas palavras o que você mais quer controlar?"],
-    validar: (v) => (v.length <= 500 ? null : "Cabe até 500 letras. Dá pra resumir?"),
-    aplicar: (c, v) => ({ ...c, descricao: v.trim() }),
-  },
-  {
-    id: "emailPf", tipo: "email", grupo: "Acesso", rotulo: "E-mail", placeholder: "voce@email.com",
-    quando: pf,
-    falas: () => ["Qual e-mail você quer usar para entrar?"],
-    validar: (v) => (EMAIL_VALIDO.test(v.trim()) ? null : "Esse e-mail parece incompleto. Algo como voce@email.com."),
-    aplicar: (c, v) => ({ ...c, email: v.trim() }),
+    id: "maquininhaEndereco", tipo: "texto", grupo: "Maquininha", rotulo: "Endereço de entrega", placeholder: "Rua, número, bairro, cidade / UF",
+    quando: (c) => pj(c) && c.maquininha === "pedir" && !c.maquininhaEndereco,
+    falas: () => ["Qual é o endereço de entrega, com rua, número e cidade?"],
+    validar: (v) => (v.trim().length >= 8 ? null : "Preciso da rua, do número e da cidade para entregar."),
+    aplicar: (c, v) => ({ ...c, maquininhaEndereco: v.trim().replace(/\s+/g, " ") }),
   },
 ];
 
@@ -580,31 +575,6 @@ export const FAIXAS_FATURAMENTO: { rotulo: string; porte: string }[] = [
   { rotulo: "Acima de R$ 78.000.000", porte: "Grande Empresa" },
 ];
 export const FAIXAS_RENDA = ["Até R$ 5.000", "R$ 5.001 - R$ 10.000", "R$ 10.001 - R$ 30.000", "R$ 30.001 - R$ 100.000", "Acima de R$ 100.000"];
-
-/** Os bancos da lista do Open Finance (nome como aparece na tela; o logo sai de `BancoLogo`). */
-export const BANCOS_OPEN_FINANCE = [
-  "Banco do Brasil", "Banco Inter PJ", "Banrisul", "Bradesco PJ", "BTG Pactual", "C6 Bank", "Caixa", "InfinitePay",
-  "Itaú Empresas", "Mercado Pago", "Nubank PJ", "PagBank", "Santander Empresas", "Sicoob", "Sicredi", "Stone",
-];
-
-export const DUVIDAS_OPEN_FINANCE: { pergunta: string; resposta: string }[] = [
-  {
-    pergunta: "É seguro conectar meu banco?",
-    resposta: "Sim. O Open Finance é regulado pelo Banco Central, e os seus dados viajam protegidos por medidas de segurança robustas. Com ele você tem uma visão mais ampla das suas finanças, num lugar só, e fica mais fácil acompanhar e comparar os seus serviços.",
-  },
-  {
-    pergunta: "Como faço pra conectar meu banco?",
-    resposta: "Você escolhe o banco, é levado ao aplicativo dele e autoriza o compartilhamento por lá. Leva cerca de um minuto, e você pode cancelar a autorização quando quiser, no próprio banco.",
-  },
-  {
-    pergunta: "Ao conectar meu banco, vocês poderão mexer no dinheiro da minha conta?",
-    resposta: "Não. A autorização é só de leitura: saldo, extrato e lançamentos. Nenhum pagamento ou transferência sai da sua conta por esta conexão.",
-  },
-  {
-    pergunta: "O que fazer se der erro ao ser redirecionado do outro banco pra cá?",
-    resposta: "Volte para esta tela e tente de novo. Se o erro continuar, siga preenchendo à mão: você conecta o banco depois, em Contas e bancos, sem perder nada do que já respondeu.",
-  },
-];
 
 export const DICAS_FACIAL: { titulo: string; icone: string }[] = [
   { titulo: "Procure um lugar iluminado", icone: "sun" },
@@ -657,37 +627,25 @@ export function lerDocumentoIdentidade(texto: string, c: Pick<Cadastro, "tipo" |
   return { reconhecido, cpfConfere, nomeConfere, conferido };
 }
 
-/**
- * A senha transacional: exatamente 6 dígitos, as duas iguais, e nada trivial
- * (todos iguais, ou sequência como 123456 / 654321) — é a primeira tentativa
- * de quem rouba o celular. `null` = pode salvar.
- */
-export function problemaDaSenhaTransacional(senha: string, confirmar: string): string | null {
-  if (!/^\d{6}$/.test(senha)) return "A senha tem 6 dígitos, só números.";
-  if (/^(\d)\1{5}$/.test(senha)) return "Evite repetir o mesmo número.";
-  const d = senha.split("").map(Number);
-  const passo = d[1] - d[0];
-  if ((passo === 1 || passo === -1) && d.every((x, i) => i === 0 || x - d[i - 1] === passo)) return "Evite sequências como 123456.";
-  if (senha !== confirmar) return "As duas senhas não são iguais.";
-  return null;
-}
-
 /** Os passos que não são pergunta de campo: cada um tem o seu cartão. */
-export type PassoEspecial = "openfinance" | "termos" | "infos" | "facial" | "docIdentidade" | "senhaTransacional";
+export type PassoEspecial = "termos" | "facial" | "docIdentidade" | "docEmpresa" | "senha";
 export type Passo = { especial: PassoEspecial } | { pergunta: Pergunta };
 
 /**
- * ⚠️ **A ORDEM DOS PRINTS vem primeiro**: depois do documento, Open Finance →
- * termos → WhatsApp → e-mail → faturamento e renda → reconhecimento facial
- * → documento de identidade (RG ou CNH) → senha transacional (na PF: Open
- * Finance → termos → facial → documento → senha transacional). Só então o resto do
- * cadastro, na ordem de `PERGUNTAS`. O portão (`faltandoParaCriar`) continua
- * o mesmo, e cobra os passos novos também.
+ * ⚠️ **A ORDEM DA ABERTURA (27/10/2026, decisão do dono).** Depois do documento
+ * (CNPJ ou CPF): nome → WhatsApp → e-mail → termos → reconhecimento facial →
+ * documento de identidade → contrato social ou comprovante de endereço
+ * (opcional) → senha de acesso. Só então o resto, na ordem de `PERGUNTAS`.
+ * Open Finance, "Informações financeiras" e a senha transacional SAÍRAM; o que
+ * a abertura deixou de pedir mora em `PARA_COMPLETAR_DEPOIS`.
+ *
+ * Quem entra pelo Google não digita e-mail nem senha: a tela marca os dois
+ * como feitos (`senhaAcesso: "google"`).
  */
 export function proximoPasso(c: Cadastro, feitos: ReadonlySet<string>): Passo | null {
   const roteiro = c.tipo === "pj"
-    ? ["openfinance", "termos", "repTelefone", "repEmail", "infos", "facial", "docIdentidade", "senhaTransacional"]
-    : c.tipo === "pf" ? ["openfinance", "termos", "facial", "docIdentidade", "senhaTransacional"] : [];
+    ? ["repNome", "repTelefone", "repEmail", "termos", "facial", "docIdentidade", "docEmpresa", "senha"]
+    : c.tipo === "pf" ? ["nome", "repTelefone", "emailPf", "termos", "facial", "docIdentidade", "docEmpresa", "senha"] : [];
   for (const id of roteiro) {
     if (feitos.has(id)) continue;
     const p = PERGUNTAS.find((x) => x.id === id);
@@ -697,14 +655,15 @@ export function proximoPasso(c: Cadastro, feitos: ReadonlySet<string>): Passo | 
   return p ? { pergunta: p } : null;
 }
 
-/** Quantos passos especiais valem para este cadastro (para o "x de y"). */
+/** Quantos passos especiais valem para este cadastro (para o "x de y"; o Google pula a senha). */
 export function passosEspeciais(c: Cadastro): number {
-  return c.tipo === "pj" ? 6 : c.tipo === "pf" ? 5 : 0;
+  if (!c.tipo) return 0;
+  return c.senhaAcesso === "google" ? 4 : 5;
 }
 
 /**
  * A próxima pergunta: a primeira que vale para este cadastro e ainda não foi
- * respondida. `null` = acabaram (falta só a senha).
+ * respondida. `null` = acabaram (a conta pode ser criada).
  */
 export function proximaPergunta(c: Cadastro, respondidas: ReadonlySet<string>): Pergunta | null {
   return PERGUNTAS.find((p) => (p.quando ? p.quando(c) : true) && !respondidas.has(p.id)) ?? null;
@@ -716,9 +675,20 @@ export function perguntasDoCadastro(c: Cadastro): Pergunta[] {
 }
 
 /**
- * ⚠️ **O PORTÃO DA CRIAÇÃO.** A conta só nasce com isto vazio — é a regra que
- * a conversa de três perguntas não tinha. Cada item diz em português o que
- * falta, para a tela poder voltar à pergunta certa.
+ * A senha de ACESSO ao sistema (a do login). O mínimo é o `MIN_SENHA` da
+ * recuperação de senha — duas regras de tamanho divergiriam na primeira troca.
+ * `null` = pode seguir.
+ */
+export function problemaDaSenha(senha: string, confirmar: string): string | null {
+  if (senha.length < MIN_SENHA) return `A senha precisa de pelo menos ${MIN_SENHA} caracteres.`;
+  if (senha !== confirmar) return "As duas senhas não são iguais.";
+  return null;
+}
+
+/**
+ * ⚠️ **O PORTÃO DA CRIAÇÃO.** A conta só nasce com isto vazio. Cada item diz em
+ * português o que falta, para a tela poder voltar à pergunta certa. O que a
+ * abertura deixou para depois (ICMS, função, estrutura…) NÃO entra aqui.
  */
 export function faltandoParaCriar(c: Cadastro): string[] {
   const f: string[] = [];
@@ -727,44 +697,75 @@ export function faltandoParaCriar(c: Cadastro): string[] {
   if (c.tipo && !c.aceiteTermos) f.push("aceite dos termos de uso");
   if (c.tipo && !c.biometria) f.push("reconhecimento facial");
   if (c.tipo && !c.documento) f.push("documento de identidade");
-  if (c.tipo && !c.senhaTransacional) f.push("senha transacional");
+  if (c.tipo && !c.senhaAcesso) f.push("senha de acesso");
+  if (c.tipo && !telefoneConfere(c.repTelefone)) f.push("WhatsApp");
+  if (c.tipo && !c.bancos.length) f.push("bancos");
   if (c.tipo === "pj") {
     if (!cnpjConfere(c.cnpj)) f.push("CNPJ");
     if (vazio(c.razaoSocial)) f.push("razão social");
     if (vazio(c.cidade) || vazio(c.estado)) f.push("cidade e UF");
     if (c.cep.replace(/\D/g, "").length !== 8 || vazio(c.numero)) f.push("endereço (CEP e número)");
     if (!REGIMES_DA_CONVERSA.includes(c.regime)) f.push("regime tributário");
-    if (c.contribuinteIcms == null) f.push("contribuinte de ICMS");
-    if (c.contribuinteIcms && vazio(c.ie)) f.push("inscrição estadual");
-    if (c.exportadora == null) f.push("se exporta");
     if (vazio(c.repNome)) f.push("nome do representante");
-    if (vazio(c.repCargo)) f.push("função do representante");
-    if (!telefoneConfere(c.repTelefone)) f.push("WhatsApp");
-    if (vazio(c.limite)) f.push("limite de aprovação");
-    if (vazio(c.rendaRepresentante)) f.push("renda do representante");
-    for (const [k, rot] of [["setor", "setor"], ["modelo", "modelo de negócio"], ["receitaPrincipal", "receita principal"], ["frequencia", "frequência da receita"], ["funcionarios", "número de funcionários"], ["faturamento", "faturamento anual"], ["fluxoCaixa", "visão do fluxo de caixa"]] as const) {
+    for (const [k, rot] of [["setor", "setor"], ["descricao", "como a empresa funciona"], ["receitaPrincipal", "receita principal"], ["funcionarios", "número de funcionários"], ["faturamento", "faturamento anual"]] as const) {
       if (vazio(c[k])) f.push(rot);
     }
-    for (const [k, rot] of [["bancos", "bancos"], ["meiosRecebimento", "meios de recebimento"], ["despesas", "principais despesas"], ["contaTipos", "tipos de conta"], ["centrosCusto", "centros de custo"], ["unidades", "unidades de negócio"], ["dre", "visão do DRE"]] as const) {
-      if (!c[k].length) f.push(rot);
-    }
+    if (!c.maquininha) f.push("se tem a maquininha da Quattro");
+    if (c.maquininha === "pedir" && c.maquininhaEndereco.trim().length < 8) f.push("endereço de entrega da maquininha");
   } else if (c.tipo === "pf") {
     if (!cpfConfere(c.cpf)) f.push("CPF");
     if (vazio(c.nome)) f.push("nome");
+    if (vazio(c.descricao)) f.push("o que você quer controlar");
     if (c.rendaMensal == null) f.push("renda mensal");
-    if (c.saldoInicial == null) f.push("saldo atual");
-    if (!c.carteiras.length) f.push("contas e carteiras");
-    if (!c.categorias.length) f.push("categorias de gasto");
-    if (c.orcamento == null) f.push("orçamento mensal");
   } else {
     f.push("tipo de conta");
   }
   return f;
 }
 
+/**
+ * ⚠️ **O QUE A ABERTURA DEIXOU PARA DEPOIS** (decisão do dono, 27/10/2026). A
+ * conversa "Vamos completar seu cadastro", depois da primeira entrada, pede
+ * isto — e a lista é dado, não lembrança: um item que sai da abertura sem
+ * entrar aqui some do produto.
+ */
+export const PARA_COMPLETAR_DEPOIS: { pj: string[]; pf: string[]; segundaFase: string[] } = {
+  pj: [
+    "Contribuinte de ICMS e inscrição estadual", "Inscrição municipal", "Se exporta",
+    "Sua função na empresa", "Limite de aprovação de pagamentos", "Outras pessoas da equipe",
+    "Frequência da receita", "Meios de recebimento", "Principais despesas",
+    "Tipos de conta", "Centros de custo", "Unidades de negócio", "Visão do DRE", "Visão do fluxo de caixa",
+  ],
+  pf: ["Saldo atual", "Categorias de gasto", "Orçamento mensal"],
+  segundaFase: ["Conectar o banco pelo Open Finance", "Enviar o extrato do banco", "O retrato financeiro da empresa"],
+};
+
 /** O nome da organização no `signUp`: a razão social (é o que sai na nota) ou o nome da pessoa. */
 export function nomeDaOrganizacao(c: Cadastro): string {
   return c.tipo === "pf" ? c.nome.trim() : (c.razaoSocial.trim() || c.fantasia.trim());
+}
+
+/**
+ * O pedido da maquininha que a conversa montou — o MESMO formato da página
+ * Maquininha (`core/maquininha/oferta`), validado pela mesma `validarPedido`.
+ * `null` = a pessoa não pediu nem quer vincular. ⚠️ Só sai DEPOIS de a conta
+ * existir: o pedido é da empresa, e a empresa nasce com a conta.
+ */
+export function pedidoDaMaquininha(c: Cadastro): PedidoMaquininha | null {
+  if (c.tipo !== "pj" || (c.maquininha !== "pedir" && c.maquininha !== "vincular")) return null;
+  if (c.maquininha === "vincular" && !c.maquininhaEC) return null;
+  return {
+    ...PEDIDO_VAZIO,
+    tipo: c.maquininha,
+    quantidade: c.maquininha === "pedir" ? c.maquininhaQtd || 1 : 1,
+    segmento: c.setor,
+    codigoEstabelecimento: c.maquininha === "vincular" ? c.maquininhaEC : "",
+    contatoNome: c.repNome.trim(),
+    contatoTelefone: c.repTelefone,
+    contatoEmail: c.email.trim(),
+    endereco: c.maquininha === "pedir" ? c.maquininhaEndereco.trim() : "",
+    observacao: "Pedido feito na abertura da conta.",
+  };
 }
 
 /* ─── o que vai para o sistema (o MESMO formato do cadastro de sete passos) ─ */
@@ -780,14 +781,14 @@ export interface CadastroMontado {
 }
 
 export function montarCadastro(c: Cadastro): CadastroMontado {
+  const docEmpresa: Record<string, string> = c.docEmpresa ? { documentoEmpresa: c.docEmpresa } : {};
   if (c.tipo === "pf") {
     const nome = c.nome.trim();
     return {
       db: {
         tipoConta: "pessoal", tipoPessoa: "fisica", cpf: mascararCPF(c.cpf), repNome: nome, repEmail: c.email.trim(), razaoSocial: nome, fantasia: nome,
-        aceiteTermos: c.aceiteTermos, biometria: c.biometria,
-        documentoIdentidade: c.documento, ...(c.docTipo ? { documentoTipo: c.docTipo } : {}), senhaTransacional: c.senhaTransacional,
-        ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
+        repTelefone: c.repTelefone, aceiteTermos: c.aceiteTermos, biometria: c.biometria,
+        documentoIdentidade: c.documento, ...(c.docTipo ? { documentoTipo: c.docTipo } : {}), ...docEmpresa,
       },
       perfil: {
         setor: "Pessoal", modelo: "B2C", receitaPrincipal: "Salário", frequencia: "Mensal",
@@ -813,17 +814,27 @@ export function montarCadastro(c: Cadastro): CadastroMontado {
       return { nome: p.nome, funcao: p.funcao, email: p.email, aprovaPagamentos: ap, ...(ap ? { limite: p.limite } : {}) };
     }),
   ];
+  /*
+   * ⚠️ ICMS, IE, IM e exportadora só entram quando RESPONDIDOS: a abertura não
+   * os pergunta mais, e gravar `false` afirmaria "não é contribuinte" sobre uma
+   * pergunta que ninguém fez.
+   */
+  const fiscal: Record<string, string | boolean> = {
+    ...(c.contribuinteIcms != null ? { contribuinteIcms: c.contribuinteIcms } : {}),
+    ...(c.ie ? { ie: c.ie } : {}), ...(c.im ? { im: c.im } : {}),
+    ...(c.exportadora != null ? { exportadora: c.exportadora } : {}),
+  };
   return {
     db: {
       tipoConta: "empresa", tipoPessoa: "juridica",
       cnpj: mascararCNPJ(c.cnpj), razaoSocial: c.razaoSocial.trim(), fantasia: c.fantasia.trim(),
       fundacao: c.fundacao, porte: c.porte,
       cep: c.cep, rua: c.rua, numero: c.numero, bairro: c.bairro, cidade: c.cidade, estado: c.estado, pais: "Brasil",
-      regime: c.regime, contribuinteIcms: !!c.contribuinteIcms, ie: c.ie, im: c.im, exportadora: !!c.exportadora,
-      repNome: c.repNome.trim(), repCargo: c.repCargo, repTelefone: c.repTelefone, repEmail: c.repEmail.trim(),
-      repRenda: c.rendaRepresentante, aceiteTermos: c.aceiteTermos, biometria: c.biometria,
-      documentoIdentidade: c.documento, ...(c.docTipo ? { documentoTipo: c.docTipo } : {}), senhaTransacional: c.senhaTransacional,
-      ...(c.openFinanceBanco ? { openFinanceBanco: c.openFinanceBanco } : {}),
+      regime: c.regime, ...fiscal,
+      repNome: c.repNome.trim(), ...(c.repCargo ? { repCargo: c.repCargo } : {}), repTelefone: c.repTelefone, repEmail: c.repEmail.trim(),
+      aceiteTermos: c.aceiteTermos, biometria: c.biometria,
+      documentoIdentidade: c.documento, ...(c.docTipo ? { documentoTipo: c.docTipo } : {}), ...docEmpresa,
+      ...(c.maquininha ? { maquininha: c.maquininha as string } : {}),
     },
     perfil: {
       setor: c.setor, modelo: c.modelo, receitaPrincipal: c.receitaPrincipal, frequencia: c.frequencia,
@@ -833,8 +844,12 @@ export function montarCadastro(c: Cadastro): CadastroMontado {
     },
     participantes,
     estrutura: {
-      contas: c.contaTipos.map((t) => ({ banco: c.bancos[0] ?? "—", tipo: t })),
-      centrosCusto: c.centrosCusto, unidades: c.unidades, dre: c.dre, fluxoCaixa: c.fluxoCaixa,
+      // Os tipos de conta ficaram para depois: cada banco marcado nasce como conta operacional.
+      contas: (c.contaTipos.length ? c.contaTipos.map((t) => ({ banco: c.bancos[0] ?? "—", tipo: t })) : c.bancos.map((b) => ({ banco: b, tipo: "Operacional" }))),
+      centrosCusto: c.centrosCusto,
+      unidades: c.unidades.length ? c.unidades : ["Matriz"],
+      dre: c.dre.length ? c.dre : ["Gerencial"],
+      fluxoCaixa: c.fluxoCaixa || "Híbrido",
     },
   };
 }
