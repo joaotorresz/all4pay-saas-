@@ -21,11 +21,11 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-26",
+  "gerado_em": "2026-10-27",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 84,
-    "funcoes": 148,
+    "funcoes": 149,
     "politicas": 156,
     "gatilhos": 104,
     "indices": 262,
@@ -153,7 +153,8 @@
     "20261020120000_pinbank_cobranca",
     "20261022120000_pinbank_checkout",
     "20261026120000_maquininha_pedidos",
-    "20261026130000_nfse_focus"
+    "20261026130000_nfse_focus",
+    "20261027120000_nome_da_empresa_google"
   ],
   "divergencias_conhecidas": {
     "_regra": [

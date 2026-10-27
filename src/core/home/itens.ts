@@ -26,10 +26,10 @@
 
 import { CARDS_BIBLIOTECA, TEMAS_CARD, type TemaCard } from "./biblioteca";
 
-export const ITENS_HOME_VERSION = "home-itens/1.2.0";
+export const ITENS_HOME_VERSION = "home-itens/1.3.0";
 
 export type IdItemHome =
-  | "maquininha" | "caixa" | "arr" | "burn" | "runway" | "pagar" | "receber"
+  | "contas" | "maquininha" | "caixa" | "arr" | "burn" | "runway" | "pagar" | "receber"
   | "acao" | "fechamento" | "relatorios";
 
 /** Um card da biblioteca na Home: `card:` + o id do catálogo do cockpit. */
@@ -44,8 +44,11 @@ export interface ItemHome {
   grupo: GrupoHome;
   /** Só os cards da biblioteca. */
   tema?: TemaCard;
-  /** Só os números: o grande leva a curva de 7 meses. */
-  tamanho?: "grande" | "pequeno";
+  /**
+   * Só os números: o grande leva a curva de 7 meses; o DESTAQUE (o saldo
+   * total em contas) ocupa a linha inteira, sozinho na faixa dele.
+   */
+  tamanho?: TamanhoHome;
   /** Uma linha sobre o que o item mostra (vai para a IA e para a ajuda). */
   descricao: string;
   /**
@@ -55,12 +58,17 @@ export interface ItemHome {
   sinonimos: string[];
 }
 
+export type TamanhoHome = "destaque" | "grande" | "pequeno";
+
 export const ITENS_HOME: ItemHome[] = [
+  // O card PRINCIPAL (pedido do dono, 27/10/2026): primeiro da Home.
+  { id: "contas", nome: "Saldo total em contas", grupo: "painel", tamanho: "destaque", descricao: "a soma do saldo de todas as contas bancárias, com a logo e o saldo de cada banco",
+    sinonimos: ["saldo total em contas", "saldo total", "saldo em contas", "saldo das contas", "saldo de cada banco", "bancos"] },
   // Primeiro na esquerda (pedido do dono, 16/10/2026): as vendas que a Pinbank avisou pelo webhook.
   { id: "maquininha", nome: "Transações recentes na maquininha", grupo: "painel", tamanho: "grande", descricao: "as últimas vendas da maquininha Pinbank, com o dia da semana, e o total aprovado no dia, na semana ou no mês",
     sinonimos: ["transacoes recentes na maquininha", "transacoes da maquininha", "vendas da maquininha", "vendas na maquininha", "maquininha", "maquina de cartao", "pinbank", "vendas no cartao"] },
   { id: "caixa", nome: "Caixa consolidado", grupo: "painel", tamanho: "grande", descricao: "o saldo de todas as contas hoje, com a curva de 7 meses",
-    sinonimos: ["caixa consolidado", "caixa", "saldo", "saldos", "dinheiro em conta", "dinheiro no banco", "quanto tenho", "banco", "bancos"] },
+    sinonimos: ["caixa consolidado", "caixa", "saldo", "saldos", "dinheiro em conta", "dinheiro no banco", "quanto tenho", "banco"] },
   { id: "arr", nome: "Receita recorrente (ARR)", grupo: "painel", tamanho: "grande", descricao: "a receita recorrente anualizada, com a curva de 7 meses",
     sinonimos: ["receita recorrente", "recorrente", "recorrencia", "arr", "mrr", "assinaturas", "assinatura", "mensalidades"] },
   { id: "burn", nome: "Burn mensal", grupo: "painel", tamanho: "pequeno", descricao: "quanto a empresa queima por mês",
@@ -103,7 +111,7 @@ export const idDoCockpit = (id: IdCard): string => id.slice("card:".length);
 /* ------------------------------ o arranjo ------------------------------ */
 
 export interface LayoutHome {
-  /** Os dez fixos (sempre) e os cards da biblioteca que a pessoa pôs, na ordem em que aparecem. */
+  /** Os onze fixos (sempre) e os cards da biblioteca que a pessoa pôs, na ordem em que aparecem. */
   ordem: IdHome[];
   /** Os FIXOS que a pessoa escondeu (card da biblioteca não se esconde: sai da ordem). */
   ocultos: IdItemHome[];
@@ -235,8 +243,8 @@ export function ordemDasSecoes(layout: LayoutHome): ("painel" | "bloco")[] {
  * grandes (com curva) e os pequenos não cabem na mesma linha sem um esticar o
  * outro. [pagar, caixa, arr, burn] → [[pagar], [caixa, arr], [burn]].
  */
-export function faixasDoPainel(layout: LayoutHome): { tamanho: "grande" | "pequeno"; ids: IdItemHome[] }[] {
-  const out: { tamanho: "grande" | "pequeno"; ids: IdItemHome[] }[] = [];
+export function faixasDoPainel(layout: LayoutHome): { tamanho: TamanhoHome; ids: IdItemHome[] }[] {
+  const out: { tamanho: TamanhoHome; ids: IdItemHome[] }[] = [];
   for (const id of visiveis(layout, "painel") as IdItemHome[]) {
     const tamanho = itemHome(id).tamanho ?? "pequeno";
     const ultima = out[out.length - 1];

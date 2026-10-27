@@ -1,14 +1,14 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
-import { pedirRedefinicao, precisaDoCodigoAgora } from "@/lib/entrada";
+import { entrarComGoogle, pedirRedefinicao, precisaDoCodigoAgora } from "@/lib/entrada";
+import { lerMotivoGoogle, MENSAGEM_GOOGLE } from "@/core/google";
 import { ROTA_CODIGO } from "@/core/segundo-fator";
 import { lerMotivo, MENSAGEM_RECUPERACAO, ROTA_RETORNO } from "@/core/recuperacao";
 
@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [showPw, setShowPw] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [busyGoogle, setBusyGoogle] = React.useState(false);
   const [touched, setTouched] = React.useState(false);
   const [msg, setMsg] = React.useState<{ tone: "error" | "ok"; text: string } | null>(null);
 
@@ -53,6 +54,18 @@ export default function LoginPage() {
     } catch {
       setMsg({ tone: "error", text: "Não foi possível entrar agora. Tente novamente." });
     } finally { setBusy(false); }
+  }
+
+  async function google() {
+    if (!configured) {
+      setMsg({ tone: "error", text: "Entrar com o Google não existe no modo demonstração." });
+      return;
+    }
+    setBusyGoogle(true); setMsg(null);
+    // No sucesso o navegador já saiu para o Google; só a falha volta aqui.
+    const r = await entrarComGoogle();
+    if (!r.ok) setMsg({ tone: "error", text: [r.motivo, "comoResolver" in r ? r.comoResolver : undefined].filter(Boolean).join(" ") });
+    setBusyGoogle(false);
   }
 
   async function resetar() {
@@ -92,6 +105,9 @@ export default function LoginPage() {
       window.location.replace(`${ROTA_RETORNO}?code=${encodeURIComponent(code)}`);
       return;
     }
+    // A volta do Google que não abriu a sessão (cancelou, demorou, outro navegador).
+    const motivoGoogle = lerMotivoGoogle(q.get("google"));
+    if (motivoGoogle) { setMsg({ tone: "error", text: MENSAGEM_GOOGLE[motivoGoogle] }); return; }
     const motivo = lerMotivo(q.get("recuperacao"));
     if (motivo) {
       const m = MENSAGEM_RECUPERACAO[motivo];
@@ -113,9 +129,12 @@ export default function LoginPage() {
       <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <h1 className="m-0 text-h2 font-medium text-ink leading-none">
+            <h1 className="m-0 text-h1 text-ink">
               {view === "signin" ? "Entrar" : "Redefinir senha"}
             </h1>
+            <p className="m-0 mt-2 text-label text-muted">
+              {view === "signin" ? "Acesse a sua conta Quattro." : "Mandamos um link para o seu e-mail."}
+            </p>
           </div>
 
           {view === "signin" && (
@@ -210,6 +229,11 @@ export default function LoginPage() {
               <div className="flex items-center gap-2 text-caption text-faint">
                 <span className="flex-1 h-px bg-border-soft" /> ou <span className="flex-1 h-px bg-border-soft" />
               </div>
+              {/* ⚠️ Quem não tem conta e clica aqui vai ao CADASTRO da empresa
+                  antes de entrar (`core/google`), nunca direto ao sistema. */}
+              <Button variant="secondary" fullWidth disabled={busyGoogle} aria-busy={busyGoogle} onClick={google} leftIcon={<MarcaGoogle />}>
+                {busyGoogle ? "Abrindo o Google…" : "Entrar com Google"}
+              </Button>
               {/* ⚠️ Aponta para o cadastro de TRÊS CAMPOS, não para o wizard de
                   sete etapas. Quem chega ao login sem conta quer entrar, não
                   preencher inscrição municipal — o cadastro completo continua a
@@ -225,5 +249,18 @@ export default function LoginPage() {
       {/* Coluna direita — arte (camadas de fluxo financeiro), some no mobile */}
       <ArtPanel pessoal={pessoal} />
     </MolduraPublica>
+  );
+}
+
+/**
+ * O "G" do Google numa cor só (a tinta do botão, `currentColor`): o DS não
+ * carrega as quatro cores da marca de terceiro, e o nome escrito ao lado já
+ * diz de quem é o botão.
+ */
+function MarcaGoogle() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+      <path d="M21.35 11.1H12v2.98h5.35c-.23 1.4-1.66 4.1-5.35 4.1-3.22 0-5.85-2.67-5.85-5.96S8.78 6.26 12 6.26c1.83 0 3.06.78 3.76 1.45l2.57-2.47C16.68 3.7 14.55 2.75 12 2.75 6.9 2.75 2.75 6.9 2.75 12s4.15 9.25 9.25 9.25c5.34 0 8.88-3.75 8.88-9.04 0-.6-.07-1.06-.15-1.51Z" />
+    </svg>
   );
 }

@@ -31,6 +31,7 @@ import {
   type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LarguraHome, type LayoutHome,
 } from "@/core/home/itens";
 import { MaquininhaRecentes } from "./MaquininhaRecentes";
+import { SaldoEmContasCard } from "./SaldoEmContas";
 import { CATALOG_BY_ID, useCockpitCtx } from "./cockpit";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -970,6 +971,13 @@ export function HomeSnapshot() {
               // pessoa não deu largura a ele: a largura dada vale.
               const sozinho = !tres && f.ids.length % 2 === 1 && i === f.ids.length - 1 && !layout.larguras?.[id];
               const largura: LarguraHome | undefined = tres ? 4 : sozinho ? 12 : undefined;
+              if (id === "contas") {
+                return (
+                  <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>
+                    <SaldoEmContasCard carimbo={carimbo} />
+                  </ItemArrastavel>
+                );
+              }
               if (id === "maquininha") {
                 return (
                   <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>

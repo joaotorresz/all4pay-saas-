@@ -16,6 +16,7 @@
  * servidor, e o nome da chave só serve a quem administra a instalação.
  */
 import * as React from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Switch, Checkbox, Select, Input, CurrencyInput, DateField, StatusBadge, Skeleton, InfoHint, Icon,
@@ -98,12 +99,22 @@ export function AutomacoesView() {
       ) : configs.error ? (
         <Card className="text-caption text-ink">Não foi possível ler as automações: {(configs.error as Error).message}</Card>
       ) : (
-        configs.data.map((cfg) => (
+        // A régua de cobrança mora em Cobrança automática (27/10/2026), perto
+        // das contas a receber: aqui ficam os alertas que falam com a empresa.
+        configs.data.filter((cfg) => cfg.tipo !== "regua_cobranca").map((cfg) => (
           <CartaoAutomacao key={cfg.tipo} inicial={cfg} ctx={ctx.data} ctxErro={ctx.error as Error | null}
             canaisAtivos={{ email: emailAtivo, whatsapp: whatsAtivo }}
             onSalvo={(m) => { setAviso(m); recarregar(); }} />
         ))
       )}
+
+      <Card className="flex items-center gap-3 flex-wrap" data-automacao="regua_cobranca">
+        <div className="flex-1 min-w-[240px]">
+          <div className="text-h3 font-medium text-ink">Cobrança automática dos clientes</div>
+          <p className="m-0 text-caption text-faint">Os avisos de vencimento por e-mail têm página própria, junto das contas a receber.</p>
+        </div>
+        <Link href="/contas-a-receber/cobranca-automatica" className="text-label text-ink underline">Abrir cobrança automática</Link>
+      </Card>
 
       <Card padded={false}>
         <div className="flex items-center gap-2 px-5 py-3 border-b border-border-soft">
@@ -340,7 +351,7 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
   );
 }
 
-function Parametros({ cfg, setP, ctx }: {
+export function Parametros({ cfg, setP, ctx }: {
   cfg: ConfigAutomacao; setP: (p: Partial<ConfigAutomacao["parametros"]>) => void; ctx?: ContextoAutomacao;
 }) {
   const [novaPausa, setNovaPausa] = React.useState<{ alvo: string; ate: string }>({ alvo: "", ate: "" });

@@ -247,7 +247,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // pessoa mais pergunta e as pílulas já respondidas. A casa é o servidor.
   "a4p_home_temas", "a4p_home_respondidas",
   // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
-  "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
+  "a4p_aviso_amostra_fechado",
+  // O pop-up da assinatura fechado HOJE (a data local): volta no dia seguinte.
+  "a4p_aviso_assinatura_dia",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
   // por definição — subir esta marca ao servidor não diria nada.
   "a4p_org_do_cache",

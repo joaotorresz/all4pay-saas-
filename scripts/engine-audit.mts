@@ -6699,6 +6699,41 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("régua: antes da primeira etapa não há etapa", etapaDoTitulo(-10, REGUA_PADRAO) === null);
   ok("régua: o último degrau é MANUAL (protesto não sai por calendário)", REGUA_PADRAO[REGUA_PADRAO.length - 1].canal === "manual");
 
+  /* ---- 4b) A RÉGUA QUE A EMPRESA MONTA (27/10/2026) ---- */
+  const C = await import("@/core/cobranca");
+  const { tituloDaCobranca } = await import("@/core/automacoes");
+  const minha = C.reguaDaEmpresa([
+    { dia: -5, canal: "email", ativo: true }, { dia: -3, canal: "email", ativo: true },
+    { dia: 0, canal: "email", ativo: true }, { dia: 3, canal: "email", ativo: false },
+    { dia: -5, canal: "whatsapp", ativo: true },                 // repetido: fica o primeiro
+    { dia: 500, canal: "email", ativo: true },                   // fora da faixa
+    { dia: 2.5, canal: "email", ativo: true },                   // não inteiro
+    { dia: 7, canal: "pombo" as never, ativo: true },             // canal desconhecido
+  ]);
+  ok("régua da empresa: só entram as etapas ligadas, válidas e sem repetir o dia",
+     minha.map((e) => `${e.id}:${e.canal}`).join(",") === "d-5:email,d-3:email,d0:email", minha.map((e) => `${e.id}:${e.canal}`).join(","));
+  ok("régua da empresa: o id sai do DIA, o mesmo da padrão (a chave do envio não muda)",
+     C.reguaDaEmpresa(C.ETAPAS_PADRAO).map((e) => e.id).join(",") === REGUA_PADRAO.map((e) => e.id).join(","));
+  ok("régua da empresa: sem configuração vale a padrão; TUDO desligado é régua vazia, nunca a padrão",
+     C.reguaDaEmpresa(undefined) === REGUA_PADRAO && C.reguaDaEmpresa([{ dia: -3, canal: "email", ativo: false }]).length === 0);
+  ok("régua da empresa: o teto de etapas vale mesmo vindo do banco",
+     C.reguaDaEmpresa(Array.from({ length: 20 }, (_, i) => ({ dia: i, canal: "email" as const, ativo: true }))).length === C.TETO_ETAPAS);
+  // O que discrimina: com D−5 configurado, o título que vence em 5 dias entra
+  // na fila de HOJE; na régua padrão (que começa em D−3) ele não entra.
+  const inR5 = { ...(inR as object), movements: [...movsR, m("r-5antes", "entrada", 610, "2026-09-25", "Vendas", "C1", "pendente")] } as never;
+  const filaMinha = montarRegua(inR5, [], minha).filaDeHoje.map((i) => i.movimentoId);
+  const filaPadrao = montarRegua(inR5).filaDeHoje.map((i) => i.movimentoId);
+  ok("régua da empresa: D−5 configurado cobra hoje o título que vence em 5 dias (a padrão não)",
+     filaMinha.includes("r-5antes") && !filaPadrao.includes("r-5antes"), `${filaMinha} | ${filaPadrao}`);
+  const ag = C.agendaDaRegua(inR5, minha, 7);
+  ok("régua da empresa: a agenda dos 7 dias põe o D−5 hoje e o D−3 do mesmo título em dois dias",
+     ag.some((a) => a.movimentoId === "r-5antes" && a.data === "2026-09-20" && a.etapa.id === "d-5")
+     && ag.some((a) => a.movimentoId === "r-5antes" && a.data === "2026-09-22" && a.etapa.id === "d-3")
+     && !ag.some((a) => a.movimentoId === "r-transf" || a.movimentoId === "r-pago"), ag.map((a) => `${a.movimentoId}@${a.data}`).join(","));
+  ok("régua da empresa: o e-mail fala como o dono pediu (vence em N dias · vence hoje · está vencida)",
+     tituloDaCobranca(-5, "lembrete") === "Sua cobrança vence em 5 dias" && tituloDaCobranca(0, "lembrete") === "Sua cobrança vence hoje"
+     && tituloDaCobranca(3, "aviso") === "Sua cobrança está vencida" && tituloDaCobranca(-1, "lembrete", 2) === "Suas cobranças vencem em 1 dia");
+
   /* ---------------- 5) A VENDA TEM UMA MORADA SÓ (sales_docs) ---------------- */
   // ⚠️ A venda morava em três lugares (navegador, sales_docs, movements) e a
   // lista somava um enquanto o DRE somava outro. Três metades: a TRADUÇÃO
@@ -11262,10 +11297,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   /* ── 2. TETO ZERO: cada chamada de recuperação tem UMA porta ────────────── */
   const ENTRADA_S = "src/lib/entrada.ts";
   const ROTA_S = "src/app/api/auth/recuperar/route.ts";
-  const PORTAS: [RegExp, string, string][] = [
+  // ⚠️ A volta do "Entrar com Google" (27/10/2026) é a SEGUNDA rota que troca
+  // código: mesma regra (rota sob /api, destino fixo), outro dono declarado.
+  const ROTA_G = "src/app/api/auth/google/route.ts";
+  const PORTAS: [RegExp, string, string, string[]?][] = [
     [/\.auth\.resetPasswordForEmail\s*\(/, ENTRADA_S, "pedir o e-mail de redefinição (use pedirRedefinicao)"],
     [/\.auth\.updateUser\s*\(/, ENTRADA_S, "gravar a senha nova (use redefinirSenha)"],
-    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)"],
+    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)", [ROTA_G]],
   ];
   const arquivosS: string[] = [];
   const andarS = (dir: string) => {
@@ -11276,10 +11314,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     }
   };
   andarS("src");
-  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string) =>
-    arquivosS.filter((p) => p !== dono && padrao.test(semComS(conteudo(p))));
-  for (const [padrao, dono, oQue] of PORTAS) {
-    const fora = porFora(padrao, dono, lerS);
+  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string, outros: string[] = []) =>
+    arquivosS.filter((p) => p !== dono && !outros.includes(p) && padrao.test(semComS(conteudo(p))));
+  for (const [padrao, dono, oQue, outros] of PORTAS) {
+    const fora = porFora(padrao, dono, lerS, outros);
     ok(`senha: só ${dono} chama ${padrao.source.replace(/\\/g, "").replace("s*(", "(")} — ${oQue}`, fora.length === 0, fora.join(", "));
     ok(`senha: a varredura ainda ENXERGA a porta ${dono}`, padrao.test(semComS(lerS(dono))), "o padrão parou de casar — a guarda ficou cega");
   }
@@ -11287,6 +11325,53 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ? lerS(p) + "\nawait createClient().auth.updateUser({ password: nova });" : lerS(p));
   ok("senha: (defeito plantado) a tela chamando updateUser por fora é ACUSADA",
      plantadaPorta.includes("src/components/entrada/RedefinirSenhaView.tsx"));
+
+  /* ── 2b. ENTRAR COM GOOGLE (27/10/2026): conta nova vai ao cadastro ────── */
+  const G = await import("@/core/google");
+  ok("google: conta nova (uma empresa, nome provisório) vai ao CADASTRO, não à Home",
+     G.destinoDoGoogle(["Minha empresa"]) === G.DESTINO_CADASTRO && G.DESTINO_CADASTRO.startsWith("/criar-conta"));
+  ok("google: conta com empresa de verdade entra (o middleware cobra o segundo fator)",
+     G.destinoDoGoogle(["Padaria Sol"]) === "/" && G.destinoDoGoogle(["Minha empresa", "Padaria Sol"]) === "/");
+  ok("google: o nome provisório é o MESMO do gatilho de cadastro",
+     lerS("supabase/migrations/20260824220000_nome_da_empresa_do_cadastro.sql").includes(`'${G.NOME_PROVISORIO}'`)
+     && lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql").includes(`name = '${G.NOME_PROVISORIO}'`));
+  ok("google: cancelar no Google vira 'cancelado', e motivo inventado no login não existe",
+     G.motivoDaFalhaGoogle({ codigo: "access_denied" }) === "cancelado" && G.lerMotivoGoogle("<script>") === null);
+  const rotaG = semComS(lerS(ROTA_G));
+  ok("google: a volta mora sob /api e tem destino FIXO (nada lê ?next= nem monta URL absoluta)",
+     G.ROTA_GOOGLE === "/api/auth/google" && fsS.existsSync(ROTA_G)
+     && !/searchParams\.get\("(next|redirect|to|destino)"\)/.test(rotaG) && !/new URL\(/.test(rotaG)
+     && /destinoDoGoogle\(/.test(rotaG));
+  const foraOAuth = porFora(/\.auth\.signInWithOAuth\s*\(/, ENTRADA_S, lerS);
+  ok("google: só src/lib/entrada.ts chama signInWithOAuth", foraOAuth.length === 0, foraOAuth.join(", "));
+  ok("google: o botão volta para a rota que troca o código NO SERVIDOR",
+     /redirectTo:\s*`\$\{window\.location\.origin\}\$\{ROTA_GOOGLE\}`/.test(semComS(lerS(ENTRADA_S))));
+  // A ida pelo NOSSO domínio (27/10/2026): a tela do Google mostra a Quattro.
+  const ROTA_GI = "src/app/api/auth/google/inicio/route.ts";
+  const inicioG = semComS(lerS(ROTA_GI));
+  const pedidoG = { estado: "a".repeat(43), nonce: "b".repeat(43), verificador: "c".repeat(43) };
+  ok("google: a volta do pedido é a MESMA origem + ROTA_GOOGLE (o Google exige letra a letra)",
+     G.voltaDoGoogle("https://app.quattro.finance/") === "https://app.quattro.finance/api/auth/google"
+     && /voltaDoGoogle\(req\.nextUrl\.origin\)/.test(inicioG) && /voltaDoGoogle\(url\.origin\)/.test(rotaG));
+  ok("google: o estado da volta precisa ser o do pedido (código plantado não abre sessão)",
+     G.estadoConfere(pedidoG, pedidoG.estado) && !G.estadoConfere(pedidoG, "x".repeat(43))
+     && !G.estadoConfere(null, pedidoG.estado) && !G.estadoConfere(pedidoG, null)
+     && /estadoConfere\(pedido, estado\)/.test(rotaG));
+  ok("google: cookie do pedido sem a forma certa não existe",
+     G.lerPedidoGoogle(JSON.stringify(pedidoG)) !== null && G.lerPedidoGoogle("{}") === null
+     && G.lerPedidoGoogle("lixo") === null && G.lerPedidoGoogle(JSON.stringify({ ...pedidoG, nonce: "<x>" })) === null);
+  ok("google: o Google recebe o HASH do nonce e o desafio PKCE; o cookie é httpOnly e só da rota",
+     /createHash\("sha256"\)\.update\(pedido\.nonce\)/.test(inicioG) && /code_challenge_method: "S256"/.test(semComS(lerS("src/core/google/index.ts")))
+     && /httpOnly: true/.test(inicioG) && /path: ROTA_GOOGLE/.test(inicioG));
+  const foraIdToken = porFora(/\.auth\.signInWithIdToken\s*\(/, ROTA_G, lerS);
+  ok("google: só a rota de volta chama signInWithIdToken, com o nonce do pedido",
+     foraIdToken.length === 0 && /signInWithIdToken\(\{ provider: "google", token: token\.idToken, nonce: pedido\.nonce \}\)/.test(rotaG),
+     foraIdToken.join(", "));
+  ok("google: o segredo do cliente só é lido no servidor (nenhuma tela o menciona)",
+     arquivosS.filter((p) => !p.startsWith("src/app/api/") && lerS(p).includes("GOOGLE_CLIENT_SECRET")).length === 0);
+  const nomearSql = lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql");
+  ok("google: nomear a empresa provisória é só do DONO e recusa anônimo",
+     /m\.role = 'owner'/.test(nomearSql) && /revoke all on function public\.org_nomear_provisoria\(text\) from public, anon/.test(nomearSql));
 
   /* ── 3. o link volta para a rota que troca o código, e ela é pública ───── */
   const entradaS = semComS(lerS(ENTRADA_S));
