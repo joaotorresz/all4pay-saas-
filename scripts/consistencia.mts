@@ -2120,14 +2120,17 @@ const AGOSTO = janelaMes(2026, 7);
   // aberta seguem Pro pelo par rota+aba, e a tela continua aberta.
   for (const [hub, paga, aberta] of [
     ["/dashboard/reports/dre-multi", "consolidado", "dre"],
-    ["/central", "solicitacoes", "confirmar"],
-    ["/central", "alcadas", "confirmar"],
     ["/simuladores", "contratacoes", "posso-comprar"],
   ]) {
     ok(`rotas: a aba paga exige Pro (${hub}?aba=${paga})`, exigePro(`${hub}?aba=${paga}`));
     ok(`rotas: a tela em si continua aberta (${hub})`, !exigePro(hub));
     ok(`rotas: outra aba continua aberta (${hub}?aba=${aberta})`, !exigePro(`${hub}?aba=${aberta}`));
   }
+  // O fim das abas internas (27/10/2026): as abas Pro de `/central` viraram
+  // telas próprias. Elas seguem Pro pelo prefixo; as baixas seguem abertas.
+  ok("rotas: Aprovações (ex-aba de /central) exige Pro", exigePro("/aprovacoes"));
+  ok("rotas: Alçadas e papéis (ex-aba de /central) exige Pro", exigePro("/governanca"));
+  ok("rotas: Baixas a confirmar continua aberta", !exigePro("/central"));
 }
 
 /* ========================================================================== */
