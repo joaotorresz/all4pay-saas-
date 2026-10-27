@@ -283,6 +283,6 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
  */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|otf|ttf|woff|woff2|eot|css|js|map|txt|xml|csv|json|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|otf|ttf|woff|woff2|eot|css|js|mjs|map|txt|xml|csv|json|webmanifest)$).*)",
   ],
 };

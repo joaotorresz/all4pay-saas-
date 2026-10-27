@@ -26,10 +26,10 @@
 
 import { CARDS_BIBLIOTECA, TEMAS_CARD, type TemaCard } from "./biblioteca";
 
-export const ITENS_HOME_VERSION = "home-itens/1.2.0";
+export const ITENS_HOME_VERSION = "home-itens/1.4.0";
 
 export type IdItemHome =
-  | "maquininha" | "caixa" | "arr" | "burn" | "runway" | "pagar" | "receber"
+  | "contas" | "maquininha" | "caixa" | "arr" | "burn" | "runway" | "pagar" | "receber"
   | "acao" | "fechamento" | "relatorios";
 
 /** Um card da biblioteca na Home: `card:` + o id do catálogo do cockpit. */
@@ -44,8 +44,11 @@ export interface ItemHome {
   grupo: GrupoHome;
   /** Só os cards da biblioteca. */
   tema?: TemaCard;
-  /** Só os números: o grande leva a curva de 7 meses. */
-  tamanho?: "grande" | "pequeno";
+  /**
+   * Só os números: o grande leva a curva de 7 meses (o saldo total em contas
+   * divide a faixa dos grandes, FIXO no primeiro lugar — ver `ITEM_FIXO`).
+   */
+  tamanho?: TamanhoHome;
   /** Uma linha sobre o que o item mostra (vai para a IA e para a ajuda). */
   descricao: string;
   /**
@@ -55,12 +58,17 @@ export interface ItemHome {
   sinonimos: string[];
 }
 
+export type TamanhoHome = "grande" | "pequeno";
+
 export const ITENS_HOME: ItemHome[] = [
+  // O card PRINCIPAL (pedido do dono, 27/10/2026): primeiro da Home.
+  { id: "contas", nome: "Saldo total em contas", grupo: "painel", tamanho: "grande", descricao: "a soma do saldo de todas as contas bancárias, com a logo e o saldo de cada banco",
+    sinonimos: ["saldo total em contas", "saldo total", "saldo em contas", "saldo das contas", "saldo de cada banco", "bancos"] },
   // Primeiro na esquerda (pedido do dono, 16/10/2026): as vendas que a Pinbank avisou pelo webhook.
   { id: "maquininha", nome: "Transações recentes na maquininha", grupo: "painel", tamanho: "grande", descricao: "as últimas vendas da maquininha Pinbank, com o dia da semana, e o total aprovado no dia, na semana ou no mês",
     sinonimos: ["transacoes recentes na maquininha", "transacoes da maquininha", "vendas da maquininha", "vendas na maquininha", "maquininha", "maquina de cartao", "pinbank", "vendas no cartao"] },
   { id: "caixa", nome: "Caixa consolidado", grupo: "painel", tamanho: "grande", descricao: "o saldo de todas as contas hoje, com a curva de 7 meses",
-    sinonimos: ["caixa consolidado", "caixa", "saldo", "saldos", "dinheiro em conta", "dinheiro no banco", "quanto tenho", "banco", "bancos"] },
+    sinonimos: ["caixa consolidado", "caixa", "saldo", "saldos", "dinheiro em conta", "dinheiro no banco", "quanto tenho", "banco"] },
   { id: "arr", nome: "Receita recorrente (ARR)", grupo: "painel", tamanho: "grande", descricao: "a receita recorrente anualizada, com a curva de 7 meses",
     sinonimos: ["receita recorrente", "recorrente", "recorrencia", "arr", "mrr", "assinaturas", "assinatura", "mensalidades"] },
   { id: "burn", nome: "Burn mensal", grupo: "painel", tamanho: "pequeno", descricao: "quanto a empresa queima por mês",
@@ -103,7 +111,7 @@ export const idDoCockpit = (id: IdCard): string => id.slice("card:".length);
 /* ------------------------------ o arranjo ------------------------------ */
 
 export interface LayoutHome {
-  /** Os dez fixos (sempre) e os cards da biblioteca que a pessoa pôs, na ordem em que aparecem. */
+  /** Os onze fixos (sempre) e os cards da biblioteca que a pessoa pôs, na ordem em que aparecem. */
   ordem: IdHome[];
   /** Os FIXOS que a pessoa escondeu (card da biblioteca não se esconde: sai da ordem). */
   ocultos: IdItemHome[];
@@ -153,6 +161,25 @@ export function definirLargura(layout: LayoutHome, id: IdHome, largura: LarguraH
 export const LAYOUT_PADRAO: LayoutHome = { ordem: ITENS_HOME.map((i) => i.id), ocultos: [] };
 
 /**
+ * O item FIXO no topo à esquerda (pedido do dono, 27/10/2026): o saldo total
+ * em contas é o primeiro número do "Seu painel" e não sai dali. ⚠️ A trava é do
+ * ARRANJO, não da tela: arrastar, "coloca X primeiro", "esconde o saldo" e o
+ * arranjo antigo guardado passam todos por `comFixo`, então nenhum caminho o
+ * tira do primeiro lugar nem o esconde.
+ */
+export const ITEM_FIXO: IdItemHome = "contas";
+
+function comFixo<L extends LayoutHome>(l: L): L {
+  // Primeiro entre os NÚMEROS do painel: os cards da biblioteca e os blocos
+  // seguem as regras deles (o card pedido "em cima" e a seção que a pessoa
+  // pôs primeiro continuam valendo).
+  const ordem = l.ordem.filter((id) => id !== ITEM_FIXO);
+  const k = ordem.findIndex((id) => itemHome(id).grupo === "painel");
+  ordem.splice(k < 0 ? ordem.length : k, 0, ITEM_FIXO);
+  return { ...l, ordem, ocultos: l.ocultos.filter((id) => id !== ITEM_FIXO) };
+}
+
+/**
  * O que veio de fora (servidor, cache, versão antiga) como arranjo válido: só
  * ids do catálogo, sem repetir, e o item que não estava na ordem (nasceu
  * depois) entra no lugar padrão — nunca some. Não é objeto: `null` (ausente).
@@ -182,7 +209,7 @@ export function normalizarLayout(bruto: unknown): LayoutHome | null {
   if (brutas && typeof brutas === "object" && !Array.isArray(brutas)) {
     for (const [id, v] of Object.entries(brutas)) if (ordem.includes(id as IdHome) && ehLargura(v)) larguras[id as IdHome] = v;
   }
-  const out: LayoutHome = { ordem, ocultos: unicos(b.ocultos, ehItemHome) };
+  const out: LayoutHome = comFixo({ ordem, ocultos: unicos(b.ocultos, ehItemHome) });
   return Object.keys(larguras).length ? { ...out, larguras } : out;
 }
 
@@ -235,8 +262,8 @@ export function ordemDasSecoes(layout: LayoutHome): ("painel" | "bloco")[] {
  * grandes (com curva) e os pequenos não cabem na mesma linha sem um esticar o
  * outro. [pagar, caixa, arr, burn] → [[pagar], [caixa, arr], [burn]].
  */
-export function faixasDoPainel(layout: LayoutHome): { tamanho: "grande" | "pequeno"; ids: IdItemHome[] }[] {
-  const out: { tamanho: "grande" | "pequeno"; ids: IdItemHome[] }[] = [];
+export function faixasDoPainel(layout: LayoutHome): { tamanho: TamanhoHome; ids: IdItemHome[] }[] {
+  const out: { tamanho: TamanhoHome; ids: IdItemHome[] }[] = [];
   for (const id of visiveis(layout, "painel") as IdItemHome[]) {
     const tamanho = itemHome(id).tamanho ?? "pequeno";
     const ultima = out[out.length - 1];
@@ -249,7 +276,7 @@ export function faixasDoPainel(layout: LayoutHome): { tamanho: "grande" | "peque
 /** Troca `de` de lugar com `para` (o arraste e as setas do teclado). */
 export function moverItem(layout: LayoutHome, de: IdHome, para: IdHome): LayoutHome {
   const i = layout.ordem.indexOf(de), j = layout.ordem.indexOf(para);
-  if (i < 0 || j < 0 || i === j) return layout;
+  if (i < 0 || j < 0 || i === j || de === ITEM_FIXO || para === ITEM_FIXO) return layout;
   const ordem = [...layout.ordem];
   ordem.splice(i, 1);
   ordem.splice(j, 0, de);
@@ -324,7 +351,7 @@ export function aplicarAcoes(layout: LayoutHome, acoes: AcaoHome[]): LayoutHome 
   // As larguras ficam com quem continua na Home; "volta ao padrão" as desfaz.
   const restaurou = normalizarAcoes(acoes).some((a) => a.tipo === "restaurar");
   const larguras = Object.fromEntries(Object.entries(restaurou ? {} : layout.larguras ?? {}).filter(([id]) => ordem.includes(id as IdHome)));
-  return Object.keys(larguras).length ? { ordem, ocultos, larguras } : { ordem, ocultos };
+  return comFixo(Object.keys(larguras).length ? { ordem, ocultos, larguras } : { ordem, ocultos });
 }
 
 /** Os cards que a pessoa pediu para pôr e não entraram por causa do teto. */

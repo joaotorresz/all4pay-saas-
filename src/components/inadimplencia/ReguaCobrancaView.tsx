@@ -16,9 +16,10 @@ import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { usePartiesList } from "@/components/lancamentos/hooks";
 import { useQuery } from "@tanstack/react-query";
 import {
-  montarRegua, variaveisDoTemplate, FINALIDADE_DO_TOM, type ItemRegua, type Canal, type EnvioRegistrado,
+  montarRegua, reguaDaEmpresa, variaveisDoTemplate, FINALIDADE_DO_TOM, type ItemRegua, type Canal, type EnvioRegistrado,
 } from "@/core/cobranca";
 import { listarEnvios, marcarEnviado } from "@/lib/regua";
+import { listarAutomacoes } from "@/lib/automacoes";
 import { credorDe } from "@/lib/automacoes-contexto";
 import { fetchCompany, getOrganizationName } from "@/lib/company";
 import { useToast } from "@/components/listas/ListChrome";
@@ -49,7 +50,11 @@ export function ReguaCobrancaView() {
     queryFn: async () => credorDe(await getOrganizationName(), ((await fetchCompany())?.db ?? null) as Record<string, unknown> | null),
   });
 
-  const painel = React.useMemo(() => (input ? montarRegua(input, envios, undefined, { credor }) : null), [input, envios, credor]);
+  // ⚠️ A MESMA régua que a cobrança automática usa: com os dias que a empresa
+  // escolheu, senão a fila manual e o envio automático discordariam da etapa.
+  const { data: automacoes } = useQuery({ queryKey: ["automacoes"], queryFn: listarAutomacoes });
+  const etapas = automacoes?.find((c) => c.tipo === "regua_cobranca")?.parametros.etapas;
+  const painel = React.useMemo(() => (input ? montarRegua(input, envios, reguaDaEmpresa(etapas), { credor }) : null), [input, envios, credor, etapas]);
   const telefone = React.useCallback((partyId: string | null) =>
     (partyId && partes?.find((p) => p.id === partyId)?.phone) || null, [partes]);
 

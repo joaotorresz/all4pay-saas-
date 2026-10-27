@@ -1,30 +1,31 @@
 "use client";
 
-import { Suspense } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/app/AppShell";
-import { HubShell, type AbaHub } from "@/components/app/HubShell";
+import { Icon, classesDoBotao } from "@/components/ui";
 import { NotasFiscaisView } from "@/components/vendas-nf/OutrasViews";
-import { NfseView } from "@/components/nfse/NfseView";
 
 /**
- * Notas fiscais — UMA porta para as duas faces da nota.
+ * Notas fiscais — a lista das notas das VENDAS.
  *
- * ⚠️ Eram duas telas em dois menus: a lista das notas das VENDAS (aqui) e o
- * emissor de NFS-e avulsa (aba do hub `/vendas`, aposentado). A pessoa que
- * procurava "notas fiscais" achava uma e não sabia que a outra existia. As
- * duas continuam, lado a lado, como abas do mesmo endereço.
+ * ⚠️ O emissor de NFS-e avulsa era a segunda aba desta tela. Desde 27/10/2026
+ * (decisão do dono, o fim das abas internas) emitir é uma AÇÃO, e ação é
+ * botão: "Emitir NFS-e" no topo abre o emissor no endereço próprio
+ * (`/dashboard/sales-invoices/invoices/nfse`).
  */
-const ABAS: AbaHub[] = [
-  { id: "vendas", label: "Notas das vendas", render: () => <NotasFiscaisView /> },
-  { id: "nfse", label: "Emitir NFS-e", render: () => <NfseView /> },
-];
-
 export default function NotasFiscaisPage() {
   return (
-    <AppShell title="Notas fiscais" crumb="Central de vendas">
-      <Suspense fallback={null}>
-        <HubShell abas={ABAS} />
-      </Suspense>
+    <AppShell
+      title="Notas fiscais"
+      crumb="Central de vendas"
+      actions={
+        <Link href="/dashboard/sales-invoices/invoices/nfse" className={classesDoBotao("primary")}>
+          <Icon name="plus" size={15} color="currentColor" />
+          Emitir NFS-e
+        </Link>
+      }
+    >
+      <NotasFiscaisView />
     </AppShell>
   );
 }

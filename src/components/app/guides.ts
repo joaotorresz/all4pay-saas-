@@ -281,7 +281,7 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Gere o boleto da fatura do cliente Acme → quando pago, baixa automaticamente.",
     secoes: [],
   },
-  "/dashboard/sales-invoices/invoices?aba=nfse": {
+  "/dashboard/sales-invoices/invoices/nfse": {
     titulo: "Notas fiscais (NFS-e)",
     intro: "Emissão e controle de NFS-e (serviços), com os impostos brasileiros (ISS) e vínculo ao recebível/recorrência.",
     comoUsar: "Emita a NFS-e a partir de uma venda/recorrência; acompanhe número, código de verificação e status.",
@@ -302,7 +302,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/central?aba=solicitacoes": {
+  "/aprovacoes": {
     titulo: "Solicitações & aprovações",
     intro: "Gate de alçada de nível bancário: títulos acima do limite precisam de aprovação, com sugestão de IA, trilha e segregação de funções.",
     comoUsar: "Nas abas (fila/minhas/todas), abra uma solicitação e Aprove / Rejeite / Devolva. A IA sugere com base no histórico do favorecido.",
@@ -415,7 +415,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Equipe / Plataforma ----------------------------- */
-  "/central?aba=alcadas": {
+  "/governanca": {
     titulo: "Governança institucional",
     intro: "Governança de nível bancário: trilha de auditoria imutável (hash-chain), RBAC + policy engine e fluxo de aprovação.",
     comoUsar: "Teste a adulteração da trilha, simule o policy engine (usuário/valor/método/país/hora/IP) e veja a escada de aprovação por faixa de valor.",
@@ -601,8 +601,6 @@ export const GUIDES: Record<string, Guide> = {
 const PADRAO_DO_HUB: Record<string, string> = {
   "/contabilidade": "razao",
   "/dashboard/registrations/clients": "contatos",
-  "/dashboard/sales-invoices/invoices": "vendas",
-  "/contas-a-pagar/titulos": "titulos",
 };
 
 /* --------- telas de Compras, Contabilidade, Administração e Ajuda --------- */
@@ -640,7 +638,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos": {
+  "/contas-a-pagar/caixa-de-entrada": {
     titulo: "Boletos recebidos (DDA)",
     intro: "Os boletos emitidos contra o seu CNPJ. O DDA depende de adesão bancária, mas o boleto não depende de ninguém: a linha digitável carrega banco, valor e vencimento.",
     comoUsar: "Cole a linha digitável (47 dígitos) ou o código de barras (44) em 'Adicionar boleto pelo número': o sistema lê tudo e confere os quatro dígitos verificadores. Depois use a seta para lançar em contas a pagar.",
@@ -656,7 +654,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs": {
+  "/contas-a-pagar/caixa-de-entrada?caixa=nfs": {
     titulo: "NFs recebidas (SEFAZ)",
     intro: "As notas fiscais emitidas contra a sua empresa. A captura automática exige certificado digital; a chave de acesso impressa no DANFE, não.",
     comoUsar: "Cole a chave de 44 dígitos em 'Lançar nota pela chave de acesso': o sistema lê UF, mês, CNPJ do emitente, modelo, série e número, e confere o dígito. Use os filtros e clique em Aplicar — com volume de SEFAZ, refiltrar a cada tecla custa caro.",

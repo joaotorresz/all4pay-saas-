@@ -51,13 +51,13 @@ export default async function comprasRecebidos(navegador) {
   const antesOut = (await titulosDoMes(u, "2026-10")).filter((l) => l.includes("842,17")).length;
 
   /* ---- boleto: a linha errada não entra ---- */
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
+  await u.ir("/contas-a-pagar/caixa-de-entrada?caixa=boletos");
   const campo = p.getByPlaceholder("00000.00000 00000.000000 00000.000000 0 00000000000000");
   const errada = LINHA.slice(0, 12) + (LINHA[12] === "9" ? "0" : "9") + LINHA.slice(13);
   await campo.fill(errada);
   await p.waitForTimeout(300);
   let t = limpo(await u.texto());
-  v.ok(!/Dígitos conferem/.test(t) && await p.getByRole("button", { name: "Adicionar" }).isDisabled(),
+  v.ok(!/Dígitos conferem/.test(t) && await p.locator("#secao-boletos").getByRole("button", { name: "Adicionar" }).isDisabled(),
     "a linha com um dígito trocado é denunciada e o botão fica travado");
 
   /* ---- boleto: a linha certa é lida ---- */
@@ -67,7 +67,7 @@ export default async function comprasRecebidos(navegador) {
   t = limpo(await u.texto());
   v.ok(/237 · Bradesco/.test(t) && /R\$ ?842,17/.test(t) && /20\/10\/2026/.test(t) && /Dígitos conferem/.test(t),
     "a leitura mostra banco 237 Bradesco, R$ 842,17, vencimento 20/10/2026 e os dígitos conferidos");
-  await p.getByRole("button", { name: "Adicionar" }).click();
+  await p.locator("#secao-boletos").getByRole("button", { name: "Adicionar" }).click();
   await p.waitForTimeout(500);
   const linhaBoleto = p.locator("main table tbody tr", { hasText: "Gráfica Aurora" }).first();
   v.ok(await linhaBoleto.count() === 1, "o boleto entra na caixa de entrada");
@@ -99,7 +99,7 @@ export default async function comprasRecebidos(navegador) {
   await p.getByRole("button", { name: "Salvar" }).last().click();
   await p.waitForTimeout(2500);
   v.ok(!p.url().includes("/new"), "salvar sai do formulário", p.url());
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
+  await u.ir("/contas-a-pagar/caixa-de-entrada?caixa=boletos");
   v.ok(/Lançado/.test(await linhaCom(p, "Gráfica Aurora")),
     "a linha do boleto passa a dizer 'Lançado' (e não oferece lançar de novo)");
 
@@ -112,10 +112,10 @@ export default async function comprasRecebidos(navegador) {
   v.ok(Math.abs((saidas1 - saidas0) - esperado) < 0.011, "o fluxo de caixa sobe o valor do boleto", `${saidas0} → ${saidas1}`);
 
   /* ---- o mesmo boleto de novo: nada muda ---- */
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
+  await u.ir("/contas-a-pagar/caixa-de-entrada?caixa=boletos");
   await p.getByPlaceholder("00000.00000 00000.000000 00000.000000 0 00000000000000").fill(LINHA);
   await p.waitForTimeout(300);
-  await p.getByRole("button", { name: "Adicionar" }).click();
+  await p.locator("#secao-boletos").getByRole("button", { name: "Adicionar" }).click();
   await p.waitForTimeout(500);
   t = limpo(await u.texto());
   v.ok(/já está na caixa de entrada/.test(t), "colar o mesmo boleto avisa que ele já está lá");
@@ -126,12 +126,12 @@ export default async function comprasRecebidos(navegador) {
   v.ok(out2.filter((l) => l.includes("842,17") && l.includes("20/10/2026")).length === antesOut + 1, "e nenhum segundo título");
 
   /* ---- NF-e pela chave ---- */
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=nfs");
+  await u.ir("/contas-a-pagar/caixa-de-entrada?caixa=nfs");
   const campoChave = p.getByPlaceholder("Chave de acesso (44 dígitos)");
   await campoChave.fill(CHAVE.slice(0, 43) + String((Number(CHAVE[43]) + 1) % 10));
   await p.waitForTimeout(300);
   t = limpo(await u.texto());
-  v.ok(/Dígito verificador não confere/.test(t) && await p.getByRole("button", { name: "Adicionar" }).isDisabled(),
+  v.ok(/Dígito verificador não confere/.test(t) && await p.locator("#secao-nfs").getByRole("button", { name: "Adicionar" }).isDisabled(),
     "a chave com o dígito errado é denunciada e não entra");
   await campoChave.fill(CHAVE);
   await p.getByPlaceholder("Fornecedor (opcional)").fill("Metalúrgica Serra");
@@ -140,7 +140,7 @@ export default async function comprasRecebidos(navegador) {
   t = limpo(await u.texto());
   v.ok(/UF\s*MG/.test(t) && /09\/2026/.test(t) && /11222333000181/.test(t) && /NF-e · série 2 · nº 4321/.test(t) && /Dígito confere/.test(t),
     "a chave é lida: MG, emissão 09/2026, CNPJ, NF-e série 2 nº 4321, dígito conferido");
-  await p.getByRole("button", { name: "Adicionar" }).click();
+  await p.locator("#secao-nfs").getByRole("button", { name: "Adicionar" }).click();
   await p.waitForTimeout(500);
   let nota = await linhaCom(p, "Metalúrgica Serra");
   v.ok(/4321/.test(nota) && /NFE/.test(nota) && /1\.300,00/.test(nota), "a nota entra na lista com número, tipo e valor", nota);
@@ -150,11 +150,11 @@ export default async function comprasRecebidos(navegador) {
   v.ok(/Aprovada/.test(nota), "aprovar marca a nota", nota);
   await campoChave.fill(CHAVE);
   await p.waitForTimeout(300);
-  await p.getByRole("button", { name: "Adicionar" }).click();
+  await p.locator("#secao-nfs").getByRole("button", { name: "Adicionar" }).click();
   await p.waitForTimeout(500);
   t = limpo(await u.texto());
   nota = await linhaCom(p, "4321");
-  v.ok(/já está na lista/.test(t) && /Aprovada/.test(nota) && await p.locator("main table tbody tr", { hasText: "4321" }).count() === 1,
+  v.ok(/já está na lista/.test(t) && /Aprovada/.test(nota) && await p.locator("#secao-nfs table tbody tr", { hasText: "4321" }).count() === 1,
     "colar a mesma chave avisa, e a nota continua UMA e APROVADA", nota);
 
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));

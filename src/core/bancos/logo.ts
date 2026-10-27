@@ -120,3 +120,33 @@ export function marcaDoBanco(nome: string | null | undefined): string | null {
   for (const [re, m] of MARCA_POR_NOME) if (re.test(n)) return `/bancos/${m}.svg`;
   return null;
 }
+
+/* ─── o CÍRCULO na cor da marca (o card "Saldo total em contas") ───────────── */
+/**
+ * A cor da marca do banco, para o círculo cheio com o logo BRANCO no centro
+ * (pedido do dono, 27/10/2026: "todo o círculo no laranja Itaú e uma logo de
+ * Itaú branca"). ⚠️ São marcas de TERCEIRO, a única família de hex que não
+ * sai da paleta: declaradas como exceção em `scripts/paleta.mts`. Banco sem
+ * cor aqui devolve `null` e a tela cai no tile neutro — nunca a cor de outro.
+ */
+const COR_DA_MARCA: Partial<Record<GlifoBanco, string>> = {
+  itau: "#EC7000",
+  bradesco: "#CC092F",
+  nubank: "#820AD1",
+  inter: "#FF7A00",
+  santander: "#EC0000",
+};
+
+export function corDaMarca(bancoOuNome: string | null | undefined): string | null {
+  const g = glifoDoBanco(bancoOuNome);
+  return g ? COR_DA_MARCA[g] ?? null : null;
+}
+
+/**
+ * No círculo vai SÓ o símbolo: o glifo `bradesco` é o símbolo vazado num
+ * quadrado cheio (em branco viraria um quadrado branco); o `bradesco-alt` é o
+ * símbolo sozinho, que é o que o dono pediu.
+ */
+export function glifoNoCirculo(g: GlifoBanco): GlifoBanco {
+  return g === "bradesco" ? "bradesco-alt" : g;
+}
