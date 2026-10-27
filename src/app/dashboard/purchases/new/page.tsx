@@ -3,7 +3,7 @@ import { CompraForm } from "@/components/compras/CompraForm";
 
 export default function NovaCompraPage() {
   return (
-    <AppShell title="Nova compra" crumb="Compras">
+    <AppShell title="Nova compra" crumb="Central de despesas">
       <CompraForm />
     </AppShell>
   );

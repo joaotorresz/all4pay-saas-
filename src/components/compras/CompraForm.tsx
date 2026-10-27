@@ -146,7 +146,7 @@ export function CompraForm() {
       ? "Compra registrada e aprovada — já paga, os títulos entraram no caixa."
       : "Compra criada. Ela entra no caixa quando for aprovada.";
     if (!saida.naJanela) toast(ok);
-    saida.concluir(ok, "/dashboard/purchases", c.id);
+    saida.concluir(ok, "/contas-a-pagar/painel-de-despesas", c.id);
   }
 
   function anexar(files: FileList | null) {
@@ -360,7 +360,7 @@ export function CompraForm() {
         </p>
       )}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => (saida.naJanela ? saida.cancelar() : saida.concluir("", "/dashboard/purchases"))}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => (saida.naJanela ? saida.cancelar() : saida.concluir("", "/contas-a-pagar/painel-de-despesas"))}>Cancelar</Button>
         <Button variant="primary" onClick={() => { void salvar(); }} disabled={salvando}>
           <Icon name="check" size={15} color="currentColor" />
           Criar compra

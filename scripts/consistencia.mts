@@ -2923,7 +2923,7 @@ const AGOSTO = janelaMes(2026, 7);
    * escondida atrás de um ícone no canto de outra tela é garantia que ninguém
    * encontra no dia em que precisa dela.
    */
-  const TETO_GRUPOS = 8;            // Visão geral · Central de vendas · Comprar e pagar · Caixa e bancos · Contabilidade · Relatórios · Inteligência · Cadastros (26/10/2026: o oitavo, que reúne os cadastros espalhados; o teto não subiu)
+  const TETO_GRUPOS = 8;            // Visão geral · Central de vendas · Central de despesas · Caixa e bancos · Contabilidade · Relatórios · Inteligência · Cadastros (26/10/2026: o oitavo, que reúne os cadastros espalhados; o teto não subiu)
   const TETO_ITENS_POR_GRUPO = 13;  // Contábil e fiscal, o maior — +1: Exportar para o contador
   const TETO_ITENS_TOTAL = 71;      // +1: Central financeira (P-10) · +1: Exportar para o contador
 

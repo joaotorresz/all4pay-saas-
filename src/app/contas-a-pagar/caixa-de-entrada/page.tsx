@@ -5,6 +5,8 @@ import { AppShell } from "@/components/app/AppShell";
 import { Secoes, type Secao } from "@/components/app/Secoes";
 import { CaixaEntradaView, useContadorCaixa } from "@/components/contas-pagar/CaixaEntradaView";
 import { NFsRecebidasView, BoletosView } from "@/components/compras/RecebidosViews";
+import { UploadWizard } from "@/components/upload/UploadWizard";
+import { Button, Icon } from "@/components/ui";
 
 /**
  * CAIXA DE ENTRADA — as TRÊS portas por onde uma conta a pagar chega antes de
@@ -28,9 +30,21 @@ export default function CaixaDeEntradaPage() {
   return (
     <AppShell
       title="Caixa de entrada"
-      crumb="Comprar e pagar"
-      actions={<span className="text-label text-muted" data-contador-caixa={n}>{n} esperando decisão</span>}
+      crumb="Central de despesas"
+      actions={
+        <>
+          <span className="text-label text-muted" data-contador-caixa={n}>{n} esperando decisão</span>
+          {/* ⚠️ O assistente de envio só ouvia o evento na Home e em Entrada de
+              dados: aqui o "Enviar documento" disparava para ninguém. Montado
+              nesta tela, o botão do topo e o da caixa vazia abrem o mesmo. */}
+          <Button variant="primary" onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}>
+            <Icon name="upload" size={15} color="currentColor" />
+            Enviar documento
+          </Button>
+        </>
+      }
     >
+      <UploadWizard />
       <Suspense fallback={null}>
         <Secoes secoes={SECOES} param="caixa" />
       </Suspense>

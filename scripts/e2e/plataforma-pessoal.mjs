@@ -88,7 +88,7 @@ export default async function pessoal(navegador) {
 
   // ⚠️ Antes NÃO conferido: na demonstração `createLancamento` não gravava
   // nada e a tela dizia "Despesa salva". Agora a despesa tem de estar lá.
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const tit = (await u.texto()).replace(/\n/g, " ");
   v.ok(/Mercado da esquina E2E/.test(tit) && /87\s*,65/.test(tit), "a despesa salva aparece nos títulos a pagar, com o valor");
 

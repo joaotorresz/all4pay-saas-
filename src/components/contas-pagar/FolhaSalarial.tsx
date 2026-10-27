@@ -269,7 +269,7 @@ export function FolhaSalarial() {
             <p className="m-0 text-body text-muted text-center">
               Nenhum colaborador cadastrado nesta competência.
             </p>
-            <Button variant="primary" onClick={() => abrirCriacao("pagar")}>
+            <Button variant="primary" onClick={() => abrirCriacao("pagar", { parametros: { modo: "folha" } })}>
               <Icon name="plus" size={15} color="currentColor" />
               Cadastrar colaborador
             </Button>
