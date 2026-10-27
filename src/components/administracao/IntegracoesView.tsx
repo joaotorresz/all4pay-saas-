@@ -178,7 +178,7 @@ function PainelIntegracao({
               onMudar={onMudar} toast={toast}
             />
             <div className="pt-3 border-t border-border-soft flex items-center justify-end gap-3 flex-wrap">
-              <Button variant="ghost" onClick={() => { window.location.href = "/exportar?aba=dominio"; }}>
+              <Button variant="ghost" onClick={() => { window.location.href = "/dashboard/accounting/dominio-export"; }}>
                 Abrir gerador ↗
               </Button>
             </div>

@@ -61,7 +61,7 @@ export default async function contabilRelatorios(navegador) {
   const u = await novoUsuario(navegador);
 
   // Saldo das contas — o mesmo número que o razão usa.
-  await u.ir("/contabilidade?aba=razao");
+  await u.ir("/contabilidade");
   const extTxt = (await u.page.locator('[data-valor="extrato"]').innerText()).replace(/\s+/g, "");
   const extrato = (/^[−-]/.test(extTxt) ? -1 : 1) * Number(extTxt.replace(/[^\d,]/g, "").replace(",", "."));
 
@@ -158,7 +158,7 @@ print(json.dumps(rows, default=str))
   v.ok(gM.n > 0 && Math.abs(gM.soma - gM.valorCelula) < 0.01, "DRE multi: a gaveta abre os lançamentos do consolidado e soma a célula", `${gM.n} · ${gM.soma} × ${gM.valorCelula}`);
   v.ok(!/Sem eliminações intercompany/.test(await u.texto()), "a tela não afirma mais que não há eliminação");
 
-  await u.ir("/dashboard/reports/dre-multi?aba=dfc");
+  await u.ir("/dashboard/reports/dfc-multi");
   await atualizar(u);
   const msi = await linhaRel(u, "saldo_inicial"), mfl = await linhaRel(u, "fluxo_liquido"), msf = await linhaRel(u, "saldo_final");
   v.ok(!!msi && !!msf && msf.total !== 0, "DFC multi: o saldo do grupo não sai R$ 0,00", String(msf?.total));

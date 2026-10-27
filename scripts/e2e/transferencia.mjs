@@ -20,7 +20,7 @@ export default async function transferencia(navegador) {
   await u.ir("/dashboard/reports/dre");
   const dreAntes = await u.texto();
 
-  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
+  await u.ir("/dashboard/financial/transfers?novo=1");
   const origem = u.page.locator('select[aria-label="Selecione uma conta"]').nth(0);
   const destino = u.page.locator('select[aria-label="Selecione uma conta"]').nth(1);
   v.ok(await origem.count() > 0, "?novo=1 abre o formulário de transferência");
