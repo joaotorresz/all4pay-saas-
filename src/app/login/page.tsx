@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
@@ -113,9 +112,12 @@ export default function LoginPage() {
       <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <h1 className="m-0 text-h2 font-medium text-ink leading-none">
+            <h1 className="m-0 text-h1 text-ink">
               {view === "signin" ? "Entrar" : "Redefinir senha"}
             </h1>
+            <p className="m-0 mt-2 text-label text-muted">
+              {view === "signin" ? "Acesse a sua conta Quattro." : "Mandamos um link para o seu e-mail."}
+            </p>
           </div>
 
           {view === "signin" && (

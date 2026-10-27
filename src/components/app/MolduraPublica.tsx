@@ -1,5 +1,4 @@
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -33,12 +32,15 @@ export function MolduraPublica({
   cartaoClassName?: string;
 }) {
   return (
-    <div className="a4p-canvas min-h-screen flex flex-col">
+    // `ds-visor` é o escopo do design system (o mesmo que o `AppShell` aplica):
+    // sem ele as regras de papel (título em Agrandir, número, botão) não
+    // alcançavam as telas públicas, e o login ficou com a identidade antiga.
+    <div className="a4p-canvas ds-visor min-h-screen flex flex-col">
       <header className="shrink-0 flex items-center h-[68px] px-4 lg:px-6">
-        {/* Sempre a marca LIMA: o fundo é escuro nos dois temas, e a versão
-            escura sumiria no claro. */}
+        {/* A marca Quattro por máscara, na cor da tinta (a mesma da barra do
+            app): o arquivo da marca antiga saiu daqui em 27/10/2026. */}
         <Link href="/" aria-label="Início" className="inline-flex items-center">
-          <Image src="/all4pay-lime.png" alt="Quattro" width={132} height={26} className="h-[26px] w-auto" priority />
+          <span role="img" aria-label="Quattro" className="a4p-logo-mono block w-[125px] h-[24px]" />
         </Link>
       </header>
       <div
