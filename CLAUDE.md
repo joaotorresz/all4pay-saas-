@@ -199,6 +199,15 @@ porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
 ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
 COM o servidor de e-mail (fora do CI, que sobe sem ele).
 
+⚠️ **"ENTRAR COM GOOGLE" (27/10/2026, `core/google`):** conta nova (empresa
+só com o nome provisório) vai a `/criar-conta?google=1`; quem tem empresa entra.
+Com `NEXT_PUBLIC_GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`, a ida é pelo NOSSO
+domínio (`/api/auth/google/inicio` → Google → `/api/auth/google` troca o código
+pelo `id_token` e chama `signInWithIdToken` com o nonce): a tela do Google
+mostra a Quattro, não `<projeto>.supabase.co` (o domínio próprio do Auth exige
+plano pago). Sem as variáveis, segue o caminho do Supabase. Estado, nonce e
+PKCE num cookie httpOnly só da rota; guardas no bloco `google:` do `engine-audit`.
+
 ⚠️ **SEGUNDO FATOR (07/10/2026, `docs/rodada-10/segundo-fator.md`):** o
 aplicativo autenticador da conta se cadastra em `/configuracoes/seguranca`
 ("Segurança da conta", no ⋮). Quem o tem e entra só com a senha (aal1) vai a

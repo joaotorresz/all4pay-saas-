@@ -19,7 +19,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { reportar } from "@/lib/erros";
 import { MIN_SENHA, ROTA_RETORNO } from "@/core/recuperacao";
-import { ROTA_GOOGLE } from "@/core/google";
+import { ROTA_GOOGLE, ROTA_GOOGLE_INICIO } from "@/core/google";
 import { MARCA } from "@/core/marca";
 import {
   codigoCompleto, destinoDepoisDoCodigo, fatoresParaTela, nomeDoNovoAparelho, normalizarCodigo,
@@ -226,9 +226,18 @@ export async function pedirRedefinicao(email: string): Promise<void> {
  * ⚠️ `prompt: "select_account"`: num computador com duas contas Google, entrar
  * calado na conta errada abre a empresa errada sem ninguém perceber.
  *
+ * ⚠️ **Com `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, a ida é pelo NOSSO domínio**
+ * (`ROTA_GOOGLE_INICIO`): a tela do Google passa a mostrar o domínio da
+ * Quattro, não o do Supabase (ver `core/google`). Sem ele, segue o caminho do
+ * Supabase abaixo.
+ *
  * Só devolve quando FALHA — no sucesso o navegador já saiu da página.
  */
 export async function entrarComGoogle(): Promise<ResultadoEntrada> {
+  if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+    window.location.assign(ROTA_GOOGLE_INICIO);
+    return { ok: true };
+  }
   try {
     const { error } = await comPrazo(
       createClient().auth.signInWithOAuth({
