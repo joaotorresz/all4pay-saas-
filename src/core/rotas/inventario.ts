@@ -109,6 +109,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/contabilidade", nome: "Razão contábil", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-receber/painel-de-vendas", nome: "Painel de vendas", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-receber/maquininha", nome: "Maquininha Quattro", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/contas-a-receber/cobranca-automatica", nome: "Cobrança automática", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-pagar", nome: "Painel de contas a pagar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-pagar/folha", nome: "Folha salarial", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-pagar/recorrentes", nome: "Contas recorrentes", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
