@@ -30,7 +30,7 @@ async function escolherNaBusca(u, rotuloBotao) {
 }
 
 async function leituraAging(u) {
-  await u.ir("/contas-a-pagar");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const card = u.page.locator('[data-aging="pagar"]');
   await card.waitFor({ timeout: 20000 });
   return {

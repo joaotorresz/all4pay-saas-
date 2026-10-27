@@ -3,6 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Icon } from "./Icon";
+import type { CadastroNoCampo } from "./Select";
 
 /**
  * Quattro DS — SelectBusca
@@ -56,6 +57,8 @@ export interface SelectBuscaProps {
   containerClassName?: string;
   /** Mensagem quando a lista está vazia por completo (nada cadastrado ainda). */
   vazio?: string;
+  /** "+ Cadastrar novo X" sempre no fim da lista; o criado volta selecionado. */
+  cadastrar?: CadastroNoCampo;
 }
 
 const semAcento = (s: string) =>
@@ -63,8 +66,10 @@ const semAcento = (s: string) =>
 
 export function SelectBusca({
   label, required, invalid, options, placeholder, value, onChange,
-  onCriar, rotuloCriar, disabled, id, containerClassName, vazio,
+  onCriar, rotuloCriar, disabled, id, containerClassName, vazio, cadastrar,
 }: SelectBuscaProps) {
+  const onChangeAtual = React.useRef(onChange);
+  onChangeAtual.current = onChange;
   const gerado = React.useId();
   const campoId = id || `sb-${gerado}`;
   const listaId = `${campoId}-lista`;
@@ -88,7 +93,8 @@ export function SelectBusca({
   // duplicata, que é justamente o que um plano de contas não pode ter.
   const podeCriar = !!onCriar && busca.trim().length > 0
     && !options.some((o) => semAcento(o.label) === semAcento(busca));
-  const totalItens = filtradas.length + (podeCriar ? 1 : 0);
+  const iCadastrar = filtradas.length + (podeCriar ? 1 : 0);
+  const totalItens = iCadastrar + (cadastrar ? 1 : 0);
 
   React.useEffect(() => { setRealce(0); }, [busca, aberto]);
 
@@ -111,6 +117,11 @@ export function SelectBusca({
   };
 
   const escolher = (i: number) => {
+    if (cadastrar && i === iCadastrar) {
+      setAberto(false);
+      cadastrar.abrir((novo) => onChangeAtual.current(novo));
+      return;
+    }
     if (podeCriar && i === filtradas.length) {
       onCriar?.(busca.trim());
       setAberto(false);
@@ -230,6 +241,22 @@ export function SelectBusca({
                 <span className="truncate">
                   {rotuloCriar ? rotuloCriar(busca.trim()) : `Criar "${busca.trim()}"`}
                 </span>
+              </li>
+            )}
+            {cadastrar && (
+              <li
+                id={`${listaId}-${iCadastrar}`}
+                role="option"
+                aria-selected={false}
+                onMouseEnter={() => setRealce(iCadastrar)}
+                onMouseDown={(e) => { e.preventDefault(); escolher(iCadastrar); }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 text-body font-medium cursor-pointer border-t border-border-soft",
+                  realce === iCadastrar ? "bg-surface-2 text-ink" : "text-ink",
+                )}
+              >
+                <Icon name="plus" size={14} color="currentColor" />
+                <span className="truncate">{cadastrar.rotulo}</span>
               </li>
             )}
             {filtradas.length === 0 && !podeCriar && (

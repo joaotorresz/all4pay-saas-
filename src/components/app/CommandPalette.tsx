@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { abrirCriacao } from "@/components/app/criacao";
+import { tipoDaRota } from "@/core/criar";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/ui";
 import { listParties, listProducts, listServices, listSales } from "@/lib/cadastros";
@@ -32,7 +34,7 @@ const ROUTES: RouteItem[] = [
   { label: "Open Finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes calendario financeiro dia vencimento fluxo diario saldo total agenda financeira" },
   { label: "Painel de vendas", href: "/contas-a-receber/painel-de-vendas", icon: "gauge", kw: "painel vendas pedidos nova venda emitir nf notas fiscais status venda plataforma hotmart taxa liquido faturamento reembolso chargeback calendario status titulos contas a receber lista recebidas atrasadas cliente vencimento baixa lote inadimplencia a vencer periodo mes semana" },
-  { label: "Títulos a pagar", href: "/contas-a-pagar/titulos", icon: "arrow-up-right", kw: "contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie dash painel a vencer periodo" },
+  { label: "Painel de despesas", href: "/contas-a-pagar/painel-de-despesas", icon: "gauge", kw: "painel despesas central de despesas contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie dash a vencer periodo calendario status compras pedido de compra aprovacao aprovada reprovada aguardando competencia" },
   { label: "Transferências entre contas", href: "/dashboard/financial/transfers", icon: "arrow-left-right", kw: "transferencia entre contas origem destino ted doc chegada conciliacao" },
   { label: "Nova conta a receber", href: "/dashboard/financial/receivables/new", icon: "plus", kw: "nova conta a receber lancar titulo cliente competencia vencimento rateio anexo repetir" },
   { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus", kw: "nova conta a pagar lancar titulo fornecedor especie nfe nfse pix rateio anexo" },
@@ -84,7 +86,6 @@ const ROUTES: RouteItem[] = [
   { label: "Impostos e obrigações", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt", kw: "impostos provisionamento icms pis cofins ipi iss csll inss irpj lucro presumido conta a pagar" },
   { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "credit-card", kw: "link de pagamento qr code cobrar cliente pix checkout" },
   { label: "Assinaturas e recorrência", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat", kw: "assinaturas recorrentes ciclo status cancelada expirada mrr arr churn assinante recorrencia saas produto dashboard de assinaturas" },
-  { label: "Compras", href: "/dashboard/purchases", icon: "shopping-cart", kw: "compras pedido de compra aprovacao aprovada reprovada aguardando fornecedor competencia" },
   { label: "Nova compra", href: "/dashboard/purchases/new", icon: "plus", kw: "nova compra pedido fornecedor parcelado competencia vencimento rateio anexo" },
   { label: "Boletos recebidos", href: "/contas-a-pagar/caixa-de-entrada?caixa=boletos", icon: "file-text", kw: "boleto dda linha digitavel codigo de barras vencido a vencer beneficiario" },
   { label: "NFs recebidas", href: "/contas-a-pagar/caixa-de-entrada?caixa=nfs", icon: "receipt", kw: "nota fiscal recebida sefaz xml chave de acesso danfe fornecedor validacao" },
@@ -244,6 +245,9 @@ export function CommandPalette() {
     setOpen(false);
     if (h.contatoId) { window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: h.contatoId } })); return; }
     if (h.event) { window.dispatchEvent(new Event(h.event)); return; }
+    // Um destino de CRIAÇÃO abre a porta única (o mesmo pop-up de todo "Novo").
+    const tipo = tipoDaRota(h.href);
+    if (tipo) { abrirCriacao(tipo); return; }
     router.push(h.href);
   };
 

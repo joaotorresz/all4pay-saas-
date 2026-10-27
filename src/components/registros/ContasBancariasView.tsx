@@ -19,6 +19,7 @@
  * passou por ela continua no extrato, no DRE e no razão.
  */
 import * as React from "react";
+import { abrirCriacao } from "@/components/app/criacao";
 import { Button, Input, Select, DateField, CurrencyInput, BRL, BancoLogo } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
@@ -64,7 +65,7 @@ export function ContasBancariasView() {
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazia());
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao("conta-bancaria");
   }, []);
   const { show, node } = useToast();
 
@@ -92,7 +93,7 @@ export function ContasBancariasView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: "Nova conta bancária", onClick: () => setEditando(vazia()) }}
+        acaoNova={{ label: "Nova conta bancária", onClick: () => abrirCriacao("conta-bancaria") }}
         exportar={{ nomeArquivo: "contas-bancarias", aba: "Contas bancárias", linhas: linhasXLSX }}
       />
 
@@ -136,7 +137,7 @@ export function ContasBancariasView() {
                   ? "Nenhuma conta bancária cadastrada."
                   : "Nenhuma conta bancária encontrada com esses filtros."}
               acao={!contas.isLoading && itens.length === 0
-                ? <Button variant="primary" onClick={() => setEditando(vazia())}>Nova conta bancária</Button>
+                ? <Button variant="primary" onClick={() => abrirCriacao("conta-bancaria")}>Nova conta bancária</Button>
                 : undefined}
             />
           }
@@ -192,6 +193,21 @@ export function ContasBancariasView() {
 }
 
 /* ------------------------------- formulário ------------------------------- */
+
+/** O formulário de conta bancária da PORTA ÚNICA (o mesmo desta tela). */
+export function NovaContaBancaria({ onClose, onCriado }: {
+  onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  const contas = useContasBancarias();
+  return (
+    <FormularioConta
+      inicial={vazia()}
+      todas={contas.data ?? []}
+      onClose={onClose}
+      onSalvo={(c) => onCriado(c.id || null, `Conta "${c.nome}" criada.`)}
+    />
+  );
+}
 
 function FormularioConta({
   inicial, todas, onClose, onSalvo,

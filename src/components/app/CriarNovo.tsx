@@ -3,10 +3,9 @@
 /**
  * "Criar novo" — o painel de duas colunas do botão Criar da Sidebar.
  *
- * ⚠️ Ele NÃO reimplementa formulário nenhum. Cada item ou navega para a tela
- * que já cria aquilo, ou dispara o mesmo formulário modal que o menu de
- * lançamentos usa desde a PARTE 01. Um segundo caminho de criação divergiria do
- * primeiro no dia em que um campo mudasse.
+ * ⚠️ Ele NÃO reimplementa formulário nenhum. Cada item com `tipo` chama a
+ * PORTA ÚNICA (`abrirCriacao` → `CriacaoGlobal`), que abre o MESMO pop-up de
+ * qualquer outra porta; os demais navegam para a tela que cria aquilo.
  *
  * Montado uma vez no `AppShell`; abre pelo evento `a4p:criar`.
  */
@@ -16,11 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { useTipoConta } from "@/components/app/useTipoConta";
-import { ReceitaForm } from "@/components/lancamentos/ReceitaForm";
-import { TransferenciaForm } from "@/components/lancamentos/TransferenciaForm";
-import { PartyForm } from "@/components/lancamentos/PartyForm";
-import { ProdutoServicoForm } from "@/components/lancamentos/ProdutoServicoForm";
-import { ContratoForm } from "@/components/lancamentos/ContratoForm";
+import { abrirCriacao } from "@/components/app/criacao";
 
 import {
   ACOES_CADASTROS as CADASTROS,
@@ -34,8 +29,6 @@ export function CriarNovo() {
   const router = useRouter();
   const { pessoal } = useTipoConta();
   const [aberto, setAberto] = React.useState(false);
-  const [modal, setModal] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const abrir = () => setAberto(true);
@@ -50,15 +43,9 @@ export function CriarNovo() {
     return () => window.removeEventListener("keydown", esc);
   }, [aberto]);
 
-  React.useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   /**
-   * Clique NORMAL num item: fecha o painel e, se a ação é de modal, abre o
-   * modal sem navegar (é o caminho mais rápido para quem já está no app).
+   * Clique NORMAL num item: fecha o painel e, se a ação cria um item, abre o
+   * pop-up da porta única sem navegar.
    *
    * ⚠️ **Clique com modificador não passa por aqui.** Ctrl/Cmd/Shift/botão do
    * meio são tratados pelo próprio `<a>`: o `onClick` chama `preventDefault`
@@ -69,7 +56,7 @@ export function CriarNovo() {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // deixa o <a> agir
     e.preventDefault();
     setAberto(false);
-    if (a.forma === "modal" && a.modal) { setModal(a.modal); return; }
+    if (a.tipo) { abrirCriacao(a.tipo); return; }
     router.push(a.rota);
   }
 
@@ -117,15 +104,6 @@ export function CriarNovo() {
         document.body,
       )}
 
-      {modal && renderForm(modal, () => setModal(null), setToast, pessoal)}
-
-      {toast && typeof document !== "undefined" && createPortal(
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[80]">
-          <Icon name="check" size={15} color="var(--color-lime)" />
-          <span>{toast}</span>
-        </div>,
-        document.body,
-      )}
     </>
   );
 }
@@ -144,6 +122,8 @@ function Coluna({
         <Link
           key={a.label}
           href={a.rota}
+          // A porta única intercepta links de criação; este já a chama sozinho.
+          data-porta-propria=""
           onClick={(e) => onEscolher(e, a)}
           className="w-full flex items-center gap-3 px-5 py-[9px] text-left hover:bg-surface-2 transition-colors"
         >
@@ -162,16 +142,3 @@ function Coluna({
   );
 }
 
-function renderForm(acao: string, close: () => void, onToast: (m: string) => void, pessoal: boolean) {
-  const p = { onClose: close, onToast };
-  switch (acao) {
-    case "receita": return <ReceitaForm kind="receita" titulo={pessoal ? "Nova receita" : "Nova conta a receber"} {...p} />;
-    case "despesa": return <ReceitaForm kind="despesa" titulo={pessoal ? "Nova despesa" : "Nova conta a pagar"} {...p} />;
-    case "transferencia": return <TransferenciaForm {...p} />;
-    case "cliente": return <PartyForm role="customer" {...p} />;
-    case "fornecedor": return <PartyForm role="supplier" {...p} />;
-    case "produto": return <ProdutoServicoForm kind="produto" {...p} />;
-    case "contrato": return <ContratoForm {...p} />;
-    default: return null;
-  }
-}

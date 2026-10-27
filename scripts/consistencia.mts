@@ -90,7 +90,7 @@ import { pct, pctDeInteiro, dataBR, comSinal, MENOS } from "@/lib/format";
 
 import { existsSync } from "node:fs";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
-import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
+import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA, TITULO_CRIACAO, tipoDaRota } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
 import { SECTIONS, CONFIG, SECTIONS_PESSOAL, CONFIG_PESSOAL, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
@@ -2278,17 +2278,118 @@ const AGOSTO = janelaMes(2026, 7);
   const semForma = todas.filter((a) => a.forma !== "modal" && a.forma !== "pagina");
   ok("criar: toda ação declara modal ou página", semForma.length === 0);
 
-  // Documento COMPOSTO (itens, totais, impostos) é sempre PÁGINA — um
-  // formulário desses num modal é um formulário que não cabe.
-  for (const composto of ["Nova venda", "Nova compra", "Novo orçamento"]) {
-    const a = todas.find((x) => x.label === composto);
-    ok(`criar: "${composto}" abre em página`, a?.forma === "pagina", `forma = ${a?.forma}`);
+  // ⚠️ A PORTA ÚNICA (decisão do dono, 27/10/2026, "tudo em pop-up"). Esta
+  // guarda INVERTEU a antiga ("documento composto abre em página"): "Nova
+  // venda" no Painel e no Criar abriam dois formulários diferentes. Agora todo
+  // item tem UM tipo e todo "Novo" abre o mesmo pop-up, venha de onde vier.
+  for (const doc of ["Nova venda", "Nova compra", "Nova conta a receber", "Nova conta a pagar", "Nova transferência"]) {
+    const a = todas.find((x) => x.label === doc);
+    ok(`criar: "${doc}" abre o pop-up da porta única`, a?.forma === "modal" && !!a?.tipo, `forma = ${a?.forma}, tipo = ${a?.tipo}`);
   }
-  // Cadastro simples é sempre MODAL — trocar de tela para digitar três campos
-  // custa o contexto por nada.
   for (const simples of ["Novo cliente", "Novo fornecedor", "Novo produto"]) {
     const a = todas.find((x) => x.label === simples);
-    ok(`criar: "${simples}" abre em modal`, a?.forma === "modal", `forma = ${a?.forma}`);
+    ok(`criar: "${simples}" abre em modal`, a?.forma === "modal" && !!a?.tipo, `forma = ${a?.forma}`);
+  }
+  // Toda ação que diz abrir "aqui" tem um tipo — sem ele, nada a desenharia.
+  const modalSemTipo = todas.filter((a) => a.forma === "modal" && !a.tipo);
+  ok("criar: toda ação de pop-up diz o que cria (tipo)", modalSemTipo.length === 0,
+     modalSemTipo.map((a) => a.label).join(", "));
+  // O endereço de cada ação de pop-up é reconhecido como criação do MESMO
+  // tipo — é o que faz o link (menu, guia, IA) abrir o mesmo pop-up.
+  const rotaDivergente = todas.filter((a) => a.tipo && tipoDaRota(a.rota) !== a.tipo);
+  ok("criar: o endereço de cada ação abre o mesmo pop-up que ela", rotaDivergente.length === 0,
+     rotaDivergente.map((a) => `${a.label} → ${tipoDaRota(a.rota)}`).join(", "));
+  ok("criar: edição (?id=) não é criação", tipoDaRota("/dashboard/sales-invoices/new?id=abc") === null);
+  {
+    const anfitriao = ler("src/components/app/CriacaoGlobal.tsx");
+    const semDesenho = (Object.keys(TITULO_CRIACAO) as string[]).filter((t) => !anfitriao.includes(`"${t}"`));
+    ok("criar: o anfitrião desenha todo tipo de criação", semDesenho.length === 0, semDesenho.join(", "));
+    ok("criar: o anfitrião está montado no AppShell", /<CriacaoGlobal \/>/.test(ler("src/components/app/AppShell.tsx")));
+    // ⚠️ Os formulários de DOCUMENTO só são montados pelo anfitrião e pela
+    // página do mesmo endereço (Ctrl+clique, nova aba). Uma terceira montagem
+    // é uma porta que não passa pela única.
+    const fora: string[] = [];
+    varrerTelas((caminho, txt) => {
+      if (/CriacaoGlobal\.tsx$/.test(caminho) || /[\\/]new[\\/]page\.tsx$/.test(caminho)) return;
+      if (/<(VendaForm|CompraForm|TituloForm)\b/.test(txt)) fora.push(caminho);
+    });
+    ok("criar: venda, compra e conta só abrem pela porta única", fora.length === 0, fora.join(", "));
+    // ⚠️ Teto ZERO de navegação por código a um endereço de criação: um botão
+    // com `router.push("/dashboard/sales-invoices/new")` trocava de tela onde
+    // todas as outras portas abrem o pop-up.
+    const navega: string[] = [];
+    varrerTelas((caminho, txt) => {
+      for (const m of txt.matchAll(/router\.(?:push|replace)\(\s*["'`]([^"'`$]+)["'`]/g)) {
+        if (tipoDaRota(m[1])) navega.push(`${caminho}: ${m[1]}`);
+      }
+    });
+    ok("criar: nenhum botão navega para um endereço de criação", navega.length === 0, navega.join(" · "));
+    // Os segundos formulários de contrato e transferência foram APAGADOS.
+    ok("criar: o segundo formulário de contrato não voltou", !existsSync("src/components/lancamentos/ContratoForm.tsx"));
+    ok("criar: o segundo formulário de transferência não voltou", !existsSync("src/components/lancamentos/TransferenciaForm.tsx"));
+  }
+
+  // ⚠️ "+ CADASTRAR NOVO X" EM TODO CAMPO DE CADASTRO (27/10/2026, pedido do
+  // dono): o campo que escolhe cliente, fornecedor, conta, categoria, produto,
+  // projeto ou centro oferece o cadastro dele em pop-up, e o item criado volta
+  // ESCOLHIDO. Sem isso a pessoa fecha o formulário pela metade para cadastrar
+  // em outra tela, e o lançamento se perde.
+  {
+    const FORMULARIOS = [
+      "src/components/vendas-nf/VendaForm.tsx",
+      "src/components/compras/CompraForm.tsx",
+      "src/components/movimentacoes/TituloForm.tsx",
+      "src/components/movimentacoes/TransferenciasView.tsx",
+      "src/components/registros/ContratosView.tsx",
+      "src/components/registros/PartesView.tsx",
+      "src/components/lancamentos/ProdutoServicoForm.tsx",
+      "src/components/lancamentos/ReceitaForm.tsx",
+      "src/components/lancamentos/NovaTransacao.tsx",
+      "src/components/lancamentos/VendaCompraForm.tsx",
+    ];
+    // O que a lista de opções escolhe: um cadastro (não forma de pagamento, UF…).
+    const DE_CADASTRO = /\b(parties|contatos|elegiveis|categorias|cats|catOpts|centros|projetos|contas|accounts|produtos|products|refOpts|unitOpts|brandOpts|clientes|fornecedores)\b/;
+    // Declaradas COM MOTIVO: o orçamento cria o contato na própria linha e pode
+    // NÃO salvá-lo no cadastro (o nome vai nas observações) — o pop-up não tem
+    // essa saída. A categoria do título já tem o "+" que cria pelo nome.
+    const ALTERNATIVA = /\bonCriar=|__novo__/;
+    /** Cada `<Select …/>`/`<SelectBusca …/>`, até o `/>` fora das chaves. */
+    const seletores = (txt: string): string[] => {
+      const r: string[] = [];
+      for (const m of txt.matchAll(/<Select(?:Busca)?\b/g)) {
+        let prof = 0;
+        for (let i = m.index!; i < txt.length; i++) {
+          const ch = txt[i];
+          if (ch === "{") prof++;
+          else if (ch === "}") prof--;
+          else if (prof === 0 && ch === "/" && txt[i + 1] === ">") { r.push(txt.slice(m.index!, i + 2)); break; }
+        }
+      }
+      return r;
+    };
+    const sem: string[] = [];
+    for (const arq of FORMULARIOS) {
+      const txt = ler(arq);
+      ok(`cadastrar: o formulário existe (${arq})`, txt.length > 0);
+      for (const el of seletores(txt)) {
+        const opcoes = /options=\{([\s\S]*?)\}\s*(?:\n|\w+=|\/>)/.exec(el)?.[1] ?? "";
+        if (!DE_CADASTRO.test(opcoes)) continue;
+        if (/\bcadastrar=/.test(el) || ALTERNATIVA.test(el)) continue;
+        sem.push(`${arq.split("/").pop()}: ${opcoes.trim().slice(0, 40)}`);
+      }
+    }
+    ok("cadastrar: todo campo de cadastro dos formulários oferece \"+ Cadastrar novo\"", sem.length === 0, sem.join(" · "));
+    const sel = ler("src/components/ui/Select.tsx");
+    const busca = ler("src/components/ui/SelectBusca.tsx");
+    // O `onChange` mora num ref: o item é criado DEPOIS, e a função da época do
+    // clique escolheria com o estado velho do formulário.
+    ok("cadastrar: o Select oferece e escolhe pelo onChange atual", /cadastrar\?: CadastroNoCampo/.test(sel) && /onChangeAtual\.current\(/.test(sel));
+    ok("cadastrar: o SelectBusca oferece e escolhe pelo onChange atual", /cadastrar\?: CadastroNoCampo/.test(busca) && /onChangeAtual\.current\(/.test(busca));
+    const anf = ler("src/components/app/CriacaoGlobal.tsx");
+    // A pilha num portal: dentro do AppShell o modal abria POR BAIXO da janela.
+    ok("cadastrar: a pilha de pop-ups mora num portal no body", /createPortal\(\s*<>\s*\{pilha\.map/.test(anf));
+    // O id volta DEPOIS de recarregar as listas: antes, a opção nova não existe.
+    ok("cadastrar: o id volta só depois de recarregar as listas", /invalidateQueries\(\)[\s\S]{0,80}\.finally\(\(\) => \{\s*pedido\.aoCriar/.test(anf));
   }
 
   // ⚠️ CRIAR EMPRESA fora das listas: cria uma organização inteira, não um
@@ -2822,7 +2923,7 @@ const AGOSTO = janelaMes(2026, 7);
    * escondida atrás de um ícone no canto de outra tela é garantia que ninguém
    * encontra no dia em que precisa dela.
    */
-  const TETO_GRUPOS = 8;            // Visão geral · Central de vendas · Comprar e pagar · Caixa e bancos · Contabilidade · Relatórios · Inteligência · Cadastros (26/10/2026: o oitavo, que reúne os cadastros espalhados; o teto não subiu)
+  const TETO_GRUPOS = 8;            // Visão geral · Central de vendas · Central de despesas · Caixa e bancos · Contabilidade · Relatórios · Inteligência · Cadastros (26/10/2026: o oitavo, que reúne os cadastros espalhados; o teto não subiu)
   const TETO_ITENS_POR_GRUPO = 13;  // Contábil e fiscal, o maior — +1: Exportar para o contador
   const TETO_ITENS_TOTAL = 71;      // +1: Central financeira (P-10) · +1: Exportar para o contador
 

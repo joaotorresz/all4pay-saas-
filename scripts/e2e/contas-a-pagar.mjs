@@ -48,7 +48,7 @@ export default async function contasAPagar(navegador) {
   const aviso = await u.page.evaluate(() => [...document.querySelectorAll("[role=status], [role=alert], .text-negative")].map((e) => e.textContent.trim()).filter(Boolean).join(" | "));
   v.ok(!u.page.url().includes("/new"), "salvar sai do formulário", aviso || u.page.url());
 
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const tit = (await u.texto()).replace(/\n/g, " ");
   v.ok(/3\.210\s*,99/.test(tit), "a conta aparece nos títulos a pagar");
 

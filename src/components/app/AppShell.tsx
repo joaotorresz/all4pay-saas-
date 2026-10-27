@@ -14,6 +14,7 @@ import { RouteTracker } from "@/components/app/RouteTracker";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
 import { CriarNovo } from "@/components/app/CriarNovo";
+import { CriacaoGlobal } from "@/components/app/CriacaoGlobal";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -180,6 +181,7 @@ export function AppShell({
       <ContatoDrawer />
       <NovaTransacao />
       <CriarNovo />
+      <CriacaoGlobal />
     </div>
   );
 

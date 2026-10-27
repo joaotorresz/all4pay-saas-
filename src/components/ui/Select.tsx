@@ -11,6 +11,20 @@ export interface SelectOption {
   label: string;
 }
 
+/**
+ * "+ Cadastrar novo X" no fim da lista (o cadastro rápido, 27/10/2026).
+ * `abrir` recebe `escolher`: o item criado volta selecionado no campo.
+ * O DS não sabe o que é um cliente — quem monta isto é `cadastroDe(tipo)`
+ * (`components/app/criacao`).
+ */
+export interface CadastroNoCampo {
+  rotulo: string;
+  abrir: (escolher: (id: string) => void) => void;
+}
+
+/** O valor da opção "Cadastrar novo": nunca vira o valor do campo. */
+export const VALOR_CADASTRAR = "__a4p_cadastrar__";
+
 export interface SelectProps
   extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
   label?: React.ReactNode;
@@ -21,13 +35,21 @@ export interface SelectProps
   value: string;
   onChange: (value: string) => void;
   containerClassName?: string;
+  /** Oferece cadastrar o que falta sem sair do formulário. */
+  cadastrar?: CadastroNoCampo;
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   function Select(
-    { label, required, invalid, options, placeholder, value, onChange, id, className, containerClassName, ...rest },
+    { label, required, invalid, options, placeholder, value, onChange, id, className, containerClassName, cadastrar, ...rest },
     ref,
   ) {
+    // ⚠️ O item criado volta DEPOIS de a lista recarregar: chamar o `onChange`
+    // de quando a pessoa clicou leria a lista antiga (o nome do cliente sairia
+    // vazio). A ref guarda sempre o da última renderização.
+    const onChangeAtual = React.useRef(onChange);
+    onChangeAtual.current = onChange;
+    const vazia = options.length === 0;
     const gerado = React.useId();
     /**
      * ⚠️ SEMPRE há id — e o `<label>` sempre aponta para ele.
@@ -58,7 +80,13 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             id={selectId}
             aria-label={typeof label === "string" ? undefined : (rest["aria-label"] ?? placeholder)}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === VALOR_CADASTRAR) {
+                cadastrar?.abrir((novo) => onChangeAtual.current(novo));
+                return;
+              }
+              onChange(e.target.value);
+            }}
             className={cn(
               "a4p-campo w-full appearance-none h-11 pl-4 pr-9 rounded-md bg-white border-campo text-body text-ink",
               "outline-none focus:border-ink",
@@ -70,7 +98,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           >
             {placeholder !== undefined && (
               <option value="" disabled hidden>
-                {placeholder}
+                {cadastrar && vazia ? "Nenhum cadastrado ainda" : placeholder}
               </option>
             )}
             {options.map((o) => (
@@ -78,6 +106,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 {o.label}
               </option>
             ))}
+            {cadastrar && <option value={VALOR_CADASTRAR}>+ {cadastrar.rotulo}</option>}
           </select>
           <svg
             className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
@@ -94,6 +123,17 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
+        {/* A lista vazia vira CONVITE: sem isto o campo obrigatório trava o
+            formulário e a pessoa não sabe por onde começar. */}
+        {cadastrar && vazia && (
+          <button
+            type="button"
+            onClick={() => cadastrar.abrir((novo) => onChangeAtual.current(novo))}
+            className="self-start inline-flex items-center gap-1 text-caption font-medium text-ink underline underline-offset-2 hover:no-underline"
+          >
+            + {cadastrar.rotulo.replace(/^Cadastrar novo |^Cadastrar nova /, (m) => m.trim() === "Cadastrar novo" ? "Cadastrar o primeiro " : "Cadastrar a primeira ")}
+          </button>
+        )}
       </div>
     );
   },

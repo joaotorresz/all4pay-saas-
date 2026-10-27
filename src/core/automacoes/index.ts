@@ -405,7 +405,7 @@ export function redigirLembretePagar(ctx: ContextoAutomacao, opts: { ignorarCale
       ? `${plural(aVencer.length, "conta vence", "contas vencem")} até ${dataBRcurta(ate)}, somando ${BRL(total)}.`
       : "Nenhuma conta vence nos próximos dias.",
     secoes, avisos,
-    link: linkApp(ctx, "/contas-a-pagar/titulos", "Abrir os títulos a pagar"),
+    link: linkApp(ctx, "/contas-a-pagar/painel-de-despesas", "Abrir os títulos a pagar"),
     finalidade: "lembrete_pagar",
     resumoCurto,
   });

@@ -19,7 +19,7 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
 const limpo = (s) => s.replace(/\s+/g, " ").replace(/ ,/g, ",");
 
 async function titulosDoMes(u, mes) {
-  await u.ir(`/contas-a-pagar/titulos?mes=${mes}`);
+  await u.ir(`/contas-a-pagar/painel-de-despesas?mes=${mes}`);
   return u.page.evaluate(() => [...document.querySelectorAll("main table tbody tr")]
     .map((tr) => [...tr.querySelectorAll("td")].map((td) => td.innerText.replace(/\s+/g, " ").replace(/ ,/g, ",").trim()).join(" | ")));
 }

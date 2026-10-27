@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Secoes } from "@/components/app/Secoes";
 import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, DateField, Textarea, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { lerDocumento } from "@/lib/ocr-ingest";
@@ -18,7 +19,17 @@ const STATUS: Record<StatusReembolso, { label: string; cor: string }> = {
   rejeitado: { label: "Rejeitado", cor: "var(--color-negative)" },
   a_pagar: { label: "A pagar (na Central)", cor: "var(--color-positive)" },
 };
+// ⚠️ Eram ABAS ("Meus reembolsos · Aguardando aprovação · Rejeitados · A
+// pagar") ao lado do formulário. Desde 27/10/2026 (Central de despesas no molde
+// da Central de vendas) o status é FILTRO, com a contagem à vista — como na
+// Caixa de entrada —, e o pedido e o formulário são SEÇÕES da mesma página.
 type Aba = "meus" | "aprovacao" | "rejeitados" | "pagar";
+const FILTROS: [Aba, string][] = [["meus", "Todos"], ["aprovacao", "Aguardando aprovação"], ["pagar", "A pagar"], ["rejeitados", "Rejeitados"]];
+const passa = (r: Reembolso, aba: Aba) =>
+  aba === "meus" ? true
+    : aba === "aprovacao" ? (r.status === "em_aprovacao" || r.status === "aprovado")
+      : aba === "rejeitados" ? r.status === "rejeitado"
+        : r.status === "a_pagar";
 const hoje = () => hojeLocal();
 const novoItem = (): ItemReembolso => ({ descricao: "", valor: 0, data: hoje(), categoria: "Alimentação" });
 
@@ -84,17 +95,10 @@ export function ReembolsosView() {
     show("Reembolso solicitado — roteado para aprovação conforme a alçada");
   };
 
-  const filtradas = lista.filter((r) =>
-    aba === "meus" ? true
-      : aba === "aprovacao" ? (r.status === "em_aprovacao" || r.status === "aprovado")
-        : aba === "rejeitados" ? r.status === "rejeitado"
-          : r.status === "a_pagar");
+  const filtradas = lista.filter((r) => passa(r, aba));
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-3 gap-5 items-start pb-4">
-      {/* Solicitar reembolso */}
-      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Solicitar reembolso", oQue: "O colaborador lança as despesas a reembolsar; o comprovante pode ser lido por OCR.", comoCalcula: "Cada item soma no total; ao solicitar, o pedido é roteado para aprovação conforme a alçada." }}>
-        <span className="text-label font-medium text-muted">Solicitar reembolso</span>
+  const formulario = (
+      <Card className="flex flex-col gap-3 max-w-[720px]" info={{ titulo: "Solicitar reembolso", oQue: "O colaborador lança as despesas a reembolsar; o comprovante pode ser lido por OCR.", comoCalcula: "Cada item soma no total; ao solicitar, o pedido é roteado para aprovação conforme a alçada." }}>
         <Input value={colaborador} onChange={(e) => setColaborador(e.target.value)} placeholder="Colaborador" />
         <Input value={chavePix} onChange={(e) => setChavePix(e.target.value)} placeholder="Chave Pix do colaborador" />
 
@@ -125,16 +129,25 @@ export function ReembolsosView() {
           <Button variant="primary" size="sm" onClick={solicitar}>Solicitar</Button>
         </div>
       </Card>
+  );
 
-      {/* Lista */}
-      <Card padded={false} className="lg:col-span-2">
-        <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
-          {([["meus", "Meus reembolsos"], ["aprovacao", "Aguardando aprovação"], ["rejeitados", "Rejeitados"], ["pagar", "A pagar"]] as [Aba, string][]).map(([id, label]) => {
-            const on = aba === id;
-            return <button key={id} onClick={() => setAba(id)} className={`relative px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>{label}{on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}</button>;
-          })}
-          <span className="ml-auto"><InfoHint align="left" titulo="Reembolsos" oQue="Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar." comoCalcula="Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." /></span>
-        </div>
+  const pedidos = (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filtrar por situação">
+        {FILTROS.map(([id, label]) => {
+          const on = aba === id;
+          return (
+            <button
+              key={id} type="button" aria-pressed={on} onClick={() => setAba(id)}
+              className={`rounded-pill px-4 py-2 text-label transition-colors ${on ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}
+            >
+              {label} <span className="tabular-nums">({lista.filter((r) => passa(r, id)).length})</span>
+            </button>
+          );
+        })}
+        <span className="ml-auto"><InfoHint align="left" titulo="Reembolsos" oQue="Acompanha cada solicitação por situação — em aprovação, aprovada, rejeitada ou a pagar." comoCalcula="Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra nos títulos a pagar do Painel de despesas." /></span>
+      </div>
+      <Card padded={false}>
         {falhas.length > 0 && (
           <div role="alert" className="mx-5 mt-3 rounded-md bg-surface-2 px-3 py-2 flex flex-col gap-1">
             {falhas.map((f, k) => (
@@ -157,6 +170,17 @@ export function ReembolsosView() {
           ))}
         </div>
       </Card>
+    </div>
+  );
+
+  return (
+    <div className="pb-4">
+      <Secoes
+        secoes={[
+          { id: "pedidos", titulo: "Pedidos", desc: "Cada reembolso e em que situação está", conteudo: pedidos },
+          { id: "solicitar", titulo: "Solicitar reembolso", desc: "O colaborador lança as despesas; o comprovante pode ser lido", conteudo: formulario },
+        ]}
+      />
       {node}
     </div>
   );
