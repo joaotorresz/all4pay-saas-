@@ -346,7 +346,7 @@ export function DistribuicaoDonut({
     const quantidade = fatias.reduce((n, d) => n + d.quantidade, 0);
     return (
       <Card className="flex flex-col gap-3" info={info}>
-        <span className="text-[13px] font-medium pr-8" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
+        <span className="text-h3 text-ink pr-8">{titulo}</span>
         {vazio ? (
           <p className="m-0 text-body text-muted py-10 text-center">{vazioTexto}</p>
         ) : (
@@ -365,7 +365,7 @@ export function DistribuicaoDonut({
   // separadas, com a % sobre cada uma e a legenda à esquerda.
   return (
     <Card className="flex flex-col gap-3" info={info}>
-      <span className="text-[13px] font-medium pr-8" style={{ color: "var(--color-text-secondary)" }}>{titulo}</span>
+      <span className="text-h3 text-ink pr-8">{titulo}</span>
       {vazio ? (
         <p className="m-0 text-body text-muted py-10 text-center">{vazioTexto}</p>
       ) : (

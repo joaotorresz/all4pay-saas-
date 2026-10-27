@@ -254,6 +254,7 @@
   --font-display: "Quattro Agrandir", "Agrandir Tight Bold", "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --a4p-titulo-espaco-palavra: 0.14em;
   /* cor do número: o preto do dinheiro da referência Jota (15/10/2026) */
   --erp-num-cor: #3b4332;
   /* R$ na mesma cor do número */
@@ -1833,4 +1834,46 @@ body,
 .ds-visor table tr,
 .ds-visor hr {
   border-color: var(--color-border);
+}
+
+/* Ajuste do dono (27/10/2026): a Agrandir tem de aparecer nas OUTRAS telas,
+   não só na Home. Três regras:
+
+   1. Todo título em Agrandir ganha o espaço entre palavras do token — o
+      espaço desenhado da fonte é estreito e, nos títulos pequenos, as
+      palavras grudavam.
+   2. Todo VALOR GRANDE (18px para cima: KPI, cartão, carrossel, total) fala
+      Agrandir, como os valores das telas do site. O tamanho decide, não a
+      tela: as classes de tamanho do sistema são o que marca um número em
+      destaque.
+   3. Número dentro de TABELA fica em Inter Display: a Agrandir não tem
+      `tnum` (medido no arquivo), e a coluna deixaria de alinhar. */
+.ds-visor h1,
+.ds-visor h2,
+.ds-visor .text-h1,
+.ds-visor .text-h2,
+.ds-visor .text-display,
+.ds-visor .a4p-heroi,
+.ds-visor .a4p-titulo-secao,
+.ds-visor [data-card="1"] h3,
+.ds-visor [data-card="1"] .text-h3 {
+  word-spacing: var(--a4p-titulo-espaco-palavra);
+}
+
+.ds-visor :is(.text-h1, .text-h2, .text-value-lg, .text-display,
+  [class*="text-[18px]"], [class*="text-[19px]"], [class*="text-[2"],
+  [class*="text-[3"], [class*="text-[4"], [class*="text-[5"], [class*="text-[6"]):is(.a4p-num, .tabular-nums):not(td *, th *),
+.ds-visor :is(.text-h1, .text-h2, .text-value-lg, .text-display,
+  [class*="text-[18px]"], [class*="text-[19px]"], [class*="text-[2"],
+  [class*="text-[3"], [class*="text-[4"], [class*="text-[5"], [class*="text-[6"]):not(td, th, td *, th *) :is(.a4p-num, .a4p-num *),
+.ds-visor [data-card="1"] .text-h3:is(.a4p-num, .tabular-nums):not(td *) {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+.ds-visor td .a4p-num,
+.ds-visor td .a4p-num *,
+.ds-visor td.tabular-nums,
+.ds-visor td .tabular-nums {
+  font-family: var(--font-sans) !important;
 }
