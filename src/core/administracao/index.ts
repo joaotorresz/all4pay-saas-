@@ -513,6 +513,10 @@ export const CATALOGO_INTEGRACOES: CartaoIntegracao[] = [
     descricao: "Vendas, cancelamentos e estornos das maquininhas Pinbank vinculadas entram sozinhos como venda e contas a receber, com a taxa de cada parcela.",
   },
   {
+    id: "cobranca-banco", titulo: "Banco Inter · cobrança", icone: "landmark",
+    descricao: "Conecte a conta Inter da empresa e gere boleto com Pix direto do título a receber. O dinheiro cai na conta da empresa.",
+  },
+  {
     id: "open-finance", titulo: "Open Finance", icone: "building",
     descricao: "Sincronização automática de extratos e saldos bancários das contas conectadas via Open Finance.",
   },

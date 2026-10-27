@@ -180,6 +180,18 @@
         "impacto": "Até ser aplicada, a rota /api/cadastro/jornada recebe o passo e o banco recusa (fica só o log); o cadastro segue igual. Nada que já existe muda.",
         "resolver_ate": "2026-11-10",
         "origem": "sessão Claude de 27/10/2026 (documentos e funil do cadastro, etapa 1)"
+      },
+      {
+        "nome": "20261028120000_cobranca_banco",
+        "motivo": "Cobrança pela conta bancária, etapa 3 (Conectar meu banco): a conexão de cada empresa com o Inter, o segredo cifrado e a reserva genérica. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabelas cobranca_banco_conexoes, cobranca_banco_segredos (só service_role lê) e cobrancas_banco",
+          "funções cobranca_banco_conectar/desconectar (administrar), cobranca_banco_reservar (lançar), cobranca_banco_credencial e cobranca_banco_registrar (service_role)",
+          "gatilho cobranca_banco_titulo_mudou em movements (leva a cobrança viva a 'a cancelar' quando o título muda)"
+        ],
+        "impacto": "Até ser aplicada, o cartão 'Banco Inter · cobrança' diz que a função está sendo instalada e o botão no título não aparece. Nada que já existe muda; o interruptor COBRANCA_BANCO nasce desligado.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 27/10/2026 (cobrança pela conta bancária, etapa 3) — o merge espera o OK do dono (muda quem pode chamar o quê)"
       }
     ],
     "objetos_sem_migration": [
