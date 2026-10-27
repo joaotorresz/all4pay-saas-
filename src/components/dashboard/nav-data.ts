@@ -191,10 +191,15 @@ export const SECTIONS: Section[] = [
     // O registro contábil e o que sai para o escritório. Os relatórios do
     // razão foram para Relatórios; o consolidado, para Multiempresas.
     id: "contabil", label: "Contabilidade", icon: "receipt", items: [
-      { label: "Razão contábil", desc: "Lançamentos, receita, cronogramas e dimensões", href: "/contabilidade?aba=razao", icon: "receipt" },
+      { label: "Razão contábil", desc: "Os lançamentos em partidas dobradas", href: "/contabilidade", icon: "receipt" },
+      { label: "Reconhecimento de receita", desc: "Receita diferida reconhecida mês a mês", href: "/receita", icon: "trending-up" },
+      { label: "Cronogramas", desc: "Amortização e depreciação", href: "/cronogramas", icon: "layers" },
+      { label: "Dimensões", desc: "Tags e o pivot do razão", href: "/dimensoes", icon: "layers" },
       { label: "Fechamento mensal", desc: "Checklist, provisões, trava e relatório do mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
-      { label: "Enviar ao contador", desc: "Razão e DRE, TXT Domínio e as NFs do mês", href: "/exportar", icon: "download" },
+      { label: "Razão e DRE para o contador", desc: "Planilha do razão e do DRE do período", href: "/exportar", icon: "download" },
+      { label: "TXT Domínio", desc: "O movimento no layout do Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
+      { label: "Envio das NFs", desc: "O pacote mensal de XMLs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail" },
     ],
   },
   {
@@ -206,7 +211,9 @@ export const SECTIONS: Section[] = [
       { label: "Balanço patrimonial", desc: "Ativo, passivo e PL em duas datas", href: "/dashboard/reports/balance-sheet", icon: "layers" },
       { label: "Análise de variação", desc: "O que mudou no mês, e por quê", href: "/dashboard/reports/variance", icon: "activity" },
       { label: "Orçamento", desc: "O previsto e o confronto com o real", href: "/orcamento", icon: "target" },
-      { label: "Multiempresas", desc: "DRE, DFC e posição do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DRE multiempresas", desc: "O resultado do grupo, empresa a empresa", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DFC multiempresas", desc: "O caixa do grupo, empresa a empresa", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "Posição consolidada", desc: "Saldo e resultado do grupo, com eliminações", href: "/consolidado", icon: "building", pro: true },
       { label: "Relatório ao investidor", desc: "O relatório mensal para quem investe", href: "/investidores", icon: "mail", pro: true },
       { label: "Meus painéis", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
     ],

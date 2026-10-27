@@ -60,7 +60,7 @@ const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "s
 const RELATORIOS = [
   { nome: "DRE", href: "/dashboard/reports/dre" },
   { nome: "Balanço patrimonial", href: "/dashboard/reports/balance-sheet" },
-  { nome: "Razão", href: "/contabilidade?aba=razao" },
+  { nome: "Razão", href: "/contabilidade" },
   { nome: "Fluxo de caixa", href: "/dashboard/reports/dfc?aba=mensal" },
 ];
 
