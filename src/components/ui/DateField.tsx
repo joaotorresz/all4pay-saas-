@@ -49,7 +49,7 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            "h-11 px-4 rounded-md bg-white border-campo text-body text-ink outline-none focus:border-ink",
+            "a4p-campo h-11 px-4 rounded-md bg-white border-campo text-body text-ink outline-none focus:border-ink",
             invalid ? "border-negative" : "border-border",
             className,
           )}

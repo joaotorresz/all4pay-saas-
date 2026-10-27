@@ -46,7 +46,7 @@ export function Switch({
         onClick={() => onChange(!checked)}
         className={cn(
           "relative w-9 h-[20px] rounded-pill shrink-0 transition-colors",
-          checked ? "bg-ink" : "bg-surface-3 border border-border",
+          checked ? "bg-ink" : "bg-surface-3",
         )}
       >
         <span

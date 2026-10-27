@@ -57,6 +57,7 @@ import {
 } from "@/core/indicadores";
 import { montarDataset } from "@/lib/fdip";
 import { analisarImportacao } from "@/core/fdip";
+import { montarAssistente, aplicarDecisoes, decisaoPadrao, proximaData, ehRecorrente } from "@/core/fdip/assistente";
 import { importedAbertura } from "@/lib/imported";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
@@ -10770,7 +10771,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("rodada8: a demonstração leva a competência ao DRE (o mesmo mês que produção)",
      /competence_date:\s*m\.competence_date \?\? null/.test(ramoDemo));
   ok("rodada8: confirmar o extrato leva as competências escolhidas",
-     /aplicarOnboarding\(\{\s*\.\.\.report,\s*records:\s*comCompetencias\(report\.records,\s*competencias\)\s*\}\)/.test(up));
+     /aplicarOnboarding\(\{\s*\.\.\.(\w+),\s*records:\s*comCompetencias\(\1\.records,\s*competencias\)\s*\}\)/.test(up));
 }
 
 // ═══ MAQUININHA PINBANK — o evento vira venda (e o ciclo só anda para a frente) ═══
@@ -11808,8 +11809,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // dinâmico (`import("…")`) e `require` — de net, tls, http, https, http2 e undici.
   const MODS_REDE = String.raw`(?:node:)?(?:net|tls|https?|http2)|undici`;
   const REDE = new RegExp(String.raw`^(?!\s*import\s+type\b)[^\n]*\bfrom\s+["'](?:${MODS_REDE})["']|\bimport\(\s*["'](?:${MODS_REDE})["']\s*\)|\brequire\(\s*["'](?:${MODS_REDE})["']\s*\)`, "m");
-  const comRede = (ler: (p: string) => string) => arqsF.filter((p) => p !== PORTA_F && p.startsWith("src/") && REDE.test(semComF(ler(p))));
-  ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora da porta", comRede(lerF).length === 0, comRede(lerF).join(", "));
+  // A SEGUNDA porta declarada (27/10/2026): o Banco Inter exige mTLS, que o
+  // fetch do Node não faz sem undici. Ela fala SÓ com o Inter (bloco `inter:`).
+  const PORTA_INTER = "src/lib/cobranca-banco/inter-saida.ts";
+  const PORTAS_REDE = [PORTA_F, PORTA_INTER];
+  const comRede = (ler: (p: string) => string) => arqsF.filter((p) => !PORTAS_REDE.includes(p) && p.startsWith("src/") && REDE.test(semComF(ler(p))));
+  ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora das duas portas", comRede(lerF).length === 0, comRede(lerF).join(", "));
+  // inter: a porta do Inter não fala com a Pinbank, e o endereço do Inter só mora no core dele.
+  const HOST_INTER = /bancointer\.com\.br|uatinter\.co/i;
+  const CORE_INTER = "src/core/cobranca-banco/inter.ts";
+  const comHostInter = (ler: (p: string) => string) => arqsF.filter((p) => p !== CORE_INTER && HOST_INTER.test(semComF(ler(p))));
+  ok("inter: o endereço do Inter só aparece em core/cobranca-banco/inter.ts (BASES_INTER)", comHostInter(lerF).length === 0, comHostInter(lerF).join(", "));
+  ok("inter: a varredura ainda ENXERGA o endereço no core", HOST_INTER.test(semComF(lerF(CORE_INTER))));
+  ok("inter: (defeito plantado) URL do Inter na rota é ACUSADA",
+     comHostInter((p) => (p === "src/app/api/admin/inter-teste/route.ts" ? lerF(p) + '\nconst u = "https://cdpj.partners.bancointer.com.br/x";' : lerF(p))).includes("src/app/api/admin/inter-teste/route.ts"));
+  ok("inter: a porta do Inter não cita a Pinbank", !/pinbank/i.test(semComF(lerF(PORTA_INTER))));
+  ok("inter: a porta do Inter só usa as bases de BASES_INTER e confere o caminho antes de conectar",
+     /BASES_INTER\[/.test(semComF(lerF(PORTA_INTER))) && /caminhoPermitidoInter\(/.test(semComF(lerF(PORTA_INTER))));
+  ok("inter: (defeito plantado) um https.request num arquivo do Inter fora da porta é ACUSADO",
+     comRede((p) => (p === "src/lib/cobranca-banco/inter-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/inter-api.ts"));
   // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
   // ambiente escaparia da varredura do endereço.
   const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/(saida-fixa|pinbank-extrato))\//.test(p) && p !== PORTA_F);
@@ -13014,6 +13032,80 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 {
   for (const t of ["R$ 1.234,56", "−R$ 300,00", "12,4%", "+2,4%", "27/10/2026", "21:00", "12", "3x", "R$ 312 mil", "R$\u00a01.000,00"]) ok(`tipografia: "${t}" é número`, ehNumeroTipo(t));
   for (const t of ["12 lançamentos", "vence em 3 dias", "Q3", "Conta 2", "Julho 2026", "Folha", ""]) ok(`tipografia: "${t}" não é número`, !ehNumeroTipo(t));
+}
+
+// ─── pdf-lote: o extrato em PDF lido como tabela não pode ser descartado ───
+{
+  const tela = readFileSync("src/components/upload/UploadView.tsx", "utf8");
+  const ingest = readFileSync("src/lib/ocr-ingest.ts", "utf8");
+  ok("pdf-lote: a aba Enviar trata o resultado `bulk` de lerDocumento", /r\.kind === "bulk"/.test(tela));
+  ok("pdf-lote: o lote do PDF leva o texto da tabela junto", /kind: "bulk", report, texto: csv/.test(ingest));
+
+  // ⚠️ Extrato de banco abre com título, agência e período ANTES da tabela. Lendo
+  // só a 1ª linha como cabeçalho, a data virava descrição e o DIA virava valor
+  // ("02/10/2026" → R$ 2,00). Medido num PDF de extrato real de 12 linhas.
+  const comPreambulo = [
+    "Banco Exemplo S.A. - Extrato de conta corrente",
+    "Agencia 0001 Conta 12345-6 - Periodo 01/10/2026 a 31/10/2026",
+    "Data;Historico;Valor (R$)",
+    "02/10/2026;PIX RECEBIDO CLIENTE ALFA LTDA;4.800,00",
+    "03/10/2026;ALUGUEL ESCRITORIO IMOB CENTRAL;-3.200,00",
+  ].join("\n");
+  const rp = analisarImportacao(comPreambulo).records;
+  ok("pdf-lote: preâmbulo antes do cabeçalho não desloca as colunas",
+    rp.length === 2 && rp[0].valor === 4800 && rp[0].descricao === "PIX RECEBIDO CLIENTE ALFA LTDA" && rp[1].tipo === "saida" && rp[1].valor === 3200,
+    JSON.stringify(rp.map((r) => [r.descricao, r.valor, r.tipo])));
+  // Sem cabeçalho nenhum, mas com título: a leitura posicional parte da 1ª linha com data E valor.
+  const semCab = analisarImportacao("Extrato do mes\n05/10/2026;POSTO SHELL 042;-310,50\n06/10/2026;TARIFA PACOTE;-49,90").records;
+  ok("pdf-lote: título sem cabeçalho não vira a linha de referência",
+    semCab.length === 2 && semCab[0].valor === 310.5 && semCab[0].descricao === "POSTO SHELL 042",
+    JSON.stringify(semCab.map((r) => [r.descricao, r.valor])));
+}
+
+// ─── assistente: a revisão em 4 passos antes de gravar a importação ───
+{
+  const tres = [
+    "data;descricao;valor",
+    "05/08/2026;ALUGUEL IMOBILIARIA CENTRO;-5000,00", "10/08/2026;PIX RECEBIDO ALPHA CONSULTORIA LTDA;8000,00",
+    "12/08/2026;ENEL ENERGIA;-300,00", "15/08/2026;POSTO SHELL 042;-310,50", "25/08/2026;TRANSFERENCIA ENTRE CONTAS;-3000,00",
+    "05/09/2026;ALUGUEL IMOBILIARIA CENTRO;-5000,00", "10/09/2026;PIX RECEBIDO ALPHA CONSULTORIA LTDA;8000,00",
+    "12/09/2026;ENEL ENERGIA;-500,00", "28/09/2026;PIX RECEBIDO BETA COMERCIO;950,00",
+    "06/10/2026;ALUGUEL IMOBILIARIA CENTRO;-5000,00", "10/10/2026;PIX RECEBIDO ALPHA CONSULTORIA LTDA;8000,00",
+    "13/10/2026;ENEL ENERGIA;-400,00",
+  ].join("\n");
+  const rep = analisarImportacao(tres);
+  const a = montarAssistente(rep);
+  const g = (nome: string) => [...a.receitas, ...a.despesas].find((x) => x.nome.toLowerCase().includes(nome))!;
+  ok("assistente: resumo soma receitas e despesas SEM a transferência",
+    a.resumo.entradas === 24950 && a.resumo.saidas === 16510.5 && a.resumo.resultado === 8439.5 && a.resumo.transferencias === 1,
+    JSON.stringify(a.resumo));
+  ok("assistente: o resumo traz os três meses do arquivo", a.resumo.porMes.map((m) => m.mes).join() === "2026-08,2026-09,2026-10");
+  ok("assistente: aluguel todo mês com o mesmo valor é FIXO, dia 5", g("aluguel").fixo && g("aluguel").diaTipico === 5 && g("aluguel").mediaMensal === 5000);
+  // energia 300/500/400 varia 20% (> 15%): recorrente, mas não fixa
+  ok("assistente: a conta que varia é recorrente e NÃO entra no custo fixo", g("enel").recorrente && !g("enel").fixo);
+  ok("assistente: custo fixo = só o que é fixo (aluguel)", a.resumo.custoFixoMensal === 5000 && a.resumo.custoVariavelRecorrente === 400,
+    `${a.resumo.custoFixoMensal} · ${a.resumo.custoVariavelRecorrente}`);
+  ok("assistente: o cliente de todo mês é receita recorrente; o avulso não", g("alpha").recorrente && !g("beta").recorrente && a.resumo.receitaRecorrenteMensal === 8000);
+  ok("assistente: PIX recebido de \"comércio\" é receita, não fornecedor", g("beta").categoria === "Vendas", g("beta").categoria);
+  ok("assistente: recorrência exige presença em meses, não contagem (3 no mesmo mês ≠ recorrente)", !ehRecorrente(1, 3, 3) && ehRecorrente(3, 3, 3) && !ehRecorrente(2, 2, 1));
+  ok("assistente: dia 31 num mês de 30 vira o último dia, depois do último lançamento",
+    proximaData("2026-10-13", 31) === "2026-10-31" && proximaData("2026-10-31", 31) === "2026-11-30" && proximaData("2026-12-06", 5) === "2027-01-05");
+
+  const dec = Object.fromEntries([...a.receitas, ...a.despesas].map((x) => [x.chave, decisaoPadrao(x)]));
+  dec[g("enel").chave] = { ...dec[g("enel").chave], categoria: "Outras despesas", recorrente: true, dia: 10 };
+  dec[g("shell").chave] = { ...dec[g("shell").chave], cadastrar: false };
+  const out = aplicarDecisoes(rep, [...a.receitas, ...a.despesas], dec);
+  const catDe = (id: string) => out.report.classificacoes.find((c) => c.recordId === id)!.categoria;
+  ok("assistente: a categoria escolhida vale para TODOS os lançamentos do grupo", g("enel").recordIds.every((id) => catDe(id) === "Outras despesas"));
+  ok("assistente: desmarcar o cadastro tira o contato, NÃO o lançamento",
+    !out.report.entidades.some((e) => e.id === g("shell").chave.slice(2)) && out.report.records.length === rep.records.length);
+  const recs = out.recorrencias.map((r) => `${r.tipo}:${r.nome.toLowerCase()}:${r.dia}:${r.valor}:${r.inicio}`).sort();
+  ok("assistente: cria só as recorrências marcadas (padrão: receita recorrente + despesa fixa; a variável só se marcada)",
+    out.recorrencias.length === 3 && recs.some((r) => r.startsWith("saida:aluguel") && r.endsWith(":5000:2026-11-05"))
+      && recs.some((r) => r.startsWith("saida:enel") && r.includes(":10:400:2026-11-10")) && recs.some((r) => r.startsWith("entrada:alpha")),
+    recs.join(" | "));
+  ok("assistente: nada é gravado aqui (o relatório original fica intacto)",
+    rep.classificacoes.find((c) => c.recordId === g("enel").recordIds[0])!.categoria !== "Outras despesas");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

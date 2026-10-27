@@ -26,11 +26,12 @@ import { cn } from "@/lib/utils";
  */
 
 /**
- * O menu SEMPRE abre recolhido (pedido do dono, 16/10/2026). A escolha de
- * expandir vale só nesta SESSÃO do navegador (sessionStorage): trocar de tela
- * não fecha o que a pessoa abriu, e a próxima visita começa recolhida.
+ * O menu é SEMPRE recolhido (pedido do dono, 27/10/2026 — vence o de 16/10,
+ * que guardava a escolha na sessão). Expandir serve para ESCOLHER o destino:
+ * a página nova abre com o menu já se recolhendo (`ESPERA_RECOLHER` depois da
+ * navegação, para o movimento ser visto e não parecer um salto).
  */
-const STORAGE_KEY = "a4p_sidebar_expandida";
+const ESPERA_RECOLHER = 250;
 const LARGURA_KEY = "a4p_sidebar_width";
 const LARGURA_PADRAO = 260;
 const LARGURA_MIN = 200;
@@ -62,7 +63,6 @@ export function Sidebar() {
 
   React.useEffect(() => {
     try {
-      setCollapsed(sessionStorage.getItem(STORAGE_KEY) !== "1");
       const salva = Number(localStorage.getItem(LARGURA_KEY));
       if (Number.isFinite(salva) && salva >= LARGURA_MIN && salva <= LARGURA_MAX) setLargura(salva);
     } catch { /* preferência local: sem ela, vale o padrão */ }
@@ -84,10 +84,18 @@ export function Sidebar() {
 
   React.useEffect(() => { setMobileOpen(false); }, [pathname]);
 
-  const definirRecolhida = React.useCallback((v: boolean) => {
-    setCollapsed(v);
-    try { sessionStorage.setItem(STORAGE_KEY, v ? "0" : "1"); } catch { /* ignore */ }
-  }, []);
+  // Navegou (rota ou aba): o menu recolhe sozinho. A primeira renderização não
+  // conta — ele já nasce recolhido.
+  const destino = `${pathname}?${busca}`;
+  const destinoAnterior = React.useRef(destino);
+  React.useEffect(() => {
+    if (destinoAnterior.current === destino) return;
+    destinoAnterior.current = destino;
+    const t = window.setTimeout(() => setCollapsed(true), ESPERA_RECOLHER);
+    return () => window.clearTimeout(t);
+  }, [destino]);
+
+  const definirRecolhida = React.useCallback((v: boolean) => { setCollapsed(v); }, []);
   const aplicarLargura = React.useCallback((px: number) => {
     setLargura(px);
     try { localStorage.setItem(LARGURA_KEY, String(px)); } catch { /* ignore */ }
@@ -141,7 +149,7 @@ export function Sidebar() {
           "fixed inset-y-3 left-3 w-sidebar transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-[110%]",
           "lg:static lg:translate-x-0 lg:shrink-0 lg:self-start lg:max-h-full",
-          arrastando ? "" : "lg:transition-[width]",
+          arrastando ? "" : "lg:transition-[width] lg:duration-300",
           col && "lg:w-[76px] lg:px-3",
         )}
       >

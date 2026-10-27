@@ -54,6 +54,7 @@ import {
   type AcaoHome, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
 import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/home/biblioteca";
+import { saldoEmContas } from "@/core/home/contas";
 import { iconeExiste } from "@/components/ui/lucide-icons";
 import { readFileSync } from "node:fs";
 import { montarPainelMaquininha, diaEHora } from "@/core/pinbank/recentes";
@@ -323,8 +324,13 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   const L = (ordem: IdItemHome[], ocultos: IdItemHome[] = []): LayoutHome => normalizarLayout({ ordem, ocultos })!;
 
   // catálogo
-  ok("itens: dez, ids únicos", ITENS_HOME.length === 10 && new Set(ITENS_HOME.map((i) => i.id)).size === 10);
-  ok("itens: a maquininha vem primeiro (pedido do dono)", LAYOUT_PADRAO.ordem[0] === "maquininha" && faixasDoPainel(LAYOUT_PADRAO)[0].ids.join() === "maquininha,caixa,arr");
+  ok("itens: onze, ids únicos", ITENS_HOME.length === 11 && new Set(ITENS_HOME.map((i) => i.id)).size === 11);
+  ok("itens: o saldo total em contas vem primeiro, no topo à esquerda dos grandes (pedido do dono, 27/10/2026)", LAYOUT_PADRAO.ordem[0] === "contas" && faixasDoPainel(LAYOUT_PADRAO)[0].ids.join() === "contas,maquininha,caixa,arr" && faixasDoPainel(LAYOUT_PADRAO)[0].tamanho === "grande");
+  ok("fixo: arrastar não tira o saldo em contas do topo", moverItem(LAYOUT_PADRAO, "contas", "pagar").ordem[0] === "contas" && moverItem(LAYOUT_PADRAO, "pagar", "contas").ordem[0] === "contas");
+  ok("fixo: \"coloca o a pagar primeiro\" sobe o a pagar para logo DEPOIS do saldo em contas", aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "primeiro", id: "pagar" }]).ordem.slice(0, 2).join() === "contas,pagar");
+  ok("fixo: esconder o saldo em contas não o esconde", visiveis(aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "esconder", id: "contas" }])).includes("contas"));
+  ok("fixo: arranjo guardado com ele no fim ou escondido volta ao topo, visível", normalizarLayout({ ordem: ["caixa", "contas"], ocultos: ["contas"] })!.ordem[0] === "contas" && normalizarLayout({ ordem: ["caixa", "contas"], ocultos: ["contas"] })!.ocultos.length === 0);
+  ok("itens: quem já tinha arranjo ganha o saldo em contas no TOPO", normalizarLayout({ ordem: ["pagar", "caixa", "maquininha"], ocultos: [] })!.ordem[0] === "contas");
   ok("itens: sinônimos sem acento e em minúsculas", ITENS_HOME.every((i) => i.sinonimos.every((x) => x === x.toLowerCase() && x === x.normalize("NFD").replace(/[̀-ͯ]/g, ""))));
   ok("itens: todo número do painel tem tamanho", ITENS_HOME.filter((i) => i.grupo === "painel").every((i) => i.tamanho));
 
@@ -336,7 +342,7 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("pedido: \"volta ao padrão\" restaura", JSON.stringify(acoes("volta ao padrão")) === JSON.stringify(["restaurar"]));
   ok("pedido: \"no final\" leva ao fim", acoes("o que precisa de ação primeiro, relatórios no final").join() === "primeiro:acao,ultimo:relatorios");
   const so = interpretarPedido("só quero ver o caixa e o que vou pagar");
-  ok("pedido: \"só\" esconde o que não foi citado", so.filter((a) => a.tipo === "esconder").length === 8 && so.some((a) => a.tipo === "primeiro" && a.id === "caixa"), JSON.stringify(so));
+  ok("pedido: \"só\" esconde o que não foi citado", so.filter((a) => a.tipo === "esconder").length === 9 && so.some((a) => a.tipo === "primeiro" && a.id === "caixa"), JSON.stringify(so));
   ok("pedido: cumprimento não mexe em nada", interpretarPedido("bom dia").length === 0 && interpretarPedido("").length === 0 && interpretarPedido(42).length === 0);
   // defeito plantado: casar o sinônimo mais CURTO primeiro faria "fluxo de caixa" (o relatório) mexer no caixa
   const ingenuo = (t: string) => ITENS_HOME.filter((i) => i.sinonimos.some((x) => t.toLowerCase().includes(x))).map((i) => i.id);
@@ -345,7 +351,7 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   ok("pedido: palavra dentro de outra não casa (\"arraste\" não é ARR)", !itensCitados("arraste os cards").includes("arr"));
   // defeito plantado: tratar todo item citado como "ver primeiro" levaria o burn ao topo num pedido para tirá-lo
   const tudoPrimeiro = (t: string): AcaoHome[] => itensCitados(t).map((id) => ({ tipo: "primeiro", id }));
-  ok("pedido: (defeito plantado) sem o verbo, \"tira o burn\" subiria o burn", visiveis(aplicarAcoes(LAYOUT_PADRAO, tudoPrimeiro("tira o burn")))[0] === "burn");
+  ok("pedido: (defeito plantado) sem o verbo, \"tira o burn\" subiria o burn", visiveis(aplicarAcoes(LAYOUT_PADRAO, tudoPrimeiro("tira o burn")))[1] === "burn");
   ok("pedido: \"tira o burn\" o esconde", !visiveis(aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn"))).includes("burn"));
 
   // a trava contra a IA e o texto
@@ -356,31 +362,31 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
 
   // aplicar
   const escondido = L(LAYOUT_PADRAO.ordem, ["pagar"]);
-  ok("aplicar: \"primeiro\" também mostra o que estava escondido", visiveis(aplicarAcoes(escondido, [{ tipo: "primeiro", id: "pagar" }]))[0] === "pagar");
-  ok("aplicar: vários \"primeiro\" na ordem dita", visiveis(aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "primeiro", id: "receber" }, { tipo: "primeiro", id: "pagar" }])).slice(0, 2).join() === "receber,pagar");
+  ok("aplicar: \"primeiro\" também mostra o que estava escondido", visiveis(aplicarAcoes(escondido, [{ tipo: "primeiro", id: "pagar" }]))[1] === "pagar");
+  ok("aplicar: vários \"primeiro\" na ordem dita", visiveis(aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "primeiro", id: "receber" }, { tipo: "primeiro", id: "pagar" }])).slice(1, 3).join() === "receber,pagar");
   ok("aplicar: esconder não reordena", aplicarAcoes(LAYOUT_PADRAO, [{ tipo: "esconder", id: "arr" }]).ordem.join() === LAYOUT_PADRAO.ordem.join());
   ok("aplicar: restaurar volta ao padrão", JSON.stringify(aplicarAcoes(L(["relatorios", "caixa"], ["burn"]), [{ tipo: "restaurar" }])) === JSON.stringify(LAYOUT_PADRAO));
-  ok("aplicar: nenhum item some da ordem", aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("só quero ver o caixa")).ordem.length === 10);
+  ok("aplicar: nenhum item some da ordem", aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("só quero ver o caixa")).ordem.length === 11);
 
   // o que o chat diz
   const depois = aplicarAcoes(LAYOUT_PADRAO, interpretarPedido("tira o burn, quero ver a pagar"));
   const frases = descreverMudancas(LAYOUT_PADRAO, depois, interpretarPedido("tira o burn, quero ver a pagar"));
   ok("chat: diz o que subiu e o que saiu", frases.some((f) => /Para o topo: Contas a pagar/.test(f)) && frases.some((f) => /Escondidos: Burn mensal/.test(f)), JSON.stringify(frases));
-  const ja = interpretarPedido("quero ver a maquininha primeiro");
+  const ja = interpretarPedido("quero ver o saldo total em contas primeiro");
   ok("chat: pedir o que já está assim não anuncia mudança", descreverMudancas(LAYOUT_PADRAO, aplicarAcoes(LAYOUT_PADRAO, ja), ja).length === 0);
   ok("chat: \"já está desse jeito\" quando nada mudou", respostaDoAjuste(ja, []).mudou === false && /já está/.test(respostaDoAjuste(ja, []).abertura));
   ok("chat: sem item no pedido, diz quais existem", /Caixa consolidado/.test(respostaDoAjuste([], []).fecho) && !respostaDoAjuste([], []).mudou);
   ok("chat: mudou → oferece seguir", respostaDoAjuste(ja, ["x"]).mudou && /mais alguma coisa/.test(respostaDoAjuste(ja, ["x"]).fecho));
 
   // o arranjo guardado
-  ok("arranjo: item que faltava volta no lugar padrão, nunca some", normalizarLayout({ ordem: ["pagar", "caixa"], ocultos: [] })!.ordem.length === 10);
+  ok("arranjo: item que faltava volta no lugar padrão, nunca some", normalizarLayout({ ordem: ["pagar", "caixa"], ocultos: [] })!.ordem.length === 11);
   ok("arranjo: id estranho e repetido saem", JSON.stringify(normalizarLayout({ ordem: ["caixa", "caixa", "lucro"], ocultos: ["x", "burn"] })!.ocultos) === JSON.stringify(["burn"]));
   ok("arranjo: lixo é ausente, não vazio", normalizarLayout("x") === null && normalizarLayout([]) === null && normalizarLayout(null) === null);
   const migrado = layoutDasOrdensAntigas({ grandes: ["arr", "caixa"], pequenos: ["receber", "pagar", "burn", "runway"] });
-  ok("arranjo: quem arrastou antes não perde a ordem", migrado?.ordem.slice(1, 7).join() === "arr,caixa,receber,pagar,burn,runway", JSON.stringify(migrado));
+  ok("arranjo: quem arrastou antes não perde a ordem", migrado?.ordem.slice(2, 8).join() === "arr,caixa,receber,pagar,burn,runway", JSON.stringify(migrado));
   ok("arranjo: o bloco que faltava não parte a ordem dos números", normalizarLayout({ ordem: ["receber", "caixa"], ocultos: [] })!.ordem.slice(-3).join() === "acao,fechamento,relatorios");
   ok("arranjo: sem ordem antiga, nada a migrar", layoutDasOrdensAntigas({}) === null && layoutDasOrdensAntigas(null) === null);
-  ok("arranjo: mover troca de lugar", moverItem(LAYOUT_PADRAO, "runway", "caixa").ordem[1] === "runway");
+  ok("arranjo: mover troca de lugar", moverItem(LAYOUT_PADRAO, "runway", "caixa").ordem[2] === "runway");
 
   // a tela
   ok("tela: grandes e pequenos em faixas do MESMO tamanho, na ordem", JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"])).map((f) => f.ids).slice(1, 4)) === JSON.stringify([["pagar", "receber"], ["caixa", "arr"], ["burn", "runway"]]), JSON.stringify(faixasDoPainel(L(["pagar", "caixa", "arr", "burn"]))));
@@ -390,13 +396,13 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
 
   // preferências e servidor
   const comLayout = normalizarPreferencias({ interesses: [], cliques: {}, layout: { ordem: ["pagar", ...LAYOUT_PADRAO.ordem], ocultos: ["burn"] } });
-  ok("prefs: o arranjo é guardado normalizado", comLayout?.layout?.ordem[0] === "pagar" && comLayout.layout.ordem.length === 10 && comLayout.layout.ocultos.join() === "burn");
+  ok("prefs: o arranjo é guardado normalizado", comLayout?.layout?.ordem[1] === "pagar" && comLayout.layout.ordem.length === 11 && comLayout.layout.ocultos.join() === "burn");
   ok("prefs: entrada antiga (sem arranjo) lê como padrão", normalizarPreferencias({ interesses: [], cliques: {} })?.layout === null);
   ok("prefs: a igualdade enxerga o arranjo", !mesmasPreferencias({ interesses: [], cliques: {}, layout: LAYOUT_PADRAO }, { interesses: [], cliques: {}, layout: L(LAYOUT_PADRAO.ordem, ["burn"]) }));
   ok("prefs: o arranjo do servidor vence o do dispositivo",
-    mesclarComDispositivo({ interesses: [], cliques: {}, layout: L(["pagar", ...LAYOUT_PADRAO.ordem]) }, { interesses: [], cliques: {}, layout: L(["burn", ...LAYOUT_PADRAO.ordem]) })?.layout?.ordem[0] === "pagar");
+    mesclarComDispositivo({ interesses: [], cliques: {}, layout: L(["pagar", ...LAYOUT_PADRAO.ordem]) }, { interesses: [], cliques: {}, layout: L(["burn", ...LAYOUT_PADRAO.ordem]) })?.layout?.ordem[1] === "pagar");
   ok("prefs: só o dispositivo tem arranjo → ele entra",
-    mesclarComDispositivo({ interesses: [], cliques: {} }, { interesses: [], cliques: {}, layout: L(["burn", ...LAYOUT_PADRAO.ordem]) })?.layout?.ordem[0] === "burn");
+    mesclarComDispositivo({ interesses: [], cliques: {} }, { interesses: [], cliques: {}, layout: L(["burn", ...LAYOUT_PADRAO.ordem]) })?.layout?.ordem[1] === "burn");
   ok("prefs: gravar o arranjo de uma pessoa não toca nos colegas",
     JSON.stringify(comPreferencias({ outro: { interesses: ["x"], cliques: {} } }, "eu", { interesses: [], cliques: {}, layout: LAYOUT_PADRAO }, "t").outro) === JSON.stringify({ interesses: ["x"], cliques: {} }));
   ok("prefs: a cópia do dispositivo guarda o arranjo", /gravarPreferencia\(LOCAL_LAYOUT/.test(LIB) && /"a4p_home_layout"/.test(readFileSync(new URL("../src/lib/store-org.ts", import.meta.url), "utf8")));
@@ -494,8 +500,8 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   const ROTA_C = readFileSync(new URL("../src/app/api/ai/home-layout/route.ts", import.meta.url), "utf8");
   ok("tela: o card é desenhado pelo MESMO catálogo do cockpit", /CATALOG_BY_ID\.get\(idDoCockpit/.test(TELA_C) && /useCockpitCtx\(\)/.test(TELA_C));
   ok("tela: cada card tem como sair da Home", /Tirar \$\{[^}]+\} da Home/.test(TELA_C));
-  ok("tela: o motor pesado só monta com card na Home", /cardsVisiveis\.length > 0 && \(\s*<CardsDaBiblioteca/.test(TELA_C));
-  ok("tela: os cards moram dentro de \"Seu painel\", sem seção \"Seus cards\"", !/Seus cards/.test(TELA_C) && /Seu painel<\/h2>[\s\S]{0,700}?\{cardsVisiveis\.length > 0/.test(TELA_C));
+  ok("tela: o motor pesado só monta com card na Home", /cardsVisiveis\.length > 0 \? \(\s*<CardsDaBiblioteca/.test(TELA_C));
+  ok("tela: os cards moram dentro de \"Seu painel\" (logo abaixo da faixa do saldo em contas), sem seção \"Seus cards\"", !/Seus cards/.test(TELA_C) && /Seu painel<\/h2>[\s\S]{0,700}?\{\(isLoading \|\| !snap\) && cards\}[\s\S]*?\{k === 0 && cards\}[\s\S]*?<\/section>/.test(TELA_C));
   // "Ajustar prioridades" mora ao lado do título "Seu painel" (dono, 16/10/2026), não na caixa da IA.
   ok("tela: \"Ajustar prioridades\" ao lado de \"Seu painel\"",
     /Seu painel<\/h2>[\s\S]{0,400}?Ajustar prioridades/.test(TELA_C) && !/function CaixaIA[\s\S]*?Ajustar prioridades[\s\S]*?function MicIcon/.test(TELA_C));
@@ -647,6 +653,25 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
   const CARD = readFileSync(new URL("../src/components/visao-geral/MaquininhaRecentes.tsx", import.meta.url), "utf8");
   ok("card: o filtro Hoje/Semana/Mês e o total do período", /SeletorPeriodoMaquininha/.test(CARD) && /montarRelatorioMaquininha\(/.test(CARD) && /v\.semana/.test(CARD));
 }
+
+// ── SALDO TOTAL EM CONTAS (27/10/2026): o card principal da Home ──
+{
+    const r = saldoEmContas([
+    { id: "a", name: "Itaú · Conta Movimento", bank: "itau", balance: 1000.1 },
+    { id: "b", name: "Itaú · Reserva", bank: "itau", balance: 0.2 },
+    { id: "c", name: "Inter Empresas", bank: "inter", balance: 3000 },
+    { id: "d", name: "Nubank PJ", bank: "nubank", balance: -500 },
+  ]);
+  ok("contas: o total é a soma de todas, ao centavo", r.total === 3500.3, String(r.total));
+  ok("contas: duas contas do mesmo banco viram UMA bolinha", r.bancos.length === 3 && r.bancos.find((b) => b.banco === "itau")?.contas === 2 && r.bancos.find((b) => b.banco === "itau")?.saldo === 1000.3);
+  ok("contas: o maior saldo primeiro", r.bancos[0].banco === "inter");
+  ok("contas: a parte divide só o positivo e o negativo não ganha parte", r.bancos.find((b) => b.banco === "nubank")?.parte === 0 && Math.abs(r.bancos.reduce((s, b) => s + (b.parte ?? 0), 0) - 1) < 1e-9);
+  const vazio = saldoEmContas([]);
+  ok("contas: sem conta, zero contas (a tela diz que falta conta, não R$ 0,00)", vazio.contas === 0 && vazio.bancos.length === 0);
+  const TELA_CONTAS = readFileSync(new URL("../src/components/visao-geral/SaldoEmContas.tsx", import.meta.url), "utf8");
+  ok("contas: o card não soma nada por conta própria", !/\.reduce\(/.test(TELA_CONTAS) && /saldoEmContas\(/.test(TELA_CONTAS));
+}
+
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — sugestões da Home (${empresa.length} de empresa, ${CATALOGO_SUGESTOES.length - empresa.length} pessoais)`);
 if (fails > 0) process.exit(1);
