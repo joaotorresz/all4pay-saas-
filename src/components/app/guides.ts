@@ -128,7 +128,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Campfire (engines locais) ----------------------------- */
-  "/orcamento": {
+  "/orcamento/realizado": {
     titulo: "Orçamento vs Realizado",
     intro: "Compara cada linha do resultado contra o orçamento e EXPLICA o desvio até a categoria e a transação (flux analysis). Sem orçamento manual, usa baseline automático (run-rate).",
     comoUsar: "Escolha período e regime. Em 'Editar orçamento', informe o valor mensal por linha (em branco = automático). Abra cada linha para ver categorias e transações que explicam o desvio.",
@@ -375,7 +375,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Inteligência (Pro) ----------------------------- */
-  "/quattro-ai?aba=quant": {
+  "/inteligencia": {
     titulo: "Inteligência — camada quantitativa",
     intro: "O 'Bloomberg para PMEs': transforma lançamentos em métricas executivas, score de saúde, radar, projeção e interpretação de CFO digital.",
     comoUsar: "Leia o score e o radar; abra os KPIs e os cenários preditivos; compare com o benchmark do setor.",
@@ -388,7 +388,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/quattro-ai?aba=risco": {
+  "/risco": {
     titulo: "Risco de caixa",
     intro: "Motor proprietário de risco operacional: score, runway, ruptura e stress — explicável (cada pilar com peso e nota).",
     comoUsar: "Leia o score e a probabilidade de ruptura; veja o runway por cenário e rode o stress testing.",
@@ -401,7 +401,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/quattro-ai?aba=decisao": {
+  "/decisao": {
     titulo: "Decisão — Financial Decision Layer",
     intro: "Industrializa a inteligência: interpreta, pontua risco (matriz probabilística), prevê (Monte Carlo) e recomenda com impacto quantificado (re-roda o motor de risco).",
     comoUsar: "Leia o headline, a matriz de risco e a previsão; cada recomendação mostra Δrunway/Δscore reais — aprove o plano autônomo conforme os guardrails.",
@@ -414,7 +414,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/quattro-ai?aba=autonomo": {
+  "/autonomo": {
     titulo: "Autônomo — operação supervisionada",
     intro: "O salto de 'informar o problema' para decidir e executar, com você como supervisor: políticas SE→ENTÃO, cobrança e roteamento de pagamento autônomos.",
     comoUsar: "Veja a próxima melhor ação e as decisões tipadas; ações reversíveis executam sozinhas, mover dinheiro acima do limite vai para aprovação (HITL).",
@@ -561,7 +561,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Plano de contratações ----------------------------- */
-  "/simuladores?aba=contratacoes": {
+  "/contratacoes": {
     titulo: "Plano de contratações",
     intro: "Headcount planning × runway: monte o plano de vagas e veja o impacto REAL no caixa antes de contratar — cada vaga entra com salário + 13º + férias com 1/3 + FGTS (~1,3× o salário).",
     comoUsar: "Adicione as vagas (cargo, salário, quantidade, mês de início). O painel ao lado recalcula custo do plano, runway e score antes/depois, e projeta o caixa mês a mês por 12 meses.",
@@ -790,7 +790,7 @@ Object.assign(GUIDES, {
 
 export function guideForPath(pathname: string, aba?: string | null, painel?: string | null): Guide | null {
   // `?painel=` é o parâmetro das telas que também vivem como aba de outro hub
-  // (ver `HubShell.param`) — as Aprovações usam-no para a governança.
+  // — as Aprovações usam-no para a governança.
   if (painel && GUIDES[`${pathname}?painel=${painel}`]) return GUIDES[`${pathname}?painel=${painel}`];
   const tab = aba || PADRAO_DO_HUB[pathname];
   if (tab && GUIDES[`${pathname}?aba=${tab}`]) return GUIDES[`${pathname}?aba=${tab}`];

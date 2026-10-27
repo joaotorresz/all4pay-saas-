@@ -115,11 +115,9 @@ export const ALIASES: Alias[] = [
   { de: "/recebimentos", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/pagamentos", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
 
-  // — hub COPILOTO (todos exigem plano Pro; ver `core/planos`) —
-  { de: "/risco", para: "/quattro-ai?aba=risco", motivo: "motor de risco virou aba do copiloto" },
-  { de: "/decisao", para: "/quattro-ai?aba=decisao", motivo: "motor de decisão virou aba do copiloto" },
-  { de: "/autonomo", para: "/quattro-ai?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
-  { de: "/inteligencia", para: "/quattro-ai?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
+  // — hub COPILOTO: `/risco`, `/decisao`, `/autonomo` e `/inteligencia`
+  // voltaram a ser PÁGINAS em 27/10/2026 (fim das abas internas), Pro pelo
+  // servidor (`ROTAS_PRO`). Os aliases deles saíram. —
 
   // — PAINÉIS CURADOS aposentados (corte de superfície, 05/08/2026) —
   //
@@ -145,8 +143,7 @@ export const ALIASES: Alias[] = [
   { de: "/dashboard/purchases/received-boletos", para: "/contas-a-pagar/caixa-de-entrada?caixa=boletos", motivo: "remodelação do menu (19/10/2026): virou aba da caixa de entrada dos títulos a pagar" },
   { de: "/dashboard/financial/accounts-and-transfers", para: "/dashboard/financial/transfers", motivo: "virou aba de Contas e cartões (19/10) e, sem abas internas (27/10/2026), a página Transferências" },
   { de: "/dashboard/reports/cash-flow", para: "/dashboard/reports/dfc?aba=mensal", motivo: "remodelação do menu (19/10/2026): virou aba do DFC" },
-  { de: "/dashboard/registrations/budgets", para: "/orcamento?aba=orcamentos", motivo: "remodelação do menu (19/10/2026): virou aba do Orçamento" },
-  { de: "/contratacoes", para: "/simuladores?aba=contratacoes", motivo: "remodelação do menu (19/10/2026): virou aba dos Simuladores" },
+  { de: "/dashboard/registrations/budgets", para: "/orcamento", motivo: "virou aba do Orçamento (19/10) e, sem abas internas (27/10/2026), a página Orçamentos" },
   { de: "/dashboard/reports", para: "/dashboard/reports/dre", motivo: "hub de relatórios aposentado: cada relatório é um item do menu" },
   { de: "/dashboard/administration", para: "/dashboard/administration/company-data", motivo: "hub de administração aposentado: cada seção é um item de Configurações" },
 ];
@@ -181,19 +178,28 @@ export const ROTAS_REMOVIDAS: Alias[] = [
  * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
  */
 export const ALIASES_DE_ABA: Alias[] = [
+  // — FIM DAS ABAS INTERNAS, etapa 4 (27/10/2026) —
+  { de: "/orcamento?aba=orcamentos", para: "/orcamento", motivo: "aba da tela Orçamento, desativada em 27/10/2026: virou a página Orçamentos" },
+  { de: "/orcamento?aba=variancia", para: "/orcamento/realizado", motivo: "aba da tela Orçamento, desativada em 27/10/2026: virou a página Planejado × Realizado" },
+  { de: "/simuladores?aba=posso-comprar", para: "/simuladores", motivo: "aba da tela Simuladores, desativada em 27/10/2026: o endereço ficou com o Posso comprar?" },
+  { de: "/simuladores?aba=contratacoes", para: "/contratacoes", motivo: "aba da tela Simuladores, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/quattro-ai?aba=risco", para: "/risco", motivo: "aba da Quattro AI, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/quattro-ai?aba=decisao", para: "/decisao", motivo: "aba da Quattro AI, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/quattro-ai?aba=quant", para: "/inteligencia", motivo: "aba da Quattro AI, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/quattro-ai?aba=autonomo", para: "/autonomo", motivo: "aba da Quattro AI, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/dashboard/sales-invoices?aba=pedidos", para: "/contas-a-receber/painel-de-vendas", motivo: "aba da tela Vendas, desativada em 27/10/2026: a lista de vendas mora no Painel de vendas" },
   { de: "/dashboard/sales-invoices?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/dashboard/sales-invoices?aba=links", para: "/dashboard/sales-invoices/payment-links", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/dashboard/sales-invoices?aba=maquininha", para: "/pos/venda", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/dashboard/sales-invoices?aba=taxas", para: "/pos/taxas", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
-  { de: "/all4pay-ai?aba=quant", para: "/quattro-ai?aba=quant", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
-  { de: "/all4pay-ai?aba=decisao", para: "/quattro-ai?aba=decisao", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
-  { de: "/all4pay-ai?aba=risco", para: "/quattro-ai?aba=risco", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
-  { de: "/all4pay-ai?aba=autonomo", para: "/quattro-ai?aba=autonomo", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
-  { de: "/copiloto?aba=quant", para: "/quattro-ai?aba=quant", motivo: "aba do copiloto aposentado (mapa, item 6)" },
-  { de: "/copiloto?aba=decisao", para: "/quattro-ai?aba=decisao", motivo: "aba do copiloto aposentado (mapa, item 6)" },
-  { de: "/copiloto?aba=risco", para: "/quattro-ai?aba=risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
-  { de: "/copiloto?aba=autonomo", para: "/quattro-ai?aba=autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/all4pay-ai?aba=quant", para: "/inteligencia", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/all4pay-ai?aba=decisao", para: "/decisao", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/all4pay-ai?aba=risco", para: "/risco", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/all4pay-ai?aba=autonomo", para: "/autonomo", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/copiloto?aba=quant", para: "/inteligencia", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=decisao", para: "/decisao", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=risco", para: "/risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=autonomo", para: "/autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
@@ -270,7 +276,7 @@ export const ALIASES_DE_ABA: Alias[] = [
   },
   {
     de: "/cadastros?aba=orcamento",
-    para: "/orcamento?aba=orcamentos",
+    para: "/orcamento",
     motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
   },
 

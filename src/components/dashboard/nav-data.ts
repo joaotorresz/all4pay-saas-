@@ -210,7 +210,8 @@ export const SECTIONS: Section[] = [
       { label: "DFC", desc: "Caixa pela data de pagamento, por período e mês a mês", href: "/dashboard/reports/dfc", icon: "trending-up" },
       { label: "Balanço patrimonial", desc: "Ativo, passivo e PL em duas datas", href: "/dashboard/reports/balance-sheet", icon: "layers" },
       { label: "Análise de variação", desc: "O que mudou no mês, e por quê", href: "/dashboard/reports/variance", icon: "activity" },
-      { label: "Orçamento", desc: "O previsto e o confronto com o real", href: "/orcamento", icon: "target" },
+      { label: "Orçamentos", desc: "O previsto, por categoria e mês", href: "/orcamento", icon: "target" },
+      { label: "Planejado × Realizado", desc: "O orçado contra o que aconteceu", href: "/orcamento/realizado", icon: "target" },
       { label: "DRE multiempresas", desc: "O resultado do grupo, empresa a empresa", href: "/dashboard/reports/dre-multi", icon: "building" },
       { label: "DFC multiempresas", desc: "O caixa do grupo, empresa a empresa", href: "/dashboard/reports/dfc-multi", icon: "building" },
       { label: "Posição consolidada", desc: "Saldo e resultado do grupo, com eliminações", href: "/consolidado", icon: "building", pro: true },
@@ -222,12 +223,16 @@ export const SECTIONS: Section[] = [
     // ⚠️ A linha "Quattro AI" NÃO navega: ela abre o chat em tela cheia por
     // cima da tela atual (evento `a4p:open-ia`). Desde 14/10/2026 o botão
     // flutuante saiu e a conversa mora num lugar só; esta linha, o ⌘K e a
-    // caixa da Home são portas para o MESMO chat. Os motores seguem como abas
-    // de "Análises da IA" (eram três linhas para uma tela só).
+    // caixa da Home são portas para o MESMO chat. Os quatro motores são
+    // páginas próprias desde 27/10/2026 (fim das abas internas), todas Pro.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
       { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles", event: "a4p:open-ia" },
-      { label: "Análises da IA", desc: "Risco, decisão, saúde e sugestões", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
-      { label: "Simuladores", desc: "Posso comprar? e plano de contratações", href: "/simuladores", icon: "target" },
+      { label: "Risco de caixa", desc: "Runway, ruptura e stress de caixa", href: "/risco", icon: "triangle-alert", pro: true },
+      { label: "Decisão", desc: "Monte Carlo e recomendações com impacto", href: "/decisao", icon: "target", pro: true },
+      { label: "Saúde financeira", desc: "Score de saúde, radar e cenários", href: "/inteligencia", icon: "gauge", pro: true },
+      { label: "Sugestões da IA", desc: "O que o motor recomenda fazer agora", href: "/autonomo", icon: "sparkles", pro: true },
+      { label: "Posso comprar?", desc: "O que a compra faz com o seu caixa", href: "/simuladores", icon: "target" },
+      { label: "Plano de contratações", desc: "O custo de cada contratação no caixa", href: "/contratacoes", icon: "users", pro: true },
       { label: "Automações", desc: "Mensagens no WhatsApp e alertas do sistema", href: "/automacoes", icon: "workflow" },
     ],
   },
@@ -303,7 +308,7 @@ export const SECTIONS_PESSOAL: Section[] = [
   },
   {
     id: "orcamento", label: "Orçamento e metas", icon: "target", items: [
-      { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento?aba=variancia", icon: "target" },
+      { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento/realizado", icon: "target" },
       { label: "DRE", desc: "Resultado por competência", href: "/dashboard/reports/dre", icon: "trending-up" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "trending-up" },
     ],

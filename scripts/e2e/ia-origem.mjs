@@ -64,7 +64,7 @@ export default async function iaOrigem(navegador) {
   "o número da calculadora é marcado como simulação e não vira link");
 
   // ── Sugestões: a seção Executar existe e não há disparo cru ──
-  await u.ir("/quattro-ai?aba=autonomo");
+  await u.ir("/autonomo");
   await u.page.getByText("Sugestões da Quattro AI").first().waitFor({ timeout: 30000 });
   v.ok((await u.page.getByText("Disparar no WhatsApp").count()) === 0, "a aba Sugestões não tem mais o disparo cru de WhatsApp");
   const enviar = u.page.locator('[data-executa="envia"]').first();

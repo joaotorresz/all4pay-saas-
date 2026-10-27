@@ -62,8 +62,8 @@ export const TELAS = {
   fluxoMes: { rota: "/dashboard/reports/dfc?aba=mensal", tela: "Fluxo de caixa (relatório)" },
   variacao: { rota: "/dashboard/reports/variance", tela: "Análise de variação" },
   recorrentes: { rota: "/contas-a-pagar/recorrentes", tela: "Contas recorrentes" },
-  quant: { rota: "/quattro-ai?aba=quant", tela: "Quant" },
-  simulador: { rota: "/simuladores?aba=posso-comprar", tela: "Posso comprar?" },
+  quant: { rota: "/inteligencia", tela: "Quant" },
+  simulador: { rota: "/simuladores", tela: "Posso comprar?" },
 } as const satisfies Record<string, OrigemNumero>;
 
 export type Tela = keyof typeof TELAS;

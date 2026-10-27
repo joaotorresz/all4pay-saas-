@@ -8383,8 +8383,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /label: "Quattro AI",[^}]*href: "\/quattro-ai",[^}]*event: "a4p:open-ia"/.test(navIA)
      && /e\.preventDefault\(\);\s*window\.dispatchEvent\(new Event\(it\.event!\)\)/.test(srcIA("src/components/dashboard/Sidebar.tsx")));
   const shellIA = semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"));
-  ok("ia: /quattro-ai sem aba abre o chat, e não há mais aba Conversa",
-     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && /useState<Aba \| null>\(null\)/.test(shellIA));
+  ok("ia: /quattro-ai abre o chat, sem abas (os motores são páginas desde 27/10/2026)",
+     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && !/setAba|aria-current/.test(shellIA));
   const homeIA = semComentIA(srcIA("src/components/visao-geral/HomeSnapshot.tsx"));
   ok("ia: a caixa da Home abre o MESMO chat global (nenhum chat próprio montado nela)",
      /abrirChat\(\{/.test(homeIA) && !/<ChatTelaCheia/.test(homeIA) && !/href="\/quattro-ai"/.test(homeIA));

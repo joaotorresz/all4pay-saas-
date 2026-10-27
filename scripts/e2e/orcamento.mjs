@@ -11,7 +11,7 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
 export default async function orcamento(navegador) {
   const v = verificador("orcamento");
   const u = await novoUsuario(navegador);
-  await u.ir("/orcamento?aba=orcamentos");
+  await u.ir("/orcamento");
 
   await u.page.getByRole("button", { name: "Novo orçamento" }).first().click();
   await u.page.getByPlaceholder("Ex.: Orçamento 2026").fill("Plano de teste");

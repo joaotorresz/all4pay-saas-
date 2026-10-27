@@ -1241,15 +1241,10 @@ const AGOSTO = janelaMes(2026, 7);
   // Sub-rotas entram pelo mesmo prefixo.
   ok("planos: sub-rota herda o bloqueio", exigePro("/investidores/qualquer-coisa"));
 
-  // ⚠️ E o caso que a fusão da IA criou: a CONVERSA é Simples (é a porta da
-  // frente do produto), os quatro MOTORES são Pro e viraram abas dela.
-  // Trancar a rota inteira esconderia o chat de todo mundo.
+  // ⚠️ A CONVERSA é Simples (é a porta da frente do produto); os quatro
+  // MOTORES são Pro. Desde 27/10/2026 eles são páginas próprias, trancadas por
+  // prefixo, e os `?aba=` antigos da conversa desviam para elas.
   ok("planos: a conversa da IA é aberta", !exigePro("/quattro-ai"));
-  for (const motor of ["quant", "decisao", "risco", "autonomo"]) {
-    ok(`planos: o motor ${motor} exige Pro`, exigePro(`/quattro-ai?aba=${motor}`));
-  }
-  // E os endereços legados dos motores continuam trancados — senão o
-  // redirecionamento seria a porta lateral que o gate deveria fechar.
   for (const legada of ["/risco", "/decisao", "/autonomo", "/inteligencia"]) {
     ok(`planos: a rota legada ${legada} continua trancada`, exigePro(legada));
   }
@@ -2115,15 +2110,27 @@ const AGOSTO = janelaMes(2026, 7);
   ok("rotas: alias de rota Pro não desemboca em rota aberta", vazamentos.length === 0,
      `${vazamentos.map((a) => `${a.de}→${a.para}`).join(", ")}`);
 
-  // E a aba paga dentro de hub do Simples continua trancada, sem trancar o hub.
-  // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
-  // aberta seguem Pro pelo par rota+aba, e a tela continua aberta.
-  for (const [hub, paga, aberta] of [
-    ["/simuladores", "contratacoes", "posso-comprar"],
-  ]) {
-    ok(`rotas: a aba paga exige Pro (${hub}?aba=${paga})`, exigePro(`${hub}?aba=${paga}`));
-    ok(`rotas: a tela em si continua aberta (${hub})`, !exigePro(hub));
-    ok(`rotas: outra aba continua aberta (${hub}?aba=${aberta})`, !exigePro(`${hub}?aba=${aberta}`));
+  // Etapa 4 do fim das abas internas (27/10/2026): o plano de contratações
+  // saiu de Simuladores e virou página Pro; "Posso comprar?" segue aberto.
+  ok("rotas: Plano de contratações (ex-aba de Simuladores) exige Pro", exigePro("/contratacoes"));
+  ok("rotas: Posso comprar? continua aberta", !exigePro("/simuladores"));
+  ok("rotas: Orçamentos e Planejado × Realizado continuam abertas", !exigePro("/orcamento") && !exigePro("/orcamento/realizado"));
+  // ⚠️ O COMPONENTE DE ABAS SAIU DO SISTEMA (decisão do dono, 27/10/2026:
+  // "acabar com páginas que dentro de uma página têm duas páginas"). Tela
+  // irmã vira item de menu; partes da mesma pergunta viram seções empilhadas
+  // (`Secoes`). Esta guarda impede o `HubShell` de voltar por outro nome.
+  {
+    ok("abas: o HubShell não existe mais", !existsSync("src/components/app/HubShell.tsx"));
+    const quem: string[] = [];
+    const varrer = (d: string) => {
+      for (const n of readdirSync(d)) {
+        const f = `${d}/${n}`;
+        if (statSync(f).isDirectory()) varrer(f);
+        else if (/\.tsx?$/.test(n) && /\bHubShell\b|\bAbaHub\b/.test(readFileSync(f, "utf8"))) quem.push(f);
+      }
+    };
+    varrer("src");
+    ok("abas: nenhuma tela usa o componente de abas", quem.length === 0, quem.join(", "));
   }
   // O fim das abas internas (27/10/2026): as abas Pro de `/central` viraram
   // telas próprias. Elas seguem Pro pelo prefixo; as baixas seguem abertas.

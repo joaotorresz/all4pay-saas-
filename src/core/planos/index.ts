@@ -98,14 +98,9 @@ const SEMPRE_ABERTAS = [
  * trava é pelo par rota+aba.
  */
 const ABAS_PRO: { rota: string; param: string; valores: string[] }[] = [
-  // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
-  // aberta continuam Pro pelo par rota+aba.
-  { rota: "/simuladores", param: "aba", valores: ["contratacoes"] },
-  // ⚠️ A CONVERSA é Simples — é a porta da frente do produto. Os quatro
-  // MOTORES (quant, decisão, risco, autônomo) são Pro, e desde a fusão do
-  // item 6 eles são abas dela. Trancar `/quattro-ai` inteiro esconderia o chat
-  // de todo mundo; trancar por aba fecha o que é pago e deixa a porta aberta.
-  { rota: "/quattro-ai", param: "aba", valores: ["quant", "decisao", "risco", "autonomo"] },
+  // Vazia desde 27/10/2026: as telas Pro que eram aba (Plano de contratações
+  // e os quatro motores da Quattro AI) voltaram a ser páginas, trancadas por
+  // prefixo em `ROTAS_PRO`. A trava por par rota+aba fica para o caso raro.
 ];
 
 /**
