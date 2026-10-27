@@ -50,7 +50,7 @@ import { montarHomeSnapshot } from "@/core/home/snapshot";
 import {
   ITENS_HOME, LAYOUT_PADRAO, aplicarAcoes, descreverMudancas, faixasDoPainel, interpretarPedido, itensCitados,
   layoutDasOrdensAntigas, moverItem, normalizarAcoes, normalizarLayout, ordemDasSecoes, itemAproximado, respostaDoAjuste, visiveis,
-  CARDS_HOME, TETO_CARDS, cardsNaHome, LARGURAS_HOME, definirLargura, larguraDe, larguraMaisPerto, larguraVizinha, mesmoLayout, cardsRecusados, catalogoPorTema, ehCard, pedeCatalogo, respostaDoCatalogo,
+  CARDS_HOME, TETO_CARDS, cardsNaHome, LARGURAS_HOME, definirLargura, larguraDe, larguraMaisPerto, larguraVizinha, largurasDe, LARGURAS_DO_FIXO, mesmoLayout, cardsRecusados, catalogoPorTema, ehCard, pedeCatalogo, respostaDoCatalogo,
   type AcaoHome, type IdHome, type IdItemHome, type LayoutHome,
 } from "@/core/home/itens";
 import { CARDS_BIBLIOTECA, EQUIVALENTES_AO_PAINEL, TEMAS_CARD } from "@/core/home/biblioteca";
@@ -519,6 +519,18 @@ ok("prefs: a cópia do dispositivo também guarda as exibições", /gravarPrefer
     larguraDe(moverItem(largo, "caixa", "arr"), "caixa") === 9
       && larguraDe(aplicarAcoes(largo, [{ tipo: "esconder", id: "burn" }]), "caixa") === 9
       && aplicarAcoes(largo, [{ tipo: "restaurar" }]).larguras === undefined);
+  // O saldo em contas só aceita ⅓, ½ ou a linha inteira (dono, 27/10/2026).
+  ok("largura do saldo: só um terço, metade ou inteira",
+    JSON.stringify(largurasDe("contas")) === JSON.stringify([4, 6, 12]) && LARGURAS_DO_FIXO.length === 3
+      && larguraMaisPerto(0.7, largurasDe("contas")) === 6 && larguraMaisPerto(0.9, largurasDe("contas")) === 12
+      && larguraMaisPerto(0.2, largurasDe("contas")) === 4);
+  ok("largura do saldo: as setas pulam ⅔ e ¾",
+    larguraVizinha(6, 1, largurasDe("contas")) === 12 && larguraVizinha(12, -1, largurasDe("contas")) === 6 && larguraVizinha(4, -1, largurasDe("contas")) === 4);
+  ok("largura do saldo: a de antes (⅔) encaixa na permitida", larguraDe({ ...LAYOUT_PADRAO, larguras: { contas: 8 } }, "contas") === 6);
+  ok("largura do saldo: a metade escolhida fica guardada (sem ela a tela esticava o card sozinho)",
+    definirLargura(definirLargura(LAYOUT_PADRAO, "contas", 12), "contas", 6).larguras?.contas === 6);
+  ok("tela: o saldo oculto segue no papel de número (Agrandir)",
+    /a4p-num[^"]*" aria-label="Saldo oculto"><span data-num/.test(readFileSync(new URL("../src/components/visao-geral/SaldoEmContas.tsx", import.meta.url), "utf8")));
   ok("tela: a borda do card é um separador que arrasta e responde às setas",
     /role="separator"/.test(TELA_C) && /larguraMaisPerto\(/.test(TELA_C) && /aoPasso\(-1\)/.test(TELA_C) && /lg:grid-cols-12/.test(TELA_C));
 

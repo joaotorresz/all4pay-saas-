@@ -23,6 +23,13 @@ export interface FinancialRecord {
   contraparte: string; // bruto
   contraparteNorm: string; // normalizado (entity resolution)
   documento?: string;
+  /**
+   * O MCC do estabelecimento (compra no cartão): `<SIC>` do OFX, coluna "MCC"
+   * da planilha ou o que a IA leu na fatura. Quatro dígitos; ausente fora do
+   * cartão. Não entra no `fingerprint` — o mesmo lançamento lido de um OFX com
+   * MCC e de um PDF sem ele continua sendo o mesmo.
+   */
+  mcc?: string;
   fingerprint: string;
   /**
    * A competência DITA pela pessoa na revisão (Rodada 8). Ausente, o

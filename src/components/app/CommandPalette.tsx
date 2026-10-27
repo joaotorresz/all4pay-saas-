@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { abrirCriacao } from "@/components/app/criacao";
+import { tipoDaRota } from "@/core/criar";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/ui";
 import { listParties, listProducts, listServices, listSales } from "@/lib/cadastros";
@@ -32,13 +34,13 @@ const ROUTES: RouteItem[] = [
   { label: "Open Finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes calendario financeiro dia vencimento fluxo diario saldo total agenda financeira" },
   { label: "Painel de vendas", href: "/contas-a-receber/painel-de-vendas", icon: "gauge", kw: "painel vendas pedidos nova venda emitir nf notas fiscais status venda plataforma hotmart taxa liquido faturamento reembolso chargeback calendario status titulos contas a receber lista recebidas atrasadas cliente vencimento baixa lote inadimplencia a vencer periodo mes semana" },
-  { label: "Títulos a pagar", href: "/contas-a-pagar/titulos", icon: "arrow-up-right", kw: "contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie dash painel a vencer periodo" },
-  { label: "Transferências entre contas", href: "/dashboard/registrations/bank-accounts?aba=transferencias", icon: "arrow-left-right", kw: "transferencia entre contas origem destino ted doc chegada conciliacao" },
+  { label: "Painel de despesas", href: "/contas-a-pagar/painel-de-despesas", icon: "gauge", kw: "painel despesas central de despesas contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie dash a vencer periodo calendario status compras pedido de compra aprovacao aprovada reprovada aguardando competencia" },
+  { label: "Transferências entre contas", href: "/dashboard/financial/transfers", icon: "arrow-left-right", kw: "transferencia entre contas origem destino ted doc chegada conciliacao" },
   { label: "Nova conta a receber", href: "/dashboard/financial/receivables/new", icon: "plus", kw: "nova conta a receber lancar titulo cliente competencia vencimento rateio anexo repetir" },
   { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus", kw: "nova conta a pagar lancar titulo fornecedor especie nfe nfse pix rateio anexo" },
   { label: "Conciliação bancária", href: "/dashboard/financial/reconciliation", icon: "list-checks", kw: "conciliacao bancaria ofx regras quadros conferencia fechamento extrato bater reconciliacao matching conciliar ingestao open finance ofx extrato banco" },
   { label: "Extrato", href: "/dashboard/financial/statement", icon: "receipt", kw: "extrato conta bancaria saldo corrente periodo movimentacoes" },
-  { label: "Fatura do cartão", href: "/dashboard/registrations/bank-accounts?aba=faturas", icon: "credit-card", kw: "fatura cartao de credito ciclo fechamento vencimento aberta paga parcial" },
+  { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card", kw: "fatura cartao de credito ciclo fechamento vencimento aberta paga parcial" },
   { label: "Fluxo de caixa mensal", href: "/dashboard/reports/dfc?aba=mensal", icon: "trending-up", kw: "fluxo de caixa mensal saldo inicial final entradas saidas transferencia contas" },
   { label: "Importar em lote (planilha)", href: "/upload", icon: "upload", kw: "importar lote planilha xlsx csv ofx extrato modelo contas a receber pagar" },
   // A Quattro AI tem UMA superfície: o chat em tela cheia, por cima da tela
@@ -47,10 +49,10 @@ const ROUTES: RouteItem[] = [
   { label: "Automações", href: "/automacoes", icon: "workflow", kw: "automacao fluxo whatsapp mensagem agendar agenda envio relatorio maquininha contas a pagar n8n" },
   { label: "Relatório ao investidor", href: "/investidores", icon: "mail", kw: "investor update investidor relatorio mensal mrr arr burn runway captacao board email" },
   { label: "Plano de contratações", href: "/simuladores?aba=contratacoes", icon: "users", kw: "headcount contratacao contratar vaga equipe folha salario encargos runway plano time hiring" },
-  { label: "Razão contábil", href: "/contabilidade?aba=razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
-  { label: "Consolidado", href: "/dashboard/reports/dre-multi?aba=consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
-  { label: "Envio de NFs ao contador", href: "/exportar?aba=nfs", icon: "mail", kw: "envio nfs contador xml mensal destinatario email verificado escritorio contabil pacote" },
-  { label: "Gerar TXT contábil (Domínio)", href: "/exportar?aba=dominio", icon: "file-text", kw: "txt contabil dominio lanctos partidas simples extrato exportar escritorio ansi" },
+  { label: "Razão contábil", href: "/contabilidade", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
+  { label: "Consolidado", href: "/consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
+  { label: "Envio de NFs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail", kw: "envio nfs contador xml mensal destinatario email verificado escritorio contabil pacote" },
+  { label: "Gerar TXT contábil (Domínio)", href: "/dashboard/accounting/dominio-export", icon: "file-text", kw: "txt contabil dominio lanctos partidas simples extrato exportar escritorio ansi" },
   { label: "Assinatura e plano", href: "/dashboard/administration/subscription", icon: "credit-card", kw: "assinatura plano expiracao usuarios ativos contas open finance panorama" },
   { label: "Empresa", href: "/dashboard/administration/company-data", icon: "building", kw: "dados empresa cnpj razao social logo regime tributario endereco contatos preferencias" },
   { label: "Usuários e papéis", href: "/dashboard/administration/users", icon: "users", kw: "usuarios permissoes perfil admin convidar remover acesso equipe" },
@@ -63,16 +65,16 @@ const ROUTES: RouteItem[] = [
   { label: "DRE", href: "/dashboard/reports/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa dre relatorio cascata analise vertical horizontal ebitda margem contribuicao exportar pdf xlsx" },
   { label: "DFC", href: "/dashboard/reports/dfc", icon: "file-text", kw: "dfc demonstracao fluxo de caixa saldo inicial regime caixa relatorio" },
   { label: "DRE multiempresas", href: "/dashboard/reports/dre-multi", icon: "building", kw: "dre multiempresas consolidado grupo holding varias empresas" },
-  { label: "DFC multiempresas", href: "/dashboard/reports/dre-multi?aba=dfc", icon: "building", kw: "dfc multiempresas consolidado grupo holding fluxo de caixa" },
+  { label: "DFC multiempresas", href: "/dashboard/reports/dfc-multi", icon: "building", kw: "dfc multiempresas consolidado grupo holding fluxo de caixa" },
   { label: "Balanço patrimonial", href: "/dashboard/reports/balance-sheet", icon: "layers", kw: "balanco patrimonial ativo passivo patrimonio liquido comparativo posicao contas" },
   { label: "Análise de variação", href: "/dashboard/reports/variance", icon: "trending-up", kw: "variacao flux analise o que mudou mes anterior explicacao comentario conselho diferenca dre" },
   { label: "Régua de cobrança", href: "/dashboard/financial/overdue", icon: "smartphone", kw: "regua cobranca lembrete aviso atraso whatsapp email protesto negativacao dunning cobrar cliente" },
   { label: "Relatório do fechamento", href: "/dashboard/reports/monthly-closing?painel=relatorio", icon: "file-text", kw: "fechamento mensal relatorio analise kpi pontos de atencao docx word assinatura" },
   { label: "Planejado × Realizado", href: "/orcamento", icon: "receipt", kw: "orcamento budget variancia flux analysis orcado realizado desvio analise variacao planejado" },
   { label: "Fechamento mensal", href: "/dashboard/reports/monthly-closing", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },
-  { label: "Cronogramas (amort./deprec.)", href: "/contabilidade?aba=cronogramas", icon: "layers", kw: "amortizacao depreciacao despesa antecipada prepaid ativo imobilizado fixed asset cronograma schedule" },
-  { label: "Reconhecimento de receita", href: "/contabilidade?aba=receita", icon: "trending-up", kw: "reconhecimento receita diferida deferred revenue mrr arr waterfall ifrs 15 cpc 47 asc 606 recorrencia assinatura" },
-  { label: "Dimensões e tags", href: "/contabilidade?aba=dimensoes", icon: "layers", kw: "dimensoes tags pivot drill-down categoria centro custo contraparte relatorio dinamico" },
+  { label: "Cronogramas (amort./deprec.)", href: "/cronogramas", icon: "layers", kw: "amortizacao depreciacao despesa antecipada prepaid ativo imobilizado fixed asset cronograma schedule" },
+  { label: "Reconhecimento de receita", href: "/receita", icon: "trending-up", kw: "reconhecimento receita diferida deferred revenue mrr arr waterfall ifrs 15 cpc 47 asc 606 recorrencia assinatura" },
+  { label: "Dimensões e tags", href: "/dimensoes", icon: "layers", kw: "dimensoes tags pivot drill-down categoria centro custo contraparte relatorio dinamico" },
   { label: "Quant", href: "/quattro-ai?aba=quant", icon: "activity", kw: "quant kpis score saude" },
   { label: "Motor de decisão", href: "/quattro-ai?aba=decisao", icon: "target", kw: "recomendacoes monte carlo" },
   { label: "Operação autônoma", href: "/quattro-ai?aba=autonomo", icon: "cpu", kw: "cobranca decisoes automatico whatsapp" },
@@ -84,7 +86,6 @@ const ROUTES: RouteItem[] = [
   { label: "Impostos e obrigações", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt", kw: "impostos provisionamento icms pis cofins ipi iss csll inss irpj lucro presumido conta a pagar" },
   { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "credit-card", kw: "link de pagamento qr code cobrar cliente pix checkout" },
   { label: "Assinaturas e recorrência", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat", kw: "assinaturas recorrentes ciclo status cancelada expirada mrr arr churn assinante recorrencia saas produto dashboard de assinaturas" },
-  { label: "Compras", href: "/dashboard/purchases", icon: "shopping-cart", kw: "compras pedido de compra aprovacao aprovada reprovada aguardando fornecedor competencia" },
   { label: "Nova compra", href: "/dashboard/purchases/new", icon: "plus", kw: "nova compra pedido fornecedor parcelado competencia vencimento rateio anexo" },
   { label: "Boletos recebidos", href: "/contas-a-pagar/caixa-de-entrada?caixa=boletos", icon: "file-text", kw: "boleto dda linha digitavel codigo de barras vencido a vencer beneficiario" },
   { label: "NFs recebidas", href: "/contas-a-pagar/caixa-de-entrada?caixa=nfs", icon: "receipt", kw: "nota fiscal recebida sefaz xml chave de acesso danfe fornecedor validacao" },
@@ -244,6 +245,9 @@ export function CommandPalette() {
     setOpen(false);
     if (h.contatoId) { window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: h.contatoId } })); return; }
     if (h.event) { window.dispatchEvent(new Event(h.event)); return; }
+    // Um destino de CRIAÇÃO abre a porta única (o mesmo pop-up de todo "Novo").
+    const tipo = tipoDaRota(h.href);
+    if (tipo) { abrirCriacao(tipo); return; }
     router.push(h.href);
   };
 

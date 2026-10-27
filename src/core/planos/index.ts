@@ -100,7 +100,6 @@ const SEMPRE_ABERTAS = [
 const ABAS_PRO: { rota: string; param: string; valores: string[] }[] = [
   // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
   // aberta continuam Pro pelo par rota+aba.
-  { rota: "/dashboard/reports/dre-multi", param: "aba", valores: ["consolidado"] },
   { rota: "/simuladores", param: "aba", valores: ["contratacoes"] },
   // ⚠️ A CONVERSA é Simples — é a porta da frente do produto. Os quatro
   // MOTORES (quant, decisão, risco, autônomo) são Pro, e desde a fusão do

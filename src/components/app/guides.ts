@@ -48,7 +48,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Contabilidade (razão) ----------------------------- */
-  "/contabilidade?aba=razao": {
+  "/contabilidade": {
     titulo: "Razão (General Ledger)",
     intro: "A fonte única da verdade: razão de dupla entrada. Todo lançamento tem débito = crédito (validado no banco). É a base contábil auditável de todo o sistema.",
     comoUsar: "Clique em 'Backfill do histórico' para derivar lançamentos dos seus movimentos; ou 'Novo lançamento' para postar um manual (débito × crédito). Abra cada lançamento para ver as linhas por conta.",
@@ -158,7 +158,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=cronogramas": {
+  "/cronogramas": {
     titulo: "Cronogramas (amortização/depreciação)",
     intro: "Despesas antecipadas (amortização) e ativo imobilizado (depreciação) vivem aqui; os cronogramas consolidam num único lançamento mensal para o razão.",
     comoUsar: "Crie um cronograma (tipo, valor total, vida útil em meses, início, residual). Escolha o mês e clique 'Lançar no razão' para postar a parcela consolidada.",
@@ -174,7 +174,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=receita": {
+  "/receita": {
     titulo: "Reconhecimento de receita",
     intro: "Reconhece a receita ao longo da obrigação (IFRS 15/CPC 47), a partir dos contratos de recorrência: MRR/ARR, receita diferida e waterfall de MRR.",
     comoUsar: "Crie/ative recorrências em /recorrencias. Aqui, clique 'Reconhecer competência no razão' para postar a parcela do mês de cada contrato (receita diferida → receita).",
@@ -190,7 +190,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=dimensoes": {
+  "/dimensoes": {
     titulo: "Dimensões & Tags",
     intro: "Pivota os movimentos por qualquer dimensão e desce da agregação até a transação. Marque tags por transação para criar dimensões ilimitadas.",
     comoUsar: "Escolha a dimensão (categoria/centro/contraparte/tag), o período e o regime. Abra uma linha e use '+ tag' para etiquetar uma transação.",
@@ -225,16 +225,30 @@ export const GUIDES: Record<string, Guide> = {
   /* ----------------------------- Upload / ingestão ----------------------------- */
   "/upload": {
     titulo: "Entrada de dados",
-    intro: "A esteira única de ingestão, em três abas: Conectar (Open Finance/bancos + posição por conta), Enviar (extratos CSV/OFX e documentos por OCR via FDIP) e Conciliar (casa o que entrou com os títulos previstos, baixa única). Tudo o que entra no sistema passa por aqui.",
-    comoUsar: "Escolha a aba: em Conectar, autorize o banco; em Enviar, arraste arquivos (ou cole/use a amostra) e confirme; em Conciliar, revise as filas (auto/sugestão/exceção) e dê baixa.",
-    exemplo: "Conecte o banco (Conectar) → o extrato entra → em Conciliar, um PIX de R$ 1.200 casa com a fatura de R$ 1.200 do cliente; ou arraste um CSV em Enviar → revise e confirme.",
+    intro: "A esteira única de ingestão, numa página só: Enviar extrato (CSV/OFX/PDF e documentos por OCR), Conectar banco (Open Finance + posição por conta) e Revisão (o que precisa de uma pessoa). Regras de categoria e Duplicatas têm página própria no menu.",
+    comoUsar: "Role a página: em Enviar, arraste o arquivo e confirme; em Conectar, autorize o banco; em Revisão, decida o que o sistema não classificou sozinho.",
+    exemplo: "Arraste o extrato do mês em Enviar → confira a prévia e confirme → o que ficou em dúvida aparece em Revisão, logo abaixo.",
     secoes: [
       acoes([
-        { nome: "Conectar", desc: "Open Finance (Pluggy): bancos, extrato e posição consolidada por conta." },
-        { nome: "Enviar", desc: "CSV/OFX/TXT em lote ou PNG/JPG/PDF por OCR; cadastra contatos/categorias e cria os lançamentos." },
-        { nome: "Conciliar", desc: "Matching probabilístico (auto/sugestão/exceção) → baixa do título previsto, sem contar o dinheiro 2x." },
+        { nome: "Enviar extrato", desc: "CSV/OFX/TXT/PDF em lote ou PNG/JPG por OCR; cadastra contatos/categorias e cria os lançamentos." },
+        { nome: "Conectar banco", desc: "Open Finance: bancos, extrato e posição consolidada por conta." },
+        { nome: "Revisão", desc: "A fila do que discorda entre si e precisa de uma pessoa." },
       ]),
     ],
+  },
+  "/upload/regras": {
+    titulo: "Regras de categoria",
+    intro: "Categorização automática por padrão: escreva a regra uma vez e ela vale para toda importação.",
+    comoUsar: "Crie a regra com as condições (contraparte, descrição, valor, CNAE) e a categoria. A ordem é a prioridade: a primeira que casa vence; arraste para reordenar.",
+    exemplo: "Contraparte contém \"posto\" → Combustível. Todos os postos das próximas importações já entram classificados.",
+    secoes: [],
+  },
+  "/upload/duplicatas": {
+    titulo: "Duplicatas",
+    intro: "Encontra as cópias que entraram antes de a importação ficar idempotente e mostra o impacto antes de remover.",
+    comoUsar: "Confira os grupos: o primeiro de cada um fica (é ele que baixas e conciliações já referenciam); as cópias saem depois da sua confirmação.",
+    exemplo: "O mesmo extrato importado duas vezes em julho → 34 cópias listadas com o efeito no caixa → remover.",
+    secoes: [],
   },
   /* ----------------------------- Receber ----------------------------- */
   "/contas-a-receber/painel-de-vendas": {
@@ -290,15 +304,22 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Pagar ----------------------------- */
-  "/contas-a-pagar/titulos": {
-    titulo: "Central de pagamentos",
-    intro: "Executa os títulos de saída lançados, agrupados por período, com seleção múltipla, conta de saída e método. Idempotente (reenviar não paga 2x).",
-    comoUsar: "Selecione os títulos, escolha a conta/método e pague (por linha ou em lote); anexe o comprovante. Títulos acima da alçada ficam bloqueados até aprovação.",
-    exemplo: "Pague 5 fornecedores de uma vez via PIX → o saldo só cai na liquidação; o card 'Contas pagas' registra.",
+  "/contas-a-pagar/painel-de-despesas": {
+    titulo: "Painel de despesas — títulos e compras",
+    intro: "O espelho do Painel de vendas: o período, o calendário das despesas, o status, os títulos a pagar e os pedidos de compra com aprovação numa tela só. A compra nasce como PEDIDO e só vira conta a pagar quando alguém aprova.",
+    comoUsar: "Escolha Esse mês, Essa semana ou Personalizado no alto e, se quiser, um fornecedor, projeto ou centro. Clique num dos cards de títulos para abrir o filtro e a tabela e pagar na linha ou em lote. Mais abaixo, na lista de compras, aprove ou reprove cada pedido: aprovar coloca as parcelas no fluxo, reprovar as retira.",
+    exemplo: "Um pedido de R$ 30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$ 10 mil, que aparecem no calendário e nos cards de cima.",
     secoes: [
       acoes([
-        { nome: "Pagar (lote/linha)", desc: "Confirmar pagamento + anexar comprovante.", match: "Pagar" },
-        { nome: "Gate de alçada", desc: "Acima do limite → bloqueado, com link para aprovações." },
+        { nome: "Nova compra", desc: "Abre o pedido: fornecedor, conta, categoria, as duas datas e o valor.", match: "Nova compra" },
+        { nome: "Aprovar / reprovar", desc: "A decisão que move o dinheiro. Reprovar retira os títulos do fluxo." },
+        { nome: "Exportar XLSX", desc: "Baixa os pedidos do filtro atual." },
+      ]),
+      blocos([
+        { nome: "Cards de status", desc: "Aprovadas · aguardando · reprovadas ou canceladas · total, com a fatia de cada uma.", match: "Aprovadas" },
+        { nome: "Data de vencimento/pagamento", desc: "A janela do CAIXA: quando o dinheiro sai. Compra paga entra pela data do pagamento.", match: "Data de vencimento" },
+        { nome: "Data de competência", desc: "A janela do RESULTADO: de que mês é a despesa no DRE.", match: "Data de competência" },
+        { nome: "Parcelas", desc: "O resto dos centavos vai na última parcela; a competência não se parcela.", match: "Pagamento" },
       ]),
     ],
   },
@@ -312,7 +333,7 @@ export const GUIDES: Record<string, Guide> = {
   "/dashboard/financial/reimbursements": {
     titulo: "Reembolsos",
     intro: "Reembolso do colaborador: formulário + itens (com OCR do comprovante) + chave Pix. Roteia pelo mesmo motor de alçada e, ao aprovar, gera uma saída por item.",
-    comoUsar: "O colaborador lança os itens (foto do comprovante extrai os campos) e a chave Pix; ao aprovar, vira saída na Central de pagamentos.",
+    comoUsar: "O colaborador lança os itens (foto do comprovante extrai os campos) e a chave Pix; ao aprovar, vira saída no Painel de despesas.",
     exemplo: "3 notas de despesa de viagem → cada uma vira um lançamento de saída na categoria certa (reflete no DRE).",
     secoes: [],
   },
@@ -509,21 +530,8 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  /* ----------------------------- Contabilidade (integração) ----------------------------- */
-  "/contabilidade": {
-    titulo: "Contabilidade — envio ao contador",
-    intro: "A ponte com o escritório contábil: exporta o movimento (TXT Domínio) e as NFs do período para importação direta no sistema do contador.",
-    comoUsar: "Escolha o período, gere o arquivo TXT e envie ao contador; as NFs seguem no mesmo pacote.",
-    secoes: [
-      blocos([
-        { nome: "Exportação TXT", desc: "Arquivo no layout Domínio com o movimento do período." },
-        { nome: "Notas fiscais", desc: "NFs do período incluídas no envio." },
-      ]),
-    ],
-  },
-
   /* ----------------------------- Consolidado multiempresa ----------------------------- */
-  "/dashboard/reports/dre-multi?aba=consolidado": {
+  "/consolidado": {
     titulo: "Consolidado (multiempresa)",
     intro: "A posição agregada das organizações em que você é membro: saldo, receita, despesa e resultado lado a lado (sem eliminações intercompany na v1).",
     comoUsar: "Compare as empresas e clique numa linha para entrar no contexto dela.",
@@ -592,14 +600,13 @@ export const GUIDES: Record<string, Guide> = {
 /**
  * Guia da tela atual. Com a consolidação em hubs, cada ABA tem o seu guia:
  * a chave passou a ser `"/hub?aba=x"`. Resolve nesta ordem:
- *   1) a aba exata (`/contabilidade?aba=razao`);
+ *   1) a aba exata (`/contabilidade`);
  *   2) o hub inteiro  (`/contabilidade`);
  *   3) o prefixo mais longo (sub-rotas).
  * `aba` vem do `?aba=` da URL; sem ela, o hub cai na primeira aba — por isso
  * `padraoDoHub` mapeia o hub para a aba que ele abre por padrão.
  */
 const PADRAO_DO_HUB: Record<string, string> = {
-  "/contabilidade": "razao",
   "/dashboard/registrations/clients": "contatos",
 };
 
@@ -616,25 +623,6 @@ Object.assign(GUIDES, {
         { nome: "Cadastrar aplicativo autenticador", desc: "Mostra o código QR e a chave, e pede o primeiro código para confirmar.", match: "Cadastrar aplicativo autenticador" },
         { nome: "Adicionar outro aparelho", desc: "Um segundo celular como reserva: sem nenhum, só o suporte retira o segundo fator." },
         { nome: "Remover", desc: "Retira um aparelho. Removido o último, a conta volta a entrar só com a senha." },
-      ]),
-    ],
-  },
-  "/dashboard/purchases": {
-    titulo: "Compras — pedidos com aprovação",
-    intro: "A compra nasce como PEDIDO, não como despesa. Ela só vira conta a pagar quando alguém aprova — é isso que separa esta tela de Contas a pagar.",
-    comoUsar: "Use os filtros de vencimento (caixa) e de competência (resultado) para achar o pedido. Aprove ou reprove na linha: aprovar coloca as parcelas no fluxo, reprovar as retira. Clique em '3×' para ver as parcelas que serão criadas.",
-    exemplo: "Um pedido de R$ 30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$ 10 mil.",
-    secoes: [
-      acoes([
-        { nome: "Nova compra", desc: "Abre o pedido: fornecedor, conta, categoria, as duas datas e o valor.", match: "Nova compra" },
-        { nome: "Aprovar / reprovar", desc: "A decisão que move o dinheiro. Reprovar retira os títulos do fluxo." },
-        { nome: "Exportar XLSX", desc: "Baixa os pedidos do filtro atual." },
-      ]),
-      blocos([
-        { nome: "Cards de status", desc: "Aprovadas · aguardando · reprovadas ou canceladas · total, com a fatia de cada uma.", match: "Aprovadas" },
-        { nome: "Data de vencimento/pagamento", desc: "A janela do CAIXA: quando o dinheiro sai. Compra paga entra pela data do pagamento.", match: "Data de vencimento" },
-        { nome: "Data de competência", desc: "A janela do RESULTADO: de que mês é a despesa no DRE.", match: "Data de competência" },
-        { nome: "Parcelas", desc: "O resto dos centavos vai na última parcela; a competência não se parcela.", match: "Pagamento" },
       ]),
     ],
   },
@@ -669,7 +657,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/exportar?aba=nfs": {
+  "/dashboard/accounting/nfe-export": {
     titulo: "Envio de NFs ao contador",
     intro: "O pacote mensal com os XMLs das notas de entrada e de saída, enviado para os e-mails do contador no dia 1º.",
     comoUsar: "Adicione o e-mail do contador; ele precisa clicar no link de confirmação para começar a receber. Enquanto não houver um e-mail verificado o envio fica Inativo — e nada é arquivado.",
@@ -685,7 +673,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/exportar?aba=dominio": {
+  "/dashboard/accounting/dominio-export": {
     titulo: "Gerar TXT contábil — Domínio",
     intro: "Exporta o extrato bancário no formato Partidas Simples (lanctos.txt) para importação direta no Domínio. É o consumidor do 'Código contábil (Domínio)' das contas e centros de custo.",
     comoUsar: "Escolha a conta bancária e o mês, clique em Carregar lançamentos e confira a lista e a prévia do arquivo antes de gerar. O que estiver sem código contábil aparece como pendência e fica FORA do arquivo.",

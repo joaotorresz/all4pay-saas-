@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Input, Select, CurrencyInput, Switch, Icon, type SelectOption } from "@/components/ui";
 import { FormModal } from "./FormModal";
+import { cadastroDe } from "@/components/app/criacao";
 import { setProdutoImagem, getProdutoImagem, removeProdutoImagem, fileParaDataUrl } from "@/lib/produto-imagem";
 import { getProduct } from "@/lib/cadastros";
 import type { Product } from "@/lib/types";
@@ -22,11 +23,14 @@ export function ProdutoServicoForm({
   produto,
   onClose,
   onToast,
+  onCriado,
 }: {
   kind: "produto" | "servico";
   produto?: Product; // presente = edição (só produto)
   onClose: () => void;
   onToast: (msg: string) => void;
+  /** O id do item NOVO (o pop-up o devolve ao campo que pediu o cadastro). */
+  onCriado?: (id: string | null) => void;
 }) {
   const isProduct = kind === "produto";
   const editando = isProduct && !!produto;
@@ -117,16 +121,17 @@ export function ProdutoServicoForm({
           stock_initial: f.track_stock ? f.stock_initial : null,
         };
         if (editando && produto) await updateProduct.mutateAsync({ id: produto.id, input });
-        else await createProduct.mutateAsync(input);
+        else onCriado?.(await createProduct.mutateAsync(input));
         if (imagem) setProdutoImagem(f.name.trim(), imagem); // foto do "cardápio"
       } else {
-        await createService.mutateAsync({
+        const novo = await createService.mutateAsync({
           name: f.name.trim(),
           code: f.code.trim() || null,
           category_id: f.category_id || null,
           unit_id: f.unit_id || null,
           price: f.sale_price,
         });
+        onCriado?.(novo);
       }
       onToast(editando ? "Produto atualizado" : `${isProduct ? "Produto" : "Serviço"} salvo`);
       if (again) {
@@ -160,9 +165,9 @@ export function ProdutoServicoForm({
           value={f.code}
           onChange={(e) => set({ code: e.target.value })}
         />
-        <Select label="Unidade" placeholder="Selecione" options={unitOpts} value={f.unit_id} onChange={(v) => set({ unit_id: v })} />
+        <Select label="Unidade" placeholder="Selecione" options={unitOpts} value={f.unit_id} onChange={(v) => set({ unit_id: v })} cadastrar={cadastroDe("unidade")} />
       </div>
-      <Select label="Categoria" placeholder="Selecione" options={catOpts} value={f.category_id} onChange={(v) => set({ category_id: v })} />
+      <Select label="Categoria" placeholder="Selecione" options={catOpts} value={f.category_id} onChange={(v) => set({ category_id: v })} cadastrar={cadastroDe("categoria", { natureza: "receita" })} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CurrencyInput
           label={isProduct ? "Preço de venda" : "Preço"}
@@ -197,7 +202,7 @@ export function ProdutoServicoForm({
             </div>
             <input ref={imgRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/*" onChange={(e) => escolherImagem(e.target.files?.[0])} />
           </div>
-          <Select label="Marca" placeholder="Selecione (opcional)" options={brandOpts} value={f.brand_id} onChange={(v) => set({ brand_id: v })} />
+          <Select label="Marca" placeholder="Selecione (opcional)" options={brandOpts} value={f.brand_id} onChange={(v) => set({ brand_id: v })} cadastrar={cadastroDe("marca")} />
           <Switch label="Controla estoque?" checked={f.track_stock} onChange={(v) => set({ track_stock: v })} />
           {f.track_stock && (
             <Input

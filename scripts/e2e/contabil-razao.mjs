@@ -57,7 +57,7 @@ export default async function contabilRazao(navegador) {
   const mHome = home.match(/Saldo em conta hoje\s*(−|-)?\s*R\$\s*([\d.]+)(,\d{2})?/);
   const saldoHome = mHome ? (mHome[1] ? -1 : 1) * brl(mHome[2] + (mHome[3] ?? "")) : NaN;
 
-  await u.ir("/contabilidade?aba=razao");
+  await u.ir("/contabilidade");
   const a = await leitura(u);
   v.ok(Math.abs(a.extrato - saldoHome) <= 1, "o saldo das contas no razão é o da Visão geral (lá sem centavos)", `${a.extrato} × ${saldoHome}`);
   v.ok(Math.abs(a.caixa - a.balCaixa) < 0.01 && a.caixa !== 0, "o 'caixa no razão' é a linha 1.1.01 do balancete", `${a.caixa} × ${a.balCaixa}`);

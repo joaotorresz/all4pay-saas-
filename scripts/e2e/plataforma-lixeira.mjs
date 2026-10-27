@@ -23,7 +23,7 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
  * vencido — o teste dependia do DIA em que rodava. O "Total" soma os dois.
  */
 async function cardsDePagar(u) {
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const t = (await u.texto()).replace(/\n/g, " ");
   const card = (rotulo) => {
     const m = t.match(new RegExp(`${rotulo} \\((\\d+)\\)\\s*R\\$\\s*([\\d.\\s]+,\\s*\\d{2})`));
@@ -38,7 +38,7 @@ export default async function lixeira(navegador) {
 
   // Materializa o dataset local da demonstração (uma transferência entre contas
   // próprias: não mexe em "Contas a pagar").
-  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
+  await u.ir("/dashboard/financial/transfers?novo=1");
   const contas = u.page.locator('select[aria-label="Selecione uma conta"]');
   await contas.nth(0).selectOption({ index: 1 });
   await contas.nth(1).selectOption({ index: 2 });

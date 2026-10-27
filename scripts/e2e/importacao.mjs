@@ -35,7 +35,7 @@ export default async function importacao(navegador) {
   const u = await novoUsuario(navegador);
 
   // Algo criado ANTES de importar: uma transferência (dois lançamentos).
-  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
+  await u.ir("/dashboard/financial/transfers?novo=1");
   const sel = u.page.locator('select[aria-label="Selecione uma conta"]');
   await sel.nth(0).selectOption({ index: 1 });
   await sel.nth(1).selectOption({ index: 2 });
@@ -54,7 +54,7 @@ export default async function importacao(navegador) {
   const receita1 = await dreResumo(u);
   v.ok(receita1 > 0, "o DRE passa a ter receita do extrato", String(receita1));
 
-  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias");
+  await u.ir("/dashboard/financial/transfers");
   v.ok(/123\s*,45/.test((await u.texto()).replace(/\n/g, " ")),
     "a transferência criada ANTES da importação continua lá");
 
