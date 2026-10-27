@@ -10,6 +10,7 @@ import { ehTaxaAdquirencia, citaDevolucao } from "@/core/indicadores/classificac
 import { classificar as classificarNaPrevia } from "@/core/ingestao/taxonomia";
 import { normalizarDescritivo } from "@/core/ingestao/chave";
 import { CATEGORIA_TAXA_POS } from "@/core/vendas/pos";
+import { categoriaPorMCC, normalizarMCC } from "@/core/mcc";
 import type {
   FinancialRecord,
   Classificacao,
@@ -79,7 +80,7 @@ function parseValor(s: string): { valor: number; sign: number } | null {
   return { valor: Math.abs(v), sign };
 }
 
-function mkRecord(data: string, valorSigned: { valor: number; sign: number }, desc: string, doc?: string): FinancialRecord {
+function mkRecord(data: string, valorSigned: { valor: number; sign: number }, desc: string, doc?: string, mcc?: string | null): FinancialRecord {
   const contraparte = normalizarNome(desc) || (limparContraparte(desc) || desc.trim());
   return {
     id: uid("rec"),
@@ -90,6 +91,7 @@ function mkRecord(data: string, valorSigned: { valor: number; sign: number }, de
     contraparte,
     contraparteNorm: norm(contraparte),
     documento: doc,
+    ...(normalizarMCC(mcc) ? { mcc: normalizarMCC(mcc)! } : {}),
     fingerprint: fingerprint([valorSigned.valor, data, contraparte, doc]),
   };
 }
@@ -111,7 +113,8 @@ function parseOFX(text: string): ParseResult {
       ign++;
       continue;
     }
-    records.push(mkRecord(data, amt, memo || "Lançamento", doc || undefined));
+    // `<SIC>` é o campo do OFX que os bancos usam para o MCC da compra no cartão.
+    records.push(mkRecord(data, amt, memo || "Lançamento", doc || undefined, field(b, /<SIC>([^<\r\n]+)/i) || null));
   }
 
   // ⚠️ O saldo DECLARADO pelo banco: `<LEDGERBAL><BALAMT><DTASOF>`. Lido de FORA
@@ -218,7 +221,7 @@ function parseCSV(text: string): ParseResult {
   const hi = ic >= 0 ? ic : 0;
   const head = linhas[hi].map((h) => norm(h.trim()));
   const hasHeader = ic >= 0 || head.some((h) => /data|valor|descri|hist|lancamento|memo/.test(h));
-  let di = 0, vi = 1, si = 2, doci = -1;
+  let di = 0, vi = 1, si = 2, doci = -1, mcci = -1;
   let start = 0;
   if (hasHeader) {
     start = hi + 1;
@@ -227,6 +230,7 @@ function parseCSV(text: string): ParseResult {
     vi = find(/valor|amount|montante/);
     si = find(/descri|hist|memo|lancamento|contrapart|favorec/);
     doci = find(/doc|nf|boleto|autentic/);
+    mcci = find(/^mcc$|\bmcc\b/);
     if (di < 0) di = 0;
     if (vi < 0) vi = 1;
     if (si < 0) si = head.length - 1;
@@ -255,7 +259,7 @@ function parseCSV(text: string): ParseResult {
       ign++;
       continue;
     }
-    records.push(mkRecord(data, valor, desc, doci >= 0 ? (cols[doci] ?? "").trim() : undefined));
+    records.push(mkRecord(data, valor, desc, doci >= 0 ? (cols[doci] ?? "").trim() : undefined, mcci >= 0 ? (cols[mcci] ?? "").trim() : null));
   }
   return { records, totalLinhas: linhas.length - start, ignoradas: ign };
 }
@@ -323,6 +327,17 @@ export function classificarRecord(r: FinancialRecord): Classificacao {
   );
   if (naPrevia.categoria === CATEGORIA_TAXA_POS) {
     return { recordId: r.id, destino: "Despesa", categoria: CATEGORIA_TAXA_POS, contraparteTipo: "fornecedor", confianca: 0.92, motivo: r.tipo === "entrada" ? "correspondência: devolução da taxa da maquininha" : "correspondência: taxa da maquininha (adquirência)", aprendido: false };
+  }
+
+  // ⚠️ O MCC É CÓDIGO, NÃO PALPITE: a adquirente declarou o que o lojista
+  // vende. Vence a palavra-chave ("PAG*JOSEDASILVA" não casa nada; o 5812 diz
+  // restaurante), perde para o que a pessoa já confirmou (memória, acima).
+  // Só na SAÍDA: num estorno de compra, a devolução não vira receita do ramo.
+  if (r.tipo === "saida" && r.mcc) {
+    const porMcc = categoriaPorMCC(r.mcc);
+    if (porMcc) {
+      return { recordId: r.id, destino: destinoPara(r.tipo, porMcc.categoria), categoria: porMcc.categoria, contraparteTipo: "fornecedor", confianca: porMcc.confianca, motivo: `MCC ${porMcc.mcc}: ${porMcc.atividade}`, aprendido: false };
+    }
   }
 
   // ⚠️ "Fornecedores / insumos" é categoria de SAÍDA: um PIX RECEBIDO de
