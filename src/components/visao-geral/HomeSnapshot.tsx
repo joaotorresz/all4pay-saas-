@@ -716,8 +716,8 @@ function PrecisaDeAcao({ p }: { p: Pendencias }) {
     { nome: "Transações a conciliar", qtd: p.conciliar, href: "/dashboard/financial/reconciliation" },
     { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices/invoices" },
     { nome: "Compras a aprovar", qtd: p.compras, href: "/dashboard/purchases" },
-    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/central?aba=solicitacoes" },
-    { nome: "Boletos a pagar", qtd: p.boletos, href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos" },
+    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/aprovacoes" },
+    { nome: "Boletos a pagar", qtd: p.boletos, href: "/contas-a-pagar/caixa-de-entrada?caixa=boletos" },
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>

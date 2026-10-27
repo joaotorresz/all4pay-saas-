@@ -341,10 +341,14 @@ export const FUSOES: Fusao[] = [
   {
     id: "governanca",
     assunto: "Alçadas, papéis e trilha de auditoria",
-    canonico: "/central",
-    aposentar: ["/governanca"],
+    canonico: "/governanca",
+    // ⚠️ 27/10/2026: a fusão foi DESFEITA a pedido do dono (o fim das abas
+    // internas). As alçadas voltaram a `/governanca`, agora em Configurações,
+    // e nada mais se aposenta aqui. O item portado continua valendo: a matriz
+    // e a trilha moram na tela, não numa aba.
+    aposentar: [],
     porque:
-      "A fila de aprovações e as regras que a governam respondiam a mesma pergunta em duas telas e dois menus; quem aprova precisa ver a alçada no mesmo lugar em que decide.",
+      "A fila de aprovações e as regras que a governam respondiam a mesma pergunta em duas telas e dois menus. Desde 27/10/2026 a alçada é ajuste da empresa (Configurações) e a fila tem tela própria (/aprovacoes).",
     portar: [
       {
         o_que: "A matriz de papéis, a escada de alçadas por valor, o SLA e o teste de integridade da trilha assinada.",

@@ -54,7 +54,7 @@ export default async function venderNota(navegador) {
   const n1 = norm(await u.texto());
   v.ok(card(n1, "NF emitidas")?.n === 1 && card(n1, "NF emitidas")?.valor === "12.345,00", "a tela de notas mostra a mesma nota emitida", JSON.stringify(card(n1, "NF emitidas")));
 
-  await u.ir("/dashboard/sales-invoices/invoices?aba=nfse");
+  await u.ir("/dashboard/sales-invoices/invoices/nfse");
   const e1 = norm(await u.texto());
   v.ok(!!numeroNF && e1.includes(numeroNF), "a nota aparece no emissor de NFS-e com o número", numeroNF);
 
