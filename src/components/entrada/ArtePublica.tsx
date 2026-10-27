@@ -74,6 +74,7 @@ export function ArtPanel({ pessoal }: { pessoal: boolean }) {
           <BarrasEntradaSaida
             dados={pessoal ? MESES_EXEMPLO_PF : MESES_EXEMPLO}
             altura={170}
+            vao={4}
             ariaLabel="Entradas e saídas dos últimos seis meses (exemplo)"
           />
           <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12px] text-muted pt-3 border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
