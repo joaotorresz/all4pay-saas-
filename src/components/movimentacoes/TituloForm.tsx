@@ -24,7 +24,8 @@
  * pago e desconto/juros, porque só um título liquidado tem essas três coisas.
  */
 import * as React from "react";
-import { abrirCriacao, useParametrosDoFormulario, useSaidaDoFormulario } from "@/components/app/criacao";
+import { abrirCriacao, cadastroDe, useParametrosDoFormulario, useSaidaDoFormulario } from "@/components/app/criacao";
+import type { CadastroNoCampo } from "@/components/ui";
 import { converterPorChave } from "@/lib/caixa-entrada";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -523,6 +524,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                 placeholder="Busque a conta…"
                 invalid={!!erros.contaId}
                 options={opcoes.contas}
+                cadastrar={cadastroDe("conta-bancaria")}
               />
             </Campo>
             <Campo
@@ -549,6 +551,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
               placeholder="Busque a conta…"
               invalid={!!erros.contaId}
               options={opcoes.contas}
+              cadastrar={cadastroDe("conta-bancaria")}
             />
           </Campo>
           <Campo label="Categoria" obrigatorio campo="categoria" erro={erros.categoria}>
@@ -646,6 +649,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                 placeholder="Digite nome ou documento…"
                 invalid={!!erros.parteId}
                 options={elegiveis.map((p) => ({ value: p.id, label: `${p.name}${p.doc ? ` · ${p.doc}` : ""}` }))}
+                cadastrar={cadastroDe(receber ? "cliente" : "fornecedor")}
                 containerClassName="flex-1 min-w-0"
               />
               {/* Atalho de criação rápida: quem lança a conta descobre ali que o
@@ -823,12 +827,12 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       {/* -------------------------- projeto e centro de custo -------------------------- */}
       {modo !== "folha" && <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Rateio
-          titulo="Projetos" singular="projeto"
+          titulo="Projetos" singular="projeto" cadastrar={cadastroDe("projeto")}
           opcoes={opcoes.projetos}
           linhas={projetos} onChange={setProjetos} erro={erros.projetos} campoErro="projetos"
         />
         <Rateio
-          titulo="Centros de custo" singular="centro de custo"
+          titulo="Centros de custo" singular="centro de custo" cadastrar={cadastroDe("centro")}
           opcoes={opcoes.centros}
           linhas={centros} onChange={setCentros} erro={erros.centros} campoErro="centros"
         />
@@ -983,9 +987,10 @@ function Campo({
 }
 
 function Rateio({
-  titulo, singular, opcoes, linhas, onChange, erro, campoErro,
+  titulo, singular, opcoes, linhas, onChange, erro, campoErro, cadastrar,
 }: {
   titulo: string; singular: string;
+  cadastrar: CadastroNoCampo;
   opcoes: { value: string; label: string }[];
   linhas: LinhaRateio[];
   onChange: (l: LinhaRateio[]) => void;
@@ -1017,8 +1022,13 @@ function Rateio({
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {opcoes.length === 0 ? (
+          // A lista vazia vira convite, sem sair do lançamento.
           <span className="text-caption text-faint">
-            Nenhum {singular} cadastrado — cadastre em Cadastros para poder ratear.
+            Nenhum {singular} cadastrado.{" "}
+            <button type="button" className="font-medium text-ink underline underline-offset-2 hover:no-underline"
+              onClick={() => cadastrar.abrir((id) => onChange([...linhas, { id, percentual: linhas.length === 0 ? 100 : 0 }]))}>
+              Cadastrar o primeiro
+            </button>
           </span>
         ) : linhas.length === 0 ? (
           <span className="text-caption text-faint">Nenhuma alocação cadastrada.</span>
@@ -1029,6 +1039,7 @@ function Rateio({
               onChange={(v) => onChange(linhas.map((x, i) => (i === k ? { ...x, id: v } : x)))}
               placeholder={`Busque o ${singular}…`}
               options={opcoes}
+              cadastrar={cadastrar}
               containerClassName="flex-1 min-w-0"
             />
             <Input

@@ -18,7 +18,8 @@
  */
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { TipoCriacao } from "@/core/criar";
+import { TITULO_CRIACAO, type TipoCriacao } from "@/core/criar";
+import type { CadastroNoCampo } from "@/components/ui/Select";
 
 export const EVENTO_CRIACAO = "a4p:criar-item";
 /** Avisa as telas de que um item foi criado (para recarregar o que leem do navegador). */
@@ -43,6 +44,19 @@ export function abrirCriacao(tipo: TipoCriacao, opcoes: Omit<PedidoCriacao, "tip
   const pedido = { tipo, ...opcoes };
   if (!ouvindo) { pendente = pedido; return; }
   window.dispatchEvent(new CustomEvent<PedidoCriacao>(EVENTO_CRIACAO, { detail: pedido }));
+}
+
+/**
+ * O "+ Cadastrar novo X" de um campo de escolha (`Select`/`SelectBusca`
+ * `cadastrar`). Abre o MESMO pop-up da porta única, por cima do formulário, e
+ * o item criado volta selecionado no campo.
+ */
+export function cadastroDe(tipo: TipoCriacao, parametros?: Record<string, string>): CadastroNoCampo {
+  const titulo = TITULO_CRIACAO[tipo];
+  return {
+    rotulo: `Cadastrar ${titulo.charAt(0).toLowerCase()}${titulo.slice(1)}`,
+    abrir: (escolher) => abrirCriacao(tipo, { parametros, aoCriar: (id) => { if (id) escolher(id); } }),
+  };
 }
 
 /** Uso interno do anfitrião. */

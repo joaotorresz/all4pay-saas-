@@ -13,7 +13,7 @@ export { BancoLogo, type BancoLogoProps } from "./BancoLogo";
 export { Input, type InputProps } from "./Input";
 export { CampoCodigo } from "./CampoCodigo";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
-export { Select, type SelectProps, type SelectOption } from "./Select";
+export { Select, VALOR_CADASTRAR, type SelectProps, type SelectOption, type CadastroNoCampo } from "./Select";
 export { SelectBusca, type SelectBuscaProps, type OpcaoBusca } from "./SelectBusca";
 export { DateField, type DateFieldProps } from "./DateField";
 export { DatePicker, type DatePickerProps } from "./DatePicker";

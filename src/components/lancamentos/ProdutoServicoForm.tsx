@@ -22,11 +22,14 @@ export function ProdutoServicoForm({
   produto,
   onClose,
   onToast,
+  onCriado,
 }: {
   kind: "produto" | "servico";
   produto?: Product; // presente = edição (só produto)
   onClose: () => void;
   onToast: (msg: string) => void;
+  /** O id do item NOVO (o pop-up o devolve ao campo que pediu o cadastro). */
+  onCriado?: (id: string | null) => void;
 }) {
   const isProduct = kind === "produto";
   const editando = isProduct && !!produto;
@@ -117,16 +120,17 @@ export function ProdutoServicoForm({
           stock_initial: f.track_stock ? f.stock_initial : null,
         };
         if (editando && produto) await updateProduct.mutateAsync({ id: produto.id, input });
-        else await createProduct.mutateAsync(input);
+        else onCriado?.(await createProduct.mutateAsync(input));
         if (imagem) setProdutoImagem(f.name.trim(), imagem); // foto do "cardápio"
       } else {
-        await createService.mutateAsync({
+        const novo = await createService.mutateAsync({
           name: f.name.trim(),
           code: f.code.trim() || null,
           category_id: f.category_id || null,
           unit_id: f.unit_id || null,
           price: f.sale_price,
         });
+        onCriado?.(novo);
       }
       onToast(editando ? "Produto atualizado" : `${isProduct ? "Produto" : "Serviço"} salvo`);
       if (again) {

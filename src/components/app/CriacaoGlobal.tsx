@@ -20,6 +20,7 @@
  * (`ReceitaForm`), o mesmo de todas as portas desse modo.
  */
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui";
 import { TITULO_CRIACAO, tipoDaRota, type TipoCriacao } from "@/core/criar";
@@ -97,16 +98,25 @@ export function CriacaoGlobal() {
 
   return (
     <>
-      {pilha.map((p, i) => (
-        <ItemDaPilha
-          key={p.chave}
-          pedido={p}
-          topo={i === pilha.length - 1}
-          pessoal={pessoal}
-          fechar={() => fechar(p.chave)}
-          avisar={setToast}
-        />
-      ))}
+      {/* ⚠️ Num portal no `<body>`: montados dentro do `AppShell`, os modais de
+          cadastro (z-50) ficavam presos ao contexto de empilhamento dele e
+          abriam POR BAIXO da janela larga (portal, z-[45]) — o "+ Cadastrar
+          novo cliente" da venda parecia não fazer nada. */}
+      {typeof document !== "undefined" && pilha.length > 0 && createPortal(
+        <>
+          {pilha.map((p, i) => (
+            <ItemDaPilha
+              key={p.chave}
+              pedido={p}
+              topo={i === pilha.length - 1}
+              pessoal={pessoal}
+              fechar={() => fechar(p.chave)}
+              avisar={setToast}
+            />
+          ))}
+        </>,
+        document.body,
+      )}
       {toast && typeof document !== "undefined" && createPortal(
         <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[80]">
           <Icon name="check" size={15} color="var(--color-lime)" />
@@ -123,10 +133,15 @@ function ItemDaPilha({ pedido, topo, pessoal, fechar, avisar }: {
   fechar: () => void; avisar: (m: string) => void;
 }) {
   const { tipo } = pedido;
+  const qc = useQueryClient();
+  // ⚠️ Recarrega as listas ANTES de devolver o id: o campo que pediu o
+  // cadastro só mostra o item escolhido quando ele já está nas opções.
   const criado = React.useCallback((id: string | null) => {
-    pedido.aoCriar?.(id);
-    avisarCriado(tipo, id);
-  }, [pedido, tipo]);
+    void qc.invalidateQueries().catch(() => undefined).finally(() => {
+      pedido.aoCriar?.(id);
+      avisarCriado(tipo, id);
+    });
+  }, [pedido, tipo, qc]);
   const janela = React.useMemo(
     () => ({ fechar, avisar, criado, parametros: pedido.parametros }),
     [fechar, avisar, criado, pedido.parametros],
@@ -163,13 +178,13 @@ function ItemDaPilha({ pedido, topo, pessoal, fechar, avisar }: {
     case "cliente": return <NovaParte lado="cliente" onClose={fechar} onCriado={concluir} />;
     case "fornecedor": return <NovaParte lado="fornecedor" onClose={fechar} onCriado={concluir} />;
     case "conta-bancaria": return <NovaContaBancaria onClose={fechar} onCriado={concluir} />;
-    case "categoria": return <NovaCategoria onClose={fechar} onCriado={concluir} />;
+    case "categoria": return <NovaCategoria natureza={pedido.parametros?.natureza === "receita" ? "receita" : "despesa"} onClose={fechar} onCriado={concluir} />;
     case "projeto": return <NovoProjeto onClose={fechar} onCriado={concluir} />;
     case "centro": return <NovoCentro onClose={fechar} onCriado={concluir} />;
     case "contrato-cliente": return <NovoContrato lado="cliente" onClose={fechar} onCriado={concluir} />;
     case "contrato-fornecedor": return <NovoContrato lado="fornecedor" onClose={fechar} onCriado={concluir} />;
-    case "produto": return <ProdutoServicoForm kind="produto" {...p} />;
-    case "servico": return <ProdutoServicoForm kind="servico" {...p} />;
+    case "produto": return <ProdutoServicoForm kind="produto" onClose={fechar} onToast={avisar} onCriado={criado} />;
+    case "servico": return <ProdutoServicoForm kind="servico" onClose={fechar} onToast={avisar} onCriado={criado} />;
     case "orcamento-venda": return <VendaCompraForm docKind="orcamento" itemKind="produto" {...p} />;
     case "transportadora": return <PartyForm role="carrier" {...p} />;
     case "marca": return <MarcaForm {...p} />;
@@ -212,7 +227,7 @@ function Janela({ titulo, topo, onClose, children }: {
             <Icon name="x" size={18} color="var(--color-text-secondary)" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">{children}</div>
+        <div data-fundo-cinza className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">{children}</div>
       </div>
     </div>,
     document.body,
