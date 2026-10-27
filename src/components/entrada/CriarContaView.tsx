@@ -583,7 +583,7 @@ export function CriarContaView() {
         try {
           await enviarPedido(pedido);
         } catch (e) {
-          falhaPedido = e instanceof Error ? e.message : String(e);
+          falhaPedido = motivoDaRecusa(e);
           reportar("criar-conta.maquininha", e, "o pedido da maquininha feito na abertura não foi registrado; a pessoa refaz na página Maquininha");
         }
       }
