@@ -182,8 +182,14 @@ export function UploadView() {
           const csv = csvDeLinhas(rows);
           if (csv.trim()) linhas.push(csv); else setErro("A planilha não tinha linhas com dado.");
         } else {
-          const r = await lerDocumento(f, true); // imagem/PDF → OCR (IA ou local)
-          if (r.kind === "doc") {
+          const r = await lerDocumento(f, true); // PDF com texto → lote; imagem/PDF escaneado → OCR
+          // ⚠️ **O extrato em PDF é LOTE.** `lerDocumento` reconstrói a tabela do
+          // PDF e devolve `bulk`; este laço só tratava `doc` e `erro`, então a
+          // tabela inteira era lida e DESCARTADA em silêncio — o extrato entrava
+          // como nenhum lançamento. Guarda no `engine-audit` (bloco `pdf-lote:`).
+          if (r.kind === "bulk") {
+            if (r.texto.trim()) linhas.push(r.texto.trim());
+          } else if (r.kind === "doc") {
             const l = docParaLinha(r.fields);
             if (l) linhas.push(l); else setErro("Não consegui ler o valor de um documento.");
           } else if (r.kind === "erro") {

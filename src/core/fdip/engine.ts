@@ -204,12 +204,24 @@ function parseCSV(text: string): ParseResult {
   const linhas = tokenizarCSV(text, delim);
   if (linhas.length === 0) return { records: [], totalLinhas: 0, ignoradas: 0 };
 
-  const head = linhas[0].map((h) => norm(h.trim()));
-  const hasHeader = head.some((h) => /data|valor|descri|hist|lancamento|memo/.test(h));
+  // ⚠️ **O cabeçalho nem sempre é a 1ª linha.** Extrato em PDF (e muito CSV de
+  // banco) abre com nome do banco, agência e período antes da tabela. Lendo só
+  // `linhas[0]`, o título virava "sem cabeçalho", a leitura posicional pegava a
+  // data como descrição e o DIA como valor (medido: "02/10/2026" lido como
+  // R$ 2,00). Procura-se a linha que nomeia data E valor nas primeiras 30;
+  // achada, o que vem antes é preâmbulo e fica de fora.
+  const ehCab = (cols: string[]) => {
+    const h = cols.map((c) => norm(c.trim()));
+    return h.length >= 2 && h.some((c) => /^(data|dt)\b/.test(c)) && h.some((c) => /valor|amount|montante/.test(c));
+  };
+  const ic = linhas.slice(0, 30).findIndex(ehCab);
+  const hi = ic >= 0 ? ic : 0;
+  const head = linhas[hi].map((h) => norm(h.trim()));
+  const hasHeader = ic >= 0 || head.some((h) => /data|valor|descri|hist|lancamento|memo/.test(h));
   let di = 0, vi = 1, si = 2, doci = -1;
   let start = 0;
   if (hasHeader) {
-    start = 1;
+    start = hi + 1;
     const find = (re: RegExp) => head.findIndex((h) => re.test(h));
     di = find(/data|dt/);
     vi = find(/valor|amount|montante/);
@@ -220,7 +232,8 @@ function parseCSV(text: string): ParseResult {
     if (si < 0) si = head.length - 1;
   } else {
     // posicional: descobre a coluna de data e a de valor pelo CONTEÚDO
-    const cols = linhas[0];
+    // A linha de referência é a 1ª que tem data E valor — não o título.
+    const cols = linhas.slice(0, 30).find((l) => l.length >= 2 && l.some((c) => parseData(c.trim())) && l.some((c) => !parseData(c.trim()) && parseValor(c.trim()))) ?? linhas[0];
     di = cols.findIndex((c) => parseData(c.trim()));
     // exclui colunas com cara de data: parseValor("16/01/2024") = 16 (parseFloat
     // para no "/"), então sem isto a coluna de valor casaria numa 2ª data.

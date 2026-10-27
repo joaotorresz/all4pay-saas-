@@ -12981,6 +12981,34 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   for (const t of ["12 lançamentos", "vence em 3 dias", "Q3", "Conta 2", "Julho 2026", "Folha", ""]) ok(`tipografia: "${t}" não é número`, !ehNumeroTipo(t));
 }
 
+// ─── pdf-lote: o extrato em PDF lido como tabela não pode ser descartado ───
+{
+  const tela = readFileSync("src/components/upload/UploadView.tsx", "utf8");
+  const ingest = readFileSync("src/lib/ocr-ingest.ts", "utf8");
+  ok("pdf-lote: a aba Enviar trata o resultado `bulk` de lerDocumento", /r\.kind === "bulk"/.test(tela));
+  ok("pdf-lote: o lote do PDF leva o texto da tabela junto", /kind: "bulk", report, texto: csv/.test(ingest));
+
+  // ⚠️ Extrato de banco abre com título, agência e período ANTES da tabela. Lendo
+  // só a 1ª linha como cabeçalho, a data virava descrição e o DIA virava valor
+  // ("02/10/2026" → R$ 2,00). Medido num PDF de extrato real de 12 linhas.
+  const comPreambulo = [
+    "Banco Exemplo S.A. - Extrato de conta corrente",
+    "Agencia 0001 Conta 12345-6 - Periodo 01/10/2026 a 31/10/2026",
+    "Data;Historico;Valor (R$)",
+    "02/10/2026;PIX RECEBIDO CLIENTE ALFA LTDA;4.800,00",
+    "03/10/2026;ALUGUEL ESCRITORIO IMOB CENTRAL;-3.200,00",
+  ].join("\n");
+  const rp = analisarImportacao(comPreambulo).records;
+  ok("pdf-lote: preâmbulo antes do cabeçalho não desloca as colunas",
+    rp.length === 2 && rp[0].valor === 4800 && rp[0].descricao === "PIX RECEBIDO CLIENTE ALFA LTDA" && rp[1].tipo === "saida" && rp[1].valor === 3200,
+    JSON.stringify(rp.map((r) => [r.descricao, r.valor, r.tipo])));
+  // Sem cabeçalho nenhum, mas com título: a leitura posicional parte da 1ª linha com data E valor.
+  const semCab = analisarImportacao("Extrato do mes\n05/10/2026;POSTO SHELL 042;-310,50\n06/10/2026;TARIFA PACOTE;-49,90").records;
+  ok("pdf-lote: título sem cabeçalho não vira a linha de referência",
+    semCab.length === 2 && semCab[0].valor === 310.5 && semCab[0].descricao === "POSTO SHELL 042",
+    JSON.stringify(semCab.map((r) => [r.descricao, r.valor])));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

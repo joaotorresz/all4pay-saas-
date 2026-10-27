@@ -4,7 +4,9 @@
   "private": true,
   "description": "quattro — ERP + sistema de gestão financeira. Construído sobre o Design System quattro (Round Treasury).",
   "scripts": {
+    "predev": "node scripts/copiar-worker-pdf.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copiar-worker-pdf.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
