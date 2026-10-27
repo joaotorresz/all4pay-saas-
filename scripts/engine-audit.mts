@@ -11262,10 +11262,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   /* ── 2. TETO ZERO: cada chamada de recuperação tem UMA porta ────────────── */
   const ENTRADA_S = "src/lib/entrada.ts";
   const ROTA_S = "src/app/api/auth/recuperar/route.ts";
-  const PORTAS: [RegExp, string, string][] = [
+  // ⚠️ A volta do "Entrar com Google" (27/10/2026) é a SEGUNDA rota que troca
+  // código: mesma regra (rota sob /api, destino fixo), outro dono declarado.
+  const ROTA_G = "src/app/api/auth/google/route.ts";
+  const PORTAS: [RegExp, string, string, string[]?][] = [
     [/\.auth\.resetPasswordForEmail\s*\(/, ENTRADA_S, "pedir o e-mail de redefinição (use pedirRedefinicao)"],
     [/\.auth\.updateUser\s*\(/, ENTRADA_S, "gravar a senha nova (use redefinirSenha)"],
-    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)"],
+    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)", [ROTA_G]],
   ];
   const arquivosS: string[] = [];
   const andarS = (dir: string) => {
@@ -11276,10 +11279,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     }
   };
   andarS("src");
-  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string) =>
-    arquivosS.filter((p) => p !== dono && padrao.test(semComS(conteudo(p))));
-  for (const [padrao, dono, oQue] of PORTAS) {
-    const fora = porFora(padrao, dono, lerS);
+  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string, outros: string[] = []) =>
+    arquivosS.filter((p) => p !== dono && !outros.includes(p) && padrao.test(semComS(conteudo(p))));
+  for (const [padrao, dono, oQue, outros] of PORTAS) {
+    const fora = porFora(padrao, dono, lerS, outros);
     ok(`senha: só ${dono} chama ${padrao.source.replace(/\\/g, "").replace("s*(", "(")} — ${oQue}`, fora.length === 0, fora.join(", "));
     ok(`senha: a varredura ainda ENXERGA a porta ${dono}`, padrao.test(semComS(lerS(dono))), "o padrão parou de casar — a guarda ficou cega");
   }
@@ -11287,6 +11290,30 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ? lerS(p) + "\nawait createClient().auth.updateUser({ password: nova });" : lerS(p));
   ok("senha: (defeito plantado) a tela chamando updateUser por fora é ACUSADA",
      plantadaPorta.includes("src/components/entrada/RedefinirSenhaView.tsx"));
+
+  /* ── 2b. ENTRAR COM GOOGLE (27/10/2026): conta nova vai ao cadastro ────── */
+  const G = await import("@/core/google");
+  ok("google: conta nova (uma empresa, nome provisório) vai ao CADASTRO, não à Home",
+     G.destinoDoGoogle(["Minha empresa"]) === G.DESTINO_CADASTRO && G.DESTINO_CADASTRO.startsWith("/criar-conta"));
+  ok("google: conta com empresa de verdade entra (o middleware cobra o segundo fator)",
+     G.destinoDoGoogle(["Padaria Sol"]) === "/" && G.destinoDoGoogle(["Minha empresa", "Padaria Sol"]) === "/");
+  ok("google: o nome provisório é o MESMO do gatilho de cadastro",
+     lerS("supabase/migrations/20260824220000_nome_da_empresa_do_cadastro.sql").includes(`'${G.NOME_PROVISORIO}'`)
+     && lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql").includes(`name = '${G.NOME_PROVISORIO}'`));
+  ok("google: cancelar no Google vira 'cancelado', e motivo inventado no login não existe",
+     G.motivoDaFalhaGoogle({ codigo: "access_denied" }) === "cancelado" && G.lerMotivoGoogle("<script>") === null);
+  const rotaG = semComS(lerS(ROTA_G));
+  ok("google: a volta mora sob /api e tem destino FIXO (nada lê ?next= nem monta URL absoluta)",
+     G.ROTA_GOOGLE === "/api/auth/google" && fsS.existsSync(ROTA_G)
+     && !/searchParams\.get\("(next|redirect|to|destino)"\)/.test(rotaG) && !/new URL\(/.test(rotaG)
+     && /destinoDoGoogle\(/.test(rotaG));
+  const foraOAuth = porFora(/\.auth\.signInWithOAuth\s*\(/, ENTRADA_S, lerS);
+  ok("google: só src/lib/entrada.ts chama signInWithOAuth", foraOAuth.length === 0, foraOAuth.join(", "));
+  ok("google: o botão volta para a rota que troca o código NO SERVIDOR",
+     /redirectTo:\s*`\$\{window\.location\.origin\}\$\{ROTA_GOOGLE\}`/.test(semComS(lerS(ENTRADA_S))));
+  const nomearSql = lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql");
+  ok("google: nomear a empresa provisória é só do DONO e recusa anônimo",
+     /m\.role = 'owner'/.test(nomearSql) && /revoke all on function public\.org_nomear_provisoria\(text\) from public, anon/.test(nomearSql));
 
   /* ── 3. o link volta para a rota que troca o código, e ela é pública ───── */
   const entradaS = semComS(lerS(ENTRADA_S));

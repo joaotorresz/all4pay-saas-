@@ -167,7 +167,18 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261027120000_nome_da_empresa_google",
+        "motivo": "Entrar com Google: a conta nova nasce com o nome provisório do gatilho e o cadastro dá o nome por esta função. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função org_nomear_provisoria(text) — só o dono da empresa aberta, só enquanto ela se chama 'Minha empresa'; anon sem acesso"
+        ],
+        "impacto": "Até ser aplicada, quem entra pelo Google sem conta faz o cadastro e o último passo recusa com o motivo do banco (a empresa fica 'Minha empresa'). Entrar com Google numa conta que já existe funciona. Nada que já existe muda.",
+        "resolver_ate": "2026-11-10",
+        "origem": "sessão Claude de 27/10/2026 (Entrar com Google, passo 3) — o merge espera o OK do dono (muda quem pode entrar e por onde)"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",

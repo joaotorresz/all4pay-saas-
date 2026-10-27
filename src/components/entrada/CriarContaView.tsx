@@ -33,7 +33,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
-import { criarContaEEntrar } from "@/lib/entrada";
+import { criarContaEEntrar, emailDaSessao, nomearEmpresaDaConta } from "@/lib/entrada";
 import { persistCompany, saveCompany, type StoredCompany } from "@/lib/company";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { aplicarOnboarding } from "@/lib/fdip";
@@ -160,6 +160,13 @@ export function CriarContaView() {
   const semMovimento = React.useRef(false);
   /** A conta já existe (o "Tentar de novo" depois dela só refaz o resto). */
   const contaCriada = React.useRef(false);
+  /**
+   * ⚠️ **A conta que voltou do Google** (`/criar-conta?google=1`, `core/google`):
+   * o e-mail da sessão. Ela já existe no Auth — a conversa não pergunta e-mail
+   * nem senha, e no fim NOMEIA a empresa provisória em vez de criar a conta.
+   * Sem sessão (o link aberto à toa), a conversa é a de sempre.
+   */
+  const googleRef = React.useRef<string | null>(null);
 
   /** A IA fala uma frase de cada vez, com o "digitando" entre elas. */
   const falar = React.useCallback(async (textos: string[], extra?: Partial<Fala>) => {
@@ -182,7 +189,18 @@ export function CriarContaView() {
   React.useEffect(() => {
     vivoRef.current = true;
     semMovimento.current = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    void falar(["Bora organizar as finanças da sua empresa num lugar só: caixa, contas e relatórios, com a Quattro AI do seu lado."], { cartao: { tipo: "conta" } });
+    const veioDoGoogle = new URLSearchParams(window.location.search).get("google") === "1";
+    void (async () => {
+      const email = veioDoGoogle ? await emailDaSessao() : null;
+      if (!vivoRef.current) return;
+      googleRef.current = email;
+      await falar(
+        email
+          ? [`Você entrou com o Google (${email}).`, "Ainda não há uma empresa cadastrada nessa conta. Vamos fazer o cadastro antes de entrar no sistema."]
+          : ["Bora organizar as finanças da sua empresa num lugar só: caixa, contas e relatórios, com a Quattro AI do seu lado."],
+        { cartao: { tipo: "conta" } },
+      );
+    })();
     return () => { vivoRef.current = false; };
   }, [falar]);
 
@@ -250,6 +268,8 @@ export function CriarContaView() {
       );
       return;
     }
+    // A conta do Google já tem como entrar: não há senha a criar.
+    if (googleRef.current) { await criar(c, null); return; }
     setEtapa("senha");
     await falar([...prefixo, `Agora crie uma senha com pelo menos ${MIN_SENHA} caracteres para o e-mail ${c.email}.`], { pergunta: "senha" });
   };
@@ -258,8 +278,16 @@ export function CriarContaView() {
   const escolherTipo = async (tipo: "pf" | "pj") => {
     if (etapa !== "tipo" || ocupadoFala) return;
     voce(tipo === "pj" ? "Conta PJ" : "Conta PF", "tipo");
-    const novo: Cadastro = { ...CADASTRO_VAZIO, tipo };
-    setMarcos([{ id: "tipo", antes: CADASTRO_VAZIO, report: null }]);
+    const google = googleRef.current;
+    // Do Google, o e-mail já vem da conta: a pergunta dele fica respondida
+    // (o marco vem ANTES do tipo, para o "voltar" não cair nele).
+    const novo: Cadastro = google
+      ? { ...CADASTRO_VAZIO, tipo, email: google, ...(tipo === "pj" ? { repEmail: google } : {}) }
+      : { ...CADASTRO_VAZIO, tipo };
+    setMarcos([
+      ...(google ? [{ id: tipo === "pj" ? "repEmail" : "emailPf", antes: CADASTRO_VAZIO, report: null }] : []),
+      { id: "tipo", antes: CADASTRO_VAZIO, report: null },
+    ]);
     setCad(novo);
     setTexto("");
     setEtapa("documento");
@@ -483,7 +511,7 @@ export function CriarContaView() {
   };
 
   /* ─── 5. a senha e a criação ─────────────────────────────────────────── */
-  const criar = async (c: Cadastro, senha: string) => {
+  const criar = async (c: Cadastro, senha: string | null) => {
     /*
      * ⚠️ **O PORTÃO.** A conta só nasce com o cadastro completo — era isto que
      * faltava na conversa de três perguntas, e é por isso que o cliente
@@ -510,7 +538,7 @@ export function CriarContaView() {
       if (!contaCriada.current) {
         // ⚠️ Uma exceção aqui (cliente do Supabase sem configuração, rede caída)
         // não pode deixar a conversa parada em "criando": vira a resposta de erro.
-        const r = await criarContaEEntrar(email, senha, nomeEmpresa).catch(() => ({
+        const r = await (senha === null ? nomearEmpresaDaConta(nomeEmpresa) : criarContaEEntrar(email, senha, nomeEmpresa)).catch(() => ({
           ok: false as const, confirmarEmail: false,
           motivo: "Não foi possível concluir agora.", comoResolver: "Tente de novo em alguns segundos.",
         }));
@@ -535,8 +563,10 @@ export function CriarContaView() {
             alerta: true,
             acoes: [
               { rotulo: "Tentar de novo", icone: "rotate-ccw", fazer: () => void criar(c, senha) },
-              { rotulo: "Trocar o e-mail", icone: "mail", fazer: () => alterar(c.tipo === "pf" ? "emailPf" : "repEmail") },
-              { rotulo: "Trocar a senha", icone: "edit", fazer: () => alterar("senha") },
+              ...(senha === null ? [] : [
+                { rotulo: "Trocar o e-mail", icone: "mail", fazer: () => alterar(c.tipo === "pf" ? "emailPf" : "repEmail") },
+                { rotulo: "Trocar a senha", icone: "edit", fazer: () => alterar("senha") },
+              ]),
             ],
           });
           return;
