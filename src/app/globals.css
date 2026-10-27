@@ -1982,7 +1982,9 @@ body,
   border-color: transparent;
   background-color: var(--color-surface-2);
 }
-[data-area-rola] .a4p-campo:not([data-card="1"] .a4p-campo) {
+/* `data-fundo-cinza`: gancho de qualquer superfície cinza fora da área que
+   rola (o corpo do pop-up global de criação). */
+:is([data-area-rola], [data-fundo-cinza]) .a4p-campo:not([data-card="1"] .a4p-campo) {
   background-color: var(--color-white);
 }
 .a4p-campo:focus,
