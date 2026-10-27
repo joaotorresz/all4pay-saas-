@@ -257,12 +257,6 @@
   --dur-media: 220ms;
   /* conteúdo da tela e cards entrando */
   --dur-lenta: 420ms;
-  /* anel do campo em foco (digitando) — contorno, nunca sombra (o sistema não tem sombra); 55% da tinta = 3:1 sobre o branco, o mínimo de contraste de um indicador de foco */
-  --color-foco-halo: color-mix(in srgb, var(--color-ink) 55%, transparent);
-  /* contorno de campo, caixa de marcar e interruptor desligado em repouso — 3:1 sobre o branco do cartão (WCAG 1.4.11): campo branco dentro de cartão branco sem ele não se acha */
-  --color-borda-campo: color-mix(in srgb, var(--color-ink) 55%, transparent);
-  /* contorno do campo com o ponteiro em cima — diz que ali se clica */
-  --color-borda-campo-hover: color-mix(in srgb, var(--color-ink) 78%, transparent);
   --font-display: "Quattro Agrandir", "Agrandir Tight Bold", "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -362,9 +356,6 @@ html.dark {
     0 8px 24px -18px rgba(27, 31, 23, 0.55);
   --shadow-popover: 0 24px 64px -16px rgba(27, 31, 23, 0.68);
   --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
-  --color-foco-halo: color-mix(in srgb, var(--color-ink) 60%, transparent);
-  --color-borda-campo: color-mix(in srgb, var(--color-ink) 55%, transparent);
-  --color-borda-campo-hover: color-mix(in srgb, var(--color-ink) 78%, transparent);
   --a4p-bolha-usuario: var(--color-surface-2);
   --a4p-pilula-fundo: var(--color-white);
 }
@@ -1933,12 +1924,12 @@ body,
    MOVIMENTO 27/10/2026 (pedido do dono: "melhorar as animações, ainda mais
    quando eu estou digitando e quando entro numa página").
    Um conjunto PEQUENO e só com tokens (`--dur-rapida/media/lenta`,
-   `--ease-smooth`, `--color-foco-halo`). Quatro momentos:
+   `--ease-smooth`). Quatro momentos:
    1. ENTRAR NA TELA — o título desce no lugar e o conteúdo esmaece de
       entrada (os cards já sobem com `a4pRise`). O conteúdo anima SÓ a
       opacidade: um `transform` no invólucro viraria o bloco de contenção dos
       modais `fixed` que algumas telas ainda abrem sem portal.
-   2. DIGITAR — o campo ganha um anel que se abre (`--color-foco-halo`), o
+   2. DIGITAR — o campo cinza ganha a borda em tinta, o
       rótulo acende para a tinta, o placeholder recua e o campo inválido dá UM tremor curto (avisa sem gritar).
    3. SOBREPOSTOS — fundo de modal esmaece, a caixa sobe 8px e cresce de 98%;
       menu, popover e aviso (`.shadow-popover`) surgem a 4px do lugar.
@@ -1972,57 +1963,40 @@ body,
    lado de `border-border` (medido no DOM: nenhum campo do sistema leva a
    classe). Uma classe que ele não conhece sobrevive. */
 .a4p-campo {
-  transition: border-color var(--dur-rapida) ease, outline-color var(--dur-media) var(--ease-smooth),
-    outline-offset var(--dur-media) var(--ease-smooth), background-color var(--dur-rapida) ease;
+  transition: border-color var(--dur-rapida) ease, background-color var(--dur-rapida) ease;
   caret-color: var(--color-ink);
-  outline: 2px solid transparent;
-  outline-offset: 0;
 }
-/* O anel é CONTORNO, não sombra: a regra do site zera toda sombra dentro do
-   app (`.ds-visor * { box-shadow: none !important }`). Ele se desenha
-   abrindo de 0 a 2px de folga. E ele É o foco do campo: o contorno preto do
-   `:focus-visible` no `input` de dentro desenharia uma segunda caixa,
-   começando depois do "R$" (medido no campo de valor). */
-.a4p-campo:focus,
-.a4p-campo:focus-visible,
-.a4p-campo:focus-within {
-  outline: 2px solid var(--color-foco-halo);
-  outline-offset: 2px;
-}
-.a4p-campo :focus-visible { outline: none; }
 
-/* CONTORNO DO CAMPO (27/10/2026, pedido do dono: "tá tudo branco, não sei
-   onde é um texto para clicar"). Campo branco dentro de cartão branco e de
-   modal branco: sem fio, o campo não existe para quem olha. O `border-campo`
-   do componente nunca chegou à tela (o `cn()` o descarta ao lado de
-   `border-border`, porque os dois parecem cor de borda), então todo campo do
-   sistema estava com borda ZERO. O contorno mora aqui, por papel, e vale
-   também para a caixa de marcar e o interruptor desligado (`.a4p-borda-campo`)
-   e para os campos crus que ainda usam o fio de cartão. 3:1 sobre o branco. */
-.a4p-campo {
+/* O CAMPO É UM BLOCO CINZA (27/10/2026, decisão do dono). Em repouso: fundo
+   cinza do sistema (`--color-surface-2`) e SEM borda — o contraste do campo
+   com o cartão branco vem do preenchimento, não de um fio. Selecionado: UMA
+   borda em tinta, e só ela (o anel de foco saiu: borda + anel lia como borda
+   dupla). Sobre o fundo cinza da página, fora de cartão, o campo fica branco,
+   senão sumiria. O `border-campo` do componente nunca chegou à tela (o
+   `cn()` o descarta ao lado de `border-border`), então a largura mora aqui e
+   é fixa: o foco troca a COR da borda, não o tamanho do campo. */
+.a4p-campo,
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo) {
   border-width: 1.5px;
   border-style: solid;
-  border-color: var(--color-borda-campo);
+  border-color: transparent;
+  background-color: var(--color-surface-2);
 }
-.a4p-borda-campo { border-color: var(--color-borda-campo); }
-:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select):is(.border-border, .border-border-soft, .border-faint) {
-  border-color: var(--color-borda-campo);
-}
-.a4p-campo:hover,
-label:hover > .a4p-borda-campo,
-.a4p-borda-campo:hover,
-:is(input, textarea, select):is(.border-border, .border-border-soft, .border-faint):hover {
-  border-color: var(--color-borda-campo-hover);
+[data-area-rola] .a4p-campo:not([data-card="1"] .a4p-campo) {
+  background-color: var(--color-white);
 }
 .a4p-campo:focus,
+.a4p-campo:focus-visible,
 .a4p-campo:focus-within,
-:is(input, textarea, select):is(.border-border, .border-border-soft, .border-faint):focus {
+:where(input, textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo):focus {
   border-color: var(--color-ink);
+  outline: none;
 }
+.a4p-campo :focus-visible { outline: none; }
 .a4p-campo.border-warning,
 .a4p-campo[aria-invalid="true"] { border-color: var(--color-warning); }
-.a4p-campo:has(:disabled),
-.a4p-campo:disabled { border-color: var(--color-border); }
+.a4p-campo:has(> :is(input, select, textarea):disabled),
+.a4p-campo:disabled { opacity: 0.6; }
 .a4p-campo input::placeholder,
 input.a4p-campo::placeholder,
 textarea.a4p-campo::placeholder {
