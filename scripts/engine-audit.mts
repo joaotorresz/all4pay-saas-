@@ -12128,6 +12128,19 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cobranca-pinbank: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
      leInterruptor((p) => (p === ROTA_COB ? lerF(p) + "\nconst l = process.env.PINBANK_COBRANCA;" : lerF(p))).includes(ROTA_COB));
   ok("cobranca-pinbank: o interruptor está no .env.example", /^#?\s*PINBANK_COBRANCA=/m.test(docEnv));
+  // O pedido segue a documentação da Pinbank (pbdocprod.apidog.io): sem
+  // SegundosExpiracao o Pix e sem Juros/Multa o boleto foram recusados (26/10).
+  {
+    const CB = await import("@/core/pinbank/cobranca");
+    const res = { existente: false as const, id: "r", nsuOrigem: 1, codigoCliente: 119446, valor: 1, vencimento: "2026-10-29", descricao: null,
+      devedor: { documento: "123.456.789-09", nome: "Fulano", email: null, logradouro: "Rua A", numero: "1", complemento: null, bairro: "Centro", cidade: "São Paulo", cep: "01000-000", uf: "sp" } };
+    const pix = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix" } as never, 1919, new Date("2026-10-28T23:59:59-03:00"));
+    ok("cobranca-pinbank: o Pix leva SegundosExpiracao até o fim do vencimento (1 dia = 86400)", pix.SegundosExpiracao === 86_400, String(pix.SegundosExpiracao));
+    const pixVencido = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix" } as never, 1919, new Date("2026-11-30T12:00:00-03:00"));
+    ok("cobranca-pinbank: título vencido ainda gera Pix com 1 hora de validade (nunca zero ou negativo)", pixVencido.SegundosExpiracao === 3600, String(pixVencido.SegundosExpiracao));
+    const bol = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
+    ok("cobranca-pinbank: o boleto leva Juros e Multa zerados", bol.Juros?.Valor === 0 && bol.Multa?.Valor === 0);
+  }
   /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
   const PG_PAGAR = "src/app/pagar/page.tsx";
   const pagPagar = lerF(PG_PAGAR);

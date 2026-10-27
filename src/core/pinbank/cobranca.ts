@@ -141,10 +141,23 @@ export function vencimentoBoleto(dia: string): string {
   return dia;
 }
 
+/**
+ * Quantos segundos o QR vale, de `agora` até o fim do dia do vencimento. A
+ * documentação da Pinbank traz `SegundosExpiracao` no pedido; sem ele, o
+ * padrão do lado de lá pode ser zero (QR nascendo vencido). Piso de 1 hora:
+ * o título vencido ainda pode gerar Pix, e o pagamento depois da expiração
+ * segue permitido.
+ */
+export function segundosAteVencimento(dia: string, agora: Date): number {
+  const fim = Date.parse(vencimentoPix(dia));
+  const s = Math.floor((fim - agora.getTime()) / 1000);
+  return Number.isFinite(s) ? Math.max(3600, s) : 3600;
+}
+
 type Reservada = Extract<ReservaCobranca, { existente: false }>;
 
 /** O `Data` do `Pix/SolicitarDynamicQrCode`. */
-export function pedidoQrCodeDinamico(r: Reservada, canal: number): Record<string, unknown> {
+export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = new Date()): Record<string, unknown> {
   const d = r.devedor;
   return {
     CodigoCanal: canal,
@@ -152,6 +165,7 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number): Record<string
     ValorQrCode: r.valor,
     NsuOrigem: r.nsuOrigem,
     DataVencimento: vencimentoPix(r.vencimento),
+    SegundosExpiracao: segundosAteVencimento(r.vencimento, agora),
     // Pago depois do vencimento ainda é pago: recusar só empurraria o cliente
     // para outro meio, e o título continuaria em aberto.
     PermitirPagamentoAposExpiracao: true,
@@ -185,6 +199,11 @@ export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknow
     IdentificadorCliente: String(r.nsuOrigem),
     RetornarBase64: false,
     ...(r.descricao ? { Instrucoes: r.descricao.slice(0, 200) } : {}),
+    // A documentação traz os dois blocos no pedido; sem eles a Pinbank devolveu
+    // "Bad request" (26/10/2026). Zerados: o sistema não cobra juros nem multa
+    // pelo boleto (a mora é calculada na baixa).
+    Juros: { Valor: 0 },
+    Multa: { Valor: 0 },
   };
 }
 
