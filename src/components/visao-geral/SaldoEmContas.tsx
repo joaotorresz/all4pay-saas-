@@ -2,8 +2,8 @@
 
 /**
  * "Saldo total em contas" — o card PRINCIPAL da Home (pedido do dono,
- * 27/10/2026). O total é a soma do saldo de todas as contas; embaixo, uma
- * bolinha com a logo de cada banco e o saldo dele hoje. A conta é de
+ * 27/10/2026). O total é a soma do saldo de todas as contas; embaixo, um
+ * círculo na cor de cada banco, com a logo branca, um embaixo do outro, e o saldo dele hoje. A conta é de
  * `core/home/contas` (puro); o card só lê e desenha.
  *
  * Sem conta cadastrada o card não mostra "R$ 0,00" (que afirmaria saldo zero):
@@ -51,20 +51,20 @@ export function SaldoEmContasCard({ carimbo }: { carimbo: string }) {
           <Link href={LINK_CONTAS} draggable={false} className="self-start a4p-heroi" style={{ fontSize: "clamp(34px, 9vw, 52px)", lineHeight: 1 }} aria-label="Ver as contas bancárias">
             <BRL value={resumo.total} />
           </Link>
-          <ul className="m-0 p-0 list-none flex flex-wrap gap-x-8 gap-y-5" aria-label="Saldo por banco">
+          <ul className="m-0 p-0 list-none flex flex-col" aria-label="Saldo por banco">
             {resumo.bancos.map((b, i) => (
               <li
                 key={b.banco}
-                className="a4p-entra flex items-center gap-3 min-w-0"
-                style={{ ["--a4p-atraso" as string]: `${i * 60}ms` }}
+                className="a4p-entra flex items-center gap-3 min-w-0 py-3 border-t first:border-t-0 first:pt-0"
+                style={{ ["--a4p-atraso" as string]: `${i * 60}ms`, borderColor: "var(--erp-menu-borda)" }}
                 title={b.contas > 1 ? `${b.contas} contas neste banco` : b.nome}
               >
-                <BancoLogo banco={b.banco} nome={b.nome} marca size={40} className="!rounded-full" />
-                <span className="flex flex-col gap-1 min-w-0">
-                  <span className="text-[13px] text-muted truncate max-w-[180px]">
-                    {b.nome}{b.contas > 1 ? ` · ${b.contas} contas` : ""}
+                <BancoLogo banco={b.banco} nome={b.nome} circulo size={40} />
+                <span className="flex-1 min-w-0 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <span className="text-[14px] text-ink truncate min-w-0">
+                    {b.nome}{b.contas > 1 ? <span className="text-muted"> · {b.contas} contas</span> : null}
                   </span>
-                  <span className="flex items-baseline gap-2">
+                  <span className="flex items-baseline gap-2 shrink-0 sm:flex-row-reverse">
                     <span className="text-[17px] text-ink"><BRL value={b.saldo} /></span>
                     {b.parte != null && <span className="text-[12px] text-muted tabular-nums">{pct(b.parte)}</span>}
                   </span>
