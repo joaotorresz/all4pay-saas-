@@ -31,7 +31,7 @@ const ROUTES: RouteItem[] = [
   { label: "Entrada de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
   { label: "Open Finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes calendario financeiro dia vencimento fluxo diario saldo total agenda financeira" },
-  { label: "Painel de vendas", href: "/contas-a-receber/painel-de-vendas", icon: "gauge", kw: "painel vendas calendario status titulos contas a receber lista recebidas atrasadas cliente vencimento baixa lote inadimplencia a vencer periodo mes semana" },
+  { label: "Painel de vendas", href: "/contas-a-receber/painel-de-vendas", icon: "gauge", kw: "painel vendas pedidos nova venda emitir nf notas fiscais status venda plataforma hotmart taxa liquido faturamento reembolso chargeback calendario status titulos contas a receber lista recebidas atrasadas cliente vencimento baixa lote inadimplencia a vencer periodo mes semana" },
   { label: "Títulos a pagar", href: "/contas-a-pagar/titulos", icon: "arrow-up-right", kw: "contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie dash painel a vencer periodo" },
   { label: "Transferências entre contas", href: "/dashboard/registrations/bank-accounts?aba=transferencias", icon: "arrow-left-right", kw: "transferencia entre contas origem destino ted doc chegada conciliacao" },
   { label: "Nova conta a receber", href: "/dashboard/financial/receivables/new", icon: "plus", kw: "nova conta a receber lancar titulo cliente competencia vencimento rateio anexo repetir" },
@@ -79,7 +79,6 @@ const ROUTES: RouteItem[] = [
   { label: "Risco de caixa", href: "/quattro-ai?aba=risco", icon: "trending-up", kw: "liquidez runway ruptura" },
   { label: "Inadimplência e cobrança", href: "/dashboard/financial/overdue", icon: "gauge", kw: "credito clientes atraso cobranca" },
   { label: "Alçadas, papéis e trilha", href: "/central?aba=alcadas", icon: "shield-check", kw: "governanca auditoria rbac aprovacao alcada papeis permissoes trilha integridade sla" },
-  { label: "Pedidos de venda", href: "/dashboard/sales-invoices/pedidos", icon: "shopping-cart", kw: "pedidos vendas notas fiscais status venda nf plataforma hotmart taxa liquido dashboard de vendas cac ltv ebitda faturamento reembolso chargeback aquisicao cliente" },
   { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus", kw: "nova venda lancar produto taxa plataforma comissao coprodutor afiliado liquido" },
   { label: "Notas fiscais emitidas", href: "/dashboard/sales-invoices/invoices", icon: "file-text", kw: "nota fiscal nf nfs-e nfse emitir emitida processando cancelada negada download lote iss servico" },
   { label: "Impostos e obrigações", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt", kw: "impostos provisionamento icms pis cofins ipi iss csll inss irpj lucro presumido conta a pagar" },
@@ -231,7 +230,7 @@ export function CommandPalette() {
       out.push(
         ...cap(
           (sales.data ?? []).filter((s) => match(`${s.party_name} ${s.id} ${s.kind}`)).map((s) => ({
-            key: `sale:${s.id}`, grupo: "Vendas", titulo: `${s.party_name}`, sub: `${s.kind} · ${s.id}`, href: "/dashboard/sales-invoices/pedidos", icon: "arrow-left-right",
+            key: `sale:${s.id}`, grupo: "Vendas", titulo: `${s.party_name}`, sub: `${s.kind} · ${s.id}`, href: "/contas-a-receber/painel-de-vendas", icon: "arrow-left-right",
           })),
         ),
       );

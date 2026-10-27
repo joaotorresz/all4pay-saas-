@@ -50,6 +50,7 @@ import {
 } from "@/core/contas-receber";
 import { FiltrosPeriodo, DistribuicaoDonut, FaixaDeDias, type ItemDoDia } from "@/components/titulos/kit";
 import { TitulosView, type RecorteDoPainel } from "@/components/movimentacoes/TitulosView";
+import { VendasView } from "@/components/vendas-nf/VendasView";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
 const ROTULOS_PERIODO: Record<TipoPeriodo, string> = {
@@ -246,6 +247,16 @@ export function PainelVendas() {
       ) : null}
 
       {recorteDosCards && <TitulosView direcao="receber" painel={recorteDosCards} />}
+
+      {/* ⚠️ A LISTA DE VENDAS mora aqui desde 27/10/2026 (pedido do dono): a
+          tela "Pedidos de venda" saiu e o endereço dela responde 308 para cá.
+          Nova venda, os dois painéis de status (venda e NF), o filtro, exportar,
+          enviar as vendas só do navegador, emitir NF, editar e excluir vieram
+          inteiros — é o MESMO componente, não uma cópia. */}
+      <section className="flex flex-col gap-3" aria-label="Vendas">
+        <h2 className="text-h2 m-0">Vendas</h2>
+        <VendasView />
+      </section>
     </div>
   );
 }

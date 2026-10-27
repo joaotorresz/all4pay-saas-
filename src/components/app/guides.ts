@@ -444,19 +444,7 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  /* ----------------------------- Painel de vendas ----------------------------- */
-  "/dashboard/sales-invoices/pedidos": {
-    titulo: "Painel de vendas",
-    intro: "O painel comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
-    comoUsar: "Acompanhe os KPIs do topo e a evolução mês a mês; use os filtros de período para reescalar. Clique numa venda para abrir o documento.",
-    exemplo: "Caiu o faturamento do mês? Compare o mix produto × serviço e veja qual linha recuou.",
-    secoes: [
-      blocos([
-        { nome: "KPIs de venda", desc: "Faturamento, ticket médio e volume do período." },
-        { nome: "Evolução", desc: "Vendas mês a mês — tendência e sazonalidade." },
-      ]),
-    ],
-  },
+
 
   /* ----------------------------- Plano de Contas ----------------------------- */
   "/dashboard/registrations/chart-of-accounts": {

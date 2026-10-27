@@ -39,6 +39,7 @@ export const ALIASES: Alias[] = [
   // — telas que viraram a MESMA tela —
   { de: "/visao-geral", para: "/", motivo: "a visão geral virou a Home" },
   { de: "/contas-a-receber", para: "/contas-a-receber/painel-de-vendas", motivo: "o painel de contas a receber saiu do menu (26/10/2026): o Painel de vendas tem os mesmos cards e títulos" },
+  { de: "/dashboard/sales-invoices/pedidos", para: "/contas-a-receber/painel-de-vendas", motivo: "Pedidos de venda saiu a pedido do dono (27/10/2026): a lista, o emitir NF, o editar e o excluir moram no Painel de vendas" },
   { de: "/dashboard/sales-invoices", para: "/contas-a-receber/painel-de-vendas", motivo: "a tela Vendas foi desativada a pedido do dono (27/10/2026): o Painel de vendas é a tela de vendas; as abas dela voltaram a endereço próprio" },
   { de: "/contas-a-receber/titulos", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos a receber saiu do menu (26/10/2026): a tabela mora no Painel de vendas, a mesma TitulosView" },
   { de: "/criar", para: "/", motivo: "criar virou painel, não rota" },
@@ -190,7 +191,7 @@ export const ROTAS_REMOVIDAS: Alias[] = [
  * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
  */
 export const ALIASES_DE_ABA: Alias[] = [
-  { de: "/dashboard/sales-invoices?aba=pedidos", para: "/dashboard/sales-invoices/pedidos", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
+  { de: "/dashboard/sales-invoices?aba=pedidos", para: "/contas-a-receber/painel-de-vendas", motivo: "aba da tela Vendas, desativada em 27/10/2026: a lista de vendas mora no Painel de vendas" },
   { de: "/dashboard/sales-invoices?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/dashboard/sales-invoices?aba=links", para: "/dashboard/sales-invoices/payment-links", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
   { de: "/dashboard/sales-invoices?aba=maquininha", para: "/pos/venda", motivo: "aba da tela Vendas, desativada em 27/10/2026: voltou ao endereço próprio" },
