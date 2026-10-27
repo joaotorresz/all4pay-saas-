@@ -30,6 +30,8 @@ const ROTAS = {
 
 const EMITENTE = JSON.stringify({
   "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800" },
+  "org-com-aliquota": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: true, aliquota: "2,9" },
+  "org-aliquota-absurda": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", aliquota: 15 },
   "org-sem-im": { cnpj: "54579688000135", codigoMunicipio: "3550308" },
   "org-cnpj-curto": { cnpj: "5457968800013", inscricaoMunicipal: "1", codigoMunicipio: "3550308" },
 });
@@ -43,6 +45,8 @@ function casosDoMotor(m: Motor): Caso[] {
   const e = emitentes["org-a"];
   const ped = e ? m.montarPedido(NOTA, TOMADOR, e, "2026-10-26T10:00:00-03:00") : null;
   const ok = ped && ped.ok ? ped.pedido : null;
+  const ea = emitentes["org-com-aliquota"];
+  const comAliq = ea ? m.montarPedido({ ...NOTA, codigoServico: "1.07" }, TOMADOR, ea, "x") : null;
   const semDoc = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "123" }, e, "x") : null;
   const pf = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "529.982.247-25" }, e, "x") : null;
   const base = "https://homologacao.focusnfe.com.br";
@@ -58,7 +62,9 @@ function casosDoMotor(m: Motor): Caso[] {
     ["pedido: tomador PF vai por CPF", !!pf && pf.ok && pf.pedido.tomador.cpf === "52998224725"],
     ["pedido: sem CPF/CNPJ válido é recusado ANTES de sair", !!semDoc && !semDoc.ok],
     ["pedido: valor em centavos (1500,555 → 1500,56)", ok?.servico.valor_servicos === 1500.56],
-    ["pedido: SEM alíquota nem valor do ISS (a prefeitura calcula)", !!ok && !("aliquota" in ok.servico) && !("valor_iss" in ok.servico)],
+    ["pedido: SEM alíquota da tela nem valor do ISS", !!ok && !("aliquota" in ok.servico) && !("valor_iss" in ok.servico)],
+    ["pedido: a alíquota declarada pela plataforma vai no pedido (2,9 → 2.9)", !!comAliq && comAliq.ok && comAliq.pedido.servico.aliquota === 2.9],
+    ["emitente: alíquota acima de 5% é ignorada e avisada", emitentes["org-aliquota-absurda"]?.aliquota === undefined && problemas.some((p) => p.includes("org-aliquota-absurda"))],
     ["pedido: o código do serviço da plataforma vence o da nota", ok?.servico.item_lista_servico === "02800"],
     ["pedido: endereço com UF em caixa alta e CEP em dígitos", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100"],
     ["item da lista: 1.07 → 0107 e 17.01 → 1701", m.itemDaLista("1.07 — Suporte") === "0107" && m.itemDaLista("17.01 — x") === "1701"],
@@ -127,7 +133,9 @@ function plantarRota(nome: string, arquivo: keyof Texto, de: string, para: strin
 await plantarMotor("emitente sem inscrição municipal aceito", '...(im ? [] : ["inscrição municipal"]),', "", "emitente: sem inscrição municipal NÃO entra");
 await plantarMotor("CNPJ de qualquer tamanho", "cnpj.length === 14 ? []", "cnpj.length >= 13 ? []", "emitente: CNPJ com 13 dígitos NÃO entra");
 await plantarMotor("documento do tomador não conferido", 'if (doc.length !== 11 && doc.length !== 14) problemas.push', "if (false) problemas.push", "pedido: sem CPF/CNPJ válido é recusado ANTES de sair");
-await plantarMotor("alíquota da tela no pedido", "iss_retido: nota.issRetido,", "iss_retido: nota.issRetido, aliquota: 5,", "pedido: SEM alíquota nem valor do ISS (a prefeitura calcula)");
+await plantarMotor("alíquota da tela no pedido", "iss_retido: nota.issRetido,", "iss_retido: nota.issRetido, aliquota: 5,", "pedido: SEM alíquota da tela nem valor do ISS");
+await plantarMotor("alíquota da plataforma esquecida", "...(emitente.aliquota !== undefined ? { aliquota: emitente.aliquota } : {}),", "", "pedido: a alíquota declarada pela plataforma vai no pedido (2,9 → 2.9)");
+await plantarMotor("alíquota sem teto", "n > 0 && n <= 5", "n > 0", "emitente: alíquota acima de 5% é ignorada e avisada");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");
 await plantarMotor("status desconhecido autoriza", 'return { estado: "processando" };\n}', 'return { estado: "autorizada" };\n}', "consulta: status desconhecido é PROCESSANDO, nunca autorizada");
 await plantarMotor("referência fixa por nota", "return m ? Number(m[1]) + 1 : 1;", "return 1;", "referência: a tentativa seguinte nunca repete a anterior");
