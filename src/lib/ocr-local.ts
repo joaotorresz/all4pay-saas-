@@ -197,13 +197,26 @@ export async function ocrLocalImagem(file: File): Promise<DocExtraido> {
 }
 
 /**
+ * O worker do pdf.js sai do NOSSO build, na mesma versão do pacote.
+ * ⚠️ Vinha do CDN (jsdelivr): bloqueador de anúncio, rede corporativa ou CDN
+ * fora do ar faziam todo PDF falhar com "Setting up fake worker failed" — e o
+ * extrato em PDF simplesmente não era lido. `scripts/copiar-worker-pdf.mjs`
+ * (predev/prebuild) copia o worker do pacote instalado para `public/vendor/`.
+ * ⚠️ `new URL(…, import.meta.url)` foi tentado e quebra o build (o minificador
+ * do Next tenta reprocessar o worker já minificado).
+ */
+function workerDoPdf(): string {
+  return "/vendor/pdf.worker.min.mjs";
+}
+
+/**
  * Rasteriza a 1ª página de um PDF num canvas (PNG) via pdf.js — import dinâmico,
- * worker do CDN na versão exata. Escala mirando ~2000px de largura para o OCR ler.
+ * worker do próprio build. Escala mirando ~2000px de largura para o OCR ler.
  * Retorna o canvas (que o Tesseract aceita direto).
  */
 async function rasterizarPdf(file: File): Promise<HTMLCanvasElement> {
   const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerDoPdf();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
   const page = await pdf.getPage(1);
@@ -248,7 +261,7 @@ export async function ocrLocalPdf(file: File): Promise<DocExtraido> {
  */
 export async function itensDoPdf(file: File): Promise<ItemPdf[]> {
   const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerDoPdf();
   const buf = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
 

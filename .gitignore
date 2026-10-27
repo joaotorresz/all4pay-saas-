@@ -42,3 +42,4 @@ design-edits.json
 # Estado local do CLI do Supabase
 supabase/.branches/
 supabase/.temp/
+/public/vendor/
