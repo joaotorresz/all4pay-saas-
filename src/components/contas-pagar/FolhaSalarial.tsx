@@ -268,7 +268,7 @@ export function FolhaSalarial() {
             <p className="m-0 text-body text-muted text-center">
               Nenhum colaborador cadastrado nesta competência.
             </p>
-            <Button variant="primary" onClick={() => router.push("/dashboard/financial/payables/new")}>
+            <Button variant="primary" onClick={() => router.push("/dashboard/financial/payables/new?modo=folha")}>
               <Icon name="plus" size={15} color="currentColor" />
               Cadastrar colaborador
             </Button>

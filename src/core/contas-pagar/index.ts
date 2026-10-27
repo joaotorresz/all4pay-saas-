@@ -46,14 +46,28 @@ export interface FiltroContasPagar {
   projeto?: string | null;
   /** Nome do centro de custo. `null`/ausente = todos. */
   centro?: string | null;
+  /** Nome do fornecedor, como a tela o mostra. `null`/ausente = todos. */
+  fornecedor?: string | null;
 }
 
 /** ⚠️ Só SAÍDAS, e nunca canceladas — um título cancelado não é obrigação. */
 const ehContaAPagar = (m: RiskMovement) => m.type === "saida" && !cancelado(m);
 
-function passaNosFiltros(m: RiskMovement, f: FiltroContasPagar): boolean {
+/**
+ * O nome que a tela mostra para quem recebe o pagamento. Cai na CATEGORIA sem
+ * cadastro, pela mesma razão do lado de receber: num extrato importado a
+ * maioria das saídas ainda não tem `party_id`.
+ */
+export const nomeDoFornecedor = (m: RiskMovement, nomes: Record<string, string> | undefined) =>
+  (m.party_id ? nomes?.[m.party_id] : null) ?? m.category ?? "Sem contraparte";
+
+/** Exportada para o Painel de despesas recortar os títulos pelos MESMOS filtros do painel. */
+export function passaNosFiltros(
+  m: RiskMovement, f: FiltroContasPagar, nomes?: Record<string, string>,
+): boolean {
   if (f.projeto && m.projeto !== f.projeto) return false;
   if (f.centro && m.costCenter !== f.centro) return false;
+  if (f.fornecedor && nomeDoFornecedor(m, nomes) !== f.fornecedor) return false;
   return true;
 }
 
@@ -167,7 +181,7 @@ function montarCard(
     const d = dataDe(m);
     return {
       id: m.id,
-      contraparte: (m.party_id ? nomes?.[m.party_id] : null) ?? m.category ?? "Sem contraparte",
+      contraparte: nomeDoFornecedor(m, nomes),
       categoria: m.category ?? "Sem categoria",
       valor: magnitude(m),
       data: d,
@@ -201,7 +215,7 @@ export function montarPainelContasPagar(
   const { de, ate } = filtro;
   const nomes = input.partyNames;
 
-  const base = input.movements.filter((m) => ehContaAPagar(m) && passaNosFiltros(m, filtro));
+  const base = input.movements.filter((m) => ehContaAPagar(m) && passaNosFiltros(m, filtro, nomes));
 
   // PAGO: pela data de PAGAMENTO — é caixa que já saiu.
   // ⚠️ `liquidado` é a definição única (status === "pago"). O sistema já teve
@@ -355,16 +369,18 @@ export const periodoInvalido = (p: Periodo): boolean => p.de > p.ate;
  * não o cadastro inteiro. Um filtro que oferece trinta opções e devolve vazio
  * em vinte e oito ensina a pessoa a não confiar no filtro.
  */
-export function opcoesDeFiltro(input: RiskInput): { projetos: string[]; centros: string[] } {
+export function opcoesDeFiltro(
+  input: RiskInput,
+): { projetos: string[]; centros: string[]; fornecedores: string[] } {
   const projetos = new Set<string>();
   const centros = new Set<string>();
+  const fornecedores = new Set<string>();
   for (const m of input.movements) {
     if (!ehContaAPagar(m)) continue;
     if (m.projeto) projetos.add(m.projeto);
     if (m.costCenter) centros.add(m.costCenter);
+    fornecedores.add(nomeDoFornecedor(m, input.partyNames));
   }
-  return {
-    projetos: Array.from(projetos).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    centros: Array.from(centros).sort((a, b) => a.localeCompare(b, "pt-BR")),
-  };
+  const ordenar = (x: Set<string>) => Array.from(x).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return { projetos: ordenar(projetos), centros: ordenar(centros), fornecedores: ordenar(fornecedores) };
 }

@@ -145,7 +145,7 @@ export function CompraForm() {
         ? "Compra registrada e aprovada — já paga, os títulos entraram no caixa."
         : "Compra criada. Ela entra no caixa quando for aprovada.",
     );
-    router.push("/dashboard/purchases");
+    router.push("/contas-a-pagar/painel-de-despesas");
   }
 
   function anexar(files: FileList | null) {
@@ -356,7 +356,7 @@ export function CompraForm() {
         </p>
       )}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.push("/dashboard/purchases")}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => router.push("/contas-a-pagar/painel-de-despesas")}>Cancelar</Button>
         <Button variant="primary" onClick={() => { void salvar(); }} disabled={salvando}>
           <Icon name="check" size={15} color="currentColor" />
           Criar compra

@@ -127,7 +127,7 @@ export function montarHomeSnapshot(input: RiskInput, pontos = 7): HomeSnapshot {
     // Por isso a ponta antiga conta o título que VENCIA na janela e não estava
     // cancelado — liquidado depois ou não.
     num("pagar", "Contas a pagar", previstoNaJanela(input, proximos30(hoje), "saida"),
-        vencendoNaJanela(input, proximos30(d30), "saida", d30), "brl", "/contas-a-pagar"),
+        vencendoNaJanela(input, proximos30(d30), "saida", d30), "brl", "/contas-a-pagar/painel-de-despesas"),
     num("receber", "Contas a receber", previstoNaJanela(input, proximos30(hoje), "entrada"),
         vencendoNaJanela(input, proximos30(d30), "entrada", d30), "brl", "/contas-a-receber/painel-de-vendas"),
   ];
