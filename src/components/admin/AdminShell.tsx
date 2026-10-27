@@ -12,7 +12,7 @@
  * operaria a cobrança de terceiros ao lado do lançamento da própria empresa.
  *
  * O MATERIAL é o mesmo (DS Quattro): moldura verde-base (`.a4p-canvas`),
- * barra e menu em cartões brancos, área de trabalho branca, título em Roobert
+ * barra e menu em cartões brancos, área de trabalho branca, título em Quattro Agrandir
  * Black 23px. O que muda é o conteúdo: seis seções (`SECOES_ADMIN`) e a
  * etiqueta "Administração" ao lado da marca, para nunca restar dúvida de onde
  * se está.
@@ -99,7 +99,7 @@ export function AdminShell({ actions, children }: { actions?: React.ReactNode; c
             <div className="min-w-0">
               <h1
                 className="m-0 text-[23px] text-ink truncate"
-                style={{ fontFamily: '"Roobert", sans-serif', fontWeight: 900, letterSpacing: "-0.01em", lineHeight: 1.1, paddingBlock: "0.2em", marginBlock: "-0.2em" }}
+                style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1, paddingBlock: "0.2em", marginBlock: "-0.2em" }}
               >
                 {ativa.rotulo}
               </h1>

@@ -37,8 +37,8 @@ import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import { ponteRupturaRunway } from "@/core/ia/coerencia";
 import { montarFechamento } from "@/core/close";
 import {
-  montarRegua, identificacaoDoCredor, FINALIDADE_DO_TOM, SE_JA_PAGOU, type EnvioRegistrado,
-  type ItemRegua,
+  montarRegua, reguaDaEmpresa, redigirMensagem, identificacaoDoCredor, FINALIDADE_DO_TOM, SE_JA_PAGOU, type EnvioRegistrado,
+  type ItemRegua, type EtapaRegua,
 } from "@/core/cobranca";
 import { calcularMora } from "@/core/late-fee";
 import { gerarPixCopiaECola } from "@/core/pix";
@@ -579,7 +579,7 @@ export interface GrupoRegua { clienteChave: string; cliente: string; partyId: st
  * etapa manual, nunca o pausado, nunca quem já foi cobrado hoje por outra porta.
  */
 export function filaAutomatica(ctx: ContextoAutomacao, p: ParametrosAutomacao): { grupos: GrupoRegua[]; pausados: string[]; jaCobrados: string[] } {
-  const painel = montarRegua({ ...ctx.input, hoje: ctx.hoje }, enviosDaRegua(ctx.envios), undefined, { credor: ctx.credor });
+  const painel = montarRegua({ ...ctx.input, hoje: ctx.hoje }, enviosDaRegua(ctx.envios), reguaDaEmpresa(p.etapas), { credor: ctx.credor });
   const pausas = (p.pausas ?? []).filter((x) => x.ate >= ctx.hoje);
   const pausado = (i: ItemRegua) => pausas.some((x) =>
     (x.alvo === "titulo" && x.id === i.movimentoId) || (x.alvo === "cliente" && !!i.partyId && x.id === i.partyId));
@@ -603,6 +603,19 @@ export function filaAutomatica(ctx: ContextoAutomacao, p: ParametrosAutomacao): 
     grupos.set(k, g);
   }
   return { grupos: Array.from(grupos.values()), pausados, jaCobrados };
+}
+
+/**
+ * O título do e-mail de cobrança, na fala do dono (27/10/2026): "sua cobrança
+ * vence em 3 dias", "vence hoje", "está vencida". O aviso formal mantém o nome
+ * formal — é o degrau que antecede protesto e acordo.
+ */
+export function tituloDaCobranca(dia: number, tom: string, quantidade = 1): string {
+  const varias = quantidade > 1;
+  if (tom === "formal") return "Aviso de débito em aberto";
+  if (dia < 0) return `${varias ? "Suas cobranças vencem" : "Sua cobrança vence"} em ${-dia} ${-dia === 1 ? "dia" : "dias"}`;
+  if (dia === 0) return varias ? "Suas cobranças vencem hoje" : "Sua cobrança vence hoje";
+  return varias ? "Suas cobranças estão vencidas" : "Sua cobrança está vencida";
 }
 
 /** A mensagem de UM cliente, com todos os títulos do dia — uma mensagem por dia, não uma por título. */
@@ -651,11 +664,11 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
   const primeiro = itens[0];
   return {
     chaveBase: chaveDoClienteNoDia(g.clienteChave, ctx.hoje),
-    assunto: etapa.tom === "formal" ? `Aviso de débito em aberto — ${credor}` : `Lembrete de pagamento — ${credor}`,
+    assunto: `${tituloDaCobranca(etapa.dia, etapa.tom, itens.length)} — ${credor}`,
     texto,
     html: montarHtml({
       preheader: `${credor}: ${BRL(total)} ${itens.length === 1 ? "em aberto" : `em ${itens.length} títulos`}.`,
-      titulo: etapa.tom === "formal" ? "Aviso de débito em aberto" : "Lembrete de pagamento",
+      titulo: tituloDaCobranca(etapa.dia, etapa.tom, itens.length),
       abertura: intro, secoes, avisos: [SE_JA_PAGOU],
       rodape: `${credor}. Mensagem enviada em nome da empresa credora pelo Quattro.`,
     }),
@@ -668,6 +681,23 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
     chavesExtras: itens.map((i) => chaveDoTitulo(i.movimentoId, i.etapa.id)),
     canalPreferido: etapa.canal === "email" ? "email" : "whatsapp",
   };
+}
+
+/**
+ * A prévia de UMA etapa da régua, com um título de exemplo — para a pessoa ver
+ * o e-mail de "vence em 5 dias" antes de existir um título nesse dia. Sai da
+ * MESMA `redigirCobranca` do runner, com o credor e os encargos reais da
+ * empresa; só o cliente e o valor são de exemplo, e o nome diz isso.
+ */
+export function previaDaEtapa(ctx: ContextoAutomacao, p: ParametrosAutomacao, etapa: EtapaRegua): Conteudo {
+  const vencimento = somarDias(ctx.hoje, -etapa.dia);
+  const dados = { cliente: "Cliente de exemplo", valor: 1_250, vencimento, dias: etapa.dia };
+  const item: ItemRegua = {
+    movimentoId: `exemplo-${etapa.id}`, cliente: dados.cliente, partyId: null, valor: dados.valor, vencimento,
+    dias: etapa.dia, etapa, hoje: true, proxima: null, jaEnviado: false,
+    mensagem: redigirMensagem(etapa, dados, ctx.credor),
+  };
+  return redigirCobranca(ctx, { clienteChave: "exemplo", cliente: dados.cliente, partyId: null, itens: [item] }, p);
 }
 
 /* ========================================================================== */

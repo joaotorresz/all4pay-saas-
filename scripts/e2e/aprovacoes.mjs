@@ -17,7 +17,7 @@ const contaFila = async (u) => {
 export default async function aprovacoes(navegador) {
   const v = verificador("aprovacoes");
   const u = await novoUsuario(navegador);
-  await u.ir("/central?aba=solicitacoes");
+  await u.ir("/aprovacoes");
 
   const itens = u.page.locator("main button", { hasText: /R\$/ });
   const n0 = await itens.count();
@@ -60,7 +60,7 @@ export default async function aprovacoes(navegador) {
   }
 
   // A decisão sobrevive a recarregar a página (não era só estado de tela).
-  await u.ir("/central?aba=solicitacoes");
+  await u.ir("/aprovacoes");
   const fila2 = await contaFila(u);
   v.ok(fila2 <= fila1, "depois de recarregar, a fila continua sem o pedido decidido", `${fila1} → ${fila2}`);
 

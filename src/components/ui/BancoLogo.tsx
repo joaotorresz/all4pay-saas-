@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
+import { corDaMarca, glifoDoBanco, glifoNoCirculo, iniciaisDoBanco, marcaDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "./bancos-icones";
 
 /**
@@ -28,12 +28,28 @@ export interface BancoLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
    * leu o nome. Sozinho, passe `decorativo={false}` para ele ser anunciado.
    */
   decorativo?: boolean;
+  /**
+   * A MARCA colorida do banco (`public/bancos/`), quando ela existe. Só na
+   * abertura de conta, onde a pessoa procura o banco dela numa lista (pedido
+   * do dono, 27/10/2026); sem arquivo, cai no glifo e depois nas iniciais.
+   */
+  marca?: boolean;
+  /**
+   * CÍRCULO cheio na cor da marca com o logo BRANCO no centro (o card "Saldo
+   * total em contas", pedido do dono, 27/10/2026). Banco sem cor declarada em
+   * `core/bancos/logo` cai no tile neutro redondo.
+   */
+  circulo?: boolean;
 }
 
 export function BancoLogo({
-  banco, nome, size = 28, decorativo = true, className, style, ...rest
+  banco, nome, size = 28, decorativo = true, marca = false, circulo = false, className, style, ...rest
 }: BancoLogoProps) {
-  const glifo = glifoDoBanco(banco) ?? glifoDoBanco(nome);
+  const cor = circulo ? (corDaMarca(banco) ?? corDaMarca(nome)) : null;
+  const arquivo = marca && !cor ? (marcaDoBanco(nome) ?? marcaDoBanco(banco)) : null;
+  const base = glifoDoBanco(banco) ?? glifoDoBanco(nome);
+  const glifo = base && cor ? glifoNoCirculo(base) : base;
+  const lado = Math.round(size * (cor ? 0.56 : 0.72));
   const rotulo = nome || banco || "Banco";
   const a11y = decorativo
     ? { "aria-hidden": true as const }
@@ -42,15 +58,20 @@ export function BancoLogo({
     <span
       className={cn(
         "inline-flex items-center justify-center shrink-0 select-none overflow-hidden",
-        "rounded-sm bg-surface-2 text-ink font-medium leading-none",
+        circulo ? "rounded-full" : "rounded-sm",
+        cor ? "text-white" : "bg-surface-2 text-ink",
+        "font-medium leading-none",
         className,
       )}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.36), ...style }}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36), ...(cor ? { background: cor } : null), ...style }}
       {...a11y}
       {...rest}
     >
-      {glifo ? (
-        <svg viewBox="0 0 1024 1024" width={Math.round(size * 0.72)} height={Math.round(size * 0.72)} fill="currentColor" focusable="false">
+      {arquivo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- SVG estático, sem otimização a fazer
+        <img src={arquivo} alt="" width={Math.round(size * 0.72)} height={Math.round(size * 0.72)} className="object-contain" />
+      ) : glifo ? (
+        <svg viewBox="0 0 1024 1024" width={lado} height={lado} fill="currentColor" focusable="false">
           <path transform="matrix(1 0 0 -1 0 960)" d={BANCO_GLIFOS[glifo]} />
         </svg>
       ) : (

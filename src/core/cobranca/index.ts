@@ -139,6 +139,115 @@ export const REGUA_PADRAO: EtapaRegua[] = [
     modelo: "Título de {cliente} de {valor}, vencido em {vencimento} ({dias} dias): avaliar protesto, negativação ou acordo." },
 ];
 
+/**
+ * A régua que a EMPRESA monta (27/10/2026, pedido do dono: "cobrar cinco dias
+ * antes, três dias antes, no dia, vencida"). O que se guarda é só o DIA, o
+ * CANAL e se a etapa está ligada; nome, tom e texto saem do dia por
+ * `etapaDoDia`, a MESMA regra para todo mundo.
+ *
+ * ⚠️ O id da etapa é DERIVADO do dia (`d-5`, `d0`, `d+3`), nunca de posição:
+ * é ele que entra na chave do envio (`chaveDoTitulo`), e um id por posição
+ * faria o cliente já avisado em "d+3" receber de novo quando alguém
+ * acrescentasse uma etapa antes dela. Com o id do dia, a régua padrão e a
+ * personalizada falam a mesma chave.
+ */
+export interface EtapaConfigurada {
+  dia: number;
+  canal: Canal;
+  ativo: boolean;
+}
+
+/** Limites da régua: 30 dias antes até 120 depois, no máximo 8 etapas. */
+export const DIA_MIN_REGUA = -30;
+export const DIA_MAX_REGUA = 120;
+export const TETO_ETAPAS = 8;
+
+export const idDaEtapa = (dia: number) => (dia === 0 ? "d0" : dia > 0 ? `d+${dia}` : `d${dia}`);
+
+/** O tom pelo dia: antes e no dia é lembrete; depois, sobe com o atraso. */
+export function tomDoDia(dia: number): Tom {
+  if (dia <= 0) return "lembrete";
+  if (dia < 10) return "aviso";
+  if (dia < 30) return "firme";
+  return "formal";
+}
+
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+
+/** Uma etapa completa a partir do dia e do canal. */
+export function etapaDoDia(dia: number, canal: Canal): EtapaRegua {
+  const tom = tomDoDia(dia);
+  const nome = canal === "manual"
+    ? "Protesto ou negativação (decisão manual)"
+    : dia < 0 ? `Vence em ${plural(-dia, "dia", "dias")}`
+    : dia === 0 ? "Vence hoje"
+    : `Vencida há ${plural(dia, "dia", "dias")}`;
+  const modelo = canal === "manual"
+    ? "Título de {cliente} de {valor}, vencido em {vencimento} ({dias} dias): avaliar protesto, negativação ou acordo."
+    : dia < 0 ? `Olá, {cliente}. Aqui é {credor}. Sua cobrança de {valor} vence em ${plural(-dia, "dia", "dias")}, em {vencimento}. ${SE_JA_PAGOU}`
+    : dia === 0 ? `Olá, {cliente}. Aqui é {credor}. Sua cobrança de {valor} vence hoje, {vencimento}. ${SE_JA_PAGOU}`
+    : tom === "formal" ? `Prezado(a) {cliente}, {credor} informa que consta em aberto o valor de {valor}, vencido em {vencimento} ({dias} dias). Solicitamos a regularização para evitar medidas de cobrança. ${SE_JA_PAGOU}`
+    : `Olá, {cliente}. Aqui é {credor}. Sua cobrança de {valor} está vencida desde {vencimento} ({dias} dias). Pode nos confirmar a previsão de pagamento? ${SE_JA_PAGOU}`;
+  return { id: idDaEtapa(dia), dia, nome, canal, tom, modelo };
+}
+
+/** A régua padrão, na forma em que a tela a edita. */
+export const ETAPAS_PADRAO: EtapaConfigurada[] = REGUA_PADRAO.map((e) => ({ dia: e.dia, canal: e.canal, ativo: true }));
+
+/**
+ * A régua que vale para a empresa. ⚠️ Os parâmetros chegam do BANCO (jsonb que
+ * qualquer escritor alcança), então tudo é conferido aqui e não só na tela:
+ * dia fora da faixa ou não inteiro sai, canal desconhecido sai, dia repetido
+ * fica com a PRIMEIRA ocorrência, e o teto de etapas vale. Sem configuração
+ * (ausente) vale a padrão — mas uma régua configurada com TODAS as etapas
+ * desligadas é uma régua VAZIA, não a padrão: desligar tudo é uma escolha, e
+ * trocar o silêncio pedido por seis mensagens seria cobrar quem pediu para não
+ * cobrar.
+ */
+export function reguaDaEmpresa(etapas?: EtapaConfigurada[] | null): EtapaRegua[] {
+  if (!Array.isArray(etapas)) return REGUA_PADRAO;
+  const vistos = new Set<number>();
+  const out: EtapaRegua[] = [];
+  for (const e of etapas) {
+    if (!e || typeof e !== "object" || e.ativo === false) continue;
+    const dia = Number(e.dia);
+    if (!Number.isInteger(dia) || dia < DIA_MIN_REGUA || dia > DIA_MAX_REGUA || vistos.has(dia)) continue;
+    const canal: Canal | null = e.canal === "email" || e.canal === "whatsapp" || e.canal === "manual" ? e.canal : null;
+    if (!canal) continue;
+    vistos.add(dia);
+    out.push(etapaDoDia(dia, canal));
+    if (out.length >= TETO_ETAPAS) break;
+  }
+  return out.sort((a, b) => a.dia - b.dia);
+}
+
+/**
+ * As cobranças que SAEM nos próximos `dias` (hoje incluso), por data — a
+ * agenda que a tela mostra para a pessoa ver o que a régua vai fazer antes de
+ * ligá-la. Não grava nada; sai da mesma `etapaDoTitulo` que o runner usa.
+ */
+export interface Agendada { data: string; movimentoId: string; cliente: string; partyId: string | null; valor: number; vencimento: string; etapa: EtapaRegua }
+
+export function agendaDaRegua(input: RiskInput, regua: EtapaRegua[], dias = 7): Agendada[] {
+  const hoje = input.hoje.slice(0, 10);
+  const out: Agendada[] = [];
+  for (const m of input.movements) {
+    if (!emAberto(m) || !m.due_date) continue;
+    const venc = m.due_date.slice(0, 10);
+    for (const etapa of regua) {
+      const data = somarDias(venc, etapa.dia);
+      const off = diasEntre(hoje, data);
+      if (off < 0 || off >= dias) continue;
+      out.push({
+        data, movimentoId: m.id,
+        cliente: (m.party_id && input.partyNames?.[m.party_id]) || m.category || "Cliente",
+        partyId: m.party_id ?? null, valor: Math.abs(m.amount), vencimento: venc, etapa,
+      });
+    }
+  }
+  return out.sort((a, b) => a.data.localeCompare(b.data) || b.valor - a.valor);
+}
+
 export interface EnvioRegistrado {
   movimentoId: string;
   etapaId: string;

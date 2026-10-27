@@ -6,6 +6,7 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
 import { BANCOS_CONTA } from "@/core/registros/hierarquia";
@@ -56,6 +57,7 @@ import {
 } from "@/core/indicadores";
 import { montarDataset } from "@/lib/fdip";
 import { analisarImportacao } from "@/core/fdip";
+import { montarAssistente, aplicarDecisoes, decisaoPadrao, proximaData, ehRecorrente } from "@/core/fdip/assistente";
 import { importedAbertura } from "@/lib/imported";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
@@ -6698,6 +6700,41 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("régua: antes da primeira etapa não há etapa", etapaDoTitulo(-10, REGUA_PADRAO) === null);
   ok("régua: o último degrau é MANUAL (protesto não sai por calendário)", REGUA_PADRAO[REGUA_PADRAO.length - 1].canal === "manual");
 
+  /* ---- 4b) A RÉGUA QUE A EMPRESA MONTA (27/10/2026) ---- */
+  const C = await import("@/core/cobranca");
+  const { tituloDaCobranca } = await import("@/core/automacoes");
+  const minha = C.reguaDaEmpresa([
+    { dia: -5, canal: "email", ativo: true }, { dia: -3, canal: "email", ativo: true },
+    { dia: 0, canal: "email", ativo: true }, { dia: 3, canal: "email", ativo: false },
+    { dia: -5, canal: "whatsapp", ativo: true },                 // repetido: fica o primeiro
+    { dia: 500, canal: "email", ativo: true },                   // fora da faixa
+    { dia: 2.5, canal: "email", ativo: true },                   // não inteiro
+    { dia: 7, canal: "pombo" as never, ativo: true },             // canal desconhecido
+  ]);
+  ok("régua da empresa: só entram as etapas ligadas, válidas e sem repetir o dia",
+     minha.map((e) => `${e.id}:${e.canal}`).join(",") === "d-5:email,d-3:email,d0:email", minha.map((e) => `${e.id}:${e.canal}`).join(","));
+  ok("régua da empresa: o id sai do DIA, o mesmo da padrão (a chave do envio não muda)",
+     C.reguaDaEmpresa(C.ETAPAS_PADRAO).map((e) => e.id).join(",") === REGUA_PADRAO.map((e) => e.id).join(","));
+  ok("régua da empresa: sem configuração vale a padrão; TUDO desligado é régua vazia, nunca a padrão",
+     C.reguaDaEmpresa(undefined) === REGUA_PADRAO && C.reguaDaEmpresa([{ dia: -3, canal: "email", ativo: false }]).length === 0);
+  ok("régua da empresa: o teto de etapas vale mesmo vindo do banco",
+     C.reguaDaEmpresa(Array.from({ length: 20 }, (_, i) => ({ dia: i, canal: "email" as const, ativo: true }))).length === C.TETO_ETAPAS);
+  // O que discrimina: com D−5 configurado, o título que vence em 5 dias entra
+  // na fila de HOJE; na régua padrão (que começa em D−3) ele não entra.
+  const inR5 = { ...(inR as object), movements: [...movsR, m("r-5antes", "entrada", 610, "2026-09-25", "Vendas", "C1", "pendente")] } as never;
+  const filaMinha = montarRegua(inR5, [], minha).filaDeHoje.map((i) => i.movimentoId);
+  const filaPadrao = montarRegua(inR5).filaDeHoje.map((i) => i.movimentoId);
+  ok("régua da empresa: D−5 configurado cobra hoje o título que vence em 5 dias (a padrão não)",
+     filaMinha.includes("r-5antes") && !filaPadrao.includes("r-5antes"), `${filaMinha} | ${filaPadrao}`);
+  const ag = C.agendaDaRegua(inR5, minha, 7);
+  ok("régua da empresa: a agenda dos 7 dias põe o D−5 hoje e o D−3 do mesmo título em dois dias",
+     ag.some((a) => a.movimentoId === "r-5antes" && a.data === "2026-09-20" && a.etapa.id === "d-5")
+     && ag.some((a) => a.movimentoId === "r-5antes" && a.data === "2026-09-22" && a.etapa.id === "d-3")
+     && !ag.some((a) => a.movimentoId === "r-transf" || a.movimentoId === "r-pago"), ag.map((a) => `${a.movimentoId}@${a.data}`).join(","));
+  ok("régua da empresa: o e-mail fala como o dono pediu (vence em N dias · vence hoje · está vencida)",
+     tituloDaCobranca(-5, "lembrete") === "Sua cobrança vence em 5 dias" && tituloDaCobranca(0, "lembrete") === "Sua cobrança vence hoje"
+     && tituloDaCobranca(3, "aviso") === "Sua cobrança está vencida" && tituloDaCobranca(-1, "lembrete", 2) === "Suas cobranças vencem em 1 dia");
+
   /* ---------------- 5) A VENDA TEM UMA MORADA SÓ (sales_docs) ---------------- */
   // ⚠️ A venda morava em três lugares (navegador, sales_docs, movements) e a
   // lista somava um enquanto o DRE somava outro. Três metades: a TRADUÇÃO
@@ -10734,7 +10771,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("rodada8: a demonstração leva a competência ao DRE (o mesmo mês que produção)",
      /competence_date:\s*m\.competence_date \?\? null/.test(ramoDemo));
   ok("rodada8: confirmar o extrato leva as competências escolhidas",
-     /aplicarOnboarding\(\{\s*\.\.\.report,\s*records:\s*comCompetencias\(report\.records,\s*competencias\)\s*\}\)/.test(up));
+     /aplicarOnboarding\(\{\s*\.\.\.(\w+),\s*records:\s*comCompetencias\(\1\.records,\s*competencias\)\s*\}\)/.test(up));
 }
 
 // ═══ MAQUININHA PINBANK — o evento vira venda (e o ciclo só anda para a frente) ═══
@@ -11261,10 +11298,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   /* ── 2. TETO ZERO: cada chamada de recuperação tem UMA porta ────────────── */
   const ENTRADA_S = "src/lib/entrada.ts";
   const ROTA_S = "src/app/api/auth/recuperar/route.ts";
-  const PORTAS: [RegExp, string, string][] = [
+  // ⚠️ A volta do "Entrar com Google" (27/10/2026) é a SEGUNDA rota que troca
+  // código: mesma regra (rota sob /api, destino fixo), outro dono declarado.
+  const ROTA_G = "src/app/api/auth/google/route.ts";
+  const PORTAS: [RegExp, string, string, string[]?][] = [
     [/\.auth\.resetPasswordForEmail\s*\(/, ENTRADA_S, "pedir o e-mail de redefinição (use pedirRedefinicao)"],
     [/\.auth\.updateUser\s*\(/, ENTRADA_S, "gravar a senha nova (use redefinirSenha)"],
-    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)"],
+    [/\.auth\.exchangeCodeForSession\s*\(/, ROTA_S, "trocar o código do link (a rota de retorno)", [ROTA_G]],
   ];
   const arquivosS: string[] = [];
   const andarS = (dir: string) => {
@@ -11275,10 +11315,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     }
   };
   andarS("src");
-  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string) =>
-    arquivosS.filter((p) => p !== dono && padrao.test(semComS(conteudo(p))));
-  for (const [padrao, dono, oQue] of PORTAS) {
-    const fora = porFora(padrao, dono, lerS);
+  const porFora = (padrao: RegExp, dono: string, conteudo: (p: string) => string, outros: string[] = []) =>
+    arquivosS.filter((p) => p !== dono && !outros.includes(p) && padrao.test(semComS(conteudo(p))));
+  for (const [padrao, dono, oQue, outros] of PORTAS) {
+    const fora = porFora(padrao, dono, lerS, outros);
     ok(`senha: só ${dono} chama ${padrao.source.replace(/\\/g, "").replace("s*(", "(")} — ${oQue}`, fora.length === 0, fora.join(", "));
     ok(`senha: a varredura ainda ENXERGA a porta ${dono}`, padrao.test(semComS(lerS(dono))), "o padrão parou de casar — a guarda ficou cega");
   }
@@ -11286,6 +11326,53 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ? lerS(p) + "\nawait createClient().auth.updateUser({ password: nova });" : lerS(p));
   ok("senha: (defeito plantado) a tela chamando updateUser por fora é ACUSADA",
      plantadaPorta.includes("src/components/entrada/RedefinirSenhaView.tsx"));
+
+  /* ── 2b. ENTRAR COM GOOGLE (27/10/2026): conta nova vai ao cadastro ────── */
+  const G = await import("@/core/google");
+  ok("google: conta nova (uma empresa, nome provisório) vai ao CADASTRO, não à Home",
+     G.destinoDoGoogle(["Minha empresa"]) === G.DESTINO_CADASTRO && G.DESTINO_CADASTRO.startsWith("/criar-conta"));
+  ok("google: conta com empresa de verdade entra (o middleware cobra o segundo fator)",
+     G.destinoDoGoogle(["Padaria Sol"]) === "/" && G.destinoDoGoogle(["Minha empresa", "Padaria Sol"]) === "/");
+  ok("google: o nome provisório é o MESMO do gatilho de cadastro",
+     lerS("supabase/migrations/20260824220000_nome_da_empresa_do_cadastro.sql").includes(`'${G.NOME_PROVISORIO}'`)
+     && lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql").includes(`name = '${G.NOME_PROVISORIO}'`));
+  ok("google: cancelar no Google vira 'cancelado', e motivo inventado no login não existe",
+     G.motivoDaFalhaGoogle({ codigo: "access_denied" }) === "cancelado" && G.lerMotivoGoogle("<script>") === null);
+  const rotaG = semComS(lerS(ROTA_G));
+  ok("google: a volta mora sob /api e tem destino FIXO (nada lê ?next= nem monta URL absoluta)",
+     G.ROTA_GOOGLE === "/api/auth/google" && fsS.existsSync(ROTA_G)
+     && !/searchParams\.get\("(next|redirect|to|destino)"\)/.test(rotaG) && !/new URL\(/.test(rotaG)
+     && /destinoDoGoogle\(/.test(rotaG));
+  const foraOAuth = porFora(/\.auth\.signInWithOAuth\s*\(/, ENTRADA_S, lerS);
+  ok("google: só src/lib/entrada.ts chama signInWithOAuth", foraOAuth.length === 0, foraOAuth.join(", "));
+  ok("google: o botão volta para a rota que troca o código NO SERVIDOR",
+     /redirectTo:\s*`\$\{window\.location\.origin\}\$\{ROTA_GOOGLE\}`/.test(semComS(lerS(ENTRADA_S))));
+  // A ida pelo NOSSO domínio (27/10/2026): a tela do Google mostra a Quattro.
+  const ROTA_GI = "src/app/api/auth/google/inicio/route.ts";
+  const inicioG = semComS(lerS(ROTA_GI));
+  const pedidoG = { estado: "a".repeat(43), nonce: "b".repeat(43), verificador: "c".repeat(43) };
+  ok("google: a volta do pedido é a MESMA origem + ROTA_GOOGLE (o Google exige letra a letra)",
+     G.voltaDoGoogle("https://app.quattro.finance/") === "https://app.quattro.finance/api/auth/google"
+     && /voltaDoGoogle\(req\.nextUrl\.origin\)/.test(inicioG) && /voltaDoGoogle\(url\.origin\)/.test(rotaG));
+  ok("google: o estado da volta precisa ser o do pedido (código plantado não abre sessão)",
+     G.estadoConfere(pedidoG, pedidoG.estado) && !G.estadoConfere(pedidoG, "x".repeat(43))
+     && !G.estadoConfere(null, pedidoG.estado) && !G.estadoConfere(pedidoG, null)
+     && /estadoConfere\(pedido, estado\)/.test(rotaG));
+  ok("google: cookie do pedido sem a forma certa não existe",
+     G.lerPedidoGoogle(JSON.stringify(pedidoG)) !== null && G.lerPedidoGoogle("{}") === null
+     && G.lerPedidoGoogle("lixo") === null && G.lerPedidoGoogle(JSON.stringify({ ...pedidoG, nonce: "<x>" })) === null);
+  ok("google: o Google recebe o HASH do nonce e o desafio PKCE; o cookie é httpOnly e só da rota",
+     /createHash\("sha256"\)\.update\(pedido\.nonce\)/.test(inicioG) && /code_challenge_method: "S256"/.test(semComS(lerS("src/core/google/index.ts")))
+     && /httpOnly: true/.test(inicioG) && /path: ROTA_GOOGLE/.test(inicioG));
+  const foraIdToken = porFora(/\.auth\.signInWithIdToken\s*\(/, ROTA_G, lerS);
+  ok("google: só a rota de volta chama signInWithIdToken, com o nonce do pedido",
+     foraIdToken.length === 0 && /signInWithIdToken\(\{ provider: "google", token: token\.idToken, nonce: pedido\.nonce \}\)/.test(rotaG),
+     foraIdToken.join(", "));
+  ok("google: o segredo do cliente só é lido no servidor (nenhuma tela o menciona)",
+     arquivosS.filter((p) => !p.startsWith("src/app/api/") && lerS(p).includes("GOOGLE_CLIENT_SECRET")).length === 0);
+  const nomearSql = lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql");
+  ok("google: nomear a empresa provisória é só do DONO e recusa anônimo",
+     /m\.role = 'owner'/.test(nomearSql) && /revoke all on function public\.org_nomear_provisoria\(text\) from public, anon/.test(nomearSql));
 
   /* ── 3. o link volta para a rota que troca o código, e ela é pública ───── */
   const entradaS = semComS(lerS(ENTRADA_S));
@@ -12920,6 +13007,88 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const eP = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", endereco: "Rua A, 123, Centro" });
   ok("maquininha-oferta: pedido sem telefone nem e-mail é recusado", !!eP.contatoTelefone, JSON.stringify(eP));
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
+}
+
+// tipografia: todo número em Agrandir (27/10/2026) — a regra que decide o que é
+// número. O lado "não é" importa tanto quanto o "é": uma frase com número no
+// meio virando Agrandir trocaria a família de metade dos rótulos do sistema.
+{
+  for (const t of ["R$ 1.234,56", "−R$ 300,00", "12,4%", "+2,4%", "27/10/2026", "21:00", "12", "3x", "R$ 312 mil", "R$\u00a01.000,00"]) ok(`tipografia: "${t}" é número`, ehNumeroTipo(t));
+  for (const t of ["12 lançamentos", "vence em 3 dias", "Q3", "Conta 2", "Julho 2026", "Folha", ""]) ok(`tipografia: "${t}" não é número`, !ehNumeroTipo(t));
+}
+
+// ─── pdf-lote: o extrato em PDF lido como tabela não pode ser descartado ───
+{
+  const tela = readFileSync("src/components/upload/UploadView.tsx", "utf8");
+  const ingest = readFileSync("src/lib/ocr-ingest.ts", "utf8");
+  ok("pdf-lote: a aba Enviar trata o resultado `bulk` de lerDocumento", /r\.kind === "bulk"/.test(tela));
+  ok("pdf-lote: o lote do PDF leva o texto da tabela junto", /kind: "bulk", report, texto: csv/.test(ingest));
+
+  // ⚠️ Extrato de banco abre com título, agência e período ANTES da tabela. Lendo
+  // só a 1ª linha como cabeçalho, a data virava descrição e o DIA virava valor
+  // ("02/10/2026" → R$ 2,00). Medido num PDF de extrato real de 12 linhas.
+  const comPreambulo = [
+    "Banco Exemplo S.A. - Extrato de conta corrente",
+    "Agencia 0001 Conta 12345-6 - Periodo 01/10/2026 a 31/10/2026",
+    "Data;Historico;Valor (R$)",
+    "02/10/2026;PIX RECEBIDO CLIENTE ALFA LTDA;4.800,00",
+    "03/10/2026;ALUGUEL ESCRITORIO IMOB CENTRAL;-3.200,00",
+  ].join("\n");
+  const rp = analisarImportacao(comPreambulo).records;
+  ok("pdf-lote: preâmbulo antes do cabeçalho não desloca as colunas",
+    rp.length === 2 && rp[0].valor === 4800 && rp[0].descricao === "PIX RECEBIDO CLIENTE ALFA LTDA" && rp[1].tipo === "saida" && rp[1].valor === 3200,
+    JSON.stringify(rp.map((r) => [r.descricao, r.valor, r.tipo])));
+  // Sem cabeçalho nenhum, mas com título: a leitura posicional parte da 1ª linha com data E valor.
+  const semCab = analisarImportacao("Extrato do mes\n05/10/2026;POSTO SHELL 042;-310,50\n06/10/2026;TARIFA PACOTE;-49,90").records;
+  ok("pdf-lote: título sem cabeçalho não vira a linha de referência",
+    semCab.length === 2 && semCab[0].valor === 310.5 && semCab[0].descricao === "POSTO SHELL 042",
+    JSON.stringify(semCab.map((r) => [r.descricao, r.valor])));
+}
+
+// ─── assistente: a revisão em 4 passos antes de gravar a importação ───
+{
+  const tres = [
+    "data;descricao;valor",
+    "05/08/2026;ALUGUEL IMOBILIARIA CENTRO;-5000,00", "10/08/2026;PIX RECEBIDO ALPHA CONSULTORIA LTDA;8000,00",
+    "12/08/2026;ENEL ENERGIA;-300,00", "15/08/2026;POSTO SHELL 042;-310,50", "25/08/2026;TRANSFERENCIA ENTRE CONTAS;-3000,00",
+    "05/09/2026;ALUGUEL IMOBILIARIA CENTRO;-5000,00", "10/09/2026;PIX RECEBIDO ALPHA CONSULTORIA LTDA;8000,00",
+    "12/09/2026;ENEL ENERGIA;-500,00", "28/09/2026;PIX RECEBIDO BETA COMERCIO;950,00",
+    "06/10/2026;ALUGUEL IMOBILIARIA CENTRO;-5000,00", "10/10/2026;PIX RECEBIDO ALPHA CONSULTORIA LTDA;8000,00",
+    "13/10/2026;ENEL ENERGIA;-400,00",
+  ].join("\n");
+  const rep = analisarImportacao(tres);
+  const a = montarAssistente(rep);
+  const g = (nome: string) => [...a.receitas, ...a.despesas].find((x) => x.nome.toLowerCase().includes(nome))!;
+  ok("assistente: resumo soma receitas e despesas SEM a transferência",
+    a.resumo.entradas === 24950 && a.resumo.saidas === 16510.5 && a.resumo.resultado === 8439.5 && a.resumo.transferencias === 1,
+    JSON.stringify(a.resumo));
+  ok("assistente: o resumo traz os três meses do arquivo", a.resumo.porMes.map((m) => m.mes).join() === "2026-08,2026-09,2026-10");
+  ok("assistente: aluguel todo mês com o mesmo valor é FIXO, dia 5", g("aluguel").fixo && g("aluguel").diaTipico === 5 && g("aluguel").mediaMensal === 5000);
+  // energia 300/500/400 varia 20% (> 15%): recorrente, mas não fixa
+  ok("assistente: a conta que varia é recorrente e NÃO entra no custo fixo", g("enel").recorrente && !g("enel").fixo);
+  ok("assistente: custo fixo = só o que é fixo (aluguel)", a.resumo.custoFixoMensal === 5000 && a.resumo.custoVariavelRecorrente === 400,
+    `${a.resumo.custoFixoMensal} · ${a.resumo.custoVariavelRecorrente}`);
+  ok("assistente: o cliente de todo mês é receita recorrente; o avulso não", g("alpha").recorrente && !g("beta").recorrente && a.resumo.receitaRecorrenteMensal === 8000);
+  ok("assistente: PIX recebido de \"comércio\" é receita, não fornecedor", g("beta").categoria === "Vendas", g("beta").categoria);
+  ok("assistente: recorrência exige presença em meses, não contagem (3 no mesmo mês ≠ recorrente)", !ehRecorrente(1, 3, 3) && ehRecorrente(3, 3, 3) && !ehRecorrente(2, 2, 1));
+  ok("assistente: dia 31 num mês de 30 vira o último dia, depois do último lançamento",
+    proximaData("2026-10-13", 31) === "2026-10-31" && proximaData("2026-10-31", 31) === "2026-11-30" && proximaData("2026-12-06", 5) === "2027-01-05");
+
+  const dec = Object.fromEntries([...a.receitas, ...a.despesas].map((x) => [x.chave, decisaoPadrao(x)]));
+  dec[g("enel").chave] = { ...dec[g("enel").chave], categoria: "Outras despesas", recorrente: true, dia: 10 };
+  dec[g("shell").chave] = { ...dec[g("shell").chave], cadastrar: false };
+  const out = aplicarDecisoes(rep, [...a.receitas, ...a.despesas], dec);
+  const catDe = (id: string) => out.report.classificacoes.find((c) => c.recordId === id)!.categoria;
+  ok("assistente: a categoria escolhida vale para TODOS os lançamentos do grupo", g("enel").recordIds.every((id) => catDe(id) === "Outras despesas"));
+  ok("assistente: desmarcar o cadastro tira o contato, NÃO o lançamento",
+    !out.report.entidades.some((e) => e.id === g("shell").chave.slice(2)) && out.report.records.length === rep.records.length);
+  const recs = out.recorrencias.map((r) => `${r.tipo}:${r.nome.toLowerCase()}:${r.dia}:${r.valor}:${r.inicio}`).sort();
+  ok("assistente: cria só as recorrências marcadas (padrão: receita recorrente + despesa fixa; a variável só se marcada)",
+    out.recorrencias.length === 3 && recs.some((r) => r.startsWith("saida:aluguel") && r.endsWith(":5000:2026-11-05"))
+      && recs.some((r) => r.startsWith("saida:enel") && r.includes(":10:400:2026-11-10")) && recs.some((r) => r.startsWith("entrada:alpha")),
+    recs.join(" | "));
+  ok("assistente: nada é gravado aqui (o relatório original fica intacto)",
+    rep.classificacoes.find((c) => c.recordId === g("enel").recordIds[0])!.categoria !== "Outras despesas");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

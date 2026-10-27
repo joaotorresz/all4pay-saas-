@@ -1,16 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
-// ⚠️ TIPOGRAFIA: ROOBERT TRIAL EM TUDO.
-//
-// Os pacotes Fontsource de Hanken Grotesk, Schibsted Grotesk e Geist Mono
-// saíram: nenhuma regra do sistema os pedia mais, e importá-los continuaria
-// baixando três famílias que ninguém renderiza — peso de bundle por engano.
-//
-// A Roobert NÃO entra por aqui: ela é self-hosted em `public/fonts/` e
-// declarada em `@font-face` no topo do `globals.css`. Os cortes cobrem a
-// escala inteira (Light · Regular · Medium · SemiBold) e os valores usam
-// Roobert Mono, que é da mesma família e monoespaçada — as colunas continuam
-// alinhando.
+import { MarcaNumeros } from "@/components/app/MarcaNumeros";
+// ⚠️ TIPOGRAFIA (27/10/2026): Quattro Agrandir nos títulos e no valor-herói,
+// Inter Display no texto — o design system do site (paguequattro.com/teste2).
+// As duas são self-hosted em `public/fonts/` e declaradas em `@font-face` no
+// topo do `globals.css`; nada entra por pacote aqui.
 
 import "./globals.css";
 
@@ -48,6 +42,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>{children}</Providers>
+        <MarcaNumeros />
       </body>
     </html>
   );

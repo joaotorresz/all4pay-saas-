@@ -12,9 +12,9 @@
   "É RETRATO, não consulta viva: um órfão criado hoje entraria no esperado de",
   "amanhã sem ninguém decidir. Toda divergência não declarada reprova."
  ],
- "gerado_em": "2026-10-26",
+ "gerado_em": "2026-10-27",
  "gerado_como": "catálogo de produção (byte-idêntico ao ci_leitor; o job esquema-prod revalida a paridade)",
- "total": 458,
+ "total": 459,
  "orfaos_declarados": {
   "tabela:maq_cnpj_cache": {
    "motivo": "Cache de consulta de CNPJ da maquininha. O achado original do A4P-076: viveu meses no banco sem migration. RLS ligada sem política.",
@@ -127,6 +127,7 @@
   "funcao:org_member_update(p_user_id uuid, p_display_name text, p_email text, p_permissions jsonb, p_approval_limit numeric, p_can_cancel boolean)": "404fea3688b7a111c71d30a7d4bd9a4c",
   "funcao:org_members()": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:org_movements(p_de date, p_ate date)": "290e9bb7964fe2a0e9803833fd383f91",
+  "funcao:org_nomear_provisoria(p_nome text)": "404fea3688b7a111c71d30a7d4bd9a4c",
   "funcao:org_pode_escrever(p_org uuid)": "290e9bb7964fe2a0e9803833fd383f91",
   "funcao:org_state_auditar()": "404fea3688b7a111c71d30a7d4bd9a4c",
   "funcao:org_state_backup()": "9e4d78ccffd5462c6e1e13547350cd4e",

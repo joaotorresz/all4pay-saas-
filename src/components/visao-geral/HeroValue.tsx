@@ -46,7 +46,7 @@ export function HeroValue({
     <div>
       <div className="flex items-start justify-between gap-3">
         {/* Rótulo do herói (Laboratório): Roobert Variable 12, peso 200. */}
-        <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12, fontWeight: 200 }}>{label}</div>
+        <div className="text-muted" style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 200 }}>{label}</div>
         {rightSlot}
       </div>
 

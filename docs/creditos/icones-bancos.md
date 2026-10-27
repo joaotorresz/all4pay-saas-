@@ -21,3 +21,17 @@ autor. Pendência do dono: confirmar com o autor ou trocar a fonte.
 As marcas pertencem aos respectivos bancos. O Quattro as mostra só para
 identificar a conta bancária do próprio cliente (uso nominativo), em
 monocromático, sem sugerir parceria ou endosso.
+
+## As marcas coloridas da abertura de conta
+
+Na escolha dos bancos da abertura de conta (`/criar-conta`, pedido do dono em
+27/10/2026), o `BancoLogo marca` mostra a marca COLORIDA de `public/bancos/`.
+Os arquivos vêm do **Bancos em SVG**, de **Thiago da Silveira Gentil**
+(https://github.com/Tgentil/Bancos-em-SVG, ramo `main`, baixados em
+27/10/2026): Itaú, Bradesco, Santander, Banco do Brasil, Caixa, Nubank, Inter,
+C6, BTG, Sicoob, Sicredi, Mercado Pago, PagBank, Stone, Safra, Banrisul e Cora.
+
+⚠️ **Licença:** o repositório também não declara licença; diz apenas que as
+marcas são dos bancos e pede para respeitar as diretrizes de marca de cada um.
+O uso é o mesmo de cima (nominativo: identificar o banco do próprio cliente).
+Os arquivos foram conferidos: nenhum traz script, `onload` ou link externo.

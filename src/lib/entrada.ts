@@ -19,6 +19,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { reportar } from "@/lib/erros";
 import { MIN_SENHA, ROTA_RETORNO } from "@/core/recuperacao";
+import { ROTA_GOOGLE, ROTA_GOOGLE_INICIO } from "@/core/google";
 import { MARCA } from "@/core/marca";
 import {
   codigoCompleto, destinoDepoisDoCodigo, fatoresParaTela, nomeDoNovoAparelho, normalizarCodigo,
@@ -213,6 +214,84 @@ export async function pedirRedefinicao(email: string): Promise<void> {
     if (error) reportar("acesso.pedir_redefinicao", error, "O e-mail de redefinição de senha pode não ter saído.", true);
   } catch (e) {
     reportar("acesso.pedir_redefinicao", e, "O e-mail de redefinição de senha pode não ter saído.", true);
+  }
+}
+
+/**
+ * "Entrar com Google": leva ao Google e volta para `ROTA_GOOGLE`, que troca o
+ * código NO SERVIDOR e escolhe o destino (conta nova → cadastro da empresa).
+ *
+ * ⚠️ **A origem é a da página**, como na redefinição: a prova PKCE fica num
+ * cookie DESTE domínio, e voltar noutro domínio perderia a sessão.
+ * ⚠️ `prompt: "select_account"`: num computador com duas contas Google, entrar
+ * calado na conta errada abre a empresa errada sem ninguém perceber.
+ *
+ * ⚠️ **Com `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, a ida é pelo NOSSO domínio**
+ * (`ROTA_GOOGLE_INICIO`): a tela do Google passa a mostrar o domínio da
+ * Quattro, não o do Supabase (ver `core/google`). Sem ele, segue o caminho do
+ * Supabase abaixo.
+ *
+ * Só devolve quando FALHA — no sucesso o navegador já saiu da página.
+ */
+export async function entrarComGoogle(): Promise<ResultadoEntrada> {
+  if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+    window.location.assign(ROTA_GOOGLE_INICIO);
+    return { ok: true };
+  }
+  try {
+    const { error } = await comPrazo(
+      createClient().auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}${ROTA_GOOGLE}`, queryParams: { prompt: "select_account" } },
+      }),
+      "google",
+    );
+    if (error) {
+      reportar("acesso.google", error, "o botão Entrar com Google não levou ao Google", true);
+      return { ok: false, ...traduzir(error.message) };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, ...traduzir(e instanceof Error ? e.message : String(e)) };
+  }
+}
+
+/** O e-mail da sessão aberta (a conta que voltou do Google), ou `null`. */
+export async function emailDaSessao(): Promise<string | null> {
+  try {
+    const { data, error } = await comPrazo(createClient().auth.getUser(), "sessao");
+    if (error || !data.user) return null;
+    return data.user.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Dá à empresa da conta que entrou pelo Google o nome que o cadastro
+ * respondeu. Ela nasceu com o nome provisório do gatilho (o Google não manda
+ * nome de empresa) — é a mesma informação que o `signUp` leva em
+ * `options.data.company`, chegando por outra porta.
+ *
+ * ⚠️ Quem decide é o banco (`org_nomear_provisoria`): só o DONO, só a empresa
+ * aberta e só enquanto ela ainda tem o nome provisório. Renomear empresa de
+ * verdade não é isto.
+ */
+export async function nomearEmpresaDaConta(nome: string): Promise<ResultadoEntrada> {
+  const limpo = nome.trim();
+  if (limpo.length < 2) return { ok: false, motivo: "Informe o nome da empresa.", comoResolver: "Volte à pergunta do nome e complete." };
+  try {
+    const { error } = await comPrazo(Promise.resolve(createClient().rpc("org_nomear_provisoria", { p_nome: limpo })), "nome");
+    if (error) {
+      reportar("cadastro.nome_google", error, "a empresa da conta do Google ficou com o nome provisório", true);
+      if (/já tem nome|ja tem nome/i.test(error.message)) {
+        return { ok: false, motivo: "Esta conta já tem uma empresa cadastrada.", comoResolver: "Entre pelo login para abri-la." };
+      }
+      return { ok: false, ...traduzir(error.message) };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, ...traduzir(e instanceof Error ? e.message : String(e)) };
   }
 }
 

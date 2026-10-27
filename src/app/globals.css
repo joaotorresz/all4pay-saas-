@@ -2,162 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Roobert TRIAL — fonte da marca Quattro (self-hosted). Quatro cortes
-   estáticos cobrindo a escala de peso da UI: Light · Regular · Medium ·
-   SemiBold. As faixas de `font-weight` não podem se sobrepor — o browser
-   escolhe o arquivo pela faixa em que o peso pedido cai. */
+/* DESIGN SYSTEM 27/10/2026 — o do site (paguequattro.com/teste2), decisão do
+   dono. DUAS famílias, dois papéis:
+   · "Quattro Agrandir" (700) — TÍTULO e VALOR-HERÓI. O arquivo é o MESMO que
+     o site embute no componente QFonte (woff2 de 18 KB, 100–900).
+   · "Inter Display" — TEXTO e números de tabela. É a Inter variável com o eixo
+     óptico (`opsz`), no tamanho de display: a mesma família do site, com
+     `font-variation-settings: "opsz" 32` aplicado no corpo (fim do arquivo).
+   Roobert, Gellix, Knocky, Obviously e Deacon saíram (arquivos e @font-face). */
 @font-face {
-  font-family: "Roobert";
-  src: url("/fonts/roobert-light.otf") format("opentype");
-  font-weight: 100 350;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Roobert";
-  src: url("/fonts/roobert-regular.otf") format("opentype");
-  font-weight: 360 440;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Roobert";
-  src: url("/fonts/roobert-medium.otf") format("opentype");
-  font-weight: 450 550;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Roobert";
-  src: url("/fonts/roobert-semibold.otf") format("opentype");
-  font-weight: 560 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Roobert VF — a variável (um arquivo, 100–900 contínuo). Fica numa família
-   PRÓPRIA para não competir com os cortes estáticos acima; útil para testar
-   pesos intermediários no Laboratório de Design. */
-@font-face {
-  font-family: "Roobert Variable";
-  src: url("/fonts/roobert-variable.ttf") format("truetype-variations");
+  font-family: "Quattro Agrandir";
+  src: url("/fonts/quattro-agrandir.woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
-
-/* Roobert Semi Mono TRIAL — largura semi-tabular (meio-termo entre a
-   proporcional e a monoespaçada). Light + Regular. */
 @font-face {
-  font-family: "Roobert Semi Mono";
-  src: url("/fonts/roobert-semimono-light.otf") format("opentype");
-  font-weight: 200 350;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Roobert Semi Mono";
-  src: url("/fonts/roobert-semimono-regular.otf") format("opentype");
-  font-weight: 360 480;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Roobert Semi Mono";
-  src: url("/fonts/roobert-semimono-medium.otf") format("opentype");
-  font-weight: 490 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Roobert Mono TRIAL — monoespaçada de verdade (candidata a números). */
-@font-face {
-  font-family: "Roobert Mono";
-  src: url("/fonts/roobert-mono-semibold.otf") format("opentype");
+  font-family: "Inter Display";
+  src: url("/fonts/inter-display-latin.woff2") format("woff2-variations");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
-
-/* Knocky Semibold — candidata em avaliação, disponível SÓ pelo Laboratório.
-   ⚠️ Um corte único (usWeightClass 600). A faixa `100 900` existe para o
-   navegador não recusar a família quando o Lab pedir outro peso: sem ela, um
-   `font-weight:400` cairia no fallback e a pessoa concluiria que a fonte não
-   carregou. O peso desenhado continua sendo um só — o resto é sintético.
-   ⚠️ E ela NÃO tem `tnum`: as features do arquivo são `aalt` e `liga`. Onde o
-   sistema exige numeral tabular (`.a4p-num`, `.tabular-nums`, eixos de
-   gráfico), as colunas não vão alinhar. É a razão de ela entrar como fonte de
-   TEXTO para teste, e não como fonte de valores. */
 @font-face {
-  font-family: "Knocky";
-  src: url("/fonts/knocky-semibold.ttf") format("truetype");
+  font-family: "Inter Display";
+  src: url("/fonts/inter-display-latin-ext.woff2") format("woff2-variations");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
-}
-
-/* Obviously Narrow Bold — candidata em avaliação, SÓ pelo Laboratório.
-   Versão COMPLETA (365 caracteres, 553 glifos, com kerning): `$`, `%`, hífen e
-   menos (U+2212) e todos os acentos pt-BR, maiúsculos e minúsculos. Substituiu
-   a demo de 66 caracteres, que trocava de fonte no meio da palavra.
-   ⚠️ DÍGITOS PROPORCIONAIS, e isto foi MEDIDO no arquivo: as dez cifras têm
-   NOVE larguras diferentes — o `1` mede 271/1000 em contra 519 do `0`, quase
-   meio em de diferença. Não há `tnum` para corrigir (as features são case,
-   dnom, frac, lnum, locl, onum, salt, ss01-ss06, sups). Numa coluna de valores
-   cada linha começa num ponto diferente, que é exatamente o que o
-   `tabular-nums` do sistema existe para impedir. Candidata a TEXTO; os valores
-   precisam continuar em Geist Mono. */
-@font-face {
-  font-family: "Obviously Narrow";
-  src: url("/fonts/obviously-narrow-bold.otf") format("opentype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Deacon Condensed Test Black — candidata em avaliação, SÓ pelo Laboratório.
-   ⚠️ MEDIDO NO ARQUIVO (fontTools): 67 glifos, 66 caracteres mapeados. É o
-   MESMO tamanho da demo de Obviously que já teve de ser trocada por "trocar de
-   fonte no meio da palavra" — e aqui o problema é maior, porque falta
-   justamente o que um app financeiro em português usa o tempo todo:
-
-     · TODOS os acentos pt-BR: á à â ã é ê í ó ô õ ú ç (e as maiúsculas);
-     · o cifrão `$`, o percentual `%`, o menos tipográfico `−` e os dois-pontos.
-
-   Consequência prática: "Contabilidade e impostos" troca de fonte em cada
-   acento, e `R$` perde a cifra. Serve para avaliar o DESENHO das maiúsculas e
-   dos números em títulos curtos sem acento — não para o produto.
-   ⚠️ E é `Test`/`Trial` no nome: uso comercial exige licença. */
-@font-face {
-  font-family: "Deacon Condensed";
-  src: url("/fonts/deacon-condensed-black.otf") format("opentype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Gellix TRIAL Bold — candidata do Laboratório, e a PRIMEIRA que não tem o
-   defeito das outras. Medido no arquivo (fontTools): 759 glifos, 507
-   caracteres, 196 KB.
-
-   · ASCII, acentos pt-BR e símbolos (`$` `%` `−` `–` `—`): COMPLETOS;
-   · e tem `tnum` — numeral tabular de verdade. É a única candidata que
-     poderia servir também para VALORES, porque as colunas alinham. Knocky,
-     Obviously e Deacon falham exatamente aí.
-
-   ⚠️ CORTE ÚNICO (usWeightClass 700). A faixa `100 900` existe para o
-   navegador não recusar a família quando o Lab pedir outro peso — sem ela um
-   `font-weight:400` cairia no fallback e a pessoa concluiria que a fonte não
-   carregou. O peso DESENHADO é um só; o resto é sintético, e um "Light"
-   pedido aqui é o Bold afinado pelo navegador, não um corte real. Mesmo
-   tratamento da Knocky.
-   ⚠️ `TRIAL` no nome: uso comercial exige licença. */
-@font-face {
-  font-family: "Gellix";
-  src: url("/fonts/gellix-bold.otf") format("opentype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
 
 /* ============================================================
@@ -193,9 +67,9 @@
   --color-black-pure: #000000;
   /* Preto da referência Jota — texto, número e fundo escuro
      Preto da referência Jota */
-  --color-ink: #1a1a1a;
+  --color-ink: #3b4332;
   /* Cinza escuro da referência — hover do escuro */
-  --color-ink-soft: #535353;
+  --color-ink-soft: #5f5e4e;
   /* ⚠️ SUPERFÍCIES — ajuste vindo do Laboratório (ver CLAUDE.md). O par
      branco+bege da tabela de marca continua sendo a identidade; o que mudou
      é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
@@ -203,7 +77,7 @@
      branco puro para separar da área por CONTRASTE, agora que não há borda.
      superfície de card (referência Jota)
      superfície de card */
-  --color-white: #fefefd;
+  --color-white: #ffffff;
   /* fundo de página (referência Jota)
      ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
@@ -218,7 +92,7 @@
   --color-surface-3: #d6d8ca;
   /* Cinza médio — borda de card e divisória
      Cinza médio */
-  --color-border: #e2e2e2;
+  --color-border: #e8e7e0;
   /* Areia — borda de campo e separador em fundo claro. */
   --color-areia: #b5b594;
   /* ⚠️ O DIVISOR É CINZA, NÃO BEGE. Era Beige (#EEEDDB), e as superfícies de
@@ -234,7 +108,7 @@
   /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
-  --a4p-hairline: #e2e2e2;
+  --a4p-hairline: #e8e7e0;
   /* ============================================================
      MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
      superior e o respiro em volta — deixou de ser cartão branco e virou
@@ -258,9 +132,9 @@
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
   --a4p-app-bg: #f5f5f5;
-  --a4p-app-radius: 28px;
+  --a4p-app-radius: 32px;
   /* Rótulo — cinza escuro da referência ("Dinheiro escapando") */
-  --color-text-secondary: #535353;
+  --color-text-secondary: #5f5e4e;
   /* ⚠️ `faint` pinta o prefixo "R$" e os CENTAVOS de todo valor, a 7pt. A
      paleta tem UM cinza de texto (Grey #534D41) e um Placeholder #A9A6A4 —
      e o Placeholder dá 2,36:1 sobre o branco quente, contra os 4,5:1 da
@@ -269,14 +143,14 @@
      dinheiro vem do TAMANHO, que é como `Money`/`BRL` já a constroem, não de
      um quarto cinza que a paleta não tem.
      Meta — cinza claro da referência ("últimos 90 dias") */
-  --color-text-tertiary: #9a9a9a;
+  --color-text-tertiary: #7a7a72;
   /* Placeholder — SÓ placeholder de campo
      ⚠️ Placeholder #A9A6A4 dá 2,36:1 sobre o branco quente — serve para o
      texto-fantasma de um campo vazio e para NADA que precise ser lido.
      Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
      (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12.
      Placeholder */
-  --color-text-quaternary: #9a9a9a;
+  --color-text-quaternary: #8c8b7e;
   /* Lime #ECFD52 — a cor de AÇÃO (botão primário, destaque, número grande).
      ⚠️ Nunca leva texto branco: por cima dele o texto é sempre o verde-base.
      Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
@@ -360,9 +234,9 @@
   --a4p-cat-7: color-mix(in srgb, var(--color-text-secondary) 62%, var(--color-white));
   --a4p-cat-8: var(--color-ink);
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 20px;
+  --radius-card: 24px;
   /* campo de formulário */
-  --radius-md: 14px;
+  --radius-md: 12px;
   --radius-modal: 24px;
   --radius-bloco: 32px;
   --radius-sm: 8px;
@@ -371,21 +245,25 @@
      A única sombra do guia Quattro: longa e quase invisível. */
   --shadow-card: none;
   /* Sem vidro (16/10/2026): popover, menu e gaveta são sólidos, no branco do cartão. */
-  --shadow-popover: 0 24px 64px -16px rgba(43, 49, 37, 0.24);
-  --shadow-pill: 0 8px 24px -10px rgba(43, 49, 37, 0.22);
+  --shadow-popover: 0 24px 50px rgba(30, 35, 24, 0.16);
+  --shadow-pill: 0 14px 34px rgba(30, 35, 24, 0.12);
   /* easeOutQuint — limpo, sem overshoot */
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   /* leve "pop" no retorno do clique */
   --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1);
+  --font-display: "Quattro Agrandir", "Agrandir Tight Bold", "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --a4p-titulo-espaco-palavra: 0.14em;
   /* cor do número: o preto do dinheiro da referência Jota (15/10/2026) */
-  --erp-num-cor: #1a1a1a;
+  --erp-num-cor: #3b4332;
   /* R$ na mesma cor do número */
-  --erp-moeda-cor: #1a1a1a;
+  --erp-moeda-cor: #3b4332;
   /* só os centavos diferem */
-  --erp-centavos-cor: #1a1a1a;
+  --erp-centavos-cor: #3b4332;
   /* o menu é um card: o branco da referência */
   --erp-menu-fundo: var(--color-white);
-  --erp-menu-borda: #f4f4f4;
+  --erp-menu-borda: #e8e7e0;
   --erp-menu-ativo: #ecfd52;
   --erp-logo-cor: #3b4332;
   --erp-graf-grade: var(--color-border);
@@ -427,8 +305,8 @@
   --erp-graf-entrada: var(--color-positive);
   --erp-graf-saida: var(--color-negative);
   --erp-tabela-linha: var(--erp-menu-borda);
-  --a4p-bolha-usuario: #eaeaea;
-  --a4p-pilula-fundo: #fefefd;
+  --a4p-bolha-usuario: #e5e5e5;
+  --a4p-pilula-fundo: #ffffff;
   --a4p-pilula-texto: var(--color-ink);
 }
 /* tema escuro */
@@ -480,37 +358,29 @@ html.dark {
   --radius-card: var(--a4p-box-radius);
   /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. ==
      bg/base — área de trabalho */
-  --a4p-bg: #fefefd;
+  --a4p-bg: #ffffff;
   /* cards SÓLIDOS */
   --a4p-box-bg: #f5f5f5;
   /* card Quattro: 26px */
-  --a4p-box-radius: 20px;
+  --a4p-box-radius: 24px;
   /* card Quattro: 28px */
   --a4p-box-padding: 28px;
   /* card com borda 1px Cinza médio */
   --a4p-box-border: var(--color-border);
-  --font-display: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-sans: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* ⚠️ O papel de RÓTULO pede `var(--font-mono)`, e a única monoespaçada da
-     casa é a Roobert Mono — mesma família da UI, largura fixa de verdade.
-     Uma monoespaçada de fora resolveria a largura e traria um segundo
-     desenho de letra para dentro do sistema, que é o que as três famílias
-     existem para evitar. */
-  --font-mono: "Roobert Mono", "Roobert Semi Mono", ui-monospace, monospace;
 }
 /* dentro do app, tema claro */
 html:not(.dark) .ds-visor {
-  --color-ink: #1a1a1a;
-  --color-ink-soft: #535353;
-  --color-white: #fefefd;
+  --color-ink: #3b4332;
+  --color-ink-soft: #5f5e4e;
+  --color-white: #ffffff;
   --color-surface-1: #f5f5f5;
   --color-surface-2: #f5f5f5;
   --color-surface-3: #d6d8ca;
-  --color-border: #e2e2e2;
+  --color-border: #e8e7e0;
   --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
-  --color-text-secondary: #535353;
-  --color-text-tertiary: #9a9a9a;
-  --color-text-quaternary: #9a9a9a;
+  --color-text-secondary: #5f5e4e;
+  --color-text-tertiary: #7a7a72;
+  --color-text-quaternary: #8c8b7e;
   --color-lime: #ecfd52;
   --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
   --color-on-lime: #3b4332;
@@ -696,7 +566,7 @@ h1, h2, h3,
 }
 /* Gráficos no MESMO padrão: rótulos de eixo em mono 11px, discretos. */
 .recharts-cartesian-axis-tick-value {
-  font-family: "Roobert Mono", "Roobert Semi Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-weight: 400;
   font-size: 11px;
   fill: var(--color-text-tertiary);
@@ -712,7 +582,7 @@ h1, h2, h3,
 .ds-visor {
   /* ========================================================================= */
 
-  font-family: "Roobert", "Roobert Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: -0.01em;
   /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
   background: transparent;
@@ -871,7 +741,7 @@ h1, h2, h3,
    de etapa, timestamp e unidade.
    ============================================================ */
 .a4p-label {
-  font-family: var(--font-mono, "Roobert Mono", ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.44px;
@@ -928,7 +798,7 @@ h1, h2, h3,
    Variable, peso 400. Aplicada ao CARD (não a `*`), então é só o padrão: quem
    tem peso explícito dentro (títulos, heróis) continua vencendo por herança. */
 .ds-visor [data-card="1"] {
-  font-family: "Roobert Variable", "Roobert", sans-serif;
+  font-family: var(--font-sans);
   font-weight: 400;
 }
 
@@ -939,7 +809,7 @@ h1, h2, h3,
    (regular → medium aqui; medium → semibold em `.a4p-titulo-secao`). */
 .ds-visor h2,
 .ds-visor .text-h2 {
-  font-family: "Roobert Variable", "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -1241,9 +1111,12 @@ html.dark .a4p-canvas {
    passar por baixo e lia como uma segunda linguagem por cima do design
    system. Nenhum desfoque de fundo no app (guarda `vidro:` na consistência). */
 .a4p-sobreposto,
-.shadow-popover {
+.shadow-popover:not(.bg-ink) {
   background: var(--color-white);
 }
+/* ⚠️ O aviso flutuante (toast) é ESCURO de propósito: `bg-ink` + texto claro.
+   Sem o `:not(.bg-ink)` a regra acima o pintava de branco e o texto, também
+   claro, sumia (26/10/2026: o erro da emissão de nota saiu ilegível). */
 /* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
    outro faz a moldura do app parecer duas peças de sistemas diferentes.
    E esse material é o do CARTÃO da Home — branco sólido + o mesmo hairline.
@@ -1850,8 +1723,10 @@ html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade)
 .ds-visor .a4p-heroi .a4p-num *,
 .ds-visor .a4p-home .a4p-heroi .a4p-num,
 .ds-visor .a4p-home .a4p-heroi .a4p-num * {
-  font-family: var(--font-sans) !important;
-  font-weight: 600 !important;
+  /* 27/10/2026: todo número em Agrandir 700 (bloco "TODO NÚMERO EM
+     AGRANDIR" no fim do arquivo). */
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
 }
 html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
 /* Vírgula e centavos: o mesmo corpo e a mesma cor do número. */
@@ -1888,4 +1763,153 @@ html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
   select {
     font-size: 16px !important;
   }
+}
+
+/* ============================================================
+   DESIGN SYSTEM 27/10/2026 — o do site paguequattro.com/teste2 (decisão do
+   dono). Vence tudo acima; os valores moram no `tokens.json`.
+
+   · Duas famílias: Quattro Agrandir 700 (título de tela, título de card e o
+     valor-herói) · Inter Display (todo o resto; números de linha e tabela em
+     600 com `tabular-nums`).
+   · Cor: texto e título #3B4332 · texto 2 #5F5E4E · meta #7A7A72 · fio
+     #E8E7E0 · página #F5F5F5 com cartão #FFFFFF sem borda e sem sombra.
+   · Forma: cartão 24px · item 12px · bloco 32px · pílula cheia. Botão de 50px
+     de altura, padding 0 26px, Inter Display 500 15px, sobe 1px no hover.
+   · Lime #ECFD52 continua sendo só a AÇÃO (botão primário, marca, marcador).
+   ============================================================ */
+body,
+.ds-visor {
+  font-family: var(--font-sans);
+  font-variation-settings: "opsz" 32;
+  font-optical-sizing: auto;
+}
+
+/* Título de tela e herói: Agrandir 700, tracking −0.02em, entrelinha curta. */
+.ds-visor h1,
+.ds-visor .text-h1,
+.ds-visor .text-display,
+.ds-visor .a4p-heroi {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+  color: var(--color-ink);
+}
+
+/* Título de seção e de card: Agrandir 700, −0.01em, na tinta (no site os
+   títulos pequenos são da mesma família dos grandes). */
+.ds-visor h2,
+.ds-visor .text-h2,
+.ds-visor .a4p-titulo-secao,
+.ds-visor [data-card="1"] h2,
+.ds-visor [data-card="1"] h3,
+.ds-visor [data-card="1"] .text-h2,
+.ds-visor [data-card="1"] .text-h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+
+/* O valor-herói (o número grande do cartão) fala a família do título, como
+   o "R$2.418,30" das telas do site. Número de linha e de tabela fica em
+   Inter Display 600 (regra de cima), porque a coluna precisa alinhar. */
+.ds-visor .text-value-lg,
+.ds-visor .text-value-lg .a4p-num,
+.ds-visor .text-value-lg .a4p-num *,
+.ds-visor .a4p-heroi .a4p-num,
+.ds-visor .a4p-heroi .a4p-num *,
+.ds-visor .a4p-home .a4p-heroi .a4p-num,
+.ds-visor .a4p-home .a4p-heroi .a4p-num *,
+.ds-visor .a4p-heroi .a4p-num > span:first-child {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+.ds-visor .a4p-num,
+.ds-visor .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fio de tabela e divisória: o #E8E7E0 do site. */
+.ds-visor table tr,
+.ds-visor hr {
+  border-color: var(--color-border);
+}
+
+/* Ajuste do dono (27/10/2026): a Agrandir tem de aparecer nas OUTRAS telas,
+   não só na Home. Três regras:
+
+   1. Todo título em Agrandir ganha o espaço entre palavras do token — o
+      espaço desenhado da fonte é estreito e, nos títulos pequenos, as
+      palavras grudavam.
+   2. Todo VALOR GRANDE (18px para cima: KPI, cartão, carrossel, total) fala
+      Agrandir, como os valores das telas do site. O tamanho decide, não a
+      tela: as classes de tamanho do sistema são o que marca um número em
+      destaque.
+   3. (Revogada no mesmo dia pelo dono: o número de tabela também é
+      Agrandir — ver o bloco do fim do arquivo.) */
+.ds-visor h1,
+.ds-visor h2,
+.ds-visor .text-h1,
+.ds-visor .text-h2,
+.ds-visor .text-display,
+.ds-visor .a4p-heroi,
+.ds-visor .a4p-titulo-secao,
+.ds-visor [data-card="1"] h3,
+.ds-visor [data-card="1"] .text-h3 {
+  word-spacing: var(--a4p-titulo-espaco-palavra);
+}
+
+.ds-visor :is(.text-h1, .text-h2, .text-value-lg, .text-display,
+  [class*="text-[18px]"], [class*="text-[19px]"], [class*="text-[2"],
+  [class*="text-[3"], [class*="text-[4"], [class*="text-[5"], [class*="text-[6"]):is(.a4p-num, .tabular-nums):not(td *, th *),
+.ds-visor :is(.text-h1, .text-h2, .text-value-lg, .text-display,
+  [class*="text-[18px]"], [class*="text-[19px]"], [class*="text-[2"],
+  [class*="text-[3"], [class*="text-[4"], [class*="text-[5"], [class*="text-[6"]):not(td, th, td *, th *) :is(.a4p-num, .a4p-num *),
+.ds-visor [data-card="1"] .text-h3:is(.a4p-num, .tabular-nums):not(td *) {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   TODO NÚMERO EM AGRANDIR (27/10/2026, decisão do dono, depois da varredura
+   das 76 telas: ~3.000 números ainda saíam em Inter Display, a maioria em
+   tabela, DRE, DFC e fluxo de caixa). Vence as regras de cima que separavam
+   "valor-herói em Agrandir" de "número de linha e tabela em Inter".
+
+   · Vale para o valor (`.a4p-num`), para todo número marcado como tabular
+     (`.tabular-nums`, inclusive célula de tabela), para o dia do calendário,
+     e para o número solto que o `MarcaNumeros` (components/app) marca com
+     `data-num` — o texto que é SÓ número, data ou percentual e não tem
+     classe nenhuma, inclusive o eixo e o rótulo dos gráficos (SVG). O
+     marcador olha o CONTEÚDO, então o eixo de categorias ("Folha",
+     "Aluguel") continua em Inter.
+   · ⚠️ A Agrandir NÃO tem `tnum` (medido no arquivo): numa coluna, os dígitos
+     de larguras diferentes deixam de cair um embaixo do outro. As colunas de
+     dinheiro do sistema são alinhadas à DIREITA, então o fim do número (os
+     centavos) continua alinhado; o que muda é o desenho de cada algarismo.
+   · O texto (rótulo, nome, frase) segue em Inter Display.
+   ============================================================ */
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .tabular-nums *,
+.ds-visor td.tabular-nums,
+.ds-visor td .a4p-num,
+.ds-visor td .a4p-num *,
+.ds-visor td .tabular-nums,
+.ds-visor .a4p-valor-texto .a4p-num,
+.ds-visor .a4p-valor-texto .a4p-num *,
+.ds-visor .a4p-num.a4p-valor-texto,
+.ds-visor .tabular-nums.a4p-valor-texto,
+.ds-visor .a4p-dia-num,
+.ds-visor .text-value-lg,
+[data-num],
+[data-num] * {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
 }

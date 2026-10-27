@@ -4,6 +4,11 @@
  * grade moram em `globals.css` (`--erp-graf-*`), nunca aqui.
  */
 export const RAIO_BARRA = 6;
+/**
+ * Barra com os QUATRO cantos arredondados (27/10/2026, pedido do dono): positivo
+ * e negativo, vertical e horizontal. Vale para toda barra do sistema.
+ */
+export const RAIO_CHEIO: [number, number, number, number] = [RAIO_BARRA, RAIO_BARRA, RAIO_BARRA, RAIO_BARRA];
 /** Barra vertical (topo arredondado). */
 export const RAIO_TOPO: [number, number, number, number] = [RAIO_BARRA, RAIO_BARRA, 0, 0];
 /** Barra vertical que cresce para BAIXO (saídas num gráfico divergente). */

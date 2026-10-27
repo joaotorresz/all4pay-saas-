@@ -222,6 +222,8 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_theme", "a4p_theme_draft", "a4p_modo", "a4p_tipo_conta",
   "a4p_sidebar_width", "a4p_home_widgets", "a4p_home_order", "a4p_home_painel_ordem", "a4p_home_period",
   "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros",
+  // O "olho" que esconde os saldos (lib/ocultar-saldos): ajuste do aparelho.
+  "a4p_ocultar_saldos",
   // O rascunho do editor do design system (Administração › Design system):
   // trabalho em andamento de quem edita, que só vira sistema por um PR.
   "a4p_ds_rascunho", "a4p_guide_welcome", "a4p_tours_auto",
@@ -247,7 +249,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // pessoa mais pergunta e as pílulas já respondidas. A casa é o servidor.
   "a4p_home_temas", "a4p_home_respondidas",
   // Avisos do topo fechados NESTA SESSÃO (sessionStorage — voltam na próxima).
-  "a4p_aviso_amostra_fechado", "a4p_aviso_assinatura_fechado",
+  "a4p_aviso_amostra_fechado",
+  // O pop-up da assinatura fechado HOJE (a data local): volta no dia seguinte.
+  "a4p_aviso_assinatura_dia",
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
   // por definição — subir esta marca ao servidor não diria nada.
   "a4p_org_do_cache",

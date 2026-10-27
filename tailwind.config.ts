@@ -77,33 +77,13 @@ const config: Config = {
 
       },
       fontFamily: {
-        // ⚠️ TRÊS FAMÍLIAS, TRÊS PAPÉIS (guia vigente):
-        //   display → Gellix Bold 700: número que impressiona e headline.
-        //   sans    → Roobert 500: tudo que se lê.
-        //   mono    → Roobert Mono: o papel de RÓTULO (11px, caixa alta,
-        //             0,44px) — eyebrow, tag de estado, unidade, timestamp.
-        //
-        // Gellix carrega os VALORES porque o arquivo tem `tnum` (medido): sem
-        // numeral tabular, cada linha de uma coluna de dinheiro começaria num
-        // ponto diferente. É o que separa ela das outras candidatas.
-        // Quattro: Centra No.2 Black, CAIXA ALTA nos títulos (tem `tnum`).
-        display: ['"Roobert"', "-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "sans-serif"],
-        sans: [
-          '"Roobert"',
-          '"Roobert Variable"',
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "sans-serif",
-        ],
-        mono: [
-          '"Roobert Mono"',
-          '"Roobert Semi Mono"',
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "monospace",
-        ],
+        // DESIGN SYSTEM 27/10/2026 (site paguequattro.com/teste2): as famílias
+        // vêm das variáveis do `tokens.json` (`--font-display/sans/mono`), uma
+        // fonte só. display = Quattro Agrandir (título e herói) · sans e mono =
+        // Inter Display (os números alinham por `tabular-nums`).
+        display: ["var(--font-display)"],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
       fontSize: escalas.fontSize as unknown as NonNullable<Config["theme"]>["fontSize"],
       fontWeight: {

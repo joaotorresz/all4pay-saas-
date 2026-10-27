@@ -31,6 +31,7 @@ import {
   type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LarguraHome, type LayoutHome,
 } from "@/core/home/itens";
 import { MaquininhaRecentes } from "./MaquininhaRecentes";
+import { SaldoEmContasCard } from "./SaldoEmContas";
 import { CATALOG_BY_ID, useCockpitCtx } from "./cockpit";
 import { loadCompany } from "@/lib/company";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -438,7 +439,7 @@ const SPAN: Record<LarguraHome, string> = {
 const GRADE = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4";
 const NOME_LARGURA: Record<LarguraHome, string> = { 3: "um quarto", 4: "um terço", 6: "metade", 8: "dois terços", 9: "três quartos", 12: "a linha inteira" };
 
-function ItemArrastavel({ id, arraste, children, largura, lugarDaAlca = "right-4 top-4" }: {
+function ItemArrastavel({ id, arraste, children, largura, lugarDaAlca = "right-4 top-4", fixo = false }: {
   id: IdHome;
   arraste: ReturnType<typeof useArraste>;
   children: React.ReactNode;
@@ -446,6 +447,8 @@ function ItemArrastavel({ id, arraste, children, largura, lugarDaAlca = "right-4
   largura?: LarguraHome;
   /** Onde a alça fica: o card da biblioteca já tem o "i" no canto. */
   lugarDaAlca?: string;
+  /** O item FIXO (`ITEM_FIXO`): sem alça e sem ser alvo de arraste. A borda da largura fica. */
+  fixo?: boolean;
 }) {
   const borda = arraste.borda(id);
   const l = largura ?? borda.largura;
@@ -454,10 +457,10 @@ function ItemArrastavel({ id, arraste, children, largura, lugarDaAlca = "right-4
       className={`group/item relative min-w-0 transition-opacity ${l === 12 ? "md:col-span-2" : ""} ${SPAN[l]}`}
       data-item-home={id}
       data-largura={l}
-      {...arraste.props(id)}
+      {...(fixo ? {} : arraste.props(id))}
     >
       {children}
-      <Alca {...arraste.alca(id)} lugar={lugarDaAlca} />
+      {!fixo && <Alca {...arraste.alca(id)} lugar={lugarDaAlca} />}
       <Borda {...borda} largura={l} nome={itemHome(id).nome} />
     </div>
   );
@@ -714,10 +717,10 @@ function usePendencias(): Pendencias {
 function PrecisaDeAcao({ p }: { p: Pendencias }) {
   const itens = [
     { nome: "Transações a conciliar", qtd: p.conciliar, href: "/dashboard/financial/reconciliation" },
-    { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices" },
+    { nome: "Notas a emitir", qtd: p.notas, href: "/dashboard/sales-invoices/invoices" },
     { nome: "Compras a aprovar", qtd: p.compras, href: "/dashboard/purchases" },
-    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/central?aba=solicitacoes" },
-    { nome: "Boletos a pagar", qtd: p.boletos, href: "/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos" },
+    { nome: "Lançamentos aguardando aprovação", qtd: p.aprovacoes, href: "/aprovacoes" },
+    { nome: "Boletos a pagar", qtd: p.boletos, href: "/contas-a-pagar/caixa-de-entrada?caixa=boletos" },
   ];
   return (
     <div className={`${COLUNA} gap-[6px]`} style={colunaStyle}>
@@ -936,6 +939,9 @@ export function HomeSnapshot() {
   // Card da biblioteca entra no TOPO de "Seu painel", acima dos números fixos
   // (decisão do dono, 14/10/2026): não existe seção de cards à parte.
   const cardsVisiveis = visiveis(layout, "card") as IdCard[];
+  const cards = cardsVisiveis.length > 0 ? (
+    <CardsDaBiblioteca ids={cardsVisiveis} arraste={arraste} aoTirar={(id) => prefs.salvarLayout(aplicarAcoes(layout, [{ tipo: "esconder", id }]))} />
+  ) : null;
   const painel = visiveis(layout, "painel").length === 0 && cardsVisiveis.length === 0 ? null : (
     <section key="painel" className="flex flex-col gap-4">
       {/* "Ajustar prioridades" ao lado do título (pedido do dono, 16/10/2026). */}
@@ -948,9 +954,7 @@ export function HomeSnapshot() {
           </button>
         )}
       </div>
-      {cardsVisiveis.length > 0 && (
-        <CardsDaBiblioteca ids={cardsVisiveis} arraste={arraste} aoTirar={(id) => prefs.salvarLayout(aplicarAcoes(layout, [{ tipo: "esconder", id }]))} />
-      )}
+      {(isLoading || !snap) && cards}
       {isLoading || !snap ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[0, 1].map((i) => <div key={i} className="min-h-[380px] animate-pulse" style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }} />)}
@@ -958,34 +962,46 @@ export function HomeSnapshot() {
       ) : (
         // Os grandes (com curva) e os pequenos em FAIXAS do mesmo tamanho, na
         // ordem da pessoa: um grande e um pequeno na mesma linha esticariam um ao outro.
-        faixasDoPainel(layout).map((f) => (
-          <div key={f.ids.join("|")} className={GRADE}>
-            {f.ids.map((id, i) => {
-              // Três grandes (a maquininha, o caixa e o ARR) dividem a linha em
-              // terços: sem isso o terceiro caía sozinho na linha de baixo.
-              const tres = f.tamanho === "grande" && f.ids.length === 3 && !layout.larguras?.[id];
-              // O último de uma faixa ímpar ocupa a linha inteira: sozinho em
-              // meia linha, ele deixava um buraco ao lado (um pequeno subindo
-              // sozinho para o topo ficava com meia tela vazia). Só enquanto a
-              // pessoa não deu largura a ele: a largura dada vale.
-              const sozinho = !tres && f.ids.length % 2 === 1 && i === f.ids.length - 1 && !layout.larguras?.[id];
-              const largura: LarguraHome | undefined = tres ? 4 : sozinho ? 12 : undefined;
-              if (id === "maquininha") {
+        // ⚠️ A primeira faixa (com o saldo total em contas, FIXO no topo à
+        // esquerda) vem antes dos cards da biblioteca; os outros, depois deles.
+        faixasDoPainel(layout).map((f, k) => (
+          <React.Fragment key={f.ids.join("|")}>
+            <div className={GRADE}>
+              {f.ids.map((id, i) => {
+                // Três grandes (a maquininha, o caixa e o ARR) dividem a linha em
+                // terços: sem isso o terceiro caía sozinho na linha de baixo.
+                const tres = f.tamanho === "grande" && f.ids.length === 3 && !layout.larguras?.[id];
+                // O último de uma faixa ímpar ocupa a linha inteira: sozinho em
+                // meia linha, ele deixava um buraco ao lado (um pequeno subindo
+                // sozinho para o topo ficava com meia tela vazia). Só enquanto a
+                // pessoa não deu largura a ele: a largura dada vale.
+                const sozinho = !tres && f.ids.length % 2 === 1 && i === f.ids.length - 1 && !layout.larguras?.[id];
+                const largura: LarguraHome | undefined = tres ? 4 : sozinho ? 12 : undefined;
+                if (id === "contas") {
+                  return (
+                    <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura} fixo>
+                      <SaldoEmContasCard carimbo={carimbo} />
+                    </ItemArrastavel>
+                  );
+                }
+                if (id === "maquininha") {
+                  return (
+                    <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>
+                      <MaquininhaRecentes />
+                    </ItemArrastavel>
+                  );
+                }
+                const n = numero(id);
+                if (!n) return null;
                 return (
                   <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>
-                    <MaquininhaRecentes />
+                    {f.tamanho === "grande" && n.curva ? <CardGrande n={n} curva={n.curva} carimbo={carimbo} /> : <CardPequeno n={n} carimbo={carimbo} />}
                   </ItemArrastavel>
                 );
-              }
-              const n = numero(id);
-              if (!n) return null;
-              return (
-                <ItemArrastavel key={id} id={id} arraste={arraste} largura={largura}>
-                  {f.tamanho === "grande" && n.curva ? <CardGrande n={n} curva={n.curva} carimbo={carimbo} /> : <CardPequeno n={n} carimbo={carimbo} />}
-                </ItemArrastavel>
-              );
-            })}
-          </div>
+              })}
+            </div>
+            {k === 0 && cards}
+          </React.Fragment>
         ))
       )}
     </section>

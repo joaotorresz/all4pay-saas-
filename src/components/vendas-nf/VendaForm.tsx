@@ -145,7 +145,7 @@ export function VendaForm() {
       const { aviso } = await salvarVendaDoc(doc);
       await qc.invalidateQueries();
       show(aviso ?? "Venda salva · recebível gerado.");
-      if (!aviso) router.push("/dashboard/sales-invoices");
+      if (!aviso) router.push("/contas-a-receber/painel-de-vendas");
     } catch (err) {
       show(`Não foi possível salvar: ${(err as Error).message}`);
     } finally {

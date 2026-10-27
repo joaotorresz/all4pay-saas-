@@ -2,29 +2,29 @@
 
 import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
-import { HubShell, type AbaHub } from "@/components/app/HubShell";
+import { Secoes, type Secao } from "@/components/app/Secoes";
 import { InadimplenciaView } from "@/components/inadimplencia/InadimplenciaView";
 import { ReguaCobrancaView } from "@/components/inadimplencia/ReguaCobrancaView";
 
 /**
- * Inadimplência e cobrança — QUEM está atrasado (risco por cliente) e O QUE
- * FAZER com cada um hoje (a régua de cobrança).
+ * Inadimplência e cobrança — O QUE FAZER com cada atraso hoje (a régua) e
+ * QUEM está atrasado (risco por cliente), numa página só.
  *
- * ⚠️ Rota PRÓPRIA criada ao portar o hub legado (mapa de consolidação, item 2).
- * A régua entrou como painel desta tela, e não como tela nova, porque é o passo
- * seguinte da mesma pergunta: saber que o cliente atrasou e não ter onde agir
- * obriga a atravessar o produto no meio da tarefa.
+ * ⚠️ Eram duas abas até 27/10/2026. A régua é o passo seguinte da mesma
+ * pergunta: saber que o cliente atrasou e não ter onde agir obriga a
+ * atravessar o produto no meio da tarefa — e a aba escondia uma das metades.
+ * `?painel=regua` e `?painel=risco` rolam até a seção.
  */
-const PAINEIS: AbaHub[] = [
-  { id: "regua", label: "Régua de cobrança", render: () => <ReguaCobrancaView /> },
-  { id: "risco", label: "Risco por cliente", render: () => <InadimplenciaView /> },
+const SECOES: Secao[] = [
+  { id: "regua", titulo: "Régua de cobrança", desc: "Quem cobrar hoje, e em que etapa", conteudo: <ReguaCobrancaView /> },
+  { id: "risco", titulo: "Risco por cliente", desc: "Score, fatores e a chance de recuperar", conteudo: <InadimplenciaView /> },
 ];
 
 export default function Page() {
   return (
     <AppShell title="Cobrança e inadimplência" crumb="Central de vendas">
       <Suspense fallback={null}>
-        <HubShell abas={PAINEIS} param="painel" />
+        <Secoes secoes={SECOES} param="painel" />
       </Suspense>
     </AppShell>
   );

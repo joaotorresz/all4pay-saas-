@@ -35,7 +35,44 @@ from its tokens and its components.
    amarronzado (`#28211B`).** Nunca `#FFFFFF`, nunca `#000000` no app — o par
    puro só existe no token de marketing que o nomeia.
 
-### ⚠️ DESIGN SYSTEM DE 16/10/2026 (decisão do dono) — vence toda seção de identidade abaixo
+### ⚠️ DESIGN SYSTEM DE 27/10/2026 — O DO SITE (decisão do dono, DEFINITIVO) — vence tudo abaixo
+
+O dono trocou em definitivo o design system pelo que está no ar em
+**paguequattro.com/teste2** (projeto Framer "All4Pay", componentes `Q*` com a
+base `C`/`APP`/`T`/`B`). Lido do código dos componentes, não de print.
+
+- **Duas famílias:** **Quattro Agrandir 700** (`--font-display`,
+  `public/fonts/quattro-agrandir.woff2` — o MESMO woff2 que o `QFonte` do site
+  embute) no título de tela, título de seção e de card e no valor-herói;
+  **Inter Display** (`--font-sans`/`--font-mono`, a Inter variável com eixo
+  `opsz` em `public/fonts/inter-display-*.woff2`, `"opsz" 32` no corpo) em
+  todo o resto. ⚠️ **TODO NÚMERO é Agrandir 700** (decisão do dono,
+  27/10/2026, depois da varredura das 76 telas): valor, tabela, gráfico,
+  data, percentual e contagem. O número sem classe é marcado com `data-num`
+  por `components/app/MarcaNumeros` (regra pura em `core/tipografia/numero`,
+  guarda no `engine-audit`); número no MEIO de frase ("12 lançamentos") e
+  campo de formulário seguem em Inter. A Agrandir não tem `tnum`: a coluna
+  alinha pela direita, não algarismo a algarismo.
+  Roobert, Gellix, Knocky, Obviously e Deacon SAÍRAM (arquivos e `@font-face`).
+  ⚠️ O espaço da Agrandir é estreito de propósito (158/1000) — é o desenho do
+  site, não defeito.
+- **Cores:** texto e título `#3B4332` (`--color-ink`, `--erp-num-cor`) · texto 2
+  `#5F5E4E` · meta `#7A7A72` · placeholder `#8C8B7E` · fio `#E8E7E0` · página
+  `#F5F5F5` com cartão `#FFFFFF` sem borda e sem sombra · lime `#ECFD52` só na
+  ação. As fontes de família agora são do `:root` (fora do app também).
+- **Formas:** cartão 24px · item 12px (`rounded-md`) · bloco 32 · moldura do
+  app 32 · pílula cheia. Botão 50px de altura (padding 15/26), Inter Display
+  500 15px, sobe 1px no hover.
+- **Escala:** display 52 · h1 34 (título de tela) · h2 24 · h3 19 · corpo 14 ·
+  rótulo 15 · legenda 13; títulos −0.02em/−0.01em, texto 0.
+- **Sombra:** popover `0 24px 50px rgba(30,35,24,.16)`, pílula
+  `0 14px 34px rgba(30,35,24,.12)`, cartão nenhuma.
+- Regras de papel no fim do `globals.css` (bloco "DESIGN SYSTEM 27/10/2026").
+  As seções de identidade abaixo (16/10, Jota, canvas, ERP…) viraram histórico
+  onde discordarem desta — exceto as regras que não são de identidade visual
+  (número sem cor por sinal, "Aa" sem caixa alta, sem vidro).
+
+### ⚠️ DESIGN SYSTEM DE 16/10/2026 (decisão do dono) — HISTÓRICO onde discordar do 27/10
 
 - **Uma família só: Roobert.** A Centra No2 saiu do sistema (arquivo e
   `@font-face` apagados); `--font-display` e o `display` do Tailwind agora são
@@ -161,6 +198,15 @@ regras moram em `core/recuperacao`; as chamadas de auth da recuperação têm
 porta única (`lib/entrada` e a rota — teto ZERO no `engine-audit`). Prova
 ponta a ponta com e-mail de verdade: `npm run senha`, contra o Supabase local
 COM o servidor de e-mail (fora do CI, que sobe sem ele).
+
+⚠️ **"ENTRAR COM GOOGLE" (27/10/2026, `core/google`):** conta nova (empresa
+só com o nome provisório) vai a `/criar-conta?google=1`; quem tem empresa entra.
+Com `NEXT_PUBLIC_GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`, a ida é pelo NOSSO
+domínio (`/api/auth/google/inicio` → Google → `/api/auth/google` troca o código
+pelo `id_token` e chama `signInWithIdToken` com o nonce): a tela do Google
+mostra a Quattro, não `<projeto>.supabase.co` (o domínio próprio do Auth exige
+plano pago). Sem as variáveis, segue o caminho do Supabase. Estado, nonce e
+PKCE num cookie httpOnly só da rota; guardas no bloco `google:` do `engine-audit`.
 
 ⚠️ **SEGUNDO FATOR (07/10/2026, `docs/rodada-10/segundo-fator.md`):** o
 aplicativo autenticador da conta se cadastra em `/configuracoes/seguranca`
@@ -393,8 +439,9 @@ gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
   `.ds-visor` claro), 1,6px; **área** lime; **comparação** (período anterior)
   em areia tracejada 5/5 (`COMPARACAO`/`--erp-graf-comparacao`).
 - **Grade** `#E2E2E2` tracejada 3/4, por CSS sobre `.recharts-cartesian-grid`.
-- **Barra** com raio 6: `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` de
-  `lib/grafico.ts` (o Recharts só aceita raio por prop).
+- **Barra** com raio 6 nos QUATRO cantos, positivo e negativo (`RAIO_CHEIO`
+  de `lib/grafico.ts`, decisão do dono em 27/10/2026; o Recharts só aceita
+  raio por prop). `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` ficaram sem uso.
 - **Séries 1–5**: verde-base, areia, lime, cinza 2, cinza médio (`SERIES`).
 - **Tabela**: cabeçalho em micro-rótulo (11px, 500, caixa alta, 0,08em),
   divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.

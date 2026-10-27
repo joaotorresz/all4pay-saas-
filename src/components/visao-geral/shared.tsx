@@ -3,22 +3,10 @@
 import * as React from "react";
 import { Icon, InfoHint } from "@/components/ui";
 import type { IconName, InfoConteudo } from "@/components/ui";
+import { corDaMarca } from "@/core/bancos/logo";
 
-/**
- * ⚠️ CORES DE MARCA DE TERCEIRO — a única família de hex do produto que NÃO
- * sai da paleta, e não pode sair: o laranja do Itaú e o roxo do Nubank são
- * deles. Repintá-los com o acento faria os cinco bancos virarem o mesmo
- * ponto, e o ponto existe justamente para distinguir a conta de relance.
- * Declaradas como exceção em `scripts/paleta.mts`.
- */
-const BANK_COLORS: Record<string, string> = {
-  itau: "#EC7000",
-  bradesco: "#CC092F",
-  nubank: "#820AD1",
-  inter: "#FF7A00",
-  santander: "#EC0000",
-};
-export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-text-secondary)";
+/** A cor da marca do banco (exceção declarada em `scripts/paleta.mts`); a lista mora em `core/bancos/logo`. */
+export const bankColor = (bank: string) => corDaMarca(bank) ?? "var(--color-text-secondary)";
 
 /**
  * Glifo flat num tile discreto — o marcador de identidade dos cabeçalhos de

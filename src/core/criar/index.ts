@@ -67,13 +67,13 @@ export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new", forma: "pagina" },
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "pagina" },
   // — lacunas apontadas —
-  { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices?aba=nfse", forma: "pagina" },
+  { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices/nfse", forma: "pagina" },
   // ⚠️ Abria o formulário de CONTRATO, que em demonstração não grava nada e
   // responde "Contrato salvo" — a assinatura nunca aparecia. A assinatura se
   // cria na aba "Contratos e MRR" da própria tela, que tem itens do catálogo,
   // ciclo e a ativação que lança as faturas previstas.
   { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/dashboard/sales-invoices/subscriptions", forma: "pagina" },
-  { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices?aba=links&novo=1", forma: "pagina" },
+  { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices/payment-links?novo=1", forma: "pagina" },
 ];
 
 /**

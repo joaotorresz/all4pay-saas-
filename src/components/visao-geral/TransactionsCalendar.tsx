@@ -140,7 +140,7 @@ export function TransactionsCalendar() {
             "Distribuição dos gastos", para os cards da Home falarem igual. */}
         <span
           className="text-[17px] text-ink"
-          style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", textTransform: "none" }}
+          style={{ fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "-0.02em", textTransform: "none" }}
         >
           {futuro ? "Calendário · projeção" : "Calendário de transações"}
         </span>

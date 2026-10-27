@@ -43,9 +43,9 @@ type Seg = { name: string; value: number; color: string; trend: number };
 /** Altura do gráfico do herói (também ancora o gradiente vertical). */
 const ALTURA = 210;
 /** Roobert Semi Mono — escolha do Laboratório p/ o prefixo R$ e a legenda. */
-const SEMI_MONO = '"Roobert Semi Mono", ui-monospace, monospace';
+const SEMI_MONO = "var(--font-mono)";
 /** Roobert Variable — a fonte dos títulos e do inteiro do herói. */
-const VARIAVEL = '"Roobert Variable", "Roobert", sans-serif';
+const VARIAVEL = "var(--font-sans)";
 
 export function VisorHomeTop() {
   const { data: inp, isLoading, error, refetch } = useRiscoInput();
