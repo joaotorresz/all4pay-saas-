@@ -11311,6 +11311,29 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("google: só src/lib/entrada.ts chama signInWithOAuth", foraOAuth.length === 0, foraOAuth.join(", "));
   ok("google: o botão volta para a rota que troca o código NO SERVIDOR",
      /redirectTo:\s*`\$\{window\.location\.origin\}\$\{ROTA_GOOGLE\}`/.test(semComS(lerS(ENTRADA_S))));
+  // A ida pelo NOSSO domínio (27/10/2026): a tela do Google mostra a Quattro.
+  const ROTA_GI = "src/app/api/auth/google/inicio/route.ts";
+  const inicioG = semComS(lerS(ROTA_GI));
+  const pedidoG = { estado: "a".repeat(43), nonce: "b".repeat(43), verificador: "c".repeat(43) };
+  ok("google: a volta do pedido é a MESMA origem + ROTA_GOOGLE (o Google exige letra a letra)",
+     G.voltaDoGoogle("https://app.quattro.finance/") === "https://app.quattro.finance/api/auth/google"
+     && /voltaDoGoogle\(req\.nextUrl\.origin\)/.test(inicioG) && /voltaDoGoogle\(url\.origin\)/.test(rotaG));
+  ok("google: o estado da volta precisa ser o do pedido (código plantado não abre sessão)",
+     G.estadoConfere(pedidoG, pedidoG.estado) && !G.estadoConfere(pedidoG, "x".repeat(43))
+     && !G.estadoConfere(null, pedidoG.estado) && !G.estadoConfere(pedidoG, null)
+     && /estadoConfere\(pedido, estado\)/.test(rotaG));
+  ok("google: cookie do pedido sem a forma certa não existe",
+     G.lerPedidoGoogle(JSON.stringify(pedidoG)) !== null && G.lerPedidoGoogle("{}") === null
+     && G.lerPedidoGoogle("lixo") === null && G.lerPedidoGoogle(JSON.stringify({ ...pedidoG, nonce: "<x>" })) === null);
+  ok("google: o Google recebe o HASH do nonce e o desafio PKCE; o cookie é httpOnly e só da rota",
+     /createHash\("sha256"\)\.update\(pedido\.nonce\)/.test(inicioG) && /code_challenge_method: "S256"/.test(semComS(lerS("src/core/google/index.ts")))
+     && /httpOnly: true/.test(inicioG) && /path: ROTA_GOOGLE/.test(inicioG));
+  const foraIdToken = porFora(/\.auth\.signInWithIdToken\s*\(/, ROTA_G, lerS);
+  ok("google: só a rota de volta chama signInWithIdToken, com o nonce do pedido",
+     foraIdToken.length === 0 && /signInWithIdToken\(\{ provider: "google", token: token\.idToken, nonce: pedido\.nonce \}\)/.test(rotaG),
+     foraIdToken.join(", "));
+  ok("google: o segredo do cliente só é lido no servidor (nenhuma tela o menciona)",
+     arquivosS.filter((p) => !p.startsWith("src/app/api/") && lerS(p).includes("GOOGLE_CLIENT_SECRET")).length === 0);
   const nomearSql = lerS("supabase/migrations/20261027120000_nome_da_empresa_google.sql");
   ok("google: nomear a empresa provisória é só do DONO e recusa anônimo",
      /m\.role = 'owner'/.test(nomearSql) && /revoke all on function public\.org_nomear_provisoria\(text\) from public, anon/.test(nomearSql));
