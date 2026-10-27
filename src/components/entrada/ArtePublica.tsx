@@ -50,7 +50,7 @@ export function ArtPanel({ pessoal }: { pessoal: boolean }) {
         className="relative flex-1 overflow-hidden rounded-bloco flex flex-col justify-end p-10"
         style={{ background: "var(--color-ink)" }}
       >
-        {/* A foto da maquininha Quattro (a mesma do site), cobrindo o bloco. */}
+        {/* A foto da maquininha Quattro no balcão (trocada pelo dono, 27/10/2026), cobrindo o bloco. */}
         <Image src="/entrada-maquininha.webp" alt="" fill priority sizes="50vw" className="object-cover" style={{ objectPosition: "50% 45%" }} />
 
         {/* O cartão da Home, a 70% do tamanho de lá (`zoom` encolhe texto,
