@@ -424,8 +424,9 @@ gráfico a gráfico — tokens `--erp-graf-*` e regras no fim de `globals.css`
   `.ds-visor` claro), 1,6px; **área** lime; **comparação** (período anterior)
   em areia tracejada 5/5 (`COMPARACAO`/`--erp-graf-comparacao`).
 - **Grade** `#E2E2E2` tracejada 3/4, por CSS sobre `.recharts-cartesian-grid`.
-- **Barra** com raio 6: `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` de
-  `lib/grafico.ts` (o Recharts só aceita raio por prop).
+- **Barra** com raio 6 nos QUATRO cantos, positivo e negativo (`RAIO_CHEIO`
+  de `lib/grafico.ts`, decisão do dono em 27/10/2026; o Recharts só aceita
+  raio por prop). `RAIO_TOPO`/`RAIO_BASE`/`RAIO_DIREITA` ficaram sem uso.
 - **Séries 1–5**: verde-base, areia, lime, cinza 2, cinza médio (`SERIES`).
 - **Tabela**: cabeçalho em micro-rótulo (11px, 500, caixa alta, 0,08em),
   divisória `#F4F4F4` (`--erp-tabela-linha`), rodapé com fio.
