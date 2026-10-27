@@ -72,8 +72,9 @@ export function CobrancaBanco({ movementId, show }: { movementId: string; show: 
   const carregar = React.useCallback(async () => {
     try {
       const r = await fetch(`/api/cobranca-banco/emitir?movementId=${encodeURIComponent(movementId)}`, { cache: "no-store" });
+      // O corpo é lido mesmo na recusa: resposta sem ler fica aberta.
+      const j = (await r.json().catch(() => ({}))) as Partial<Estado>;
       if (!r.ok) return setEstado(null);
-      const j = (await r.json()) as Partial<Estado>;
       setEstado({
         ligada: !!j.ligada,
         conectada: !!j.conectada,

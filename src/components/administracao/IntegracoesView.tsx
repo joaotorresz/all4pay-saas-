@@ -19,6 +19,7 @@ import {
   consentimentoOpenFinance, certificadoValido, mascararSegredo,
   type CartaoIntegracao,
 } from "@/core/administracao";
+import { isDemo } from "@/lib/demo";
 import { PinbankPainel } from "@/components/administracao/PinbankPainel";
 import { CobrancaBancoPainel } from "@/components/administracao/CobrancaBancoPainel";
 import { lerPinbank } from "@/lib/pinbank/cliente";
@@ -58,10 +59,14 @@ export function IntegracoesView() {
     setEstados(lerIntegracoes());
     setMontado(true);
     lerPinbank().then((p) => setPinbankAtiva(p.vinculos.some((v) => v.ativo))).catch(() => setPinbankAtiva(false));
-    fetch("/api/cobranca-banco/conexao", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setBancoAtivo(!!j?.conexao))
-      .catch(() => setBancoAtivo(false));
+    // Na demonstração não há conta conectada. O corpo é sempre LIDO: uma resposta
+    // deixada sem ler fica aberta e a página nunca chega ao repouso da rede.
+    if (!isDemo) {
+      fetch("/api/cobranca-banco/conexao", { cache: "no-store" })
+        .then(async (r) => ({ ok: r.ok, j: (await r.json().catch(() => null)) as { conexao?: unknown } | null }))
+        .then(({ ok, j }) => setBancoAtivo(ok && !!j?.conexao))
+        .catch(() => setBancoAtivo(false));
+    }
   }, []);
 
   const cartao = CATALOGO_INTEGRACOES.find((c) => c.id === aberto) ?? null;
