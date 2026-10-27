@@ -15,6 +15,7 @@ import { BRL, BancoLogo, Icon } from "@/components/ui";
 import { pct } from "@/lib/format";
 import { saldoEmContas } from "@/core/home/contas";
 import { useAccounts } from "./hooks";
+import { VALOR_OCULTO, useOcultarSaldos } from "@/lib/ocultar-saldos";
 
 export const LINK_CONTAS = "/dashboard/registrations/bank-accounts";
 const cartao = { background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" } as const;
@@ -22,17 +23,34 @@ const cartao = { background: "var(--color-white)", borderRadius: "var(--a4p-box-
 export function SaldoEmContasCard({ carimbo }: { carimbo: string }) {
   const { data, isLoading, isError } = useAccounts();
   const resumo = React.useMemo(() => (data ? saldoEmContas(data.accounts) : null), [data]);
+  const [oculto, alternar] = useOcultarSaldos();
+  // O valor escondido NÃO vai nem para o leitor de tela: esconder é não mostrar.
+  const valor = (v: number) => (oculto ? <span aria-label="Saldo oculto">{VALOR_OCULTO}</span> : <BRL value={v} />);
 
   if (isLoading) return <div className="min-h-[240px] animate-pulse" style={cartao} />;
 
   return (
     <div className="relative h-full min-w-0 flex flex-col gap-6 px-6 md:px-8 pt-[30px] pb-6" style={cartao}>
-      <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 pr-10">
-        <span className="text-[15px] text-ink">Saldo total em contas</span>
+      <div className="flex items-start gap-3">
+        <span className="flex-1 min-w-0 flex items-baseline flex-wrap gap-x-3 gap-y-1">
+          <span className="text-[15px] text-ink">Saldo total em contas</span>
+          {resumo && resumo.contas > 0 && (
+            <span className="text-[13px] text-muted whitespace-nowrap">
+              {resumo.bancos.length} {resumo.bancos.length === 1 ? "banco" : "bancos"} · {resumo.contas} {resumo.contas === 1 ? "conta" : "contas"}
+            </span>
+          )}
+        </span>
         {resumo && resumo.contas > 0 && (
-          <span className="text-[13px] text-muted whitespace-nowrap">
-            {resumo.bancos.length} {resumo.bancos.length === 1 ? "banco" : "bancos"} · {resumo.contas} {resumo.contas === 1 ? "conta" : "contas"}
-          </span>
+          <button
+            type="button"
+            onClick={alternar}
+            aria-pressed={oculto}
+            aria-label={oculto ? "Mostrar saldos" : "Ocultar saldos"}
+            title={oculto ? "Mostrar saldos" : "Ocultar saldos"}
+            className="shrink-0 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded-full text-muted hover:text-ink hover:bg-surface-2"
+          >
+            <Icon name={oculto ? "eye-off" : "eye"} size={18} strokeWidth={1.75} />
+          </button>
         )}
       </div>
 
@@ -49,7 +67,7 @@ export function SaldoEmContasCard({ carimbo }: { carimbo: string }) {
       ) : (
         <>
           <Link href={LINK_CONTAS} draggable={false} className="self-start a4p-heroi" style={{ fontSize: "clamp(34px, 9vw, 52px)", lineHeight: 1 }} aria-label="Ver as contas bancárias">
-            <BRL value={resumo.total} />
+            {valor(resumo.total)}
           </Link>
           <ul className="m-0 p-0 list-none flex flex-col" aria-label="Saldo por banco">
             {resumo.bancos.map((b, i) => (
@@ -65,8 +83,8 @@ export function SaldoEmContasCard({ carimbo }: { carimbo: string }) {
                     {b.nome}{b.contas > 1 ? <span className="text-muted"> · {b.contas} contas</span> : null}
                   </span>
                   <span className="flex items-baseline gap-2 shrink-0 sm:flex-row-reverse">
-                    <span className="text-[17px] text-ink"><BRL value={b.saldo} /></span>
-                    {b.parte != null && <span className="text-[12px] text-muted tabular-nums">{pct(b.parte)}</span>}
+                    <span className="text-[17px] text-ink">{valor(b.saldo)}</span>
+                    {b.parte != null && !oculto && <span className="text-[12px] text-muted tabular-nums">{pct(b.parte)}</span>}
                   </span>
                 </span>
               </li>
