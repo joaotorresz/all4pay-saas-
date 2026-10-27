@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
 import { useOpcoesCadastro } from "./opcoes-cadastro";
+import { cadastroDe } from "@/components/app/criacao";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { motivoDaRecusa } from "@/lib/erros";
 import { rateioValido } from "@/core/registros";
@@ -250,6 +251,7 @@ export function ReceitaForm({
                 label={isReceita ? "Cliente" : "Fornecedor"}
                 placeholder={`Selecione um ${isReceita ? "cliente" : "fornecedor"} (opcional)`}
                 options={opts(parties)}
+                cadastrar={cadastroDe(isReceita ? "cliente" : "fornecedor")}
                 value={f.party_id}
                 onChange={(v) => set({ party_id: v })}
               />
@@ -294,6 +296,7 @@ export function ReceitaForm({
                       label={i === 0 ? "Categoria" : undefined}
                       placeholder="Categoria"
                       options={opcoes.categorias}
+                      cadastrar={cadastroDe("categoria", { natureza: isReceita ? "receita" : "despesa" })}
                       value={sp.category_id ?? ""}
                       onChange={(v) => setSplit(i, { category_id: v || null })}
                     />
@@ -302,6 +305,7 @@ export function ReceitaForm({
                         label={i === 0 ? "Centro de custo" : undefined}
                         placeholder="Centro de custo"
                         options={opcoes.centros}
+                        cadastrar={cadastroDe("centro")}
                         value={sp.cost_center_id ?? ""}
                         onChange={(v) => setSplit(i, { cost_center_id: v || null })}
                       />
@@ -355,6 +359,7 @@ export function ReceitaForm({
                 required
                 placeholder="Selecione a categoria"
                 options={opcoes.categorias}
+                cadastrar={cadastroDe("categoria", { natureza: isReceita ? "receita" : "despesa" })}
                 value={f.category_id}
                 onChange={(v) => set({ category_id: v })}
                 invalid={invalid("category_id")}
@@ -364,6 +369,7 @@ export function ReceitaForm({
                   label="Centro de custo"
                   placeholder="Selecione (opcional)"
                   options={opcoes.centros}
+                  cadastrar={cadastroDe("centro")}
                   value={f.cost_center_id}
                   onChange={(v) => set({ cost_center_id: v })}
                 />
@@ -376,6 +382,7 @@ export function ReceitaForm({
                   label="Projeto"
                   placeholder="Selecione (opcional)"
                   options={opcoes.projetos}
+                  cadastrar={cadastroDe("projeto")}
                   value={f.project_id}
                   onChange={(v) => set({ project_id: v })}
                 />
@@ -484,6 +491,7 @@ export function ReceitaForm({
                 label={isReceita ? "Conta de recebimento" : "Conta de pagamento"}
                 placeholder="Selecione a conta"
                 options={opcoes.contas}
+                cadastrar={cadastroDe("conta-bancaria")}
                 value={f.account_id}
                 onChange={(v) => set({ account_id: v })}
                 invalid={invalid("account_id")}

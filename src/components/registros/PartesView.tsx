@@ -33,7 +33,7 @@ import {
 } from "./kit";
 import type { Party, PartyType } from "@/lib/types";
 import { useSituacaoWhatsapp, useRevogarWhatsapp } from "@/lib/whatsapp-autorizacao";
-import { abrirCriacao, useAoCriar } from "@/components/app/criacao";
+import { abrirCriacao, useAoCriar, cadastroDe } from "@/components/app/criacao";
 import { SeloWhatsapp, ModalAutorizarWhatsapp, BotaoAutorizarWhatsapp } from "./AutorizacaoWhatsapp";
 
 export type Lado = "cliente" | "fornecedor";
@@ -525,6 +525,7 @@ function FormParte({
           onChange={(v) => set({ categoriaPadrao: v })}
           placeholder="Selecione a categoria"
           options={[{ value: "", label: "Nenhuma" }, ...cats.map((c) => ({ value: c.id, label: c.nome }))]}
+          cadastrar={cadastroDe("categoria", { natureza: lado === "cliente" ? "receita" : "despesa" })}
         />
       </Campo>
 

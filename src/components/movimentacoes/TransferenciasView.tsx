@@ -9,7 +9,7 @@
  * era da empresa.
  */
 import * as React from "react";
-import { abrirCriacao, useAoCriar } from "@/components/app/criacao";
+import { abrirCriacao, useAoCriar, cadastroDe } from "@/components/app/criacao";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Select, DateField, CurrencyInput, Checkbox, BRL, Skeleton,
@@ -297,7 +297,7 @@ function FormTransferencia({
           <Campo label="Conta bancária" obrigatorio erro={erros.contaOrigem}>
             <Select
               value={f.contaOrigem} onChange={(v) => set("contaOrigem", v)}
-              placeholder="Selecione uma conta" options={contas}
+              placeholder="Selecione uma conta" options={contas} cadastrar={cadastroDe("conta-bancaria")}
             />
           </Campo>
           <Campo label="Data da transferência" erro={erros.data}>
@@ -311,7 +311,7 @@ function FormTransferencia({
             <Campo label="Conta bancária" obrigatorio erro={erros.contaDestino}>
               <Select
                 value={f.contaDestino} onChange={(v) => set("contaDestino", v)}
-                placeholder="Selecione uma conta" options={contas}
+                placeholder="Selecione uma conta" options={contas} cadastrar={cadastroDe("conta-bancaria")}
               />
             </Campo>
             <div className="flex flex-col gap-3 pt-6">

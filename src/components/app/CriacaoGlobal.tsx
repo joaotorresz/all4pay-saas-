@@ -187,8 +187,8 @@ function ItemDaPilha({ pedido, topo, pessoal, fechar, avisar }: {
     case "servico": return <ProdutoServicoForm kind="servico" onClose={fechar} onToast={avisar} onCriado={criado} />;
     case "orcamento-venda": return <VendaCompraForm docKind="orcamento" itemKind="produto" {...p} />;
     case "transportadora": return <PartyForm role="carrier" {...p} />;
-    case "marca": return <MarcaForm {...p} />;
-    case "unidade": return <UnidadeForm {...p} />;
+    case "marca": return <MarcaForm onClose={fechar} onToast={avisar} onCriado={criado} />;
+    case "unidade": return <UnidadeForm onClose={fechar} onToast={avisar} onCriado={criado} />;
     default: return null;
   }
 }

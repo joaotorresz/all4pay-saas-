@@ -2322,6 +2322,69 @@ const AGOSTO = janelaMes(2026, 7);
     ok("criar: o segundo formulário de transferência não voltou", !existsSync("src/components/lancamentos/TransferenciaForm.tsx"));
   }
 
+  // ⚠️ "+ CADASTRAR NOVO X" EM TODO CAMPO DE CADASTRO (27/10/2026, pedido do
+  // dono): o campo que escolhe cliente, fornecedor, conta, categoria, produto,
+  // projeto ou centro oferece o cadastro dele em pop-up, e o item criado volta
+  // ESCOLHIDO. Sem isso a pessoa fecha o formulário pela metade para cadastrar
+  // em outra tela, e o lançamento se perde.
+  {
+    const FORMULARIOS = [
+      "src/components/vendas-nf/VendaForm.tsx",
+      "src/components/compras/CompraForm.tsx",
+      "src/components/movimentacoes/TituloForm.tsx",
+      "src/components/movimentacoes/TransferenciasView.tsx",
+      "src/components/registros/ContratosView.tsx",
+      "src/components/registros/PartesView.tsx",
+      "src/components/lancamentos/ProdutoServicoForm.tsx",
+      "src/components/lancamentos/ReceitaForm.tsx",
+      "src/components/lancamentos/NovaTransacao.tsx",
+      "src/components/lancamentos/VendaCompraForm.tsx",
+    ];
+    // O que a lista de opções escolhe: um cadastro (não forma de pagamento, UF…).
+    const DE_CADASTRO = /\b(parties|contatos|elegiveis|categorias|cats|catOpts|centros|projetos|contas|accounts|produtos|products|refOpts|unitOpts|brandOpts|clientes|fornecedores)\b/;
+    // Declaradas COM MOTIVO: o orçamento cria o contato na própria linha e pode
+    // NÃO salvá-lo no cadastro (o nome vai nas observações) — o pop-up não tem
+    // essa saída. A categoria do título já tem o "+" que cria pelo nome.
+    const ALTERNATIVA = /\bonCriar=|__novo__/;
+    /** Cada `<Select …/>`/`<SelectBusca …/>`, até o `/>` fora das chaves. */
+    const seletores = (txt: string): string[] => {
+      const r: string[] = [];
+      for (const m of txt.matchAll(/<Select(?:Busca)?\b/g)) {
+        let prof = 0;
+        for (let i = m.index!; i < txt.length; i++) {
+          const ch = txt[i];
+          if (ch === "{") prof++;
+          else if (ch === "}") prof--;
+          else if (prof === 0 && ch === "/" && txt[i + 1] === ">") { r.push(txt.slice(m.index!, i + 2)); break; }
+        }
+      }
+      return r;
+    };
+    const sem: string[] = [];
+    for (const arq of FORMULARIOS) {
+      const txt = ler(arq);
+      ok(`cadastrar: o formulário existe (${arq})`, txt.length > 0);
+      for (const el of seletores(txt)) {
+        const opcoes = /options=\{([\s\S]*?)\}\s*(?:\n|\w+=|\/>)/.exec(el)?.[1] ?? "";
+        if (!DE_CADASTRO.test(opcoes)) continue;
+        if (/\bcadastrar=/.test(el) || ALTERNATIVA.test(el)) continue;
+        sem.push(`${arq.split("/").pop()}: ${opcoes.trim().slice(0, 40)}`);
+      }
+    }
+    ok("cadastrar: todo campo de cadastro dos formulários oferece \"+ Cadastrar novo\"", sem.length === 0, sem.join(" · "));
+    const sel = ler("src/components/ui/Select.tsx");
+    const busca = ler("src/components/ui/SelectBusca.tsx");
+    // O `onChange` mora num ref: o item é criado DEPOIS, e a função da época do
+    // clique escolheria com o estado velho do formulário.
+    ok("cadastrar: o Select oferece e escolhe pelo onChange atual", /cadastrar\?: CadastroNoCampo/.test(sel) && /onChangeAtual\.current\(/.test(sel));
+    ok("cadastrar: o SelectBusca oferece e escolhe pelo onChange atual", /cadastrar\?: CadastroNoCampo/.test(busca) && /onChangeAtual\.current\(/.test(busca));
+    const anf = ler("src/components/app/CriacaoGlobal.tsx");
+    // A pilha num portal: dentro do AppShell o modal abria POR BAIXO da janela.
+    ok("cadastrar: a pilha de pop-ups mora num portal no body", /createPortal\(\s*<>\s*\{pilha\.map/.test(anf));
+    // O id volta DEPOIS de recarregar as listas: antes, a opção nova não existe.
+    ok("cadastrar: o id volta só depois de recarregar as listas", /invalidateQueries\(\)[\s\S]{0,80}\.finally\(\(\) => \{\s*pedido\.aoCriar/.test(anf));
+  }
+
   // ⚠️ CRIAR EMPRESA fora das listas: cria uma organização inteira, não um
   // registro. Na mesma lista e com o mesmo peso de "Novo produto", a
   // proximidade convida ao acidente.

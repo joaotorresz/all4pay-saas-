@@ -413,16 +413,20 @@ export async function createService(input: ServiceInput): Promise<string | null>
   return (data as { id: string } | null)?.id ?? null;
 }
 
-export async function createBrand(input: BrandInput): Promise<void> {
-  if (isDemo) return void (await delay());
+/** Devolve o id criado (o "+ Cadastrar" do campo o seleciona); `null` em demonstração. */
+export async function createBrand(input: BrandInput): Promise<string | null> {
+  if (isDemo) { await delay(); return null; }
   const s = createClient();
-  const { error } = await s.from("brands").insert(input);
+  const { data, error } = await s.from("brands").insert(input).select("id").single();
   if (error) throw error;
+  return (data as { id: string } | null)?.id ?? null;
 }
 
-export async function createUnit(input: UnitInput): Promise<void> {
-  if (isDemo) return void (await delay());
+/** Devolve o id criado (o "+ Cadastrar" do campo o seleciona); `null` em demonstração. */
+export async function createUnit(input: UnitInput): Promise<string | null> {
+  if (isDemo) { await delay(); return null; }
   const s = createClient();
-  const { error } = await s.from("units").insert(input);
+  const { data, error } = await s.from("units").insert(input).select("id").single();
   if (error) throw error;
+  return (data as { id: string } | null)?.id ?? null;
 }

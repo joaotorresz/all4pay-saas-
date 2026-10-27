@@ -162,6 +162,15 @@ também vive em página sai por `useSaidaDoFormulario`/`useParametrosDoFormulari
 ⚠️ Nenhum `router.push` para rota de criação e nenhum segundo formulário do
 mesmo item — guardas "porta única" em `npm run consistencia`.
 
+⚠️ **"+ CADASTRAR NOVO X" EM TODO CAMPO DE CADASTRO (27/10/2026).** O `Select`
+e o `SelectBusca` aceitam `cadastrar={cadastroDe(tipo, parametros?)}`: a
+última opção abre o cadastro na mesma pilha e o item criado volta ESCOLHIDO
+(o `onChange` mora num ref; o anfitrião recarrega as listas ANTES de devolver
+o id). Lista vazia vira convite ("Cadastrar o primeiro"). A pilha mora num
+portal no `<body>` — dentro do `AppShell` o modal abria por baixo da janela.
+Guarda `cadastrar:` em `npm run consistencia` (campo de cadastro sem a opção
+reprova; provada plantando quatro defeitos).
+
 ## ⚠️ MENU REMODELADO (19/10/2026, decisão do dono)
 
 Uma pergunta, uma tela: telas irmãs viraram ABAS de uma tela só, e o menu

@@ -9,9 +9,12 @@ import { useCreateBrand, useCreateUnit } from "./hooks";
 export function MarcaForm({
   onClose,
   onToast,
+  onCriado,
 }: {
   onClose: () => void;
   onToast: (msg: string) => void;
+  /** O id criado, para quem pediu o cadastro escolhê-lo. */
+  onCriado?: (id: string | null) => void;
 }) {
   const create = useCreateBrand();
   const [tried, setTried] = React.useState(false);
@@ -24,7 +27,7 @@ export function MarcaForm({
       return;
     }
     try {
-      await create.mutateAsync({ name: f.name.trim(), description: f.description.trim() || null });
+      onCriado?.((await create.mutateAsync({ name: f.name.trim(), description: f.description.trim() || null })));
       onToast("Marca salva");
       if (again) {
         setF({ name: "", description: "" });
@@ -47,9 +50,12 @@ export function MarcaForm({
 export function UnidadeForm({
   onClose,
   onToast,
+  onCriado,
 }: {
   onClose: () => void;
   onToast: (msg: string) => void;
+  /** O id criado, para quem pediu o cadastro escolhê-lo. */
+  onCriado?: (id: string | null) => void;
 }) {
   const create = useCreateUnit();
   const [tried, setTried] = React.useState(false);
@@ -63,7 +69,7 @@ export function UnidadeForm({
       return;
     }
     try {
-      await create.mutateAsync({ name: f.name.trim(), abbrev: f.abbrev.trim() });
+      onCriado?.((await create.mutateAsync({ name: f.name.trim(), abbrev: f.abbrev.trim() })));
       onToast("Unidade salva");
       if (again) {
         setF({ name: "", abbrev: "" });
