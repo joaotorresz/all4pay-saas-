@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Integrações — o catálogo de nove cartões e o painel de cada um.
+ * Integrações — o catálogo de dez cartões e o painel de cada um.
  *
  * ⚠️ A regra que atravessa a tela inteira: **um segredo se mostra UMA vez**.
  * Chave de API, token e senha de certificado são exibidos no momento em que
@@ -20,6 +20,7 @@ import {
   type CartaoIntegracao,
 } from "@/core/administracao";
 import { PinbankPainel } from "@/components/administracao/PinbankPainel";
+import { CobrancaBancoPainel } from "@/components/administracao/CobrancaBancoPainel";
 import { lerPinbank } from "@/lib/pinbank/cliente";
 import {
   lerIntegracoes, salvarIntegracao, guardarCredencial,
@@ -50,11 +51,17 @@ export function IntegracoesView() {
   // "Ativa" do cartão dela vem de lá, senão a lista diria "Inativa" para uma
   // maquininha que está lançando venda.
   const [pinbankAtiva, setPinbankAtiva] = React.useState(false);
+  // A conta Inter também mora no BANCO: o "Ativa" vem da conexão viva.
+  const [bancoAtivo, setBancoAtivo] = React.useState(false);
 
   React.useEffect(() => {
     setEstados(lerIntegracoes());
     setMontado(true);
     lerPinbank().then((p) => setPinbankAtiva(p.vinculos.some((v) => v.ativo))).catch(() => setPinbankAtiva(false));
+    fetch("/api/cobranca-banco/conexao", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setBancoAtivo(!!j?.conexao))
+      .catch(() => setBancoAtivo(false));
   }, []);
 
   const cartao = CATALOGO_INTEGRACOES.find((c) => c.id === aberto) ?? null;
@@ -91,7 +98,7 @@ export function IntegracoesView() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {CATALOGO_INTEGRACOES.map((c) => {
           const e = estados[c.id];
-          const ativa = c.id === "maquininha-pinbank" ? pinbankAtiva : (e?.ativa ?? false);
+          const ativa = c.id === "maquininha-pinbank" ? pinbankAtiva : c.id === "cobranca-banco" ? bancoAtivo : (e?.ativa ?? false);
           return (
             <Card key={c.id} className="cursor-pointer hover:bg-surface-2/40 transition-colors"
               onClick={() => router.push(`/dashboard/administration/integrations?cartao=${c.id}`)}>
@@ -209,6 +216,8 @@ function PainelIntegracao({
       )}
 
       {cartao.id === "maquininha-pinbank" && <PinbankPainel toast={toast} />}
+
+      {cartao.id === "cobranca-banco" && <CobrancaBancoPainel toast={toast} />}
 
       {cartao.id === "open-finance" && (
         <OpenFinance estado={estado} onMudar={onMudar} toast={toast} hoje={hoje} />

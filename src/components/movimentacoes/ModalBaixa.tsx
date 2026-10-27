@@ -18,6 +18,7 @@
  */
 import { HistoricoRegistro } from "@/components/app/HistoricoRegistro";
 import { CobrancaPinbank } from "@/components/movimentacoes/CobrancaPinbank";
+import { CobrancaBanco } from "@/components/movimentacoes/CobrancaBanco";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Icon, Button, Select } from "@/components/ui";
@@ -168,6 +169,7 @@ export function ModalBaixa({
                     do título, procurá-lo de novo numa lista de milhares e
                     voltar — e por isso ninguém consultaria. */}
                 {!ehSaida && <CobrancaPinbank movementId={baixa.id} show={show} />}
+                {!ehSaida && <CobrancaBanco movementId={baixa.id} show={show} />}
                 <HistoricoRegistro entidade="movements" id={baixa.id} recolhido />
 
                 <div className="flex items-center justify-end gap-2">

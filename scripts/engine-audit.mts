@@ -2554,9 +2554,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   /* ---------------------------- integrações ---------------------------- */
 
   // 9: a maquininha Pinbank entrou em 05/10/2026 (o vínculo mora no banco).
-  ok("integracoes: o catálogo tem os 9 cartões", CATALOGO_INTEGRACOES.length === 9);
+  ok("integracoes: o catálogo tem os 10 cartões", CATALOGO_INTEGRACOES.length === 10);
   ok("integracoes: ids do catálogo são únicos",
-    new Set(CATALOGO_INTEGRACOES.map((c) => c.id)).size === 9);
+    new Set(CATALOGO_INTEGRACOES.map((c) => c.id)).size === 10);
   ok("integracoes: 18 plataformas de venda", PLATAFORMAS_VENDAS.length === 18, String(PLATAFORMAS_VENDAS.length));
   ok("integracoes: 19 bancos homologados", BANCOS_OPEN_FINANCE.length === 19, String(BANCOS_OPEN_FINANCE.length));
 
