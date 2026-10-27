@@ -21,7 +21,7 @@ const E = {
   lime: "#ECFD52",        // --color-lime · só o fio da marca, nunca fundo
 } as const;
 
-const FONTE = "Roobert, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
+const FONTE = "Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 
 /** Escapa texto para HTML — um `<` num nome de cliente não pode virar tag. */
 export function esc(s: string | number | null | undefined): string {

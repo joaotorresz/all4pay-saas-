@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  *     hover escurece levemente;
  *   · SECUNDÁRIO = fundo branco, SEM borda (dono, 16/10/2026), texto na tinta;
  *   · GHOST = só texto, para ação terciária dentro de linha/popover.
- * O texto do botão é TEXTO (Roobert 500) — nunca caixa alta forçada.
+ * O texto do botão é TEXTO (Inter Display 500) — nunca caixa alta forçada.
  * As doutrinas anteriores ("nada parece botão", "cantos retos", "raio do
  * card") são histórico.
  */
@@ -30,8 +30,8 @@ export interface ButtonProps
 // `sm` e `lg` mantêm a proporção descendo e subindo um passo da escala base-8.
 const sizeClasses: Record<ButtonSize, string> = {
   sm: "text-caption gap-2 px-4 py-2",
-  md: "text-body gap-2 px-botao-x py-botao-y min-w-botao",
-  lg: "text-body gap-2 px-botao-x py-4 min-w-botao",
+  md: "text-label gap-2 px-botao-x py-botao-y min-w-botao",
+  lg: "text-label gap-2 px-botao-x py-[17px] min-w-botao",
 };
 
 /**
@@ -70,7 +70,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled}
         className={cn(
           "inline-flex items-center justify-center font-medium leading-none whitespace-nowrap",
-          "transition-[background-color,border-color,transform,opacity] duration-120 ease-out",
+          "transition-[background-color,border-color,transform,opacity,filter] duration-120 ease-out",
+          // Site 27/10/2026: o botão sobe 1px ao passar o mouse.
+          "enabled:hover:-translate-y-px",
           "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45",
           /**
            * ⚠️ O RAIO É O DO CARD DA HOME — `rounded-card`, que no escopo

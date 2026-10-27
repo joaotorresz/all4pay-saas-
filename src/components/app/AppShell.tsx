@@ -59,7 +59,7 @@ export function AppShell({
           menu agora, e ela está sempre visível. */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="min-w-0">
-          {/* Título da página (Laboratório): Roobert Variable 29/500, tracking
+          {/* Título da página: Quattro Agrandir 34/700, tracking
               −0.02em, entrelinha 110%, sem caixa-alta. Vale para TODAS as telas —
               é o mesmo componente; o Lab só conseguia selecionar o da Home.
 
@@ -70,15 +70,15 @@ export function AppShell({
               e a margem negativa desfaz o deslocamento, então a entrelinha
               documentada e o ritmo do cabeçalho continuam os mesmos. Fica no
               `style` porque precisa sobreviver a qualquer fonte que o
-              Laboratório injete — inclusive uma mais alta que a Roobert. */}
+              Laboratório injete — inclusive uma mais alta que a de hoje. */}
           <h1
-            className="m-0 text-[30px] text-ink truncate"
+            className="m-0 text-[34px] text-ink truncate"
             style={{
-              // Título de tela em Roobert 500, caixa de frase ("Aa"),
-              // espaçamento 0, 30px (design system de 16/10/2026).
+              // Título de tela em Quattro Agrandir 700, caixa de frase ("Aa"),
+              // −0.02em, 34px (design system do site, 27/10/2026).
               fontFamily: "var(--font-display)",
-              fontWeight: 500,
-              letterSpacing: 0,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
               lineHeight: 1.1,
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",

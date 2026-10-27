@@ -64,7 +64,7 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
           −0.075em, entrelinha 115% — sempre em ink; o tipo é dado pelo dot. */}
       <span
         className="text-[21px] tabular-nums"
-        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "var(--color-ink)" }}
+        style={{ fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "var(--color-ink)" }}
       >
         <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
         <span data-cents="" style={{ fontSize: "0.7em" }}>,{decimals}</span>
