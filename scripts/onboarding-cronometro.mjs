@@ -170,14 +170,19 @@ async function fase(nome, humano, fn) {
    regime, representante, perfil e estrutura. Agora a conversa abre com o
    cartão "Que tipo de conta…", pede o CNPJ com máscara, confere na Receita
    (no CI, sem rede, cai nas perguntas à mão) e segue pergunta a pergunta até
-   a senha. O que reprova: mais de um campo por vez, CNPJ sem máscara, a senha
-   fora de campo de senha, e a conversa chegar à senha sem ter perguntado o
-   regime, o representante, o perfil e a estrutura.
+   a maquininha. O que reprova: mais de um campo por vez, CNPJ sem máscara, a
+   senha fora de campo de senha, e a conversa chegar ao fim sem ter perguntado
+   o representante, os documentos, a senha (duas vezes), o regime e o perfil.
+
+   ⚠️ **(27/10/2026) A abertura foi ENXUGADA por decisão do dono**: Open
+   Finance, informações financeiras, senha transacional, fiscal, alçada e
+   estrutura saíram (vão ao "completar cadastro" depois). A senha de acesso
+   vem logo depois dos documentos e é digitada duas vezes.
 
    ⚠️ **A criação da conta em si NÃO é exercitada, e fica dito.** Ela fala com
    o Supabase, e o build de demonstração não tem projeto nenhum atrás. */
 await fase("0. Entrar pelo cadastro pela conversa",
-  RITMO.telaNova + RITMO.campoFormatado * 3 + RITMO.campoCurto * 6 + RITMO.escolha * 20 + RITMO.clique * 10, // + Open Finance, termos, faturamento, renda e rosto
+  RITMO.telaNova + RITMO.campoFormatado * 3 + RITMO.campoCurto * 6 + RITMO.escolha * 20 + RITMO.clique * 10, // + termos, rosto, documentos, senha duas vezes e bancos
   async () => {
     await page.goto(`${BASE}/criar-conta`, { waitUntil: "networkidle", timeout: 60000 });
     await abortarSeAmbienteQuebrou(page, "abrir o cadastro");
@@ -196,13 +201,14 @@ await fase("0. Entrar pelo cadastro pela conversa",
       "Razão social": "Padaria Cronômetro Ltda", "Nome fantasia": "Padaria Cronômetro", CEP: "01310100",
       "Cidade e UF": "São Paulo / SP", Número: "100", "Inscrição estadual": "123456789", "Inscrição municipal": "",
       "Seu nome": "Ana Cronômetro", WhatsApp: "11987654321", "E-mail": "cronometro@exemplo.com.br",
-      "Conte com suas palavras": "",
+      "Conte com suas palavras": "", "Sobre a empresa": "Vendemos pães e doces para o bairro.",
+      Senha: "cafe-com-pao", "Confirmar a senha": "cafe-com-pao",
     };
     /* A "chave" do passo atual: o cartão de confirmação, as opções ou o campo. */
     const chave = () => page.evaluate(() => {
       const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
-      if (rod === "confirmar" || rod === "openfinance" || rod === "termos" || rod === "infos") return rod;
-      for (const id of ["facial", "docIdentidade", "senhaTransacional"]) {
+      if (rod === "confirmar" || rod === "termos" || rod === "docEmpresa") return rod;
+      for (const id of ["facial", "docIdentidade"]) {
         if (document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) return id;
       }
       const op = document.querySelector("[data-opcoes]");
@@ -215,8 +221,8 @@ await fase("0. Entrar pelo cadastro pela conversa",
     for (let i = 0; i < 60; i++) {
       await page.waitForFunction((ant) => {
         const rod = document.querySelector("[data-rodape]")?.getAttribute("data-rodape");
-        const passo = ["confirmar", "openfinance", "termos", "infos"].includes(rod ?? "") ? rod
-          : ["facial", "docIdentidade", "senhaTransacional"].find((id) => document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) ?? "";
+        const passo = ["confirmar", "termos", "docEmpresa"].includes(rod ?? "") ? rod
+          : ["facial", "docIdentidade"].find((id) => document.querySelector(`[data-cartao="${id}"]:not([data-recolhido]) button:not([disabled])`)) ?? "";
         const op = document.querySelector("[data-opcoes]");
         const c = document.querySelector("form input:not([hidden])");
         const k = passo ? passo : op ? `op:${op.getAttribute("data-opcoes")}` : c && !c.disabled && !c.closest("form")?.hasAttribute("data-ocupado") ? `campo:${c.getAttribute("aria-label")}` : "";
@@ -226,22 +232,13 @@ await fase("0. Entrar pelo cadastro pela conversa",
       });
       const k = await chave();
       anterior = k;
-      /* Os passos de cartão dos prints: confirmar a Receita, Open Finance, termos, informações e rosto. */
+      /* Os passos de cartão: confirmar a Receita, termos, rosto, RG/CNH e o documento da empresa. */
       if (k === "confirmar") { await page.locator('[data-rodape="confirmar"] button', { hasText: "Confirmar" }).click(); continue; }
-      if (k === "openfinance") { perguntas.push(k); await page.getByRole("button", { name: "Prefiro preencher manualmente" }).click(); continue; }
+      if (k === "docEmpresa") { perguntas.push(k); await page.locator('[data-rodape="docEmpresa"] button').click(); continue; }
       if (k === "termos") {
         perguntas.push(k);
         await page.locator('[data-cartao="termos"] label span[aria-hidden]').first().click();
         await page.locator('[data-rodape="termos"] button').click();
-        continue;
-      }
-      if (k === "infos") {
-        perguntas.push(k);
-        for (const q of ["faturamento", "renda"]) {
-          await page.locator(`[data-faixa="${q}"]`).click();
-          await page.getByRole("option").nth(1).click();
-        }
-        await page.locator('[data-rodape="infos"] button').click();
         continue;
       }
       if (k === "facial") {
@@ -277,27 +274,13 @@ await fase("0. Entrar pelo cadastro pela conversa",
         await page.locator('[data-documento="rg"]').getByRole("button", { name: "Validar depois" }).click();
         continue;
       }
-      if (k === "senhaTransacional") {
-        // A folha sobe sozinha; sequência é recusada, e uma senha boa salva.
-        perguntas.push(k);
-        const senha = page.locator('[data-pin="Senha"]');
-        const conf = page.locator('[data-pin="Confirmar senha"]');
-        await senha.waitFor();
-        await senha.fill("123456");
-        await conf.fill("123456");
-        await page.locator('[data-folha="senhaTransacional"]').getByRole("button", { name: "Salvar" }).click();
-        await page.getByRole("alert").filter({ hasText: "sequências" }).waitFor({ timeout: 5000 })
-          .catch(() => { throw new Error("a senha transacional 123456 não foi recusada"); });
-        await senha.fill("482913");
-        await conf.fill("482913");
-        await page.locator('[data-folha="senhaTransacional"]').getByRole("button", { name: "Salvar" }).click();
-        continue;
-      }
       if (k.startsWith("op:")) {
         const id = k.slice(3);
         perguntas.push(id);
         const opcoes = page.locator(`[data-opcoes="${id}"]`);
-        if (id === "extrato") { await opcoes.getByRole("button", { name: "Agora não" }).click(); continue; }
+        // A maquininha é a última pergunta: "Agora não" leva à criação, que o
+        // build de demonstração não exercita (não há Supabase atrás).
+        if (id === "maquininha") { await opcoes.getByRole("button", { name: "Agora não" }).click(); break; }
         const continuar = opcoes.getByRole("button", { name: "Continuar" });
         if (await continuar.count()) {
           if (await continuar.isDisabled()) await opcoes.locator("button[aria-pressed]").first().click();
@@ -314,9 +297,8 @@ await fase("0. Entrar pelo cadastro pela conversa",
         .filter((x) => !x.hidden && !["hidden", "submit", "button", "file"].includes(x.type)).length);
       if (visiveis > 1) { falhas++; return `REPROVA: a conversa mostra ${visiveis} campos ao mesmo tempo — a regra é UMA pergunta por vez`; }
       const campo = page.locator("form input:not([hidden])").first();
-      if (rotulo === "Senha") {
-        if ((await campo.getAttribute("type")) !== "password") { falhas++; return "REPROVA: a senha não é campo de senha"; }
-        break;
+      if ((rotulo === "Senha" || rotulo === "Confirmar a senha") && (await campo.getAttribute("type")) !== "password") {
+        falhas++; return "REPROVA: a senha não é campo de senha";
       }
       perguntas.push(rotulo);
       const valor = TEXTOS[rotulo] ?? "Teste";
@@ -324,9 +306,9 @@ await fase("0. Entrar pelo cadastro pela conversa",
       await campo.fill(valor);
       await campo.press("Enter");
     }
-    const exigidas = ["regime", "limite", "setor", "openfinance", "termos", "infos", "facial", "docIdentidade", "senhaTransacional", "bancos", "contaTipos", "dre", "Seu nome", "WhatsApp", "E-mail"];
+    const exigidas = ["Seu nome", "WhatsApp", "E-mail", "termos", "facial", "docIdentidade", "docEmpresa", "Senha", "Confirmar a senha", "regime", "setor", "Sobre a empresa", "funcionarios", "faturamento", "bancos", "maquininha"];
     const faltou = exigidas.filter((x) => !perguntas.includes(x));
-    if (faltou.length) { falhas++; return `REPROVA: a conversa chegou à senha sem perguntar ${faltou.join(", ")} — ela tem de pedir o cadastro inteiro`; }
+    if (faltou.length) { falhas++; return `REPROVA: a conversa chegou ao fim sem perguntar ${faltou.join(", ")} — ela tem de pedir o cadastro inteiro`; }
     return `${perguntas.length} perguntas, uma por vez, CNPJ com máscara · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
   });
 
