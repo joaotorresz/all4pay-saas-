@@ -325,7 +325,10 @@ export function classificarRecord(r: FinancialRecord): Classificacao {
     return { recordId: r.id, destino: "Despesa", categoria: CATEGORIA_TAXA_POS, contraparteTipo: "fornecedor", confianca: 0.92, motivo: r.tipo === "entrada" ? "correspondência: devolução da taxa da maquininha" : "correspondência: taxa da maquininha (adquirência)", aprendido: false };
   }
 
-  const hit = CATS.find((c) => c.re.test(txt));
+  // ⚠️ "Fornecedores / insumos" é categoria de SAÍDA: um PIX RECEBIDO de
+  // "Beta Comércio" é um cliente pagando, e casar "comercio" o levava para
+  // fornecedor — a receita ia parar numa categoria de despesa.
+  const hit = CATS.find((c) => c.re.test(txt) && !(r.tipo === "entrada" && c.id === "Fornecedores / insumos"));
   if (hit) {
     const categoria = hit.id;
     const destino = hit.destino ?? destinoPara(r.tipo, categoria);
