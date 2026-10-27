@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { IngestaoView } from "@/components/ingestao/IngestaoView";
 import { isDemo } from "@/lib/demo";
@@ -9,10 +10,12 @@ export default function UploadPage() {
   return (
     <AppShell
       title="Entrada de dados"
-      crumb="Conectar · enviar · regras"
+      crumb="Caixa e bancos"
       actions={isDemo ? <DemoBadge /> : undefined}
     >
-      <IngestaoView />
+      <Suspense fallback={null}>
+        <IngestaoView />
+      </Suspense>
     </AppShell>
   );
 }

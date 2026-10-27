@@ -63,7 +63,7 @@ export const ACOES_CADASTROS: Acao[] = [
 export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova conta a receber", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", modal: "receita" },
   { label: "Nova conta a pagar", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/registrations/bank-accounts?aba=transferencias&novo=1", forma: "modal", modal: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/transfers?novo=1", forma: "modal", modal: "transferencia" },
   { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new", forma: "pagina" },
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "pagina" },
   // — lacunas apontadas —
@@ -95,6 +95,6 @@ export const ACOES_CADASTROS_PF: Acao[] = [
 export const ACOES_MOVIMENTACOES_PF: Acao[] = [
   { label: "Nova receita", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", modal: "receita" },
   { label: "Nova despesa", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/registrations/bank-accounts?aba=transferencias&novo=1", forma: "modal", modal: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/transfers?novo=1", forma: "modal", modal: "transferencia" },
 ];
 

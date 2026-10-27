@@ -52,7 +52,7 @@ export default async function cad(navegador) {
   await salvarModal(u);
   v.ok((await u.texto()).includes("Conta Jornada CAD"), "a conta criada entra na lista", await avisos(u));
 
-  await u.ir("/dashboard/registrations/bank-accounts?aba=transferencias&novo=1");
+  await u.ir("/dashboard/financial/transfers?novo=1");
   const opcoesConta = await u.page.locator('select[aria-label="Selecione uma conta"]').first()
     .locator("option").allTextContents();
   v.ok(opcoesConta.some((o) => o.includes("Conta Jornada CAD")), "a conta criada é oferecida na transferência",

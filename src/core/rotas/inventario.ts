@@ -138,7 +138,9 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/purchases/new", nome: "Nova compra", dono: "compras", status: "canonica", criterio: "nucleo" },
   // CAD (30/09/2026): o hub da ordem de dependência dos cadastros + "o que falta para lançar".
   { rota: "/dashboard/registrations", nome: "Estrutura e cadastros", dono: "cadastros", status: "canonica", criterio: "nucleo" },
-  { rota: "/dashboard/registrations/bank-accounts", nome: "Contas e cartões", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/bank-accounts", nome: "Contas bancárias", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/credit-card-invoices", nome: "Faturas do cartão", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/transfers", nome: "Transferências", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/chart-of-accounts", nome: "Plano de contas", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/clients", nome: "Clientes", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/cost-centers", nome: "Centros de custo", dono: "cadastros", status: "canonica", criterio: "nucleo" },
@@ -191,6 +193,8 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/configuracoes/seguranca", nome: "Segurança da conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/exportar", nome: "Enviar ao contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/upload", nome: "Entrada de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },
+  { rota: "/upload/regras", nome: "Regras de categoria", dono: "ingestao", status: "canonica", criterio: "nucleo" },
+  { rota: "/upload/duplicatas", nome: "Duplicatas", dono: "ingestao", status: "canonica", criterio: "nucleo" },
 ];
 
 /* ========================================================================== */

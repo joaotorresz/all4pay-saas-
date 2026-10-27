@@ -225,16 +225,30 @@ export const GUIDES: Record<string, Guide> = {
   /* ----------------------------- Upload / ingestão ----------------------------- */
   "/upload": {
     titulo: "Entrada de dados",
-    intro: "A esteira única de ingestão, em três abas: Conectar (Open Finance/bancos + posição por conta), Enviar (extratos CSV/OFX e documentos por OCR via FDIP) e Conciliar (casa o que entrou com os títulos previstos, baixa única). Tudo o que entra no sistema passa por aqui.",
-    comoUsar: "Escolha a aba: em Conectar, autorize o banco; em Enviar, arraste arquivos (ou cole/use a amostra) e confirme; em Conciliar, revise as filas (auto/sugestão/exceção) e dê baixa.",
-    exemplo: "Conecte o banco (Conectar) → o extrato entra → em Conciliar, um PIX de R$ 1.200 casa com a fatura de R$ 1.200 do cliente; ou arraste um CSV em Enviar → revise e confirme.",
+    intro: "A esteira única de ingestão, numa página só: Enviar extrato (CSV/OFX/PDF e documentos por OCR), Conectar banco (Open Finance + posição por conta) e Revisão (o que precisa de uma pessoa). Regras de categoria e Duplicatas têm página própria no menu.",
+    comoUsar: "Role a página: em Enviar, arraste o arquivo e confirme; em Conectar, autorize o banco; em Revisão, decida o que o sistema não classificou sozinho.",
+    exemplo: "Arraste o extrato do mês em Enviar → confira a prévia e confirme → o que ficou em dúvida aparece em Revisão, logo abaixo.",
     secoes: [
       acoes([
-        { nome: "Conectar", desc: "Open Finance (Pluggy): bancos, extrato e posição consolidada por conta." },
-        { nome: "Enviar", desc: "CSV/OFX/TXT em lote ou PNG/JPG/PDF por OCR; cadastra contatos/categorias e cria os lançamentos." },
-        { nome: "Conciliar", desc: "Matching probabilístico (auto/sugestão/exceção) → baixa do título previsto, sem contar o dinheiro 2x." },
+        { nome: "Enviar extrato", desc: "CSV/OFX/TXT/PDF em lote ou PNG/JPG por OCR; cadastra contatos/categorias e cria os lançamentos." },
+        { nome: "Conectar banco", desc: "Open Finance: bancos, extrato e posição consolidada por conta." },
+        { nome: "Revisão", desc: "A fila do que discorda entre si e precisa de uma pessoa." },
       ]),
     ],
+  },
+  "/upload/regras": {
+    titulo: "Regras de categoria",
+    intro: "Categorização automática por padrão: escreva a regra uma vez e ela vale para toda importação.",
+    comoUsar: "Crie a regra com as condições (contraparte, descrição, valor, CNAE) e a categoria. A ordem é a prioridade: a primeira que casa vence; arraste para reordenar.",
+    exemplo: "Contraparte contém \"posto\" → Combustível. Todos os postos das próximas importações já entram classificados.",
+    secoes: [],
+  },
+  "/upload/duplicatas": {
+    titulo: "Duplicatas",
+    intro: "Encontra as cópias que entraram antes de a importação ficar idempotente e mostra o impacto antes de remover.",
+    comoUsar: "Confira os grupos: o primeiro de cada um fica (é ele que baixas e conciliações já referenciam); as cópias saem depois da sua confirmação.",
+    exemplo: "O mesmo extrato importado duas vezes em julho → 34 cópias listadas com o efeito no caixa → remover.",
+    secoes: [],
   },
   /* ----------------------------- Receber ----------------------------- */
   "/contas-a-receber/painel-de-vendas": {
