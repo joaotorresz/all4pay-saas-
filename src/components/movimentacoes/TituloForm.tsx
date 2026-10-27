@@ -24,7 +24,7 @@
  * pago e desconto/juros, porque só um título liquidado tem essas três coisas.
  */
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { abrirCriacao, useParametrosDoFormulario, useSaidaDoFormulario } from "@/components/app/criacao";
 import { converterPorChave } from "@/lib/caixa-entrada";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,7 +34,6 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useCategories, usePartiesList } from "@/components/lancamentos/hooks";
 import { criarCategoria } from "@/lib/data";
 import type { Category } from "@/lib/types";
-import { PartyForm } from "@/components/lancamentos/PartyForm";
 import { extraParty } from "@/lib/registros";
 import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import { linhasDoRateio, principalDoRateio, categoriaPadraoValida } from "@/core/registros/hierarquia";
@@ -73,7 +72,7 @@ const EXT_OK = ["png", "jpg", "jpeg", "pdf", "xml", "xls", "xlsx"];
 const LIMITE = 10 * 1024 * 1024;
 
 export function TituloForm({ direcao }: { direcao: Direcao }) {
-  const router = useRouter();
+  const saida = useSaidaDoFormulario();
   const qc = useQueryClient();
   const { show, node } = useToast();
   const { data: partes } = usePartiesList();
@@ -102,7 +101,6 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
   const [anexos, setAnexos] = React.useState<{ nome: string; tamanho: number }[]>([]);
   const [erroAnexo, setErroAnexo] = React.useState("");
   const [erros, setErros] = React.useState<Record<string, string>>({});
-  const [novaParte, setNovaParte] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
@@ -114,7 +112,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
    * que o salvar deu certo (`converterPorChave`, mais abaixo): tirá-lo antes
    * faria um "cancelar" apagar o papel da fila sem virar conta nenhuma.
    */
-  const qs = useSearchParams();
+  const qs = useParametrosDoFormulario();
   const entrada = !receber ? qs.get("entrada") : null;
   const [origemEntrada, setOrigemEntrada] = React.useState<{ fornecedor: string; doc: string } | null>(null);
   React.useEffect(() => {
@@ -360,8 +358,9 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         // nenhuma obrigação no caixa — e a próxima tentativa o duplicaria.
         saveColaborador(colab);
         qc.invalidateQueries();
-        show(`${colab.nome} cadastrado · ${titulos.length} títulos agendados.`);
-        router.push("/contas-a-pagar/folha");
+        const msg = `${colab.nome} cadastrado · ${titulos.length} títulos agendados.`;
+        if (!saida.naJanela) show(msg);
+        saida.concluir(msg, "/contas-a-pagar/folha");
         return;
       }
       if (isDemo) {
@@ -464,7 +463,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         criado: `Conta a ${direcao} criada · ${criados}.`,
         mes: primeiroVenc.slice(0, 7),
       });
-      router.push(`${destino}?${q.toString()}`);
+      saida.concluir(`Conta a ${direcao} criada · ${criados}.`, `${destino}?${q.toString()}`);
     } catch (err) {
       /**
        * ⚠️ O MOTIVO REAL VAI PARA A TELA, e a falha é REPORTADA.
@@ -486,13 +485,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <button
-        onClick={() => router.back()}
+      {!saida.naJanela && <button
+        onClick={() => saida.cancelar()}
         className="inline-flex items-center gap-1 self-start text-caption text-muted hover:text-ink"
       >
         <Icon name="chevron-left" size={14} color="currentColor" />
         Cancelar
-      </button>
+      </button>}
 
       {origemEntrada && (
         <div className="rounded-md border border-border px-4 py-3 text-caption text-muted" data-origem-entrada>
@@ -653,7 +652,9 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                   cliente não está cadastrado, e mandar a pessoa para outra tela
                   perderia o formulário inteiro. */}
               <button
-                onClick={() => setNovaParte(true)}
+                onClick={() => abrirCriacao(receber ? "cliente" : "fornecedor", {
+                  aoCriar: (id) => { if (id) set("parteId", id); },
+                })}
                 aria-label={`Novo ${rotuloParte.toLowerCase()}`}
                 title={`Novo ${rotuloParte.toLowerCase()}`}
                 className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-surface-2 text-ink hover:bg-surface-3 transition-colors shrink-0"
@@ -875,20 +876,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       </Card>}
 
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => saida.cancelar()}>Cancelar</Button>
         <Button variant="primary" disabled={salvando} onClick={salvar}>
           <Icon name="check" size={15} color="currentColor" />
           {salvando ? "Salvando…" : "Salvar"}
         </Button>
       </div>
 
-      {novaParte && (
-        <PartyForm
-          role={receber ? "customer" : "supplier"}
-          onClose={() => setNovaParte(false)}
-          onToast={(m) => { show(m); setNovaParte(false); qc.invalidateQueries({ queryKey: ["parties-list"] }); }}
-        />
-      )}
       {node}
     </div>
   );

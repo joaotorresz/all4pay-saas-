@@ -9,6 +9,7 @@
  * era da empresa.
  */
 import * as React from "react";
+import { abrirCriacao, useAoCriar } from "@/components/app/criacao";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Select, DateField, CurrencyInput, Checkbox, BRL, Skeleton,
@@ -37,13 +38,12 @@ export function TransferenciasView() {
 
   const [lista, setLista] = React.useState<Transferencia[] | null>(null);
   const [filtro, setFiltro] = React.useState<FiltroTransferencias>({ conciliacao: "todas" });
-  const [nova, setNova] = React.useState(false);
-
-  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
-  // formulário já aberto (é o que dá link compartilhável à criação).
+  // ⚠️ Criar vai pela PORTA ÚNICA (o pop-up de `CriacaoGlobal`), venha de onde
+  // vier; `?novo=1` — o endereço que o painel Criar usa — abre o mesmo pop-up.
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setNova(true);
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao("transferencia");
   }, []);
+  useAoCriar(["transferencia"], () => setLista(listarTransferencias()));
 
   React.useEffect(() => { setLista(listarTransferencias()); }, []);
 
@@ -67,38 +67,11 @@ export function TransferenciasView() {
     ]),
   ], [visiveis, contas]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (nova) {
-    return (
-      <>
-      {node}
-      <FormTransferencia
-        contas={opcoesConta}
-        onCancelar={() => setNova(false)}
-        onSalvo={async (t) => {
-          // ⚠️ A recusa do banco aparece com a mensagem real: "tente de novo"
-          // é o único conselho que não funciona quando o banco recusa.
-          try {
-            setLista(await criarTransferencia(t));
-          } catch (e) {
-            show(e instanceof Error ? `Não foi possível registrar: ${e.message}` : "Não foi possível registrar a transferência.");
-            return;
-          }
-          setNova(false);
-          // A transferência mexe no saldo das duas contas — invalidar aqui é o
-          // que faz o extrato e o fluxo reagirem sem recarregar a página.
-          qc.invalidateQueries();
-          show("Transferência registrada.");
-        }}
-      />
-      </>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="primary" onClick={() => setNova(true)}>
+          <Button variant="primary" onClick={() => abrirCriacao("transferencia")}>
             <Icon name="plus" size={15} color="currentColor" />
             Nova transferência
           </Button>
@@ -167,7 +140,7 @@ export function TransferenciasView() {
                 ? "Nenhuma transferência registrada."
                 : "Nenhuma transferência encontrada com esses filtros."}
             </p>
-            <Button variant="primary" onClick={() => setNova(true)}>Nova transferência</Button>
+            <Button variant="primary" onClick={() => abrirCriacao("transferencia")}>Nova transferência</Button>
           </div>
         </Card>
       ) : (
@@ -251,6 +224,41 @@ export function TransferenciasView() {
 }
 
 /* ------------------------------- formulário ------------------------------- */
+
+/**
+ * O formulário de transferência da PORTA ÚNICA (o mesmo desta tela), já com a
+ * gravação dos dois lados. Aberto por `CriacaoGlobal`.
+ */
+export function NovaTransferencia({ onClose, onCriado }: {
+  onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  const qc = useQueryClient();
+  const { data: contas } = useAccounts();
+  const [erro, setErro] = React.useState("");
+  return (
+    <>
+      {erro && <p role="alert" className="text-caption text-negative mb-3">{erro}</p>}
+      <FormTransferencia
+        contas={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
+        onCancelar={onClose}
+        onSalvo={async (t) => {
+          // ⚠️ A recusa do banco aparece com a mensagem real: "tente de novo"
+          // é o único conselho que não funciona quando o banco recusa.
+          try {
+            await criarTransferencia(t);
+          } catch (e) {
+            setErro(e instanceof Error ? `Não foi possível registrar: ${e.message}` : "Não foi possível registrar a transferência.");
+            return;
+          }
+          // A transferência mexe no saldo das duas contas — invalidar aqui é o
+          // que faz o extrato e o fluxo reagirem sem recarregar a página.
+          qc.invalidateQueries();
+          onCriado(t.id, "Transferência registrada.");
+        }}
+      />
+    </>
+  );
+}
 
 function FormTransferencia({
   contas, onCancelar, onSalvo,

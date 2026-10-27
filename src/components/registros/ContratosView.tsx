@@ -16,6 +16,7 @@
  *     ninguém assina um recorrente sem ver as parcelas.
  */
 import * as React from "react";
+import { abrirCriacao, useAoCriar } from "@/components/app/criacao";
 import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Switch } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
@@ -54,11 +55,12 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazio(ladoFixo ?? "fornecedor"));
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao(tipoContrato(ladoFixo ?? "fornecedor"));
   }, [ladoFixo]);
   const { show, node } = useToast();
 
   React.useEffect(() => { setItens(listContratos()); }, []);
+  useAoCriar(["contrato-cliente", "contrato-fornecedor"], () => setItens(listContratos()));
 
   const doLado = React.useMemo(() => itens.filter((c) => c.lado === lado), [itens, lado]);
   const visiveis = React.useMemo(() => {
@@ -83,7 +85,7 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: "Novo contrato", onClick: () => setEditando(vazio(lado)) }}
+        acaoNova={{ label: "Novo contrato", onClick: () => abrirCriacao(tipoContrato(lado)) }}
         exportar={{ nomeArquivo: `contratos-${lado}`, aba: "Contratos", linhas }}
       />
 
@@ -118,7 +120,7 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
               ? "Nenhum contrato cadastrado."
               : "Nenhum contrato encontrado com esses filtros."}
             acao={doLado.length === 0
-              ? <Button variant="primary" onClick={() => setEditando(vazio(lado))}>Novo contrato</Button>
+              ? <Button variant="primary" onClick={() => abrirCriacao(tipoContrato(lado))}>Novo contrato</Button>
               : undefined}
           />
         }
@@ -177,7 +179,23 @@ const vazio = (lado: "fornecedor" | "cliente"): Contrato => ({
   anexoNome: "", criadoEm: hoje(), vendas: null,
 });
 
+const tipoContrato = (lado: "fornecedor" | "cliente") =>
+  lado === "cliente" ? "contrato-cliente" as const : "contrato-fornecedor" as const;
+
 /* ------------------------------- formulário ------------------------------- */
+
+/** O formulário de contrato da PORTA ÚNICA (o mesmo desta tela). */
+export function NovoContrato({ lado, onClose, onCriado }: {
+  lado: "fornecedor" | "cliente"; onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  return (
+    <FormContrato
+      inicial={vazio(lado)}
+      onClose={onClose}
+      onSalvo={(c) => { salvarContrato(c); onCriado(c.id, "Contrato salvo."); }}
+    />
+  );
+}
 
 function FormContrato({
   inicial, onClose, onSalvo,

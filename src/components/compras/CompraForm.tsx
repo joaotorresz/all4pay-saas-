@@ -15,7 +15,7 @@
  *    tela; a prévia é o contrato do que vai ser criado.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useSaidaDoFormulario } from "@/components/app/criacao";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Select, DateField, CurrencyInput, Textarea, Checkbox, BRL,
@@ -36,7 +36,8 @@ const hojeISO = () => hojeLocal();
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
 export function CompraForm() {
-  const router = useRouter();
+  // ⚠️ O MESMO formulário na página e no pop-up único (`abrirCriacao("compra")`).
+  const saida = useSaidaDoFormulario();
   const qc = useQueryClient();
   const { show: toast, node } = useToast();
 
@@ -140,12 +141,11 @@ export function CompraForm() {
       return;
     }
     qc.invalidateQueries();
-    toast(
-      c.status === "aprovada"
-        ? "Compra registrada e aprovada — já paga, os títulos entraram no caixa."
-        : "Compra criada. Ela entra no caixa quando for aprovada.",
-    );
-    router.push("/dashboard/purchases");
+    const ok = c.status === "aprovada"
+      ? "Compra registrada e aprovada — já paga, os títulos entraram no caixa."
+      : "Compra criada. Ela entra no caixa quando for aprovada.";
+    if (!saida.naJanela) toast(ok);
+    saida.concluir(ok, "/dashboard/purchases", c.id);
   }
 
   function anexar(files: FileList | null) {
@@ -356,7 +356,7 @@ export function CompraForm() {
         </p>
       )}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.push("/dashboard/purchases")}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => (saida.naJanela ? saida.cancelar() : saida.concluir("", "/dashboard/purchases"))}>Cancelar</Button>
         <Button variant="primary" onClick={() => { void salvar(); }} disabled={salvando}>
           <Icon name="check" size={15} color="currentColor" />
           Criar compra

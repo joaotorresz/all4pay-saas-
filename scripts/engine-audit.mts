@@ -8642,7 +8642,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // O boleto vira título pelo formulário de conta a pagar (o escritor único),
   // não por um segundo escritor no store (CAMP-B removeu o `lancarBoleto`).
   ok("compras: o boleto lançado vira título pelo formulário de conta a pagar",
-     /dashboard\/financial\/payables\/new\?/.test(semComent(lerF("src/components/compras/RecebidosViews.tsx")))
+     /abrirCriacao\("pagar", \{ parametros: camposDoFormulario\(doc\) \}\)/.test(semComent(lerF("src/components/compras/RecebidosViews.tsx")))
      && !/export async function lancarBoleto/.test(store));
   ok("compras: a compra mora em store-org, não no localStorage cru (quem aprova é outra pessoa)",
      /ler<Compra\[\]>\(CHAVES_ORG\.compras/.test(store) && !/localStorage/.test(store));

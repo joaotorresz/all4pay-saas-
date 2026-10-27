@@ -10,7 +10,7 @@
  * do mês. Mostrar o líquido ao lado do bruto é o ponto da tela.
  */
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParametrosDoFormulario, useSaidaDoFormulario } from "@/components/app/criacao";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Textarea, Select, DateField, CurrencyInput, Checkbox, BRL,
@@ -55,8 +55,9 @@ const TAXAS: { chave: keyof Pick<Venda, "taxaPlataforma" | "taxaAntecipacao" | "
 ];
 
 export function VendaForm() {
-  const router = useRouter();
-  const sp = useSearchParams();
+  // ⚠️ O MESMO formulário na página e no pop-up único (`abrirCriacao("venda")`).
+  const saida = useSaidaDoFormulario();
+  const sp = useParametrosDoFormulario();
   const qc = useQueryClient();
   const { show, node } = useToast();
   const { data: partes } = usePartiesList();
@@ -144,8 +145,8 @@ export function VendaForm() {
       // voltam juntos, e a próxima tentativa não duplica nada.
       const { aviso } = await salvarVendaDoc(doc);
       await qc.invalidateQueries();
-      show(aviso ?? "Venda salva · recebível gerado.");
-      if (!aviso) router.push("/contas-a-receber/painel-de-vendas");
+      if (aviso) show(aviso);
+      else saida.concluir("Venda salva · recebível gerado.", "/contas-a-receber/painel-de-vendas", doc.id);
     } catch (err) {
       show(`Não foi possível salvar: ${(err as Error).message}`);
     } finally {
@@ -155,10 +156,10 @@ export function VendaForm() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <button onClick={() => router.back()} className="inline-flex items-center gap-1 self-start text-caption text-muted hover:text-ink">
+      {!saida.naJanela && <button onClick={() => saida.cancelar()} className="inline-flex items-center gap-1 self-start text-caption text-muted hover:text-ink">
         <Icon name="chevron-left" size={14} color="currentColor" />
         Cancelar
-      </button>
+      </button>}
 
       {/* ------------------------------ cliente ------------------------------ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
@@ -407,7 +408,7 @@ export function VendaForm() {
       </Card>
 
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => saida.cancelar()}>Cancelar</Button>
         <Button variant="primary" disabled={salvando} onClick={salvar}>
           <Icon name="check" size={15} color="currentColor" />
           {salvando ? "Salvando…" : "Salvar venda"}

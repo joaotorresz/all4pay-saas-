@@ -147,6 +147,21 @@ campos, cards e valores, gráficos, tabelas, menu e moldura), nos dois temas.
 
 ---
 
+## ⚠️ UMA PORTA DE CRIAÇÃO, SEMPRE EM POP-UP (27/10/2026, decisão do dono)
+
+Todo "Novo" (Criar, "Novo" do topo, botão da tela, ⌘K, menu, link `?novo=1`
+ou `/new`) chama `abrirCriacao(tipo)` (`components/app/criacao`) e o
+anfitrião `CriacaoGlobal` (no `AppShell`) abre SEMPRE o mesmo formulário
+COMPLETO, em pop-up, sem sair da tela. Um tipo por item (`TipoCriacao` em
+`core/criar`). Os documentos (venda, compra, conta a receber/pagar,
+transferência) abrem na janela larga; os cadastros no modal deles. É uma
+PILHA: o "+" de um campo abre o cadastro por cima e devolve o item escolhido
+(`aoCriar`). Links de criação são interceptados (Ctrl/⌘ segue para a página,
+que monta o mesmo formulário); edição (`?id=`) não é criação. Formulário que
+também vive em página sai por `useSaidaDoFormulario`/`useParametrosDoFormulario`.
+⚠️ Nenhum `router.push` para rota de criação e nenhum segundo formulário do
+mesmo item — guardas "porta única" em `npm run consistencia`.
+
 ## ⚠️ MENU REMODELADO (19/10/2026, decisão do dono)
 
 Uma pergunta, uma tela: telas irmãs viraram ABAS de uma tela só, e o menu

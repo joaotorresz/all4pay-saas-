@@ -33,9 +33,10 @@ import {
 } from "./kit";
 import type { Party, PartyType } from "@/lib/types";
 import { useSituacaoWhatsapp, useRevogarWhatsapp } from "@/lib/whatsapp-autorizacao";
+import { abrirCriacao, useAoCriar } from "@/components/app/criacao";
 import { SeloWhatsapp, ModalAutorizarWhatsapp, BotaoAutorizarWhatsapp } from "./AutorizacaoWhatsapp";
 
-type Lado = "cliente" | "fornecedor";
+export type Lado = "cliente" | "fornecedor";
 
 const TEXTO = {
   cliente: {
@@ -60,13 +61,13 @@ export function PartesView({ lado }: { lado: Lado }) {
   const [status, setStatus] = React.useState<FiltroStatus>("todos");
   const [categoria, setCategoria] = React.useState("");
   const [editando, setEditando] = React.useState<Party | null>(null);
-  const [novo, setNovo] = React.useState(false);
-
-  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
-  // formulário já aberto (é o que dá link compartilhável à criação).
+  // ⚠️ Criar vai SEMPRE pela porta única (o pop-up de `CriacaoGlobal`), venha
+  // de onde vier; esta tela só edita. `?novo=1` — o endereço que o painel
+  // Criar usa — abre o mesmo pop-up.
+  const tipoNovo = lado === "cliente" ? "cliente" as const : "fornecedor" as const;
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setNovo(true);
-  }, []);
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao(tipoNovo);
+  }, [tipoNovo]);
   const [extras, setExtras] = React.useState<Record<string, ExtraParty>>({});
   const { show, node } = useToast();
   // A autorização de WhatsApp só existe do lado do CLIENTE (é a quem a régua cobra).
@@ -76,6 +77,7 @@ export function PartesView({ lado }: { lado: Lado }) {
   const [autorizando, setAutorizando] = React.useState<string[] | null>(null);
 
   React.useEffect(() => { setExtras(listExtrasParty()); }, []);
+  useAoCriar(["cliente", "fornecedor"], () => setExtras(listExtrasParty()));
 
   // Categoria padrão = FOLHA ativa da natureza do lado, do BANCO (UUID).
   const { data: catsBanco } = useCategories(t.natureza);
@@ -116,7 +118,7 @@ export function PartesView({ lado }: { lado: Lado }) {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: t.novo, onClick: () => setNovo(true) }}
+        acaoNova={{ label: t.novo, onClick: () => abrirCriacao(tipoNovo) }}
         exportar={{ nomeArquivo: t.titulo, aba: t.titulo, linhas }}
       />
 
@@ -169,7 +171,7 @@ export function PartesView({ lado }: { lado: Lado }) {
                   texto={doLado.length === 0
                     ? `Nenhum ${t.singular} cadastrado.`
                     : `Nenhum ${t.singular} encontrado com esses filtros.`}
-                  acao={doLado.length === 0 ? <Button variant="primary" onClick={() => setNovo(true)}>{t.novo}</Button> : undefined}
+                  acao={doLado.length === 0 ? <Button variant="primary" onClick={() => abrirCriacao(tipoNovo)}>{t.novo}</Button> : undefined}
                 />
               }
               colunas={[
@@ -217,15 +219,15 @@ export function PartesView({ lado }: { lado: Lado }) {
         </>
       )}
 
-      {(novo || editando) && (
+      {editando && (
         <FormParte
           lado={lado}
           parte={editando}
           cats={cats}
-          onClose={() => { setNovo(false); setEditando(null); }}
+          onClose={() => setEditando(null)}
           onSalvo={(msg) => {
             setExtras(listExtrasParty());
-            setNovo(false); setEditando(null);
+            setEditando(null);
             show(msg);
           }}
         />
@@ -317,6 +319,24 @@ function Numero({ label, valor, alerta }: { label: string; valor: number; alerta
 
 /* ------------------------------- formulário ------------------------------- */
 
+/**
+ * O formulário de cliente/fornecedor da PORTA ÚNICA — o mesmo desta tela, com
+ * as categorias que ela carrega. É o que `CriacaoGlobal` abre de qualquer
+ * lugar ("Novo cliente" no Criar, o "+" ao lado do campo de cliente…).
+ */
+export function NovaParte({ lado, onClose, onCriado }: {
+  lado: Lado;
+  onClose: () => void;
+  onCriado: (id: string | null, msg: string) => void;
+}) {
+  const { data: catsBanco } = useCategories(TEXTO[lado].natureza);
+  const cats = React.useMemo(
+    () => (catsBanco ?? []).map((c) => ({ id: c.id, nome: c.caminho || c.name })),
+    [catsBanco],
+  );
+  return <FormParte lado={lado} parte={null} cats={cats} onClose={onClose} onSalvo={(msg, id) => onCriado(id ?? null, msg)} />;
+}
+
 function FormParte({
   lado, parte, cats, onClose, onSalvo,
 }: {
@@ -324,7 +344,7 @@ function FormParte({
   parte?: Party | null;
   cats: { id: string; nome: string }[];
   onClose: () => void;
-  onSalvo: (msg: string) => void;
+  onSalvo: (msg: string, id?: string | null) => void;
 }) {
   const t = TEXTO[lado];
   const criar = useCreateParty();
@@ -440,7 +460,7 @@ function FormParte({
         onSuccess: (novo: { id?: string } | void) => {
           const id = (novo as { id?: string } | undefined)?.id;
           if (id) salvarExtraParty(id, extras);
-          onSalvo(`${cap(t.singular)} criado.`);
+          onSalvo(`${cap(t.singular)} criado.`, id ?? null);
         },
         onError: (e) => setErroBanco(e instanceof Error ? e.message : String(e)),
       });

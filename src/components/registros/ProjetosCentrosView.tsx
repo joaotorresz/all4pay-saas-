@@ -17,6 +17,7 @@
  * hierarquia sintético → analítico).
  */
 import * as React from "react";
+import { abrirCriacao } from "@/components/app/criacao";
 import { Button, Input, Textarea, DateField, CurrencyInput, BRL, Select } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
@@ -63,7 +64,7 @@ export function ProjetosRegistroView() {
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(projetoVazio());
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao("projeto");
   }, []);
   const { show, node } = useToast();
 
@@ -99,7 +100,7 @@ export function ProjetosRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: "Novo projeto", onClick: () => setEditando(projetoVazio()) }}
+        acaoNova={{ label: "Novo projeto", onClick: () => abrirCriacao("projeto") }}
         exportar={{ nomeArquivo: "projetos", aba: "Projetos", linhas }}
       />
       <BlocoAntigos
@@ -138,7 +139,7 @@ export function ProjetosRegistroView() {
                   ? "Nenhum projeto ainda."
                   : "Nenhum projeto encontrado com esses filtros."}
               acao={!projetos.isLoading && itens.length === 0
-                ? <Button variant="primary" onClick={() => setEditando(projetoVazio())}>Criar primeiro projeto</Button>
+                ? <Button variant="primary" onClick={() => abrirCriacao("projeto")}>Criar primeiro projeto</Button>
                 : undefined}
             />
           }
@@ -192,6 +193,28 @@ export function ProjetosRegistroView() {
       )}
       {node}
     </div>
+  );
+}
+
+/**
+ * O formulário de projeto da PORTA ÚNICA — o mesmo desta tela, com o que ela
+ * carrega (projetos, centros e clientes). Aberto por `CriacaoGlobal`.
+ */
+export function NovoProjeto({ onClose, onCriado }: {
+  onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  const projetos = useProjetos();
+  const centros = useCentrosCusto();
+  const clientes = usePartiesByRole("customer");
+  return (
+    <FormProjeto
+      inicial={projetoVazio()}
+      todos={projetos.data ?? []}
+      centros={centros.data ?? []}
+      clientes={(clientes.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+      onClose={onClose}
+      onSalvo={(p) => onCriado(p.id || null, `Projeto "${p.nome}" criado.`)}
+    />
   );
 }
 
@@ -290,7 +313,7 @@ export function CentrosCustoRegistroView() {
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(centroVazio());
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao("centro");
   }, []);
   const { show, node } = useToast();
 
@@ -317,7 +340,7 @@ export function CentrosCustoRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: "Novo centro de custo", onClick: () => setEditando(centroVazio()) }}
+        acaoNova={{ label: "Novo centro de custo", onClick: () => abrirCriacao("centro") }}
         exportar={{ nomeArquivo: "centros-de-custo", aba: "Centros de custo", linhas }}
       />
       <BlocoAntigos
@@ -352,7 +375,7 @@ export function CentrosCustoRegistroView() {
                   ? "Nenhum centro de custo ainda."
                   : "Nenhum centro de custo encontrado com esses filtros."}
               acao={!centros.isLoading && itens.length === 0
-                ? <Button variant="primary" onClick={() => setEditando(centroVazio())}>Criar primeiro centro</Button>
+                ? <Button variant="primary" onClick={() => abrirCriacao("centro")}>Criar primeiro centro</Button>
                 : undefined}
             />
           }
@@ -395,6 +418,21 @@ export function CentrosCustoRegistroView() {
       )}
       {node}
     </div>
+  );
+}
+
+/** O formulário de centro de custo da PORTA ÚNICA (o mesmo desta tela). */
+export function NovoCentro({ onClose, onCriado }: {
+  onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  const centros = useCentrosCusto();
+  return (
+    <FormCentro
+      inicial={centroVazio()}
+      todos={centros.data ?? []}
+      onClose={onClose}
+      onSalvo={(c) => onCriado(c.id || null, `Centro "${c.nome}" criado.`)}
+    />
   );
 }
 
