@@ -6,6 +6,7 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
 import { BANCOS_CONTA } from "@/core/registros/hierarquia";
@@ -12920,6 +12921,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const eP = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", endereco: "Rua A, 123, Centro" });
   ok("maquininha-oferta: pedido sem telefone nem e-mail é recusado", !!eP.contatoTelefone, JSON.stringify(eP));
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
+}
+
+// tipografia: todo número em Agrandir (27/10/2026) — a regra que decide o que é
+// número. O lado "não é" importa tanto quanto o "é": uma frase com número no
+// meio virando Agrandir trocaria a família de metade dos rótulos do sistema.
+{
+  for (const t of ["R$ 1.234,56", "−R$ 300,00", "12,4%", "+2,4%", "27/10/2026", "21:00", "12", "3x", "R$ 312 mil", "R$\u00a01.000,00"]) ok(`tipografia: "${t}" é número`, ehNumeroTipo(t));
+  for (const t of ["12 lançamentos", "vence em 3 dias", "Q3", "Conta 2", "Julho 2026", "Folha", ""]) ok(`tipografia: "${t}" não é número`, !ehNumeroTipo(t));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
