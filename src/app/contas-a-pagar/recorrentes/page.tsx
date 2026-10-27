@@ -21,7 +21,7 @@ const SECOES: Secao[] = [
 
 export default function ContasRecorrentesPage() {
   return (
-    <AppShell title="Contas recorrentes" crumb="Contas a pagar" actions={isDemo ? <DemoBadge /> : null}>
+    <AppShell title="Contas recorrentes" crumb="Central de despesas" actions={isDemo ? <DemoBadge /> : null}>
       <Suspense fallback={null}>
         <Secoes secoes={SECOES} />
       </Suspense>

@@ -28,7 +28,7 @@ export default function CaixaDeEntradaPage() {
   return (
     <AppShell
       title="Caixa de entrada"
-      crumb="Comprar e pagar"
+      crumb="Central de despesas"
       actions={<span className="text-label text-muted" data-contador-caixa={n}>{n} esperando decisão</span>}
     >
       <Suspense fallback={null}>

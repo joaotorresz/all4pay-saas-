@@ -91,7 +91,7 @@ export default async function automacoes(navegador) {
 
   const faltando = [];
   for (const mes of [...new Set(itens.map((i) => i.mes))]) {
-    await u.ir(`/contas-a-pagar/titulos?mes=${mes}`);
+    await u.ir(`/contas-a-pagar/painel-de-despesas?mes=${mes}`);
     // O <BRL> quebra o valor em partes (R$ · inteiro · centavos): compara sem espaços.
     const titulos = (await u.texto()).replace(/\s+/g, "");
     for (const i of itens.filter((x) => x.mes === mes)) if (!titulos.includes(`R$${i.valor}`)) faltando.push(i);

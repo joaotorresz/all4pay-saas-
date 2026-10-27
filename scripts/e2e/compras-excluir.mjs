@@ -15,7 +15,7 @@
 import { novoUsuario, verificador } from "./kit.mjs";
 
 async function titulosDoMes(u, mes) {
-  await u.ir(`/contas-a-pagar/titulos?mes=${mes}`);
+  await u.ir(`/contas-a-pagar/painel-de-despesas?mes=${mes}`);
   return u.page.evaluate(() => [...document.querySelectorAll("main table tbody tr")]
     .map((tr) => [...tr.querySelectorAll("td")].map((td) => td.innerText.replace(/\s+/g, " ").replace(/ ,/g, ",").trim()).join(" | ")));
 }
@@ -70,7 +70,7 @@ export default async function comprasExcluir(navegador) {
 
   /* ---- a compra aprovada põe três parcelas no caixa ---- */
   await novaCompra(u, { valor: "90000", parcelas: 3, venc: `${m1}-10`, desc: "Estantes" });
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await u.page.locator("main table tbody tr", { hasText: `${ano}-C0001` }).first().getByRole("button", { name: "Aprovar" }).click();
   await p.waitForTimeout(1500);
   const id = await idDaCompra(u, `${ano}-C0001`);
@@ -79,7 +79,7 @@ export default async function comprasExcluir(navegador) {
     antes.map((l) => l.join(" ")).join(" || "));
 
   /* ---- excluir retira as parcelas ---- */
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await excluir(u, `${ano}-C0001`);
   v.ok(!(await linhasDaLista(u)).includes(`${ano}-C0001`), "a compra excluída sai da lista");
   // O desfazer vive no toast desta tela: conferir os títulos agora custaria a
@@ -94,7 +94,7 @@ export default async function comprasExcluir(navegador) {
     "e as três parcelas voltam — 300,00 em cada mês, nenhuma duplicada", depois.map((l) => l.join(" ")).join(" || "));
 
   // Agora excluir de vez e conferir que o caixa ficou sem nada dela.
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await excluir(u, `${ano}-C0001`);
   await p.waitForTimeout(9000); // a janela de desfazer passa
   const fim = [await titulosDoMes(u, m1), await titulosDoMes(u, m2), await titulosDoMes(u, m3)].map((l) => parcelasNoMes(l, id));
@@ -103,7 +103,7 @@ export default async function comprasExcluir(navegador) {
   /* ---- a compra com parcela PAGA não se exclui ---- */
   await novaCompra(u, { valor: "60000", parcelas: 2, venc: hoje, desc: "Monitor pago", pago: true });
   const n2 = await numeroPelaDescricao(u, "Monitor pago");
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await excluir(u, n2);
   const t = (await u.texto()).replace(/\s+/g, " ");
   v.ok(/já paga/.test(t) && /Estorne o pagamento/.test(t), "excluir com parcela paga é RECUSADO, com o motivo");

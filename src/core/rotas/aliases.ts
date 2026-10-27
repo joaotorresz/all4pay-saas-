@@ -41,10 +41,13 @@ export const ALIASES: Alias[] = [
   { de: "/contas-a-receber", para: "/contas-a-receber/painel-de-vendas", motivo: "o painel de contas a receber saiu do menu (26/10/2026): o Painel de vendas tem os mesmos cards e títulos" },
   { de: "/dashboard/sales-invoices/pedidos", para: "/contas-a-receber/painel-de-vendas", motivo: "Pedidos de venda saiu a pedido do dono (27/10/2026): a lista, o emitir NF, o editar e o excluir moram no Painel de vendas" },
   { de: "/dashboard/sales-invoices", para: "/contas-a-receber/painel-de-vendas", motivo: "a tela Vendas foi desativada a pedido do dono (27/10/2026): o Painel de vendas é a tela de vendas; as abas dela voltaram a endereço próprio" },
+  { de: "/contas-a-pagar", para: "/contas-a-pagar/painel-de-despesas", motivo: "Central de despesas (27/10/2026): o painel de contas a pagar virou o Painel de despesas, no molde do Painel de vendas" },
+  { de: "/contas-a-pagar/titulos", para: "/contas-a-pagar/painel-de-despesas", motivo: "Central de despesas (27/10/2026): a tabela de títulos a pagar mora no Painel de despesas, a mesma TitulosView" },
+  { de: "/dashboard/purchases", para: "/contas-a-pagar/painel-de-despesas", motivo: "Central de despesas (27/10/2026): a lista de compras mora no Painel de despesas, como a de vendas no Painel de vendas" },
   { de: "/contas-a-receber/titulos", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos a receber saiu do menu (26/10/2026): a tabela mora no Painel de vendas, a mesma TitulosView" },
   { de: "/criar", para: "/", motivo: "criar virou painel, não rota" },
   { de: "/recebiveis", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
-  { de: "/pagaveis", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/pagaveis", para: "/contas-a-pagar/painel-de-despesas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
   { de: "/dashboard/financial/import", para: "/upload", motivo: "A4P-040: a importação de planilha virou mais um formato do /upload (Bloco D); um pipeline, uma porta" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },
@@ -116,7 +119,7 @@ export const ALIASES: Alias[] = [
   { de: "/impostos", para: "/dashboard/sales-invoices/tax-provisioning", motivo: "imposto tem UM módulo canônico (mapa, item 5)" },
   { de: "/dre", para: "/dashboard/reports/dre", motivo: "DRE consolidado no relatório canônico (mapa, item 3)" },
   { de: "/recebimentos", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
-  { de: "/pagamentos", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/pagamentos", para: "/contas-a-pagar/painel-de-despesas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
 
   // — hub COPILOTO (todos exigem plano Pro; ver `core/planos`) —
   { de: "/risco", para: "/quattro-ai?aba=risco", motivo: "motor de risco virou aba do copiloto" },
@@ -140,7 +143,7 @@ export const ALIASES: Alias[] = [
   { de: "/dashboard/dashboards/financial", para: "/fluxo-caixa", motivo: "saldo, geração de caixa e entradas/saídas já são o fluxo de caixa" },
   { de: "/dashboard/dashboards/sales", para: "/contas-a-receber/painel-de-vendas", motivo: "a lista de vendas já traz os painéis de status" },
   { de: "/dashboard/dashboards/subscriptions", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa, item 7)" },
-  { de: "/dashboard/dashboards/payables", para: "/contas-a-pagar/titulos", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
+  { de: "/dashboard/dashboards/payables", para: "/contas-a-pagar/painel-de-despesas", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/dashboards/receivables", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos a receber têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/financial/calendar", para: "/fluxo-caixa", motivo: "o calendário diário já é um bloco do fluxo de caixa" },
   // — REMODELAÇÃO DO MENU (19/10/2026): telas irmãs viraram ABAS de uma tela só —
@@ -212,7 +215,7 @@ export const ALIASES_DE_ABA: Alias[] = [
    * favorito acaba piscando duas telas antes de parar.
    */
   { de: "/recebimentos?aba=titulos", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
-  { de: "/pagamentos?aba=titulos", para: "/contas-a-pagar/titulos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/pagamentos?aba=titulos", para: "/contas-a-pagar/painel-de-despesas", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
 
   /**
    * ⚠️ **AS DUAS ABAS DE TÍTULOS DO HUB VIRARAM DESVIO.**
@@ -229,7 +232,7 @@ export const ALIASES_DE_ABA: Alias[] = [
    * primeira aba em silêncio, e quem clicou concluiria que errou o link.
    */
   { de: "/dashboard/financial/accounts-and-transfers?tab=receivables", para: "/contas-a-receber/painel-de-vendas", motivo: "aba de títulos a receber virou tela própria" },
-  { de: "/dashboard/financial/accounts-and-transfers?tab=payables", para: "/contas-a-pagar/titulos", motivo: "aba de títulos a pagar virou tela própria" },
+  { de: "/dashboard/financial/accounts-and-transfers?tab=payables", para: "/contas-a-pagar/painel-de-despesas", motivo: "aba de títulos a pagar virou tela própria" },
 
   {
     de: "/cadastros?aba=clientes",
@@ -296,7 +299,7 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/dashboard/dashboards?aba=financeiro", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=vendas", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=assinaturas", para: "/dashboard/sales-invoices/subscriptions", motivo: "aba do hub de dashboards aposentado" },
-  { de: "/dashboard/dashboards?aba=pagar", para: "/contas-a-pagar/titulos", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=pagar", para: "/contas-a-pagar/painel-de-despesas", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=receber", para: "/contas-a-receber/painel-de-vendas", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=calendario", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=meus", para: "/dashboard/dashboards/custom", motivo: "aba do hub de dashboards aposentado" },

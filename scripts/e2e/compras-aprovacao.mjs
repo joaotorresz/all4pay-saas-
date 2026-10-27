@@ -18,7 +18,7 @@
 import { novoUsuario, verificador, brl } from "./kit.mjs";
 
 async function titulosDoMes(u, mes) {
-  await u.ir(`/contas-a-pagar/titulos?mes=${mes}`);
+  await u.ir(`/contas-a-pagar/painel-de-despesas?mes=${mes}`);
   return u.page.evaluate(() => [...document.querySelectorAll("main table tbody tr")]
     .map((tr) => [...tr.querySelectorAll("td")].map((td) => td.innerText.replace(/\s+/g, " ").replace(/ ,/g, ",").trim()).join(" | ")));
 }
@@ -111,7 +111,7 @@ export default async function comprasAprovacao(navegador) {
   v.ok(Math.abs((await saidasProjetadas(u)) - saidas0) < 0.005, "e o fluxo de caixa não se moveu");
 
   /* ---- aprovar ---- */
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await acao(u, `${ano}-C0001`, "Aprovar");
   await acao(u, `${ano}-C0002`, "Aprovar");
   t = (await u.texto()).replace(/\s+/g, " ").replace(/ ,/g, ",");
@@ -143,7 +143,7 @@ export default async function comprasAprovacao(navegador) {
   v.ok(!!c3 && !tit.some((l) => l.includes(`compra-${c3}-`)), "e não existe em Títulos a pagar");
 
   /* ---- cancelar a aprovada: as parcelas saem ---- */
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await acao(u, `${ano}-C0002`, "Cancelar compra");
   const t1b = await titulosDoMes(u, m1); const t3b = await titulosDoMes(u, m3);
   v.ok(!t1b.some((l) => l.includes(`compra-${c2}-`)) && !t3b.some((l) => l.includes(`compra-${c2}-`)), "cancelar retira as três parcelas previstas");
@@ -158,7 +158,7 @@ export default async function comprasAprovacao(navegador) {
   tit = await titulosDoMes(u, m0);
   v.ok(parcela(tit, c4, 1, "1.000,00") && tit.some((l) => l.includes(`compra-${c4}-1`) && /Pag[ao]/.test(l)),
     "a 1ª parcela entra PAGA", tit.filter((l) => l.includes(`compra-${c4}`)).join(" || "));
-  await u.ir("/dashboard/purchases");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   await acao(u, `${ano}-C0004`, "Cancelar compra");
   t = (await u.texto()).replace(/\s+/g, " ");
   v.ok(/já paga/.test(t) && /Estorne o pagamento/.test(t), "cancelar com parcela paga é RECUSADO, com o motivo na tela");

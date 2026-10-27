@@ -90,7 +90,7 @@ export function GastosCard({ c }: { c: ComparativoFluxo }) {
   return (
     <CartaoBiblioteca
       titulo="Gastos"
-      href="/contas-a-pagar/titulos"
+      href="/contas-a-pagar/painel-de-despesas"
       valor={<BRL value={s.total} />}
       pesoValor={600}
       subtitulo={<Subtitulo c={c} s={s} />}

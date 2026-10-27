@@ -9,7 +9,7 @@ import { ReembolsosView } from "@/components/reembolsos/ReembolsosView";
  */
 export default function Page() {
   return (
-    <AppShell title="Reembolsos" crumb="Financeiro">
+    <AppShell title="Reembolsos" crumb="Central de despesas">
       <ReembolsosView />
     </AppShell>
   );

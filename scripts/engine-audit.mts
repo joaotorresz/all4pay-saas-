@@ -2776,7 +2776,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // A camada de USO precisa existir de verdade — se ela sumir, as sugestões
   // voltam a cair no vazio mesmo com a KB intacta.
   ok("ajuda: 'como faço' é respondido pelo guia da tela",
-    melhorGuia("Como aprovar um pedido de compra?", candidatosAjuda)?.rota === "/dashboard/purchases",
+    melhorGuia("Como aprovar um pedido de compra?", candidatosAjuda)?.rota === "/contas-a-pagar/painel-de-despesas",
     String(melhorGuia("Como aprovar um pedido de compra?", candidatosAjuda)?.rota));
   // ⚠️ A barra de 3 pontos: uma palavra que só aparece no CORPO de vários guias
   // não pode eleger um deles. Com a barra em 1, "valor" e "tela" — palavras que
@@ -2829,7 +2829,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // as telas irmãs. Este guard cobre as rotas principais de cada módulo.
   const PRINCIPAIS = [
     "/", "/quattro-ai", "/orcamento", "/dashboard/help", "/comece",
-    "/dashboard/purchases", "/contas-a-pagar/titulos", "/central", "/simuladores",
+    "/contas-a-pagar/painel-de-despesas", "/contas-a-pagar/folha", "/central", "/simuladores",
     "/contas-a-receber/painel-de-vendas", "/exportar",
     "/dashboard/administration/users", "/fluxo-caixa", "/upload",
     "/dashboard/financial/reconciliation", "/dashboard/registrations/bank-accounts",
@@ -2857,7 +2857,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // sobra precisa continuar cobrindo o dia a dia. `menuDoPlano` é a MESMA
   // função que a barra lateral usa para montar a lista.
   const simples = menuDoPlano(SECTIONS, false);
-  const DIA_A_DIA = ["/", "/orcamento", "/fluxo-caixa", "/upload", "/dashboard/purchases", "/contas-a-receber/painel-de-vendas"];
+  const DIA_A_DIA = ["/", "/orcamento", "/fluxo-caixa", "/upload", "/contas-a-pagar/painel-de-despesas", "/contas-a-receber/painel-de-vendas"];
   const fora = DIA_A_DIA.filter(
     (r) => !simples.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
   );
@@ -5326,7 +5326,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /rotuloSituacao\(statusDoTitulo\(m, input\.hoje\), direcao\)/.test(tv));
   // ⚠️ Simetria: é o MESMO componente nos dois lados — se algum dia virar dois,
   // as duas listas de dinheiro divergem no primeiro ajuste.
-  const pagar = readFileSync("src/app/contas-a-pagar/titulos/page.tsx", "utf8");
+  const pagar = readFileSync("src/components/painel-despesas/PainelDespesas.tsx", "utf8");
   const receber = readFileSync("src/components/painel-vendas/PainelVendas.tsx", "utf8");
   ok("a4p045: pagar e receber usam a MESMA TitulosView (código compartilhado)",
      /TitulosView/.test(pagar) && /TitulosView/.test(receber));
@@ -8070,7 +8070,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const r1 = bu.buscarTitulos(ib, "1.234,56");
   ok("campb: a busca por \"1.234,56\" acha o título de R$ 1.234,56 — e só ele",
      r1.total === 1 && r1.itens[0]?.id === "t-1234" && r1.itens[0].motivo === "valor", JSON.stringify(r1.itens.map((i) => i.id)));
-  ok("campb: a busca abre a tela certa já filtrada", r1.itens[0]?.rota === "/contas-a-pagar/titulos?busca=t-1234");
+  ok("campb: a busca abre a tela certa já filtrada", r1.itens[0]?.rota === "/contas-a-pagar/painel-de-despesas?busca=t-1234");
   ok("campb: busca por documento e por contraparte",
      bu.buscarTitulos(ib, "4471").itens[0]?.id === "t-doc" && bu.buscarTitulos(ib, "padaria").itens[0]?.id === "t-1234");
   const muitos: RI = { ...ib, movements: Array.from({ length: 20 }, (_, i) => mk({ id: `x${i}`, amount: 50, category: "Frete" })) };

@@ -290,15 +290,22 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Pagar ----------------------------- */
-  "/contas-a-pagar/titulos": {
-    titulo: "Central de pagamentos",
-    intro: "Executa os títulos de saída lançados, agrupados por período, com seleção múltipla, conta de saída e método. Idempotente (reenviar não paga 2x).",
-    comoUsar: "Selecione os títulos, escolha a conta/método e pague (por linha ou em lote); anexe o comprovante. Títulos acima da alçada ficam bloqueados até aprovação.",
-    exemplo: "Pague 5 fornecedores de uma vez via PIX → o saldo só cai na liquidação; o card 'Contas pagas' registra.",
+  "/contas-a-pagar/painel-de-despesas": {
+    titulo: "Painel de despesas — títulos e compras",
+    intro: "O espelho do Painel de vendas: o período, o calendário das despesas, o status, os títulos a pagar e os pedidos de compra com aprovação numa tela só. A compra nasce como PEDIDO e só vira conta a pagar quando alguém aprova.",
+    comoUsar: "Escolha Esse mês, Essa semana ou Personalizado no alto e, se quiser, um fornecedor, projeto ou centro. Clique num dos cards de títulos para abrir o filtro e a tabela e pagar na linha ou em lote. Mais abaixo, na lista de compras, aprove ou reprove cada pedido: aprovar coloca as parcelas no fluxo, reprovar as retira.",
+    exemplo: "Um pedido de R$ 30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$ 10 mil, que aparecem no calendário e nos cards de cima.",
     secoes: [
       acoes([
-        { nome: "Pagar (lote/linha)", desc: "Confirmar pagamento + anexar comprovante.", match: "Pagar" },
-        { nome: "Gate de alçada", desc: "Acima do limite → bloqueado, com link para aprovações." },
+        { nome: "Nova compra", desc: "Abre o pedido: fornecedor, conta, categoria, as duas datas e o valor.", match: "Nova compra" },
+        { nome: "Aprovar / reprovar", desc: "A decisão que move o dinheiro. Reprovar retira os títulos do fluxo." },
+        { nome: "Exportar XLSX", desc: "Baixa os pedidos do filtro atual." },
+      ]),
+      blocos([
+        { nome: "Cards de status", desc: "Aprovadas · aguardando · reprovadas ou canceladas · total, com a fatia de cada uma.", match: "Aprovadas" },
+        { nome: "Data de vencimento/pagamento", desc: "A janela do CAIXA: quando o dinheiro sai. Compra paga entra pela data do pagamento.", match: "Data de vencimento" },
+        { nome: "Data de competência", desc: "A janela do RESULTADO: de que mês é a despesa no DRE.", match: "Data de competência" },
+        { nome: "Parcelas", desc: "O resto dos centavos vai na última parcela; a competência não se parcela.", match: "Pagamento" },
       ]),
     ],
   },
@@ -312,7 +319,7 @@ export const GUIDES: Record<string, Guide> = {
   "/dashboard/financial/reimbursements": {
     titulo: "Reembolsos",
     intro: "Reembolso do colaborador: formulário + itens (com OCR do comprovante) + chave Pix. Roteia pelo mesmo motor de alçada e, ao aprovar, gera uma saída por item.",
-    comoUsar: "O colaborador lança os itens (foto do comprovante extrai os campos) e a chave Pix; ao aprovar, vira saída na Central de pagamentos.",
+    comoUsar: "O colaborador lança os itens (foto do comprovante extrai os campos) e a chave Pix; ao aprovar, vira saída no Painel de despesas.",
     exemplo: "3 notas de despesa de viagem → cada uma vira um lançamento de saída na categoria certa (reflete no DRE).",
     secoes: [],
   },
@@ -616,25 +623,6 @@ Object.assign(GUIDES, {
         { nome: "Cadastrar aplicativo autenticador", desc: "Mostra o código QR e a chave, e pede o primeiro código para confirmar.", match: "Cadastrar aplicativo autenticador" },
         { nome: "Adicionar outro aparelho", desc: "Um segundo celular como reserva: sem nenhum, só o suporte retira o segundo fator." },
         { nome: "Remover", desc: "Retira um aparelho. Removido o último, a conta volta a entrar só com a senha." },
-      ]),
-    ],
-  },
-  "/dashboard/purchases": {
-    titulo: "Compras — pedidos com aprovação",
-    intro: "A compra nasce como PEDIDO, não como despesa. Ela só vira conta a pagar quando alguém aprova — é isso que separa esta tela de Contas a pagar.",
-    comoUsar: "Use os filtros de vencimento (caixa) e de competência (resultado) para achar o pedido. Aprove ou reprove na linha: aprovar coloca as parcelas no fluxo, reprovar as retira. Clique em '3×' para ver as parcelas que serão criadas.",
-    exemplo: "Um pedido de R$ 30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$ 10 mil.",
-    secoes: [
-      acoes([
-        { nome: "Nova compra", desc: "Abre o pedido: fornecedor, conta, categoria, as duas datas e o valor.", match: "Nova compra" },
-        { nome: "Aprovar / reprovar", desc: "A decisão que move o dinheiro. Reprovar retira os títulos do fluxo." },
-        { nome: "Exportar XLSX", desc: "Baixa os pedidos do filtro atual." },
-      ]),
-      blocos([
-        { nome: "Cards de status", desc: "Aprovadas · aguardando · reprovadas ou canceladas · total, com a fatia de cada uma.", match: "Aprovadas" },
-        { nome: "Data de vencimento/pagamento", desc: "A janela do CAIXA: quando o dinheiro sai. Compra paga entra pela data do pagamento.", match: "Data de vencimento" },
-        { nome: "Data de competência", desc: "A janela do RESULTADO: de que mês é a despesa no DRE.", match: "Data de competência" },
-        { nome: "Parcelas", desc: "O resto dos centavos vai na última parcela; a competência não se parcela.", match: "Pagamento" },
       ]),
     ],
   },

@@ -459,7 +459,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
        */
       const criados = `${n} ${n === 1 ? "título" : (modo === "parcelada" ? "parcelas" : "ocorrências")}`;
       const primeiroVenc = plano.titulos[0]?.vencimento ?? f.vencimento;
-      const destino = receber ? "/contas-a-receber/painel-de-vendas" : "/contas-a-pagar/titulos";
+      const destino = receber ? "/contas-a-receber/painel-de-vendas" : "/contas-a-pagar/painel-de-despesas";
       const q = new URLSearchParams({
         criado: `Conta a ${direcao} criada · ${criados}.`,
         mes: primeiroVenc.slice(0, 7),

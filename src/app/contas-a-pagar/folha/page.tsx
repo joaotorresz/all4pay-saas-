@@ -6,7 +6,7 @@ import { FolhaSalarial } from "@/components/contas-pagar/FolhaSalarial";
 
 export default function FolhaSalarialPage() {
   return (
-    <AppShell title="Folha salarial" crumb="Contas a pagar" actions={isDemo ? <DemoBadge /> : null}>
+    <AppShell title="Folha salarial" crumb="Central de despesas" actions={isDemo ? <DemoBadge /> : null}>
       <Suspense fallback={null}>
         <FolhaSalarial />
       </Suspense>
