@@ -57,7 +57,9 @@ import {
 } from "@/core/indicadores";
 import { montarDataset } from "@/lib/fdip";
 import { analisarImportacao } from "@/core/fdip";
-import { montarAssistente, aplicarDecisoes, decisaoPadrao, proximaData, ehRecorrente } from "@/core/fdip/assistente";
+import { montarAssistente, aplicarDecisoes, decisaoPadrao, proximaData, ehRecorrente, CATEGORIAS_DESPESA } from "@/core/fdip/assistente";
+import { categoriaPorMCC, normalizarMCC, CATEGORIAS_MCC } from "@/core/mcc";
+import { normalizarPaginaIA, csvDasPaginas } from "@/core/fdip/extrato-ia";
 import { importedAbertura } from "@/lib/imported";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
@@ -68,7 +70,7 @@ import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
-import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
+import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE, CATEGORIAS_CNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
 import { execSync as execSyncIcone } from "node:child_process";
@@ -9246,7 +9248,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const listaDe = (f: string) => /const CATEGORIAS = \[([\s\S]*?)\];/.exec(fsA.readFileSync(f, "utf8"))?.[1] ?? "";
     ok("adq-extrato: a IA e as telas de regra e de documento podem escolher 'Tarifas de adquirência'",
        CATEGORIAS_DESPESA.includes(ADQ)
-       && ["src/components/ingestao/RegrasView.tsx", "src/components/upload/UploadWizard.tsx"].every((f) => /\bCATEGORIA_TAXA_POS\b/.test(listaDe(f))));
+       && /\bCATEGORIA_TAXA_POS\b/.test(listaDe("src/components/ingestao/RegrasView.tsx"))
+       // o documento avulso usa a MESMA lista da importação (CATEGORIAS_DESPESA, conferida acima)
+       && /import\s*\{[^}]*\bCATEGORIAS_DESPESA\b[^}]*\}\s*from\s*"@\/core\/fdip\/assistente"/.test(fsA.readFileSync("src/components/upload/UploadWizard.tsx", "utf8")));
 
     // TETO ZERO: a regra é UMA. Nenhuma cópia do padrão da adquirência fora dela.
     // ⚠️ Comentário sai com um removedor que RESPEITA strings: um `/*` dentro
@@ -13106,6 +13110,74 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     recs.join(" | "));
   ok("assistente: nada é gravado aqui (o relatório original fica intacto)",
     rep.classificacoes.find((c) => c.recordId === g("enel").recordIds[0])!.categoria !== "Outras despesas");
+}
+
+/* ═══ MCC do cartão e extrato escaneado lido pela IA ═══ */
+{
+  console.log("\n[mcc + extrato-ia]");
+  ok("mcc: posto (5541) → Combustível; restaurante (5812) → Alimentação; faixa aérea (3045) → Viagens",
+    categoriaPorMCC("5541")?.categoria === "Combustível" && categoriaPorMCC(5812)?.categoria === "Alimentação"
+      && categoriaPorMCC("3045")?.categoria === "Viagens");
+  ok("mcc: o exato tem confiança maior que a faixa", (categoriaPorMCC("5541")?.confianca ?? 0) > (categoriaPorMCC("3045")?.confianca ?? 1));
+  ok("mcc: '742' e '0742' são o mesmo código; 0000, vazio e 5 dígitos não são MCC",
+    normalizarMCC("742") === "0742" && normalizarMCC("0000") === null && normalizarMCC("") === null && normalizarMCC("12345") === null);
+  ok("mcc: código fora do mapa não inventa categoria", categoriaPorMCC("6011") === null);
+  ok("mcc: toda categoria do MCC é do vocabulário do CNAE (uma loja, uma categoria)",
+    CATEGORIAS_MCC.every((c) => CATEGORIAS_CNAE.includes(c)), CATEGORIAS_MCC.filter((c) => !CATEGORIAS_CNAE.includes(c)).join(", "));
+  ok("mcc: toda categoria do MCC está no seletor do assistente (senão a sugerida aparece sozinha)",
+    CATEGORIAS_MCC.every((c) => (CATEGORIAS_DESPESA as readonly string[]).includes(c)));
+
+  // OFX de cartão: o MCC vem em <SIC>
+  const ofx = `<OFX><STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261003<TRNAMT>-87.50<FITID>a1<SIC>5812<MEMO>PAG*JOSEDASILVA</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261004<TRNAMT>-210.00<FITID>a2<SIC>5541<MEMO>COMPRA CARTAO 1234</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20261005<TRNAMT>210.00<FITID>a3<SIC>5541<MEMO>ESTORNO COMPRA CARTAO</STMTTRN></OFX>`;
+  const rOfx = analisarImportacao(ofx);
+  const catOfx = (i: number) => rOfx.classificacoes.find((c) => c.recordId === rOfx.records[i].id)!;
+  ok("mcc: o <SIC> do OFX chega ao lançamento", rOfx.records.map((r) => r.mcc).join(",") === "5812,5541,5541");
+  ok("mcc: nome sem sentido ('PAG*JOSEDASILVA') é categorizado pelo código, e diz o motivo",
+    catOfx(0).categoria === "Alimentação" && /MCC 5812/.test(catOfx(0).motivo), `${catOfx(0).categoria} · ${catOfx(0).motivo}`);
+  ok("mcc: na ENTRADA (estorno) o MCC não decide — devolução do posto não é receita de combustível",
+    catOfx(2).categoria !== "Combustível", catOfx(2).categoria);
+  ok("mcc: o MCC não entra no fingerprint (o mesmo lançamento com e sem MCC é o mesmo)",
+    analisarImportacao(ofx.replace(/<SIC>\d+/g, "")).records[0].fingerprint === rOfx.records[0].fingerprint);
+
+  // planilha com coluna MCC
+  const rCsv = analisarImportacao("Data;Descrição;Valor;MCC\n03/10/2026;LOJA XYZ;-50,00;7311\n04/10/2026;LOJA ABC;-30,00;");
+  ok("mcc: a coluna MCC da planilha é lida (e a vazia fica ausente)",
+    rCsv.records[0].mcc === "7311" && rCsv.records[1].mcc === undefined
+      && rCsv.classificacoes.find((c) => c.recordId === rCsv.records[0].id)!.categoria === "Marketing");
+
+  // a resposta da IA é conferida antes de virar lançamento
+  const pag = normalizarPaginaIA({
+    tipo: "fatura",
+    linhas: [
+      ["2026-10-03", "IFD*RESTAURANTE BOM", -45.9, "5812"],
+      ["2026-10-04", "UBER *TRIP", -23.1, null],
+      { data: "2026-10-05", descricao: "PAGAMENTO RECEBIDO", valor: 1200, mcc: null },
+      ["2026-02-30", "DATA QUE NÃO EXISTE", -10, null],
+      ["2026-10-06", "SALDO ANTERIOR", 5000, null],
+      ["2026-10-07", "VALOR ZERO", 0, null],
+      ["2026-10-08", "", -9, null],
+      ["07/10/2026", "DATA FORA DO PADRÃO", -9, null],
+      ["2026-10-09", "VALOR TEXTO", "abc", null],
+      "lixo",
+    ],
+  });
+  ok("extrato-ia: linhas válidas entram (lista ou objeto)", pag.linhas.length === 3, String(pag.linhas.length));
+  ok("extrato-ia: data impossível, saldo, zero, descrição vazia, data fora do ISO e valor texto são RECUSADOS e CONTADOS",
+    pag.recusadas === 7, String(pag.recusadas));
+  ok("extrato-ia: tipo desconhecido vira 'documento' (não é lido como extrato)",
+    normalizarPaginaIA({ tipo: "qualquer", linhas: [["2026-10-03", "X", -1, null]] }).tipo === "documento"
+      && normalizarPaginaIA(null).linhas.length === 0);
+  const csvIA = csvDasPaginas([pag, normalizarPaginaIA({ tipo: "fatura", linhas: [["2026-10-10", "POSTO SHELL", -200, "5541"]] })]);
+  const rIA = analisarImportacao(csvIA);
+  const sinal = rIA.records.map((r) => `${r.tipo}:${r.valor}`).join(",");
+  ok("extrato-ia: as páginas viram UM extrato com o sinal e o valor certos (pt-BR, sem erro de 1000×)",
+    rIA.records.length === 4 && sinal === "saida:45.9,saida:23.1,entrada:1200,saida:200", sinal);
+  ok("extrato-ia: o MCC lido pela IA categoriza a compra",
+    rIA.classificacoes.find((c) => c.recordId === rIA.records[0].id)!.categoria === "Alimentação");
+  ok("extrato-ia: nenhuma página com linha = texto vazio (não um extrato vazio 'bem-sucedido')",
+    csvDasPaginas([normalizarPaginaIA({ tipo: "extrato", linhas: [] })]) === "");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
