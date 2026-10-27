@@ -1141,7 +1141,7 @@ function CartaoDaConversa({
         <p className={titulo}>Termos e Condições de Uso</p>
         <label className="flex items-center gap-2.5 text-[14px] text-ink cursor-pointer">
           <input type="checkbox" checked={aceite} onChange={onAceite} disabled={!ativo} className="sr-only peer" />
-          <span aria-hidden className="w-5 h-5 flex-none rounded-[6px] flex items-center justify-center border border-border peer-focus-visible:ring-2 peer-focus-visible:ring-ink"
+          <span aria-hidden className="w-5 h-5 flex-none rounded-[6px] flex items-center justify-center border a4p-borda-campo peer-focus-visible:ring-2 peer-focus-visible:ring-ink"
             style={aceite ? { background: "var(--erp-num-cor)", color: "var(--color-surface-1)", borderColor: "transparent" } : undefined}>
             {aceite && <Icon name="check" size={13} color="currentColor" />}
           </span>

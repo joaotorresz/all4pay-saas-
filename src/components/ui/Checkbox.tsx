@@ -55,7 +55,7 @@ export function Checkbox({
         className={cn(
           "inline-flex items-center justify-center w-[18px] h-[18px] shrink-0 rounded-sm border",
           "transition-[background-color,border-color] duration-100 ease-out",
-          checked ? "bg-ink border-ink" : "bg-white border-border",
+          checked ? "bg-ink border-ink" : "a4p-borda-campo bg-white",
         )}
       >
         {checked && (
