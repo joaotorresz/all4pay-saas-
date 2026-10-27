@@ -96,7 +96,7 @@ export function PeriodFilter() {
   }
 
   const btnStyle: React.CSSProperties = {
-    fontFamily: '"Roobert Variable", "Roobert", sans-serif',
+    fontFamily: "var(--font-sans)",
     fontWeight: 400,
     letterSpacing: "-0.02em",
   };

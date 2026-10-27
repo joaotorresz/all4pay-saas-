@@ -10,7 +10,7 @@ import { DegradeArea, DicaGrafico, type LinhaDica } from "./Grafico";
 import { Card } from "./Card";
 import { InfoHint } from "./InfoHint";
 import { chartAnim } from "@/lib/chart-anim";
-import { RAIO_TOPO, RAIO_BASE, tickBRL } from "@/lib/grafico";
+import { RAIO_CHEIO, tickBRL } from "@/lib/grafico";
 
 /**
  * Os modelos da prancheta "Biblioteca" do canvas "Quattro ERP · Gráficos e
@@ -138,8 +138,8 @@ export function BarrasEntradaSaida({
               );
             }}
           />
-          <Bar dataKey="entrada" name={rotuloEntrada} stackId="s" fill={COR_ENTRADA} radius={RAIO_TOPO} maxBarSize={52} {...chartAnim()} />
-          <Bar dataKey="saidaNeg" name={rotuloSaida} stackId="s" fill={COR_SAIDA} fillOpacity={0.55} radius={RAIO_BASE} maxBarSize={52} {...chartAnim(120)} />
+          <Bar dataKey="entrada" name={rotuloEntrada} stackId="s" fill={COR_ENTRADA} radius={RAIO_CHEIO} maxBarSize={52} {...chartAnim()} />
+          <Bar dataKey="saidaNeg" name={rotuloSaida} stackId="s" fill={COR_SAIDA} fillOpacity={0.55} radius={RAIO_CHEIO} maxBarSize={52} {...chartAnim(120)} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -247,7 +247,7 @@ export function BarrasDestaque({
               );
             }}
           />
-          <Bar dataKey="valor" name={rotuloSerie} radius={RAIO_TOPO} maxBarSize={40} {...chartAnim()}>
+          <Bar dataKey="valor" name={rotuloSerie} radius={RAIO_CHEIO} maxBarSize={40} {...chartAnim()}>
             {dados.map((d, i) => (
               <Cell
                 key={d.label + i}

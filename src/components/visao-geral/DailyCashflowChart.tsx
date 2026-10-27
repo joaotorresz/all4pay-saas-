@@ -30,7 +30,7 @@ const INK = "var(--color-ink)";
 const LINE = "var(--color-text-quaternary)";
 const FAINT = "var(--color-text-tertiary)";
 import { chartAnim } from "@/lib/chart-anim";
-import { RAIO_BASE, RAIO_TOPO } from "@/lib/grafico";
+import { RAIO_CHEIO } from "@/lib/grafico";
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -64,7 +64,7 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
           −0.075em, entrelinha 115% — sempre em ink; o tipo é dado pelo dot. */}
       <span
         className="text-[21px] tabular-nums"
-        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "var(--color-ink)" }}
+        style={{ fontFamily: "var(--font-sans)", fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "var(--color-ink)" }}
       >
         <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
         <span data-cents="" style={{ fontSize: "0.7em" }}>,{decimals}</span>
@@ -156,12 +156,12 @@ export function DailyCashflowChart() {
                   dois realces para o mesmo dia. */}
               <Tooltip content={<CashflowTooltip />} cursor={false} />
               {filtro !== "saida" && (
-                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={RAIO_TOPO} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={RAIO_CHEIO} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
                   {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
               {filtro !== "entrada" && (
-                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={RAIO_BASE} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={RAIO_CHEIO} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
                   {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}

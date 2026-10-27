@@ -9,7 +9,7 @@ import {
 import { DegradeArea, DicaGrafico, type LinhaDica } from "./Grafico";
 import { BRL } from "./BRL";
 import { chartAnim } from "@/lib/chart-anim";
-import { RAIO_TOPO, SERIES, COMPARACAO, tickBRL } from "@/lib/grafico";
+import { RAIO_CHEIO, SERIES, COMPARACAO, tickBRL } from "@/lib/grafico";
 import { COR_ENTRADA, COR_SAIDA } from "./GraficosBiblioteca";
 
 /**
@@ -112,8 +112,8 @@ export function BarrasPareadas({ dados, altura = 220, ariaLabel, rotuloEntrada =
               { cor: COR_SAIDA, nome: rotuloSaida, valor: p.saida },
             ]} rodape={<>Resultado <BRL value={p.entrada - p.saida} /></>} />;
           }} />
-          <Bar dataKey="entrada" name={rotuloEntrada} fill={COR_ENTRADA} radius={[3, 3, 0, 0]} maxBarSize={8} {...chartAnim()} />
-          <Bar dataKey="saida" name={rotuloSaida} fill={COR_SAIDA} radius={[3, 3, 0, 0]} maxBarSize={8} {...chartAnim(120)} />
+          <Bar dataKey="entrada" name={rotuloEntrada} fill={COR_ENTRADA} radius={[3, 3, 3, 3]} maxBarSize={8} {...chartAnim()} />
+          <Bar dataKey="saida" name={rotuloSaida} fill={COR_SAIDA} radius={[3, 3, 3, 3]} maxBarSize={8} {...chartAnim(120)} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -533,8 +533,8 @@ export function BarrasAgrupadas({ dados, ariaLabel, altura = 220, destaque, rotu
               variacao={{ v: variacaoContra(res, resAnt), frase: "sobre o anterior" }}
               linhas={[{ cor: COR_ENTRADA, nome: rotuloEntrada, valor: p.entrada }, { cor: COR_SAIDA, nome: rotuloSaida, valor: p.saida }]} />;
           }} />
-          <Bar dataKey="entrada" name={rotuloEntrada} fill={COR_ENTRADA} radius={RAIO_TOPO} maxBarSize={14} {...chartAnim()} />
-          <Bar dataKey="saida" name={rotuloSaida} fill={COR_SAIDA} radius={RAIO_TOPO} maxBarSize={14} {...chartAnim(120)} />
+          <Bar dataKey="entrada" name={rotuloEntrada} fill={COR_ENTRADA} radius={RAIO_CHEIO} maxBarSize={14} {...chartAnim()} />
+          <Bar dataKey="saida" name={rotuloSaida} fill={COR_SAIDA} radius={RAIO_CHEIO} maxBarSize={14} {...chartAnim(120)} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
