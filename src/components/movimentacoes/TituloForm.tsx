@@ -115,6 +115,14 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
    * faria um "cancelar" apagar o papel da fila sem virar conta nenhuma.
    */
   const qs = useSearchParams();
+  // `?modo=folha|recorrente|parcelada` abre o formulário já no modo: é o que
+  // os botões do topo da Folha salarial e das Contas recorrentes mandam. Modo
+  // que não existe neste lado (folha no receber) é ignorado.
+  const modoPedido = qs.get("modo");
+  React.useEffect(() => {
+    const permitidos = receber ? MODOS_RECEBER : MODOS_PAGAR;
+    if (modoPedido && (permitidos as string[]).includes(modoPedido)) setModo(modoPedido as ModoLancamento);
+  }, [modoPedido, receber]);
   const entrada = !receber ? qs.get("entrada") : null;
   const [origemEntrada, setOrigemEntrada] = React.useState<{ fornecedor: string; doc: string } | null>(null);
   React.useEffect(() => {
