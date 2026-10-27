@@ -1723,8 +1723,10 @@ html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade)
 .ds-visor .a4p-heroi .a4p-num *,
 .ds-visor .a4p-home .a4p-heroi .a4p-num,
 .ds-visor .a4p-home .a4p-heroi .a4p-num * {
-  font-family: var(--font-sans) !important;
-  font-weight: 600 !important;
+  /* 27/10/2026: todo número em Agrandir 700 (bloco "TODO NÚMERO EM
+     AGRANDIR" no fim do arquivo). */
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
 }
 html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
 /* Vírgula e centavos: o mesmo corpo e a mesma cor do número. */
@@ -1846,8 +1848,8 @@ body,
       Agrandir, como os valores das telas do site. O tamanho decide, não a
       tela: as classes de tamanho do sistema são o que marca um número em
       destaque.
-   3. Número dentro de TABELA fica em Inter Display: a Agrandir não tem
-      `tnum` (medido no arquivo), e a coluna deixaria de alinhar. */
+   3. (Revogada no mesmo dia pelo dono: o número de tabela também é
+      Agrandir — ver o bloco do fim do arquivo.) */
 .ds-visor h1,
 .ds-visor h2,
 .ds-visor .text-h1,
@@ -1871,9 +1873,43 @@ body,
   font-weight: 700 !important;
   letter-spacing: -0.02em;
 }
+
+/* ============================================================
+   TODO NÚMERO EM AGRANDIR (27/10/2026, decisão do dono, depois da varredura
+   das 76 telas: ~3.000 números ainda saíam em Inter Display, a maioria em
+   tabela, DRE, DFC e fluxo de caixa). Vence as regras de cima que separavam
+   "valor-herói em Agrandir" de "número de linha e tabela em Inter".
+
+   · Vale para o valor (`.a4p-num`), para todo número marcado como tabular
+     (`.tabular-nums`, inclusive célula de tabela), para o dia do calendário,
+     e para o número solto que o `MarcaNumeros` (components/app) marca com
+     `data-num` — o texto que é SÓ número, data ou percentual e não tem
+     classe nenhuma, inclusive o eixo e o rótulo dos gráficos (SVG). O
+     marcador olha o CONTEÚDO, então o eixo de categorias ("Folha",
+     "Aluguel") continua em Inter.
+   · ⚠️ A Agrandir NÃO tem `tnum` (medido no arquivo): numa coluna, os dígitos
+     de larguras diferentes deixam de cair um embaixo do outro. As colunas de
+     dinheiro do sistema são alinhadas à DIREITA, então o fim do número (os
+     centavos) continua alinhado; o que muda é o desenho de cada algarismo.
+   · O texto (rótulo, nome, frase) segue em Inter Display.
+   ============================================================ */
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .tabular-nums *,
+.ds-visor td.tabular-nums,
 .ds-visor td .a4p-num,
 .ds-visor td .a4p-num *,
-.ds-visor td.tabular-nums,
-.ds-visor td .tabular-nums {
-  font-family: var(--font-sans) !important;
+.ds-visor td .tabular-nums,
+.ds-visor .a4p-valor-texto .a4p-num,
+.ds-visor .a4p-valor-texto .a4p-num *,
+.ds-visor .a4p-num.a4p-valor-texto,
+.ds-visor .tabular-nums.a4p-valor-texto,
+.ds-visor .a4p-dia-num,
+.ds-visor .text-value-lg,
+[data-num],
+[data-num] * {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
 }

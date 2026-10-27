@@ -46,7 +46,13 @@ base `C`/`APP`/`T`/`B`). Lido do código dos componentes, não de print.
   embute) no título de tela, título de seção e de card e no valor-herói;
   **Inter Display** (`--font-sans`/`--font-mono`, a Inter variável com eixo
   `opsz` em `public/fonts/inter-display-*.woff2`, `"opsz" 32` no corpo) em
-  todo o resto. Número de linha e de tabela: Inter Display 600 tabular.
+  todo o resto. ⚠️ **TODO NÚMERO é Agrandir 700** (decisão do dono,
+  27/10/2026, depois da varredura das 76 telas): valor, tabela, gráfico,
+  data, percentual e contagem. O número sem classe é marcado com `data-num`
+  por `components/app/MarcaNumeros` (regra pura em `core/tipografia/numero`,
+  guarda no `engine-audit`); número no MEIO de frase ("12 lançamentos") e
+  campo de formulário seguem em Inter. A Agrandir não tem `tnum`: a coluna
+  alinha pela direita, não algarismo a algarismo.
   Roobert, Gellix, Knocky, Obviously e Deacon SAÍRAM (arquivos e `@font-face`).
   ⚠️ O espaço da Agrandir é estreito de propósito (158/1000) — é o desenho do
   site, não defeito.

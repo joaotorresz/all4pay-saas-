@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
+import { MarcaNumeros } from "@/components/app/MarcaNumeros";
 // ⚠️ TIPOGRAFIA (27/10/2026): Quattro Agrandir nos títulos e no valor-herói,
 // Inter Display no texto — o design system do site (paguequattro.com/teste2).
 // As duas são self-hosted em `public/fonts/` e declaradas em `@font-face` no
@@ -41,6 +42,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>{children}</Providers>
+        <MarcaNumeros />
       </body>
     </html>
   );
