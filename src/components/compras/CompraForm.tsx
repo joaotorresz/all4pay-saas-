@@ -15,7 +15,8 @@
  *    tela; a prévia é o contrato do que vai ser criado.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { cadastroDe, useSaidaDoFormulario } from "@/components/app/criacao";
+import type { CadastroNoCampo } from "@/components/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Select, DateField, CurrencyInput, Textarea, Checkbox, BRL,
@@ -36,7 +37,8 @@ const hojeISO = () => hojeLocal();
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
 export function CompraForm() {
-  const router = useRouter();
+  // ⚠️ O MESMO formulário na página e no pop-up único (`abrirCriacao("compra")`).
+  const saida = useSaidaDoFormulario();
   const qc = useQueryClient();
   const { show: toast, node } = useToast();
 
@@ -140,12 +142,11 @@ export function CompraForm() {
       return;
     }
     qc.invalidateQueries();
-    toast(
-      c.status === "aprovada"
-        ? "Compra registrada e aprovada — já paga, os títulos entraram no caixa."
-        : "Compra criada. Ela entra no caixa quando for aprovada.",
-    );
-    router.push("/contas-a-pagar/painel-de-despesas");
+    const ok = c.status === "aprovada"
+      ? "Compra registrada e aprovada — já paga, os títulos entraram no caixa."
+      : "Compra criada. Ela entra no caixa quando for aprovada.";
+    if (!saida.naJanela) toast(ok);
+    saida.concluir(ok, "/contas-a-pagar/painel-de-despesas", c.id);
   }
 
   function anexar(files: FileList | null) {
@@ -174,18 +175,21 @@ export function CompraForm() {
               value={fornecedorId} onChange={setFornecedorId}
               placeholder="Selecione um fornecedor"
               options={(fornecedores.data ?? []).filter((f) => f.ativo !== false).map((f) => ({ value: f.id, label: f.name }))}
+              cadastrar={cadastroDe("fornecedor")}
             />
             <Select
               label="Conta bancária" required invalid={!!erros.contaId}
               value={contaId} onChange={setContaId}
               placeholder="Selecione uma conta bancária"
               options={opcoes.contas}
+              cadastrar={cadastroDe("conta-bancaria")}
             />
             <Select
               label="Categoria" required invalid={!!erros.categoria}
               value={categoria} onChange={setCategoria}
               placeholder="Selecione uma categoria"
               options={opcoes.categorias}
+              cadastrar={cadastroDe("categoria", { natureza: "despesa" })}
             />
             <Select
               label="Tipo de pagamento" required
@@ -281,12 +285,12 @@ export function CompraForm() {
         <div className="flex flex-col gap-5">
           <span className="text-h3 font-semibold text-ink">Alocação</span>
           <Rateio
-            titulo="Projetos" vazio="Nenhum projeto atribuído"
+            titulo="Projetos" vazio="Nenhum projeto atribuído" cadastrar={cadastroDe("projeto")}
             opcoes={opcoes.projetos}
             linhas={rateioProjetos} setLinhas={setRateioProjetos} erro={erros.projetos}
           />
           <Rateio
-            titulo="Centros de custo" vazio="Nenhum centro de custo atribuído"
+            titulo="Centros de custo" vazio="Nenhum centro de custo atribuído" cadastrar={cadastroDe("centro")}
             opcoes={opcoes.centros}
             linhas={rateioCentros} setLinhas={setRateioCentros} erro={erros.centros}
           />
@@ -356,7 +360,7 @@ export function CompraForm() {
         </p>
       )}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.push("/contas-a-pagar/painel-de-despesas")}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => (saida.naJanela ? saida.cancelar() : saida.concluir("", "/contas-a-pagar/painel-de-despesas"))}>Cancelar</Button>
         <Button variant="primary" onClick={() => { void salvar(); }} disabled={salvando}>
           <Icon name="check" size={15} color="currentColor" />
           Criar compra
@@ -370,9 +374,10 @@ export function CompraForm() {
 /* --------------------------------- rateio --------------------------------- */
 
 function Rateio({
-  titulo, vazio, opcoes, linhas, setLinhas, erro,
+  titulo, vazio, opcoes, linhas, setLinhas, erro, cadastrar,
 }: {
   titulo: string;
+  cadastrar: CadastroNoCampo;
   vazio: string;
   opcoes: { value: string; label: string }[];
   linhas: RateioCompra[];
@@ -420,8 +425,9 @@ function Rateio({
       <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px_auto] gap-3">
         <Select
           value={escolha} onChange={setEscolha}
-          placeholder={opcoes.length === 0 ? "Nenhum cadastrado" : `Selecione ${titulo === "Projetos" ? "um projeto" : "um centro de custo"}`}
+          placeholder={`Selecione ${titulo === "Projetos" ? "um projeto" : "um centro de custo"}`}
           options={opcoes}
+          cadastrar={cadastrar}
         />
         <Input value={pct} onChange={(e) => setPct(e.target.value)} />
         <Button variant="secondary" onClick={adicionar} disabled={!escolha}>Adicionar</Button>

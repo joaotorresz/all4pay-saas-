@@ -17,6 +17,7 @@ import {
 import { isoDay } from "@/lib/aggregations";
 import { formatBRL } from "@/lib/format";
 import { findOrCreateParty } from "@/lib/confirmacao";
+import { cadastroDe } from "@/components/app/criacao";
 import { FormModal, SectionTitle } from "./FormModal";
 import {
   usePartiesByRole,
@@ -261,6 +262,7 @@ export function VendaCompraForm({
               label={i === 0 ? (itemKind === "produto" ? "Produto" : "Serviço") : undefined}
               placeholder="Selecione"
               options={refOpts}
+              cadastrar={cadastroDe(itemKind === "produto" ? "produto" : "servico")}
               value={r.ref_id}
               onChange={(v) => {
                 // ao escolher o produto/serviço, já preenche o valor unitário (preço de venda)
@@ -323,7 +325,7 @@ export function VendaCompraForm({
               <span className="text-caption text-faint pb-[10px]">{f.parcelas}x de <b className="text-ink font-medium">{formatBRL(total / Math.max(1, f.parcelas))}</b> · total {formatBRL(total)}</span>
             </div>
           )}
-          <Select label={isCompra ? "Conta de pagamento" : "Conta de recebimento"} placeholder="Selecione a conta" options={opts(accounts)} value={f.account_id} onChange={(v) => set({ account_id: v })} />
+          <Select label={isCompra ? "Conta de pagamento" : "Conta de recebimento"} placeholder="Selecione a conta" options={opts(accounts)} cadastrar={cadastroDe("conta-bancaria")} value={f.account_id} onChange={(v) => set({ account_id: v })} />
           <label className="inline-flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={f.settled} onChange={(e) => set({ settled: e.target.checked })} className="w-[18px] h-[18px] accent-ink" />
             <span className="text-[17px] text-ink">{isCompra ? "Pago" : "Recebido"} (baixa imediata)</span>

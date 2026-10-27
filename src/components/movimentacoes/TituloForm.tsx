@@ -24,7 +24,8 @@
  * pago e desconto/juros, porque só um título liquidado tem essas três coisas.
  */
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { abrirCriacao, cadastroDe, useParametrosDoFormulario, useSaidaDoFormulario } from "@/components/app/criacao";
+import type { CadastroNoCampo } from "@/components/ui";
 import { converterPorChave } from "@/lib/caixa-entrada";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,7 +35,6 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useCategories, usePartiesList } from "@/components/lancamentos/hooks";
 import { criarCategoria } from "@/lib/data";
 import type { Category } from "@/lib/types";
-import { PartyForm } from "@/components/lancamentos/PartyForm";
 import { extraParty } from "@/lib/registros";
 import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import { linhasDoRateio, principalDoRateio, categoriaPadraoValida } from "@/core/registros/hierarquia";
@@ -73,7 +73,7 @@ const EXT_OK = ["png", "jpg", "jpeg", "pdf", "xml", "xls", "xlsx"];
 const LIMITE = 10 * 1024 * 1024;
 
 export function TituloForm({ direcao }: { direcao: Direcao }) {
-  const router = useRouter();
+  const saida = useSaidaDoFormulario();
   const qc = useQueryClient();
   const { show, node } = useToast();
   const { data: partes } = usePartiesList();
@@ -102,7 +102,6 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
   const [anexos, setAnexos] = React.useState<{ nome: string; tamanho: number }[]>([]);
   const [erroAnexo, setErroAnexo] = React.useState("");
   const [erros, setErros] = React.useState<Record<string, string>>({});
-  const [novaParte, setNovaParte] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
@@ -114,7 +113,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
    * que o salvar deu certo (`converterPorChave`, mais abaixo): tirá-lo antes
    * faria um "cancelar" apagar o papel da fila sem virar conta nenhuma.
    */
-  const qs = useSearchParams();
+  const qs = useParametrosDoFormulario();
   // `?modo=folha|recorrente|parcelada` abre o formulário já no modo: é o que
   // os botões do topo da Folha salarial e das Contas recorrentes mandam. Modo
   // que não existe neste lado (folha no receber) é ignorado.
@@ -368,8 +367,9 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         // nenhuma obrigação no caixa — e a próxima tentativa o duplicaria.
         saveColaborador(colab);
         qc.invalidateQueries();
-        show(`${colab.nome} cadastrado · ${titulos.length} títulos agendados.`);
-        router.push("/contas-a-pagar/folha");
+        const msg = `${colab.nome} cadastrado · ${titulos.length} títulos agendados.`;
+        if (!saida.naJanela) show(msg);
+        saida.concluir(msg, "/contas-a-pagar/folha");
         return;
       }
       if (isDemo) {
@@ -472,7 +472,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         criado: `Conta a ${direcao} criada · ${criados}.`,
         mes: primeiroVenc.slice(0, 7),
       });
-      router.push(`${destino}?${q.toString()}`);
+      saida.concluir(`Conta a ${direcao} criada · ${criados}.`, `${destino}?${q.toString()}`);
     } catch (err) {
       /**
        * ⚠️ O MOTIVO REAL VAI PARA A TELA, e a falha é REPORTADA.
@@ -494,13 +494,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <button
-        onClick={() => router.back()}
+      {!saida.naJanela && <button
+        onClick={() => saida.cancelar()}
         className="inline-flex items-center gap-1 self-start text-caption text-muted hover:text-ink"
       >
         <Icon name="chevron-left" size={14} color="currentColor" />
         Cancelar
-      </button>
+      </button>}
 
       {origemEntrada && (
         <div className="rounded-md border border-border px-4 py-3 text-caption text-muted" data-origem-entrada>
@@ -532,6 +532,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                 placeholder="Busque a conta…"
                 invalid={!!erros.contaId}
                 options={opcoes.contas}
+                cadastrar={cadastroDe("conta-bancaria")}
               />
             </Campo>
             <Campo
@@ -558,6 +559,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
               placeholder="Busque a conta…"
               invalid={!!erros.contaId}
               options={opcoes.contas}
+              cadastrar={cadastroDe("conta-bancaria")}
             />
           </Campo>
           <Campo label="Categoria" obrigatorio campo="categoria" erro={erros.categoria}>
@@ -655,13 +657,16 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                 placeholder="Digite nome ou documento…"
                 invalid={!!erros.parteId}
                 options={elegiveis.map((p) => ({ value: p.id, label: `${p.name}${p.doc ? ` · ${p.doc}` : ""}` }))}
+                cadastrar={cadastroDe(receber ? "cliente" : "fornecedor")}
                 containerClassName="flex-1 min-w-0"
               />
               {/* Atalho de criação rápida: quem lança a conta descobre ali que o
                   cliente não está cadastrado, e mandar a pessoa para outra tela
                   perderia o formulário inteiro. */}
               <button
-                onClick={() => setNovaParte(true)}
+                onClick={() => abrirCriacao(receber ? "cliente" : "fornecedor", {
+                  aoCriar: (id) => { if (id) set("parteId", id); },
+                })}
                 aria-label={`Novo ${rotuloParte.toLowerCase()}`}
                 title={`Novo ${rotuloParte.toLowerCase()}`}
                 className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-surface-2 text-ink hover:bg-surface-3 transition-colors shrink-0"
@@ -830,12 +835,12 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       {/* -------------------------- projeto e centro de custo -------------------------- */}
       {modo !== "folha" && <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Rateio
-          titulo="Projetos" singular="projeto"
+          titulo="Projetos" singular="projeto" cadastrar={cadastroDe("projeto")}
           opcoes={opcoes.projetos}
           linhas={projetos} onChange={setProjetos} erro={erros.projetos} campoErro="projetos"
         />
         <Rateio
-          titulo="Centros de custo" singular="centro de custo"
+          titulo="Centros de custo" singular="centro de custo" cadastrar={cadastroDe("centro")}
           opcoes={opcoes.centros}
           linhas={centros} onChange={setCentros} erro={erros.centros} campoErro="centros"
         />
@@ -883,20 +888,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       </Card>}
 
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => saida.cancelar()}>Cancelar</Button>
         <Button variant="primary" disabled={salvando} onClick={salvar}>
           <Icon name="check" size={15} color="currentColor" />
           {salvando ? "Salvando…" : "Salvar"}
         </Button>
       </div>
 
-      {novaParte && (
-        <PartyForm
-          role={receber ? "customer" : "supplier"}
-          onClose={() => setNovaParte(false)}
-          onToast={(m) => { show(m); setNovaParte(false); qc.invalidateQueries({ queryKey: ["parties-list"] }); }}
-        />
-      )}
       {node}
     </div>
   );
@@ -997,9 +995,10 @@ function Campo({
 }
 
 function Rateio({
-  titulo, singular, opcoes, linhas, onChange, erro, campoErro,
+  titulo, singular, opcoes, linhas, onChange, erro, campoErro, cadastrar,
 }: {
   titulo: string; singular: string;
+  cadastrar: CadastroNoCampo;
   opcoes: { value: string; label: string }[];
   linhas: LinhaRateio[];
   onChange: (l: LinhaRateio[]) => void;
@@ -1031,8 +1030,13 @@ function Rateio({
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {opcoes.length === 0 ? (
+          // A lista vazia vira convite, sem sair do lançamento.
           <span className="text-caption text-faint">
-            Nenhum {singular} cadastrado — cadastre em Cadastros para poder ratear.
+            Nenhum {singular} cadastrado.{" "}
+            <button type="button" className="font-medium text-ink underline underline-offset-2 hover:no-underline"
+              onClick={() => cadastrar.abrir((id) => onChange([...linhas, { id, percentual: linhas.length === 0 ? 100 : 0 }]))}>
+              Cadastrar o primeiro
+            </button>
           </span>
         ) : linhas.length === 0 ? (
           <span className="text-caption text-faint">Nenhuma alocação cadastrada.</span>
@@ -1043,6 +1047,7 @@ function Rateio({
               onChange={(v) => onChange(linhas.map((x, i) => (i === k ? { ...x, id: v } : x)))}
               placeholder={`Busque o ${singular}…`}
               options={opcoes}
+              cadastrar={cadastrar}
               containerClassName="flex-1 min-w-0"
             />
             <Input

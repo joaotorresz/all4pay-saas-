@@ -14,7 +14,7 @@
  * muda quem preenche.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { abrirCriacao } from "@/components/app/criacao";
 import { documentosDasFontes, camposDoFormulario, chaveBoleto } from "@/core/caixa-entrada";
 import { lerEstadoCaixa } from "@/lib/caixa-entrada";
 import { Card, Button, Icon, Input, Select, BRL, PontoStatus } from "@/components/ui";
@@ -50,7 +50,6 @@ const COR_BOLETO: Record<StatusBoleto, string> = {
 };
 
 export function BoletosView() {
-  const router = useRouter();
   const { show: toast, node } = useToast();
   const [lista, setLista] = React.useState<BoletoRecebido[]>([]);
   // A ÚLTIMA decisão de cada documento da caixa de entrada (virou conta × descartado).
@@ -114,7 +113,7 @@ export function BoletosView() {
   function lancar(b: BoletoRecebido) {
     const doc = documentosDasFontes({ boletos: [b], nfs: [], ocr: [] })[0];
     if (!doc) { toast("Este boleto já foi pago ou já virou conta."); return; }
-    router.push(`/dashboard/financial/payables/new?${new URLSearchParams(camposDoFormulario(doc)).toString()}`);
+    abrirCriacao("pagar", { parametros: camposDoFormulario(doc) });
   }
 
   const linhasXLSX = [

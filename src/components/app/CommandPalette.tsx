@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { abrirCriacao } from "@/components/app/criacao";
+import { tipoDaRota } from "@/core/criar";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/ui";
 import { listParties, listProducts, listServices, listSales } from "@/lib/cadastros";
@@ -243,6 +245,9 @@ export function CommandPalette() {
     setOpen(false);
     if (h.contatoId) { window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: h.contatoId } })); return; }
     if (h.event) { window.dispatchEvent(new Event(h.event)); return; }
+    // Um destino de CRIAÇÃO abre a porta única (o mesmo pop-up de todo "Novo").
+    const tipo = tipoDaRota(h.href);
+    if (tipo) { abrirCriacao(tipo); return; }
     router.push(h.href);
   };
 

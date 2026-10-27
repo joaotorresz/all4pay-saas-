@@ -17,6 +17,7 @@
  * que vira item de lista de filtro só muda o lugar onde a perda acontece.
  */
 import * as React from "react";
+import { abrirCriacao } from "@/components/app/criacao";
 import { Button, Input, Textarea, Select, BRL } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
@@ -47,13 +48,12 @@ export function ProdutosRegistroView() {
   const [status, setStatus] = React.useState<FiltroStatus>("todos");
   const [tipo, setTipo] = React.useState("");
   const [editandoFiscal, setEditandoFiscal] = React.useState<Product | null>(null);
-  const [novo, setNovo] = React.useState(false);
 
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setNovo(true);
-  }, []);
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao(ehServico ? "servico" : "produto");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Os extras vivem no localStorage → só depois de montar (evita mismatch).
   const [extras, setExtras] = React.useState<Record<string, ReturnType<typeof extraProduto>>>({});
   const { show, node } = useToast();
@@ -93,7 +93,7 @@ export function ProdutosRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: ehServico ? "Novo serviço" : "Novo produto", onClick: () => setNovo(true) }}
+        acaoNova={{ label: ehServico ? "Novo serviço" : "Novo produto", onClick: () => abrirCriacao(ehServico ? "servico" : "produto") }}
         exportar={{
           nomeArquivo: ehServico ? "servicos" : "produtos",
           aba: ehServico ? "Serviços" : "Produtos",
@@ -145,7 +145,7 @@ export function ProdutosRegistroView() {
                   : "Nenhum produto cadastrado."
                 : `Nenhum ${ehServico ? "serviço" : "produto"} encontrado com esses filtros.`}
               acao={(data ?? []).length === 0
-                ? <Button variant="primary" onClick={() => setNovo(true)}>{ehServico ? "Novo serviço" : "Novo produto"}</Button>
+                ? <Button variant="primary" onClick={() => abrirCriacao(ehServico ? "servico" : "produto")}>{ehServico ? "Novo serviço" : "Novo produto"}</Button>
                 : undefined}
             />
           }
@@ -165,7 +165,6 @@ export function ProdutosRegistroView() {
         />
       )}
 
-      {novo && <ProdutoServicoForm kind={ehServico ? "servico" : "produto"} onClose={() => setNovo(false)} onToast={show} />}
 
       {editandoFiscal && (
         <FormFiscal
