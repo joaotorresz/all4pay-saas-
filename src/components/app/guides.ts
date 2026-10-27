@@ -274,7 +274,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/dashboard/sales-invoices?aba=boletos": {
+  "/dashboard/financial/boletos": {
     titulo: "Boleto",
     intro: "Boletos colados ao recebível (no jsonb do movimento): gera/registra o boleto vinculado à entrada.",
     comoUsar: "Emita ou cole o boleto no recebível correspondente; o pagamento concilia e fecha o ciclo receita → caixa.",
@@ -345,14 +345,14 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Central POS ----------------------------- */
-  "/dashboard/sales-invoices?aba=taxas": {
+  "/pos/taxas": {
     titulo: "Configuração de taxas Quattro",
     intro: "Simulador POS (maquininha): modela MDR + antecipação + online por MCC × range × bandeira, com o spread (margem) editável. Salva a configuração da sua operação.",
     comoUsar: "Escolha MCC, range, SELIC e ligue antecipação/online; edite o spread por grupo. A taxa final ao EC recalcula por parcela.",
     exemplo: "Restaurante (MCC 5812), range 1, com antecipação → veja a taxa final de crédito em 12x.",
     secoes: [],
   },
-  "/dashboard/sales-invoices?aba=maquininha": {
+  "/pos/venda": {
     titulo: "Simulador de venda (POS)",
     intro: "Simula uma venda na maquininha usando as taxas configuradas: calcula o líquido ao EC e registra o recebível líquido (e a tarifa como custo no DRE).",
     comoUsar: "Informe valor, bandeira e parcelas; veja o líquido e conclua para gerar o recebível (e a 'Tarifa de adquirência' como custo).",
@@ -445,7 +445,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Painel de vendas ----------------------------- */
-  "/dashboard/sales-invoices": {
+  "/dashboard/sales-invoices/pedidos": {
     titulo: "Painel de vendas",
     intro: "O painel comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
     comoUsar: "Acompanhe os KPIs do topo e a evolução mês a mês; use os filtros de período para reescalar. Clique numa venda para abrir o documento.",

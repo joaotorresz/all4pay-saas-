@@ -73,7 +73,7 @@ export const ACOES_MOVIMENTACOES: Acao[] = [
   // cria na aba "Contratos e MRR" da própria tela, que tem itens do catálogo,
   // ciclo e a ativação que lança as faturas previstas.
   { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/dashboard/sales-invoices/subscriptions", forma: "pagina" },
-  { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices?aba=links&novo=1", forma: "pagina" },
+  { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices/payment-links?novo=1", forma: "pagina" },
 ];
 
 /**
