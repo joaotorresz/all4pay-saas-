@@ -2119,15 +2119,22 @@ const AGOSTO = janelaMes(2026, 7);
   // Remodelação do menu (19/10/2026): as telas Pro que viraram aba de tela
   // aberta seguem Pro pelo par rota+aba, e a tela continua aberta.
   for (const [hub, paga, aberta] of [
-    ["/dashboard/reports/dre-multi", "consolidado", "dre"],
-    ["/central", "solicitacoes", "confirmar"],
-    ["/central", "alcadas", "confirmar"],
     ["/simuladores", "contratacoes", "posso-comprar"],
   ]) {
     ok(`rotas: a aba paga exige Pro (${hub}?aba=${paga})`, exigePro(`${hub}?aba=${paga}`));
     ok(`rotas: a tela em si continua aberta (${hub})`, !exigePro(hub));
     ok(`rotas: outra aba continua aberta (${hub}?aba=${aberta})`, !exigePro(`${hub}?aba=${aberta}`));
   }
+  // O fim das abas internas (27/10/2026): as abas Pro de `/central` viraram
+  // telas próprias. Elas seguem Pro pelo prefixo; as baixas seguem abertas.
+  ok("rotas: Aprovações (ex-aba de /central) exige Pro", exigePro("/aprovacoes"));
+  ok("rotas: Alçadas e papéis (ex-aba de /central) exige Pro", exigePro("/governanca"));
+  ok("rotas: Baixas a confirmar continua aberta", !exigePro("/central"));
+  // Etapa 3: a posição consolidada (ex-aba de Multiempresas) é tela Pro
+  // própria; o DRE e o DFC do grupo seguem abertos.
+  ok("rotas: Posição consolidada (ex-aba de Multiempresas) exige Pro", exigePro("/consolidado"));
+  ok("rotas: DRE multiempresas continua aberta", !exigePro("/dashboard/reports/dre-multi"));
+  ok("rotas: DFC multiempresas continua aberta", !exigePro("/dashboard/reports/dfc-multi"));
 }
 
 /* ========================================================================== */

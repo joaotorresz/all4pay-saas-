@@ -77,14 +77,16 @@ export const TITULO_CRIACAO: Record<TipoCriacao, string> = {
  * deles (sem Ctrl/⌘) abre o pop-up em vez de trocar de tela; abrir em nova aba
  * continua indo à página, que monta o MESMO formulário.
  *
- * ⚠️ A ordem importa: a transferência mora em `bank-accounts?aba=transferencias`
- * e tem de casar antes de "nova conta bancária".
+ * A transferência tem página própria (`/dashboard/financial/transfers`); o
+ * endereço antigo `bank-accounts?aba=transferencias` segue casando antes de
+ * "nova conta bancária", para o link guardado abrir a transferência.
  */
 const ROTAS: { caminho: string; query?: Record<string, string>; tipo: TipoCriacao }[] = [
   { caminho: "/dashboard/sales-invoices/new", tipo: "venda" },
   { caminho: "/dashboard/purchases/new", tipo: "compra" },
   { caminho: "/dashboard/financial/receivables/new", tipo: "receber" },
   { caminho: "/dashboard/financial/payables/new", tipo: "pagar" },
+  { caminho: "/dashboard/financial/transfers", query: { novo: "*" }, tipo: "transferencia" },
   { caminho: "/dashboard/registrations/bank-accounts", query: { aba: "transferencias", novo: "*" }, tipo: "transferencia" },
   { caminho: "/dashboard/registrations/clients", query: { novo: "*" }, tipo: "cliente" },
   { caminho: "/dashboard/registrations/suppliers", query: { novo: "*" }, tipo: "fornecedor" },
@@ -154,11 +156,11 @@ export const ACOES_CADASTROS: Acao[] = [
 export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova conta a receber", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", tipo: "receber" },
   { label: "Nova conta a pagar", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", tipo: "pagar" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/registrations/bank-accounts?aba=transferencias&novo=1", forma: "modal", tipo: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/transfers?novo=1", forma: "modal", tipo: "transferencia" },
   { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new", forma: "modal", tipo: "venda" },
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "modal", tipo: "compra" },
   // — lacunas apontadas —
-  { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices?aba=nfse", forma: "pagina" },
+  { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices/nfse", forma: "pagina" },
   // ⚠️ Abria o formulário de CONTRATO, que em demonstração não grava nada e
   // responde "Contrato salvo" — a assinatura nunca aparecia. A assinatura se
   // cria na aba "Contratos e MRR" da própria tela, que tem itens do catálogo,
@@ -186,6 +188,6 @@ export const ACOES_CADASTROS_PF: Acao[] = [
 export const ACOES_MOVIMENTACOES_PF: Acao[] = [
   { label: "Nova receita", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", tipo: "receber" },
   { label: "Nova despesa", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", tipo: "pagar" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/registrations/bank-accounts?aba=transferencias&novo=1", forma: "modal", tipo: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/transfers?novo=1", forma: "modal", tipo: "transferencia" },
 ];
 

@@ -47,7 +47,7 @@ export default async function contabilDominio(navegador) {
     localStorage.setItem("a4p_imported_dataset", JSON.stringify(ds));
   }, PLANO);
 
-  await u.ir("/exportar?aba=dominio");
+  await u.ir("/dashboard/accounting/dominio-export");
   const sel = u.page.getByLabel("Conta bancária", { exact: true });
   const contas = (await sel.locator("option").evaluateAll((os) => os.map((o) => o.value))).filter(Boolean);
   v.ok(contas.length > 0, "há conta bancária para escolher", String(contas.length));
@@ -99,7 +99,7 @@ export default async function contabilDominio(navegador) {
   v.ok(preview.length === Math.min(4, n) && preview.every((l, i) => l === linhas[i]), "a PRÉVIA é exatamente o começo do arquivo", `${preview[0]} × ${linhas[0]}`);
 
   // Envio de NFs ao contador: o status e o próximo envio.
-  await u.ir("/exportar?aba=nfs");
+  await u.ir("/dashboard/accounting/nfe-export");
   const e = (await u.texto()).replace(/\n+/g, " ");
   const hoje = new Date();
   const prox = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);

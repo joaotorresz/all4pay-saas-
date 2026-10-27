@@ -251,6 +251,12 @@
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   /* leve "pop" no retorno do clique */
   --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1);
+  /* foco de campo, cor, menu que abre */
+  --dur-rapida: 140ms;
+  /* modal, aviso, entrada do título da tela */
+  --dur-media: 220ms;
+  /* conteúdo da tela e cards entrando */
+  --dur-lenta: 420ms;
   --font-display: "Quattro Agrandir", "Agrandir Tight Bold", "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1912,4 +1918,139 @@ body,
   font-family: var(--font-display) !important;
   font-weight: 700 !important;
   letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   MOVIMENTO 27/10/2026 (pedido do dono: "melhorar as animações, ainda mais
+   quando eu estou digitando e quando entro numa página").
+   Um conjunto PEQUENO e só com tokens (`--dur-rapida/media/lenta`,
+   `--ease-smooth`). Quatro momentos:
+   1. ENTRAR NA TELA — o título desce no lugar e o conteúdo esmaece de
+      entrada (os cards já sobem com `a4pRise`). O conteúdo anima SÓ a
+      opacidade: um `transform` no invólucro viraria o bloco de contenção dos
+      modais `fixed` que algumas telas ainda abrem sem portal.
+   2. DIGITAR — o campo cinza ganha a borda em tinta, o
+      rótulo acende para a tinta, o placeholder recua e o campo inválido dá UM tremor curto (avisa sem gritar).
+   3. SOBREPOSTOS — fundo de modal esmaece, a caixa sobe 8px e cresce de 98%;
+      menu, popover e aviso (`.shadow-popover`) surgem a 4px do lugar.
+      ⚠️ Pelas propriedades INDIVIDUAIS `translate`/`scale`, nunca por
+      `transform`: o aviso e vários menus se centram com `-translate-x-1/2`
+      (`transform`), e animar `transform` os jogaria de lado no meio da
+      animação. As individuais se COMPÕEM com ele.
+   4. Tudo para em `prefers-reduced-motion`.
+   ============================================================ */
+
+/* 1. Entrar na tela */
+@keyframes a4p-tela-titulo {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes a4p-tela-conteudo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.a4p-topo-tela h1 {
+  animation: a4p-tela-titulo var(--dur-media) var(--ease-smooth) backwards;
+}
+[data-area-rola] > :not(.a4p-topo-tela):not([data-folga-barra]) {
+  animation: a4p-tela-conteudo var(--dur-lenta) var(--ease-smooth) backwards;
+  animation-delay: 40ms;
+}
+
+/* 2. Digitar
+   ⚠️ O gancho é `.a4p-campo`, NÃO `.border-campo`: o `cn()` passa pelo
+   tailwind-merge, que lê `border-campo` como COR de borda e o descarta ao
+   lado de `border-border` (medido no DOM: nenhum campo do sistema leva a
+   classe). Uma classe que ele não conhece sobrevive. */
+.a4p-campo {
+  transition: border-color var(--dur-rapida) ease, background-color var(--dur-rapida) ease;
+  caret-color: var(--color-ink);
+}
+
+/* O CAMPO É UM BLOCO CINZA (27/10/2026, decisão do dono). Em repouso: fundo
+   cinza do sistema (`--color-surface-2`) e SEM borda — o contraste do campo
+   com o cartão branco vem do preenchimento, não de um fio. Selecionado: UMA
+   borda em tinta, e só ela (o anel de foco saiu: borda + anel lia como borda
+   dupla). Sobre o fundo cinza da página, fora de cartão, o campo fica branco,
+   senão sumiria. O `border-campo` do componente nunca chegou à tela (o
+   `cn()` o descarta ao lado de `border-border`), então a largura mora aqui e
+   é fixa: o foco troca a COR da borda, não o tamanho do campo. */
+.a4p-campo,
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo) {
+  border-width: 1.5px;
+  border-style: solid;
+  border-color: transparent;
+  background-color: var(--color-surface-2);
+}
+/* `data-fundo-cinza`: gancho de qualquer superfície cinza fora da área que
+   rola (o corpo do pop-up global de criação). */
+:is([data-area-rola], [data-fundo-cinza]) .a4p-campo:not([data-card="1"] .a4p-campo) {
+  background-color: var(--color-white);
+}
+.a4p-campo:focus,
+.a4p-campo:focus-visible,
+.a4p-campo:focus-within,
+:where(input, textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo):focus {
+  border-color: var(--color-ink);
+  outline: none;
+}
+.a4p-campo :focus-visible { outline: none; }
+.a4p-campo.border-warning,
+.a4p-campo[aria-invalid="true"] { border-color: var(--color-warning); }
+.a4p-campo:has(> :is(input, select, textarea):disabled),
+.a4p-campo:disabled { opacity: 0.6; }
+.a4p-campo input::placeholder,
+input.a4p-campo::placeholder,
+textarea.a4p-campo::placeholder {
+  transition: opacity var(--dur-media) var(--ease-smooth);
+}
+.a4p-campo:focus-within input::placeholder,
+input.a4p-campo:focus::placeholder,
+textarea.a4p-campo:focus::placeholder { opacity: 0.55; }
+label { transition: color var(--dur-rapida) ease; }
+.flex-col:focus-within > label { color: var(--color-ink); }
+@keyframes a4p-campo-invalido {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -3px 0; }
+  40% { translate: 3px 0; }
+  60% { translate: -2px 0; }
+  80% { translate: 1px 0; }
+}
+.a4p-campo.border-warning,
+.a4p-campo[aria-invalid="true"] {
+  animation: a4p-campo-invalido 320ms var(--ease-smooth);
+}
+
+/* 3. Sobrepostos */
+@keyframes a4p-fundo-entra {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes a4p-caixa-entra {
+  from { opacity: 0; translate: 0 8px; scale: 0.98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes a4p-pop-entra {
+  from { opacity: 0; translate: 0 4px; }
+  to { opacity: 1; translate: 0 0; }
+}
+.fixed.inset-0[class*="bg-black/"] {
+  animation: a4p-fundo-entra var(--dur-media) ease-out backwards;
+}
+.fixed.inset-0[class*="bg-black/"] > * {
+  animation: a4p-caixa-entra var(--dur-media) var(--ease-smooth) backwards;
+}
+.shadow-popover {
+  animation: a4p-pop-entra var(--dur-rapida) var(--ease-smooth) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a4p-topo-tela h1,
+  [data-area-rola] > *,
+  .a4p-campo.border-warning,
+  .a4p-campo[aria-invalid="true"],
+  .fixed.inset-0[class*="bg-black/"],
+  .fixed.inset-0[class*="bg-black/"] > *,
+  .shadow-popover { animation: none; }
+  .a4p-campo, .a4p-campo input::placeholder, label { transition: none; }
 }

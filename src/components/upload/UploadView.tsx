@@ -25,6 +25,9 @@ import { hasImported } from "@/lib/imported";
 import { lerDocumento } from "@/lib/ocr-ingest";
 import { autoCategorizar, iaCategorizadorAtivo } from "@/lib/puzzlebot";
 import { RevisaoImportacao } from "./RevisaoImportacao";
+import { AssistenteImportacao } from "./AssistenteImportacao";
+import { criarRecorrenciasDaImportacao, type ResultadoRecorrencias } from "@/lib/fdip-assistente";
+import type { RecorrenciaAPlanejar } from "@/core/fdip/assistente";
 import { PrevisaoImportacao } from "./PrevisaoImportacao";
 import { prepararIngestao, linhasAGravar, type LinhaBruta, type LinhaExistente } from "@/core/ingestao";
 import { importedMovements } from "@/lib/imported";
@@ -62,6 +65,13 @@ export function UploadView() {
   /** Regra proposta a partir da última correção — o ciclo que faz o sistema aprender de verdade. */
   const [sugestao, setSugestao] = React.useState<RegraCategorizacao | null>(null);
   const autoRef = React.useRef<string>(""); // texto já auto-categorizado (anti-loop)
+  /**
+   * O ASSISTENTE em quatro passos (pedido do dono, 27/10/2026): abre sozinho
+   * quando um arquivo é lido, ANTES de qualquer coisa ser gravada. Fechar não
+   * perde nada — a revisão detalhada continua embaixo, com o botão para reabrir.
+   */
+  const [assistente, setAssistente] = React.useState(false);
+  const [recRes, setRecRes] = React.useState<ResultadoRecorrencias | null>(null);
   /**
    * A competência DITA na revisão (Rodada 8), por `fingerprint` — o id do
    * registro renasce a cada reanálise. Um arquivo novo zera a escolha: a
@@ -146,6 +156,7 @@ export function UploadView() {
     const rep = analisar(t);
     if (!rep || autoRef.current === t) return;
     autoRef.current = t;
+    if (rep.records.length) setAssistente(true);
     void (async () => {
       // 1) regras do dono — síncrono, vence tudo
       const regras = listarRegras();
@@ -182,8 +193,14 @@ export function UploadView() {
           const csv = csvDeLinhas(rows);
           if (csv.trim()) linhas.push(csv); else setErro("A planilha não tinha linhas com dado.");
         } else {
-          const r = await lerDocumento(f, true); // imagem/PDF → OCR (IA ou local)
-          if (r.kind === "doc") {
+          const r = await lerDocumento(f, true); // PDF com texto → lote; imagem/PDF escaneado → OCR
+          // ⚠️ **O extrato em PDF é LOTE.** `lerDocumento` reconstrói a tabela do
+          // PDF e devolve `bulk`; este laço só tratava `doc` e `erro`, então a
+          // tabela inteira era lida e DESCARTADA em silêncio — o extrato entrava
+          // como nenhum lançamento. Guarda no `engine-audit` (bloco `pdf-lote:`).
+          if (r.kind === "bulk") {
+            if (r.texto.trim()) linhas.push(r.texto.trim());
+          } else if (r.kind === "doc") {
             const l = docParaLinha(r.fields);
             if (l) linhas.push(l); else setErro("Não consegui ler o valor de um documento.");
           } else if (r.kind === "erro") {
@@ -229,17 +246,42 @@ export function UploadView() {
     analisarEAuto(texto); // reaplica já com a regra nova
   };
 
-  const confirmar = async () => {
-    if (!report) return;
+  /**
+   * ⚠️ Um escritor só. O assistente devolve o relatório JÁ decidido (categorias
+   * e cadastros) e as recorrências marcadas; a gravação continua sendo
+   * `aplicarOnboarding`. As recorrências nascem DEPOIS, e só se os lançamentos
+   * entraram — conta recorrente sem o histórico que a justificou é suposição.
+   */
+  const confirmar = async (decidido?: { report: FDIPReport; recorrencias: RecorrenciaAPlanejar[] }) => {
+    const base = decidido?.report ?? report;
+    if (!base) return;
     setAplicando(true);
+    setRecRes(null);
     try {
-      const res = await aplicarOnboarding({ ...report, records: comCompetencias(report.records, competencias) });
+      const res = await aplicarOnboarding({ ...base, records: comCompetencias(base.records, competencias) });
       setResultado(res);
       setImportado(true);
+      if (decidido?.recorrencias.length && res.movimentos > 0) {
+        setRecRes(await criarRecorrenciasDaImportacao(decidido.recorrencias));
+      }
+      setAssistente(false);
       await qc.invalidateQueries();
     } finally {
       setAplicando(false);
     }
+  };
+
+  /** A categoria escolhida no assistente vira memória — a próxima importação já chega certa. */
+  const confirmarAssistente = (r: { report: FDIPReport; recorrencias: RecorrenciaAPlanejar[]; aprendidas: { recordIds: string[]; categoria: string }[] }) => {
+    if (!report) return;
+    const porId = new Map(report.records.map((x) => [x.id, x]));
+    for (const a of r.aprendidas) {
+      for (const id of a.recordIds) {
+        const rec = porId.get(id);
+        if (rec) aprender(chaveDaMemoria(rec), a.categoria);
+      }
+    }
+    void confirmar({ report: r.report, recorrencias: r.recorrencias });
   };
   /**
    * ⚠️ Devolve o DESFAZER. Apagar o dataset é a ação mais destrutiva da tela —
@@ -367,13 +409,37 @@ export function UploadView() {
 
       {/* PRÉ-VISUALIZAÇÃO — o que vai entrar, antes de entrar. */}
       {report && plano && !resultado && (
-        <PrevisaoImportacao plano={plano} onConfirmar={confirmar} aplicando={aplicando} />
+        <>
+          <div className="rounded-md bg-surface-1 p-4 flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-label text-ink">Revise receitas, despesas e recorrências em quatro passos antes de importar.</span>
+            <Button variant="primary" onClick={() => setAssistente(true)}>Revisar em etapas</Button>
+          </div>
+          <PrevisaoImportacao plano={plano} onConfirmar={() => confirmar()} aplicando={aplicando} />
+        </>
+      )}
+      {report && !resultado && (
+        <AssistenteImportacao
+          report={report} aberto={assistente} aplicando={aplicando}
+          onFechar={() => setAssistente(false)} onConfirmar={confirmarAssistente}
+        />
+      )}
+      {recRes && (recRes.contratos + recRes.contasRecorrentes + recRes.falhas.length) > 0 && (
+        <div className="rounded-md bg-surface-1 p-4 flex flex-col gap-1" role="status">
+          <span className="text-label font-medium text-ink">
+            {recRes.contratos > 0 && `${recRes.contratos} contrato(s) a receber criado(s) como rascunho em Assinaturas. `}
+            {recRes.contasRecorrentes > 0 && `${recRes.contasRecorrentes} conta(s) recorrente(s) a pagar criada(s).`}
+            {recRes.simulado && " (demonstração: nada foi gravado no banco)"}
+          </span>
+          {recRes.falhas.length > 0 && (
+            <span className="text-caption text-negative">Não foi possível criar: {recRes.falhas.join(" · ")}</span>
+          )}
+        </div>
       )}
 
       {/* Revisão detalhada (entidades, padrões, custos recorrentes) */}
       {report && (
         <RevisaoImportacao
-          report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}
+          report={report} onCorrigir={corrigir} onConfirmar={() => confirmar()} aplicando={aplicando} resultado={resultado}
           aGravar={plano ? linhasAGravar(plano).length : undefined}
           competencias={competencias} onCompetencias={setCompetencias}
           onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy || cnaeBusy}

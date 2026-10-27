@@ -120,7 +120,7 @@ export function CaixaEntradaView() {
             {filtro === "pendentes" && (
               <div className="flex gap-2 flex-wrap justify-center">
                 <Button variant="outline" onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}>Enviar documento</Button>
-                <Button variant="outline" onClick={() => router.push("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos")}>Boletos recebidos</Button>
+                <Button variant="outline" onClick={() => router.push("/contas-a-pagar/caixa-de-entrada?caixa=boletos")}>Boletos recebidos</Button>
               </div>
             )}
           </div>

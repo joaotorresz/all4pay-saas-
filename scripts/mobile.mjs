@@ -26,15 +26,15 @@ const BLOQUEANTES = ["color-contrast", "label", "select-name", "button-name", "a
 const ORCAMENTO = {
   "/": { requisicoes: 45, kb: 3400, ms: 2600 },
   "/fluxo-caixa": { requisicoes: 60, kb: 2700, ms: 2400 },
-  "/central?aba=solicitacoes": { requisicoes: 45, kb: 2400, ms: 1800 },
+  "/aprovacoes": { requisicoes: 45, kb: 2400, ms: 1800 },
   "/upload": { requisicoes: 45, kb: 2500, ms: 1800 },
 };
 const PADRAO = { requisicoes: 60, kb: 3400, ms: 2500 };
 const TELAS = [
   ["Início", "/"],
   ["Fluxo de caixa", "/fluxo-caixa"],
-  ["Aprovações", "/central?aba=solicitacoes"],
-  ["Títulos a receber", "/dashboard/registrations/bank-accounts?aba=transferencias"],
+  ["Aprovações", "/aprovacoes"],
+  ["Títulos a receber", "/dashboard/financial/transfers"],
   ["Extrato", "/dashboard/financial/statement"],
   ["Entrada de dados", "/upload"],
   ["DRE", "/dashboard/reports/dre"],

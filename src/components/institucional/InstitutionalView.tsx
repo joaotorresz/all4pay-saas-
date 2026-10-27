@@ -165,7 +165,7 @@ export function InstitutionalView({ semTrilha = false }: { semTrilha?: boolean }
             icon="list-checks"
             title="Nenhuma solicitação aguardando"
             hint="Pagamentos acima da alçada entram aqui para aprovação. A fila completa, com o painel de decidir, fica em Aprovações."
-            action={<Button variant="secondary" onClick={() => { window.location.href = "/central?aba=solicitacoes"; }}>Abrir aprovações</Button>}
+            action={<Button variant="secondary" onClick={() => { window.location.href = "/aprovacoes"; }}>Abrir aprovações</Button>}
           />
         )}
       </Card>

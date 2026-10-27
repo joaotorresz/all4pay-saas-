@@ -53,7 +53,7 @@ export default async function venderNotaCancelar(navegador) {
   v.ok((await titulosDaVenda(u)).length === 1, "e o título a receber continua lá");
 
   // Cancelar a nota no emissor.
-  await u.ir("/dashboard/sales-invoices/invoices?aba=nfse");
+  await u.ir("/dashboard/sales-invoices/invoices/nfse");
   const linha = u.page.locator("div.border-t", { hasText: numeroNF ?? "—" }).first();
   await linha.getByTitle("Cancelar").click();
   await u.page.waitForTimeout(1500);

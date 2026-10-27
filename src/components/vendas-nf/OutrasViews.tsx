@@ -45,7 +45,9 @@ const MESES = ["01 — Jan", "02 — Fev", "03 — Mar", "04 — Abr", "05 — M
 
 export function NotasFiscaisView() {
   const { data: vendas } = useVendas();
-  const [aba, setAba] = React.useState<"lista" | "download">("lista");
+  // ⚠️ "Download em lote" era uma segunda aba (27/10/2026): é uma AÇÃO sobre a
+  // lista, não outra página. Virou botão que abre o bloco acima da tabela.
+  const [lote, setLote] = React.useState(false);
   const [marcadas, setMarcadas] = React.useState<Set<string>>(new Set());
   const { show, node } = useToast();
 
@@ -65,7 +67,11 @@ export function NotasFiscaisView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-end gap-2 flex-wrap">
+        <Button variant="outline" disabled={emitidas.length === 0} aria-expanded={lote} onClick={() => setLote((v) => !v)}>
+          <Icon name="list-checks" size={15} color="currentColor" />
+          {lote ? "Fechar download em lote" : "Baixar em lote"}
+        </Button>
         <Button variant="outline" disabled={comNF.length === 0}
           onClick={() => baixarXLSX("notas-fiscais", [{ nome: "Notas fiscais", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
@@ -73,54 +79,9 @@ export function NotasFiscaisView() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-border-soft">
-        {([["lista", "Lista de notas fiscais"], ["download", "Download de notas fiscais"]] as const).map(([id, label]) => {
-          const on = aba === id;
-          return (
-            <button key={id} onClick={() => setAba(id)}
-              className={`relative px-3 py-2 text-label transition-colors ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>
-              {label}
-              {on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}
-            </button>
-          );
-        })}
-      </div>
-
       <Painel titulo="Resumo de notas fiscais" cards={cards} />
 
-      {vendas === null ? (
-        <Card><Skeleton className="h-[200px]" /></Card>
-      ) : aba === "lista" ? (
-        comNF.length === 0 ? (
-          <Card><Vazio texto="Nenhuma nota fiscal encontrada para os filtros selecionados." /></Card>
-        ) : (
-          <Card padded={false} className="overflow-hidden">
-            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-border-soft">
-                    {["Nº da NF", "Venda", "Emissão", "Cliente", "Valor", "Status"].map((h, i) => (
-                      <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {comNF.map((v) => (
-                    <tr key={v.id} className="border-b border-border-soft last:border-0">
-                      <td className="px-6 py-3 text-label text-ink tabular-nums">{v.numeroNF || "—"}</td>
-                      <td className="px-6 py-3 text-caption text-faint tabular-nums">{v.numero}</td>
-                      <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(v.competencia)}</td>
-                      <td className="px-6 py-3 text-label text-ink truncate max-w-[28ch]">{v.clienteNome}</td>
-                      <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={v.valorTotal} /></td>
-                      <td className="px-6 py-3 text-caption text-muted">{STATUS_NF.find((s) => s.id === v.statusNF)?.label}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )
-      ) : (
+      {lote && vendas !== null && (
         <Card>
           <span className="text-h3 font-semibold text-ink">Download em lote</span>
           {emitidas.length === 0 ? (
@@ -171,6 +132,39 @@ export function NotasFiscaisView() {
             </>
           )}
         </Card>
+      )}
+
+
+      {vendas === null ? (
+        <Card><Skeleton className="h-[200px]" /></Card>
+      ) : comNF.length === 0 ? (
+          <Card><Vazio texto="Nenhuma nota fiscal encontrada para os filtros selecionados." /></Card>
+        ) : (
+          <Card padded={false} className="overflow-hidden">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-border-soft">
+                    {["Nº da NF", "Venda", "Emissão", "Cliente", "Valor", "Status"].map((h, i) => (
+                      <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {comNF.map((v) => (
+                    <tr key={v.id} className="border-b border-border-soft last:border-0">
+                      <td className="px-6 py-3 text-label text-ink tabular-nums">{v.numeroNF || "—"}</td>
+                      <td className="px-6 py-3 text-caption text-faint tabular-nums">{v.numero}</td>
+                      <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(v.competencia)}</td>
+                      <td className="px-6 py-3 text-label text-ink truncate max-w-[28ch]">{v.clienteNome}</td>
+                      <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={v.valorTotal} /></td>
+                      <td className="px-6 py-3 text-caption text-muted">{STATUS_NF.find((s) => s.id === v.statusNF)?.label}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
       )}
       {node}
     </div>

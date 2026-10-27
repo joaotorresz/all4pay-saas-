@@ -3,7 +3,7 @@
  * The ONLY visual primitives. Build every screen from these.
  * See CLAUDE.md for the rules of the road.
  */
-export { Button, type ButtonProps } from "./Button";
+export { Button, classesDoBotao, type ButtonProps } from "./Button";
 export { Card, type CardProps } from "./Card";
 export { InfoHint, type InfoConteudo } from "./InfoHint";
 export { Badge, type BadgeProps } from "./Badge";

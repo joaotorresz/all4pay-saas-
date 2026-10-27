@@ -41,18 +41,18 @@ export default async function campfireB(navegador) {
   const { page } = u;
 
   /* ── 1. caixa de entrada ─────────────────────────────────────────────── */
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada&caixa=boletos");
+  await u.ir("/contas-a-pagar/caixa-de-entrada?caixa=boletos");
   for (const [linha, benef] of [[LINHA_1234, "Energia Campfire SA"], [LINHA_777, "Gráfica Campfire"]]) {
     await page.locator('input[placeholder^="00000.00000"]').fill(linha);
     await page.locator('input[placeholder="Beneficiário (opcional)"]').fill(benef);
-    await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+    await page.locator("#secao-boletos").getByRole("button", { name: "Adicionar", exact: true }).click();
     await page.waitForTimeout(500);
   }
 
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada");
-  const aba = plano(await page.locator('main button', { hasText: /Caixa de entrada \(/ }).first().innerText());
-  const contador = Number((aba.match(/\((\d+)\)/) ?? [])[1]);
-  v.ok(contador >= 2, "a aba mostra o CONTADOR do que chegou", aba);
+  await u.ir("/contas-a-pagar/caixa-de-entrada");
+  const aba = plano(await page.locator('[data-contador-caixa]').first().innerText());
+  const contador = Number((aba.match(/(\d+)/) ?? [])[1]);
+  v.ok(contador >= 2, "o topo da caixa mostra o CONTADOR do que chegou", aba);
   let t = plano(await u.texto());
   v.ok(/Energia Campfire SA/.test(t) && /Gráfica Campfire/.test(t), "os dois boletos estão na fila");
 
@@ -65,8 +65,8 @@ export default async function campfireB(navegador) {
   await page.locator('textarea[aria-label="Motivo do descarte"]').fill("já pago pelo cartão em 12/09");
   await page.locator('[role="dialog"][aria-label="Descartar documento"]').getByRole("button", { name: "Descartar" }).click();
   await page.waitForTimeout(800);
-  const aba2 = plano(await page.locator('main button', { hasText: /Caixa de entrada \(/ }).first().innerText());
-  v.ok(Number((aba2.match(/\((\d+)\)/) ?? [])[1]) === contador - 1, "o contador desce com o descarte", `${aba} → ${aba2}`);
+  const aba2 = plano(await page.locator('[data-contador-caixa]').first().innerText());
+  v.ok(Number((aba2.match(/(\d+)/) ?? [])[1]) === contador - 1, "o contador desce com o descarte", `${aba} → ${aba2}`);
   await page.locator('[role="tab"]', { hasText: "Descartados" }).click();
   await page.waitForTimeout(400);
   t = plano(await u.texto());
@@ -92,9 +92,9 @@ export default async function campfireB(navegador) {
   await page.waitForTimeout(2500);
   v.ok(!page.url().includes("/new"), "salvar sai do formulário", page.url());
 
-  await u.ir("/contas-a-pagar/titulos?aba=caixa-de-entrada");
-  const aba3 = plano(await page.locator('main button', { hasText: /Caixa de entrada \(/ }).first().innerText());
-  v.ok(Number((aba3.match(/\((\d+)\)/) ?? [])[1]) === contador - 2, "a conta criada TIRA o documento da fila", aba3);
+  await u.ir("/contas-a-pagar/caixa-de-entrada");
+  const aba3 = plano(await page.locator('[data-contador-caixa]').first().innerText());
+  v.ok(Number((aba3.match(/(\d+)/) ?? [])[1]) === contador - 2, "a conta criada TIRA o documento da fila", aba3);
   t = plano(await u.texto());
   v.ok(/Viraram conta \(1\)/.test(t), "o documento aparece em \"Viraram conta\"");
 
@@ -171,7 +171,7 @@ export default async function campfireB(navegador) {
   }
 
   /* ── 5. consolidado com eliminações ──────────────────────────────────── */
-  await u.ir("/dashboard/reports/dre-multi?aba=consolidado");
+  await u.ir("/consolidado");
   await page.waitForTimeout(1500);
   t = plano(await u.texto());
   v.ok(/Eliminações entre empresas/.test(t) && /Critério conservador/.test(t), "o consolidado mostra as eliminações e o critério");

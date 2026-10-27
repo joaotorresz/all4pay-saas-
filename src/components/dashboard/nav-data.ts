@@ -148,8 +148,9 @@ export const SECTIONS: Section[] = [
     items: [
       { label: "Painel de vendas", desc: "Calendário, status e títulos a receber numa tela só", href: "/contas-a-receber/painel-de-vendas", icon: "gauge" },
       { label: "Maquininha Quattro", desc: "Vendas, taxas e recebíveis da maquininha Pinbank", href: "/contas-a-receber/maquininha", icon: "smartphone" },
-      { label: "Notas fiscais", desc: "Notas das vendas e emissão de NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
+      { label: "Notas fiscais", desc: "As notas das vendas, e o botão de emitir NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
       { label: "Cobrança e inadimplência", desc: "Régua de cobrança e risco por cliente", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
+      { label: "Cobrança automática", desc: "E-mail ao cliente antes, no dia e depois do vencimento", href: "/contas-a-receber/cobranca-automatica", icon: "mail" },
       { label: "Assinaturas e contratos", desc: "Receita recorrente, churn e contratos de cliente", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
     ],
   },
@@ -161,7 +162,8 @@ export const SECTIONS: Section[] = [
     acao: { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus" },
     items: [
       { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "layout-dashboard" },
-      { label: "Títulos a pagar", desc: "Títulos e a caixa de entrada (NFs e boletos)", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
+      { label: "Títulos a pagar", desc: "O que você deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
+      { label: "Caixa de entrada", desc: "Documentos lidos, NFs da SEFAZ e boletos do DDA", href: "/contas-a-pagar/caixa-de-entrada", icon: "inbox" },
       { label: "Compras", desc: "Pedidos de compra e aprovação", href: "/dashboard/purchases", icon: "inbox" },
       { label: "Contas recorrentes", desc: "O que se repete, e os contratos de fornecedor", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
@@ -174,20 +176,30 @@ export const SECTIONS: Section[] = [
     id: "caixa", label: "Caixa e bancos", icon: "arrow-left-right", items: [
       { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "activity" },
-      { label: "Contas e cartões", desc: "Contas, faturas do cartão e transferências", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
+      { label: "Contas bancárias", desc: "Contas e cartões cadastrados", href: "/dashboard/registrations/bank-accounts", icon: "building" },
+      { label: "Faturas do cartão", desc: "O ciclo de cada cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
+      { label: "Transferências", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/transfers", icon: "arrow-left-right" },
       { label: "Conciliação bancária", desc: "Banco × lançamentos, inclusive Open Finance", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Entrada de dados", desc: "Conectar banco e enviar extrato", href: "/upload", icon: "upload" },
-      { label: "Aprovações e baixas", desc: "O que espera confirmação, alçadas e papéis", href: "/central", icon: "shield-check" },
+      { label: "Regras de categoria", desc: "Categorização automática na importação", href: "/upload/regras", icon: "workflow" },
+      { label: "Duplicatas", desc: "Cópias já gravadas na base", href: "/upload/duplicatas", icon: "scan-line" },
+      { label: "Baixas a confirmar", desc: "O que falta confirmar e baixar", href: "/central", icon: "list-checks" },
+      { label: "Aprovações", desc: "Solicitações acima da alçada", href: "/aprovacoes", icon: "shield-check", pro: true },
     ],
   },
   {
     // O registro contábil e o que sai para o escritório. Os relatórios do
     // razão foram para Relatórios; o consolidado, para Multiempresas.
     id: "contabil", label: "Contabilidade", icon: "receipt", items: [
-      { label: "Razão contábil", desc: "Lançamentos, receita, cronogramas e dimensões", href: "/contabilidade?aba=razao", icon: "receipt" },
+      { label: "Razão contábil", desc: "Os lançamentos em partidas dobradas", href: "/contabilidade", icon: "receipt" },
+      { label: "Reconhecimento de receita", desc: "Receita diferida reconhecida mês a mês", href: "/receita", icon: "trending-up" },
+      { label: "Cronogramas", desc: "Amortização e depreciação", href: "/cronogramas", icon: "layers" },
+      { label: "Dimensões", desc: "Tags e o pivot do razão", href: "/dimensoes", icon: "layers" },
       { label: "Fechamento mensal", desc: "Checklist, provisões, trava e relatório do mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
-      { label: "Enviar ao contador", desc: "Razão e DRE, TXT Domínio e as NFs do mês", href: "/exportar", icon: "download" },
+      { label: "Razão e DRE para o contador", desc: "Planilha do razão e do DRE do período", href: "/exportar", icon: "download" },
+      { label: "TXT Domínio", desc: "O movimento no layout do Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
+      { label: "Envio das NFs", desc: "O pacote mensal de XMLs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail" },
     ],
   },
   {
@@ -199,7 +211,9 @@ export const SECTIONS: Section[] = [
       { label: "Balanço patrimonial", desc: "Ativo, passivo e PL em duas datas", href: "/dashboard/reports/balance-sheet", icon: "layers" },
       { label: "Análise de variação", desc: "O que mudou no mês, e por quê", href: "/dashboard/reports/variance", icon: "activity" },
       { label: "Orçamento", desc: "O previsto e o confronto com o real", href: "/orcamento", icon: "target" },
-      { label: "Multiempresas", desc: "DRE, DFC e posição do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DRE multiempresas", desc: "O resultado do grupo, empresa a empresa", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DFC multiempresas", desc: "O caixa do grupo, empresa a empresa", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "Posição consolidada", desc: "Saldo e resultado do grupo, com eliminações", href: "/consolidado", icon: "building", pro: true },
       { label: "Relatório ao investidor", desc: "O relatório mensal para quem investe", href: "/investidores", icon: "mail", pro: true },
       { label: "Meus painéis", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
     ],
@@ -258,6 +272,7 @@ export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Empresa", desc: "Razão social, endereço e fiscal", href: "/dashboard/administration/company-data", icon: "building" },
     { label: "Usuários e papéis", desc: "Quem entra, e com que papel", href: "/dashboard/administration/users", icon: "users" },
+    { label: "Alçadas e papéis", desc: "Quem aprova quanto, e a trilha", href: "/governanca", icon: "shield-check", pro: true },
     // CAD (30/09/2026): os nove cadastros continuam nos grupos onde são usados;
     // esta é a ÚNICA porta que mostra a ordem entre eles e o que falta para lançar.
     { label: "Estrutura e cadastros", desc: "A ordem dos cadastros e o que falta", href: "/dashboard/registrations", icon: "layers" },

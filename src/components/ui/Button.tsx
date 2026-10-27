@@ -48,6 +48,20 @@ const variantClasses: Record<ButtonVariant, string> = {
   accent: "bg-lime text-on-lime hover:bg-lime-hover",
 };
 
+/**
+ * As classes do botão para um LINK (`<Link className={classesDoBotao()}>`).
+ * Navegar é link — nova aba, Ctrl+clique e endereço para mandar a um colega —,
+ * e um `<button>` dentro de `<a>` é HTML inválido. Mesmo desenho, mesma fonte.
+ */
+export function classesDoBotao(variant: ButtonVariant = "primary", size: ButtonSize = "md") {
+  return cn(
+    "inline-flex items-center justify-center font-medium leading-none whitespace-nowrap rounded-pill",
+    "transition-[background-color,transform] duration-120 ease-out hover:-translate-y-px active:scale-[0.98]",
+    sizeClasses[size],
+    variantClasses[variant],
+  );
+}
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(
     {

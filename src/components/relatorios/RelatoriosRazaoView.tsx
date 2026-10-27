@@ -42,7 +42,7 @@ export function RelatoriosRazaoView({ soPivot = false }: { soPivot?: boolean } =
           <Card className="flex flex-col items-start gap-2">
             <span className="text-h3 font-medium text-ink">Razão vazio</span>
             <span className="text-caption text-muted">Lance um movimento ou importe dados.</span>
-            <Link href="/contabilidade?aba=razao" className="text-label font-medium text-ink underline">Ir para o Razão →</Link>
+            <Link href="/contabilidade" className="text-label font-medium text-ink underline">Ir para o Razão →</Link>
           </Card>
         ) : (
           <>

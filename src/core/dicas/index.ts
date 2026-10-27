@@ -310,7 +310,7 @@ export function passosQueFaltam(input: RiskInput | undefined, contatos: number):
       id: "categorias",
       titulo: "Confira as categorias",
       texto: "É a categoria que separa custo fixo de compra pontual. Sem ela, não há comparação honesta.",
-      rota: "/upload?aba=regras",
+      rota: "/upload/regras",
       feito: movs > 0 && comCategoria / Math.max(1, movs) >= 0.7,
     },
     {

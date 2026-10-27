@@ -1031,6 +1031,18 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `checkout-pinbank:` do `engine-audit`. Régua e baixa automática são as
   próximas etapas.
 
+## ⚠️ COBRANÇA PELA CONTA BANCÁRIA DO CLIENTE (27/10/2026, `docs/rodada-11/cobranca-bancos.md`)
+
+Decisão do dono: **Inter direto + agregador** para os outros bancos. O contrato
+NEUTRO mora em `core/cobranca-banco` (emitida · processando · incerta ·
+falhou — `processando` e `incerta` NUNCA deixam pedir outra cobrança). O Inter
+(`core/cobranca-banco/inter`, API v3, boleto com Pix numa chamada) sai por UMA
+porta (`lib/cobranca-banco/inter-saida.ts`, mTLS, só caminhos de cobrança): é a
+segunda porta de rede declarada do app (bloco `inter:` do `engine-audit`). O
+aviso do webhook só traz CÓDIGOS; a situação vem da consulta. Por ora a
+credencial é das variáveis `INTER_*` (piloto); por empresa, cifrada, é a
+próxima etapa. Guarda: `npm run inter-cobranca`.
+
 ## ⚠️ A PÁGINA MAQUININHA QUATTRO VENDE A MAQUININHA (26/10/2026, pedido do dono)
 
 - **Sem maquininha vinculada** a página vira a OFERTA (`maquininha/OfertaMaquininha.tsx`):
