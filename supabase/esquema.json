@@ -168,7 +168,20 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261027130000_cadastro_jornadas",
+        "motivo": "Jornada do cadastro (etapa 1 do plano de documentos e funil): o registro dos passos de quem abre conta, para o admin ver quem concluiu e quem parou. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cadastro_jornadas — RLS sem política, anon e authenticated sem acesso",
+          "função cadastro_jornada_registrar(uuid, text, text, text, text, text, text) — só service_role",
+          "função cadastro_jornada_concluir(uuid) — authenticated, liga à empresa aberta de quem chama"
+        ],
+        "impacto": "Até ser aplicada, a rota /api/cadastro/jornada recebe o passo e o banco recusa (fica só o log); o cadastro segue igual. Nada que já existe muda.",
+        "resolver_ate": "2026-11-10",
+        "origem": "sessão Claude de 27/10/2026 (documentos e funil do cadastro, etapa 1)"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",

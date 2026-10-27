@@ -45,6 +45,7 @@ export const ALIASES: Alias[] = [
   { de: "/criar", para: "/", motivo: "criar virou painel, não rota" },
   { de: "/recebiveis", para: "/contas-a-receber/painel-de-vendas", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/pagaveis", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/comecar", para: "/criar-conta", motivo: "o cadastro de sete passos foi desativado a pedido do dono (27/10/2026): a abertura de conta é a conversa de /criar-conta, para empresa e pessoa física" },
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
   { de: "/dashboard/financial/import", para: "/upload", motivo: "A4P-040: a importação de planilha virou mais um formato do /upload (Bloco D); um pipeline, uma porta" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },

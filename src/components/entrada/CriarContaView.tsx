@@ -38,6 +38,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { criarContaEEntrar, emailDaSessao, nomearEmpresaDaConta } from "@/lib/entrada";
 import { persistCompany, saveCompany, type StoredCompany } from "@/lib/company";
+import { concluirJornada, registrarPasso } from "@/lib/cadastro-jornada";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
 import { reportar } from "@/lib/erros";
@@ -89,7 +90,7 @@ interface Fala {
  * 3dicons (CC0), ângulo Dynamic, estilo Color, em `public/icones-3d/`. Só a
  * abertura de conta os usa; o resto do sistema segue no Lucide.
  */
-type Icone3D = "boy" | "folder" | "copy" | "camera" | "locker" | "folder-fav" | "lock" | "wallet" | "credit-card" | "tick";
+type Icone3D = "boy" | "folder" | "copy" | "camera" | "locker" | "folder-fav" | "lock" | "wallet" | "credit-card" | "tick" | "sun" | "picture" | "bulb" | "file-new";
 /** A pergunta que abre com ícone próprio (as que não têm cartão). */
 const ICONE_DA_PERGUNTA: Record<string, Icone3D> = { senha: "lock", bancos: "wallet", maquininha: "credit-card" };
 function Icone3d({ nome, tamanho }: { nome: Icone3D; tamanho: number }) {
@@ -170,6 +171,27 @@ export function CriarContaView() {
   const [docAberto, setDocAberto] = React.useState<null | "rg" | "cnh">(null);
   /** A leitura do documento no navegador (OCR) em andamento. */
   const [lendoDoc, setLendoDoc] = React.useState(false);
+
+  /*
+   * ⚠️ **A JORNADA É REGISTRADA A CADA PASSO** (`lib/cadastro-jornada`): é o
+   * que deixa o admin ver quem parou e onde. Na pergunta, o passo é o campo
+   * perguntado ("repTelefone"), não a palavra "pergunta" — senão o funil teria
+   * um degrau só para quinze perguntas. Só o contato sai; documento, CPF e
+   * senha nunca.
+   */
+  const passoDaJornada = etapa === "pergunta" ? atual?.id ?? null : etapa;
+  React.useEffect(() => {
+    if (!passoDaJornada || passoDaJornada === "pronto") return;
+    registrarPasso({
+      etapa: passoDaJornada,
+      ...(cad.tipo ? { tipo: cad.tipo } : {}),
+      nome: (cad.tipo === "pf" ? cad.nome : cad.repNome) || undefined,
+      whatsapp: cad.repTelefone || undefined,
+      email: (cad.tipo === "pf" ? cad.email : cad.repEmail) || undefined,
+    });
+    // ⚠️ Só o PASSO dispara: o contato vai junto com o passo seguinte, não a cada tecla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passoDaJornada]);
 
   const vivoRef = React.useRef(true);
   const campoRef = React.useRef<HTMLInputElement>(null);
@@ -559,6 +581,8 @@ export function CriarContaView() {
         }
         contaCriada.current = true;
       }
+      // A jornada fica ligada à empresa que acabou de nascer (sem esperar: é telemetria).
+      void concluirJornada();
       // Daqui para baixo existe sessão. A MESMA ordem do cadastro de sete passos.
       let falhaAlcada: string | null = null;
       if (c.tipo === "pj") {
@@ -1115,17 +1139,19 @@ function CartaoDaConversa({
       <div data-cartao="documento" className={caixa} style={fundo}>
         <Ladrilho ilustracao={cartao.rotulo === "CNPJ" ? "folder" : "boy"} />
         {cartao.linhas?.length ? (
-          <dl className="m-0 flex flex-col gap-3">
+          <dl data-sem-num className="m-0 flex flex-col gap-3">
+            {/* ⚠️ UM padrão só: rótulo em cinza, valor em tinta, os dois em Inter —
+                número e texto lado a lado no mesmo papel (data-sem-num). */}
             {cartao.linhas.map((l) => (
-              <div key={l.rotulo} className="flex flex-col">
-                <dt className="text-[14px] font-medium text-ink">{l.rotulo}</dt>
-                <dd className="m-0 text-[15px] text-ink tabular-nums break-words">{l.valor}</dd>
+              <div key={l.rotulo} className="flex flex-col gap-0.5">
+                <dt className="text-[13px] text-muted">{l.rotulo}</dt>
+                <dd className="m-0 text-[15px] font-medium text-ink break-words">{l.valor}</dd>
               </div>
             ))}
           </dl>
         ) : (
-          <div className="min-w-0 flex flex-col">
-            <span className="text-[13px] text-muted tabular-nums">{cartao.rotulo} {cartao.documento}</span>
+          <div data-sem-num className="min-w-0 flex flex-col gap-0.5">
+            <span className="text-[13px] text-muted">{cartao.rotulo} {cartao.documento}</span>
             <span className="text-[16px] font-medium text-ink break-words">{cartao.nome}</span>
             {cartao.detalhe && <span className="text-[13px] text-muted">{cartao.detalhe}</span>}
           </div>
@@ -1314,9 +1340,9 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         {modo === "dicas" && (
           <>
             <span aria-hidden className="relative w-[200px] h-[200px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
-              <Icon name={d.icone} size={88} strokeWidth={1.25} />
+              <Icone3d nome={d.ilustracao} tamanho={120} />
               <span className="absolute top-3 right-3 w-11 h-11 rounded-pill flex items-center justify-center bg-lime text-on-lime">
-                <Icon name={d.icone === "glasses" ? "x" : "check"} size={20} color="currentColor" />
+                <Icon name={d.ilustracao === "picture" ? "x" : "check"} size={20} color="currentColor" />
               </span>
             </span>
             <p className="m-0 max-w-[320px] text-[28px] leading-[1.15] font-medium text-ink" aria-live="polite">{d.titulo}</p>
@@ -1339,7 +1365,7 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         {modo === "erro" && (
           <>
             <span aria-hidden className="w-[120px] h-[120px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
-              <Icon name="camera" size={52} strokeWidth={1.25} />
+              <Icone3d nome="camera" tamanho={72} />
             </span>
             <div className="flex flex-col gap-2 max-w-[340px]">
               <p className="m-0 text-[22px] font-medium text-ink">Não consegui abrir a câmera</p>
@@ -1410,7 +1436,7 @@ function ValidacaoDocumento({ tipo, onFechar, onArquivo, onDepois }: {
       </div>
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-8 px-6 text-center">
         <span aria-hidden className="relative w-[200px] h-[200px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
-          <Icon name={d.icone} size={88} strokeWidth={1.25} />
+          <Icone3d nome={d.ilustracao} tamanho={120} />
           <span className="absolute top-3 right-3 w-11 h-11 rounded-pill flex items-center justify-center bg-lime text-on-lime">
             <Icon name="check" size={20} color="currentColor" />
           </span>

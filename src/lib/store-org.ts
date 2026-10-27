@@ -253,6 +253,10 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
   // por definição — subir esta marca ao servidor não diria nada.
   "a4p_org_do_cache",
+  // O token da jornada do cadastro (/criar-conta): identifica a conversa
+  // ENQUANTO a conta não existe, e some quando ela conclui. Não há empresa a
+  // quem subir — é a definição de dado do dispositivo.
+  "a4p_cadastro_jornada",
 ];
 
 /**
