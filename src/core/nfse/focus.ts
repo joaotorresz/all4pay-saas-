@@ -47,6 +47,12 @@ export interface EmitenteFocus {
   itemListaServico?: string;
   codigoTributarioMunicipio?: string;
   codigoCnae?: string;
+  /**
+   * A alíquota do ISS em PERCENTUAL (5 = 5%), declarada pela PLATAFORMA junto
+   * com o código do serviço. Existe porque São Paulo exige a alíquota no RPS:
+   * sem ela a nota sai com 0. Nunca vem da tela (ver `montarPedido`).
+   */
+  aliquota?: number;
 }
 
 const so = (s: unknown) => (typeof s === "string" ? s.replace(/\D/g, "") : typeof s === "number" ? String(s) : "");
@@ -86,9 +92,19 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(so(e.itemListaServico) ? { itemListaServico: so(e.itemListaServico) } : {}),
       ...(texto(e.codigoTributarioMunicipio) ? { codigoTributarioMunicipio: texto(e.codigoTributarioMunicipio) } : {}),
       ...(so(e.codigoCnae) ? { codigoCnae: so(e.codigoCnae) } : {}),
+      ...(aliquotaValida(e.aliquota) ? { aliquota: numeroDaAliquota(e.aliquota) } : {}),
     };
+    if (e.aliquota !== undefined && !aliquotaValida(e.aliquota)) problemas.push(`emitente da organização ${org}: alíquota fora de 0–5% ignorada`);
   }
   return { emitentes, problemas };
+}
+
+/** ISS vai até 5% (LC 116): acima disso é engano de digitação ("15" no lugar de "1,5"), e a alíquota é ignorada com aviso. */
+const numeroDaAliquota = (v: unknown): number =>
+  typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : NaN;
+function aliquotaValida(v: unknown): boolean {
+  const n = numeroDaAliquota(v);
+  return Number.isFinite(n) && n > 0 && n <= 5;
 }
 
 /** A nota como o banco a guarda (as colunas que a emissão lê). */
@@ -175,10 +191,10 @@ export function montarPedido(
       prestador: { cnpj: emitente.cnpj, inscricao_municipal: emitente.inscricaoMunicipal, codigo_municipio: emitente.codigoMunicipio },
       tomador: tomadorPedido,
       servico: {
-        // ⚠️ Sem alíquota nem valor do ISS: a prefeitura calcula o imposto pelo
-        // código do serviço e pelo cadastro do prestador. Mandar a alíquota da
-        // tela (um número que a empresa digita) faria a nota divergir do que a
-        // prefeitura apura — e em vários municípios ela recusa a divergência.
+        // ⚠️ Nunca a alíquota da TELA nem o valor do ISS: um número que a
+        // empresa digita faria a nota divergir do que a prefeitura apura. A
+        // única alíquota que sai é a que a PLATAFORMA declarou no emitente,
+        // junto com o código do serviço (São Paulo a exige no RPS).
         valor_servicos: Math.round(nota.valor * 100) / 100,
         iss_retido: nota.issRetido,
         item_lista_servico: item,
@@ -186,6 +202,7 @@ export function montarPedido(
         codigo_municipio: emitente.codigoMunicipio,
         ...(emitente.codigoTributarioMunicipio ? { codigo_tributario_municipio: emitente.codigoTributarioMunicipio } : {}),
         ...(emitente.codigoCnae ? { codigo_cnae: emitente.codigoCnae } : {}),
+        ...(emitente.aliquota !== undefined ? { aliquota: emitente.aliquota } : {}),
       },
     },
   };
