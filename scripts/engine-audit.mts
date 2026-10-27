@@ -11809,8 +11809,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // dinâmico (`import("…")`) e `require` — de net, tls, http, https, http2 e undici.
   const MODS_REDE = String.raw`(?:node:)?(?:net|tls|https?|http2)|undici`;
   const REDE = new RegExp(String.raw`^(?!\s*import\s+type\b)[^\n]*\bfrom\s+["'](?:${MODS_REDE})["']|\bimport\(\s*["'](?:${MODS_REDE})["']\s*\)|\brequire\(\s*["'](?:${MODS_REDE})["']\s*\)`, "m");
-  const comRede = (ler: (p: string) => string) => arqsF.filter((p) => p !== PORTA_F && p.startsWith("src/") && REDE.test(semComF(ler(p))));
-  ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora da porta", comRede(lerF).length === 0, comRede(lerF).join(", "));
+  // A SEGUNDA porta declarada (27/10/2026): o Banco Inter exige mTLS, que o
+  // fetch do Node não faz sem undici. Ela fala SÓ com o Inter (bloco `inter:`).
+  const PORTA_INTER = "src/lib/cobranca-banco/inter-saida.ts";
+  const PORTAS_REDE = [PORTA_F, PORTA_INTER];
+  const comRede = (ler: (p: string) => string) => arqsF.filter((p) => !PORTAS_REDE.includes(p) && p.startsWith("src/") && REDE.test(semComF(ler(p))));
+  ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora das duas portas", comRede(lerF).length === 0, comRede(lerF).join(", "));
+  // inter: a porta do Inter não fala com a Pinbank, e o endereço do Inter só mora no core dele.
+  const HOST_INTER = /bancointer\.com\.br|uatinter\.co/i;
+  const CORE_INTER = "src/core/cobranca-banco/inter.ts";
+  const comHostInter = (ler: (p: string) => string) => arqsF.filter((p) => p !== CORE_INTER && HOST_INTER.test(semComF(ler(p))));
+  ok("inter: o endereço do Inter só aparece em core/cobranca-banco/inter.ts (BASES_INTER)", comHostInter(lerF).length === 0, comHostInter(lerF).join(", "));
+  ok("inter: a varredura ainda ENXERGA o endereço no core", HOST_INTER.test(semComF(lerF(CORE_INTER))));
+  ok("inter: (defeito plantado) URL do Inter na rota é ACUSADA",
+     comHostInter((p) => (p === "src/app/api/admin/inter-teste/route.ts" ? lerF(p) + '\nconst u = "https://cdpj.partners.bancointer.com.br/x";' : lerF(p))).includes("src/app/api/admin/inter-teste/route.ts"));
+  ok("inter: a porta do Inter não cita a Pinbank", !/pinbank/i.test(semComF(lerF(PORTA_INTER))));
+  ok("inter: a porta do Inter só usa as bases de BASES_INTER e confere o caminho antes de conectar",
+     /BASES_INTER\[/.test(semComF(lerF(PORTA_INTER))) && /caminhoPermitidoInter\(/.test(semComF(lerF(PORTA_INTER))));
+  ok("inter: (defeito plantado) um https.request num arquivo do Inter fora da porta é ACUSADO",
+     comRede((p) => (p === "src/lib/cobranca-banco/inter-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/inter-api.ts"));
   // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
   // ambiente escaparia da varredura do endereço.
   const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/(saida-fixa|pinbank-extrato))\//.test(p) && p !== PORTA_F);
