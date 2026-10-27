@@ -299,25 +299,84 @@ function ProximosEnvios({ ctx, ctxErro, regua, ativo }: {
         : !ctx ? <Skeleton className="h-24 w-full" />
           : agenda.length === 0 ? <span className="text-caption text-muted">Nenhum título em aberto chega a uma etapa nos próximos 7 dias.</span>
             : (
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-3">
                 {Array.from(porDia.entries()).map(([data, itens]) => (
-                  <div key={data} className="flex flex-col border-t border-border-soft first:border-t-0 py-2">
-                    <span className="a4p-label text-faint">{data === ctx.hoje ? "Hoje" : br(data)}</span>
-                    {itens.map((a) => (
-                      <div key={`${a.movimentoId}-${a.etapa.id}`}
-                        className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_150px_130px_120px] items-center gap-x-3 py-1 text-caption text-ink">
-                        <span className="truncate">{a.cliente}</span>
-                        <span className="text-muted hidden sm:block">{a.etapa.nome}</span>
-                        <span className="text-muted hidden sm:block">
-                          {a.etapa.canal === "email" ? (semEmail(a.partyId) ? "E-mail · sem e-mail" : "E-mail") : a.etapa.canal === "whatsapp" ? "WhatsApp" : "Só me avisar"}
-                        </span>
-                        <span className="tabular-nums text-right"><BRL value={a.valor} /></span>
-                      </div>
-                    ))}
-                  </div>
+                  <DiaDaAgenda key={data} data={data} hoje={ctx.hoje} itens={itens} semEmail={semEmail} />
                 ))}
               </div>
             )}
     </Card>
+  );
+}
+
+const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+/** "Hoje", "Amanhã" ou "quinta, 29/10" — o dia da semana sai da string, sem fuso. */
+function rotuloDoDia(data: string, hoje: string): string {
+  if (data === hoje) return "Hoje";
+  if (data === somarDiasIso(hoje, 1)) return "Amanhã";
+  const [a, m, d] = data.slice(0, 10).split("-").map(Number);
+  return `${DIAS_SEMANA[new Date(Date.UTC(a, m - 1, d)).getUTCDay()]}, ${br(data).slice(0, 5)}`;
+}
+
+function somarDiasIso(iso: string, n: number): string {
+  const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** Antes do vencimento é lembrete; no dia e depois é cobrança — a etapa diz qual. */
+function grupoDaEtapa(dia: number): "antes" | "dia" | "depois" {
+  return dia < 0 ? "antes" : dia === 0 ? "dia" : "depois";
+}
+
+const ROTULO_GRUPO = { antes: "Lembrete", dia: "Vence hoje", depois: "Em atraso" } as const;
+
+function DiaDaAgenda({ data, hoje, itens, semEmail }: {
+  data: string; hoje: string;
+  itens: ReturnType<typeof agendaDaRegua>;
+  semEmail: (partyId: string | null) => boolean;
+}) {
+  const total = itens.reduce((s, a) => s + a.valor, 0);
+  return (
+    <section className="rounded-md bg-surface-1 p-3 sm:p-4 flex flex-col gap-2" aria-label={rotuloDoDia(data, hoje)}>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="text-label font-medium text-ink first-letter:uppercase">{rotuloDoDia(data, hoje)}</span>
+        <span className="text-caption text-muted">
+          {itens.length === 1 ? "1 cobrança" : `${itens.length} cobranças`} · <BRL value={total} />
+        </span>
+      </header>
+      <ul className="flex flex-col rounded-md bg-white">
+        {itens.map((a) => {
+          const grupo = grupoDaEtapa(a.etapa.dia);
+          const falta = a.etapa.canal === "email" && semEmail(a.partyId);
+          return (
+            <li key={`${a.movimentoId}-${a.etapa.id}`}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2.5 border-t border-border-soft first:border-t-0">
+              <div className="flex flex-col min-w-0">
+                <span className="text-body text-ink truncate">{a.cliente}</span>
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-muted">
+                  <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-1 px-2 py-0.5 text-ink">
+                    <span aria-hidden className="h-1.5 w-1.5 rounded-pill"
+                      style={{ background: grupo === "depois" ? "var(--color-warning)" : grupo === "dia" ? "var(--color-ink)" : "var(--color-areia)" }} />
+                    {ROTULO_GRUPO[grupo]}
+                  </span>
+                  {grupo !== "dia" && <span>{a.etapa.nome}</span>}
+                  <span className="inline-flex items-center gap-1">
+                    <Icon name={a.etapa.canal === "whatsapp" ? "smartphone" : a.etapa.canal === "email" ? "mail" : "bell"} size={12} color="currentColor" />
+                    {a.etapa.canal === "email" ? "E-mail" : a.etapa.canal === "whatsapp" ? "WhatsApp" : "Só me avisar"}
+                  </span>
+                  {falta && (
+                    <span className="inline-flex items-center gap-1 text-ink">
+                      <Icon name="triangle-alert" size={12} color="var(--color-warning)" /> sem e-mail no cadastro
+                    </span>
+                  )}
+                </span>
+              </div>
+              <span className="tabular-nums text-right text-body text-ink"><BRL value={a.valor} /></span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
