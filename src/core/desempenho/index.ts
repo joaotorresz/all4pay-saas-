@@ -117,7 +117,7 @@ export const MEDIDO_EM = {
     "/": { requisicoes: 38, kb: 3152, ms: 1684, alvosPequenos: 76 },
     "/fluxo-caixa": { requisicoes: 55, kb: 2447, ms: 1133, alvosPequenos: 55 },
     "/aprovacoes": { requisicoes: 40, kb: 2190, ms: 661, alvosPequenos: 27 },
-    "/dashboard/registrations/bank-accounts?aba=transferencias": { requisicoes: 50, kb: 2357, ms: 789, alvosPequenos: 97 },
+    "/dashboard/financial/transfers": { requisicoes: 50, kb: 2357, ms: 789, alvosPequenos: 97 },
     "/dashboard/financial/statement": { requisicoes: 49, kb: 2385, ms: 694, alvosPequenos: 31 },
     "/upload": { requisicoes: 42, kb: 2272, ms: 707, alvosPequenos: 35 },
     "/dashboard/reports/dre": { requisicoes: 48, kb: 2298, ms: 764, alvosPequenos: 90 },

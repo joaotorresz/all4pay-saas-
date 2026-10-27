@@ -48,7 +48,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Contabilidade (razão) ----------------------------- */
-  "/contabilidade?aba=razao": {
+  "/contabilidade": {
     titulo: "Razão (General Ledger)",
     intro: "A fonte única da verdade: razão de dupla entrada. Todo lançamento tem débito = crédito (validado no banco). É a base contábil auditável de todo o sistema.",
     comoUsar: "Clique em 'Backfill do histórico' para derivar lançamentos dos seus movimentos; ou 'Novo lançamento' para postar um manual (débito × crédito). Abra cada lançamento para ver as linhas por conta.",
@@ -158,7 +158,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=cronogramas": {
+  "/cronogramas": {
     titulo: "Cronogramas (amortização/depreciação)",
     intro: "Despesas antecipadas (amortização) e ativo imobilizado (depreciação) vivem aqui; os cronogramas consolidam num único lançamento mensal para o razão.",
     comoUsar: "Crie um cronograma (tipo, valor total, vida útil em meses, início, residual). Escolha o mês e clique 'Lançar no razão' para postar a parcela consolidada.",
@@ -174,7 +174,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=receita": {
+  "/receita": {
     titulo: "Reconhecimento de receita",
     intro: "Reconhece a receita ao longo da obrigação (IFRS 15/CPC 47), a partir dos contratos de recorrência: MRR/ARR, receita diferida e waterfall de MRR.",
     comoUsar: "Crie/ative recorrências em /recorrencias. Aqui, clique 'Reconhecer competência no razão' para postar a parcela do mês de cada contrato (receita diferida → receita).",
@@ -190,7 +190,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=dimensoes": {
+  "/dimensoes": {
     titulo: "Dimensões & Tags",
     intro: "Pivota os movimentos por qualquer dimensão e desce da agregação até a transação. Marque tags por transação para criar dimensões ilimitadas.",
     comoUsar: "Escolha a dimensão (categoria/centro/contraparte/tag), o período e o regime. Abra uma linha e use '+ tag' para etiquetar uma transação.",
@@ -225,16 +225,30 @@ export const GUIDES: Record<string, Guide> = {
   /* ----------------------------- Upload / ingestão ----------------------------- */
   "/upload": {
     titulo: "Entrada de dados",
-    intro: "A esteira única de ingestão, em três abas: Conectar (Open Finance/bancos + posição por conta), Enviar (extratos CSV/OFX e documentos por OCR via FDIP) e Conciliar (casa o que entrou com os títulos previstos, baixa única). Tudo o que entra no sistema passa por aqui.",
-    comoUsar: "Escolha a aba: em Conectar, autorize o banco; em Enviar, arraste arquivos (ou cole/use a amostra) e confirme; em Conciliar, revise as filas (auto/sugestão/exceção) e dê baixa.",
-    exemplo: "Conecte o banco (Conectar) → o extrato entra → em Conciliar, um PIX de R$ 1.200 casa com a fatura de R$ 1.200 do cliente; ou arraste um CSV em Enviar → revise e confirme.",
+    intro: "A esteira única de ingestão, numa página só: Enviar extrato (CSV/OFX/PDF e documentos por OCR), Conectar banco (Open Finance + posição por conta) e Revisão (o que precisa de uma pessoa). Regras de categoria e Duplicatas têm página própria no menu.",
+    comoUsar: "Role a página: em Enviar, arraste o arquivo e confirme; em Conectar, autorize o banco; em Revisão, decida o que o sistema não classificou sozinho.",
+    exemplo: "Arraste o extrato do mês em Enviar → confira a prévia e confirme → o que ficou em dúvida aparece em Revisão, logo abaixo.",
     secoes: [
       acoes([
-        { nome: "Conectar", desc: "Open Finance (Pluggy): bancos, extrato e posição consolidada por conta." },
-        { nome: "Enviar", desc: "CSV/OFX/TXT em lote ou PNG/JPG/PDF por OCR; cadastra contatos/categorias e cria os lançamentos." },
-        { nome: "Conciliar", desc: "Matching probabilístico (auto/sugestão/exceção) → baixa do título previsto, sem contar o dinheiro 2x." },
+        { nome: "Enviar extrato", desc: "CSV/OFX/TXT/PDF em lote ou PNG/JPG por OCR; cadastra contatos/categorias e cria os lançamentos." },
+        { nome: "Conectar banco", desc: "Open Finance: bancos, extrato e posição consolidada por conta." },
+        { nome: "Revisão", desc: "A fila do que discorda entre si e precisa de uma pessoa." },
       ]),
     ],
+  },
+  "/upload/regras": {
+    titulo: "Regras de categoria",
+    intro: "Categorização automática por padrão: escreva a regra uma vez e ela vale para toda importação.",
+    comoUsar: "Crie a regra com as condições (contraparte, descrição, valor, CNAE) e a categoria. A ordem é a prioridade: a primeira que casa vence; arraste para reordenar.",
+    exemplo: "Contraparte contém \"posto\" → Combustível. Todos os postos das próximas importações já entram classificados.",
+    secoes: [],
+  },
+  "/upload/duplicatas": {
+    titulo: "Duplicatas",
+    intro: "Encontra as cópias que entraram antes de a importação ficar idempotente e mostra o impacto antes de remover.",
+    comoUsar: "Confira os grupos: o primeiro de cada um fica (é ele que baixas e conciliações já referenciam); as cópias saem depois da sua confirmação.",
+    exemplo: "O mesmo extrato importado duas vezes em julho → 34 cópias listadas com o efeito no caixa → remover.",
+    secoes: [],
   },
   /* ----------------------------- Receber ----------------------------- */
   "/contas-a-receber/painel-de-vendas": {
@@ -516,21 +530,8 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  /* ----------------------------- Contabilidade (integração) ----------------------------- */
-  "/contabilidade": {
-    titulo: "Contabilidade — envio ao contador",
-    intro: "A ponte com o escritório contábil: exporta o movimento (TXT Domínio) e as NFs do período para importação direta no sistema do contador.",
-    comoUsar: "Escolha o período, gere o arquivo TXT e envie ao contador; as NFs seguem no mesmo pacote.",
-    secoes: [
-      blocos([
-        { nome: "Exportação TXT", desc: "Arquivo no layout Domínio com o movimento do período." },
-        { nome: "Notas fiscais", desc: "NFs do período incluídas no envio." },
-      ]),
-    ],
-  },
-
   /* ----------------------------- Consolidado multiempresa ----------------------------- */
-  "/dashboard/reports/dre-multi?aba=consolidado": {
+  "/consolidado": {
     titulo: "Consolidado (multiempresa)",
     intro: "A posição agregada das organizações em que você é membro: saldo, receita, despesa e resultado lado a lado (sem eliminações intercompany na v1).",
     comoUsar: "Compare as empresas e clique numa linha para entrar no contexto dela.",
@@ -599,14 +600,13 @@ export const GUIDES: Record<string, Guide> = {
 /**
  * Guia da tela atual. Com a consolidação em hubs, cada ABA tem o seu guia:
  * a chave passou a ser `"/hub?aba=x"`. Resolve nesta ordem:
- *   1) a aba exata (`/contabilidade?aba=razao`);
+ *   1) a aba exata (`/contabilidade`);
  *   2) o hub inteiro  (`/contabilidade`);
  *   3) o prefixo mais longo (sub-rotas).
  * `aba` vem do `?aba=` da URL; sem ela, o hub cai na primeira aba — por isso
  * `padraoDoHub` mapeia o hub para a aba que ele abre por padrão.
  */
 const PADRAO_DO_HUB: Record<string, string> = {
-  "/contabilidade": "razao",
   "/dashboard/registrations/clients": "contatos",
 };
 
@@ -657,7 +657,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/exportar?aba=nfs": {
+  "/dashboard/accounting/nfe-export": {
     titulo: "Envio de NFs ao contador",
     intro: "O pacote mensal com os XMLs das notas de entrada e de saída, enviado para os e-mails do contador no dia 1º.",
     comoUsar: "Adicione o e-mail do contador; ele precisa clicar no link de confirmação para começar a receber. Enquanto não houver um e-mail verificado o envio fica Inativo — e nada é arquivado.",
@@ -673,7 +673,7 @@ Object.assign(GUIDES, {
       ]),
     ],
   },
-  "/exportar?aba=dominio": {
+  "/dashboard/accounting/dominio-export": {
     titulo: "Gerar TXT contábil — Domínio",
     intro: "Exporta o extrato bancário no formato Partidas Simples (lanctos.txt) para importação direta no Domínio. É o consumidor do 'Código contábil (Domínio)' das contas e centros de custo.",
     comoUsar: "Escolha a conta bancária e o mês, clique em Carregar lançamentos e confira a lista e a prévia do arquivo antes de gerar. O que estiver sem código contábil aparece como pendência e fica FORA do arquivo.",

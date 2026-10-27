@@ -34,7 +34,7 @@ const TELAS = [
   ["Início", "/"],
   ["Fluxo de caixa", "/fluxo-caixa"],
   ["Aprovações", "/aprovacoes"],
-  ["Títulos a receber", "/dashboard/registrations/bank-accounts?aba=transferencias"],
+  ["Títulos a receber", "/dashboard/financial/transfers"],
   ["Extrato", "/dashboard/financial/statement"],
   ["Entrada de dados", "/upload"],
   ["DRE", "/dashboard/reports/dre"],

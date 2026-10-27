@@ -14,7 +14,11 @@ import type { FDIPReport } from "@/core/fdip/types";
 
 export type LeituraDocumento =
   | { kind: "doc"; fields: DocFields; modo: "ia" | "local" }
-  | { kind: "bulk"; report: FDIPReport }
+  /**
+   * `texto` é o extrato já em texto tabulado — quem junta vários arquivos numa
+   * análise só (a aba Enviar) precisa dele; o relatório sozinho não se soma.
+   */
+  | { kind: "bulk"; report: FDIPReport; texto: string }
   | { kind: "erro"; motivo: string };
 
 /** O servidor tem ANTHROPIC_API_KEY? (OCR por IA disponível.) */
@@ -94,8 +98,8 @@ export async function lerDocumento(file: File, ocrOn: boolean): Promise<LeituraD
 
   try {
     if (isText) {
-      const report = analisarImportacao(await file.text());
-      return { kind: "bulk", report };
+      const texto = await file.text();
+      return { kind: "bulk", report: analisarImportacao(texto), texto };
     }
     // ⚠️ **PDF COM CAMADA DE TEXTO É LOTE, NÃO DOCUMENTO.** Antes, TODO PDF caía
     // no OCR e virava UM lançamento: um extrato de 200 transações entrava como
@@ -114,7 +118,7 @@ export async function lerDocumento(file: File, ocrOn: boolean): Promise<LeituraD
           // texto e nenhuma tabela de lançamentos: o parser devolve zero linhas
           // e o arquivo segue para o OCR, que é quem sabe ler um documento.
           // Sem esta condição, o boleto viraria um lote vazio "bem-sucedido".
-          if (report.records.length > 0) return { kind: "bulk", report };
+          if (report.records.length > 0) return { kind: "bulk", report, texto: csv };
         }
       }
     }

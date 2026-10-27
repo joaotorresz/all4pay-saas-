@@ -1,88 +1,46 @@
 "use client";
 
 /**
- * Entrada de dados — a esteira ÚNICA de ingestão (GAP #5). Unifica as três
- * formas de trazer dinheiro-dado para o sistema em abas de um só fluxo:
- *   1. Conectar  → Open Finance (bancos) + posição consolidada por conta;
- *   2. Enviar    → upload de extratos (CSV/OFX) e documentos (OCR) via FDIP;
- *   (a conciliação saiu daqui e mora na Conciliação bancária — uma só.)
- * Deep-link por `?aba=`; `/contas` redireciona para a aba de conectar.
+ * Entrada de dados — a esteira ÚNICA de ingestão (GAP #5), numa página só
+ * (27/10/2026, "sem abas internas"): enviar extrato, conectar banco e a fila
+ * de revisão, uma seção embaixo da outra. Regras de categoria e Duplicatas
+ * viraram páginas próprias (`/upload/regras`, `/upload/duplicatas`); os
+ * `?aba=` antigos rolam até a seção ou respondem 308.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
+import { Secoes } from "@/components/app/Secoes";
 import { ContasView } from "@/components/contas/ContasView";
 import { ConectarBanco } from "@/components/contas/ConectarBanco";
 import { UploadView } from "@/components/upload/UploadView";
 import { UploadWizard } from "@/components/upload/UploadWizard";
-import { RegrasView } from "./RegrasView";
-import { LimpezaDuplicatas } from "@/components/upload/LimpezaDuplicatas";
 import { FilaRevisaoView } from "@/components/revisao/FilaRevisaoView";
 
-type Aba = "conectar" | "enviar" | "regras" | "limpeza" | "revisao";
-const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
-  { id: "conectar", label: "Conectar", icon: "building", desc: "Open Finance — bancos e posição por conta" },
-  { id: "enviar", label: "Enviar extrato", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
-  { id: "regras", label: "Regras de categoria", icon: "workflow", desc: "Categorização automática — escreva uma vez, vale sempre" },
-  // A idempotência resolve daqui para a frente; esta aba resolve o passado —
-  // as cópias que entraram antes de a chave existir.
-  { id: "limpeza", label: "Duplicatas", icon: "scan-line", desc: "Encontra e remove as cópias já gravadas na base" },
-  // ⚠️ A fila do que o sistema NÃO classifica sozinho. Mora aqui, e não numa
-  // entrada de menu própria, porque é conferência do dado que ENTROU — a mesma
-  // esteira. E a aba fica por último de propósito: ela é exceção, não o fluxo.
-  { id: "revisao", label: "Revisão", icon: "list-checks", desc: "O que discorda entre si e precisa de uma pessoa" },
-];
-const isAba = (s: string | null): s is Aba =>
-  s === "conectar" || s === "enviar" || s === "regras" || s === "limpeza"
-  || s === "revisao";
-
 export function IngestaoView() {
-  const router = useRouter();
-  const [aba, setAba] = React.useState<Aba>("enviar");
-
-  React.useEffect(() => {
-    const a = new URLSearchParams(window.location.search).get("aba");
-    if (isAba(a)) setAba(a);
-  }, []);
-
-  const trocar = (id: Aba) => {
-    setAba(id);
-    router.replace(`/upload?aba=${id}`, { scroll: false });
-  };
-
   return (
     <div className="flex flex-col gap-5 pb-4">
-      {/* Abas da esteira */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {ABAS.map((a) => (
-          <button
-            key={a.id}
-            onClick={() => trocar(a.id)}
-            className={`inline-flex items-center gap-2 text-label font-medium rounded-pill px-4 py-2 ${aba === a.id ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
-            title={a.desc}
-          >
-            <Icon name={a.icon} size={15} color={aba === a.id ? "var(--color-white)" : "var(--color-text-secondary)"} />
-            {a.label}
-          </button>
-        ))}
-        <span className="text-caption text-faint ml-auto hidden sm:block">{ABAS.find((a) => a.id === aba)?.desc}</span>
-      </div>
-
-      {aba === "conectar" && (
-        <>
-          <div className="flex justify-end"><ConectarBanco /></div>
-          <ContasView />
-        </>
-      )}
-      {aba === "enviar" && <UploadView />}
-      {aba === "regras" && <RegrasView />}
-      {aba === "limpeza" && <LimpezaDuplicatas />}
-      {aba === "revisao" && <FilaRevisaoView />}
+      <Secoes
+        secoes={[
+          { id: "enviar", titulo: "Enviar extrato", desc: "Extratos (CSV/OFX/PDF) e documentos (OCR)", conteudo: <UploadView /> },
+          {
+            id: "conectar", titulo: "Conectar banco", desc: "Open Finance — bancos e posição por conta",
+            conteudo: (
+              <>
+                <div className="flex justify-end"><ConectarBanco /></div>
+                <ContasView />
+              </>
+            ),
+          },
+          // ⚠️ A fila do que o sistema NÃO classifica sozinho: conferência do
+          // dado que ENTROU, a mesma esteira. Por último porque é exceção.
+          { id: "revisao", titulo: "Revisão", desc: "O que discorda entre si e precisa de uma pessoa", conteudo: <FilaRevisaoView /> },
+        ]}
+      />
 
       {/* Botão fixo "Upload de dados" — o mesmo que existia na Home, agora na
           casa dele. Não navega: dispara `a4p:open-upload` e o wizard de 3
           etapas (documento avulso → leitura por OCR → confirmação) abre por
-          cima da esteira, valendo para qualquer aba. */}
+          cima da esteira, valendo para qualquer seção. */}
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}
         aria-label="Enviar documento para a entrada de dados"

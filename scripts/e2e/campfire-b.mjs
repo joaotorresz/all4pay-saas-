@@ -171,7 +171,7 @@ export default async function campfireB(navegador) {
   }
 
   /* ── 5. consolidado com eliminações ──────────────────────────────────── */
-  await u.ir("/dashboard/reports/dre-multi?aba=consolidado");
+  await u.ir("/consolidado");
   await page.waitForTimeout(1500);
   t = plano(await u.texto());
   v.ok(/Eliminações entre empresas/.test(t) && /Critério conservador/.test(t), "o consolidado mostra as eliminações e o critério");
