@@ -5,6 +5,7 @@
  * da mesma arte divergem no primeiro ajuste, e as duas telas são a mesma porta
  * vista em dois momentos.
  */
+import Image from "next/image";
 import { BarrasEntradaSaida } from "@/components/ui";
 
 export function Spinner() {
@@ -12,8 +13,8 @@ export function Spinner() {
 }
 
 /**
- * O painel da marca, no design system de 27/10/2026 (o do site): bloco na
- * tinta (#3B4332, `--color-ink`) com o título em Agrandir 700 e, no meio, o
+ * O painel da marca, no design system de 27/10/2026 (o do site): a foto da
+ * maquininha Quattro de fundo (escolhida pelo dono, 27/10/2026) e, no canto, o
  * MESMO cartão "Caixa consolidado" da Home (`CardGrande` de `HomeSnapshot`):
  * rótulo, valor-herói, pílula de variação e o modelo "Entradas" da Biblioteca.
  *
@@ -46,17 +47,17 @@ export function ArtPanel({ pessoal }: { pessoal: boolean }) {
   return (
     <div className="hidden lg:flex p-4 lg:p-5" aria-hidden>
       <div
-        className="relative flex-1 overflow-hidden rounded-bloco flex flex-col justify-center gap-12 p-12"
+        className="relative flex-1 overflow-hidden rounded-bloco flex flex-col justify-end p-10"
         style={{ background: "var(--color-ink)" }}
       >
-        {/* Formas na própria tinta, só tons dela — sem segunda cor. */}
-        <div className="absolute rounded-pill" style={{ width: 560, height: 560, top: "-18%", right: "-22%", background: "color-mix(in srgb, var(--color-white) 6%, var(--color-ink))" }} />
-        <div className="absolute rounded-pill" style={{ width: 340, height: 340, bottom: "-14%", left: "-10%", background: "color-mix(in srgb, var(--color-white) 4%, var(--color-ink))" }} />
+        {/* A foto da maquininha Quattro (a mesma do site), cobrindo o bloco. */}
+        <Image src="/entrada-maquininha.webp" alt="" fill priority sizes="50vw" className="object-cover" style={{ objectPosition: "50% 45%" }} />
 
-        {/* O cartão da Home: branco, raio do card, sem sombra. */}
+        {/* O cartão da Home, a 70% do tamanho de lá (`zoom` encolhe texto,
+            gráfico e espaços juntos — mudar só a largura espremeria o gráfico). */}
         <div
-          className="relative self-center w-[440px] max-w-full flex flex-col gap-4 px-8 pt-[30px] pb-6"
-          style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" }}
+          className="relative w-[440px] max-w-full flex flex-col gap-4 px-8 pt-[30px] pb-6"
+          style={{ background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)", zoom: 0.7 }}
         >
           <span className="text-[15px] text-ink">{pessoal ? "Saldo do mês" : "Caixa consolidado"}</span>
           <div className="flex items-center gap-[13.8px] flex-wrap">
@@ -79,19 +80,6 @@ export function ArtPanel({ pessoal }: { pessoal: boolean }) {
             <span>Exemplo</span>
             <span className="text-[13px]">vs. o mesmo dia do mês passado</span>
           </div>
-        </div>
-
-        <div className="relative max-w-[440px] self-center w-[440px]">
-          <p className="m-0 text-[34px] leading-[1.05]" style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.02em", wordSpacing: "var(--a4p-titulo-espaco-palavra)", color: "var(--color-white)" }}>
-            {pessoal
-              ? "Seu dinheiro do dia a dia, organizado e sob controle."
-              : "O sistema financeiro que também guarda e move o seu dinheiro."}
-          </p>
-          <p className="m-0 mt-4 text-[15px]" style={{ color: "var(--color-white)", opacity: 0.72 }}>
-            {pessoal
-              ? "Gastos, contas e orçamento num lugar só, sem planilha."
-              : "Caixa, cobrança e pagamento num lugar só."}
-          </p>
         </div>
       </div>
     </div>
