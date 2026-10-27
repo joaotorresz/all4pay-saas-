@@ -26,7 +26,7 @@ import {
 import { registrarClique, registrarExibicao, type PreferenciasHome } from "@/core/home/preferencias";
 import {
   EXEMPLOS_DE_PEDIDO, LAYOUT_PADRAO, aplicarAcoes, cardsRecusados, definirLargura, descreverMudancas, faixasDoPainel,
-  idDoCockpit, interpretarPedido, itemHome, larguraDe, larguraMaisPerto, larguraVizinha, layoutDasOrdensAntigas,
+  idDoCockpit, interpretarPedido, itemHome, larguraDe, larguraMaisPerto, larguraVizinha, largurasDe, layoutDasOrdensAntigas,
   mesmoLayout, moverItem, normalizarAcoes, ordemDasSecoes, pedeCatalogo, respostaDoAjuste, respostaDoCatalogo, visiveis,
   type AcaoHome, type IdCard, type IdHome, type IdItemHome, type LarguraHome, type LayoutHome,
 } from "@/core/home/itens";
@@ -406,6 +406,7 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
   // Durante o gesto só a tela muda; o arranjo é gravado ao soltar.
   const borda = (id: IdHome) => ({
     largura: larguraDe(atual, id),
+    opcoes: largurasDe(id),
     aoArrastar: (l: LarguraHome) => {
       const novo = definirLargura(rascunhoRef.current ?? layout, id, l);
       rascunhoRef.current = novo;
@@ -417,7 +418,7 @@ function useArraste(layout: LayoutHome, salvar: (l: LayoutHome) => void) {
       if (r && !mesmoLayout(r, layout)) salvar(r);
       setRascunho(null);
     },
-    aoPasso: (passo: -1 | 1) => salvar(definirLargura(atual, id, larguraVizinha(larguraDe(atual, id), passo))),
+    aoPasso: (passo: -1 | 1) => salvar(definirLargura(atual, id, larguraVizinha(larguraDe(atual, id), passo, largurasDe(id)))),
   });
   const alca = (id: IdHome) => ({
     onArmar: () => setArmado(id),
@@ -472,8 +473,10 @@ function ItemArrastavel({ id, arraste, children, largura, lugarDaAlca = "right-4
  * de `LARGURAS_HOME`: um quarto é o mínimo, então cabem no máximo quatro por
  * linha. Pelo teclado, as setas trocam para a largura vizinha.
  */
-function Borda({ largura, aoArrastar, aoSoltar, aoPasso, nome }: {
+function Borda({ largura, opcoes, aoArrastar, aoSoltar, aoPasso, nome }: {
   largura: LarguraHome;
+  /** As larguras que o item aceita (`largurasDe`). */
+  opcoes: readonly LarguraHome[];
   aoArrastar: (l: LarguraHome) => void;
   aoSoltar: () => void;
   aoPasso: (passo: -1 | 1) => void;
@@ -489,7 +492,7 @@ function Borda({ largura, aoArrastar, aoSoltar, aoPasso, nome }: {
     setAtiva(true);
     const linha = grade.getBoundingClientRect();
     const inicio = item.getBoundingClientRect().left;
-    const mover = (ev: PointerEvent) => aoArrastar(larguraMaisPerto((ev.clientX - inicio) / linha.width));
+    const mover = (ev: PointerEvent) => aoArrastar(larguraMaisPerto((ev.clientX - inicio) / linha.width, opcoes));
     const soltar = () => {
       setAtiva(false);
       aoSoltar();

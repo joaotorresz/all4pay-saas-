@@ -129,31 +129,51 @@ export const LARGURAS_HOME = [3, 4, 6, 8, 9, 12] as const;
 export type LarguraHome = (typeof LARGURAS_HOME)[number];
 const ehLargura = (v: unknown): v is LarguraHome => (LARGURAS_HOME as readonly unknown[]).includes(v);
 
+/**
+ * As larguras que o SALDO EM CONTAS aceita (pedido do dono, 27/10/2026): um
+ * terço, metade ou a linha inteira — os tamanhos-padrão da Home. ¼, ⅔ e ¾
+ * deixavam o número-herói espremido ou sobrando.
+ */
+export const LARGURAS_DO_FIXO = [4, 6, 12] as const satisfies readonly LarguraHome[];
+
+/** As larguras que um item aceita. */
+export function largurasDe(id: IdHome): readonly LarguraHome[] {
+  return id === ITEM_FIXO ? LARGURAS_DO_FIXO : LARGURAS_HOME;
+}
+
+const maisPerto = (alvo: number, opcoes: readonly LarguraHome[]): LarguraHome =>
+  opcoes.reduce((m, v) => (Math.abs(v - alvo) < Math.abs(m - alvo) ? v : m), opcoes[0]);
+
 /** A largura de um item: a que a pessoa deu, ou a padrão do tamanho dele. */
 export function larguraDe(layout: LayoutHome, id: IdHome): LarguraHome {
   const dada = layout.larguras?.[id];
-  if (dada) return dada;
+  // Uma largura guardada antes da regra do item encaixa na permitida mais perto.
+  if (dada) return maisPerto(dada, largurasDe(id));
   if (ehCard(id)) return 4;
   return itemHome(id).grupo === "bloco" ? 4 : 6;
 }
 
 /** A largura possível mais perto de uma fração da linha (o arraste da borda). */
-export function larguraMaisPerto(fracao: number): LarguraHome {
-  const alvo = fracao * 12;
-  return LARGURAS_HOME.reduce((m, v) => (Math.abs(v - alvo) < Math.abs(m - alvo) ? v : m), LARGURAS_HOME[0]);
+export function larguraMaisPerto(fracao: number, opcoes: readonly LarguraHome[] = LARGURAS_HOME): LarguraHome {
+  return maisPerto(fracao * 12, opcoes);
 }
 
 /** A largura vizinha (as setas do teclado na borda). */
-export function larguraVizinha(atual: LarguraHome, passo: -1 | 1): LarguraHome {
-  const i = LARGURAS_HOME.indexOf(atual);
-  return LARGURAS_HOME[Math.min(LARGURAS_HOME.length - 1, Math.max(0, i + passo))];
+export function larguraVizinha(atual: LarguraHome, passo: -1 | 1, opcoes: readonly LarguraHome[] = LARGURAS_HOME): LarguraHome {
+  const i = opcoes.indexOf(maisPerto(atual, opcoes));
+  return opcoes[Math.min(opcoes.length - 1, Math.max(0, i + passo))];
 }
 
-/** Grava a largura de um item; a padrão não é guardada (o arranjo fica enxuto). */
+/**
+ * Grava a largura de um item; a padrão não é guardada (o arranjo fica enxuto).
+ * ⚠️ Menos a do item FIXO: a tela estica o item sozinho na linha quando ele não
+ * tem largura guardada, então "metade" (a padrão dele) virava a linha inteira
+ * ao soltar — a escolha da pessoa tem de ficar escrita.
+ */
 export function definirLargura(layout: LayoutHome, id: IdHome, largura: LarguraHome): LayoutHome {
   const larguras = { ...(layout.larguras ?? {}) };
   delete larguras[id];
-  if (larguraDe({ ...layout, larguras }, id) !== largura) larguras[id] = largura;
+  if (id === ITEM_FIXO || larguraDe({ ...layout, larguras }, id) !== largura) larguras[id] = largura;
   const { larguras: _antes, ...resto } = layout;
   return Object.keys(larguras).length ? { ...resto, larguras } : resto;
 }

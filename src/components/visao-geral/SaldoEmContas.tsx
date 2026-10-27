@@ -25,12 +25,16 @@ export function SaldoEmContasCard({ carimbo }: { carimbo: string }) {
   const resumo = React.useMemo(() => (data ? saldoEmContas(data.accounts) : null), [data]);
   const [oculto, alternar] = useOcultarSaldos();
   // O valor escondido NÃO vai nem para o leitor de tela: esconder é não mostrar.
-  const valor = (v: number) => (oculto ? <span aria-label="Saldo oculto">{VALOR_OCULTO}</span> : <BRL value={v} />);
+  // Oculto, o valor segue no papel de NÚMERO (Agrandir 700, o mesmo corpo):
+  // sem a marca `a4p-num`/`data-num` ele caía na Inter ao fechar o olho.
+  const valor = (v: number) => (oculto
+    ? <span className="a4p-num inline-flex items-baseline whitespace-nowrap" aria-label="Saldo oculto"><span data-num="">{VALOR_OCULTO}</span></span>
+    : <BRL value={v} />);
 
   if (isLoading) return <div className="min-h-[240px] animate-pulse" style={cartao} />;
 
   return (
-    <div className="relative h-full min-w-0 flex flex-col gap-6 px-6 md:px-8 pt-[30px] pb-6" style={cartao}>
+    <div className="relative h-full min-w-0 flex flex-col gap-6 px-6 md:px-8 pt-[30px] pb-6 [container-type:inline-size]" style={cartao}>
       <div className="flex items-start gap-3">
         <span className="flex-1 min-w-0 flex items-baseline flex-wrap gap-x-3 gap-y-1">
           <span className="text-[15px] text-ink">Saldo total em contas</span>
@@ -66,7 +70,8 @@ export function SaldoEmContasCard({ carimbo }: { carimbo: string }) {
         </div>
       ) : (
         <>
-          <Link href={LINK_CONTAS} draggable={false} className="self-start a4p-heroi" style={{ fontSize: "clamp(34px, 9vw, 52px)", lineHeight: 1 }} aria-label="Ver as contas bancárias">
+          {/* O herói encolhe com o CARTÃO (cqi), não com a tela: em um terço da linha ele não cabia. */}
+          <Link href={LINK_CONTAS} draggable={false} className="self-start a4p-heroi" style={{ fontSize: "clamp(28px, 13cqi, 52px)", lineHeight: 1 }} aria-label="Ver as contas bancárias">
             {valor(resumo.total)}
           </Link>
           <ul className="m-0 p-0 list-none flex flex-col" aria-label="Saldo por banco">
