@@ -251,6 +251,14 @@
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   /* leve "pop" no retorno do clique */
   --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1);
+  /* foco de campo, cor, menu que abre */
+  --dur-rapida: 140ms;
+  /* modal, aviso, entrada do título da tela */
+  --dur-media: 220ms;
+  /* conteúdo da tela e cards entrando */
+  --dur-lenta: 420ms;
+  /* anel do campo em foco (digitando) — contorno, nunca sombra (o sistema não tem sombra); 55% da tinta = 3:1 sobre o branco, o mínimo de contraste de um indicador de foco */
+  --color-foco-halo: color-mix(in srgb, var(--color-ink) 55%, transparent);
   --font-display: "Quattro Agrandir", "Agrandir Tight Bold", "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "Inter Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -350,6 +358,7 @@ html.dark {
     0 8px 24px -18px rgba(27, 31, 23, 0.55);
   --shadow-popover: 0 24px 64px -16px rgba(27, 31, 23, 0.68);
   --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
+  --color-foco-halo: color-mix(in srgb, var(--color-ink) 60%, transparent);
   --a4p-bolha-usuario: var(--color-surface-2);
   --a4p-pilula-fundo: var(--color-white);
 }
@@ -1912,4 +1921,121 @@ body,
   font-family: var(--font-display) !important;
   font-weight: 700 !important;
   letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   MOVIMENTO 27/10/2026 (pedido do dono: "melhorar as animações, ainda mais
+   quando eu estou digitando e quando entro numa página").
+   Um conjunto PEQUENO e só com tokens (`--dur-rapida/media/lenta`,
+   `--ease-smooth`, `--color-foco-halo`). Quatro momentos:
+   1. ENTRAR NA TELA — o título desce no lugar e o conteúdo esmaece de
+      entrada (os cards já sobem com `a4pRise`). O conteúdo anima SÓ a
+      opacidade: um `transform` no invólucro viraria o bloco de contenção dos
+      modais `fixed` que algumas telas ainda abrem sem portal.
+   2. DIGITAR — o campo ganha um anel que se abre (`--color-foco-halo`), o
+      rótulo acende para a tinta, o placeholder recua e o campo inválido dá UM tremor curto (avisa sem gritar).
+   3. SOBREPOSTOS — fundo de modal esmaece, a caixa sobe 8px e cresce de 98%;
+      menu, popover e aviso (`.shadow-popover`) surgem a 4px do lugar.
+      ⚠️ Pelas propriedades INDIVIDUAIS `translate`/`scale`, nunca por
+      `transform`: o aviso e vários menus se centram com `-translate-x-1/2`
+      (`transform`), e animar `transform` os jogaria de lado no meio da
+      animação. As individuais se COMPÕEM com ele.
+   4. Tudo para em `prefers-reduced-motion`.
+   ============================================================ */
+
+/* 1. Entrar na tela */
+@keyframes a4p-tela-titulo {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes a4p-tela-conteudo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.a4p-topo-tela h1 {
+  animation: a4p-tela-titulo var(--dur-media) var(--ease-smooth) backwards;
+}
+[data-area-rola] > :not(.a4p-topo-tela):not([data-folga-barra]) {
+  animation: a4p-tela-conteudo var(--dur-lenta) var(--ease-smooth) backwards;
+  animation-delay: 40ms;
+}
+
+/* 2. Digitar
+   ⚠️ O gancho é `.a4p-campo`, NÃO `.border-campo`: o `cn()` passa pelo
+   tailwind-merge, que lê `border-campo` como COR de borda e o descarta ao
+   lado de `border-border` (medido no DOM: nenhum campo do sistema leva a
+   classe). Uma classe que ele não conhece sobrevive. */
+.a4p-campo {
+  transition: border-color var(--dur-rapida) ease, outline-color var(--dur-media) var(--ease-smooth),
+    outline-offset var(--dur-media) var(--ease-smooth), background-color var(--dur-rapida) ease;
+  caret-color: var(--color-ink);
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+/* O anel é CONTORNO, não sombra: a regra do site zera toda sombra dentro do
+   app (`.ds-visor * { box-shadow: none !important }`). Ele se desenha
+   abrindo de 0 a 2px de folga. E ele É o foco do campo: o contorno preto do
+   `:focus-visible` no `input` de dentro desenharia uma segunda caixa,
+   começando depois do "R$" (medido no campo de valor). */
+.a4p-campo:focus,
+.a4p-campo:focus-visible,
+.a4p-campo:focus-within {
+  outline: 2px solid var(--color-foco-halo);
+  outline-offset: 2px;
+}
+.a4p-campo :focus-visible { outline: none; }
+.a4p-campo input::placeholder,
+input.a4p-campo::placeholder,
+textarea.a4p-campo::placeholder {
+  transition: opacity var(--dur-media) var(--ease-smooth);
+}
+.a4p-campo:focus-within input::placeholder,
+input.a4p-campo:focus::placeholder,
+textarea.a4p-campo:focus::placeholder { opacity: 0.55; }
+label { transition: color var(--dur-rapida) ease; }
+.flex-col:focus-within > label { color: var(--color-ink); }
+@keyframes a4p-campo-invalido {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -3px 0; }
+  40% { translate: 3px 0; }
+  60% { translate: -2px 0; }
+  80% { translate: 1px 0; }
+}
+.a4p-campo.border-warning,
+.a4p-campo[aria-invalid="true"] {
+  animation: a4p-campo-invalido 320ms var(--ease-smooth);
+}
+
+/* 3. Sobrepostos */
+@keyframes a4p-fundo-entra {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes a4p-caixa-entra {
+  from { opacity: 0; translate: 0 8px; scale: 0.98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes a4p-pop-entra {
+  from { opacity: 0; translate: 0 4px; }
+  to { opacity: 1; translate: 0 0; }
+}
+.fixed.inset-0[class*="bg-black/"] {
+  animation: a4p-fundo-entra var(--dur-media) ease-out backwards;
+}
+.fixed.inset-0[class*="bg-black/"] > * {
+  animation: a4p-caixa-entra var(--dur-media) var(--ease-smooth) backwards;
+}
+.shadow-popover {
+  animation: a4p-pop-entra var(--dur-rapida) var(--ease-smooth) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a4p-topo-tela h1,
+  [data-area-rola] > *,
+  .a4p-campo.border-warning,
+  .a4p-campo[aria-invalid="true"],
+  .fixed.inset-0[class*="bg-black/"],
+  .fixed.inset-0[class*="bg-black/"] > *,
+  .shadow-popover { animation: none; }
+  .a4p-campo, .a4p-campo input::placeholder, label { transition: none; }
 }
