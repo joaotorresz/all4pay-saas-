@@ -1039,9 +1039,19 @@ falhou — `processando` e `incerta` NUNCA deixam pedir outra cobrança). O Inte
 (`core/cobranca-banco/inter`, API v3, boleto com Pix numa chamada) sai por UMA
 porta (`lib/cobranca-banco/inter-saida.ts`, mTLS, só caminhos de cobrança): é a
 segunda porta de rede declarada do app (bloco `inter:` do `engine-audit`). O
-aviso do webhook só traz CÓDIGOS; a situação vem da consulta. Por ora a
-credencial é das variáveis `INTER_*` (piloto); por empresa, cifrada, é a
-próxima etapa. Guarda: `npm run inter-cobranca`.
+aviso do webhook só traz CÓDIGOS; a situação vem da consulta. Guarda:
+`npm run inter-cobranca`.
+
+⚠️ **Etapa 3 (27/10/2026, migration `20261028120000`): a credencial é POR
+EMPRESA.** Só quem administra conecta (Integrações › "Banco Inter · cobrança");
+o segredo é testado no Inter, cifrado (AES-256-GCM, `lib/cobranca-banco/cofre`,
+`COBRANCA_CHAVE_MESTRA`, dado adicional = id da conexão) e guardado numa tabela
+SEM `org_id` que só a chave de serviço lê — nenhuma resposta nem log o leva. A
+reserva (`cobranca_banco_reservar`, papel de lançar) tira valor, vencimento e
+pagador do título, uma cobrança viva por título (contando a Pinbank), e a
+pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
+(`COBRANCA_BANCO=ligado`). Guardas `scripts/cobranca-banco.sql` (CI) e
+`npm run cobranca-banco-conexao`.
 
 ## ⚠️ A PÁGINA MAQUININHA QUATTRO VENDE A MAQUININHA (26/10/2026, pedido do dono)
 
