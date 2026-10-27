@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
+import { glifoDoBanco, iniciaisDoBanco, marcaDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "./bancos-icones";
 
 /**
@@ -28,11 +28,18 @@ export interface BancoLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
    * leu o nome. Sozinho, passe `decorativo={false}` para ele ser anunciado.
    */
   decorativo?: boolean;
+  /**
+   * A MARCA colorida do banco (`public/bancos/`), quando ela existe. Só na
+   * abertura de conta, onde a pessoa procura o banco dela numa lista (pedido
+   * do dono, 27/10/2026); sem arquivo, cai no glifo e depois nas iniciais.
+   */
+  marca?: boolean;
 }
 
 export function BancoLogo({
-  banco, nome, size = 28, decorativo = true, className, style, ...rest
+  banco, nome, size = 28, decorativo = true, marca = false, className, style, ...rest
 }: BancoLogoProps) {
+  const arquivo = marca ? (marcaDoBanco(nome) ?? marcaDoBanco(banco)) : null;
   const glifo = glifoDoBanco(banco) ?? glifoDoBanco(nome);
   const rotulo = nome || banco || "Banco";
   const a11y = decorativo
@@ -49,7 +56,10 @@ export function BancoLogo({
       {...a11y}
       {...rest}
     >
-      {glifo ? (
+      {arquivo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- SVG estático, sem otimização a fazer
+        <img src={arquivo} alt="" width={Math.round(size * 0.72)} height={Math.round(size * 0.72)} className="object-contain" />
+      ) : glifo ? (
         <svg viewBox="0 0 1024 1024" width={Math.round(size * 0.72)} height={Math.round(size * 0.72)} fill="currentColor" focusable="false">
           <path transform="matrix(1 0 0 -1 0 960)" d={BANCO_GLIFOS[glifo]} />
         </svg>
