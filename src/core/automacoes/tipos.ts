@@ -2,7 +2,7 @@
  * Os tipos das automações — o contrato entre o núcleo puro, o runner e a tela.
  */
 import type { RiskInput } from "@/core/risk-engine/types";
-import type { Credor } from "@/core/cobranca";
+import type { Credor, EtapaConfigurada } from "@/core/cobranca";
 
 export const AUTOMACOES_VERSION = "automacoes/1.0.0";
 
@@ -78,6 +78,11 @@ export interface ParametrosAutomacao {
   cidadePix?: string | null;
   /** Régua: pausas por título ou por cliente (acordo, contestação). */
   pausas?: Pausa[];
+  /**
+   * Régua: as etapas que a empresa montou (dia, canal, ligada). Ausente = a
+   * régua padrão. Conferida por `reguaDaEmpresa` — chega do banco.
+   */
+  etapas?: EtapaConfigurada[];
 }
 
 export interface ConfigAutomacao {

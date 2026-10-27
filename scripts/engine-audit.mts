@@ -6699,6 +6699,41 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("régua: antes da primeira etapa não há etapa", etapaDoTitulo(-10, REGUA_PADRAO) === null);
   ok("régua: o último degrau é MANUAL (protesto não sai por calendário)", REGUA_PADRAO[REGUA_PADRAO.length - 1].canal === "manual");
 
+  /* ---- 4b) A RÉGUA QUE A EMPRESA MONTA (27/10/2026) ---- */
+  const C = await import("@/core/cobranca");
+  const { tituloDaCobranca } = await import("@/core/automacoes");
+  const minha = C.reguaDaEmpresa([
+    { dia: -5, canal: "email", ativo: true }, { dia: -3, canal: "email", ativo: true },
+    { dia: 0, canal: "email", ativo: true }, { dia: 3, canal: "email", ativo: false },
+    { dia: -5, canal: "whatsapp", ativo: true },                 // repetido: fica o primeiro
+    { dia: 500, canal: "email", ativo: true },                   // fora da faixa
+    { dia: 2.5, canal: "email", ativo: true },                   // não inteiro
+    { dia: 7, canal: "pombo" as never, ativo: true },             // canal desconhecido
+  ]);
+  ok("régua da empresa: só entram as etapas ligadas, válidas e sem repetir o dia",
+     minha.map((e) => `${e.id}:${e.canal}`).join(",") === "d-5:email,d-3:email,d0:email", minha.map((e) => `${e.id}:${e.canal}`).join(","));
+  ok("régua da empresa: o id sai do DIA, o mesmo da padrão (a chave do envio não muda)",
+     C.reguaDaEmpresa(C.ETAPAS_PADRAO).map((e) => e.id).join(",") === REGUA_PADRAO.map((e) => e.id).join(","));
+  ok("régua da empresa: sem configuração vale a padrão; TUDO desligado é régua vazia, nunca a padrão",
+     C.reguaDaEmpresa(undefined) === REGUA_PADRAO && C.reguaDaEmpresa([{ dia: -3, canal: "email", ativo: false }]).length === 0);
+  ok("régua da empresa: o teto de etapas vale mesmo vindo do banco",
+     C.reguaDaEmpresa(Array.from({ length: 20 }, (_, i) => ({ dia: i, canal: "email" as const, ativo: true }))).length === C.TETO_ETAPAS);
+  // O que discrimina: com D−5 configurado, o título que vence em 5 dias entra
+  // na fila de HOJE; na régua padrão (que começa em D−3) ele não entra.
+  const inR5 = { ...(inR as object), movements: [...movsR, m("r-5antes", "entrada", 610, "2026-09-25", "Vendas", "C1", "pendente")] } as never;
+  const filaMinha = montarRegua(inR5, [], minha).filaDeHoje.map((i) => i.movimentoId);
+  const filaPadrao = montarRegua(inR5).filaDeHoje.map((i) => i.movimentoId);
+  ok("régua da empresa: D−5 configurado cobra hoje o título que vence em 5 dias (a padrão não)",
+     filaMinha.includes("r-5antes") && !filaPadrao.includes("r-5antes"), `${filaMinha} | ${filaPadrao}`);
+  const ag = C.agendaDaRegua(inR5, minha, 7);
+  ok("régua da empresa: a agenda dos 7 dias põe o D−5 hoje e o D−3 do mesmo título em dois dias",
+     ag.some((a) => a.movimentoId === "r-5antes" && a.data === "2026-09-20" && a.etapa.id === "d-5")
+     && ag.some((a) => a.movimentoId === "r-5antes" && a.data === "2026-09-22" && a.etapa.id === "d-3")
+     && !ag.some((a) => a.movimentoId === "r-transf" || a.movimentoId === "r-pago"), ag.map((a) => `${a.movimentoId}@${a.data}`).join(","));
+  ok("régua da empresa: o e-mail fala como o dono pediu (vence em N dias · vence hoje · está vencida)",
+     tituloDaCobranca(-5, "lembrete") === "Sua cobrança vence em 5 dias" && tituloDaCobranca(0, "lembrete") === "Sua cobrança vence hoje"
+     && tituloDaCobranca(3, "aviso") === "Sua cobrança está vencida" && tituloDaCobranca(-1, "lembrete", 2) === "Suas cobranças vencem em 1 dia");
+
   /* ---------------- 5) A VENDA TEM UMA MORADA SÓ (sales_docs) ---------------- */
   // ⚠️ A venda morava em três lugares (navegador, sales_docs, movements) e a
   // lista somava um enquanto o DRE somava outro. Três metades: a TRADUÇÃO
