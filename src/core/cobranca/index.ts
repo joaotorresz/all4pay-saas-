@@ -109,14 +109,26 @@ export const FINALIDADE_DO_TOM: Record<Tom, FinalidadeCobranca> = {
  */
 export function variaveisDoTemplate(
   dados: { cliente: string; valor: number; vencimento: string; dias: number }, credor?: Credor | null,
+  finalidade?: FinalidadeCobranca,
 ): Record<string, string> {
-  return {
+  return variaveisDoModelo({
     "1": dados.cliente,
     "2": identificacaoDoCredor(credor),
     "3": formatBRL(dados.valor),
     "4": br(dados.vencimento),
     "5": String(Math.max(0, dados.dias)),
-  };
+  }, finalidade);
+}
+
+/**
+ * ⚠️ O modelo de LEMBRETE (antes do vencimento) tem 4 variáveis: não há dias de
+ * atraso a dizer, e o "5" sairia "0". A Meta recusa variável que o modelo
+ * aprovado não declara, então o lembrete não leva a quinta.
+ */
+export function variaveisDoModelo(v: Record<string, string>, finalidade?: FinalidadeCobranca): Record<string, string> {
+  if (finalidade !== "cobranca_lembrete") return v;
+  const { "5": _dias, ...resto } = v;
+  return resto;
 }
 
 /**

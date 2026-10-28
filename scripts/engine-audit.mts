@@ -7669,6 +7669,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const { FINALIDADE_DO_TOM } = await import("@/core/cobranca");
   ok("aut: um template por tom (lembrete ≠ atraso ≠ formal)",
      new Set(Object.values(FINALIDADE_DO_TOM)).size === 3 && FINALIDADE_DO_TOM.lembrete !== FINALIDADE_DO_TOM.formal);
+  // O modelo de lembrete aprovado na Meta tem 4 variáveis: mandar a 5ª derruba o envio.
+  const vl = variaveisDoTemplate({ cliente: "Beta", valor: 10, vencimento: "2026-09-27", dias: 0 }, credor, "cobranca_lembrete");
+  const va = variaveisDoTemplate({ cliente: "Beta", valor: 10, vencimento: "2026-09-27", dias: 7 }, credor, "cobranca_atraso");
+  ok("aut: o lembrete leva 4 variáveis (sem dias de atraso); atraso e formal levam 5",
+     Object.keys(vl).length === 4 && !("5" in vl) && va["5"] === "7", JSON.stringify({ vl, va }));
+  for (const m of regua.mensagens.filter((x) => x.finalidade === "cobranca_lembrete"))
+    ok("aut: a régua manda o lembrete sem a 5ª variável", !("5" in m.variaveis), JSON.stringify(m.variaveis));
   // Encargo só quando configurado, e pela calculadora canônica.
   const comMora = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 0.02, jurosMesPct: 0.01 } }, ctx);
   const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
