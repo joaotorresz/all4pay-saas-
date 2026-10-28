@@ -171,6 +171,8 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = 
     PermitirPagamentoAposExpiracao: true,
     // O valor é o do título; o pagador não escolhe quanto paga.
     PermitirAlterarValorPagamento: false,
+    // A Pinbank (28/10/2026) pediu o campo: sem ele o QR dinâmico volta "Erro de Sistema".
+    WebHook: true,
     Devedor: { CpfCnpj: digitos(d?.documento ?? null), Nome: d?.nome ?? "", AceitaApenasTitular: false },
     ...(r.descricao ? { InfoAdicionais: [{ Nome: "Referência", Valor: r.descricao.slice(0, 70) }] } : {}),
   };
