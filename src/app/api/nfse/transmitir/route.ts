@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { emitenteDaOrg, emitirNaFocus, focusConfigurada, ambienteFocus } from "@/lib/focusnfe";
 import { abrirSessao, lerId, lerNota, podeLancar, registrar, resposta, UUID } from "@/lib/nfse-servidor";
-import { montarPedido, montarPedidoNacional, motivoDaRecusa, proximaTentativa, refDaTentativa } from "@/core/nfse/focus";
+import { dataEmissaoNacional, montarPedido, montarPedidoNacional, motivoDaRecusa, proximaTentativa, refDaTentativa } from "@/core/nfse/focus";
 
 /**
  * TRANSMITIR A NFS-e À PREFEITURA, pela Focus NFe.
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   // Competência na data de São Paulo (UTC−3): às 22h o UTC já é amanhã.
   const competencia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
   const montado = nacional
-    ? montarPedidoNacional(dadosNota, nota.tomador, emitente, agora.toISOString(), competencia, agora.getTime())
+    ? montarPedidoNacional(dadosNota, nota.tomador, emitente, dataEmissaoNacional(agora.getTime()), competencia, agora.getTime())
     : montarPedido(dadosNota, nota.tomador, emitente, agora.toISOString());
   if (!montado.ok) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: montado.problemas.join(" ") });
 
