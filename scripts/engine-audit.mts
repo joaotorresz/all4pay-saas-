@@ -12199,6 +12199,53 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const bol = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
     ok("cobranca-pinbank: o boleto leva Juros e Multa zerados", bol.Juros?.Valor === 0 && bol.Multa?.Valor === 0);
   }
+  /* ── mensalidade-pinbank: a mensalidade do ERP pela conta da QUATTRO ─── */
+  {
+    const ROTA_MEN = "src/app/api/mensalidade/cobranca/route.ts";
+    const rotaMen = lerF(ROTA_MEN);
+    const ordemMen = (t: string) => {
+      const x = semComF(t).slice(semComF(t).indexOf("export async function POST"));
+      const iDemo = x.indexOf("NEXT_PUBLIC_SUPABASE_URL");
+      const iUser = x.indexOf("auth.getUser()");
+      const iLib = x.indexOf("mensalidadePinbankLiberada()");
+      const iRes = x.indexOf('s.rpc("mensalidade_reservar"');
+      const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+      const iReg = x.indexOf("mensalidade_registrar");
+      return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
+    };
+    ok("mensalidade-pinbank: a rota recusa sem banco → sessão → interruptor → reserva no banco → só então a Pinbank", ordemMen(rotaMen));
+    ok("mensalidade-pinbank: (defeito plantado) chamar a Pinbank antes da reserva é REPROVADO",
+       !ordemMen(rotaMen.replace("export async function POST(req: Request) {", "export async function POST(req: Request) {\n  await emitirCobrancaPinbank(reserva);")));
+    const comoPessoa = (t: string) => /s\.rpc\("mensalidade_reservar"/.test(semComF(t)) && !/admin\.rpc\("mensalidade_reservar"/.test(semComF(t));
+    ok("mensalidade-pinbank: a reserva roda com a sessão da pessoa, nunca com a chave de serviço", comoPessoa(rotaMen));
+    ok("mensalidade-pinbank: (defeito plantado) reservar pela chave de serviço é ACUSADO",
+       !comoPessoa(rotaMen.replace('s.rpc("mensalidade_reservar"', 'admin.rpc("mensalidade_reservar"')));
+    const regForaMen = (ler: (p: string) => string) => arqsF.filter((p) => p !== ROTA_MEN && /mensalidade_registrar/.test(semComF(ler(p))));
+    ok("mensalidade-pinbank: só a rota grava o resultado (mensalidade_registrar)", regForaMen(lerF).length === 0, regForaMen(lerF).join(", "));
+    // O código da conta que RECEBE e o interruptor moram numa casa só.
+    const VARS_MEN = /\b(MENSALIDADE_PINBANK|PINBANK_QUATTRO_CODIGO_CLIENTE)\b/;
+    const leMen = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && VARS_MEN.test(semComF(ler(p))));
+    ok("mensalidade-pinbank: MENSALIDADE_PINBANK e o código da conta da Quattro só são lidos pelo cliente da API",
+       leMen(lerF).length === 0 && /MENSALIDADE_PINBANK/.test(semComF(lerF(P_API))) && /PINBANK_QUATTRO_CODIGO_CLIENTE/.test(semComF(lerF(P_API))), leMen(lerF).join(", "));
+    ok("mensalidade-pinbank: (defeito plantado) a rota lendo o código da conta direto é ACUSADA",
+       leMen((p) => (p === ROTA_MEN ? lerF(p) + "\nconst c = process.env.PINBANK_QUATTRO_CODIGO_CLIENTE;" : lerF(p))).includes(ROTA_MEN));
+    ok("mensalidade-pinbank: as duas variáveis estão no .env.example",
+       /^#?\s*MENSALIDADE_PINBANK=/m.test(docEnv) && /^#?\s*PINBANK_QUATTRO_CODIGO_CLIENTE=/m.test(docEnv));
+    const API = await import("@/lib/pinbank/api");
+    const base = { PINBANK_API_AMBIENTE: "producao" } as Record<string, string>;
+    const credOk = Object.fromEntries(API.variaveisFaltando({}).map((n) => [n, "x"]));
+    const env = { ...credOk, ...base, MENSALIDADE_PINBANK: "ligado", PINBANK_QUATTRO_CODIGO_CLIENTE: "119446" };
+    const lib = API.mensalidadePinbankLiberada(env);
+    ok("mensalidade-pinbank: ligada com credencial, produção e código → liberada com o código", lib.liberada && lib.codigoCliente === 119446);
+    ok("mensalidade-pinbank: nasce DESLIGADA", !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "" }).liberada);
+    ok("mensalidade-pinbank: código da conta ausente ou inválido → não liberada",
+       !API.mensalidadePinbankLiberada({ ...env, PINBANK_QUATTRO_CODIGO_CLIENTE: "" }).liberada
+       && !API.mensalidadePinbankLiberada({ ...env, PINBANK_QUATTRO_CODIGO_CLIENTE: "12a" }).liberada
+       && !API.mensalidadePinbankLiberada({ ...env, PINBANK_QUATTRO_CODIGO_CLIENTE: "-5" }).liberada);
+    ok("mensalidade-pinbank: credencial de teste → não liberada", !API.mensalidadePinbankLiberada({ ...env, PINBANK_API_AMBIENTE: "dev" }).liberada);
+    ok("mensalidade-pinbank: ligar a cobrança dos clientes NÃO liga a mensalidade",
+       !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "", PINBANK_COBRANCA: "ligado" }).liberada);
+  }
   /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
   const PG_PAGAR = "src/app/pagar/page.tsx";
   const pagPagar = lerF(PG_PAGAR);

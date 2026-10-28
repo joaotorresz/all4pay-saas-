@@ -243,6 +243,19 @@
         "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 1)"
       },
       {
+        "nome": "20261029140000_mensalidade_pinbank",
+        "motivo": "A mensalidade do ERP paga por Pix ou boleto na conta Pinbank da Quattro: a plataforma gera a fatura, a empresa paga e a baixa renova a assinatura. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabelas mensalidade_faturas e mensalidade_cobrancas (RLS: a empresa só lê as suas)",
+          "funções admin_mensalidade_gerar/baixar/cancelar/listar (portão admin_exigir_acesso + admin_audit)",
+          "funções mensalidade_reservar (papel de administrar, empresa aberta) e mensalidade_registrar (só service_role)",
+          "função interna mensalidade_renovar"
+        ],
+        "impacto": "Até ser aplicada, a seção Cobrança do painel da plataforma diz que não conseguiu ler as faturas e a tela de Assinatura do cliente não mostra o cartão da mensalidade. Nada que já existe muda; sem MENSALIDADE_PINBANK=ligado nenhuma cobrança sai para a Pinbank.",
+        "resolver_ate": "2026-11-30",
+        "origem": "sessão Claude de 28/10/2026 (mensalidade do ERP pela Pinbank da Quattro)"
+      },
+      {
         "nome": "20261028170000_maquininha_pedidos_simulacao",
         "motivo": "O pedido de maquininha passa a levar a origem (formulário, economia, consultor) e a simulação estruturada, para o CRM da plataforma (etapa 1). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [

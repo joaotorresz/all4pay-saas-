@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, Button, Icon, Input, Select, BRL } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
+import { MensalidadeCard } from "@/components/administracao/MensalidadeCard";
 import { baixarXLSX } from "@/lib/xlsx";
 import { getAccountsList } from "@/lib/data";
 import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
@@ -111,6 +112,7 @@ export function AssinaturaView() {
   const contas = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
   const membros = useQuery({ queryKey: ["gov-members"], queryFn: listMembers });
   const empresa = useQuery({ queryKey: ["company"], queryFn: fetchCompany });
+  const { show: toast, node: toastNode } = useToast();
 
   const [local, setLocal] = React.useState(() => ({
     plano: "Quattro", empresaId: "", planoContratado: null as string | null, expiracao: null as string | null,
@@ -195,6 +197,7 @@ export function AssinaturaView() {
           </div>
         </div>
       </Card>
+      <MensalidadeCard show={toast} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
@@ -290,6 +293,7 @@ export function AssinaturaView() {
           </div>
         </Card>
       </div>
+      {toastNode}
     </div>
   );
 }
