@@ -13,7 +13,7 @@ import type {
   CanalEnvio, Destinatario, ParametrosAutomacao, StatusEnvio,
 } from "@/core/automacoes";
 import { TIPOS_AUTOMACAO, configPadrao } from "@/core/automacoes";
-import type { Credor } from "@/core/cobranca";
+import { credorDoCadastro } from "@/core/cobranca";
 
 /** O JSON que `automacao_contexto(p_org)` devolve. */
 export interface ContextoBruto {
@@ -29,17 +29,9 @@ export interface ContextoBruto {
   envios?: { tipo: string; chave: string; canal: string; status: string; em: string }[] | null;
 }
 
-const txt = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-/** O credor a partir do nome da organização + o cadastro jurídico (`company_profiles.profile.db`). */
-export function credorDe(nomeOrg: string | null | undefined, perfil: Record<string, unknown> | null | undefined): Credor {
-  const p = perfil ?? {};
-  return {
-    nome: txt(p.fantasia) ?? txt(nomeOrg) ?? txt(p.razaoSocial) ?? "Minha empresa",
-    razaoSocial: txt(p.razaoSocial),
-    documento: txt(p.cnpj),
-  };
-}
+/** O credor a partir do nome da organização + o cadastro jurídico — a leitura única de `core/cobranca`. */
+export const credorDe = credorDoCadastro;
 
 export function contextoDaRpc(orgId: string, bruto: ContextoBruto, hoje: string, appUrl: string): ContextoAutomacao {
   const contas: ContaSaldo[] = (bruto.contas ?? []).map((c) => ({ id: String(c.id), nome: c.nome ?? "Conta", saldo: Number(c.saldo ?? 0) }));

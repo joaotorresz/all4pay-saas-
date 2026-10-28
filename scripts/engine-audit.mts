@@ -7652,6 +7652,49 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("aut-link: o endereço é o mesmo que a tela copia", A.urlDoLinkDePagamento("https://app.quattro.finance/", T1) === `https://app.quattro.finance/pagar?t=${T1}`);
   }
 
+  // ---- 4c) O E-MAIL NO MODELO ASAAS (28/10/2026): remetente da empresa e o HTML ----
+  {
+    const R = await import("@/core/automacoes/remetente");
+    const { credorDoCadastro } = await import("@/core/cobranca");
+    const { situacaoDaFatura } = await import("@/core/cobranca/fatura");
+    const rem = R.remetenteDaCobranca("3f2a9c1e-0000-4000-8000-000000000000", { nome: 'Loja <x@y.com>, "Fake"', email: "financeiro@loja.com.br" });
+    const end = R.enderecoDoRemetente(rem, "paguequattro.com");
+    ok("asaas: o From é cobrancas+<8 hex da empresa>@domínio, no nome da empresa",
+       end?.from === '"Loja x y.com Fake" <cobrancas+3f2a9c1e@paguequattro.com>', end?.from);
+    ok("asaas: o nome do cadastro NÃO injeta outro endereço no From (< > aspas vírgula @ saem)",
+       !!end && (end.from.match(/</g) ?? []).length === 1 && (end.from.match(/@/g) ?? []).length === 1, end?.from);
+    ok("asaas: a resposta do cliente vai para o e-mail do cadastro da empresa", end?.replyTo === "financeiro@loja.com.br");
+    ok("asaas: sem domínio configurado (ou inválido), vale o remetente de sempre",
+       R.enderecoDoRemetente(rem, "") === null && R.enderecoDoRemetente(rem, "não é domínio") === null && R.enderecoDoRemetente(rem, "a@b.com") === null);
+    ok("asaas: e-mail inválido no cadastro não vira Reply-To", R.remetenteDaCobranca("x", { nome: "A", email: "a@b" }).responderPara === null);
+    ok("asaas: id de empresa estranho não entra no endereço", R.tagDaEmpresa("../../etc") === "empresa" && R.tagDaEmpresa(null) === "empresa");
+
+    const c = credorDoCadastro("Org", { fantasia: "Padaria", razaoSocial: "Padaria Ltda", cnpj: "11444777000161", email: "f@p.com",
+      telefone: "11987654321", rua: "Rua A", numero: "10", bairro: "Centro", cep: "01001000", cidade: "São Paulo", estado: "SP", logo: "data:image/png;base64,AAAA" });
+    ok("asaas: o credor do cadastro traz contato e endereço legíveis (e nunca o logo)",
+       c.telefone === "(11) 98765-4321" && JSON.stringify(c.endereco) === JSON.stringify(["Rua A, 10 - Centro", "01001-000 · São Paulo - SP"])
+       && !JSON.stringify(c).includes("data:image"), JSON.stringify(c));
+
+    const reguaA = A.gerarMensagens(cfgRegua, ctxBase({ linksDePagamento: { "r-10": "a".repeat(64) } }));
+    const mail = reguaA.mensagens.find((m) => m.canal === "email");
+    const wa = reguaA.mensagens.find((m) => m.canal === "whatsapp");
+    ok("asaas: a fixture tem cobrança por e-mail E por WhatsApp (senão os casos abaixo não testam nada)", !!mail && !!wa);
+    ok("asaas: a cobrança por e-mail leva o remetente da empresa; o WhatsApp não", !!mail?.remetente && !wa?.remetente);
+    ok("asaas: o HTML tem o cabeçalho da empresa, a frase, o endereço por extenso e a linha da plataforma",
+       !!mail && mail.html.includes("Padaria Aurora Ltda") && mail.html.includes("CNPJ 12.345.678/0001-95")
+       && mail.html.includes("pela plataforma Quattro") && mail.html.includes("desconsidere"), mail?.html.slice(0, 200));
+    ok("asaas: o vencido diz \"Não registramos o pagamento\"; o assunto segue o do dono",
+       A.tituloDoEmailDeCobranca(3, "aviso") === "Não registramos o pagamento da sua cobrança" && A.tituloDaCobranca(3, "aviso") === "Sua cobrança está vencida"
+       && A.tituloDoEmailDeCobranca(-5, "lembrete") === "Sua cobrança vence em 5 dias" && A.tituloDoEmailDeCobranca(30, "formal") === "Aviso de débito em aberto");
+    ok("asaas: o HTML escapa o nome do cliente (um < não vira tag)",
+       !A.montarHtmlCobranca({ preheader: "", titulo: "t", empresa: { nome: "<b>E</b>" }, saudacao: "Olá, <script>", paragrafos: [], linhas: [], aviso: "", plataforma: "" }).includes("<script>"));
+    ok("asaas: a fatura diz vencida há N dias, vence hoje ou vence em N dias",
+       situacaoDaFatura("aberto", "2026-10-15", "2026-10-28").prazo === "vencida há 13 dias"
+       && situacaoDaFatura("aberto", "2026-10-28", "2026-10-28").rotulo === "Vence hoje"
+       && situacaoDaFatura("aberto", "2026-11-02", "2026-10-28").prazo === "vence em 5 dias"
+       && situacaoDaFatura("pago", "2026-10-15", "2026-10-28").rotulo === "Pagamento recebido");
+  }
+
   // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
   for (const m of regua.mensagens) {
     ok(`aut: a cobrança (${m.canal}) identifica o credor com razão social e CNPJ`,

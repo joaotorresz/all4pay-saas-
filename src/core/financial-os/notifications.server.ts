@@ -17,6 +17,9 @@
  *     TWILIO_TEMPLATE_ALERTA_SID · TWILIO_TEMPLATE_FECHAMENTO_SID
  *       (variável 1 = o texto curto, numa linha)
  *   E-mail (Resend): RESEND_API_KEY, ALERTS_EMAIL_FROM (remetente)
+ *   Cobrança no nome da empresa: COBRANCA_EMAIL_DOMINIO (domínio da plataforma
+ *     VERIFICADO no Resend — "Empresa" <cobrancas+<id>@domínio>, resposta para o
+ *     e-mail do cadastro dela). Sem ele, a cobrança sai por ALERTS_EMAIL_FROM.
  *
  * ⚠️ `TWILIO_TEMPLATE_COBRANCA_SID` (o template ÚNICO) foi APOSENTADO: com ele
  * configurado, todas as etapas da régua saíam com o mesmo texto — o lembrete
@@ -32,6 +35,7 @@
  * afirmar — e a tela diz "enviado", nunca "entregue".
  */
 import type { CanalEnvio, FinalidadeTemplate, MensagemAutomacao, ProvedorEnvio } from "@/core/automacoes";
+import { enderecoDoRemetente } from "@/core/automacoes/remetente";
 
 export interface EnvioResultado {
   canal: "whatsapp" | "email";
@@ -112,15 +116,18 @@ export async function enviarWhatsapp(
 }
 
 /** E-mail via Resend — texto E HTML (o HTML sai do núcleo, na paleta Quattro). */
-export async function enviarEmail(to: string, subject: string, texto: string, html?: string): Promise<EnvioResultado> {
+export async function enviarEmail(
+  to: string, subject: string, texto: string, html?: string,
+  opts: { from?: string | null; replyTo?: string | null } = {},
+): Promise<EnvioResultado> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.ALERTS_EMAIL_FROM || "Quattro <alertas@all4pay.app>";
+  const from = opts.from || process.env.ALERTS_EMAIL_FROM || "Quattro <alertas@all4pay.app>";
   if (!key || !to) return { canal: "email", para: to, ok: false, detalhe: "config/destino ausente" };
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject, text: texto, ...(html ? { html } : {}) }),
+      body: JSON.stringify({ from, to, subject, text: texto, ...(html ? { html } : {}), ...(opts.replyTo ? { reply_to: opts.replyTo } : {}) }),
     });
     const j = (await res.json().catch(() => null)) as { id?: string; message?: string } | null;
     return {
@@ -143,7 +150,10 @@ export function provedorReal(): ProvedorEnvio {
     ativo: (canal: CanalEnvio) => (canal === "email" ? st.email : st.whatsapp),
     async enviar(m: MensagemAutomacao) {
       const r = m.canal === "email"
-        ? await enviarEmail(m.destino, m.assunto, m.texto, m.html)
+        ? await enviarEmail(m.destino, m.assunto, m.texto, m.html,
+            // A cobrança sai no nome da empresa, pelo domínio da plataforma
+            // (`COBRANCA_EMAIL_DOMINIO`); sem ele, pelo remetente de sempre.
+            enderecoDoRemetente(m.remetente, process.env.COBRANCA_EMAIL_DOMINIO) ?? {})
         : await enviarWhatsapp(m.destino, m.texto.slice(0, 1500), (() => {
             const sid = templateDe(m.finalidade);
             return sid ? { contentSid: sid, contentVariables: m.variaveis } : undefined;

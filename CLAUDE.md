@@ -1035,6 +1035,12 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   só service_role, só com cobrança emitida e `cobrancaPinbankLiberada`) e a
   mensagem leva "Pague por Pix ou boleto" + o botão do e-mail. Título sem
   cobrança emitida segue sem link — emitir sozinho pelo cron espera o dono.
+  ⚠️ **E-mail e `/pagar` no modelo Asaas (28/10/2026):** o e-mail sai de
+  `"<Empresa>" <cobrancas+<8 hex>@COBRANCA_EMAIL_DOMINIO>` com resposta para a
+  empresa (sem a variável, o remetente de sempre), com o cabeçalho e o rodapé
+  da empresa; a página mostra a empresa (lista de permitidos do cadastro) e o
+  NOME do pagador só em aberto (migration `20261029140000`). Sem juros e multa
+  na página: o valor emitido é fixo. Ver `docs/rodada-10/cobranca.md`.
 
 ## ⚠️ COBRANÇA PELA CONTA BANCÁRIA DO CLIENTE (27/10/2026, `docs/rodada-11/cobranca-bancos.md`)
 

@@ -3,6 +3,7 @@
  */
 import type { RiskInput } from "@/core/risk-engine/types";
 import type { Credor, EtapaConfigurada } from "@/core/cobranca";
+import type { Remetente } from "./remetente";
 
 export const AUTOMACOES_VERSION = "automacoes/1.0.0";
 
@@ -184,6 +185,8 @@ export interface Conteudo {
   chavesExtras?: string[];
   /** Régua: o canal da etapa, quando é ela quem decide. */
   canalPreferido?: CanalEnvio;
+  /** Régua: o e-mail sai no nome da empresa que cobra (ver `remetente.ts`). */
+  remetente?: Remetente;
 }
 
 /** Por que uma automação não gerou mensagem hoje — nunca um silêncio. */
@@ -207,6 +210,7 @@ export interface MensagemAutomacao {
   finalidade: FinalidadeTemplate;
   variaveis: Record<string, string>;
   chavesExtras?: string[];
+  remetente?: Remetente;
 }
 
 export interface ResultadoAutomacao {
