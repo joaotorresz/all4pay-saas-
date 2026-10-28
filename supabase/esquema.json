@@ -192,6 +192,18 @@
         "impacto": "Até ser aplicada, o cartão 'Banco Inter · cobrança' diz que a função está sendo instalada e o botão no título não aparece. Nada que já existe muda; o interruptor COBRANCA_BANCO nasce desligado.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 27/10/2026 (cobrança pela conta bancária, etapa 3) — o merge espera o OK do dono (muda quem pode chamar o quê)"
+      },
+      {
+        "nome": "20261028130000_cadastro_documentos",
+        "motivo": "Cofre dos documentos do cadastro (etapa 2 do plano de documentos e funil): a foto do rosto, o RG/CNH e o contrato social ou comprovante passam a ser guardados, por 5 anos, num bucket privado. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cadastro_documentos — RLS sem política, anon e authenticated sem acesso",
+          "função cadastro_documento_registrar(text, text) — authenticated, confere pasta, dono e teto",
+          "bucket privado cadastro-documentos e a política cadastro_documentos_envio (só criar, na pasta da empresa)"
+        ],
+        "impacto": "Até ser aplicada, o envio do documento ao fim do cadastro falha (o bucket não existe) e é reportado; o cadastro segue igual, com o documento como enviado. Nada que já existe muda.",
+        "resolver_ate": "2026-11-10",
+        "origem": "sessão Claude de 27/10/2026 (documentos e funil do cadastro, etapa 2)"
       }
     ],
     "objetos_sem_migration": [
