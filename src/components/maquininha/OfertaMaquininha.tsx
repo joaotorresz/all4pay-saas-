@@ -17,6 +17,7 @@
  * plataforma liga um estabelecimento a uma empresa.
  */
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -24,10 +25,11 @@ import {
 } from "@/components/ui";
 import { usePermissoes } from "@/components/app/usePermissoes";
 import {
-  ETAPAS_PEDIDO, NOME_FORMA, NOME_SITUACAO, PEDIDO_VAZIO, TETO_MAQUININHAS, compararTaxas, simularVenda, validarPedido,
-  type FormaOferta, type PedidoMaquininha, type TipoPedido,
+  ETAPAS_PEDIDO, NOME_FORMA, NOME_SITUACAO, PEDIDO_VAZIO, TETO_MAQUININHAS, compararTaxas, completarTaxasAtuais,
+  simularRepasse, simularVenda, validarPedido,
+  type Comparacao, type FormaOferta, type PedidoMaquininha, type TaxasPorForma, type TipoPedido,
 } from "@/core/maquininha/oferta";
-import { SEGMENTOS, SEGMENTO_PADRAO, enviarPedido, listarPedidos, taxaDeReferencia } from "@/lib/maquininha-oferta";
+import { SEGMENTOS, SEGMENTO_PADRAO, enviarPedido, listarPedidos, taxaDeReferencia, taxasDeMercado } from "@/lib/maquininha-oferta";
 import { isDemo } from "@/lib/demo";
 import { dataBR, formatBRL, pct } from "@/lib/format";
 
@@ -86,8 +88,15 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
   const [segmento, setSegmento] = React.useState(SEGMENTO_PADRAO);
   const taxaDe = React.useMemo(() => taxaDeReferencia(segmento), [segmento]);
   const [tipo, setTipo] = React.useState<TipoPedido>("pedir");
+  // O que a comparação leva ao formulário (faturamento e as taxas de hoje),
+  // para quem chega pelo pop-up não digitar de novo. `vez` refaz o preenchimento.
+  const [preenchimento, setPreenchimento] = React.useState<{ vez: number; faturamento: number; observacao: string } | null>(null);
 
   const abrirPedido = (t: TipoPedido) => { setTipo(t); rolarPara("oferta-pedido"); };
+  const levarAoPedido = (faturamento: number, observacao: string) => {
+    setPreenchimento((x) => ({ vez: (x?.vez ?? 0) + 1, faturamento, observacao }));
+    abrirPedido("pedir");
+  };
 
   const ref = React.useMemo(() => ({
     pix: taxaDe("pix", 0, false),
@@ -167,13 +176,13 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SimuladorVenda taxaDe={taxaDe} hoje={hoje} />
-        <CompararMaquininha taxaDe={taxaDe} />
+        <CompararMaquininha taxaDe={taxaDe} aoSeguir={levarAoPedido} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <OQueVemJunto />
         <div className="lg:col-span-2">
-          <FormularioPedido tipo={tipo} setTipo={setTipo} segmento={segmento} />
+          <FormularioPedido tipo={tipo} setTipo={setTipo} segmento={segmento} preenchimento={preenchimento} />
         </div>
       </div>
 
@@ -181,7 +190,8 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
 
       <p className="text-[12px] text-muted m-0">
         Taxas de referência do segmento {SEGMENTOS.find((s) => s.id === segmento)?.nome.toLowerCase()}, média entre as bandeiras
-        Mastercard, Visa e Elo. A antecipação é de {pct(0.019)} ao mês, proporcional aos dias que faltam.
+        Mastercard, Visa e Elo. A antecipação é de {pct(0.019)} ao mês, proporcional aos dias que faltam. As taxas
+        estimadas da sua maquininha atual partem de taxas típicas do mercado e das que você digitou; confira no seu extrato.
         {isDemo && " Em demonstração, os pedidos ficam só nesta tela e não são enviados."}
       </p>
     </div>
@@ -190,22 +200,52 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
 
 /* ------------------------------ o simulador ------------------------------ */
 
+type QuemPaga = "estabelecimento" | "cliente";
+
+function Linha({ rotulo, children, forte }: { rotulo: string; children: React.ReactNode; forte?: boolean }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-[8px] border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
+      <span className={`text-[13px] ${forte ? "text-ink" : "text-muted"}`}>{rotulo}</span>
+      <span className="text-[14px] text-ink tabular-nums">{children}</span>
+    </li>
+  );
+}
+
 function SimuladorVenda({ taxaDe, hoje }: { taxaDe: ReturnType<typeof taxaDeReferencia>; hoje: string }) {
   const [valor, setValor] = React.useState(500);
   const [forma, setForma] = React.useState<FormaOferta>("parcelado");
   const [parcelas, setParcelas] = React.useState(3);
   const [antecipar, setAntecipar] = React.useState(false);
-  const s = React.useMemo(() => simularVenda({ valor, forma, parcelas, antecipar }, taxaDe, hoje), [valor, forma, parcelas, antecipar, taxaDe, hoje]);
+  const [quem, setQuem] = React.useState<QuemPaga>("estabelecimento");
+  const entrada = { valor, forma, parcelas, antecipar };
+  const proprio = React.useMemo(() => simularVenda(entrada, taxaDe, hoje), [valor, forma, parcelas, antecipar, taxaDe, hoje]); // eslint-disable-line react-hooks/exhaustive-deps
+  const repasse = React.useMemo(() => simularRepasse(entrada, taxaDe, hoje), [valor, forma, parcelas, antecipar, taxaDe, hoje]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cliente = quem === "cliente";
+  const s = cliente && repasse ? repasse.venda : proprio;
   const cartaoCredito = forma === "credito" || forma === "parcelado";
   const visiveis = s.recebimentos.slice(0, 6);
 
   return (
     <section id="oferta-simulador" className="flex flex-col gap-4 px-8 pt-[30px] pb-6 min-w-0 scroll-mt-6" style={cartao}>
-      <Titulo info={{ oQue: "Quanto sobra de uma venda e em que dia o dinheiro cai na conta.", comoCalcula: "Valor × taxa de referência da forma (mais a antecipação, quando ligada). Sem antecipar, o crédito cai em 30 dias por parcela; antecipado, tudo no dia seguinte." }}>
+      <Titulo info={{
+        oQue: "Quanto sobra de uma venda, em que dia o dinheiro cai e, se você repassar a taxa, quanto o seu cliente paga.",
+        comoCalcula: "Taxas para o estabelecimento: valor × taxa de referência da forma (mais a antecipação, quando ligada) sai do que você recebe. Taxas para o cliente: cobra-se o valor ÷ (1 − taxa), arredondado para cima, e você recebe o preço inteiro; a diferença é o juro que o cliente paga. Sem antecipar, o crédito cai em 30 dias por parcela; antecipado, tudo no dia seguinte.",
+      }}>
         Simule uma venda
       </Titulo>
+      <Pilulas
+        rotulo="Quem paga a taxa"
+        valor={quem}
+        onChange={setQuem}
+        opcoes={[{ id: "estabelecimento", nome: "Taxas para o estabelecimento" }, { id: "cliente", nome: "Taxas para o cliente" }]}
+      />
+      <span className="text-[12px] text-muted -mt-2">
+        {cliente
+          ? "Você repassa a taxa: o cliente paga os juros e você recebe o preço inteiro."
+          : "Você absorve a taxa: o cliente paga o preço e a taxa sai do que você recebe."}
+      </span>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-        <CurrencyInput label="Valor da venda" value={valor} onValueChange={setValor} />
+        <CurrencyInput label={cliente ? "Preço do produto (o que você quer receber)" : "Valor da venda"} value={valor} onValueChange={setValor} />
         {forma === "parcelado" ? (
           <label className="flex flex-col gap-2">
             <span className="text-[13px] text-muted">Parcelas: <span className="text-ink tabular-nums">{parcelas}x</span></span>
@@ -216,21 +256,46 @@ function SimuladorVenda({ taxaDe, hoje }: { taxaDe: ReturnType<typeof taxaDeRefe
       <Pilulas rotulo="Forma de pagamento" valor={forma} onChange={setForma} opcoes={FORMAS.map((f) => ({ id: f, nome: NOME_FORMA[f] }))} />
       {cartaoCredito && <Switch checked={antecipar} onChange={setAntecipar} label="Receber tudo no dia seguinte (antecipar)" />}
 
-      <div className="flex flex-col gap-1 pt-2">
-        <span className="text-[13px] text-muted">Você recebe</span>
-        <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><BRL value={s.liquido} /></span>
-        <span className="text-[13px] text-muted tabular-nums">
-          {s.taxa == null ? "sem taxa de referência para esta forma" : <>taxa de {pct(s.taxa, 2)} · custo de {formatBRL(s.custo)} · {s.prazo}</>}
-        </span>
-      </div>
-      <ul className="flex flex-col m-0 p-0 list-none">
-        {visiveis.map((r, i) => (
-          <li key={i} className="flex items-center justify-between gap-3 py-[8px] border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
-            <span className="text-[13px] text-ink tabular-nums">{dataBR(r.data)} <span className="text-muted">· {r.rotulo}</span></span>
-            <span className="text-[14px] text-ink tabular-nums"><BRL value={r.valor} /></span>
-          </li>
-        ))}
-      </ul>
+      {cliente ? (
+        repasse ? (
+          <>
+            <div className="flex flex-col gap-1 pt-2">
+              <span className="text-[13px] text-muted">O cliente paga</span>
+              <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><BRL value={repasse.total} /></span>
+              <span className="text-[13px] text-muted tabular-nums">
+                {repasse.vezes > 1
+                  ? <>em {repasse.vezes}x de {formatBRL(repasse.parcelas[0])}</>
+                  : "à vista"} · juros de {formatBRL(repasse.juros)} ({pct(repasse.jurosFracao, 2)} sobre o preço)
+              </span>
+            </div>
+            <ul className="flex flex-col m-0 p-0 list-none">
+              <Linha rotulo="Preço do produto">{formatBRL(repasse.valorDesejado)}</Linha>
+              <Linha rotulo={`Taxa da maquininha · ${s.taxa == null ? "—" : pct(s.taxa, 2)}`}>{formatBRL(s.custo)}</Linha>
+              <Linha rotulo={`Você recebe · ${s.prazo}`} forte>{formatBRL(s.liquido)}</Linha>
+            </ul>
+          </>
+        ) : (
+          <span className="text-[13px] text-muted pt-2">Sem taxa de referência para esta forma.</span>
+        )
+      ) : (
+        <div className="flex flex-col gap-1 pt-2">
+          <span className="text-[13px] text-muted">Você recebe</span>
+          <span className="a4p-heroi" style={{ fontSize: 36, lineHeight: 1 }}><BRL value={s.liquido} /></span>
+          <span className="text-[13px] text-muted tabular-nums">
+            {s.taxa == null ? "sem taxa de referência para esta forma" : <>taxa de {pct(s.taxa, 2)} · custo de {formatBRL(s.custo)} · {s.prazo}</>}
+          </span>
+        </div>
+      )}
+      {(!cliente || repasse) && (
+        <ul className="flex flex-col m-0 p-0 list-none">
+          {visiveis.map((r, i) => (
+            <li key={i} className="flex items-center justify-between gap-3 py-[8px] border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
+              <span className="text-[13px] text-ink tabular-nums">{dataBR(r.data)} <span className="text-muted">· {r.rotulo}</span></span>
+              <span className="text-[14px] text-ink tabular-nums"><BRL value={r.valor} /></span>
+            </li>
+          ))}
+        </ul>
+      )}
       {s.recebimentos.length > visiveis.length && (
         <span className="text-[12px] text-muted">e mais {s.recebimentos.length - visiveis.length} parcelas, uma a cada 30 dias.</span>
       )}
@@ -240,36 +305,80 @@ function SimuladorVenda({ taxaDe, hoje }: { taxaDe: ReturnType<typeof taxaDeRefe
 
 /* ------------------------------ a comparação ------------------------------ */
 
-function lerPercentual(t: string): number {
-  const n = Number(t.replace(/\s|%/g, "").replace(",", "."));
-  return Number.isFinite(n) && n >= 0 ? n / 100 : 0;
+/** "1,99" → 0,0199; vazio ou ilegível → null (= não sei). */
+function lerPercentual(t: string): number | null {
+  const limpo = t.replace(/\s|%/g, "").replace(",", ".");
+  if (!limpo) return null;
+  const n = Number(limpo);
+  return Number.isFinite(n) && n >= 0 && n < 100 ? n / 100 : null;
 }
 
-function CompararMaquininha({ taxaDe }: { taxaDe: ReturnType<typeof taxaDeReferencia> }) {
+const pctCampo = (f: number) => (f * 100).toFixed(2).replace(".", ",");
+
+function CompararMaquininha({ taxaDe, aoSeguir }: {
+  taxaDe: ReturnType<typeof taxaDeReferencia>;
+  aoSeguir: (faturamento: number, observacao: string) => void;
+}) {
   const [volume, setVolume] = React.useState(30000);
-  const [taxaTexto, setTaxaTexto] = React.useState("3,5");
+  const [textos, setTextos] = React.useState<Record<FormaOferta, string>>({ pix: "", debito: "", credito: "", parcelado: "" });
+  const [antecipado, setAntecipado] = React.useState(false);
   const [pix, setPix] = React.useState(25);
   const [debito, setDebito] = React.useState(30);
   const [parcelado, setParcelado] = React.useState(15);
+  const [popup, setPopup] = React.useState(false);
   const credito = Math.max(0, 100 - pix - debito - parcelado);
+
+  const informadas = React.useMemo<TaxasPorForma>(() => ({
+    pix: lerPercentual(textos.pix), debito: lerPercentual(textos.debito),
+    credito: lerPercentual(textos.credito), parcelado: lerPercentual(textos.parcelado),
+  }), [textos]);
+  const completas = React.useMemo(() => completarTaxasAtuais(informadas, taxasDeMercado(antecipado)), [informadas, antecipado]);
+  const estimadas = FORMAS.filter((f) => completas[f].origem === "estimada");
+
   const c = React.useMemo(() => compararTaxas({
     volumeMensal: volume, mix: { pix: pix / 100, debito: debito / 100, credito: credito / 100, parcelado: parcelado / 100 },
-    parcelasMedias: 4, taxaAtual: lerPercentual(taxaTexto),
-  }, taxaDe), [volume, pix, debito, credito, parcelado, taxaTexto, taxaDe]);
+    parcelasMedias: 4, antecipado,
+    taxasAtuais: { pix: completas.pix.taxa, debito: completas.debito.taxa, credito: completas.credito.taxa, parcelado: completas.parcelado.taxa },
+  }, taxaDe), [volume, pix, debito, credito, parcelado, completas, antecipado, taxaDe]);
 
   // Mexer num pedaço do mix nunca passa de 100%: o crédito à vista fica com a sobra.
   const ajustar = (set: (n: number) => void, outros: number) => (n: number) => set(Math.min(n, 100 - outros));
   const diferenca = c.diferencaAnual;
 
+  const observacao = () => {
+    const taxas = FORMAS.map((f) => `${NOME_FORMA[f]} ${pct(completas[f].taxa, 2)}${completas[f].origem === "estimada" ? " (estimada)" : ""}`).join(", ");
+    return c.veredito === "quattro_mais_barata"
+      ? `Simulei a economia: ${formatBRL(c.diferencaMensal)} por mês. Hoje pago ${taxas}${antecipado ? ", recebendo no dia seguinte" : ""}.`
+      : `Quero uma proposta de taxas. Hoje pago ${taxas}${antecipado ? ", recebendo no dia seguinte" : ""}, com ${formatBRL(volume)} por mês.`;
+  };
+
   return (
     <section className="flex flex-col gap-4 px-8 pt-[30px] pb-6 min-w-0" style={cartao}>
-      <Titulo info={{ oQue: "Quanto a Quattro custaria por mês contra a maquininha que você usa hoje, no mesmo volume e no mesmo jeito de vender.", comoCalcula: "Volume × (fração de cada forma × taxa de referência da forma), sem antecipação, contra volume × a sua taxa média de hoje. Parcelado considerado em 4x." }}>
+      <Titulo info={{ oQue: "Quanto a Quattro custaria por mês contra a maquininha que você usa hoje, no mesmo volume e no mesmo jeito de vender.", comoCalcula: "Volume × fração de cada forma × taxa da forma, nas duas maquininhas. As taxas que você não souber são estimadas pelo mercado, ajustadas pelas que você digitou. Parcelado considerado em 4x. Com \"recebo no dia seguinte\" ligado, a Quattro entra com a antecipação também." }}>
         Compare com a sua maquininha atual
       </Titulo>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <CurrencyInput label="Quanto passa na maquininha por mês" value={volume} onValueChange={setVolume} />
-        <Input label="Sua taxa média hoje" value={taxaTexto} onChange={(e) => setTaxaTexto(e.target.value)} suffix="%" inputMode="decimal" />
+      <CurrencyInput label="Quanto passa na maquininha por mês" value={volume} onValueChange={setVolume} />
+      <div className="flex flex-col gap-2">
+        <span className="text-[13px] text-muted">Suas taxas hoje (deixe em branco o que não souber)</span>
+        <div className="grid grid-cols-2 gap-3">
+          {FORMAS.map((f) => (
+            <div key={f} className="flex flex-col gap-1">
+              <Input
+                label={f === "parcelado" ? "Parcelado (4x)" : NOME_FORMA[f]}
+                value={textos[f]}
+                onChange={(e) => setTextos((x) => ({ ...x, [f]: e.target.value }))}
+                placeholder={pctCampo(completas[f].taxa)}
+                suffix="%"
+                inputMode="decimal"
+              />
+              {completas[f].origem === "estimada" && (
+                <span className="text-[11px] text-muted tabular-nums">estimada: {pct(completas[f].taxa, 2)}</span>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
+      <Switch checked={antecipado} onChange={setAntecipado} label="Minha maquininha me paga tudo no dia seguinte" />
       <div className="flex flex-col gap-2">
         <span className="text-[13px] text-muted">Como seus clientes pagam</span>
         {([
@@ -277,7 +386,7 @@ function CompararMaquininha({ taxaDe }: { taxaDe: ReturnType<typeof taxaDeRefere
           ["Débito", debito, ajustar(setDebito, pix + parcelado)],
           ["Parcelado", parcelado, ajustar(setParcelado, pix + debito)],
         ] as const).map(([nome, v, set]) => (
-          <label key={nome} className="grid grid-cols-[110px_1fr_48px] items-center gap-3">
+          <label key={nome} className="grid grid-cols-[90px_1fr_48px] items-center gap-3">
             <span className="text-[13px] text-ink">{nome}</span>
             <input type="range" min={0} max={100} step={5} value={v} onChange={(e) => set(Number(e.target.value))} className="w-full accent-ink" aria-label={`Parte das vendas no ${nome.toLowerCase()}`} />
             <span className="text-[13px] text-ink tabular-nums text-right">{v}%</span>
@@ -297,8 +406,94 @@ function CompararMaquininha({ taxaDe }: { taxaDe: ReturnType<typeof taxaDeRefere
             {diferenca > 0 ? "Economia" : "Diferença"} de {formatBRL(Math.abs(diferenca))} em 12 meses.
           </span>
         )}
+        {estimadas.length > 0 && (
+          <span className="text-[12px] text-muted">
+            {estimadas.length === FORMAS.length ? "Todas as taxas de hoje são estimadas pelo mercado." : `Estimadas: ${estimadas.map((f) => NOME_FORMA[f].toLowerCase()).join(", ")}.`}
+          </span>
+        )}
       </div>
+      {c.veredito !== "sem_volume" && (
+        <div>
+          <Button onClick={() => setPopup(true)}>
+            {c.veredito === "quattro_mais_barata" ? "Ver quanto eu economizo" : "Pedir uma proposta de taxas"}
+          </Button>
+        </div>
+      )}
+      {popup && (
+        <PopupEconomia
+          c={c}
+          aoFechar={() => setPopup(false)}
+          aoSeguir={() => { setPopup(false); aoSeguir(volume, observacao()); }}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * O pop-up do resultado (pedido do dono, 28/10/2026). Quattro mais barata →
+ * a economia por mês e o caminho para pedir. Taxas de hoje menores (ou
+ * iguais) → nunca "mais barata" à força: o convite é falar com um consultor,
+ * que analisa o faturamento e monta a proposta. Os dois levam ao MESMO
+ * formulário de pedido, já preenchido — para onde ele vai depois (CRM) é
+ * decisão pendente do dono.
+ */
+function PopupEconomia({ c, aoFechar, aoSeguir }: { c: Comparacao; aoFechar: () => void; aoSeguir: () => void }) {
+  const economia = c.veredito === "quattro_mais_barata";
+  const fechar = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    fechar.current?.focus();
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") aoFechar(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [aoFechar]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4" onClick={aoFechar}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="popup-economia-titulo"
+        className="w-full max-w-[440px] flex flex-col gap-4 p-7"
+        style={{ ...cartao, borderRadius: 24, boxShadow: "var(--shadow-popover)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <span className="w-11 h-11 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
+            <Icon name={economia ? "coins" : "user"} size={20} strokeWidth={1.75} />
+          </span>
+          <button ref={fechar} type="button" onClick={aoFechar} aria-label="Fechar" className="w-9 h-9 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
+            <Icon name="x" size={16} strokeWidth={1.75} />
+          </button>
+        </div>
+        {economia ? (
+          <>
+            <h2 id="popup-economia-titulo" className="text-[24px] text-ink m-0" style={{ fontWeight: 500 }}>
+              Você pode economizar <span className="tabular-nums whitespace-nowrap">{formatBRL(c.diferencaMensal)}</span> por mês
+            </h2>
+            <p className="text-[14px] text-muted m-0">
+              Com as taxas da Quattro, são <span className="tabular-nums">{formatBRL(c.diferencaAnual)}</span> a mais no seu caixa em 12 meses,
+              no mesmo volume e no mesmo jeito de vender. Peça a sua maquininha e a equipe envia a proposta com as taxas do seu faturamento.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 id="popup-economia-titulo" className="text-[24px] text-ink m-0" style={{ fontWeight: 500 }}>
+              Fale com um consultor da Quattro
+            </h2>
+            <p className="text-[14px] text-muted m-0">
+              Pelas taxas que você informou, a sua maquininha de hoje sai {c.veredito === "empate" ? "pelo mesmo custo" : "mais barata"} na tabela de referência.
+              Um consultor analisa o seu faturamento e monta uma proposta de taxas para você, sem compromisso.
+            </p>
+          </>
+        )}
+        <div className="flex items-center gap-3 flex-wrap pt-1">
+          <Button onClick={aoSeguir}>{economia ? "Quero economizar" : "Falar com um consultor"}</Button>
+          <Button variant="secondary" onClick={aoFechar}>Agora não</Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -334,7 +529,10 @@ function OQueVemJunto() {
 
 /* ------------------------------ o pedido ------------------------------ */
 
-function FormularioPedido({ tipo, setTipo, segmento }: { tipo: TipoPedido; setTipo: (t: TipoPedido) => void; segmento: string }) {
+function FormularioPedido({ tipo, setTipo, segmento, preenchimento }: {
+  tipo: TipoPedido; setTipo: (t: TipoPedido) => void; segmento: string;
+  preenchimento: { vez: number; faturamento: number; observacao: string } | null;
+}) {
   const qc = useQueryClient();
   const permissoes = usePermissoes();
   const podePedir = isDemo || permissoes.pode("administrar");
@@ -344,6 +542,14 @@ function FormularioPedido({ tipo, setTipo, segmento }: { tipo: TipoPedido; setTi
   const [falha, setFalha] = React.useState<string | null>(null);
   const [enviado, setEnviado] = React.useState<TipoPedido | null>(null);
   const campo = <K extends keyof PedidoMaquininha>(k: K) => (v: PedidoMaquininha[K]) => setP((x) => ({ ...x, [k]: v }));
+
+  // Quem chega pelo pop-up da comparação já traz o faturamento e as taxas de hoje.
+  const vez = preenchimento?.vez;
+  React.useEffect(() => {
+    if (!preenchimento) return;
+    setEnviado(null);
+    setP((x) => ({ ...x, faturamentoMensal: preenchimento.faturamento > 0 ? preenchimento.faturamento : x.faturamentoMensal, observacao: preenchimento.observacao.slice(0, 500) }));
+  }, [vez]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
