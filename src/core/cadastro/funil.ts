@@ -14,7 +14,7 @@
 import { PERGUNTAS } from "./conversa";
 import { estadoDaJornada, podeRecuperar, type EstadoJornada } from "./jornada";
 
-export const VERSAO_FUNIL = "cadastro-funil/1.0.0";
+export const VERSAO_FUNIL = "cadastro-funil/1.1.0";
 
 export interface JornadaAdmin {
   id: string;
@@ -88,6 +88,73 @@ export interface ResumoFunil {
   fases: { id: string; rotulo: string; alcancaram: number; fracao: number | null }[];
   /** Onde as que PARARAM estão, do passo mais comum ao menos. */
   ondeParam: { passo: string; rotulo: string; quantas: number }[];
+  /** Quanto tempo leva (etapa 4): medianas em minutos, `null` sem base. */
+  tempos: TemposFunil;
+}
+
+export interface TemposFunil {
+  /** Do primeiro passo à conclusão, entre as que concluíram. */
+  ateConcluir: { mediana: number | null; base: number };
+  /** Do primeiro passo ao último, entre as que PARARAM: quanto a pessoa tentou antes de desistir. */
+  ateParar: { mediana: number | null; base: number };
+  /** De uma fase à seguinte, entre as jornadas que registraram as duas. */
+  entreFases: { de: string; para: string; rotulo: string; mediana: number | null; base: number }[];
+  /** A passagem com a maior mediana (com base de pelo menos 3): onde o cadastro é lento. */
+  maisLenta: string | null;
+}
+
+/** Mediana; `null` com a lista vazia (zero minutos seria "instantâneo", não "sem dado"). */
+export function mediana(v: readonly number[]): number | null {
+  if (!v.length) return null;
+  const o = [...v].sort((a, b) => a - b), m = Math.floor(o.length / 2);
+  return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
+}
+
+const ms = (iso: string | null | undefined) => {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return Number.isFinite(t) ? t : null;
+};
+/** Minutos entre dois instantes; `null` se faltar um ou se o relógio andar para trás. */
+const minutosEntre = (a: number | null, b: number | null) => (a === null || b === null || b < a ? null : (b - a) / 60_000);
+
+/** A PRIMEIRA chegada a uma fase: o menor instante entre os passos dela (a conclusão vale pelo "pronto"). */
+export function chegadaNaFase(j: Pick<JornadaAdmin, "etapas" | "concluidaEm">, i: number): number | null {
+  const f = FASES_FUNIL[i];
+  const ts = f.passos.map((p) => ms(j.etapas?.[p])).filter((t): t is number => t !== null);
+  if (f.id === "pronto") { const c = ms(j.concluidaEm); if (c !== null) ts.push(c); }
+  return ts.length ? Math.min(...ts) : null;
+}
+
+/** "45 s", "12 min", "2 h 10 min", "3 dias": a duração como se diz. */
+export function duracaoLegivel(min: number | null): string {
+  if (min === null || !Number.isFinite(min) || min < 0) return "—";
+  if (min < 1) return `${Math.max(1, Math.round(min * 60))} s`;
+  if (min < 60) return `${Math.round(min)} min`;
+  if (min < 48 * 60) {
+    const h = Math.floor(min / 60), r = Math.round(min - h * 60);
+    return r ? `${h} h ${r} min` : `${h} h`;
+  }
+  return `${Math.round(min / 1440)} dias`;
+}
+
+export function temposDoFunil(jornadas: readonly JornadaAdmin[], agora: Date): TemposFunil {
+  const inicio = (j: JornadaAdmin) => ms(j.iniciadaEm);
+  const concl = jornadas.map((j) => minutosEntre(inicio(j), ms(j.concluidaEm))).filter((m): m is number => m !== null);
+  const paradas = jornadas.filter((j) => estadoDaJornada(j, agora) === "parou")
+    .map((j) => minutosEntre(inicio(j), ms(j.atualizadaEm))).filter((m): m is number => m !== null);
+  const entreFases = FASES_FUNIL.slice(0, -1).map((f, i) => {
+    const prox = FASES_FUNIL[i + 1];
+    const v = jornadas.map((j) => minutosEntre(chegadaNaFase(j, i), chegadaNaFase(j, i + 1))).filter((m): m is number => m !== null);
+    return { de: f.id, para: prox.id, rotulo: `${f.rotulo} → ${prox.rotulo}`, mediana: mediana(v), base: v.length };
+  });
+  const candidatas = entreFases.filter((e) => e.base >= 3 && e.mediana !== null);
+  const maisLenta = candidatas.length ? candidatas.reduce((a, b) => (b.mediana! > a.mediana! ? b : a)).rotulo : null;
+  return {
+    ateConcluir: { mediana: mediana(concl), base: concl.length },
+    ateParar: { mediana: mediana(paradas), base: paradas.length },
+    entreFases,
+    maisLenta,
+  };
 }
 
 export function resumirFunil(jornadas: readonly JornadaAdmin[], agora: Date): ResumoFunil {
@@ -117,6 +184,7 @@ export function resumirFunil(jornadas: readonly JornadaAdmin[], agora: Date): Re
     taxaConclusao: total ? concluidas / total : null,
     fases,
     ondeParam,
+    tempos: temposDoFunil(jornadas, agora),
   };
 }
 
