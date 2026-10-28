@@ -660,7 +660,7 @@ function SeusPedidos() {
                 <span className="text-[12px] font-medium px-[10px] py-[3px] rounded-pill text-ink" style={{ background: "var(--color-surface-1)" }}>{NOME_SITUACAO[p.situacao]}</span>
               </div>
               {p.situacao !== "cancelado" && (
-                <ol className="grid grid-cols-5 gap-2 m-0 p-0 list-none" aria-label="Etapas do pedido">
+                <ol className="grid grid-cols-6 gap-2 m-0 p-0 list-none" aria-label="Etapas do pedido">
                   {ETAPAS_PEDIDO.map((s, i) => (
                     <li key={s} className="flex flex-col gap-1">
                       <span className="h-[4px] rounded-pill" style={{ background: i <= etapa ? "var(--color-ink)" : "var(--color-surface-2)" }} />

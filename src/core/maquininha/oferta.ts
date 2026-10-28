@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.2.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.3.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -475,15 +475,98 @@ export function validarPedido(p: PedidoMaquininha): Record<string, string> {
   return e;
 }
 
-export type SituacaoPedido = "recebido" | "em_analise" | "aprovado" | "enviado" | "concluido" | "cancelado";
+export type SituacaoPedido = "recebido" | "em_analise" | "proposta" | "aprovado" | "enviado" | "concluido" | "cancelado";
 
 export const NOME_SITUACAO: Record<SituacaoPedido, string> = {
-  recebido: "Recebido", em_analise: "Em análise", aprovado: "Aprovado",
+  recebido: "Recebido", em_analise: "Em análise", proposta: "Proposta enviada", aprovado: "Aprovado",
   enviado: "A caminho", concluido: "Concluído", cancelado: "Cancelado",
 };
 
 /** As etapas do pedido, em ordem, para a linha do tempo da tela. */
-export const ETAPAS_PEDIDO: SituacaoPedido[] = ["recebido", "em_analise", "aprovado", "enviado", "concluido"];
+export const ETAPAS_PEDIDO: SituacaoPedido[] = ["recebido", "em_analise", "proposta", "aprovado", "enviado", "concluido"];
+
+/* --------------------------- o funil comercial ---------------------------- */
+
+/**
+ * O funil da Administração › Comercial. ⚠️ Cada coluna É uma situação do
+ * pedido, com o nome que o comercial usa: mover o card muda a MESMA situação
+ * que a empresa acompanha na página dela. Uma segunda "etapa comercial" ao
+ * lado da situação seriam dois campos para o mesmo fato, com escritores
+ * independentes — a divergência só esperaria o primeiro card movido.
+ */
+export const FUNIL_COMERCIAL: readonly { situacao: SituacaoPedido; nome: string }[] = [
+  { situacao: "recebido", nome: "Novo" },
+  { situacao: "em_analise", nome: "Em contato" },
+  { situacao: "proposta", nome: "Proposta" },
+  { situacao: "aprovado", nome: "Aprovado" },
+  { situacao: "enviado", nome: "A caminho" },
+  { situacao: "concluido", nome: "Instalado" },
+  { situacao: "cancelado", nome: "Perdido" },
+];
+
+/** O mínimo que o funil lê de um pedido. */
+export interface PedidoNoFunil {
+  situacao: SituacaoPedido;
+  faturamento_mensal: number | null;
+  simulacao: SimulacaoDoPedido | null;
+  criado_em: string;
+}
+
+export interface ColunaDoFunil<T extends PedidoNoFunil> {
+  situacao: SituacaoPedido;
+  nome: string;
+  pedidos: T[];
+  /**
+   * A economia por mês que a Quattro mostrou a esses clientes. ⚠️ Só a
+   * POSITIVA soma: quem hoje paga menos que a Quattro tem economia negativa,
+   * e somá-la apagaria a economia dos outros da mesma coluna.
+   */
+  economiaMes: number;
+  /** O faturamento por mês declarado (ou o volume simulado, quando não declarou). */
+  faturamentoMes: number;
+}
+
+/** Faturamento do pedido: o declarado no formulário, senão o volume da simulação. */
+export function faturamentoDoPedido(p: PedidoNoFunil): number | null {
+  return p.faturamento_mensal ?? p.simulacao?.volumeMensal ?? null;
+}
+
+/**
+ * Agrupa os pedidos nas colunas do funil. Dentro da coluna, quem mostra mais
+ * economia vem primeiro (é a conversa mais fácil), e o empate fica com o mais
+ * recente. Situação desconhecida não some: cai em "Novo", para ser vista.
+ */
+export function montarFunil<T extends PedidoNoFunil>(pedidos: readonly T[]): ColunaDoFunil<T>[] {
+  const colunas = FUNIL_COMERCIAL.map((c) => ({ ...c, pedidos: [] as T[], economiaMes: 0, faturamentoMes: 0 }));
+  for (const p of pedidos) {
+    const col = colunas.find((c) => c.situacao === p.situacao) ?? colunas[0];
+    col.pedidos.push(p);
+    col.economiaMes = r2(col.economiaMes + Math.max(0, p.simulacao?.economiaMes ?? 0));
+    col.faturamentoMes = r2(col.faturamentoMes + (faturamentoDoPedido(p) ?? 0));
+  }
+  for (const c of colunas) {
+    c.pedidos.sort((a, b) =>
+      Math.max(0, b.simulacao?.economiaMes ?? 0) - Math.max(0, a.simulacao?.economiaMes ?? 0)
+      || b.criado_em.localeCompare(a.criado_em));
+  }
+  return colunas;
+}
+
+/** Os números do topo do funil: o que está em aberto e o que já foi instalado. */
+export function resumoDoFunil<T extends PedidoNoFunil>(colunas: readonly ColunaDoFunil<T>[]) {
+  const abertas = colunas.filter((c) => c.situacao !== "concluido" && c.situacao !== "cancelado");
+  const ganhos = colunas.find((c) => c.situacao === "concluido")?.pedidos.length ?? 0;
+  const perdidos = colunas.find((c) => c.situacao === "cancelado")?.pedidos.length ?? 0;
+  return {
+    emAberto: abertas.reduce((a, c) => a + c.pedidos.length, 0),
+    economiaEmAberto: r2(abertas.reduce((a, c) => a + c.economiaMes, 0)),
+    faturamentoEmAberto: r2(abertas.reduce((a, c) => a + c.faturamentoMes, 0)),
+    ganhos,
+    perdidos,
+    /** Instalados ÷ fechados (instalados + perdidos). `null` sem nenhum fechado: 0% diria "perdemos todos". */
+    conversao: ganhos + perdidos > 0 ? ganhos / (ganhos + perdidos) : null,
+  };
+}
 
 /* ------------------------------ a meta do mês ------------------------------ */
 

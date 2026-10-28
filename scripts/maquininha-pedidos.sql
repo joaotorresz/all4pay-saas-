@@ -12,7 +12,9 @@
 --   4. existe UMA função maquininha_pedido_criar — com duas, o PostgREST não
 --      sabe qual chamar e o pedido falha para todo mundo;
 --   5. TESTE NEGATIVO: a assinatura antiga é recriada numa subtransação e a
---      asserção 4 tem de reprovar NOMEANDO as duas candidatas.
+--      asserção 4 tem de reprovar NOMEANDO as duas candidatas;
+--   6. a situação "proposta" (a coluna Proposta do funil Comercial) é aceita
+--      pela tabela e pela função da plataforma, e a inventada é recusada.
 --
 -- O usuário entra por `auth.users` (o gatilho de signup cria a empresa com
 -- ele como titular), como em `plano-pro.sql`. Termina em ROLLBACK.
@@ -130,10 +132,22 @@ begin
     falhas := array_append(falhas, '5: a planta não foi desfeita');
   end if;
 
+  ------------------------- 6. a coluna Proposta do funil (migration 20261029120000) ---
+  -- A situação é o campo do funil: "proposta" entra; situação inventada, não.
+  update public.maquininha_pedidos set situacao = 'proposta' where id = id_novo;
+  begin
+    update public.maquininha_pedidos set situacao = 'negociando' where id = id_novo;
+    falhas := array_append(falhas, '6: situação inventada (negociando) foi aceita');
+  exception when check_violation then null;
+  end;
+  if pg_get_functiondef('public.admin_maquininha_pedido_situacao(uuid, text)'::regprocedure) not like '%''proposta''%' then
+    falhas := array_append(falhas, '6: a função da plataforma ainda recusa a situação proposta');
+  end if;
+
   if array_length(falhas, 1) > 0 then
     raise exception E'GUARDA DO PEDIDO DE MAQUININHA REPROVOU:\n  %', array_to_string(falhas, E'\n  ');
   end if;
-  raise notice 'pedido de maquininha: chamada antiga, simulação, recusas e função única — OK';
+  raise notice 'pedido de maquininha: chamada antiga, simulação, recusas, função única e situação proposta — OK';
 end
 $guarda$;
 
