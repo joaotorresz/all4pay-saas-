@@ -6,8 +6,9 @@
  * digitável para mandar ao cliente.
  *
  * ⚠️ Some INTEIRO quando a cobrança não está liberada (interruptor do servidor,
- * demonstração) ou a empresa não a ligou na maquininha: um botão que sempre
- * responde "indisponível" ensina a não clicar nele.
+ * demonstração): um botão que sempre responde "indisponível" ensina a não
+ * clicar nele. Liberada mas sem a empresa ter ligado, vira o pedido da conta
+ * Quattro (`PedirContaQuattro`) ou o caminho para ligar a cobrança.
  *
  * ⚠️ Esta tela não decide nada: o pedido leva só o título e o tipo. Valor,
  * vencimento, pagador e quem recebe saem do banco (`/api/pinbank/cobranca`).
@@ -16,6 +17,7 @@ import * as React from "react";
 import { Button, StatusBadge } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { formatBRL } from "@/lib/format";
+import { PedirContaQuattro, type PedidoConta } from "@/components/movimentacoes/PedirContaQuattro";
 import { FRASE_DA_SITUACAO, linhaDigitavelLegivel, type SituacaoCobranca, type TipoCobranca } from "@/core/pinbank/cobranca";
 
 type Cobranca = {
@@ -30,7 +32,16 @@ type Cobranca = {
   motivo: string | null;
 };
 
-type Estado = { liberada: boolean; ligada: boolean; cobrancas: Cobranca[]; link: string | null };
+type Estado = {
+  liberada: boolean;
+  ligada: boolean;
+  /** A plataforma já pôs o código da conta no vínculo; falta a empresa ligar a cobrança. */
+  contaPronta: boolean;
+  /** O pedido de conta Quattro em aberto, feito na própria baixa. */
+  pedidoConta: PedidoConta;
+  cobrancas: Cobranca[];
+  link: string | null;
+};
 
 const TOM: Record<SituacaoCobranca, "warning" | "neutral" | "positive" | "ink"> = {
   reservada: "neutral",
@@ -65,6 +76,8 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
       setEstado({
         liberada: !!j.liberada,
         ligada: !!j.ligada,
+        contaPronta: !!j.contaPronta,
+        pedidoConta: j.pedidoConta && typeof j.pedidoConta.criado_em === "string" ? j.pedidoConta : null,
         cobrancas: Array.isArray(j.cobrancas) ? j.cobrancas : [],
         link: typeof j.link === "string" ? j.link : null,
       });
@@ -77,7 +90,11 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
     if (!isDemo) void carregar();
   }, [carregar]);
 
-  if (isDemo || !estado || !estado.liberada || !estado.ligada) return null;
+  if (isDemo || !estado || !estado.liberada) return null;
+  // Sem a cobrança ligada: o caminho para ter a conta (ou para ligá-la), nunca um botão que só recusa.
+  if (!estado.ligada) {
+    return <PedirContaQuattro contaPronta={estado.contaPronta} pedido={estado.pedidoConta} show={show} aoPedir={() => void carregar()} />;
+  }
 
   const gerar = async (tipo: TipoCobranca) => {
     setGerando(tipo);

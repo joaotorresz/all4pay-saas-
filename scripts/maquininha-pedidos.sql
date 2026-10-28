@@ -144,10 +144,29 @@ begin
     falhas := array_append(falhas, '6: a função da plataforma ainda recusa a situação proposta');
   end if;
 
+  ------------- 7. o pedido de conta Quattro (migration 20261029160000) ---
+  -- Pedido na baixa do título: só contato, sem endereço nem EC, origem "cobranca".
+  id_novo := public.maquininha_pedido_criar(
+    'conta_pix', null, null, null, null, 'Marina Alves', '11987654321', null, null, null, 'cobranca', null);
+  select tipo, origem, endereco, codigo_estabelecimento, quantidade into r from public.maquininha_pedidos where id = id_novo;
+  if r.tipo is distinct from 'conta_pix' or r.origem is distinct from 'cobranca' or r.endereco is not null or r.codigo_estabelecimento is not null or r.quantidade <> 1 then
+    falhas := array_append(falhas, format('7: o pedido de conta saiu tipo=%s origem=%s endereco=%s ec=%s qtd=%s', r.tipo, r.origem, r.endereco, r.codigo_estabelecimento, r.quantidade));
+  end if;
+  begin
+    perform public.maquininha_pedido_criar('conta_pix', null, null, null, null, 'Marina', null, null, null, null, 'cobranca', null);
+    falhas := array_append(falhas, '7: pedido de conta sem telefone nem e-mail foi aceito');
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.maquininha_pedido_criar('abrir_banco', null, null, null, null, 'Marina', '11987654321', null, null, null, 'cobranca', null);
+    falhas := array_append(falhas, '7: tipo inventado (abrir_banco) foi aceito');
+  exception when check_violation then null;
+  end;
+
   if array_length(falhas, 1) > 0 then
     raise exception E'GUARDA DO PEDIDO DE MAQUININHA REPROVOU:\n  %', array_to_string(falhas, E'\n  ');
   end if;
-  raise notice 'pedido de maquininha: chamada antiga, simulação, recusas, função única e situação proposta — OK';
+  raise notice 'pedido de maquininha: chamada antiga, simulação, recusas, função única e situação proposta e pedido de conta — OK';
 end
 $guarda$;
 

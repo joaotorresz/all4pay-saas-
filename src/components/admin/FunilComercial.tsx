@@ -16,7 +16,7 @@ import { Card, BRL, Button, PontoStatus, Select, Skeleton } from "@/components/u
 import { useToast } from "@/components/listas/ListChrome";
 import { formatBRL, pct } from "@/lib/format";
 import { filaDePedidos, mudarSituacaoPedido, type PedidoNaFila } from "@/lib/maquininha-oferta";
-import { FUNIL_COMERCIAL, NOME_MOTIVO_PERDA, faturamentoDoPedido, montarFunil, resumoDoFunil, situacaoDoContato, type SituacaoPedido } from "@/core/maquininha/oferta";
+import { FUNIL_COMERCIAL, NOME_MOTIVO_PERDA, faturamentoDoPedido, nomeDoTipoPedido, montarFunil, resumoDoFunil, situacaoDoContato, type SituacaoPedido } from "@/core/maquininha/oferta";
 import { FichaLead } from "./FichaLead";
 
 const OPCOES = FUNIL_COMERCIAL.map((c) => ({ value: c.situacao, label: c.nome }));
@@ -109,12 +109,12 @@ function CartaoPedido({ p, hoje, aoMover, aoAbrir }: {
           <span className="text-caption text-muted tabular-nums shrink-0">{dia(p.criado_em)}</span>
         </div>
         <span className="text-caption text-muted">
-          {p.tipo === "pedir" ? `${p.quantidade} ${p.quantidade === 1 ? "maquininha" : "maquininhas"}` : `Vínculo do EC ${p.codigo_estabelecimento ?? "—"}`}
+          {p.tipo === "vincular" ? `Vínculo do EC ${p.codigo_estabelecimento ?? "—"}` : nomeDoTipoPedido(p.tipo, p.quantidade)}
           {p.segmento ? ` · ${p.segmento}` : ""}
         </span>
       </div>
       {fat != null && <span className="text-caption text-ink tabular-nums">{formatBRL(fat)}/mês em vendas</span>}
-      {p.origem !== "formulario" && (
+      {(p.origem === "economia" || p.origem === "consultor") && (
         <span
           className="self-start text-[12px] font-medium px-[10px] py-[3px] rounded-pill text-ink tabular-nums"
           style={{ background: "var(--color-surface-1)" }}

@@ -21,7 +21,7 @@ import {
 } from "@/lib/maquininha-oferta";
 import {
   FUNIL_COMERCIAL, NOME_FORMA, NOME_MOTIVO_PERDA, TETO_TAXA_PROPOSTA, comparacaoDaProposta,
-  faturamentoDoPedido, type FormaOferta, type MotivoPerda, type TaxasPorForma,
+  faturamentoDoPedido, nomeDoTipoPedido, type FormaOferta, type MotivoPerda, type TaxasPorForma,
 } from "@/core/maquininha/oferta";
 
 const FORMAS: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
@@ -124,7 +124,7 @@ function DadosDoPedido({ p }: { p: PedidoNaFila }) {
   return (
     <Bloco titulo="Pedido">
       <Linha rotulo="O que pediu">
-        {p.tipo === "pedir" ? `${p.quantidade} ${p.quantidade === 1 ? "maquininha" : "maquininhas"}` : `Vínculo do EC ${p.codigo_estabelecimento ?? "—"}`}
+        {p.tipo === "vincular" ? `Vínculo do EC ${p.codigo_estabelecimento ?? "—"}` : nomeDoTipoPedido(p.tipo, p.quantidade)}
       </Linha>
       {p.segmento && <Linha rotulo="Segmento">{p.segmento}</Linha>}
       {fat != null && <Linha rotulo="Vendas por mês"><span className="tabular-nums">{formatBRL(fat)}</span></Linha>}

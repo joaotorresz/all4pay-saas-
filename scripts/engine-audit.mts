@@ -16,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, margemDaFaixa as margemDaFaixaMq, acrescimosDaMargem as acrescimosDaMargemMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, nomeDoTipoPedido as nomeDoTipoPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, margemDaFaixa as margemDaFaixaMq, acrescimosDaMargem as acrescimosDaMargemMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -13316,6 +13316,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("maquininha-oferta: margem inválida não sobe taxa nenhuma", Object.values(acrescimosDaMargemMq(NaN, MIX, 0.04)).every((x) => x === 0));
   }
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
+  // A conta Quattro (Pix e boleto), pedida na baixa: só contato — sem endereço nem EC.
+  const eC = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, tipo: "conta_pix", origem: "cobranca", contatoNome: "Ana", contatoTelefone: "11999990000" });
+  ok("maquininha-oferta: pedido de conta Quattro passa só com o contato", Object.keys(eC).length === 0, JSON.stringify(eC));
+  const eC2 = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, tipo: "conta_pix", contatoNome: "Ana" });
+  ok("maquininha-oferta: pedido de conta Quattro sem telefone nem e-mail é recusado", !!eC2.contatoTelefone && !eC2.endereco && !eC2.codigoEstabelecimento);
+  ok("maquininha-oferta: o funil nomeia o pedido de conta", nomeDoTipoPedidoMq("conta_pix") === "Abertura de conta Quattro (Pix e boleto)" && nomeDoTipoPedidoMq("pedir", 3) === "3 maquininhas");
 }
 
 // tipografia: todo número em Agrandir (27/10/2026) — a regra que decide o que é

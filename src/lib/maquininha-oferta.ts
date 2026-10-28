@@ -138,11 +138,13 @@ export async function listarPedidos(): Promise<PedidoRegistrado[]> {
 /** Envia o pedido. Lança com o motivo do banco quando ele recusa. */
 export async function enviarPedido(p: PedidoMaquininha): Promise<PedidoRegistrado> {
   const vincular = p.tipo === "vincular";
+  // A conta Quattro (Pix e boleto) não leva maquininha, endereço nem EC.
+  const pedir = p.tipo === "pedir";
   if (isDemo) {
     const novo: PedidoRegistrado = {
       id: `demo-${pedidosDemo.length + 1}`,
       tipo: p.tipo,
-      quantidade: vincular ? 1 : p.quantidade,
+      quantidade: pedir ? p.quantidade : 1,
       codigoEstabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
       situacao: "recebido",
       criadoEm: new Date().toISOString(),
@@ -154,14 +156,14 @@ export async function enviarPedido(p: PedidoMaquininha): Promise<PedidoRegistrad
   }
   const base = {
     p_tipo: p.tipo,
-    p_quantidade: vincular ? 1 : p.quantidade,
+    p_quantidade: pedir ? p.quantidade : 1,
     p_segmento: p.segmento || null,
     p_faturamento_mensal: (p.faturamentoMensal ?? 0) > 0 ? p.faturamentoMensal : null,
     p_codigo_estabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
     p_contato_nome: p.contatoNome,
     p_contato_telefone: p.contatoTelefone || null,
     p_contato_email: p.contatoEmail || null,
-    p_endereco: vincular ? null : p.endereco,
+    p_endereco: pedir ? p.endereco : null,
     p_observacao: p.observacao || null,
   };
   const simulacao = lerSimulacao(p.simulacao);
@@ -182,7 +184,7 @@ export async function enviarPedido(p: PedidoMaquininha): Promise<PedidoRegistrad
   return {
     id: String(data),
     tipo: p.tipo,
-    quantidade: vincular ? 1 : p.quantidade,
+    quantidade: pedir ? p.quantidade : 1,
     codigoEstabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
     situacao: "recebido",
     criadoEm: new Date().toISOString(),

@@ -355,7 +355,19 @@ export { fracaoDeAntecipacao };
 
 /* ------------------------------ o pedido ------------------------------ */
 
-export type TipoPedido = "pedir" | "vincular";
+/**
+ * `conta_pix`: a conta Quattro para cobrar por Pix e boleto, pedida na baixa
+ * de um título por quem ainda não tem conta Pinbank (decisão do dono,
+ * 28/10/2026). Vai ao MESMO funil Comercial: só contato, sem endereço nem EC.
+ */
+export type TipoPedido = "pedir" | "vincular" | "conta_pix";
+
+/** O nome do tipo no funil, na ficha e na página da empresa — uma grafia só. */
+export function nomeDoTipoPedido(tipo: TipoPedido | string, quantidade = 1): string {
+  if (tipo === "conta_pix") return "Abertura de conta Quattro (Pix e boleto)";
+  if (tipo === "vincular") return "Vincular maquininha que já tem";
+  return quantidade > 1 ? `${quantidade} maquininhas` : "1 maquininha";
+}
 
 export interface PedidoMaquininha {
   tipo: TipoPedido;
@@ -392,7 +404,7 @@ export const PEDIDO_VAZIO: PedidoMaquininha = {
  * O comercial trata os dois últimos de jeitos opostos: o primeiro já está
  * convencido, o segundo espera uma proposta.
  */
-export type OrigemPedido = "formulario" | "economia" | "consultor";
+export type OrigemPedido = "formulario" | "economia" | "consultor" | "cobranca";
 
 export interface SimulacaoDoPedido {
   versao: string;
@@ -507,7 +519,7 @@ export function validarPedido(p: PedidoMaquininha): Record<string, string> {
   if (p.tipo === "pedir") {
     if (!(p.quantidade >= 1 && p.quantidade <= TETO_MAQUININHAS)) e.quantidade = `Peça de 1 a ${TETO_MAQUININHAS} maquininhas.`;
     if (p.endereco.trim().length < 8) e.endereco = "Informe o endereço de entrega.";
-  } else if (!/^\d{3,15}$/.test(p.codigoEstabelecimento.trim())) {
+  } else if (p.tipo === "vincular" && !/^\d{3,15}$/.test(p.codigoEstabelecimento.trim())) {
     e.codigoEstabelecimento = "O número do estabelecimento tem só números (o que aparece no comprovante da maquininha).";
   }
   if (p.observacao.length > 500) e.observacao = "Use até 500 letras.";
