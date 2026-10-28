@@ -329,6 +329,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-lembretes.sql
+      - name: Guarda do pedido de maquininha (simulação, chamada antiga e função única)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/maquininha-pedidos.sql
+      - name: Guarda da ficha do lead da maquininha (só a plataforma, recusas e histórico)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/maquininha-leads.sql
       # ⚠️ Rodada 6: o papel vale em toda tabela de dinheiro — leitor recusado
       # em venda, recorrência, cadastro e razão; contador externo grava no
       # razão e é recusado na venda; o leitor continua lendo.

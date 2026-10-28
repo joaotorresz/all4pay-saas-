@@ -166,6 +166,12 @@ print(json.dumps(rows, default=str))
 
   /* ── Análise de variação ── */
   await u.ir("/dashboard/reports/variance");
+  // ⚠️ A demonstração só tem saídas nos últimos 14 dias: depois do dia 14, o mês
+  // fechado anterior (o padrão da tela) não tem despesa e nenhuma linha passa da
+  // materialidade. O mês mais recente da lista tem as duas pontas.
+  const selMes = u.page.getByLabel("Mês analisado");
+  const primeiroMes = await selMes.locator("option").first().getAttribute("value");
+  if (primeiroMes) { await selMes.selectOption(primeiroMes); await u.page.waitForTimeout(800); }
   const linhaMat = u.page.getByRole("button", { name: /(Melhora|Piora) o resultado/ }).first();
   v.ok(await linhaMat.count() > 0, "há linha material para explicar");
   if (await linhaMat.count()) {

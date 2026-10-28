@@ -107,7 +107,6 @@ export default async function folhaColaborador(navegador) {
   const v = verificador("folha-colaborador");
   const u = await novoUsuario(navegador);
 
-  const hoje = await u.page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
   const em30 = await u.page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 30); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
   const saidasAntes = await saidasProjetadas(u);
   v.ok(Number.isFinite(saidasAntes), "o fluxo de caixa mostra as saídas projetadas", String(saidasAntes));
@@ -147,8 +146,10 @@ export default async function folhaColaborador(navegador) {
   const nov27 = await titulosDoMes(u, "2027-11");
   v.ok(!nov27.some((l) => /13º 2027/.test(l.join(" "))), "nenhum 13º de 2027 (os salários de 2027 não foram gerados até novembro)");
 
-  // O fluxo de caixa recebe exatamente o que vence nos próximos 30 dias.
-  const noJanela = clt.previa.filter((x) => x.venc >= hoje && x.venc <= em30).reduce((s, x) => s + x.valor, 0);
+  // O fluxo de caixa recebe exatamente o que vence nos próximos 30 dias — e o
+  // que JÁ venceu e segue em aberto, que a projeção inclui (o título de 07/10
+  // não pago ainda vai sair da conta).
+  const noJanela = clt.previa.filter((x) => x.venc <= em30).reduce((s, x) => s + x.valor, 0);
   const saidasDepois = await saidasProjetadas(u);
   v.ok(Math.abs((saidasDepois - saidasAntes) - noJanela) < 0.011,
     "as saídas projetadas do fluxo de caixa sobem exatamente o que a folha agenda para os próximos 30 dias",

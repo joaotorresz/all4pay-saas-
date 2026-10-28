@@ -35,6 +35,7 @@
  * vencimento; os cards e a tabela recortam os títulos pelo VENCIMENTO.
  */
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, Skeleton } from "@/components/ui";
 import {
   CarrosselSazonalidade, FaixaPeriodos, type Granularidade,
@@ -43,11 +44,13 @@ import { periodosNoIntervalo, intervaloDeTresMeses } from "@/core/movimentacoes/
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { dataBR } from "@/lib/format";
 import {
-  montarPainelContasReceber, opcoesDeFiltroReceber, passaNosFiltros,
+  montarPainelContasReceber, opcoesDeFiltroReceber, passaNosFiltros, ponteVendaRecebimento,
   periodoMes, periodoSemana, periodoPersonalizado, periodoInvalido,
   ROTULO_SITUACAO_RECEBER, TOKEN_SITUACAO_RECEBER, MODALIDADES_VENDA,
   type ModalidadeVenda, type Periodo, type TipoPeriodo, type SituacaoReceber, type PainelContasReceber,
+  type PonteVendaRecebimento,
 } from "@/core/contas-receber";
+import { Ponte, Envelhecimento, Exposicao } from "@/components/contas-receber/DashboardContasReceber";
 import { FiltrosPeriodo, DistribuicaoDonut, FaixaDeDias, type ItemDoDia } from "@/components/titulos/kit";
 import { TitulosView, type RecorteDoPainel } from "@/components/movimentacoes/TitulosView";
 import { VendasView } from "@/components/vendas-nf/VendasView";
@@ -70,11 +73,19 @@ export function PainelVendas() {
   const [cliente, setCliente] = React.useState("");
   const [modalidades, setModalidades] = React.useState<ModalidadeVenda[]>([]);
 
+  /*
+   * ⚠️ `?mes=AAAA-MM` abre o painel NAQUELE mês. É o que o formulário manda
+   * depois de criar um título com vencimento em outro mês: sem isso o painel
+   * abria no mês corrente e o título recém-criado parecia não ter sido salvo.
+   */
+  const mesDaUrl = useSearchParams().get("mes") ?? "";
   React.useEffect(() => {
     if (!hoje || custom.de) return;
-    const m = periodoMes(hoje);
+    const outroMes = /^\d{4}-(0[1-9]|1[0-2])$/.test(mesDaUrl) && mesDaUrl !== hoje.slice(0, 7);
+    const m = periodoMes(outroMes ? `${mesDaUrl}-01` : hoje);
     setCustom({ de: m.de, ate: m.ate });
-  }, [hoje, custom.de]);
+    if (outroMes) setTipo("personalizado");
+  }, [hoje, custom.de, mesDaUrl]);
 
   const periodo: Periodo | null = React.useMemo(() => {
     if (!hoje) return null;
@@ -101,6 +112,14 @@ export function PainelVendas() {
       }
       : null),
     [periodo, invalido, projeto, centro, cliente, modalidades],
+  );
+
+  // ⚠️ A ponte vender × receber, o envelhecimento e a exposição moravam no
+  // painel de contas a receber, e ficaram de fora quando ele virou este (decisão
+  // do dono, 28/10/2026: voltam). São as MESMAS peças, sobre o MESMO filtro.
+  const ponte: PonteVendaRecebimento | null = React.useMemo(
+    () => (input && filtro ? ponteVendaRecebimento(input, filtro) : null),
+    [input, filtro],
   );
 
   const painel: PainelContasReceber | null = React.useMemo(
@@ -247,6 +266,14 @@ export function PainelVendas() {
       ) : null}
 
       {recorteDosCards && <TitulosView direcao="receber" painel={recorteDosCards} />}
+
+      {ponte && <Ponte ponte={ponte} />}
+      {painel && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <Envelhecimento painel={painel} />
+          <Exposicao painel={painel} />
+        </div>
+      )}
 
       {/* ⚠️ A LISTA DE VENDAS mora aqui desde 27/10/2026 (pedido do dono): a
           tela "Pedidos de venda" saiu e o endereço dela responde 308 para cá.

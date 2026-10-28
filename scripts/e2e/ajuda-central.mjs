@@ -20,10 +20,11 @@ export default async function ajudaCentral(navegador) {
   await u.ir("/dashboard/help");
 
   // 1) as sugestões respondem (nenhuma cai em "não encontrei")
-  const sugestoes = await u.page.locator("main button.text-left").allInnerTexts();
+  const sugestoes = await u.page.locator("#secao-chat button.text-left").allInnerTexts();
   v.ok(sugestoes.length >= 4, "o chat oferece perguntas sugeridas", String(sugestoes.length));
-  await u.page.locator("main button.text-left").first().click();
-  await u.page.waitForTimeout(400);
+  await u.page.locator("#secao-chat button.text-left").first().click();
+  // A resposta espera o "Pensando" e surge palavra por palavra.
+  await u.page.getByText("Abrir tela ↗").first().waitFor({ timeout: 10000 }).catch(() => {});
   let t = (await u.texto()).replace(/\s+/g, " ");
   v.ok(!/Não encontrei isso na base de ajuda/.test(t) && /Abrir tela ↗/.test(t), "a primeira sugestão responde com o caminho na tela", sugestoes[0]);
 
@@ -58,10 +59,9 @@ export default async function ajudaCentral(navegador) {
   const gravado2 = await u.page.evaluate(() => Object.keys(localStorage).map((k) => localStorage.getItem(k)).join("\n"));
   v.ok(gravado2.includes("Extrato de setembro sem categoria") && !gravado2.includes(CPF), "o chamado gravado não carrega o CPF");
 
-  // 4) tours: iniciar leva à tela com o tour ligado
-  await u.page.getByRole("button", { name: "Tours guiados" }).click();
-  await u.page.waitForTimeout(400);
-  await u.page.getByRole("button", { name: /Iniciar|Continuar|Rever/ }).first().click();
+  // 4) tours: iniciar leva à tela com o tour ligado. As partes da Ajuda são
+  // seções EMPILHADAS desde 27/10/2026, não abas: os tours estão na página.
+  await u.page.locator("#secao-tours").getByRole("button", { name: /Iniciar|Continuar|Rever/ }).first().click();
   await u.page.waitForURL(/tour=1/, { timeout: 15000 }).catch(() => {});
   v.ok(/[?&]tour=1/.test(u.page.url()), "iniciar um tour abre a tela com o tour", u.page.url());
 

@@ -72,14 +72,20 @@ export function TitulosView({ direcao, painel }: { direcao: Direcao; painel?: Re
    * de março procurado em setembro cairia fora do mês corrente, e a tela diria
    * "nenhum título encontrado" sobre um título que existe.
    */
-  const buscaDaUrl = useSearchParams().get("busca") ?? "";
+  const query = useSearchParams();
+  const buscaDaUrl = query.get("busca") ?? "";
   const [busca, setBusca] = React.useState(buscaDaUrl);
   const [editarMassa, setEditarMassa] = React.useState(false);
   const [filtro, setFiltro] = React.useState<FiltroTitulos>({ status: "todos" });
   const [abrirFiltro, setAbrirFiltro] = React.useState(false);
   const [porPagina, setPorPagina] = React.useState(50);
   // No painel, filtro e tabela só aparecem depois de um card escolhido.
-  const [cardEscolhido, setCardEscolhido] = React.useState<string | null>(null);
+  // ⚠️ Vindo da busca global (`?busca=`) ou de um título recém-criado
+  // (`?mes=`), a tabela já abre no total: sem isso a tela mostrava só os
+  // cards, e o título procurado (ou o que acabou de ser salvo) não aparecia.
+  const [cardEscolhido, setCardEscolhido] = React.useState<string | null>(
+    buscaDaUrl || query.get("mes") ? "total" : null,
+  );
   const [pagina, setPagina] = React.useState(1);
   const [marcados, setMarcados] = React.useState<Set<string>>(new Set());
   // Carrossel de sazonalidade — portado do extrato.
@@ -97,7 +103,6 @@ export function TitulosView({ direcao, painel }: { direcao: Direcao; painel?: Re
    * em outro mês — senão a tela de destino abriria em agosto para um título
    * lançado em dezembro, e pareceria não ter recebido nada.
    */
-  const query = useSearchParams();
   const [selPeriodo, setSelPeriodo] = React.useState<string | null>(
     () => query.get("mes"),
   );
@@ -562,7 +567,7 @@ export function TitulosView({ direcao, painel }: { direcao: Direcao; painel?: Re
           </div>
         ) : (
           <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
+            <table data-tabela="titulos" className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
                   <Th className="w-[46px]">

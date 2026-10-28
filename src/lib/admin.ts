@@ -352,7 +352,7 @@ export async function desvincularPinbank(vinculoId: string, motivo: string): Pro
 
 /* ----------------------------- mensalidade do ERP ----------------------------- */
 /**
- * As faturas da mensalidade (migration 20261029120000). Só a plataforma gera,
+ * As faturas da mensalidade (migration 20261029140000). Só a plataforma gera,
  * dá baixa e cancela; a empresa paga por Pix ou boleto pela conta Pinbank da
  * Quattro (`/api/mensalidade/cobranca`). A BAIXA renova a assinatura.
  */

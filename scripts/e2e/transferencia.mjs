@@ -4,14 +4,9 @@
  * muda, o DRE não muda (transferência nunca é receita nem despesa), e a
  * transferência aparece na lista de transferências.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
-async function saldoHome(u) {
-  await u.ir("/");
-  const t = (await u.texto()).replace(/\n/g, " ");
-  const m = t.match(/Saldo em conta hoje\s*R\$\s*([\d.]+)/);
-  return m ? brl(m[1]) : NaN;
-}
+const saldoHome = (u) => saldoDaHome(u);
 
 export default async function transferencia(navegador) {
   const v = verificador("transferencia");

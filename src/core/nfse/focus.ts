@@ -289,7 +289,10 @@ export function montarPedidoNacional(
     emitente_dps: "1",
     codigo_municipio_emissora: emitente.codigoMunicipio,
     cnpj_prestador: emitente.cnpj,
-    inscricao_municipal_prestador: emitente.inscricaoMunicipal,
+    // ⚠️ SEM a inscrição municipal: o Ambiente Nacional a lê do cadastro (CNC)
+    // do município e RECUSA a DPS que a informa quando o município não a
+    // registrou lá ("IM do prestador não deve ser informado…", São Paulo,
+    // 28/10/2026). A IM segue obrigatória no emitente: o padrão municipal usa.
     // "3" = ME/EPP optante; "1" = não optante. MEI ("2") não é cliente hoje.
     codigo_opcao_simples_nacional: emitente.optanteSimples ? "3" : "1",
     ...(emitente.optanteSimples ? { regime_tributario_simples_nacional: "1" } : {}),

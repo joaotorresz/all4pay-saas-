@@ -164,10 +164,15 @@ export const SECOES_ADMIN: readonly SecaoAdmin[] = [
   // O funil da abertura de conta (etapa 3 do plano de documentos e funil):
   // quem terminou, quem parou e onde, e os documentos do cofre (só com 2FA).
   { id: "cadastros", rotulo: "Cadastros", href: "/admin/cadastros", icone: "users", resumo: "Quem terminou a abertura de conta, quem parou e em que passo, e os documentos enviados." },
+  // O CRM da maquininha (28/10/2026, decisão do dono: o CRM é próprio e mora
+  // aqui, não num serviço de fora): os pedidos da página Maquininha Quattro
+  // num funil. A lista de pedidos saiu de Maquininhas, que ficou só com o
+  // credenciamento do EC — duas listas do mesmo pedido divergiriam.
+  { id: "comercial", rotulo: "Comercial", href: "/admin/comercial", icone: "trending-up", resumo: "Os pedidos de maquininha num funil, da chegada à instalação, com a economia que cada cliente viu." },
   // ⚠️ O vínculo do EC morava no fim de Suporte, abaixo da lista de TODAS as
   // empresas — o dono procurou e não achou. Credenciar maquininha é tarefa
   // própria, e tarefa própria tem item no menu.
-  { id: "maquininhas", rotulo: "Maquininhas", href: "/admin/maquininhas", icone: "smartphone", resumo: "Vincular o estabelecimento (EC) da maquininha à empresa, e as vendas que esperam vínculo." },
+  { id: "maquininhas", rotulo: "Maquininhas", href: "/admin/maquininhas", icone: "smartphone", resumo: "Vincular o estabelecimento (EC) da maquininha à empresa, e as vendas que esperam vínculo. Os pedidos estão em Comercial." },
   { id: "cobranca", rotulo: "Cobrança", href: "/admin/cobranca", icone: "credit-card", resumo: "Quem paga × quem usa, e a receita mês a mês." },
   { id: "acessos", rotulo: "Acessos", href: "/admin/acessos", icone: "shield-check", resumo: "Contas da plataforma e a trilha das ações do administrador." },
   // A vitrine do design system: cada valor (tokens.json) e cada peça real do

@@ -18,7 +18,7 @@
  *      ele some do formulário — e a conta desativada também;
  *   7. o hub "Estrutura e cadastros" conta o que foi criado.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 const SUF = "Jornada Cadastros";
 
@@ -51,13 +51,6 @@ async function escolherBusca(u, botao, texto) {
   await u.page.waitForTimeout(300);
 }
 
-/** O saldo da Home ("Saldo em conta hoje"), em reais. */
-async function saldoDaHome(u) {
-  await u.ir("/");
-  const t = await u.texto();
-  const m = t.match(/Saldo em conta hoje\s*\n\s*R\$\s*\n?\s*([\d.]+)(?:\s*\n?\s*(,\d\d))?/);
-  return m ? brl(`${m[1]}${m[2] ?? ",00"}`) : NaN;
-}
 
 const hojeISO = (u) => u.page.evaluate(() => {
   const d = new Date();
@@ -106,7 +99,7 @@ export default async function cadastros(navegador) {
     .map((t) => { const m = t.match(/R\$\s*\n?\s*(-?[\d.]+)\s*\n?\s*(,\d\d)/); return m ? brl(m[1] + m[2]) : 0; });
   const somaTela = Math.round(saldosTela.reduce((s, x) => s + x, 0));
   v.ok(Number.isFinite(saldoAntes) && Math.abs(somaTela - saldoAntes) <= 1,
-    "a soma dos saldos em Contas bancárias é o 'Saldo em conta hoje' da Visão geral",
+    "a soma dos saldos em Contas bancárias é o 'Saldo total em contas' da Visão geral",
     `tela ${somaTela} · home ${saldoAntes}`);
 
   await u.page.getByRole("button", { name: "Nova conta bancária" }).first().click();

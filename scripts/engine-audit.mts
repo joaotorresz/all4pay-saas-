@@ -6,6 +6,8 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { enderecoWhatsapp } from "@/core/financial-os/notifications.server";
+import { telefoneE164 } from "@/lib/telefone";
 import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
@@ -14,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -7669,6 +7671,34 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const { FINALIDADE_DO_TOM } = await import("@/core/cobranca");
   ok("aut: um template por tom (lembrete ≠ atraso ≠ formal)",
      new Set(Object.values(FINALIDADE_DO_TOM)).size === 3 && FINALIDADE_DO_TOM.lembrete !== FINALIDADE_DO_TOM.formal);
+  // O modelo de lembrete aprovado na Meta tem 4 variáveis: mandar a 5ª derruba o envio.
+  const vl = variaveisDoTemplate({ cliente: "Beta", valor: 10, vencimento: "2026-09-27", dias: 0 }, credor, "cobranca_lembrete");
+  const va = variaveisDoTemplate({ cliente: "Beta", valor: 10, vencimento: "2026-09-27", dias: 7 }, credor, "cobranca_atraso");
+  ok("aut: o lembrete leva 4 variáveis (sem dias de atraso); atraso e formal levam 5",
+     Object.keys(vl).length === 4 && !("5" in vl) && va["5"] === "7", JSON.stringify({ vl, va }));
+  for (const m of regua.mensagens.filter((x) => x.finalidade === "cobranca_lembrete"))
+    ok("aut: a régua manda o lembrete sem a 5ª variável", !("5" in m.variaveis), JSON.stringify(m.variaveis));
+  // A Twilio recusa (400) o número sem DDI — medido em produção em 28/10/2026.
+  {
+    const casos: [string, string][] = [
+      ["11998388744", "whatsapp:+5511998388744"],
+      ["(11) 99838-8744", "whatsapp:+5511998388744"],
+      ["1133334444", "whatsapp:+551133334444"],
+      ["5511998388744", "whatsapp:+5511998388744"],
+      ["+55 11 99838-8744", "whatsapp:+5511998388744"],
+      ["+14155238886", "whatsapp:+14155238886"],
+      ["whatsapp:+14155238886", "whatsapp:+14155238886"],
+    ];
+    for (const [ent, esp] of casos)
+      ok(`aut: o WhatsApp sai em E.164 (${ent})`, enderecoWhatsapp(ent) === esp, enderecoWhatsapp(ent));
+    // E o cadastro grava pela mesma regra (espelho de public.telefone_e164).
+    const grava: [string | null, string | null][] = [
+      ["11998388744", "+5511998388744"], ["(11) 99838-8744", "+5511998388744"],
+      ["+14155238886", "+14155238886"], ["", null], [null, null], ["123", "123"],
+    ];
+    for (const [ent, esp] of grava)
+      ok(`aut: o telefone é gravado em E.164 (${ent})`, telefoneE164(ent) === esp, String(telefoneE164(ent)));
+  }
   // Encargo só quando configurado, e pela calculadora canônica.
   const comMora = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 0.02, jurosMesPct: 0.01 } }, ctx);
   const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
@@ -8410,8 +8440,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /label: "Quattro AI",[^}]*href: "\/quattro-ai",[^}]*event: "a4p:open-ia"/.test(navIA)
      && /e\.preventDefault\(\);\s*window\.dispatchEvent\(new Event\(it\.event!\)\)/.test(srcIA("src/components/dashboard/Sidebar.tsx")));
   const shellIA = semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"));
-  ok("ia: /quattro-ai sem aba abre o chat, e não há mais aba Conversa",
-     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && /useState<Aba \| null>\(null\)/.test(shellIA));
+  ok("ia: /quattro-ai abre o chat, sem abas (os motores são páginas desde 27/10/2026)",
+     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && !/setAba|aria-current/.test(shellIA));
   const homeIA = semComentIA(srcIA("src/components/visao-geral/HomeSnapshot.tsx"));
   ok("ia: a caixa da Home abre o MESMO chat global (nenhum chat próprio montado nela)",
      /abrirChat\(\{/.test(homeIA) && !/<ChatTelaCheia/.test(homeIA) && !/href="\/quattro-ai"/.test(homeIA));
@@ -13143,6 +13173,82 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("maquininha-oferta: vínculo exige o número do estabelecimento só com dígitos", !!eV.codigoEstabelecimento && !eV.endereco, JSON.stringify(eV));
   const eP = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", endereco: "Rua A, 123, Centro" });
   ok("maquininha-oferta: pedido sem telefone nem e-mail é recusado", !!eP.contatoTelefone, JSON.stringify(eP));
+  // A simulação que vai ao CRM (28/10/2026): a MESMA comparação da tela, e
+  // conferida na leitura, porque quem a monta é o navegador.
+  const entSim = { volumeMensal: 10_000, mix: { pix: 0, debito: 0.5, credito: 0.5, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: { debito: 0.01, credito: 0.05 } };
+  const completasSim = completarTaxasAtuaisMq({ debito: 0.01, credito: 0.05 }, mercado);
+  const sim = simulacaoDoPedidoMq(entSim, completasSim, porForma);
+  ok("maquininha-oferta: a simulação do pedido leva os números da tela (300 hoje, 225 Quattro, economia 75)",
+     sim.custoAtualMes === 300 && sim.custoQuattroMes === 225 && sim.economiaMes === 75 && sim.veredito === "quattro_mais_barata"
+     && sim.taxasAtuais.debito.origem === "informada" && sim.taxasAtuais.pix.origem === "estimada", JSON.stringify(sim));
+  ok("maquininha-oferta: a simulação sobrevive à ida e volta pelo banco (lerSimulacao)",
+     JSON.stringify(lerSimulacaoMq(JSON.parse(JSON.stringify(sim)))) === JSON.stringify(sim));
+  ok("maquininha-oferta: economia de 10 milhões por mês não entra no funil", lerSimulacaoMq({ ...sim, economiaMes: 10_000_000_000 }) === null);
+  ok("maquininha-oferta: taxa de 150% não entra no funil",
+     lerSimulacaoMq({ ...sim, taxasAtuais: { ...sim.taxasAtuais, credito: { taxa: 1.5, origem: "informada" } } }) === null);
+  ok("maquininha-oferta: mix que não soma 100% não entra no funil", lerSimulacaoMq({ ...sim, mix: { pix: 0.9, debito: 0.9, credito: 0, parcelado: 0 } }) === null);
+  ok("maquininha-oferta: veredito inventado, array e texto não entram no funil",
+     lerSimulacaoMq({ ...sim, veredito: "ganhamos" }) === null && lerSimulacaoMq([sim]) === null && lerSimulacaoMq("x") === null);
+  ok("maquininha-oferta: origem do pedido — economia só quando a Quattro sai mais barata",
+     origemDoPedidoMq("quattro_mais_barata") === "economia" && origemDoPedidoMq("atual_mais_barata") === "consultor"
+     && origemDoPedidoMq("empate") === "consultor" && origemDoPedidoMq(null) === "formulario");
+
+  // ── O funil Comercial (CRM etapa 2): cada coluna É uma situação do pedido.
+  ok("maquininha-oferta: o funil tem uma coluna por situação, sem faltar nem repetir",
+     FUNIL_COMERCIAL_MQ.length === Object.keys(NOME_SITUACAO_MQ).length
+     && new Set(FUNIL_COMERCIAL_MQ.map((c) => c.situacao)).size === FUNIL_COMERCIAL_MQ.length
+     && Object.keys(NOME_SITUACAO_MQ).every((s) => FUNIL_COMERCIAL_MQ.some((c) => c.situacao === s)));
+  const simCom = (e: number) => ({ ...sim, economiaMes: e });
+  const pf = (situacao: string, e: number | null, fat: number | null, criado: string) =>
+    ({ situacao: situacao as "recebido", faturamento_mensal: fat, simulacao: e == null ? null : simCom(e), criado_em: criado });
+  const funil = montarFunilMq([
+    pf("recebido", 120, 30_000, "2026-10-20"), pf("recebido", -40, null, "2026-10-21"), pf("recebido", null, 5_000, "2026-10-22"),
+    pf("proposta", 300, 80_000, "2026-10-10"), pf("concluido", 50, 10_000, "2026-09-01"), pf("cancelado", 10, 2_000, "2026-09-02"),
+    pf("negociando", 7, 1_000, "2026-10-23"),
+  ]);
+  const novo = funil.find((c) => c.situacao === "recebido")!;
+  ok("maquininha-oferta: economia NEGATIVA não abate a coluna (120 + 7, não 87)", novo.economiaMes === 127, String(novo.economiaMes));
+  ok("maquininha-oferta: sem faturamento declarado, vale o volume simulado",
+     novo.faturamentoMes === 30_000 + 10_000 + 5_000 + 1_000, String(novo.faturamentoMes));
+  ok("maquininha-oferta: situação desconhecida não some (cai em Novo)", novo.pedidos.length === 4);
+  ok("maquininha-oferta: na coluna, quem viu mais economia vem primeiro",
+     novo.pedidos.map((p) => p.simulacao?.economiaMes ?? null).join() === "120,7,,-40", novo.pedidos.map((p) => p.simulacao?.economiaMes ?? "∅").join());
+  const res = resumoDoFunilMq(funil);
+  ok("maquininha-oferta: o topo do funil conta só o aberto e a conversão é ganhos ÷ fechados",
+     res.emAberto === 5 && res.economiaEmAberto === 427 && res.ganhos === 1 && res.perdidos === 1 && res.conversao === 0.5, JSON.stringify(res));
+  ok("maquininha-oferta: sem pedido fechado, a conversão é ausente (0% diria \"perdemos todos\")",
+     resumoDoFunilMq(montarFunilMq([pf("recebido", 1, 1, "2026-10-01")])).conversao === null);
+  {
+    // A lista de pedidos mora no funil, e só lá: duas listas do mesmo pedido divergem.
+    const sem = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("maquininha-oferta: os pedidos são lidos só pelo funil Comercial (nenhuma outra tela do admin os lista)",
+       /filaDePedidos\(|queryFn: filaDePedidos/.test(sem("src/components/admin/FunilComercial.tsx"))
+       && !/filaDePedidos/.test(sem("src/components/admin/AdminView.tsx")));
+  }
+
+  // ── A ficha do lead (CRM etapa 3): a proposta do consultor e o próximo contato.
+  ok("maquininha-oferta: taxa proposta fora de [0, 20%] e forma inventada são descartadas uma a uma",
+     JSON.stringify(lerTaxasPropostasMq({ debito: 0.01, credito: 0.35, boleto: 0.01, pix: -0.01 })) === JSON.stringify({ debito: 0.01 })
+     && lerTaxasPropostasMq({ credito: TETO_TAXA_PROPOSTA_MQ })?.credito === TETO_TAXA_PROPOSTA_MQ);
+  ok("maquininha-oferta: nenhuma taxa válida é \"sem proposta\", não proposta de 0%",
+     lerTaxasPropostasMq({}) === null && lerTaxasPropostasMq({ credito: "1,5" }) === null && lerTaxasPropostasMq([0.01]) === null && lerTaxasPropostasMq(null) === null);
+  ok("maquininha-oferta: sem taxa proposta não há comparação da proposta", comparacaoDaPropostaMq(sim, null) === null && comparacaoDaPropostaMq(sim, {}) === null);
+  const igual = comparacaoDaPropostaMq(sim, { ...sim.taxasQuattro });
+  ok("maquininha-oferta: propor as taxas da tabela reproduz a simulação do cliente (mesma conta)",
+     !!igual && Math.abs(igual.custoQuattro - sim.custoQuattroMes) < 0.005 && Math.abs(igual.custoAtual - sim.custoAtualMes) < 0.005, JSON.stringify(igual));
+  const prop = comparacaoDaPropostaMq(sim, { debito: 0.005 });
+  ok("maquininha-oferta: baixar só o débito baixa só a parte do débito (o crédito segue na taxa da tabela)",
+     !!prop && Math.abs(prop.custoQuattro - (sim.custoQuattroMes - 5_000 * (sim.taxasQuattro.debito - 0.005))) < 0.005, JSON.stringify(prop));
+  ok("maquininha-oferta: o próximo contato contra hoje (atrasado · hoje · agendado · sem data)",
+     situacaoDoContatoMq("2026-10-27", "2026-10-28") === "atrasado" && situacaoDoContatoMq("2026-10-28", "2026-10-28") === "hoje"
+     && situacaoDoContatoMq("2026-10-29T00:00:00", "2026-10-28") === "agendado" && situacaoDoContatoMq(null, "2026-10-28") === null);
+  {
+    const sem = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("maquininha-oferta: a ficha do lead é lida só pela própria ficha (uma morada só)",
+       /fichaDoLead\(/.test(sem("src/components/admin/FichaLead.tsx"))
+       && !/fichaDoLead/.test(sem("src/components/admin/FunilComercial.tsx")) && !/fichaDoLead/.test(sem("src/components/admin/AdminView.tsx")));
+  }
+
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }
 

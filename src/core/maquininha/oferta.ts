@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.1.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.4.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -330,12 +330,126 @@ export interface PedidoMaquininha {
   contatoEmail: string;
   endereco: string;
   observacao: string;
+  /**
+   * A simulação que levou ao pedido, quando ele veio do pop-up da comparação.
+   * Vai ESTRUTURADA para o CRM da plataforma (pedido do dono, 28/10/2026):
+   * texto solto na observação não se ordena por economia nem se filtra.
+   */
+  simulacao?: SimulacaoDoPedido | null;
+  /** De onde o pedido veio (formulário, pop-up de economia ou convite ao consultor). */
+  origem?: OrigemPedido;
 }
 
 export const PEDIDO_VAZIO: PedidoMaquininha = {
   tipo: "pedir", quantidade: 1, segmento: "", faturamentoMensal: null, codigoEstabelecimento: "",
-  contatoNome: "", contatoTelefone: "", contatoEmail: "", endereco: "", observacao: "",
+  contatoNome: "", contatoTelefone: "", contatoEmail: "", endereco: "", observacao: "", simulacao: null, origem: "formulario",
 };
+
+/* ----------------------- a simulação que vai ao CRM ----------------------- */
+
+/**
+ * De onde o pedido veio: do formulário direto, do pop-up de ECONOMIA (Quattro
+ * mais barata) ou do convite ao CONSULTOR (taxas de hoje menores ou iguais).
+ * O comercial trata os dois últimos de jeitos opostos: o primeiro já está
+ * convencido, o segundo espera uma proposta.
+ */
+export type OrigemPedido = "formulario" | "economia" | "consultor";
+
+export interface SimulacaoDoPedido {
+  versao: string;
+  volumeMensal: number;
+  /** Frações do mix, somando 1. */
+  mix: MixVendas;
+  antecipado: boolean;
+  /** O que a empresa paga hoje, forma a forma, e se ela DIGITOU ou foi estimado. */
+  taxasAtuais: Record<FormaOferta, TaxaAtualCompleta>;
+  /** A taxa da Quattro que entrou na conta, forma a forma (null = não se aplica). */
+  taxasQuattro: Record<FormaOferta, number | null>;
+  custoAtualMes: number;
+  custoQuattroMes: number;
+  /** Positivo = a Quattro sai mais barata. */
+  economiaMes: number;
+  veredito: VereditoComparacao;
+}
+
+const FORMAS_SIM: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
+
+/** Monta a simulação a partir da MESMA comparação que a tela mostrou. */
+export function simulacaoDoPedido(
+  e: EntradaComparacao, completas: Record<FormaOferta, TaxaAtualCompleta>, c: Comparacao,
+): SimulacaoDoPedido {
+  const quattro = {} as Record<FormaOferta, number | null>;
+  for (const f of FORMAS_SIM) {
+    const t = c.porForma.find((x) => x.forma === f)?.taxa;
+    quattro[f] = t == null ? null : r4(t);
+  }
+  const atuais = {} as Record<FormaOferta, TaxaAtualCompleta>;
+  for (const f of FORMAS_SIM) atuais[f] = { taxa: r4(completas[f].taxa), origem: completas[f].origem };
+  return {
+    versao: OFERTA_VERSION,
+    volumeMensal: r2(e.volumeMensal),
+    mix: { pix: r4(e.mix.pix), debito: r4(e.mix.debito), credito: r4(e.mix.credito), parcelado: r4(e.mix.parcelado) },
+    antecipado: !!e.antecipado,
+    taxasAtuais: atuais,
+    taxasQuattro: quattro,
+    custoAtualMes: r2(c.custoAtual),
+    custoQuattroMes: r2(c.custoQuattro),
+    economiaMes: r2(c.diferencaMensal),
+    veredito: c.veredito,
+  };
+}
+
+/** A origem que o pop-up dá ao pedido: economia só quando a Quattro sai mais barata. */
+export function origemDoPedido(veredito: VereditoComparacao | null | undefined): OrigemPedido {
+  if (!veredito) return "formulario";
+  return veredito === "quattro_mais_barata" ? "economia" : "consultor";
+}
+
+/**
+ * Confere uma simulação vinda de FORA (o jsonb lido do banco, ou o que o
+ * navegador mandou). ⚠️ O cliente monta a simulação, então ela é DADO DE
+ * FORA: número fora de faixa, forma inventada ou veredito que não existe
+ * descartam a simulação inteira (null) em vez de entrar meio certa no funil
+ * — uma economia de R$ 10 milhões por mês ordenaria o CRM inteiro errado.
+ */
+export function lerSimulacao(x: unknown): SimulacaoDoPedido | null {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  const num = (v: unknown, min: number, max: number) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
+  const fracao = (v: unknown) => num(v, 0, 1);
+  const TETO = 1_000_000_000;
+  if (!num(o.volumeMensal, 0, TETO) || !num(o.custoAtualMes, 0, TETO) || !num(o.custoQuattroMes, 0, TETO) || !num(o.economiaMes, -TETO, TETO)) return null;
+  if (typeof o.antecipado !== "boolean") return null;
+  if (!["sem_volume", "quattro_mais_barata", "atual_mais_barata", "empate"].includes(o.veredito as string)) return null;
+  const mix = o.mix as Record<string, unknown> | null;
+  const atuais = o.taxasAtuais as Record<string, unknown> | null;
+  const quattro = o.taxasQuattro as Record<string, unknown> | null;
+  if (!mix || !atuais || !quattro || typeof mix !== "object" || typeof atuais !== "object" || typeof quattro !== "object") return null;
+  for (const f of FORMAS_SIM) {
+    if (!fracao(mix[f])) return null;
+    const a = atuais[f] as Record<string, unknown> | null;
+    if (!a || typeof a !== "object" || !num(a.taxa, 0, 0.99) || (a.origem !== "informada" && a.origem !== "estimada")) return null;
+    if (quattro[f] !== null && !num(quattro[f], 0, 0.99)) return null;
+  }
+  const soma = FORMAS_SIM.reduce((s, f) => s + (mix[f] as number), 0);
+  if (Math.abs(soma - 1) > 0.01) return null;
+  return {
+    versao: typeof o.versao === "string" ? o.versao.slice(0, 40) : "desconhecida",
+    volumeMensal: o.volumeMensal as number,
+    mix: { pix: mix.pix as number, debito: mix.debito as number, credito: mix.credito as number, parcelado: mix.parcelado as number },
+    antecipado: o.antecipado,
+    taxasAtuais: Object.fromEntries(FORMAS_SIM.map((f) => {
+      const a = atuais[f] as { taxa: number; origem: OrigemTaxa };
+      return [f, { taxa: a.taxa, origem: a.origem }];
+    })) as Record<FormaOferta, TaxaAtualCompleta>,
+    taxasQuattro: Object.fromEntries(FORMAS_SIM.map((f) => [f, quattro[f] as number | null])) as Record<FormaOferta, number | null>,
+    custoAtualMes: o.custoAtualMes as number,
+    custoQuattroMes: o.custoQuattroMes as number,
+    economiaMes: o.economiaMes as number,
+    veredito: o.veredito as VereditoComparacao,
+  };
+}
 
 export const TETO_MAQUININHAS = 20;
 
@@ -361,15 +475,160 @@ export function validarPedido(p: PedidoMaquininha): Record<string, string> {
   return e;
 }
 
-export type SituacaoPedido = "recebido" | "em_analise" | "aprovado" | "enviado" | "concluido" | "cancelado";
+export type SituacaoPedido = "recebido" | "em_analise" | "proposta" | "aprovado" | "enviado" | "concluido" | "cancelado";
 
 export const NOME_SITUACAO: Record<SituacaoPedido, string> = {
-  recebido: "Recebido", em_analise: "Em análise", aprovado: "Aprovado",
+  recebido: "Recebido", em_analise: "Em análise", proposta: "Proposta enviada", aprovado: "Aprovado",
   enviado: "A caminho", concluido: "Concluído", cancelado: "Cancelado",
 };
 
 /** As etapas do pedido, em ordem, para a linha do tempo da tela. */
-export const ETAPAS_PEDIDO: SituacaoPedido[] = ["recebido", "em_analise", "aprovado", "enviado", "concluido"];
+export const ETAPAS_PEDIDO: SituacaoPedido[] = ["recebido", "em_analise", "proposta", "aprovado", "enviado", "concluido"];
+
+/* --------------------------- o funil comercial ---------------------------- */
+
+/**
+ * O funil da Administração › Comercial. ⚠️ Cada coluna É uma situação do
+ * pedido, com o nome que o comercial usa: mover o card muda a MESMA situação
+ * que a empresa acompanha na página dela. Uma segunda "etapa comercial" ao
+ * lado da situação seriam dois campos para o mesmo fato, com escritores
+ * independentes — a divergência só esperaria o primeiro card movido.
+ */
+export const FUNIL_COMERCIAL: readonly { situacao: SituacaoPedido; nome: string }[] = [
+  { situacao: "recebido", nome: "Novo" },
+  { situacao: "em_analise", nome: "Em contato" },
+  { situacao: "proposta", nome: "Proposta" },
+  { situacao: "aprovado", nome: "Aprovado" },
+  { situacao: "enviado", nome: "A caminho" },
+  { situacao: "concluido", nome: "Instalado" },
+  { situacao: "cancelado", nome: "Perdido" },
+];
+
+/** O mínimo que o funil lê de um pedido. */
+export interface PedidoNoFunil {
+  situacao: SituacaoPedido;
+  faturamento_mensal: number | null;
+  simulacao: SimulacaoDoPedido | null;
+  criado_em: string;
+}
+
+export interface ColunaDoFunil<T extends PedidoNoFunil> {
+  situacao: SituacaoPedido;
+  nome: string;
+  pedidos: T[];
+  /**
+   * A economia por mês que a Quattro mostrou a esses clientes. ⚠️ Só a
+   * POSITIVA soma: quem hoje paga menos que a Quattro tem economia negativa,
+   * e somá-la apagaria a economia dos outros da mesma coluna.
+   */
+  economiaMes: number;
+  /** O faturamento por mês declarado (ou o volume simulado, quando não declarou). */
+  faturamentoMes: number;
+}
+
+/** Faturamento do pedido: o declarado no formulário, senão o volume da simulação. */
+export function faturamentoDoPedido(p: PedidoNoFunil): number | null {
+  return p.faturamento_mensal ?? p.simulacao?.volumeMensal ?? null;
+}
+
+/**
+ * Agrupa os pedidos nas colunas do funil. Dentro da coluna, quem mostra mais
+ * economia vem primeiro (é a conversa mais fácil), e o empate fica com o mais
+ * recente. Situação desconhecida não some: cai em "Novo", para ser vista.
+ */
+export function montarFunil<T extends PedidoNoFunil>(pedidos: readonly T[]): ColunaDoFunil<T>[] {
+  const colunas = FUNIL_COMERCIAL.map((c) => ({ ...c, pedidos: [] as T[], economiaMes: 0, faturamentoMes: 0 }));
+  for (const p of pedidos) {
+    const col = colunas.find((c) => c.situacao === p.situacao) ?? colunas[0];
+    col.pedidos.push(p);
+    col.economiaMes = r2(col.economiaMes + Math.max(0, p.simulacao?.economiaMes ?? 0));
+    col.faturamentoMes = r2(col.faturamentoMes + (faturamentoDoPedido(p) ?? 0));
+  }
+  for (const c of colunas) {
+    c.pedidos.sort((a, b) =>
+      Math.max(0, b.simulacao?.economiaMes ?? 0) - Math.max(0, a.simulacao?.economiaMes ?? 0)
+      || b.criado_em.localeCompare(a.criado_em));
+  }
+  return colunas;
+}
+
+/** Os números do topo do funil: o que está em aberto e o que já foi instalado. */
+export function resumoDoFunil<T extends PedidoNoFunil>(colunas: readonly ColunaDoFunil<T>[]) {
+  const abertas = colunas.filter((c) => c.situacao !== "concluido" && c.situacao !== "cancelado");
+  const ganhos = colunas.find((c) => c.situacao === "concluido")?.pedidos.length ?? 0;
+  const perdidos = colunas.find((c) => c.situacao === "cancelado")?.pedidos.length ?? 0;
+  return {
+    emAberto: abertas.reduce((a, c) => a + c.pedidos.length, 0),
+    economiaEmAberto: r2(abertas.reduce((a, c) => a + c.economiaMes, 0)),
+    faturamentoEmAberto: r2(abertas.reduce((a, c) => a + c.faturamentoMes, 0)),
+    ganhos,
+    perdidos,
+    /** Instalados ÷ fechados (instalados + perdidos). `null` sem nenhum fechado: 0% diria "perdemos todos". */
+    conversao: ganhos + perdidos > 0 ? ganhos / (ganhos + perdidos) : null,
+  };
+}
+
+/* ------------------------- a ficha do lead (CRM, etapa 3) ------------------------- */
+
+export type MotivoPerda = "preco" | "concorrente" | "sem_resposta" | "sem_interesse" | "credito" | "outro";
+
+/** Os motivos de perda que o banco aceita (a mesma lista da restrição da tabela). */
+export const NOME_MOTIVO_PERDA: Record<MotivoPerda, string> = {
+  preco: "Preço",
+  concorrente: "Fechou com outra",
+  sem_resposta: "Sem resposta",
+  sem_interesse: "Sem interesse",
+  credito: "Crédito recusado",
+  outro: "Outro",
+};
+
+/** Teto da taxa proposta: acima disso é dígito trocado ("3,5" no lugar de "0,035"). O banco confere o mesmo. */
+export const TETO_TAXA_PROPOSTA = 0.2;
+
+const FORMAS_LEAD: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+
+/**
+ * Lê as taxas propostas vindas de FORA (o jsonb do banco ou o formulário).
+ * Forma inventada e taxa fora de [0, 20%] são descartadas uma a uma; sem
+ * nenhuma válida, `null` — "nenhuma proposta" não é "proposta de 0%".
+ */
+export function lerTaxasPropostas(x: unknown): TaxasPorForma | null {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  const out: TaxasPorForma = {};
+  for (const f of FORMAS_LEAD) {
+    const v = o[f];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= TETO_TAXA_PROPOSTA) out[f] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * A conta da PROPOSTA: o mesmo volume, o mesmo mix e as mesmas taxas de hoje
+ * da simulação que o cliente fez, com as taxas que o consultor propôs no
+ * lugar das da tabela. ⚠️ A forma sem taxa proposta segue com a taxa da
+ * Quattro que a simulação usou — a proposta muda o que o consultor digitou,
+ * não zera o resto. É a MESMA `compararTaxas` da página do cliente: uma
+ * segunda conta discordaria dela no primeiro centavo.
+ */
+export function comparacaoDaProposta(sim: SimulacaoDoPedido, taxas: TaxasPorForma | null): Comparacao | null {
+  if (!taxas || !FORMAS_LEAD.some((f) => typeof taxas[f] === "number")) return null;
+  const atuais: TaxasPorForma = {};
+  for (const f of FORMAS_LEAD) atuais[f] = sim.taxasAtuais[f].taxa;
+  return compararTaxas(
+    { volumeMensal: sim.volumeMensal, mix: sim.mix, parcelasMedias: 1, taxasAtuais: atuais, antecipado: sim.antecipado },
+    (forma) => taxas[forma] ?? sim.taxasQuattro[forma],
+  );
+}
+
+export type SituacaoDoContato = "atrasado" | "hoje" | "agendado";
+
+/** O próximo contato contra hoje (datas ISO, comparadas como texto — sem fuso). */
+export function situacaoDoContato(proximo: string | null | undefined, hoje: string): SituacaoDoContato | null {
+  if (!proximo) return null;
+  const d = proximo.slice(0, 10);
+  return d < hoje ? "atrasado" : d === hoje ? "hoje" : "agendado";
+}
 
 /* ------------------------------ a meta do mês ------------------------------ */
 

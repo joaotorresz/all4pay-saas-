@@ -243,7 +243,7 @@
         "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 1)"
       },
       {
-        "nome": "20261029120000_mensalidade_pinbank",
+        "nome": "20261029140000_mensalidade_pinbank",
         "motivo": "A mensalidade do ERP paga por Pix ou boleto na conta Pinbank da Quattro: a plataforma gera a fatura, a empresa paga e a baixa renova a assinatura. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
           "tabelas mensalidade_faturas e mensalidade_cobrancas (RLS: a empresa só lê as suas)",
@@ -254,6 +254,52 @@
         "impacto": "Até ser aplicada, a seção Cobrança do painel da plataforma diz que não conseguiu ler as faturas e a tela de Assinatura do cliente não mostra o cartão da mensalidade. Nada que já existe muda; sem MENSALIDADE_PINBANK=ligado nenhuma cobrança sai para a Pinbank.",
         "resolver_ate": "2026-11-30",
         "origem": "sessão Claude de 28/10/2026 (mensalidade do ERP pela Pinbank da Quattro)"
+      },
+      {
+        "nome": "20261028170000_maquininha_pedidos_simulacao",
+        "motivo": "O pedido de maquininha passa a levar a origem (formulário, economia, consultor) e a simulação estruturada, para o CRM da plataforma (etapa 1). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas maquininha_pedidos.origem e maquininha_pedidos.simulacao",
+          "função maquininha_pedido_criar com p_origem e p_simulacao (a de dez parâmetros é apagada)"
+        ],
+        "impacto": "Até ser aplicada, o envio do pedido cai no caminho antigo (sem a simulação) e a fila do admin não mostra a economia. Nada que já existe muda.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 1)"
+      },
+      {
+        "nome": "20261028180000_telefone_e164",
+        "motivo": "O telefone do contato passa a ser gravado em E.164 (+55…): a Twilio recusou com 400 o WhatsApp para um número salvo sem o país (medido em produção em 28/10/2026). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função telefone_e164(text) — espelho de telefoneE164 em src/lib/telefone.ts",
+          "gatilho parties_telefone_e164 (before insert or update of phone em parties)",
+          "reescrita dos telefones já cadastrados para E.164"
+        ],
+        "impacto": "Até ser aplicada, o cadastro pela tela já grava em E.164 e o envio já normaliza qualquer número; ficam sem o +55 só os telefones antigos e o que for gravado por fora da tela. O SAIR/VOLTAR não muda: telefone_canonico tira o 55.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (WhatsApp sem +55)"
+      },
+      {
+        "nome": "20261029120000_maquininha_pedidos_proposta",
+        "motivo": "O funil Comercial da plataforma (CRM, etapa 2) ganha a coluna Proposta: a situação 'proposta' entra na restrição da tabela e na função que a muda.",
+        "objetos_ausentes": [
+          "restrição maquininha_pedidos_situacao_valida (com 'proposta')",
+          "admin_maquininha_pedido_situacao aceitando 'proposta'"
+        ],
+        "impacto": "Até ser aplicada, mover um card para Proposta é recusado pelo banco com mensagem nomeada. As outras colunas funcionam.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 2)"
+      },
+      {
+        "nome": "20261029130000_maquininha_leads",
+        "motivo": "A ficha do lead do funil Comercial (CRM, etapa 3): responsável, próximo contato, motivo de perda, taxas propostas e o histórico de anotações, em tabelas só da plataforma.",
+        "objetos_ausentes": [
+          "tabelas maquininha_leads e maquininha_lead_notas",
+          "funções admin_maquininha_lead, admin_maquininha_lead_salvar e admin_maquininha_lead_anotar",
+          "admin_maquininha_pedidos com responsável, próximo contato, motivo de perda e contagem de anotações"
+        ],
+        "impacto": "Até ser aplicada, abrir a ficha mostra o erro nomeado do banco e o funil segue como na etapa 2. Nada que já existe muda.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 3)"
       }
     ],
     "objetos_sem_migration": [

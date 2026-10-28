@@ -74,31 +74,33 @@ export default async function comprasRecebidos(navegador) {
 
   /* ---- lançar: o formulário de conta a pagar abre PREENCHIDO (escritor único) ---- */
   await linhaBoleto.getByRole("button", { name: "Lançar em contas a pagar" }).click();
-  await p.waitForURL(/payables\/new/, { timeout: 20000 });
+  // Desde 27/10/2026 toda criação abre o MESMO formulário em pop-up, sem sair da tela.
+  const dlg = p.locator('[role="dialog"]').last();
+  await dlg.waitFor({ timeout: 20000 });
   await p.waitForTimeout(1500);
-  const valorCampo = await p.locator('main input[placeholder="0,00"]').first().inputValue();
+  const valorCampo = await dlg.locator('input[placeholder="0,00"]').first().inputValue();
   v.ok(brl(valorCampo) === 842.17, "o formulário abre com o valor do boleto", valorCampo);
-  const venc = await p.locator('main [data-campo="vencimento"] input[type="date"]').first().inputValue().catch(() => "");
+  const venc = await dlg.locator('[data-campo="vencimento"] input[type="date"]').first().inputValue().catch(() => "");
   v.ok(venc === "2026-10-20", "e com o vencimento do boleto", venc);
   // Conta e categoria são ESCOLHIDAS por quem lança (nada de "a primeira da lista").
-  await p.locator("main button", { hasText: /Busque a conta/ }).first().click();
+  await dlg.locator("button", { hasText: /Busque a conta/ }).first().click();
   await p.waitForTimeout(300);
   await p.locator('[role="option"]').first().click();
-  await p.locator("main button", { hasText: /Busque ou crie/ }).first().click();
+  await dlg.locator("button", { hasText: /Busque ou crie/ }).first().click();
   await p.waitForTimeout(300);
   await p.keyboard.type("Marketing");
   await p.waitForTimeout(300);
   await p.locator('[role="option"]', { hasText: "Marketing" }).first().click();
-  if (await p.locator("main button", { hasText: /Digite nome ou documento/ }).count()) {
-    await p.locator("main button", { hasText: /Digite nome ou documento/ }).first().click();
+  if (await dlg.locator("button", { hasText: /Digite nome ou documento/ }).count()) {
+    await dlg.locator("button", { hasText: /Digite nome ou documento/ }).first().click();
     await p.waitForTimeout(300);
     const op = p.locator('[role="option"]').first();
     if (await op.count()) await op.click(); else await p.keyboard.press("Enter");
   }
-  for (const d of await p.locator('main input[type="date"]').all()) if (!(await d.inputValue())) await d.fill("2026-10-20");
-  await p.getByRole("button", { name: "Salvar" }).last().click();
+  for (const d of await dlg.locator('input[type="date"]').all()) if (!(await d.inputValue())) await d.fill("2026-10-20");
+  await dlg.getByRole("button", { name: "Salvar" }).last().click();
   await p.waitForTimeout(2500);
-  v.ok(!p.url().includes("/new"), "salvar sai do formulário", p.url());
+  v.ok((await p.locator('[role="dialog"]').count()) === 0, "salvar fecha o formulário", p.url());
   await u.ir("/contas-a-pagar/caixa-de-entrada?caixa=boletos");
   v.ok(/Lançado/.test(await linhaCom(p, "Gráfica Aurora")),
     "a linha do boleto passa a dizer 'Lançado' (e não oferece lançar de novo)");

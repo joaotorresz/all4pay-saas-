@@ -8,13 +8,14 @@
  * demonstração: a importação substituía o dataset inteiro.
  */
 import { resolve } from "node:path";
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, fecharAssistenteImportacao, brl } from "./kit.mjs";
 
 const ARQUIVO = resolve("public/exemplos/extrato-exemplo-quattro.csv");
 
 async function importar(u) {
   await u.ir("/upload?aba=enviar");
   await u.page.locator('input[type="file"]').first().setInputFiles(ARQUIVO);
+  await fecharAssistenteImportacao(u);
   const botao = u.page.getByRole("button", { name: /Confirmar e gravar/ });
   await botao.waitFor({ timeout: 60000 });
   await u.page.waitForTimeout(1500);

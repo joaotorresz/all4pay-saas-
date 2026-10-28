@@ -2,7 +2,7 @@
 
 /**
  * Área da plataforma (dono do SaaS) — uma página por seção
- * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Cadastros · Maquininhas · Cobrança ·
+ * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Cadastros · Comercial · Maquininhas · Cobrança ·
  * Acessos · Suporte. Moldura própria (`AdminShell`), nunca a do cliente.
  *
  * ⚠️ O painel era UMA página de 682 linhas com tudo empilhado. A separação
@@ -23,8 +23,7 @@ import { isDemo } from "@/lib/demo";
 import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { useToast } from "@/components/listas/ListChrome";
-import { filaDePedidos, mudarSituacaoPedido } from "@/lib/maquininha-oferta";
-import { NOME_SITUACAO, type SituacaoPedido } from "@/core/maquininha/oferta";
+import { FunilComercial } from "@/components/admin/FunilComercial";
 import {
   isPlatformAdmin, getAdminOverview, getAdminOrgs, getAdminUsers, getAdminPlans, setSubscription,
   getAdminGrowth, getAdminOrgDetail, getMrrHistory, getAuditLog, impersonar, getAdminUserDetail,
@@ -175,7 +174,7 @@ function FerramentasInternas() {
 }
 
 
-export type SecaoPainel = "visao-geral" | "clientes" | "cadastros" | "maquininhas" | "cobranca" | "acessos" | "suporte";
+export type SecaoPainel = "visao-geral" | "clientes" | "cadastros" | "comercial" | "maquininhas" | "cobranca" | "acessos" | "suporte";
 
 /**
  * A porta do cliente: confirma o papel antes de montar qualquer seção.
@@ -203,6 +202,7 @@ export function AdminView({ secao = "visao-geral" }: { secao?: SecaoPainel }) {
         {secao === "visao-geral" && <SecaoVisaoGeral />}
         {secao === "clientes" && <SecaoClientes />}
         {secao === "cadastros" && <CadastrosAdmin />}
+        {secao === "comercial" && <FunilComercial />}
         {secao === "maquininhas" && <SecaoMaquininhas />}
         {secao === "cobranca" && <SecaoCobranca />}
         {secao === "acessos" && <SecaoAcessos />}
@@ -459,55 +459,9 @@ function SecaoMaquininhas() {
   const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
   return (
     <>
-      <PedidosMaquininhaCard toast={show} />
       <PinbankAdminCard orgs={orgs.data ?? []} toast={show} />
       {node}
     </>
-  );
-}
-
-/* ---------- Pedidos de maquininha (a oferta da página da maquininha) ---------- */
-/**
- * O que as empresas pediram na página Maquininha Quattro: maquininha nova ou
- * o vínculo da que já têm. ⚠️ O pedido de vínculo NÃO vincula: o número que a
- * empresa digitou é conferido aqui e o vínculo é feito no cartão abaixo.
- */
-function PedidosMaquininhaCard({ toast }: { toast: (s: string) => void }) {
-  const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["admin-maquininha-pedidos"], queryFn: filaDePedidos });
-  const mudar = async (id: string, situacao: SituacaoPedido) => {
-    try { await mudarSituacaoPedido(id, situacao); toast("Situação atualizada."); await qc.invalidateQueries({ queryKey: ["admin-maquininha-pedidos"] }); }
-    catch (e) { toast((e as Error).message); }
-  };
-  const opcoes = (Object.keys(NOME_SITUACAO) as SituacaoPedido[]).map((s) => ({ value: s, label: NOME_SITUACAO[s] }));
-  const abertos = (q.data ?? []).filter((p) => p.situacao !== "concluido" && p.situacao !== "cancelado").length;
-  return (
-    <Card padded={false} info={{ titulo: "Pedidos de maquininha", oQue: "O que as empresas pediram na página Maquininha Quattro: maquininha nova ou o vínculo da que já têm.", comoCalcula: "Os 500 pedidos mais recentes, os em aberto primeiro. Mudar a situação aparece para a empresa na mesma página e entra na trilha da plataforma." }}>
-      <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Pedidos de maquininha · {abertos} em aberto</div>
-      <div className="p-5 flex flex-col">
-        {q.isLoading ? <Skeleton className="h-16 w-full" /> : q.error ? (
-          <span className="text-caption text-negative">Não foi possível ler: {(q.error as Error).message}</span>
-        ) : (q.data ?? []).length === 0 ? <span className="text-caption text-faint">Nenhum pedido ainda.</span> : (q.data ?? []).map((p, i) => (
-          <div key={p.id} className={`flex flex-wrap items-center gap-3 py-3 text-caption ${i ? "border-t border-border-soft" : ""}`}>
-            <span className="text-ink font-medium min-w-[180px]">{p.empresa}</span>
-            <span className="text-ink">
-              {p.tipo === "pedir" ? `${p.quantidade} ${p.quantidade === 1 ? "maquininha" : "maquininhas"}` : `Vínculo do EC ${p.codigo_estabelecimento ?? "—"}`}
-            </span>
-            <span className="text-muted flex-1 min-w-[220px]">
-              {[p.contato_nome, p.contato_telefone, p.contato_email].filter(Boolean).join(" · ")}
-              {p.endereco ? ` · ${p.endereco}` : ""}
-              {p.segmento ? ` · ${p.segmento}` : ""}
-              {p.faturamento_mensal ? ` · ${formatBRL(p.faturamento_mensal)}/mês` : ""}
-              {p.observacao ? ` · "${p.observacao}"` : ""}
-            </span>
-            <span className="text-muted tabular-nums">{p.criado_em.slice(8, 10)}/{p.criado_em.slice(5, 7)}/{p.criado_em.slice(0, 4)}</span>
-            <div className="w-[160px]">
-              <Select aria-label="Situação do pedido" value={p.situacao} onChange={(v) => mudar(p.id, v as SituacaoPedido)} options={opcoes} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
   );
 }
 

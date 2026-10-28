@@ -11,7 +11,7 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
 export default async function orcamento(navegador) {
   const v = verificador("orcamento");
   const u = await novoUsuario(navegador);
-  await u.ir("/orcamento?aba=orcamentos");
+  await u.ir("/orcamento");
 
   await u.page.getByRole("button", { name: "Novo orçamento" }).first().click();
   await u.page.getByPlaceholder("Ex.: Orçamento 2026").fill("Plano de teste");
@@ -47,7 +47,9 @@ export default async function orcamento(navegador) {
     await sel.selectOption(valor ?? "");
     await u.page.waitForTimeout(800);
     const t3 = (await u.texto()).replace(/\n+/g, " ");
-    v.ok(/Orçado/.test(t3) && /Diferença/.test(t3), "as colunas Orçado e Diferença aparecem");
+    // O cabeçalho de cada mês diz as quatro colunas em caixa de frase
+    // ("realizado / orçado / dif. / %") desde a regra "Aa" do DS de 16/10.
+    v.ok(/orçado/i.test(t3) && /dif\./i.test(t3), "as colunas Orçado e Diferença aparecem");
     v.ok(/10\.000/.test(t3), "o orçado mensal da receita (R$ 10.000) aparece na tabela");
   }
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));

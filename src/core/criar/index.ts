@@ -147,7 +147,7 @@ export const ACOES_CADASTROS: Acao[] = [
   { label: "Novo projeto", icon: "target", rota: "/dashboard/registrations/projects?novo=1", forma: "modal", tipo: "projeto" },
   { label: "Novo centro de custo", icon: "network", rota: "/dashboard/registrations/cost-centers?novo=1", forma: "modal", tipo: "centro" },
   { label: "Novo contrato", icon: "file-text", rota: "/dashboard/sales-invoices/subscriptions?aba=contratos-cliente&novo=1", forma: "modal", tipo: "contrato-cliente" },
-  { label: "Novo orçamento", icon: "target", rota: "/orcamento?aba=orcamentos&novo=1", forma: "pagina" },
+  { label: "Novo orçamento", icon: "target", rota: "/orcamento?novo=1", forma: "pagina" },
   { label: "Novo painel", icon: "layers", rota: "/dashboard/dashboards/custom?novo=1", forma: "pagina" },
   // — lacunas que a auditoria apontou: existiam no produto e não aqui —
   { label: "Novo usuário", icon: "users", rota: "/dashboard/administration/users?novo=1", forma: "pagina" },

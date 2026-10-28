@@ -11,7 +11,7 @@
  *   · que "Enviar teste para mim" registra o envio como SIMULADO — na
  *     demonstração nada sai, e simulado nunca aparece como enviado.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 const cartao = (u, tipo) => u.page.locator(`[data-automacao="${tipo}"]`);
 
@@ -43,16 +43,15 @@ export default async function automacoes(navegador) {
   const u = await novoUsuario(navegador);
 
   // O número de referência: o saldo da Visão geral (arredondado ao real).
-  await u.ir("/");
-  const home = (await u.texto()).replace(/\n/g, " ");
-  const mh = home.match(/Saldo em conta hoje\s*R\$\s*([\d.]+)\s*,?\s*(\d{2})?/);
-  const saldoHome = mh ? brl(`${mh[1]},${mh[2] ?? "00"}`) : NaN;
+  const saldoHome = await saldoDaHome(u);
   v.ok(Number.isFinite(saldoHome), "a Visão geral mostra o saldo em conta", String(saldoHome));
 
   await u.ir("/automacoes?aba=alertas");
   await cartao(u, "resumo_diario").waitFor({ timeout: 20000 });
   const tela = await u.texto();
-  v.ok(/Resumo do caixa do dia/.test(tela) && /Régua de cobrança automática/.test(tela), "a aba Automações abre com as automações");
+  // A régua de cobrança tem página própria (junto das contas a receber); o
+  // cartão dela aqui só leva até lá.
+  v.ok(/Resumo do caixa do dia/.test(tela) && /Cobrança automática dos clientes/.test(tela), "a aba Automações abre com as automações");
   v.ok(!/(TWILIO|RESEND|ANTHROPIC)_[A-Z_]+/.test(tela), "a tela não nomeia variável de ambiente");
   v.ok(/não configurado — envios ficam simulados|demonstração: nada é enviado/.test(tela), "a tela diz que, sem provedor, o envio é simulado");
 
@@ -79,7 +78,7 @@ export default async function automacoes(navegador) {
     if ((m = l.match(/^Vence hoje \((\d{2})\/(\d{2})\)/))) mesSecao = `${hojeISO.slice(0, 4)}-${m[2]}`;
     else if ((m = l.match(/^Vence em (\d{2})\/(\d{2})\/(\d{4})/))) mesSecao = `${m[3]}-${m[2]}`;
     else if (/^Já venceram/.test(l)) mesSecao = null;
-    else if ((m = l.match(/^· (.+?) — R\$([\d.]+,\d{2})(?: \((.*)\))?/))) {
+    else if ((m = l.match(/^· (.+?) — R\$\s?([\d.]+,\d{2})(?: \((.*)\))?/))) {
       const mv = m[3]?.match(/venceu em (\d{2})\/(\d{2})\/(\d{4})/);
       const mes = mv ? `${mv[3]}-${mv[2]}` : mesSecao;
       if (mes) itens.push({ quem: m[1].trim(), valor: m[2], mes });
@@ -105,8 +104,8 @@ export default async function automacoes(navegador) {
   for (const t of ["resumo_diario", "lembrete_pagar"]) {
     v.ok((await cartao(u, t).locator(`#sw-automacao-${t}`).getAttribute("aria-checked")) === "true", `${t} continua ligada depois de recarregar`);
   }
-  v.ok((await cartao(u, "regua_cobranca").locator("#sw-automacao-regua_cobranca").getAttribute("aria-checked")) === "false",
-    "a régua de cobrança continua desligada (ninguém a ligou)");
+  v.ok((await cartao(u, "regua_cobranca").locator('a[href="/contas-a-receber/cobranca-automatica"]').count()) === 1,
+    "o cartão da régua de cobrança leva à página própria dela");
 
   // O teste: registra como SIMULADO (demonstração) e aparece em Últimos envios.
   await cartao(u, "resumo_diario").getByRole("button", { name: "Enviar teste para mim (E-mail)" }).click();

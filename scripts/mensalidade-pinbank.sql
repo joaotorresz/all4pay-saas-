@@ -3,7 +3,7 @@
 --
 --   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/mensalidade-pinbank.sql
 --
--- Prova a migration 20261029120000:
+-- Prova a migration 20261029140000:
 --
 --   1. só a PLATAFORMA gera a fatura; o mês não se repete; vencimento no
 --      passado é recusado;

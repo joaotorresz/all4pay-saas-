@@ -1068,8 +1068,25 @@ pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
   do cliente é MENOR, a frase diz — nunca "mais barata" à força.
 - **O pedido chega à PLATAFORMA** (`maquininha_pedidos`, migration
   `20261026120000`, RPC `maquininha_pedido_criar`, só quem administra, teto de 5
-  em aberto) e é atendido em Administração › Maquininhas (`admin_maquininha_pedidos`,
-  situação auditada em `admin_audit`). ⚠️ O pedido de VÍNCULO não vincula: só a
+  em aberto) e é atendido em Administração › **Comercial** (`admin_maquininha_pedidos`,
+  situação auditada em `admin_audit`).
+- ⚠️ **O CRM é PRÓPRIO, na Administração (28/10/2026, decisão do dono).** O
+  pedido leva a origem (formulário · economia · consultor) e a simulação
+  estruturada (`SimulacaoDoPedido`, lida por `lerSimulacao`, que descarta a fora
+  de faixa — é dado do navegador). Em Comercial ele vira card num funil
+  (`FUNIL_COMERCIAL`: Novo · Em contato · Proposta · Aprovado · A caminho ·
+  Instalado · Perdido). ⚠️ Cada coluna É uma situação do pedido: mover o card
+  muda a situação que a empresa vê, e não existe um segundo campo de "etapa
+  comercial". A lista de pedidos mora SÓ no funil (Maquininhas ficou com o
+  credenciamento do EC). Guarda `scripts/maquininha-pedidos.sql` no CI. ⚠️ **A ficha do lead (etapa 3, migration `20261029130000`)**:
+  "Abrir ficha" no card abre responsável (alguém da plataforma), próximo
+  contato (atrasado/hoje no card), taxas propostas pelo consultor com a
+  economia refeita pela MESMA `compararTaxas` (`comparacaoDaProposta`),
+  motivo de perda e anotações. Mora em `maquininha_leads`/
+  `maquininha_lead_notas`, tabelas SEM concessão a ninguém — nunca coluna em
+  `maquininha_pedidos`, que a empresa lê. A anotação é HISTÓRICO: não há
+  função que a edite ou apague. Etapa do funil continua sendo só a situação.
+  Guarda `scripts/maquininha-leads.sql` no CI. ⚠️ O pedido de VÍNCULO não vincula: só a
   plataforma liga EC → empresa. Em demonstração o pedido fica só na memória da aba.
 - **Com maquininha**: cards da Home (sem a caixa da Quattro AI, a pedido do dono) e três
   interativos (meta do mês com ritmo, antecipar a agenda, quanto cobrar para
