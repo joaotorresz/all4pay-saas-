@@ -10,7 +10,7 @@ import {
   normalizarEvento, estadoDaJornada, podeRecuperar, PARADA_MIN, RECUPERAR_APOS_H,
 } from "../src/core/cadastro/jornada.ts";
 import { caminhoDoDocumento, caminhoAceitoPeloBanco } from "../src/core/cadastro/documentos.ts";
-import { resumirFunil, faseAlcancada, nomeDoPasso, jornadaDaLinha, FASES_FUNIL, type JornadaAdmin } from "../src/core/cadastro/funil.ts";
+import { resumirFunil, faseAlcancada, nomeDoPasso, jornadaDaLinha, FASES_FUNIL, mediana, temposDoFunil, chegadaNaFase, duracaoLegivel, type JornadaAdmin } from "../src/core/cadastro/funil.ts";
 
 let falhas = 0;
 const ok = (nome: string, cond: boolean) => {
@@ -124,6 +124,37 @@ ok("o envio nunca sobrescreve um documento", /upsert: false/.test(libDoc));
   ok("funil: o passo tem nome legível", nomeDoPasso("facial") === "Foto do rosto" && nomeDoPasso("repTelefone") === "Contato · WhatsApp");
   ok("funil: linha sem id ou etapa é descartada", jornadaDaLinha({ etapa: "tipo" }) === null
      && jornadaDaLinha({ id: "x", etapa: "tipo", iniciada_em: h(1), atualizada_em: h(1), documentos: "2" })?.documentos === 2);
+
+  // ── quanto tempo leva (etapa 4) ──
+  const m = (n: number) => new Date(AGORA.getTime() - n * 60_000).toISOString();
+  const t = (id: string, marcas: Record<string, number>, extra: Partial<JornadaAdmin> = {}): JornadaAdmin => {
+    const ini = Math.max(...Object.values(marcas));
+    const fim = Math.min(...Object.values(marcas));
+    return { id, etapa: Object.keys(marcas).at(-1)!, etapas: Object.fromEntries(Object.entries(marcas).map(([p, v]) => [p, m(v)])),
+      tipo: "pj", nome: null, whatsapp: null, email: null, orgId: null, empresa: null,
+      iniciadaEm: m(ini), atualizadaEm: m(fim), concluidaEm: null, documentos: 0, ...extra };
+  };
+  const tl = [
+    // concluíram em 20, 30 e 40 min; o documento leva 2 min e a senha → pronto leva 10, 12 e 14
+    t("a", { tipo: 1020, documento: 1018, repTelefone: 1015, senha: 1010, pronto: 1000 }, { concluidaEm: m(1000) }),
+    t("b", { tipo: 2030, documento: 2028, repTelefone: 2025, senha: 2012, pronto: 2000 }, { concluidaEm: m(2000) }),
+    t("c", { tipo: 3040, documento: 3038, repTelefone: 3020, senha: 3014, pronto: 3000 }, { concluidaEm: m(3000) }),
+    // parou no contato depois de 6 min; outro parou depois de 4 min
+    t("d", { tipo: 506, documento: 504, repTelefone: 500 }),
+    t("e", { tipo: 404, documento: 400 }),
+  ];
+  const tp = resumirFunil(tl, AGORA).tempos;
+  ok("tempo: mediana para concluir = 30 min (20, 30, 40)", tp.ateConcluir.mediana === 30 && tp.ateConcluir.base === 3);
+  ok("tempo: mediana até desistir = 5 min (4 e 6, par)", tp.ateParar.mediana === 5 && tp.ateParar.base === 2);
+  ok("tempo: início → CPF/CNPJ = 2 min, sobre as 5", tp.entreFases[0].mediana === 2 && tp.entreFases[0].base === 5);
+  ok("tempo: senha → concluíram = 12 min (10, 12, 14)", tp.entreFases[3].mediana === 12 && tp.entreFases[3].base === 3);
+  ok("tempo: a mais lenta é a de maior mediana com base ≥ 3", tp.maisLenta === tp.entreFases[3].rotulo);
+  ok("tempo: sem base a mediana é ausente, não zero", resumirFunil([], AGORA).tempos.ateConcluir.mediana === null && mediana([]) === null);
+  ok("tempo: relógio para trás não entra", temposDoFunil([t("x", { tipo: 10, documento: 20 })], AGORA).entreFases[0].base === 0);
+  ok("tempo: duração legível", duracaoLegivel(0.5) === "30 s" && duracaoLegivel(12.4) === "12 min" && duracaoLegivel(130) === "2 h 10 min"
+     && duracaoLegivel(120) === "2 h" && duracaoLegivel(4320) === "3 dias" && duracaoLegivel(null) === "—");
+  ok("tempo: a chegada na fase é o PRIMEIRO passo dela (documento antes de confirmar)",
+     chegadaNaFase(t("y", { tipo: 30, documento: 20, confirmar: 10 }), 1) === new Date(m(20)).getTime());
 
   const sql = readFileSync("supabase/migrations/20261028140000_admin_cadastro_funil.sql", "utf8");
   const corpo = (nome: string) => sql.slice(sql.indexOf(`function public.${nome}(`), sql.indexOf("$$;", sql.indexOf(`function public.${nome}(`)));

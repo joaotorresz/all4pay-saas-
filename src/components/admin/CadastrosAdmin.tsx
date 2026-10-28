@@ -16,7 +16,7 @@ import { Card, Icon, Select, Skeleton, StatusBadge } from "@/components/ui";
 import { pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { estadoDaJornada, type EstadoJornada } from "@/core/cadastro/jornada";
-import { FASES_FUNIL, nomeDoPasso, resumirFunil, type JornadaAdmin } from "@/core/cadastro/funil";
+import { duracaoLegivel, FASES_FUNIL, nomeDoPasso, resumirFunil, type JornadaAdmin } from "@/core/cadastro/funil";
 import { getDocumentosCadastro, getFunilCadastro, NOME_DOCUMENTO, rotaDoDocumento } from "@/lib/admin-cadastros";
 
 const ESTADOS: Record<EstadoJornada, { rotulo: string; tom: "positive" | "neutral" | "warning" }> = {
@@ -96,6 +96,27 @@ export function CadastrosAdmin() {
         </Card>
       </div>
 
+      <Card className="flex flex-col gap-4" info={{ titulo: "Quanto tempo leva", oQue: "O tempo típico para abrir a conta, quanto tempo quem desiste tentou, e quanto cada passagem do funil demora.", comoCalcula: "Medianas em minutos sobre os horários em que cada passo foi alcançado pela primeira vez, nos últimos 90 dias. Uma passagem só entra na conta quando a jornada registrou as duas fases." }}>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-h3 m-0">Quanto tempo leva</h2>
+          {r.tempos.maisLenta && !funil.isLoading && <span className="text-caption text-muted">Passagem mais lenta: {r.tempos.maisLenta}</span>}
+        </div>
+        {funil.isLoading ? <Skeleton className="h-24 w-full" /> : (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_2fr] gap-6">
+            <Tempo rotulo="Para concluir" min={r.tempos.ateConcluir.mediana} base={r.tempos.ateConcluir.base} vazio="Ninguém concluiu ainda" />
+            <Tempo rotulo="Até desistir" min={r.tempos.ateParar.mediana} base={r.tempos.ateParar.base} vazio="Ninguém parou" />
+            <ul className="m-0 p-0 list-none flex flex-col">
+              {r.tempos.entreFases.map((e, i) => (
+                <li key={e.de} className={`flex items-center justify-between gap-3 py-2 text-[14px] ${i ? "border-t border-border-soft" : ""}`}>
+                  <span className="text-muted">{e.rotulo}</span>
+                  <span className="text-ink tabular-nums">{duracaoLegivel(e.mediana)}{e.base > 0 && <span className="text-faint"> · {e.base}</span>}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
+
       <Card padded={false}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
           <span className="text-label font-medium text-muted">Jornadas · últimos 90 dias</span>
@@ -119,6 +140,16 @@ export function CadastrosAdmin() {
       </Card>
       {docs && <DocumentosModal orgId={docs.orgId} nome={docs.nome} onClose={() => setDocs(null)} />}
     </>
+  );
+}
+
+function Tempo({ rotulo, min, base, vazio }: { rotulo: string; min: number | null; base: number; vazio: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-caption text-faint">{rotulo}</span>
+      <span className="text-[20px] font-semibold tabular-nums text-ink">{duracaoLegivel(min)}</span>
+      <span className="text-caption text-muted">{base ? `mediana de ${base} ${base === 1 ? "jornada" : "jornadas"}` : vazio}</span>
+    </div>
   );
 }
 
