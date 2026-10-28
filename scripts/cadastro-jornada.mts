@@ -10,6 +10,8 @@ import {
   normalizarEvento, estadoDaJornada, podeRecuperar, PARADA_MIN, RECUPERAR_APOS_H,
 } from "../src/core/cadastro/jornada.ts";
 import { caminhoDoDocumento, caminhoAceitoPeloBanco } from "../src/core/cadastro/documentos.ts";
+import { lembretesVencidos, textoDoLembrete, mascararContato, type JornadaParaLembrete } from "../src/core/cadastro/lembretes.ts";
+import { rodarLembretesCadastro, type DepsLembretes, type EnvioLembrete } from "../src/lib/cadastro-lembretes.ts";
 import { resumirFunil, faseAlcancada, nomeDoPasso, jornadaDaLinha, FASES_FUNIL, mediana, temposDoFunil, chegadaNaFase, duracaoLegivel, type JornadaAdmin } from "../src/core/cadastro/funil.ts";
 
 let falhas = 0;
@@ -99,7 +101,7 @@ ok("o envio nunca sobrescreve um documento", /upsert: false/.test(libDoc));
   const j = (id: string, etapa: string, passos: string[], ultimoH: number, extra: Partial<JornadaAdmin> = {}): JornadaAdmin => ({
     id, etapa, etapas: Object.fromEntries(passos.map((p) => [p, h(ultimoH)])), tipo: "pj",
     nome: null, whatsapp: null, email: null, orgId: null, empresa: null,
-    iniciadaEm: h(ultimoH + 1), atualizadaEm: h(ultimoH), concluidaEm: null, documentos: 0, ...extra,
+    iniciadaEm: h(ultimoH + 1), atualizadaEm: h(ultimoH), concluidaEm: null, documentos: 0, lembretes: [], ...extra,
   });
   const lista = [
     j("1", "pronto", ["tipo", "documento", "repTelefone", "senha", "pronto"], 50, { concluidaEm: h(50), orgId: "o1" }),
@@ -132,7 +134,7 @@ ok("o envio nunca sobrescreve um documento", /upsert: false/.test(libDoc));
     const fim = Math.min(...Object.values(marcas));
     return { id, etapa: Object.keys(marcas).at(-1)!, etapas: Object.fromEntries(Object.entries(marcas).map(([p, v]) => [p, m(v)])),
       tipo: "pj", nome: null, whatsapp: null, email: null, orgId: null, empresa: null,
-      iniciadaEm: m(ini), atualizadaEm: m(fim), concluidaEm: null, documentos: 0, ...extra };
+      iniciadaEm: m(ini), atualizadaEm: m(fim), concluidaEm: null, documentos: 0, lembretes: [], ...extra };
   };
   const tl = [
     // concluíram em 20, 30 e 40 min; o documento leva 2 min e a senha → pronto leva 10, 12 e 14
@@ -181,6 +183,106 @@ ok("o envio nunca sobrescreve um documento", /upsert: false/.test(libDoc));
   ok("rota: a resposta não fica em cache", (rota.match(/no-store/g) ?? []).length >= 2);
   const view = readFileSync("src/components/admin/CadastrosAdmin.tsx", "utf8");
   ok("tela: o documento abre pela rota (nunca por link direto ao Storage)", /href=\{rotaDoDocumento\(d\.id\)\}/.test(view) && !/storage/.test(view));
+}
+
+// ── os lembretes (etapa 5): WhatsApp em 24 h, e-mail em 3 dias, no máximo 2 ──
+{
+  const agora = new Date("2026-10-28T12:00:00Z");
+  const hAtras = (h: number) => new Date(agora.getTime() - h * 3_600_000).toISOString();
+  const j = (h: number, extra: Partial<JornadaParaLembrete> = {}): JornadaParaLembrete => ({
+    id: "j", etapa: "senha", atualizadaEm: hAtras(h), concluidaEm: null,
+    nome: "Marina Alves", whatsapp: "11987654321", email: "marina@x.com.br", jaLembrados: [], ...extra,
+  });
+  const v = (x: JornadaParaLembrete) => lembretesVencidos(x, agora).join(",");
+  ok("lembrete: parada há 23 h ainda não recebe nada", v(j(23)) === "");
+  ok("lembrete: parada há 25 h recebe o WhatsApp, e o e-mail ainda não", v(j(25)) === "whatsapp");
+  ok("lembrete: parada há 4 dias recebe o e-mail depois do WhatsApp", v(j(96, { jaLembrados: ["whatsapp"] })) === "email");
+  ok("lembrete: nunca mais de dois — com os dois canais usados, nada", v(j(96, { jaLembrados: ["whatsapp", "email"] })) === "");
+  ok("lembrete: o mesmo canal não sai duas vezes", v(j(30, { jaLembrados: ["whatsapp"] })) === "");
+  ok("lembrete: só e-mail espera os 3 dias", v(j(30, { whatsapp: null })) === "" && v(j(73, { whatsapp: null })) === "email");
+  ok("lembrete: concluída, ou com conta pelo mesmo contato, não recebe", v(j(30, { concluidaEm: hAtras(1) })) === "" && v(j(30, { contatoJaTemConta: true })) === "");
+  ok("lembrete: parada há mais de 30 dias não recebe (teto)", v(j(24 * 31)) === "");
+  ok("lembrete: o e-mail sozinho em 25 h ainda não sai, e em 73 h sai", v(j(25, { whatsapp: null })) === "" && v(j(73, { whatsapp: null })) === "email");
+  const t = textoDoLembrete(j(30), "https://app.quattro.finance/criar-conta", "Responda SAIR.", "whatsapp");
+  ok("lembrete: o texto saúda pelo primeiro nome e leva o link e o SAIR", /^Olá, Marina\./.test(t.texto) && t.texto.includes("/criar-conta") && t.texto.includes("SAIR") && t.variaveis["1"] === "Marina");
+  ok("lembrete: o texto não repete o sobrenome nem o contato", !/Alves|987654321|marina@/.test(t.texto + t.html));
+  ok("lembrete: o contato sai mascarado na resposta", mascararContato("whatsapp", "11987654321") === "***4321" && mascararContato("email", "marina@x.com.br") === "ma***@x.com.br");
+
+  // O executor, com banco e provedor de mentira.
+  const montar = (opts: { ativo?: boolean; saidas?: string[] | "erro"; reservaNula?: boolean; candidatas?: unknown[] }) => {
+    const chamadas: string[] = [];
+    const enviados: EnvioLembrete[] = [];
+    const deps: DepsLembretes = {
+      admin: {
+        rpc(fn: string, args: Record<string, unknown>) {
+          chamadas.push(fn);
+          const r = (data: unknown, error: { message: string } | null = null) => Promise.resolve({ data, error });
+          if (fn === "cadastro_lembretes_candidatas") return r(opts.candidatas ?? [
+            { id: "a", etapa: "senha", nome: "Ana Lima", whatsapp: "11911112222", email: "ana@x.com", atualizada_em: hAtras(80), ja_lembrados: [], contato_ja_tem_conta: false },
+          ]);
+          if (fn === "whatsapp_saidas_entre") return opts.saidas === "erro" ? r(null, { message: "fora" }) : r(opts.saidas ?? []);
+          if (fn === "cadastro_lembrete_reservar") return r(opts.reservaNula ? null : `res-${String(args.p_canal)}`);
+          if (fn === "cadastro_lembrete_concluir") return r(true);
+          return r(null, { message: "rpc inesperada" });
+        },
+      },
+      ativo: () => opts.ativo ?? true,
+      async enviar(m) { enviados.push(m); return { ok: true, id: "SM1" }; },
+      template: "HX1",
+    };
+    return { deps, chamadas, enviados };
+  };
+  const antes = process.env.CADASTRO_LEMBRETES;
+
+  delete process.env.CADASTRO_LEMBRETES;
+  {
+    const m = montar({});
+    const rel = await rodarLembretesCadastro(m.deps, { dryRun: false, link: "https://x/criar-conta", agora });
+    ok("executor: DESLIGADO, nada é reservado nem enviado (só a prova de carga)", !rel.ligado && rel.dryRun && m.enviados.length === 0 && !m.chamadas.includes("cadastro_lembrete_reservar") && rel.itens.filter((i) => i.resultado === "sairia").length === 2);
+  }
+  process.env.CADASTRO_LEMBRETES = "ligado";
+  {
+    const m = montar({});
+    const rel = await rodarLembretesCadastro(m.deps, { dryRun: false, link: "https://x/criar-conta", agora });
+    const ordem = m.chamadas.join(">");
+    ok("executor: ligado, parada há 80 h recebe WhatsApp e e-mail", rel.enviados === 2 && m.enviados.map((e) => e.canal).join(",") === "whatsapp,email");
+    ok("executor: RESERVA antes de enviar e CONCLUI depois", /cadastro_lembrete_reservar>cadastro_lembrete_concluir>cadastro_lembrete_reservar>cadastro_lembrete_concluir/.test(ordem));
+    ok("executor: o WhatsApp vai pelo template aprovado", m.enviados[0]?.template === "HX1" && m.enviados[1]?.template === undefined);
+    ok("executor: a resposta leva o contato mascarado, nunca inteiro", !JSON.stringify(rel).includes("11911112222") && !JSON.stringify(rel).includes("ana@x.com"));
+  }
+  {
+    const m = montar({ reservaNula: true });
+    const rel = await rodarLembretesCadastro(m.deps, { dryRun: false, link: "https://x/criar-conta", agora });
+    ok("executor: sem a reserva (canal já lembrado), não envia", m.enviados.length === 0 && rel.itens.every((i) => i.resultado === "ja_lembrado"));
+  }
+  {
+    const m = montar({ ativo: false });
+    const rel = await rodarLembretesCadastro(m.deps, { dryRun: false, link: "https://x/criar-conta", agora });
+    ok("executor: sem provedor, nada é reservado (a vaga fica para quando a chave chegar)", rel.semProvedor === 2 && !m.chamadas.includes("cadastro_lembrete_reservar"));
+  }
+  {
+    const m = montar({ saidas: "erro" });
+    const rel = await rodarLembretesCadastro(m.deps, { dryRun: false, link: "https://x/criar-conta", agora });
+    ok("executor: sem saber quem respondeu SAIR, nenhum WhatsApp (o e-mail segue)", rel.bloqueados === 1 && m.enviados.map((e) => e.canal).join(",") === "email");
+  }
+  {
+    const m = montar({ saidas: ["11911112222"] });
+    const rel = await rodarLembretesCadastro(m.deps, { dryRun: false, link: "https://x/criar-conta", agora });
+    ok("executor: quem respondeu SAIR não recebe WhatsApp", rel.bloqueados === 1 && !m.enviados.some((e) => e.canal === "whatsapp"));
+  }
+  {
+    const m = montar({});
+    await rodarLembretesCadastro(m.deps, { dryRun: true, link: "https://x/criar-conta", agora });
+    ok("executor: dryRun não reserva nem envia", m.enviados.length === 0 && !m.chamadas.includes("cadastro_lembrete_reservar"));
+  }
+  if (antes === undefined) delete process.env.CADASTRO_LEMBRETES; else process.env.CADASTRO_LEMBRETES = antes;
+
+  const servidor = readFileSync("src/lib/cadastro-lembretes-servidor.ts", "utf8");
+  ok("servidor: WhatsApp só é ativo com o template aprovado", /st\.whatsapp && !!template/.test(servidor));
+  const runner = readFileSync("src/app/api/financial-os/run/route.ts", "utf8");
+  ok("cron: os lembretes vão na vaga diária que já existe", /rodarLembretesReais\(admin, url\.origin, dryRun\)/.test(runner));
+  const vercel = JSON.parse(readFileSync("vercel.json", "utf8")) as { crons?: unknown[] };
+  ok("cron: nenhuma vaga de cron nova (o plano tem duas)", (vercel.crons ?? []).length <= 2);
 }
 
 

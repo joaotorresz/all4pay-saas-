@@ -9,6 +9,7 @@ import {
 import { contextoDaRpc, configDaLinha, type ContextoBruto } from "@/lib/automacoes-contexto";
 import { registroSupabase } from "@/lib/automacoes-registro";
 import { saidasPara } from "@/lib/whatsapp-saidas";
+import { rodarLembretesReais } from "@/lib/cadastro-lembretes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,10 +114,16 @@ export async function GET(req: Request) {
     }
   }
 
+  // Os lembretes de quem parou no cadastro vão na MESMA vaga de cron (o plano
+  // da Vercel tem duas). Falha aqui não derruba as automações: vai na resposta.
+  const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
+    .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : "falha nos lembretes do cadastro" }));
+
   return NextResponse.json({
     ok: true,
     hoje,
     dryRun,
+    lembretesCadastro,
     empresas: porOrg.size,
     totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },
     porEmpresa: empresas,

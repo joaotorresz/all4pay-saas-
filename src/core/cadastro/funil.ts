@@ -31,6 +31,14 @@ export interface JornadaAdmin {
   atualizadaEm: string;
   concluidaEm: string | null;
   documentos: number;
+  /** Os lembretes de recuperação já reservados ou enviados (etapa 5). */
+  lembretes: LembreteAdmin[];
+}
+
+export interface LembreteAdmin {
+  canal: "whatsapp" | "email";
+  situacao: "reservado" | "enviado" | "falhou";
+  em: string;
 }
 
 /** O nome dos passos que não são pergunta (as etapas da tela de cadastro). */
@@ -204,5 +212,11 @@ export function jornadaDaLinha(r: Record<string, unknown>): JornadaAdmin | null 
     orgId: s(r.org_id), empresa: s(r.empresa),
     concluidaEm: s(r.concluida_em),
     documentos: Number.isFinite(Number(r.documentos)) ? Number(r.documentos) : 0,
+    lembretes: (Array.isArray(r.lembretes) ? r.lembretes : []).flatMap((l): LembreteAdmin[] => {
+      const x = (l ?? {}) as Record<string, unknown>;
+      const canal = x.canal === "whatsapp" || x.canal === "email" ? x.canal : null;
+      const situacao = x.situacao === "reservado" || x.situacao === "enviado" || x.situacao === "falhou" ? x.situacao : null;
+      return canal && situacao && typeof x.em === "string" ? [{ canal, situacao, em: x.em }] : [];
+    }),
   };
 }

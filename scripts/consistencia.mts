@@ -4147,6 +4147,7 @@ const AGOSTO = janelaMes(2026, 7);
       "src/app/api/recorrencias/run/route.ts",
       "src/app/api/openfinance/sync/route.ts",
       "src/app/api/notificacoes/teste/route.ts",
+      "src/app/api/cadastro/lembretes/run/route.ts",
     ];
     const proprias: string[] = [];
     for (const r of rotas) {
