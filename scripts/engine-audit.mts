@@ -12195,6 +12195,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const pix = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix" } as never, 1919, new Date("2026-10-28T23:59:59-03:00"));
     ok("cobranca-pinbank: o Pix leva SegundosExpiracao até o fim do vencimento (1 dia = 86400)", pix.SegundosExpiracao === 86_400, String(pix.SegundosExpiracao));
     ok("cobranca-pinbank: o Pix leva WebHook: true (pedido da Pinbank, 28/10/2026)", pix.WebHook === true, String(pix.WebHook));
+    const pix444 = CB.pedidoQrCodeDinamico({ ...res, valor: 4.44, tipo: "pix" } as never, 1919, new Date("2026-10-28T23:59:59-03:00"));
+    ok("cobranca-pinbank: o valor do Pix vai em CENTAVOS (R$ 4,44 → 444; em reais a Pinbank gerou R$ 0,04)", pix444.ValorQrCode === 444, String(pix444.ValorQrCode));
     const pixVencido = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix" } as never, 1919, new Date("2026-11-30T12:00:00-03:00"));
     ok("cobranca-pinbank: título vencido ainda gera Pix com 1 hora de validade (nunca zero ou negativo)", pixVencido.SegundosExpiracao === 3600, String(pixVencido.SegundosExpiracao));
     const bol = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919) as { Juros?: { Valor: number }; Multa?: { Valor: number } };

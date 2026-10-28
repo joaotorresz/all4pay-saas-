@@ -162,7 +162,9 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = 
   return {
     CodigoCanal: canal,
     CodigoCliente: r.codigoCliente,
-    ValorQrCode: r.valor,
+    // ⚠️ EM CENTAVOS (medido em produção, 28/10/2026): enviado em reais, o
+    // título de R$ 4,44 virou um QR de R$ 0,04 — a Pinbank leu 4,44 centavos.
+    ValorQrCode: Math.round(r.valor * 100),
     NsuOrigem: r.nsuOrigem,
     DataVencimento: vencimentoPix(r.vencimento),
     SegundosExpiracao: segundosAteVencimento(r.vencimento, agora),
