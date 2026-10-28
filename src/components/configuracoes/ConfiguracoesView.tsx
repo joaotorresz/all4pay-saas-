@@ -139,7 +139,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
       {semDados ? (
         <Card className="flex flex-col items-start gap-3">
           <span className="text-h3 font-medium text-ink">Complete o cadastro da empresa</span>
-          <Button variant="primary" leftIcon={<Icon name="sparkles" size={15} />} onClick={() => router.push("/comecar")}>
+          <Button variant="primary" leftIcon={<Icon name="sparkles" size={15} />} onClick={() => router.push("/criar-conta")}>
             Configurar empresa
           </Button>
         </Card>

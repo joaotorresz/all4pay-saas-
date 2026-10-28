@@ -105,7 +105,6 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/central", nome: "Baixas a confirmar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/aprovacoes", nome: "Aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
   { rota: "/governanca", nome: "Alçadas e papéis", dono: "governanca", status: "canonica", criterio: "travada" },
-  { rota: "/comecar", nome: "Criar empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/comece", nome: "Primeiros passos", dono: "adocao", status: "canonica", criterio: "diferencial" },
   { rota: "/configuracoes", nome: "Meu perfil", dono: "plataforma", status: "canonica", criterio: "nucleo" },
   { rota: "/contabilidade", nome: "Razão contábil", dono: "contabilidade", status: "canonica", criterio: "nucleo" },

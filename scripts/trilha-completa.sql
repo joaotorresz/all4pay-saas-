@@ -31,7 +31,12 @@ declare
     -- (o papel de raw_events), e o evento sem vínculo não tem empresa — a
     -- trilha exige uma. O que mexe em dinheiro (vínculo, transação, venda,
     -- títulos) segue com gatilho. Declarado em 20261005120000.
-    'pinbank_eventos'
+    'pinbank_eventos',
+    -- cadastro_jornadas é o registro BRUTO dos passos de quem abre conta (o
+    -- papel de raw_events), e a jornada sem conta não tem empresa — a trilha
+    -- exige uma. Ninguém do cliente lê nem escreve nela. Declarado em
+    -- 20261027130000.
+    'cadastro_jornadas'
   ];
   faltando text[];
   n_ok int;

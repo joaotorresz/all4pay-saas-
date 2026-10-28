@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { MARCA } from "@/core/marca";
+import { VoltarAoCadastro } from "@/components/entrada/VoltarAoCadastro";
 
 export const metadata = { title: `Privacidade · ${MARCA}` };
 
@@ -83,9 +83,7 @@ export default function Privacidade() {
         </section>
 
         <footer className="pt-2 border-t border-border-soft">
-          <Link href="/comecar" className="text-label text-muted hover:text-ink underline">
-            Voltar ao cadastro
-          </Link>
+          <VoltarAoCadastro />
         </footer>
       </article>
       </main>

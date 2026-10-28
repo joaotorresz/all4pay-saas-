@@ -16,6 +16,13 @@ import { ehNumero } from "@/core/tipografia/numero";
  */
 function rever(el: Element) {
   if (el.closest("input, textarea, [contenteditable='true'], script, style")) return;
+  // ⚠️ Um bloco que mistura número e texto no MESMO papel (o cartão da Receita:
+  // razão social, CNPJ, data, ramo) pede UMA fonte; marcar só o que é número
+  // deixava cada linha num padrão (pedido do dono, 27/10/2026).
+  if (el.closest("[data-sem-num]")) {
+    if (el.hasAttribute("data-num")) el.removeAttribute("data-num");
+    return;
+  }
   const soTexto = el.childElementCount === 0;
   const numero = soTexto && ehNumero(el.textContent ?? "");
   if (numero) {
