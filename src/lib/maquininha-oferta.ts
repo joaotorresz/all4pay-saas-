@@ -44,6 +44,23 @@ export function taxaDeReferencia(segmento: string, taxaAntecipMensal = POS_DEFAU
   };
 }
 
+/**
+ * Taxas TÍPICAS das maquininhas do mercado (out/2026), só para completar o
+ * que a pessoa não sabe na comparação ("Sua maquininha atual"). Não é a taxa
+ * de ninguém em particular — a tela marca o número como "estimada" e pede
+ * para conferir no extrato. Parcelado considerado em 4x.
+ *
+ * ⚠️ Duas colunas porque a maquininha que paga no dia seguinte cobra a
+ * antecipação dentro da taxa: completar uma taxa antecipada com o número de
+ * prazo normal subestimaria o que a pessoa paga hoje.
+ */
+export const MERCADO_PRAZO_NORMAL: Record<FormaOferta, number> = { pix: 0.0049, debito: 0.0179, credito: 0.0319, parcelado: 0.0379 };
+export const MERCADO_ANTECIPADO: Record<FormaOferta, number> = { pix: 0.0049, debito: 0.0179, credito: 0.0479, parcelado: 0.0929 };
+
+export function taxasDeMercado(antecipado: boolean): Record<FormaOferta, number> {
+  return antecipado ? MERCADO_ANTECIPADO : MERCADO_PRAZO_NORMAL;
+}
+
 /* ------------------------------- pedidos ------------------------------- */
 
 export interface PedidoRegistrado {

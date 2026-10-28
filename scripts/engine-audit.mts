@@ -14,7 +14,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -13036,15 +13036,47 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const pix = simularVendaMq({ valor: 200, forma: "pix", parcelas: 9, antecipar: true }, taxa, H);
   ok("maquininha-oferta: Pix cai no mesmo dia e ignora parcela e antecipação", pix.recebimentos[0].data === H && pix.liquido === 198 && !pix.antecipado);
 
-  const barata = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 1, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxaAtual: 0.02 }, taxa);
+  const barata = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 1, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: { debito: 0.02 } }, taxa);
   ok("maquininha-oferta: comparação 150 × 200 por mês, 600 no ano",
      barata.custoQuattro === 150 && barata.custoAtual === 200 && barata.diferencaMensal === 50 && barata.diferencaAnual === 600, JSON.stringify(barata));
-  const cara = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 1, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxaAtual: 0.01 }, taxa);
+  const cara = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 1, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: { debito: 0.01 } }, taxa);
   ok("maquininha-oferta: quando a taxa de hoje é MENOR, a frase diz isso (nunca \"mais barata\")",
      cara.diferencaMensal < 0 && /menor/.test(cara.frase) && !/mais barata/.test(cara.frase), cara.frase);
-  const mixTorto = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0.8, debito: 0.8, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxaAtual: 0 }, taxa);
+  const mixTorto = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0.8, debito: 0.8, credito: 0, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: {} }, taxa);
   ok("maquininha-oferta: mix acima de 100% é normalizado (o volume não conta duas vezes)",
      Math.abs(mixTorto.porForma.reduce((a, f) => a + f.fracao, 0) - 1) < 1e-9 && mixTorto.custoQuattro === 125, JSON.stringify(mixTorto.porForma));
+
+  ok("maquininha-oferta: o veredito segue a diferença (economia × consultor)", barata.veredito === "quattro_mais_barata" && cara.veredito === "atual_mais_barata");
+
+  // Taxas por forma (28/10/2026): débito a 1% e crédito a 5% NÃO viram uma média só.
+  const porForma = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 0.5, credito: 0.5, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: { debito: 0.01, credito: 0.05 } }, taxa);
+  ok("maquininha-oferta: custo de hoje soma forma a forma (50 + 250 = 300)", porForma.custoAtual === 300 && porForma.custoQuattro === 225, JSON.stringify(porForma));
+  const antComp = compararTaxasMq({ volumeMensal: 10_000, mix: { pix: 0, debito: 0, credito: 1, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: { credito: 0.05 }, antecipado: true }, taxa);
+  ok("maquininha-oferta: quem recebe no dia seguinte é comparado com a Quattro ANTECIPADA (5% × 5%)", antComp.custoQuattro === 500 && antComp.veredito === "empate", JSON.stringify(antComp));
+
+  const mercado = { pix: 0.005, debito: 0.02, credito: 0.03, parcelado: 0.04 };
+  const nada = completarTaxasAtuaisMq({}, mercado);
+  ok("maquininha-oferta: sem nada digitado, a estimativa é o mercado", nada.credito.taxa === 0.03 && nada.credito.origem === "estimada");
+  const metade = completarTaxasAtuaisMq({ debito: 0.01, credito: null }, mercado);
+  ok("maquininha-oferta: quem paga débito à metade do mercado tem o crédito estimado à metade (1,5%)",
+     metade.debito.origem === "informada" && metade.debito.taxa === 0.01 && metade.credito.taxa === 0.015 && metade.credito.origem === "estimada", JSON.stringify(metade));
+  const errado = completarTaxasAtuaisMq({ debito: 0.5 }, mercado);
+  ok("maquininha-oferta: um débito digitado errado não estima crédito absurdo (razão no teto de 2)", errado.credito.taxa === 0.06, JSON.stringify(errado));
+
+  // Taxas para o cliente: o estabelecimento recebe o preço inteiro, o cliente paga a taxa.
+  const rep = simularRepasseMq({ valor: 1000, forma: "parcelado", parcelas: 3, antecipar: false }, taxa, H);
+  ok("maquininha-oferta: repasse 1000 em 3x a 4% → cliente paga 1041,67 em 3x, juros 41,67, você recebe 1000",
+     !!rep && rep.total === 1041.67 && rep.juros === 41.67 && rep.vezes === 3 && rep.venda.liquido >= 1000
+     && Math.abs(rep.parcelas.reduce((a, v) => a + v, 0) - 1041.67) < 0.005, JSON.stringify(rep));
+  const repAnt = simularRepasseMq({ valor: 1000, forma: "parcelado", parcelas: 3, antecipar: true }, taxa, H);
+  ok("maquininha-oferta: repasse antecipado embute a antecipação no que o cliente paga (6%)",
+     !!repAnt && repAnt.total === 1063.83 && repAnt.venda.liquido >= 1000 && repAnt.venda.recebimentos.length === 1, JSON.stringify(repAnt));
+  let nuncaMenos = true;
+  for (let v = 1; v <= 3000; v += 7.31) {
+    const r = simularRepasseMq({ valor: v, forma: "credito", parcelas: 1, antecipar: false }, taxa, H);
+    if (!r || r.venda.liquido + 1e-9 < r.valorDesejado) { nuncaMenos = false; break; }
+  }
+  ok("maquininha-oferta: no repasse o estabelecimento nunca recebe um centavo a menos que o preço", nuncaMenos);
 
   ok("maquininha-oferta: quanto cobrar arredonda para CIMA (100 líquido a 5% → 105,27)", precoParaReceberMq(100, 0.05) === 105.27, String(precoParaReceberMq(100, 0.05)));
   ok("maquininha-oferta: taxa de 100% não tem preço", precoParaReceberMq(100, 1) === null);

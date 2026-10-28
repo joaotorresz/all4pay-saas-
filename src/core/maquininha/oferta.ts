@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.0.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.1.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -96,15 +96,59 @@ export function simularVenda(e: EntradaVenda, taxaDe: TaxaDe, hoje: string): Ven
 /** Como as vendas do mês se dividem (frações; o que faltar para 1 vira crédito à vista). */
 export interface MixVendas { pix: number; debito: number; credito: number; parcelado: number }
 
+/** A taxa de cada forma (fração). `null`/ausente = quem simula não sabe. */
+export type TaxasPorForma = Partial<Record<FormaOferta, number | null>>;
+
 export interface EntradaComparacao {
   /** Quanto passa na maquininha por mês. */
   volumeMensal: number;
   mix: MixVendas;
   /** Parcelas médias do parcelado. */
   parcelasMedias: number;
-  /** A taxa média que a empresa paga hoje (fração), digitada por quem simula. */
-  taxaAtual: number;
+  /**
+   * O que a empresa paga hoje, POR FORMA (já completadas por
+   * `completarTaxasAtuais`). ⚠️ Uma taxa média única saiu (pedido do dono,
+   * 28/10/2026): ninguém sabe a própria "média", e débito a 1,5% com crédito
+   * a 4% não vira um número só sem saber o mix.
+   */
+  taxasAtuais: TaxasPorForma;
+  /**
+   * A maquininha de hoje já paga tudo no dia seguinte? Então a taxa dela
+   * inclui a antecipação, e a Quattro é comparada ANTECIPADA também —
+   * comparar a taxa antecipada de lá com a de prazo normal daqui seria vender
+   * uma economia que não existe.
+   */
+  antecipado?: boolean;
 }
+
+export type OrigemTaxa = "informada" | "estimada";
+
+export interface TaxaAtualCompleta { taxa: number; origem: OrigemTaxa }
+
+/**
+ * Completa as taxas que a pessoa NÃO sabe com uma estimativa de mercado
+ * (pedido do dono, 28/10/2026: "caso o cliente não saiba, sugira uma taxa
+ * baseada no mercado, com as taxas que ele inseriu"). A estimativa parte da
+ * referência de mercado e é ajustada pela razão média entre o que a pessoa
+ * DIGITOU e o mercado: quem paga débito abaixo do mercado provavelmente paga
+ * crédito abaixo também. Sem nada digitado, vale o mercado puro. A razão fica
+ * entre 0,5 e 2 — um débito digitado errado não pode fazer o crédito
+ * estimado sair absurdo.
+ */
+export function completarTaxasAtuais(informadas: TaxasPorForma, mercado: Record<FormaOferta, number>): Record<FormaOferta, TaxaAtualCompleta> {
+  const formas: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+  const ok = (x: number | null | undefined): x is number => typeof x === "number" && Number.isFinite(x) && x >= 0 && x < 1;
+  const razoes = formas.filter((f) => ok(informadas[f]) && mercado[f] > 0).map((f) => (informadas[f] as number) / mercado[f]);
+  const razao = razoes.length ? Math.max(0.5, Math.min(2, razoes.reduce((a, b) => a + b, 0) / razoes.length)) : 1;
+  const out = {} as Record<FormaOferta, TaxaAtualCompleta>;
+  for (const f of formas) {
+    const v = informadas[f];
+    out[f] = ok(v) ? { taxa: v, origem: "informada" } : { taxa: Math.round(mercado[f] * razao * 10_000) / 10_000, origem: "estimada" };
+  }
+  return out;
+}
+
+export type VereditoComparacao = "sem_volume" | "quattro_mais_barata" | "atual_mais_barata" | "empate";
 
 export interface Comparacao {
   /** Taxa média ponderada da Quattro sobre o mix (sem antecipação). */
@@ -116,8 +160,10 @@ export interface Comparacao {
   diferencaAnual: number;
   /** A frase que a tela mostra no lugar de pintar o número. */
   frase: string;
-  /** Cada forma com a sua taxa e o custo dela no mês. */
-  porForma: { forma: FormaOferta; nome: string; fracao: number; taxa: number | null; custo: number }[];
+  /** Quem sai mais barato — decide se a tela oferece a economia ou o consultor. */
+  veredito: VereditoComparacao;
+  /** Cada forma com a taxa e o custo dela no mês, nas duas maquininhas. */
+  porForma: { forma: FormaOferta; nome: string; fracao: number; taxa: number | null; custo: number; taxaAtual: number; custoAtual: number }[];
 }
 
 export const NOME_FORMA: Record<FormaOferta, string> = {
@@ -147,23 +193,73 @@ export function compararTaxas(e: EntradaComparacao, taxaDe: TaxaDe): Comparacao 
   const formas: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
   const porForma = formas.map((forma) => {
     const n = parcelasDaForma(forma, e.parcelasMedias);
-    const taxa = taxaDe(forma, n, false);
+    const taxa = taxaDe(forma, n, !!e.antecipado && n > 0);
     const fracao = mix[forma];
-    return { forma, nome: NOME_FORMA[forma], fracao, taxa, custo: r2(volume * fracao * (taxa ?? 0)) };
+    const taxaAtual = Math.max(0, e.taxasAtuais[forma] ?? 0);
+    return {
+      forma, nome: NOME_FORMA[forma], fracao, taxa, custo: r2(volume * fracao * (taxa ?? 0)),
+      taxaAtual, custoAtual: r2(volume * fracao * taxaAtual),
+    };
   });
   const custoQuattro = r2(porForma.reduce((s, f) => s + f.custo, 0));
   const taxaQuattro = volume > 0 ? custoQuattro / volume : porForma.reduce((s, f) => s + f.fracao * (f.taxa ?? 0), 0);
-  const custoAtual = r2(volume * Math.max(0, e.taxaAtual || 0));
+  const custoAtual = r2(porForma.reduce((s, f) => s + f.custoAtual, 0));
   const diferencaMensal = r2(custoAtual - custoQuattro);
   const diferencaAnual = r2(diferencaMensal * 12);
-  const frase = volume === 0
-    ? "Informe quanto passa na maquininha por mês para comparar."
-    : Math.abs(diferencaMensal) < 0.005
-      ? "Com este volume e este mix, o custo é o mesmo nas duas."
-      : diferencaMensal > 0
-        ? "A Quattro sai mais barata com este volume e este mix."
-        : "A sua taxa atual é menor com este volume e este mix. Peça a análise: a proposta final considera o seu faturamento.";
-  return { taxaQuattro, custoQuattro, custoAtual, diferencaMensal, diferencaAnual, frase, porForma };
+  const veredito: VereditoComparacao = volume === 0
+    ? "sem_volume"
+    : Math.abs(diferencaMensal) < 0.005 ? "empate" : diferencaMensal > 0 ? "quattro_mais_barata" : "atual_mais_barata";
+  const frase = {
+    sem_volume: "Informe quanto passa na maquininha por mês para comparar.",
+    empate: "Com este volume e este mix, o custo é o mesmo nas duas.",
+    quattro_mais_barata: "A Quattro sai mais barata com este volume e este mix.",
+    atual_mais_barata: "As suas taxas de hoje são menores com este volume e este mix. Um consultor da Quattro pode analisar o seu faturamento e montar uma proposta.",
+  }[veredito];
+  return { taxaQuattro, custoQuattro, custoAtual, diferencaMensal, diferencaAnual, frase, veredito, porForma };
+}
+
+/* --------------------- quem paga a taxa: você ou o cliente --------------------- */
+
+export interface VendaComRepasse {
+  /** O preço do produto: o que o estabelecimento quer receber. */
+  valorDesejado: number;
+  /** O que o cliente paga no total, com a taxa repassada. */
+  total: number;
+  /** Em quantas vezes o cliente paga (1 no Pix, no débito e no crédito à vista). */
+  vezes: number;
+  /** Cada parcela do cliente. A última leva o resto dos centavos. */
+  parcelas: number[];
+  /** O que o cliente paga a mais (total − preço). */
+  juros: number;
+  /** Os juros sobre o preço (fração). */
+  jurosFracao: number;
+  /** A venda do lado do estabelecimento, sobre o total cobrado. */
+  venda: VendaSimulada;
+}
+
+/**
+ * A venda com a TAXA REPASSADA AO CLIENTE (pedido do dono, 28/10/2026 — a
+ * modalidade em que o cliente paga os juros): cobra-se o valor que, depois da
+ * taxa (e da antecipação, quando ligada), deixa ao estabelecimento EXATAMENTE
+ * o preço do produto. A conta é a de `precoParaReceber` (arredonda para cima:
+ * o estabelecimento nunca recebe um centavo a menos), e a venda do lado dele
+ * passa pelo MESMO `simularVenda` — duas contas de taxa divergiriam.
+ * `null` quando a forma não tem taxa na tabela.
+ */
+export function simularRepasse(e: EntradaVenda, taxaDe: TaxaDe, hoje: string): VendaComRepasse | null {
+  const valorDesejado = Math.max(0, r2(e.valor || 0));
+  const n = parcelasDaForma(e.forma, e.parcelas);
+  const taxa = taxaDe(e.forma, n, n > 0 && e.antecipar);
+  if (taxa == null) return null;
+  const total = precoParaReceber(valorDesejado, taxa);
+  if (total == null) return null;
+  const venda = simularVenda({ ...e, valor: total }, taxaDe, hoje);
+  const vezes = Math.max(1, n);
+  const juros = r2(total - valorDesejado);
+  return {
+    valorDesejado, total, vezes, parcelas: dividir(total, vezes), juros,
+    jurosFracao: valorDesejado > 0 ? juros / valorDesejado : 0, venda,
+  };
 }
 
 /* ------------------------------ quem já tem ------------------------------ */
