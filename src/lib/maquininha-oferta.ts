@@ -14,8 +14,8 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { motivoDaRecusa, reportar } from "@/lib/erros";
 import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira } from "@/lib/pos-taxas";
-import { lerSimulacao } from "@/core/maquininha/oferta";
-import type { FormaOferta, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe } from "@/core/maquininha/oferta";
+import { lerSimulacao, lerTaxasPropostas } from "@/core/maquininha/oferta";
+import type { FormaOferta, MotivoPerda, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe, TaxasPorForma } from "@/core/maquininha/oferta";
 
 /** Segmentos que a tabela de referência conhece (MCC da planilha do POS). */
 export const SEGMENTOS: { id: string; nome: string; mcc: string }[] = [
@@ -177,6 +177,11 @@ export interface PedidoNaFila {
   simulacao: SimulacaoDoPedido | null;
   criado_em: string;
   atualizado_em: string | null;
+  /** O resumo da ficha do lead (ausente antes da migration 20261029130000). */
+  responsavel_email?: string | null;
+  proximo_contato?: string | null;
+  motivo_perda?: MotivoPerda | null;
+  notas?: number;
 }
 
 export async function filaDePedidos(): Promise<PedidoNaFila[]> {
@@ -187,6 +192,10 @@ export async function filaDePedidos(): Promise<PedidoNaFila[]> {
       contato_nome: "Contato de demonstração", contato_telefone: null, contato_email: null, endereco: null,
       observacao: null, situacao: p.situacao, origem: p.origem ?? "formulario", simulacao: p.simulacao ?? null,
       criado_em: p.criadoEm, atualizado_em: null,
+      responsavel_email: fichasDemo[p.id]?.responsavel ? EMAIL_DEMO : null,
+      proximo_contato: fichasDemo[p.id]?.proximo_contato ?? null,
+      motivo_perda: fichasDemo[p.id]?.motivo_perda ?? null,
+      notas: fichasDemo[p.id]?.notas.length ?? 0,
     }));
   }
   const { data, error } = await createClient().rpc("admin_maquininha_pedidos");
@@ -204,5 +213,83 @@ export async function mudarSituacaoPedido(id: string, situacao: SituacaoPedido):
     return;
   }
   const { error } = await createClient().rpc("admin_maquininha_pedido_situacao", { p_pedido: id, p_situacao: situacao });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
+
+/* ------------------------- a ficha do lead (CRM, etapa 3) ------------------------- */
+
+export interface DadosDoLead {
+  responsavel: string | null;
+  proximo_contato: string | null;
+  motivo_perda: MotivoPerda | null;
+  motivo_detalhe: string | null;
+  taxas_propostas: TaxasPorForma | null;
+}
+
+export interface NotaDoLead { id: string; autor_email: string | null; texto: string; criado_em: string }
+
+export interface FichaDoLead extends DadosDoLead {
+  atualizado_em: string | null;
+  notas: NotaDoLead[];
+  /** Quem da plataforma pode ser o responsável. */
+  responsaveis: { id: string; email: string }[];
+}
+
+export const LEAD_VAZIO: DadosDoLead = { responsavel: null, proximo_contato: null, motivo_perda: null, motivo_detalhe: null, taxas_propostas: null };
+
+/** Demonstração: a ficha também fica só na memória desta aba. */
+const ID_DEMO = "demo-plataforma";
+const EMAIL_DEMO = "voce@quattro.finance";
+const fichasDemo: Record<string, DadosDoLead & { notas: NotaDoLead[]; atualizado_em: string | null }> = {};
+
+export async function fichaDoLead(pedido: string): Promise<FichaDoLead> {
+  if (isDemo) {
+    const f = fichasDemo[pedido] ?? { ...LEAD_VAZIO, notas: [], atualizado_em: null };
+    return { ...f, notas: [...f.notas], responsaveis: [{ id: ID_DEMO, email: EMAIL_DEMO }] };
+  }
+  const { data, error } = await createClient().rpc("admin_maquininha_lead", { p_pedido: pedido });
+  if (error) throw new Error(motivoDaRecusa(error));
+  const d = (data ?? {}) as { lead?: Record<string, unknown> | null; notas?: NotaDoLead[]; responsaveis?: { id: string; email: string }[] };
+  const l = d.lead ?? {};
+  return {
+    responsavel: (l.responsavel as string | null) ?? null,
+    proximo_contato: (l.proximo_contato as string | null) ?? null,
+    motivo_perda: (l.motivo_perda as MotivoPerda | null) ?? null,
+    motivo_detalhe: (l.motivo_detalhe as string | null) ?? null,
+    taxas_propostas: lerTaxasPropostas(l.taxas_propostas),
+    atualizado_em: (l.atualizado_em as string | null) ?? null,
+    notas: d.notas ?? [],
+    responsaveis: d.responsaveis ?? [],
+  };
+}
+
+export async function salvarLead(pedido: string, dados: DadosDoLead): Promise<void> {
+  const taxas = lerTaxasPropostas(dados.taxas_propostas);
+  if (isDemo) {
+    const antes = fichasDemo[pedido];
+    fichasDemo[pedido] = { ...dados, taxas_propostas: taxas, notas: antes?.notas ?? [], atualizado_em: new Date().toISOString() };
+    return;
+  }
+  const { error } = await createClient().rpc("admin_maquininha_lead_salvar", {
+    p_pedido: pedido,
+    p_responsavel: dados.responsavel,
+    p_proximo_contato: dados.proximo_contato || null,
+    p_motivo_perda: dados.motivo_perda,
+    p_motivo_detalhe: dados.motivo_detalhe,
+    p_taxas_propostas: taxas,
+  });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
+
+export async function anotarLead(pedido: string, texto: string): Promise<void> {
+  const t = texto.trim();
+  if (!t) throw new Error("A anotação está vazia.");
+  if (isDemo) {
+    const f = fichasDemo[pedido] ?? { ...LEAD_VAZIO, notas: [], atualizado_em: null };
+    f.notas = [{ id: `nota-${f.notas.length + 1}`, autor_email: EMAIL_DEMO, texto: t, criado_em: new Date().toISOString() }, ...f.notas];
+    fichasDemo[pedido] = f;
+    return;
+  }
+  const { error } = await createClient().rpc("admin_maquininha_lead_anotar", { p_pedido: pedido, p_texto: t });
   if (error) throw new Error(motivoDaRecusa(error));
 }
