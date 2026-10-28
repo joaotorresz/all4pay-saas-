@@ -12,14 +12,20 @@
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, BRL, Select, Skeleton } from "@/components/ui";
+import { Card, BRL, Button, PontoStatus, Select, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { formatBRL, pct } from "@/lib/format";
 import { filaDePedidos, mudarSituacaoPedido, type PedidoNaFila } from "@/lib/maquininha-oferta";
-import { FUNIL_COMERCIAL, faturamentoDoPedido, montarFunil, resumoDoFunil, type SituacaoPedido } from "@/core/maquininha/oferta";
+import { FUNIL_COMERCIAL, NOME_MOTIVO_PERDA, faturamentoDoPedido, montarFunil, resumoDoFunil, situacaoDoContato, type SituacaoPedido } from "@/core/maquininha/oferta";
+import { FichaLead } from "./FichaLead";
 
 const OPCOES = FUNIL_COMERCIAL.map((c) => ({ value: c.situacao, label: c.nome }));
 const dia = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+/** Hoje no fuso de quem olha (o próximo contato é uma data, não um instante). */
+const hojeLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export function FunilComercial() {
   const qc = useQueryClient();
@@ -27,6 +33,9 @@ export function FunilComercial() {
   const q = useQuery({ queryKey: ["admin-maquininha-pedidos"], queryFn: filaDePedidos });
   const colunas = React.useMemo(() => montarFunil(q.data ?? []), [q.data]);
   const resumo = resumoDoFunil(colunas);
+  const [aberto, setAberto] = React.useState<string | null>(null);
+  const pedidoAberto = q.data?.find((p) => p.id === aberto) ?? null;
+  const hoje = hojeLocal();
 
   const mover = async (id: string, situacao: SituacaoPedido) => {
     try {
@@ -71,20 +80,27 @@ export function FunilComercial() {
                   </header>
                   {c.pedidos.length === 0 ? (
                     <span className="text-caption text-faint px-1 py-2">Nenhum pedido.</span>
-                  ) : c.pedidos.map((p) => <CartaoPedido key={p.id} p={p} aoMover={mover} />)}
+                  ) : c.pedidos.map((p) => <CartaoPedido key={p.id} p={p} hoje={hoje} aoMover={mover} aoAbrir={() => setAberto(p.id)} />)}
                 </section>
               ))}
             </div>
           </div>
         )}
       </Card>
+      {pedidoAberto && <FichaLead pedido={pedidoAberto} aoFechar={() => setAberto(null)} />}
       {node}
     </>
   );
 }
 
-function CartaoPedido({ p, aoMover }: { p: PedidoNaFila; aoMover: (id: string, s: SituacaoPedido) => void }) {
+function CartaoPedido({ p, hoje, aoMover, aoAbrir }: {
+  p: PedidoNaFila;
+  hoje: string;
+  aoMover: (id: string, s: SituacaoPedido) => void;
+  aoAbrir: () => void;
+}) {
   const fat = faturamentoDoPedido(p);
+  const contato = situacaoDoContato(p.proximo_contato, hoje);
   return (
     <article className="flex flex-col gap-2 rounded-md bg-white p-3">
       <div className="flex flex-col gap-0.5">
@@ -111,6 +127,20 @@ function CartaoPedido({ p, aoMover }: { p: PedidoNaFila; aoMover: (id: string, s
         {[p.contato_nome, p.contato_telefone, p.contato_email].filter(Boolean).join(" · ")}
       </span>
       {p.observacao && <span className="text-caption text-muted break-words">&ldquo;{p.observacao}&rdquo;</span>}
+      {(p.responsavel_email || contato || p.motivo_perda || (p.notas ?? 0) > 0) && (
+        <div className="flex flex-col gap-0.5 border-t border-border-soft pt-2">
+          {p.responsavel_email && <span className="text-caption text-muted break-words">Com {p.responsavel_email}</span>}
+          {contato && (
+            <span className="flex items-center gap-1.5 text-caption text-ink tabular-nums">
+              <PontoStatus cor={contato === "atrasado" ? "var(--color-negative)" : contato === "hoje" ? "var(--color-warning)" : null} />
+              {contato === "atrasado" ? "Contato atrasado desde" : contato === "hoje" ? "Contato hoje," : "Próximo contato"} {dia(p.proximo_contato!)}
+            </span>
+          )}
+          {p.situacao === "cancelado" && p.motivo_perda && <span className="text-caption text-muted">Motivo: {NOME_MOTIVO_PERDA[p.motivo_perda]}</span>}
+          {(p.notas ?? 0) > 0 && <span className="text-caption text-muted tabular-nums">{p.notas} {p.notas === 1 ? "anotação" : "anotações"}</span>}
+        </div>
+      )}
+      <Button size="sm" variant="secondary" onClick={aoAbrir}>Abrir ficha</Button>
       <Select aria-label={`Mover o pedido de ${p.empresa}`} value={p.situacao} onChange={(v) => aoMover(p.id, v as SituacaoPedido)} options={OPCOES} />
     </article>
   );

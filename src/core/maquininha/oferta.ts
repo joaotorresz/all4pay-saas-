@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.3.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.4.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -566,6 +566,68 @@ export function resumoDoFunil<T extends PedidoNoFunil>(colunas: readonly ColunaD
     /** Instalados ÷ fechados (instalados + perdidos). `null` sem nenhum fechado: 0% diria "perdemos todos". */
     conversao: ganhos + perdidos > 0 ? ganhos / (ganhos + perdidos) : null,
   };
+}
+
+/* ------------------------- a ficha do lead (CRM, etapa 3) ------------------------- */
+
+export type MotivoPerda = "preco" | "concorrente" | "sem_resposta" | "sem_interesse" | "credito" | "outro";
+
+/** Os motivos de perda que o banco aceita (a mesma lista da restrição da tabela). */
+export const NOME_MOTIVO_PERDA: Record<MotivoPerda, string> = {
+  preco: "Preço",
+  concorrente: "Fechou com outra",
+  sem_resposta: "Sem resposta",
+  sem_interesse: "Sem interesse",
+  credito: "Crédito recusado",
+  outro: "Outro",
+};
+
+/** Teto da taxa proposta: acima disso é dígito trocado ("3,5" no lugar de "0,035"). O banco confere o mesmo. */
+export const TETO_TAXA_PROPOSTA = 0.2;
+
+const FORMAS_LEAD: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+
+/**
+ * Lê as taxas propostas vindas de FORA (o jsonb do banco ou o formulário).
+ * Forma inventada e taxa fora de [0, 20%] são descartadas uma a uma; sem
+ * nenhuma válida, `null` — "nenhuma proposta" não é "proposta de 0%".
+ */
+export function lerTaxasPropostas(x: unknown): TaxasPorForma | null {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  const out: TaxasPorForma = {};
+  for (const f of FORMAS_LEAD) {
+    const v = o[f];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= TETO_TAXA_PROPOSTA) out[f] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * A conta da PROPOSTA: o mesmo volume, o mesmo mix e as mesmas taxas de hoje
+ * da simulação que o cliente fez, com as taxas que o consultor propôs no
+ * lugar das da tabela. ⚠️ A forma sem taxa proposta segue com a taxa da
+ * Quattro que a simulação usou — a proposta muda o que o consultor digitou,
+ * não zera o resto. É a MESMA `compararTaxas` da página do cliente: uma
+ * segunda conta discordaria dela no primeiro centavo.
+ */
+export function comparacaoDaProposta(sim: SimulacaoDoPedido, taxas: TaxasPorForma | null): Comparacao | null {
+  if (!taxas || !FORMAS_LEAD.some((f) => typeof taxas[f] === "number")) return null;
+  const atuais: TaxasPorForma = {};
+  for (const f of FORMAS_LEAD) atuais[f] = sim.taxasAtuais[f].taxa;
+  return compararTaxas(
+    { volumeMensal: sim.volumeMensal, mix: sim.mix, parcelasMedias: 1, taxasAtuais: atuais, antecipado: sim.antecipado },
+    (forma) => taxas[forma] ?? sim.taxasQuattro[forma],
+  );
+}
+
+export type SituacaoDoContato = "atrasado" | "hoje" | "agendado";
+
+/** O próximo contato contra hoje (datas ISO, comparadas como texto — sem fuso). */
+export function situacaoDoContato(proximo: string | null | undefined, hoje: string): SituacaoDoContato | null {
+  if (!proximo) return null;
+  const d = proximo.slice(0, 10);
+  return d < hoje ? "atrasado" : d === hoje ? "hoje" : "agendado";
 }
 
 /* ------------------------------ a meta do mês ------------------------------ */

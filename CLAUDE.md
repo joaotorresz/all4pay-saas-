@@ -1078,7 +1078,15 @@ pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
   Instalado · Perdido). ⚠️ Cada coluna É uma situação do pedido: mover o card
   muda a situação que a empresa vê, e não existe um segundo campo de "etapa
   comercial". A lista de pedidos mora SÓ no funil (Maquininhas ficou com o
-  credenciamento do EC). Guarda `scripts/maquininha-pedidos.sql` no CI. ⚠️ O pedido de VÍNCULO não vincula: só a
+  credenciamento do EC). Guarda `scripts/maquininha-pedidos.sql` no CI. ⚠️ **A ficha do lead (etapa 3, migration `20261029130000`)**:
+  "Abrir ficha" no card abre responsável (alguém da plataforma), próximo
+  contato (atrasado/hoje no card), taxas propostas pelo consultor com a
+  economia refeita pela MESMA `compararTaxas` (`comparacaoDaProposta`),
+  motivo de perda e anotações. Mora em `maquininha_leads`/
+  `maquininha_lead_notas`, tabelas SEM concessão a ninguém — nunca coluna em
+  `maquininha_pedidos`, que a empresa lê. A anotação é HISTÓRICO: não há
+  função que a edite ou apague. Etapa do funil continua sendo só a situação.
+  Guarda `scripts/maquininha-leads.sql` no CI. ⚠️ O pedido de VÍNCULO não vincula: só a
   plataforma liga EC → empresa. Em demonstração o pedido fica só na memória da aba.
 - **Com maquininha**: cards da Home (sem a caixa da Quattro AI, a pedido do dono) e três
   interativos (meta do mês com ritmo, antecipar a agenda, quanto cobrar para

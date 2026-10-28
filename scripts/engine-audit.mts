@@ -16,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -13177,6 +13177,29 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("maquininha-oferta: os pedidos são lidos só pelo funil Comercial (nenhuma outra tela do admin os lista)",
        /filaDePedidos\(|queryFn: filaDePedidos/.test(sem("src/components/admin/FunilComercial.tsx"))
        && !/filaDePedidos/.test(sem("src/components/admin/AdminView.tsx")));
+  }
+
+  // ── A ficha do lead (CRM etapa 3): a proposta do consultor e o próximo contato.
+  ok("maquininha-oferta: taxa proposta fora de [0, 20%] e forma inventada são descartadas uma a uma",
+     JSON.stringify(lerTaxasPropostasMq({ debito: 0.01, credito: 0.35, boleto: 0.01, pix: -0.01 })) === JSON.stringify({ debito: 0.01 })
+     && lerTaxasPropostasMq({ credito: TETO_TAXA_PROPOSTA_MQ })?.credito === TETO_TAXA_PROPOSTA_MQ);
+  ok("maquininha-oferta: nenhuma taxa válida é \"sem proposta\", não proposta de 0%",
+     lerTaxasPropostasMq({}) === null && lerTaxasPropostasMq({ credito: "1,5" }) === null && lerTaxasPropostasMq([0.01]) === null && lerTaxasPropostasMq(null) === null);
+  ok("maquininha-oferta: sem taxa proposta não há comparação da proposta", comparacaoDaPropostaMq(sim, null) === null && comparacaoDaPropostaMq(sim, {}) === null);
+  const igual = comparacaoDaPropostaMq(sim, { ...sim.taxasQuattro });
+  ok("maquininha-oferta: propor as taxas da tabela reproduz a simulação do cliente (mesma conta)",
+     !!igual && Math.abs(igual.custoQuattro - sim.custoQuattroMes) < 0.005 && Math.abs(igual.custoAtual - sim.custoAtualMes) < 0.005, JSON.stringify(igual));
+  const prop = comparacaoDaPropostaMq(sim, { debito: 0.005 });
+  ok("maquininha-oferta: baixar só o débito baixa só a parte do débito (o crédito segue na taxa da tabela)",
+     !!prop && Math.abs(prop.custoQuattro - (sim.custoQuattroMes - 5_000 * (sim.taxasQuattro.debito - 0.005))) < 0.005, JSON.stringify(prop));
+  ok("maquininha-oferta: o próximo contato contra hoje (atrasado · hoje · agendado · sem data)",
+     situacaoDoContatoMq("2026-10-27", "2026-10-28") === "atrasado" && situacaoDoContatoMq("2026-10-28", "2026-10-28") === "hoje"
+     && situacaoDoContatoMq("2026-10-29T00:00:00", "2026-10-28") === "agendado" && situacaoDoContatoMq(null, "2026-10-28") === null);
+  {
+    const sem = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("maquininha-oferta: a ficha do lead é lida só pela própria ficha (uma morada só)",
+       /fichaDoLead\(/.test(sem("src/components/admin/FichaLead.tsx"))
+       && !/fichaDoLead/.test(sem("src/components/admin/FunilComercial.tsx")) && !/fichaDoLead/.test(sem("src/components/admin/AdminView.tsx")));
   }
 
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
