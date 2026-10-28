@@ -18,7 +18,7 @@ export const soDigitosFone = (t: string): string => {
  * dígitos, sem "+") ganha o +55; 12–13 dígitos começando por 55 ganham só o
  * "+"; o que já vem com "+" fica com o próprio país. O que não se reconhece
  * volta como veio — reescrever um número estrangeiro sem "+" o estragaria.
- * ⚠️ Espelho de `public.telefone_e164` no banco (migration 20261028170000).
+ * ⚠️ Espelho de `public.telefone_e164` no banco (migration 20261028180000).
  */
 export function telefoneE164(t: string | null | undefined): string | null {
   const bruto = (t ?? "").trim();

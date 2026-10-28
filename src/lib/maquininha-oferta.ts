@@ -14,7 +14,8 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { motivoDaRecusa, reportar } from "@/lib/erros";
 import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira } from "@/lib/pos-taxas";
-import type { FormaOferta, PedidoMaquininha, SituacaoPedido, TaxaDe } from "@/core/maquininha/oferta";
+import { lerSimulacao } from "@/core/maquininha/oferta";
+import type { FormaOferta, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe } from "@/core/maquininha/oferta";
 
 /** Segmentos que a tabela de referência conhece (MCC da planilha do POS). */
 export const SEGMENTOS: { id: string; nome: string; mcc: string }[] = [
@@ -70,6 +71,8 @@ export interface PedidoRegistrado {
   codigoEstabelecimento: string | null;
   situacao: SituacaoPedido;
   criadoEm: string;
+  origem?: OrigemPedido;
+  simulacao?: SimulacaoDoPedido | null;
 }
 
 /** Demonstração: só nesta aba, some ao recarregar. */
@@ -108,11 +111,13 @@ export async function enviarPedido(p: PedidoMaquininha): Promise<PedidoRegistrad
       codigoEstabelecimento: vincular ? p.codigoEstabelecimento.trim() : null,
       situacao: "recebido",
       criadoEm: new Date().toISOString(),
+      origem: p.origem ?? "formulario",
+      simulacao: lerSimulacao(p.simulacao),
     };
     pedidosDemo = [novo, ...pedidosDemo];
     return novo;
   }
-  const { data, error } = await createClient().rpc("maquininha_pedido_criar", {
+  const base = {
     p_tipo: p.tipo,
     p_quantidade: vincular ? 1 : p.quantidade,
     p_segmento: p.segmento || null,
@@ -123,7 +128,18 @@ export async function enviarPedido(p: PedidoMaquininha): Promise<PedidoRegistrad
     p_contato_email: p.contatoEmail || null,
     p_endereco: vincular ? null : p.endereco,
     p_observacao: p.observacao || null,
+  };
+  const simulacao = lerSimulacao(p.simulacao);
+  let { data, error } = await createClient().rpc("maquininha_pedido_criar", {
+    ...base, p_origem: p.origem ?? "formulario", p_simulacao: simulacao,
   });
+  // ⚠️ Entre o deploy e a migration (20261028170000) o banco só conhece a
+  // função de dez parâmetros: o pedido não pode se perder por isso. Sem a
+  // função nova (PGRST202), envia o mesmo pedido sem a origem e a simulação,
+  // que continuam escritas na observação.
+  if (error && (error as { code?: string }).code === "PGRST202") {
+    ({ data, error } = await createClient().rpc("maquininha_pedido_criar", base));
+  }
   if (error) {
     reportar("maquininha.enviarPedido", error, "o pedido de maquininha não foi enviado");
     throw new Error(motivoDaRecusa(error).replace(/^A4P-MAQUININHA:\s*/, ""));
@@ -155,6 +171,10 @@ export interface PedidoNaFila {
   endereco: string | null;
   observacao: string | null;
   situacao: SituacaoPedido;
+  /** Ausente antes da migration 20261028170000: leia como "formulario". */
+  origem: OrigemPedido;
+  /** Já conferida por `lerSimulacao`: a fora de faixa chega como null. */
+  simulacao: SimulacaoDoPedido | null;
   criado_em: string;
   atualizado_em: string | null;
 }
@@ -165,12 +185,17 @@ export async function filaDePedidos(): Promise<PedidoNaFila[]> {
       id: p.id, org_id: "demo", empresa: "Empresa de demonstração", tipo: p.tipo, quantidade: p.quantidade,
       segmento: null, faturamento_mensal: null, codigo_estabelecimento: p.codigoEstabelecimento,
       contato_nome: "Contato de demonstração", contato_telefone: null, contato_email: null, endereco: null,
-      observacao: null, situacao: p.situacao, criado_em: p.criadoEm, atualizado_em: null,
+      observacao: null, situacao: p.situacao, origem: p.origem ?? "formulario", simulacao: p.simulacao ?? null,
+      criado_em: p.criadoEm, atualizado_em: null,
     }));
   }
   const { data, error } = await createClient().rpc("admin_maquininha_pedidos");
   if (error) throw new Error(motivoDaRecusa(error));
-  return (data as PedidoNaFila[] | null) ?? [];
+  return ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+    ...(r as unknown as PedidoNaFila),
+    origem: r.origem === "economia" || r.origem === "consultor" ? r.origem : "formulario",
+    simulacao: lerSimulacao(r.simulacao),
+  }));
 }
 
 export async function mudarSituacaoPedido(id: string, situacao: SituacaoPedido): Promise<void> {

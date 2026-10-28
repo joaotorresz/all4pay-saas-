@@ -243,7 +243,18 @@
         "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 1)"
       },
       {
-        "nome": "20261028170000_telefone_e164",
+        "nome": "20261028170000_maquininha_pedidos_simulacao",
+        "motivo": "O pedido de maquininha passa a levar a origem (formulário, economia, consultor) e a simulação estruturada, para o CRM da plataforma (etapa 1). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas maquininha_pedidos.origem e maquininha_pedidos.simulacao",
+          "função maquininha_pedido_criar com p_origem e p_simulacao (a de dez parâmetros é apagada)"
+        ],
+        "impacto": "Até ser aplicada, o envio do pedido cai no caminho antigo (sem a simulação) e a fila do admin não mostra a economia. Nada que já existe muda.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 1)"
+      },
+      {
+        "nome": "20261028180000_telefone_e164",
         "motivo": "O telefone do contato passa a ser gravado em E.164 (+55…): a Twilio recusou com 400 o WhatsApp para um número salvo sem o país (medido em produção em 28/10/2026). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
           "função telefone_e164(text) — espelho de telefoneE164 em src/lib/telefone.ts",

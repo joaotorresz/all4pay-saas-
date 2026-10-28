@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.1.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.2.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -330,12 +330,126 @@ export interface PedidoMaquininha {
   contatoEmail: string;
   endereco: string;
   observacao: string;
+  /**
+   * A simulação que levou ao pedido, quando ele veio do pop-up da comparação.
+   * Vai ESTRUTURADA para o CRM da plataforma (pedido do dono, 28/10/2026):
+   * texto solto na observação não se ordena por economia nem se filtra.
+   */
+  simulacao?: SimulacaoDoPedido | null;
+  /** De onde o pedido veio (formulário, pop-up de economia ou convite ao consultor). */
+  origem?: OrigemPedido;
 }
 
 export const PEDIDO_VAZIO: PedidoMaquininha = {
   tipo: "pedir", quantidade: 1, segmento: "", faturamentoMensal: null, codigoEstabelecimento: "",
-  contatoNome: "", contatoTelefone: "", contatoEmail: "", endereco: "", observacao: "",
+  contatoNome: "", contatoTelefone: "", contatoEmail: "", endereco: "", observacao: "", simulacao: null, origem: "formulario",
 };
+
+/* ----------------------- a simulação que vai ao CRM ----------------------- */
+
+/**
+ * De onde o pedido veio: do formulário direto, do pop-up de ECONOMIA (Quattro
+ * mais barata) ou do convite ao CONSULTOR (taxas de hoje menores ou iguais).
+ * O comercial trata os dois últimos de jeitos opostos: o primeiro já está
+ * convencido, o segundo espera uma proposta.
+ */
+export type OrigemPedido = "formulario" | "economia" | "consultor";
+
+export interface SimulacaoDoPedido {
+  versao: string;
+  volumeMensal: number;
+  /** Frações do mix, somando 1. */
+  mix: MixVendas;
+  antecipado: boolean;
+  /** O que a empresa paga hoje, forma a forma, e se ela DIGITOU ou foi estimado. */
+  taxasAtuais: Record<FormaOferta, TaxaAtualCompleta>;
+  /** A taxa da Quattro que entrou na conta, forma a forma (null = não se aplica). */
+  taxasQuattro: Record<FormaOferta, number | null>;
+  custoAtualMes: number;
+  custoQuattroMes: number;
+  /** Positivo = a Quattro sai mais barata. */
+  economiaMes: number;
+  veredito: VereditoComparacao;
+}
+
+const FORMAS_SIM: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
+
+/** Monta a simulação a partir da MESMA comparação que a tela mostrou. */
+export function simulacaoDoPedido(
+  e: EntradaComparacao, completas: Record<FormaOferta, TaxaAtualCompleta>, c: Comparacao,
+): SimulacaoDoPedido {
+  const quattro = {} as Record<FormaOferta, number | null>;
+  for (const f of FORMAS_SIM) {
+    const t = c.porForma.find((x) => x.forma === f)?.taxa;
+    quattro[f] = t == null ? null : r4(t);
+  }
+  const atuais = {} as Record<FormaOferta, TaxaAtualCompleta>;
+  for (const f of FORMAS_SIM) atuais[f] = { taxa: r4(completas[f].taxa), origem: completas[f].origem };
+  return {
+    versao: OFERTA_VERSION,
+    volumeMensal: r2(e.volumeMensal),
+    mix: { pix: r4(e.mix.pix), debito: r4(e.mix.debito), credito: r4(e.mix.credito), parcelado: r4(e.mix.parcelado) },
+    antecipado: !!e.antecipado,
+    taxasAtuais: atuais,
+    taxasQuattro: quattro,
+    custoAtualMes: r2(c.custoAtual),
+    custoQuattroMes: r2(c.custoQuattro),
+    economiaMes: r2(c.diferencaMensal),
+    veredito: c.veredito,
+  };
+}
+
+/** A origem que o pop-up dá ao pedido: economia só quando a Quattro sai mais barata. */
+export function origemDoPedido(veredito: VereditoComparacao | null | undefined): OrigemPedido {
+  if (!veredito) return "formulario";
+  return veredito === "quattro_mais_barata" ? "economia" : "consultor";
+}
+
+/**
+ * Confere uma simulação vinda de FORA (o jsonb lido do banco, ou o que o
+ * navegador mandou). ⚠️ O cliente monta a simulação, então ela é DADO DE
+ * FORA: número fora de faixa, forma inventada ou veredito que não existe
+ * descartam a simulação inteira (null) em vez de entrar meio certa no funil
+ * — uma economia de R$ 10 milhões por mês ordenaria o CRM inteiro errado.
+ */
+export function lerSimulacao(x: unknown): SimulacaoDoPedido | null {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  const num = (v: unknown, min: number, max: number) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
+  const fracao = (v: unknown) => num(v, 0, 1);
+  const TETO = 1_000_000_000;
+  if (!num(o.volumeMensal, 0, TETO) || !num(o.custoAtualMes, 0, TETO) || !num(o.custoQuattroMes, 0, TETO) || !num(o.economiaMes, -TETO, TETO)) return null;
+  if (typeof o.antecipado !== "boolean") return null;
+  if (!["sem_volume", "quattro_mais_barata", "atual_mais_barata", "empate"].includes(o.veredito as string)) return null;
+  const mix = o.mix as Record<string, unknown> | null;
+  const atuais = o.taxasAtuais as Record<string, unknown> | null;
+  const quattro = o.taxasQuattro as Record<string, unknown> | null;
+  if (!mix || !atuais || !quattro || typeof mix !== "object" || typeof atuais !== "object" || typeof quattro !== "object") return null;
+  for (const f of FORMAS_SIM) {
+    if (!fracao(mix[f])) return null;
+    const a = atuais[f] as Record<string, unknown> | null;
+    if (!a || typeof a !== "object" || !num(a.taxa, 0, 0.99) || (a.origem !== "informada" && a.origem !== "estimada")) return null;
+    if (quattro[f] !== null && !num(quattro[f], 0, 0.99)) return null;
+  }
+  const soma = FORMAS_SIM.reduce((s, f) => s + (mix[f] as number), 0);
+  if (Math.abs(soma - 1) > 0.01) return null;
+  return {
+    versao: typeof o.versao === "string" ? o.versao.slice(0, 40) : "desconhecida",
+    volumeMensal: o.volumeMensal as number,
+    mix: { pix: mix.pix as number, debito: mix.debito as number, credito: mix.credito as number, parcelado: mix.parcelado as number },
+    antecipado: o.antecipado,
+    taxasAtuais: Object.fromEntries(FORMAS_SIM.map((f) => {
+      const a = atuais[f] as { taxa: number; origem: OrigemTaxa };
+      return [f, { taxa: a.taxa, origem: a.origem }];
+    })) as Record<FormaOferta, TaxaAtualCompleta>,
+    taxasQuattro: Object.fromEntries(FORMAS_SIM.map((f) => [f, quattro[f] as number | null])) as Record<FormaOferta, number | null>,
+    custoAtualMes: o.custoAtualMes as number,
+    custoQuattroMes: o.custoQuattroMes as number,
+    economiaMes: o.economiaMes as number,
+    veredito: o.veredito as VereditoComparacao,
+  };
+}
 
 export const TETO_MAQUININHAS = 20;
 
