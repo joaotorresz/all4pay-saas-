@@ -16,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -13145,6 +13145,39 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("maquininha-oferta: origem do pedido — economia só quando a Quattro sai mais barata",
      origemDoPedidoMq("quattro_mais_barata") === "economia" && origemDoPedidoMq("atual_mais_barata") === "consultor"
      && origemDoPedidoMq("empate") === "consultor" && origemDoPedidoMq(null) === "formulario");
+
+  // ── O funil Comercial (CRM etapa 2): cada coluna É uma situação do pedido.
+  ok("maquininha-oferta: o funil tem uma coluna por situação, sem faltar nem repetir",
+     FUNIL_COMERCIAL_MQ.length === Object.keys(NOME_SITUACAO_MQ).length
+     && new Set(FUNIL_COMERCIAL_MQ.map((c) => c.situacao)).size === FUNIL_COMERCIAL_MQ.length
+     && Object.keys(NOME_SITUACAO_MQ).every((s) => FUNIL_COMERCIAL_MQ.some((c) => c.situacao === s)));
+  const simCom = (e: number) => ({ ...sim, economiaMes: e });
+  const pf = (situacao: string, e: number | null, fat: number | null, criado: string) =>
+    ({ situacao: situacao as "recebido", faturamento_mensal: fat, simulacao: e == null ? null : simCom(e), criado_em: criado });
+  const funil = montarFunilMq([
+    pf("recebido", 120, 30_000, "2026-10-20"), pf("recebido", -40, null, "2026-10-21"), pf("recebido", null, 5_000, "2026-10-22"),
+    pf("proposta", 300, 80_000, "2026-10-10"), pf("concluido", 50, 10_000, "2026-09-01"), pf("cancelado", 10, 2_000, "2026-09-02"),
+    pf("negociando", 7, 1_000, "2026-10-23"),
+  ]);
+  const novo = funil.find((c) => c.situacao === "recebido")!;
+  ok("maquininha-oferta: economia NEGATIVA não abate a coluna (120 + 7, não 87)", novo.economiaMes === 127, String(novo.economiaMes));
+  ok("maquininha-oferta: sem faturamento declarado, vale o volume simulado",
+     novo.faturamentoMes === 30_000 + 10_000 + 5_000 + 1_000, String(novo.faturamentoMes));
+  ok("maquininha-oferta: situação desconhecida não some (cai em Novo)", novo.pedidos.length === 4);
+  ok("maquininha-oferta: na coluna, quem viu mais economia vem primeiro",
+     novo.pedidos.map((p) => p.simulacao?.economiaMes ?? null).join() === "120,7,,-40", novo.pedidos.map((p) => p.simulacao?.economiaMes ?? "∅").join());
+  const res = resumoDoFunilMq(funil);
+  ok("maquininha-oferta: o topo do funil conta só o aberto e a conversão é ganhos ÷ fechados",
+     res.emAberto === 5 && res.economiaEmAberto === 427 && res.ganhos === 1 && res.perdidos === 1 && res.conversao === 0.5, JSON.stringify(res));
+  ok("maquininha-oferta: sem pedido fechado, a conversão é ausente (0% diria \"perdemos todos\")",
+     resumoDoFunilMq(montarFunilMq([pf("recebido", 1, 1, "2026-10-01")])).conversao === null);
+  {
+    // A lista de pedidos mora no funil, e só lá: duas listas do mesmo pedido divergem.
+    const sem = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("maquininha-oferta: os pedidos são lidos só pelo funil Comercial (nenhuma outra tela do admin os lista)",
+       /filaDePedidos\(|queryFn: filaDePedidos/.test(sem("src/components/admin/FunilComercial.tsx"))
+       && !/filaDePedidos/.test(sem("src/components/admin/AdminView.tsx")));
+  }
 
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }

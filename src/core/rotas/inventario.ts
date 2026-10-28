@@ -97,6 +97,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/admin", nome: "Visão geral da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/clientes", nome: "Clientes e planos", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/cadastros", nome: "Cadastros da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/comercial", nome: "Comercial da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/maquininhas", nome: "Maquininhas da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/cobranca", nome: "Cobrança da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/design-system", nome: "Design system da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
