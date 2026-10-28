@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus, CartaoBiblioteca, BarrasDestaque, LinhaPontos } from "@/components/ui";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CadastrosAdmin } from "@/components/admin/CadastrosAdmin";
+import { MensalidadesAdmin } from "@/components/admin/MensalidadesAdmin";
 import { formatBRL, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
@@ -321,6 +322,7 @@ function SecaoCobranca() {
   const orgs = useQuery({ queryKey: ["admin-orgs"], queryFn: getAdminOrgs });
   return (
     <>
+      <MensalidadesAdmin />
       <ReconciliacaoBilling orgs={orgs.data ?? []} carregando={orgs.isLoading} />
       <MrrCard />
     </>

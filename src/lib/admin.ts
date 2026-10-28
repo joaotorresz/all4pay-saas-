@@ -349,3 +349,56 @@ export async function desvincularPinbank(vinculoId: string, motivo: string): Pro
   const { error } = await createClient().rpc("admin_pinbank_desvincular", { p_vinculo: vinculoId, p_motivo: motivo });
   if (error) throw new Error(motivoDaRecusa(error));
 }
+
+/* ----------------------------- mensalidade do ERP ----------------------------- */
+/**
+ * As faturas da mensalidade (migration 20261029120000). Só a plataforma gera,
+ * dá baixa e cancela; a empresa paga por Pix ou boleto pela conta Pinbank da
+ * Quattro (`/api/mensalidade/cobranca`). A BAIXA renova a assinatura.
+ */
+export type SituacaoMensalidade = "aberta" | "paga" | "cancelada";
+export interface MensalidadeFatura {
+  id: string; orgId: string; empresa: string; competencia: string; plano: string | null;
+  valor: number; vencimento: string; situacao: SituacaoMensalidade; pagaEm: string | null;
+  acessoAte: string | null; motivo: string | null; pix: string | null; boleto: string | null;
+}
+
+export async function getMensalidades(): Promise<MensalidadeFatura[]> {
+  if (isDemo) return [];
+  const { data, error } = await createClient().rpc("admin_mensalidade_listar");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    id: String(r.id), orgId: String(r.org_id), empresa: String(r.empresa ?? ""), competencia: String(r.competencia),
+    plano: r.plano == null ? null : String(r.plano), valor: Number(r.valor ?? 0), vencimento: String(r.vencimento),
+    situacao: r.situacao as SituacaoMensalidade, pagaEm: r.paga_em == null ? null : String(r.paga_em),
+    acessoAte: r.acesso_ate == null ? null : String(r.acesso_ate), motivo: r.motivo == null ? null : String(r.motivo),
+    pix: r.pix == null ? null : String(r.pix), boleto: r.boleto == null ? null : String(r.boleto),
+  }));
+}
+
+/** A frase do banco sem o prefixo A4P-MENSALIDADE. */
+const fraseMensalidade = (m: string) => m.replace(/^.*A4P-MENSALIDADE:\s*/, "");
+
+/** Valor e vencimento opcionais: sem eles, o MRR da assinatura (ou o preço do plano) e o fim do período. */
+export async function gerarMensalidade(orgId: string, competencia: string, valor: number | null, vencimento: string | null): Promise<string> {
+  if (isDemo) throw new Error("Indisponível na demonstração.");
+  const { data, error } = await createClient().rpc("admin_mensalidade_gerar", {
+    p_org: orgId, p_competencia: competencia, p_valor: valor && valor > 0 ? valor : null, p_vencimento: vencimento || null,
+  });
+  if (error) throw new Error(fraseMensalidade(error.message));
+  return String(data);
+}
+
+/** Devolve o novo fim do período (`YYYY-MM-DD`). */
+export async function baixarMensalidade(faturaId: string, motivo: string): Promise<string> {
+  if (isDemo) throw new Error("Indisponível na demonstração.");
+  const { data, error } = await createClient().rpc("admin_mensalidade_baixar", { p_fatura: faturaId, p_motivo: motivo.trim() || null });
+  if (error) throw new Error(fraseMensalidade(error.message));
+  return String(data);
+}
+
+export async function cancelarMensalidade(faturaId: string, motivo: string): Promise<void> {
+  if (isDemo) throw new Error("Indisponível na demonstração.");
+  const { error } = await createClient().rpc("admin_mensalidade_cancelar", { p_fatura: faturaId, p_motivo: motivo });
+  if (error) throw new Error(fraseMensalidade(error.message));
+}
