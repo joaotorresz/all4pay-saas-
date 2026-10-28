@@ -7,17 +7,12 @@
  * lugar nenhum. A jornada confere o DINHEIRO nos três lugares — não só que a
  * mensagem apareceu.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 const VALOR = 4321.07;
 const DESCRICAO = "Manutenção do ar E2E";
 
-async function saldoHome(u) {
-  await u.ir("/");
-  const t = (await u.texto()).replace(/\n/g, " ");
-  const m = t.match(/Saldo em conta hoje\s*R\$\s*([\d.]+)\s*,?\s*(\d{2})?/);
-  return m ? brl(`${m[1]},${m[2] ?? "00"}`) : NaN;
-}
+const saldoHome = (u) => saldoDaHome(u);
 
 /** A linha "Despesas operacionais" (ou a primeira linha de despesa) do DRE, total. */
 async function totalDespesasDRE(u) {

@@ -228,7 +228,7 @@ export function DashboardContasReceber() {
 /* A ponte: faturar não é receber                                              */
 /* ========================================================================== */
 
-function Ponte({ ponte }: { ponte: PonteVendaRecebimento }) {
+export function Ponte({ ponte }: { ponte: PonteVendaRecebimento }) {
   return (
     <Card
       className="flex flex-col gap-4"
@@ -287,7 +287,7 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: number }) {
 /* O envelhecimento                                                            */
 /* ========================================================================== */
 
-function Envelhecimento({ painel }: { painel: PainelContasReceber }) {
+export function Envelhecimento({ painel }: { painel: PainelContasReceber }) {
   const total = painel.carteira.vencido;
   return (
     <Card
@@ -345,7 +345,7 @@ const ORDEM_PESO: Record<string, number> = {
 /* A concentração por cliente                                                  */
 /* ========================================================================== */
 
-function Exposicao({ painel }: { painel: PainelContasReceber }) {
+export function Exposicao({ painel }: { painel: PainelContasReceber }) {
   const { carteira, exposicao, concentracaoMaiorCliente } = painel;
   return (
     <Card

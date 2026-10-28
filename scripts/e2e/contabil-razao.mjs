@@ -12,7 +12,7 @@
  * 5. O estorno devolve o balancete ao ponto de partida, e um segundo estorno
  *    do mesmo lançamento não é oferecido.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 const num = async (loc) => {
   const t = (await loc.first().innerText()).replace(/\s+/g, "");
@@ -52,10 +52,7 @@ export default async function contabilRazao(navegador) {
   const u = await novoUsuario(navegador);
 
   // A Visão geral mostra o saldo em conta SEM centavos (escopo do herói).
-  await u.ir("/");
-  const home = (await u.texto()).replace(/\n+/g, " ");
-  const mHome = home.match(/Saldo em conta hoje\s*(−|-)?\s*R\$\s*([\d.]+)(,\d{2})?/);
-  const saldoHome = mHome ? (mHome[1] ? -1 : 1) * brl(mHome[2] + (mHome[3] ?? "")) : NaN;
+  const saldoHome = await saldoDaHome(u);
 
   await u.ir("/contabilidade");
   const a = await leitura(u);

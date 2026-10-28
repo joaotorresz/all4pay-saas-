@@ -103,13 +103,18 @@ export default async function iaHistorico(navegador) {
   await campoDoChat(u).waitFor({ timeout: 10000 });
   const chips = await chat().locator('button[data-ia="chip"]').allInnerTexts();
   v.ok(chips.length >= 3, "o estado vazio oferece sugestões", String(chips.length));
-  for (const q of chips.slice(0, 4)) {
+  // ⚠️ As pílulas são um RODÍZIO: a respondida sai da lista. Cada rodada pega
+  // a primeira que está na tela agora, não a lista lida no começo.
+  for (let k = 0; k < 4; k++) {
     await (await abrirHistorico()).getByRole("button", { name: "Nova conversa" }).click();
     const n = await u.page.locator('[data-ia="resposta"]').count();
-    await chat().locator('button[data-ia="chip"]', { hasText: q }).first().click();
+    const chip = chat().locator('button[data-ia="chip"]').first();
+    const q = (await chip.innerText()).trim();
+    await chip.click();
     await u.page.waitForFunction((k) => document.querySelectorAll('[data-ia="resposta"]').length > k, n, { timeout: 30000 });
     const r = (await u.page.locator('[data-ia="resposta"]').last().innerText()).replace(/\s+/g, " ");
-    v.ok(!/Reformule a pergunta|Não foi possível processar/.test(r) && /Fontes:/.test(r), `a sugestão "${q}" tem resposta com fonte`, r.slice(0, 90));
+    // O rodapé "Fontes:" saiu a pedido do dono (21/10/2026): basta a resposta não cair no genérico.
+    v.ok(!/Reformule a pergunta|Não foi possível processar/.test(r) && r.length > 40, `a sugestão "${q}" tem resposta de verdade`, r.slice(0, 90));
   }
 
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));
