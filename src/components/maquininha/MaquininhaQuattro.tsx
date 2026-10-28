@@ -28,6 +28,7 @@ import {
   BarrasDestaque, BRL, Button, Card, CartaoBiblioteca, CurrencyInput, Icon, InfoHint, ListaProgresso, MapaCalorGrade, MetaCirculo, PizzaFatias, RoscaFatias,
   type CelulaCalor,
 } from "@/components/ui";
+import { MaquininhaMockup } from "@/components/maquininha/MaquininhaMockup";
 import { OfertaMaquininha } from "@/components/maquininha/OfertaMaquininha";
 import { precoParaReceber, ritmoDaMeta, simularAntecipacao } from "@/core/maquininha/oferta";
 import { SEGMENTO_PADRAO, taxaDeReferencia } from "@/lib/maquininha-oferta";
@@ -323,9 +324,7 @@ export function MaquininhaQuattro() {
         <CardQuantoCobrar observadas={taxasObservadas} />
         <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
           <span className="text-[15px] text-ink">Mais um ponto de venda?</span>
-          <span className="w-11 h-11 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
-            <Icon name="smartphone" size={20} strokeWidth={1.75} />
-          </span>
+          <MaquininhaMockup altura={104} decorativa />
           <p className="text-[13px] text-muted m-0 flex-1">
             Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
           </p>

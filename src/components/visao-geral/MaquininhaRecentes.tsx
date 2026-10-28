@@ -18,6 +18,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { BRL, Icon } from "@/components/ui";
+import { MaquininhaMockup } from "@/components/maquininha/MaquininhaMockup";
 import { diaEHora } from "@/core/pinbank/recentes";
 import { janelaMaquininha, montarRelatorioMaquininha, PERIODOS_MAQUININHA, type PeriodoMaquininha } from "@/core/pinbank/relatorio";
 import { lerVendasMaquininha } from "@/lib/pinbank/cliente";
@@ -93,9 +94,7 @@ export function MaquininhaRecentes() {
         <p className="text-[14px] text-muted">Não foi possível ler as vendas da maquininha agora. Tente de novo em instantes.</p>
       ) : !data?.temMaquininha ? (
         <Link href={LINK_INTEGRACAO} className="flex-1 flex flex-col items-start justify-center gap-3">
-          <span className="w-10 h-10 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
-            <Icon name="smartphone" size={18} strokeWidth={1.75} />
-          </span>
+          <MaquininhaMockup altura={96} decorativa />
           <p className="text-[14px] text-ink m-0">Sua maquininha ainda não está ligada.</p>
           <span className="text-[13px] text-muted inline-flex items-center gap-1">Ligar em Integrações <Icon name="arrow-up-right" size={14} strokeWidth={1.75} /></span>
         </Link>

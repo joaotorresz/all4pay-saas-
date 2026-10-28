@@ -13,6 +13,7 @@
 import * as React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, Button, Icon, Input, Select, DateField, Switch, BancoLogo } from "@/components/ui";
+import { MaquininhaMockup } from "@/components/maquininha/MaquininhaMockup";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   CATALOGO_INTEGRACOES, PLATAFORMAS_VENDAS, BANCOS_OPEN_FINANCE,
@@ -109,8 +110,10 @@ export function IntegracoesView() {
               onClick={() => router.push(`/dashboard/administration/integrations?cartao=${c.id}`)}>
               <div className="flex flex-col gap-3 h-full">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex items-center justify-center w-11 h-11 rounded-[12px] bg-ink shrink-0">
-                    <Icon name={c.icone} size={18} color="var(--color-lime)" />
+                  <span className={`inline-flex items-center justify-center w-11 h-11 rounded-[12px] shrink-0 ${c.id === "maquininha-pinbank" ? "bg-surface-1" : "bg-ink"}`}>
+                    {c.id === "maquininha-pinbank"
+                      ? <MaquininhaMockup altura={38} decorativa />
+                      : <Icon name={c.icone} size={18} color="var(--color-lime)" />}
                   </span>
                   <span className="inline-flex items-center gap-[6px] text-caption text-muted">
                     <span className="w-[7px] h-[7px] rounded-pill" style={{ background: ativa ? "var(--color-positive)" : "var(--color-placeholder)" }} />
