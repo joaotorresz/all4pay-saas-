@@ -14,7 +14,7 @@
 --   4. a leitura pública só roda como o SERVIDOR (visitante e sessão de
 --      cliente levam "permission denied") e devolve SÓ o mínimo do pagamento:
 --      a empresa que cobra pela lista de permitidos do cadastro dela
---      (20261029140000 — nada de logo, faturamento ou representante) e, do
+--      (20261029150000 — nada de logo, faturamento ou representante) e, do
 --      pagador, SÓ o nome — nada do contato, do documento nem do endereço;
 --   5. token desconhecido, mal formado ou revogado não abre nada;
 --   6. o título mudou depois da emissão (cobrança `a_cancelar`): o link deixa

@@ -1039,7 +1039,7 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `"<Empresa>" <cobrancas+<8 hex>@COBRANCA_EMAIL_DOMINIO>` com resposta para a
   empresa (sem a variável, o remetente de sempre), com o cabeçalho e o rodapé
   da empresa; a página mostra a empresa (lista de permitidos do cadastro) e o
-  NOME do pagador só em aberto (migration `20261029140000`). Sem juros e multa
+  NOME do pagador só em aberto (migration `20261029150000`). Sem juros e multa
   na página: o valor emitido é fixo. Ver `docs/rodada-10/cobranca.md`.
 
 ## ⚠️ COBRANÇA PELA CONTA BANCÁRIA DO CLIENTE (27/10/2026, `docs/rodada-11/cobranca-bancos.md`)

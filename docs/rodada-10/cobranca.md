@@ -124,7 +124,7 @@ e o bloco `checkout-pinbank:` do `engine-audit`.
   cliente e descrição, depois Pix e boleto. ⚠️ Sem juros e multa: o valor do
   Pix e do boleto emitidos é fixo, e mostrar um total corrigido que o QR não
   cobra seria mentir.
-- ⚠️ **O link passou a mostrar MAIS dado** (migration `20261029140000`): o
+- ⚠️ **O link passou a mostrar MAIS dado** (migration `20261029150000`): o
   cadastro da empresa por LISTA DE PERMITIDOS (fantasia, razão, CNPJ/CPF,
   e-mail, telefone, endereço; cada um até 120 letras — logo, faturamento,
   regime e dados do representante nunca) e o NOME do pagador, só com o título

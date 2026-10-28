@@ -181,7 +181,7 @@
     "aplicadas_sem_arquivo": [],
     "arquivo_sem_aplicacao": [
       {
-        "nome": "20261029140000_checkout_dados_da_empresa",
+        "nome": "20261029150000_checkout_dados_da_empresa",
         "motivo": "A página da fatura no modelo Asaas: o link /pagar passa a mostrar a empresa que cobra (nome, razão social, documento, contato e endereço do cadastro) e só o nome do pagador. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
           "função pinbank_checkout_ler(text) com as chaves credor e comprador — só service_role, lista de permitidos do cadastro, do pagador só o nome"
