@@ -172,7 +172,14 @@ function LinhaJornada({ j, agora, primeira, onDocs }: { j: JornadaAdmin; agora: 
         <div className="text-[15px] font-medium text-ink truncate">{j.nome ?? "Sem nome ainda"}</div>
         <div className="text-caption text-faint truncate">{j.tipo === "pj" ? "Conta PJ" : j.tipo === "pf" ? "Conta PF" : "Tipo não escolhido"}{j.empresa ? ` · ${j.empresa}` : ""}</div>
       </div>
-      <span className="text-caption text-muted truncate">{contato || "Não deixou contato"}</span>
+      <span className="min-w-0 flex flex-col">
+        <span className="text-caption text-muted truncate">{contato || "Não deixou contato"}</span>
+        {j.lembretes.map((l) => (
+          <span key={l.canal} className="text-caption text-faint truncate">
+            {`Lembrete por ${l.canal === "whatsapp" ? "WhatsApp" : "e-mail"} ${l.situacao === "enviado" ? "enviado" : l.situacao === "falhou" ? "não saiu" : "saindo"} em ${quando(l.em)}`}
+          </span>
+        ))}
+      </span>
       <span className="text-caption text-ink">{nomeDoPasso(j.etapa)}</span>
       <span><StatusBadge tone={e.tom}>{e.rotulo}</StatusBadge></span>
       <span className="text-caption text-faint">{quando(j.atualizadaEm)}</span>

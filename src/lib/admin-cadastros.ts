@@ -34,13 +34,13 @@ function jornadasDeDemonstracao(agora: Date): JornadaAdmin[] {
   const base = (id: string, etapa: string, passos: string[], horasInicio: number, horasUltimo: number, extra: Partial<JornadaAdmin> = {}): JornadaAdmin => ({
     id, etapa, tipo: "pj", nome: null, whatsapp: null, email: null, orgId: null, empresa: null,
     etapas: Object.fromEntries(passos.map((p, i) => [p, h(horasInicio - (i * (horasInicio - horasUltimo)) / Math.max(passos.length - 1, 1))])),
-    iniciadaEm: h(horasInicio), atualizadaEm: h(horasUltimo), concluidaEm: null, documentos: 0, ...extra,
+    iniciadaEm: h(horasInicio), atualizadaEm: h(horasUltimo), concluidaEm: null, documentos: 0, lembretes: [], ...extra,
   });
   return [
     base("00000000-0000-4000-8000-000000000001", "pronto", ["tipo", "documento", "repNome", "repTelefone", "repEmail", "senha", "facial", "pronto"], 50, 49.5,
       { nome: "Marina Alves", whatsapp: "11987654321", email: "marina@alvesconsultoria.com.br", orgId: "demo-org-1", empresa: "Alves Consultoria", concluidaEm: h(49.5), documentos: 3 }),
     base("00000000-0000-4000-8000-000000000002", "facial", ["tipo", "documento", "repNome", "repTelefone", "repEmail", "senha", "facial"], 30, 29.6,
-      { nome: "Rafael Souza", whatsapp: "21991234567", email: "rafael@souzalog.com.br" }),
+      { nome: "Rafael Souza", whatsapp: "21991234567", email: "rafael@souzalog.com.br", lembretes: [{ canal: "whatsapp", situacao: "enviado", em: h(5) }] }),
     base("00000000-0000-4000-8000-000000000003", "repTelefone", ["tipo", "documento", "repNome", "repTelefone"], 5, 4.8, { nome: "Carla Mendes" }),
     base("00000000-0000-4000-8000-000000000004", "documento", ["tipo", "documento"], 0.2, 0.1),
     base("00000000-0000-4000-8000-000000000005", "pronto", ["tipo", "documento", "nome", "emailPf", "senha", "pronto"], 80, 79.7,

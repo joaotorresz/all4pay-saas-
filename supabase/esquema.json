@@ -217,6 +217,20 @@
         "impacto": "Até ser aplicada, a seção Cadastros do admin mostra o erro da leitura; nada que já existe muda.",
         "resolver_ate": "2026-11-10",
         "origem": "sessão Claude de 28/10/2026 (documentos e funil do cadastro, etapa 3)"
+      },
+      {
+        "nome": "20261028150000_cadastro_lembretes",
+        "motivo": "Lembretes de quem parou no cadastro (etapa 5 do plano de documentos e funil): WhatsApp depois de 24 h, e-mail depois de 3 dias, no máximo dois, com a reserva no banco antes do envio. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cadastro_lembretes — RLS sem política, único (jornada, canal)",
+          "função cadastro_lembretes_candidatas(integer) — só service_role",
+          "função cadastro_lembrete_reservar(uuid, text) — só service_role",
+          "função cadastro_lembrete_concluir(uuid, text, text, text) — só service_role",
+          "função admin_cadastro_funil(integer) refeita — devolve também os lembretes"
+        ],
+        "impacto": "Até ser aplicada, o executor dos lembretes responde com o erro da leitura e não envia nada; o funil segue sem a coluna de lembretes. Nasce desligado (CADASTRO_LEMBRETES=ligado).",
+        "resolver_ate": "2026-11-10",
+        "origem": "sessão Claude de 28/10/2026 (documentos e funil do cadastro, etapa 5)"
       }
     ],
     "objetos_sem_migration": [
