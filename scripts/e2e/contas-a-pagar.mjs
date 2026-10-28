@@ -4,7 +4,7 @@
  * aparece nos títulos a pagar, que o saldo em conta da Visão geral cai
  * EXATAMENTE esse valor, e que o DRE reflete a despesa.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 async function escolherNaBusca(u, rotuloBotao) {
   await u.page.locator("main button", { hasText: rotuloBotao }).first().click({ timeout: 8000 });
@@ -17,12 +17,7 @@ async function escolherNaBusca(u, rotuloBotao) {
   return tem > 0;
 }
 
-async function saldoHome(u) {
-  await u.ir("/");
-  const t = (await u.texto()).replace(/\n/g, " ");
-  const m = t.match(/Saldo em conta hoje\s*R\$\s*([\d.]+)\s*,?\s*(\d{2})?/);
-  return m ? brl(`${m[1]},${m[2] ?? "00"}`) : NaN;
-}
+const saldoHome = (u) => saldoDaHome(u);
 
 export default async function contasAPagar(navegador) {
   const v = verificador("contas-a-pagar");

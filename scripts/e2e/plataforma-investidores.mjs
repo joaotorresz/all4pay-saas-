@@ -7,7 +7,7 @@
  * competência do mês INTEIRO e um MoM tirado de outra base (caixa). E o botão
  * "Copiar" dizia "Copiado" antes de saber se copiou.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
@@ -16,10 +16,7 @@ export default async function investidores(navegador) {
   const u = await novoUsuario(navegador);
   await u.ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
 
-  await u.ir("/");
-  const home = (await u.texto()).replace(/\n/g, " ");
-  const mh = home.match(/Saldo em conta hoje\s*R\$\s*([\d.]+)/);
-  const saldoHome = mh ? brl(mh[1]) : NaN;
+  const saldoHome = await saldoDaHome(u);
 
   await u.ir("/investidores");
   const t = await u.texto();

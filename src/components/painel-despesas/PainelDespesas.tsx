@@ -22,6 +22,7 @@
  * a tabela recortam os títulos pelo VENCIMENTO.
  */
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, Skeleton } from "@/components/ui";
 import {
   CarrosselSazonalidade, FaixaPeriodos, type Granularidade,
@@ -38,6 +39,7 @@ import {
 import { FiltrosPeriodo, DistribuicaoDonut, FaixaDeDias, type ItemDoDia } from "@/components/titulos/kit";
 import { TitulosView, type RecorteDoPainel } from "@/components/movimentacoes/TitulosView";
 import { ComprasView } from "@/components/compras/ComprasView";
+import { AgingContasPagar } from "@/components/contas-pagar/AgingContasPagar";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
 const ROTULOS_PERIODO: Record<TipoPeriodo, string> = {
@@ -56,11 +58,19 @@ export function PainelDespesas() {
   const [centro, setCentro] = React.useState("");
   const [fornecedor, setFornecedor] = React.useState("");
 
+  /*
+   * ⚠️ `?mes=AAAA-MM` abre o painel NAQUELE mês. É o que o formulário manda
+   * depois de criar um título com vencimento em outro mês: sem isso o painel
+   * abria no mês corrente e o título recém-criado parecia não ter sido salvo.
+   */
+  const mesDaUrl = useSearchParams().get("mes") ?? "";
   React.useEffect(() => {
     if (!hoje || custom.de) return;
-    const m = periodoMes(hoje);
+    const outroMes = /^\d{4}-(0[1-9]|1[0-2])$/.test(mesDaUrl) && mesDaUrl !== hoje.slice(0, 7);
+    const m = periodoMes(outroMes ? `${mesDaUrl}-01` : hoje);
     setCustom({ de: m.de, ate: m.ate });
-  }, [hoje, custom.de]);
+    if (outroMes) setTipo("personalizado");
+  }, [hoje, custom.de, mesDaUrl]);
 
   const periodo: Periodo | null = React.useMemo(() => {
     if (!hoje) return null;
@@ -218,6 +228,11 @@ export function PainelDespesas() {
       ) : null}
 
       {recorteDosCards && <TitulosView direcao="pagar" painel={recorteDosCards} />}
+
+      {/* ⚠️ O envelhecimento morava no painel de contas a pagar e ficou de fora
+          quando ele virou este (decisão do dono, 28/10/2026: volta). É a
+          CARTEIRA inteira (posição): não depende do filtro de cima. */}
+      {input && <AgingContasPagar input={input} />}
 
       {/* ⚠️ A LISTA DE COMPRAS mora aqui (27/10/2026), no lugar em que o Painel
           de vendas tem a lista de vendas: o pedido de compra é o documento que

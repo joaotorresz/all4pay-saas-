@@ -43,7 +43,8 @@ export default async function homeAjuste(navegador) {
   await u.page.getByRole("button", { name: "Ajustar prioridades" }).waitFor({ timeout: 8000 });
   await u.page.locator("[data-item-home]").first().waitFor({ timeout: 15000 });
   const padrao = await ordem();
-  v.ok(padrao[0] === "maquininha" && padrao.length === 10, "a Home abre no arranjo padrão, com os dez itens (a maquininha primeiro)", padrao.join(","));
+  // O saldo total em contas é FIXO no topo à esquerda (ITEM_FIXO, decisão do dono 27/10/2026).
+  v.ok(padrao[0] === "contas" && padrao[1] === "maquininha" && padrao.length === 11, "a Home abre no arranjo padrão, com os onze itens (o saldo em contas fixo primeiro)", padrao.join(","));
 
   // 1) o chat abre com a pergunta, sem o histórico de conversas
   await abrir();
@@ -57,7 +58,7 @@ export default async function homeAjuste(navegador) {
   v.ok(/Pronto/.test(r1) && /Contas a pagar/.test(r1), "o chat diz o que mudou", r1.slice(0, 140));
   await verHome();
   const o1 = await ordem();
-  v.ok(o1[0] === "pagar" && o1[1] === "receber", "a Home mostra primeiro a pagar e a receber", o1.join(","));
+  v.ok(o1[0] === "contas" && o1[1] === "pagar" && o1[2] === "receber", "a Home mostra primeiro a pagar e a receber", o1.join(","));
 
   // 3) esconder e desfazer
   await abrir();
@@ -67,7 +68,7 @@ export default async function homeAjuste(navegador) {
   await chat().locator('[data-ajuste="resposta"]').last().getByRole("button", { name: "Desfazer" }).click();
   await u.page.waitForTimeout(300);
   v.ok(/Desfeito/.test(await chat().locator('[data-ajuste="resposta"]').last().innerText()), "desfazer diz que a Home voltou");
-  v.ok((await ordem()).includes("burn") && (await ordem())[0] === "pagar", "desfazer volta o burn e mantém o ajuste anterior", (await ordem()).join(","));
+  v.ok((await ordem()).includes("burn") && (await ordem())[1] === "pagar", "desfazer volta o burn e mantém o ajuste anterior", (await ordem()).join(","));
 
   // 4) pedido sem item da Home não mexe em nada, e diz o que existe
   const antes = (await ordem()).join(",");
@@ -90,11 +91,11 @@ export default async function homeAjuste(navegador) {
   await abrir();
   await pedir("não preciso do ARR nem do runway");
   await verHome();
-  v.ok((await ordem()).length === 8 && (await u.page.locator('[data-home="escondidos"]').count()) === 0, "esconder tira os itens sem deixar linha de aviso na Home", (await ordem()).join(","));
+  v.ok((await ordem()).length === 9 && (await u.page.locator('[data-home="escondidos"]').count()) === 0, "esconder tira os itens sem deixar linha de aviso na Home", (await ordem()).join(","));
   await abrir();
   await pedir("traz o ARR e o runway de volta");
   await verHome();
-  v.ok((await ordem()).length === 10, "pedir de volta traz os dois", (await ordem()).join(","));
+  v.ok((await ordem()).length === 11, "pedir de volta traz os dois", (await ordem()).join(","));
 
   // 8) cards de outras telas entram pela conversa, saem pelo X, e o chat diz o que dá para pôr
   await abrir();
@@ -105,7 +106,7 @@ export default async function homeAjuste(navegador) {
   await secao.waitFor({ timeout: 15000 });
   const cards = await secao.locator("[data-item-home]").evaluateAll((els) => els.map((e) => e.getAttribute("data-item-home")));
   v.ok(cards.join(",") === "card:inadimplencia_pct,card:ebitda-mes", "os dois cards entram, na ordem pedida", cards.join(","));
-  v.ok((await ordem()).slice(0, 2).join(",") === "card:inadimplencia_pct,card:ebitda-mes", "e entram PRIMEIRO na página", (await ordem()).slice(0, 4).join(","));
+  v.ok((await ordem()).slice(1, 3).join(",") === "card:inadimplencia_pct,card:ebitda-mes", "e entram PRIMEIRO no painel, logo depois do saldo fixo", (await ordem()).slice(0, 4).join(","));
   const doPainel = secao.locator("xpath=ancestor::section[1]");
   v.ok(/Seu painel/.test(await doPainel.locator("h2").first().innerText()) && (await u.page.getByText("Seus cards").count()) === 0, "dentro de \"Seu painel\", sem seção à parte");
   const texto = (await secao.innerText()).replace(/\s+/g, " ");

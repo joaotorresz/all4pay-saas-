@@ -35,6 +35,13 @@ export async function novoUsuario(navegador) {
   const ir = async (rota) => {
     const r = await page.goto(BASE + rota, { waitUntil: "networkidle", timeout: 60000 });
     await page.waitForTimeout(1500);
+    // O Painel de despesas (27/10/2026) abre a TABELA dos títulos só depois de
+    // escolher um card. As jornadas leem a tabela inteira: abrimos "Total a
+    // pagar", que é o recorte que a lista de títulos mostrava antes.
+    if (new URL(page.url()).pathname === "/contas-a-pagar/painel-de-despesas") {
+      const total = page.getByRole("button", { name: "Abrir a tabela de Total a pagar" });
+      if (await total.count()) { await total.first().click(); await page.waitForTimeout(800); }
+    }
     return r?.status() ?? 0;
   };
   const texto = () => page.evaluate(() => document.body.innerText);
@@ -54,3 +61,31 @@ export function verificador(jornada) {
 
 /** "R$ 24.691,34" → 24691.34 (aceita o texto quebrado em partes pelo <BRL>). */
 export const brl = (s) => Number(String(s).replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
+
+/**
+ * O saldo da Visão geral, em reais (com sinal e centavos). Desde o card
+ * "Saldo total em contas" (#277) o rótulo antigo "Saldo em conta hoje" saiu da
+ * Home, e cada jornada tinha a sua cópia da leitura — oito jornadas ficaram
+ * lendo NaN no mesmo dia. Uma leitura só: a próxima troca de rótulo muda aqui.
+ */
+export async function saldoDaHome(u) {
+  await u.ir("/");
+  await u.page.getByText("Saldo total em contas").first().waitFor({ timeout: 20000 }).catch(() => {});
+  const t = (await u.texto()).replace(/\s+/g, " ");
+  const m = t.match(/Saldo total em contas.*?(−|-)?\s*R\$\s*([\d.]+)\s*(,\s*\d{2})?/);
+  return m ? (m[1] ? -1 : 1) * brl(`${m[2]}${(m[3] ?? ",00").replace(/\s/g, "")}`) : NaN;
+}
+
+/**
+ * Desde 26/10/2026 a análise do extrato abre sozinha o assistente "Revisar a
+ * importação" (quatro passos). As jornadas que conferem a PRÉ-VISUALIZAÇÃO
+ * (contagem, competência, duplicatas) fecham o assistente e seguem por ela.
+ */
+export async function fecharAssistenteImportacao(u) {
+  const dlg = u.page.locator('[role="dialog"][aria-label="Revisar a importação"]');
+  await dlg.waitFor({ timeout: 60000 }).catch(() => {});
+  if (await dlg.count()) {
+    await dlg.getByRole("button", { name: "Fechar" }).first().click();
+    await dlg.waitFor({ state: "detached", timeout: 8000 }).catch(() => {});
+  }
+}

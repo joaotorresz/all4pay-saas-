@@ -8,7 +8,7 @@
  *   escolhidos: o resto segue com a data do extrato).
  */
 import { resolve } from "node:path";
-import { novoUsuario, verificador } from "./kit.mjs";
+import { novoUsuario, verificador, fecharAssistenteImportacao } from "./kit.mjs";
 
 const ARQUIVO = resolve("public/exemplos/extrato-exemplo-quattro.csv");
 
@@ -18,6 +18,7 @@ export default async function importacaoCompetencia(navegador) {
 
   await u.ir("/upload?aba=enviar");
   await u.page.locator('input[type="file"]').first().setInputFiles(ARQUIVO);
+  await fecharAssistenteImportacao(u);
   const painel = u.page.locator('[data-competencia="painel"]');
   await painel.waitFor({ timeout: 60000 });
   const contagem = u.page.locator('[data-competencia="contagem"]');
