@@ -204,6 +204,19 @@
         "impacto": "Até ser aplicada, o envio do documento ao fim do cadastro falha (o bucket não existe) e é reportado; o cadastro segue igual, com o documento como enviado. Nada que já existe muda.",
         "resolver_ate": "2026-11-10",
         "origem": "sessão Claude de 27/10/2026 (documentos e funil do cadastro, etapa 2)"
+      },
+      {
+        "nome": "20261028140000_admin_cadastro_funil",
+        "motivo": "Funil do cadastro no admin (etapa 3 do plano de documentos e funil): a plataforma lê quem terminou e quem parou, e vê os documentos só com o segundo fator, com rastro de quem abriu. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função admin_cadastro_funil(integer) — authenticated, atrás de admin_exigir_acesso",
+          "função admin_cadastro_exigir_segundo_fator() — sem concessão, chamada só pelas outras",
+          "função admin_cadastro_documentos(uuid) — authenticated, exige aal2, sem o caminho",
+          "função admin_cadastro_documento_abrir(uuid) — authenticated, exige aal2, grava admin_audit"
+        ],
+        "impacto": "Até ser aplicada, a seção Cadastros do admin mostra o erro da leitura; nada que já existe muda.",
+        "resolver_ate": "2026-11-10",
+        "origem": "sessão Claude de 28/10/2026 (documentos e funil do cadastro, etapa 3)"
       }
     ],
     "objetos_sem_migration": [
