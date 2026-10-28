@@ -251,6 +251,20 @@ export type PedidoNacional = Record<string, string | number>;
  * do município, que o cadastro do contato não tem — mandar só a rua é recusa.
  * Os campos da reforma (IBS/CBS) também não: em 2026 o grupo é opcional.
  */
+/**
+ * A data de emissão da DPS no formato que o Ambiente Nacional aceita: hora de
+ * São Paulo com o fuso escrito (`2026-10-28T14:51:00-03:00`), sem milésimos, e
+ * um minuto ANTES de agora. ⚠️ O `toISOString()` (UTC com "Z") foi recusado com
+ * "a data de emissão da DPS não pode ser posterior à data do seu
+ * processamento": o relógio de lá é a régua, e um segundo de diferença entre
+ * os servidores já põe a emissão no futuro. Recuar um minuto não muda o dia
+ * (a competência é calculada à parte) e tira a corrida.
+ */
+export function dataEmissaoNacional(agoraMs: number): string {
+  const local = new Date(agoraMs - 60_000 - 3 * 3600_000).toISOString().slice(0, 19);
+  return `${local}-03:00`;
+}
+
 export function montarPedidoNacional(
   nota: NotaParaEmitir, tomador: TomadorParaEmitir, emitente: EmitenteFocus,
   agoraISO: string, competencia: string, numeroDps: number,

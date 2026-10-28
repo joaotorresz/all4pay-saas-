@@ -69,6 +69,7 @@ function casosDoMotor(m: Motor): Caso[] {
     ["nacional: sem código de tributação o pedido é recusado ANTES de sair", !!nacSemCod && !nacSemCod.ok && problemas.some((p) => p.includes("org-nacional-sem-codigo"))],
     ["nacional: DPS com prestador do vínculo, Simples ME/EPP e código nacional", pn?.cnpj_prestador === "54579688000135" && pn?.inscricao_municipal_prestador === "13017047" && pn?.codigo_opcao_simples_nacional === "3" && pn?.codigo_tributacao_nacional_iss === "170101" && pn?.codigo_municipio_prestacao === "3550308"],
     ["nacional: tomador por CNPJ, ISS retido = 2, alíquota da plataforma e valor em centavos", pn?.cnpj_tomador === "12345678000195" && pn?.tipo_retencao_iss === "2" && pn?.percentual_aliquota_relativa_municipio === 2 && pn?.valor_servico === 1500.56],
+    ["nacional: emissão na hora de São Paulo, com fuso, um minuto antes de agora", m.dataEmissaoNacional(Date.parse("2026-10-28T17:51:30.456Z")) === "2026-10-28T14:50:30-03:00"],
     ["nacional: competência e número da DPS são os da tentativa", pn?.data_competencia === "2026-10-28" && pn?.numero_dps === 1761656400000],
     ["nacional: a referência escolhe o endereço (nacional × prefeitura)", m.caminhoDaRef(m.refDaTentativa(NOTA.id, 1, true)) === "/v2/nfsen" && m.caminhoDaRef(m.refDaTentativa(NOTA.id, 1)) === "/v2/nfse" && m.proximaTentativa(m.refDaTentativa("n", 3, true)) === 4],
     ["emitente: o completo entra, com o CNPJ só em dígitos", e?.cnpj === "54579688000135"],
@@ -105,6 +106,7 @@ function casosDasRotas(t: Texto): Caso[] {
     ["rota: o emitente sai do vínculo da plataforma (org da nota), nunca do pedido", t.transmitir.includes("emitenteDaOrg(nota.org_id)") && !/emitenteDaOrg\([^)]*(req|corpo|pedido)/.test(t.transmitir)],
     ["rota: a nota é marcada processando, com condição, ANTES de ir à Focus", antes(t.transmitir, '.eq("status", nota.status)', "emitirNaFocus(")],
     ["rota: permissão conferida na empresa DA NOTA antes da Focus", antes(t.transmitir, "podeLancar(s, nota.org_id)", "emitirNaFocus(") && antes(t.cancelar, "podeLancar(s, nota.org_id)", "cancelarNaFocus(")],
+    ["rota: a DPS sai com a data de emissão nacional, nunca o UTC cru", t.transmitir.includes("dataEmissaoNacional(agora.getTime())") && !/montarPedidoNacional\([^)]*toISOString/.test(t.transmitir)],
     ["rota: o desfecho só é gravado sobre nota ainda processando", t.consultar.includes('.eq("status", "processando")')],
     ["rota: falha de rede no envio NÃO vira recusa (o pedido pode ter chegado)", /r\.http === 0[^\n]*processando|processando[^\n]*r\.http === 0/.test(t.transmitir) || antes(t.transmitir, "r.http === 0", 'estado: "processando"')],
     ["cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA", (t.cliente.match(/\$\{caminhoDaRef\(ref\)\}/g) ?? []).length === 3 && !t.cliente.includes('"/v2/nfse')],
@@ -159,6 +161,7 @@ await plantarMotor("referência nacional sem marca", '`quattro-${nacional ? "nac
 await plantarMotor("retenção do ISS ignorada no nacional", 'tipo_retencao_iss: nota.issRetido ? "2" : "1"', 'tipo_retencao_iss: "1"', "nacional: tomador por CNPJ, ISS retido = 2, alíquota da plataforma e valor em centavos");
 await plantarMotor("total de tributos esquecido", "? { percentual_total_tributos_simples_nacional: emitente.percentualTributosSimples } : {}", "? {} : {}", "nacional: optante leva o percentual de tributos do Simples (6,5 → 6.5)");
 await plantarMotor("optante sem percentual sai assim mesmo", "if (emitente.optanteSimples && emitente.percentualTributosSimples === undefined) problemas.push", "if (false) problemas.push", "nacional: optante sem o percentual é recusado ANTES de sair");
+await plantarMotor("emissão no relógio exato", "agoraMs - 60_000 - 3 * 3600_000", "agoraMs - 3 * 3600_000", "nacional: emissão na hora de São Paulo, com fuso, um minuto antes de agora");
 await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigoTributacaoNacional) problemas.push', "if (false) problemas.push", "nacional: sem código de tributação o pedido é recusado ANTES de sair");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");
 await plantarMotor("status desconhecido autoriza", 'return { estado: "processando" };\n}', 'return { estado: "autorizada" };\n}', "consulta: status desconhecido é PROCESSANDO, nunca autorizada");
@@ -167,6 +170,7 @@ await plantarMotor("XML relativo sem a base", "/^https?:\\/\\//.test(xml) ? xml 
 await plantarMotor("justificativa curta aceita", "if (t.length < 15)", "if (t.length < 5)", "cancelamento: menos de 15 letras é recusado; 15 passa");
 
 plantarRota("emitente do pedido", "transmitir", "emitenteDaOrg(nota.org_id)", "emitenteDaOrg(String(req.headers.get(\"x-org\")))", "rota: o emitente sai do vínculo da plataforma (org da nota), nunca do pedido");
+plantarRota("emissão em UTC", "transmitir", "dataEmissaoNacional(agora.getTime())", "agora.toISOString()", "rota: a DPS sai com a data de emissão nacional, nunca o UTC cru");
 plantarRota("marca sem condição", "transmitir", '.eq("id", nota.id).eq("status", nota.status)', '.eq("id", nota.id)', "rota: a nota é marcada processando, com condição, ANTES de ir à Focus");
 plantarRota("desfecho sem condição", "consultar", '.eq("id", nota.id).eq("status", "processando")', '.eq("id", nota.id)', "rota: o desfecho só é gravado sobre nota ainda processando");
 plantarRota("consulta presa à prefeitura", "cliente", "chamar(\"GET\", `${caminhoDaRef(ref)}/", "chamar(\"GET\", `/v2/nfse/", "cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA");
