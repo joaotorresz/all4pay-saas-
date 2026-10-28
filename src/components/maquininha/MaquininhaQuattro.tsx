@@ -328,7 +328,7 @@ export function MaquininhaQuattro() {
             <p className="text-[13px] text-muted m-0 flex-1">
               Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
             </p>
-            <MaquininhaMockup altura={72} decorativa />
+            <MaquininhaMockup altura={96} decorativa />
           </div>
           <Button variant="secondary" onClick={() => setVerOferta(true)}>Pedir outra maquininha</Button>
         </section>
