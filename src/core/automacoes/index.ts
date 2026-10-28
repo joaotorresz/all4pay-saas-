@@ -37,7 +37,7 @@ import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import { ponteRupturaRunway } from "@/core/ia/coerencia";
 import { montarFechamento } from "@/core/close";
 import {
-  montarRegua, reguaDaEmpresa, redigirMensagem, identificacaoDoCredor, FINALIDADE_DO_TOM, SE_JA_PAGOU, type EnvioRegistrado,
+  montarRegua, reguaDaEmpresa, redigirMensagem, identificacaoDoCredor, FINALIDADE_DO_TOM, variaveisDoModelo, SE_JA_PAGOU, type EnvioRegistrado,
   type ItemRegua, type EtapaRegua,
 } from "@/core/cobranca";
 import { calcularMora } from "@/core/late-fee";
@@ -673,10 +673,10 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
       rodape: `${credor}. Mensagem enviada em nome da empresa credora pelo Quattro.`,
     }),
     finalidade: FINALIDADE_DO_TOM[etapa.tom],
-    variaveis: {
+    variaveis: variaveisDoModelo({
       "1": g.cliente, "2": credor, "3": BRL(total),
       "4": dataBRcurta(primeiro.vencimento), "5": String(Math.max(0, primeiro.dias)),
-    },
+    }, FINALIDADE_DO_TOM[etapa.tom]),
     contatoId: g.partyId ?? undefined,
     chavesExtras: itens.map((i) => chaveDoTitulo(i.movimentoId, i.etapa.id)),
     canalPreferido: etapa.canal === "email" ? "email" : "whatsapp",

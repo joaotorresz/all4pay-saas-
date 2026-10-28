@@ -81,7 +81,7 @@ export function ReguaCobrancaView() {
           // ⚠️ O template do TOM da etapa, e o valor por `formatBRL` — nunca
           // `String(valor)`, que chegava ao cliente como "1234.5".
           finalidade: FINALIDADE_DO_TOM[i.etapa.tom],
-          variaveis: variaveisDoTemplate({ cliente: i.cliente, valor: i.valor, vencimento: i.vencimento, dias: i.dias }, credor),
+          variaveis: variaveisDoTemplate({ cliente: i.cliente, valor: i.valor, vencimento: i.vencimento, dias: i.dias }, credor, FINALIDADE_DO_TOM[i.etapa.tom]),
           registro: { clienteChave: i.partyId ?? undefined, titulos: [{ movimentoId: i.movimentoId, etapaId: i.etapa.id }] },
         }] }),
       });
