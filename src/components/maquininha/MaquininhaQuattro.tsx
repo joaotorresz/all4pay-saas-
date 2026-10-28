@@ -324,10 +324,12 @@ export function MaquininhaQuattro() {
         <CardQuantoCobrar observadas={taxasObservadas} />
         <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
           <span className="text-[15px] text-ink">Mais um ponto de venda?</span>
-          <MaquininhaMockup altura={104} decorativa />
-          <p className="text-[13px] text-muted m-0 flex-1">
-            Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
-          </p>
+          <div className="flex items-start gap-4 flex-1">
+            <p className="text-[13px] text-muted m-0 flex-1">
+              Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
+            </p>
+            <MaquininhaMockup altura={72} decorativa />
+          </div>
           <Button variant="secondary" onClick={() => setVerOferta(true)}>Pedir outra maquininha</Button>
         </section>
       </div>

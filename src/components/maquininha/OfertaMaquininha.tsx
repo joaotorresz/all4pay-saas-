@@ -124,7 +124,7 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
       {/* A faixa de convite, no desenho da caixa da Quattro AI da Home */}
       <section className="a4p-ondas-ia flex flex-col items-center gap-[14px] rounded-[32px] px-6 py-11">
         <div className="w-full max-w-[720px] flex flex-col items-center gap-2 text-center px-6 py-6 rounded-[28px]" style={{ background: "var(--a4p-pilula-fundo)" }}>
-          <MaquininhaMockup altura={220} className="!self-center mb-2" />
+          <MaquininhaMockup altura={132} className="!self-center mb-1" />
           <h2 className="text-[24px] text-ink m-0" style={{ fontWeight: 500 }}>Peça a maquininha Quattro</h2>
           <p className="text-[14px] text-muted m-0 max-w-[520px]">
             Cada venda entra sozinha no seu financeiro: o recebível, a taxa e o dia em que o dinheiro cai, já no fluxo de caixa e no DRE.

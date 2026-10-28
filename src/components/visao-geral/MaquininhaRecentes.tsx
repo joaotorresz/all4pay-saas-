@@ -94,7 +94,7 @@ export function MaquininhaRecentes() {
         <p className="text-[14px] text-muted">Não foi possível ler as vendas da maquininha agora. Tente de novo em instantes.</p>
       ) : !data?.temMaquininha ? (
         <Link href={LINK_INTEGRACAO} className="flex-1 flex flex-col items-start justify-center gap-3">
-          <MaquininhaMockup altura={96} decorativa />
+          <MaquininhaMockup altura={60} decorativa />
           <p className="text-[14px] text-ink m-0">Sua maquininha ainda não está ligada.</p>
           <span className="text-[13px] text-muted inline-flex items-center gap-1">Ligar em Integrações <Icon name="arrow-up-right" size={14} strokeWidth={1.75} /></span>
         </Link>

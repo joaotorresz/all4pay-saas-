@@ -112,7 +112,7 @@ export function IntegracoesView() {
                 <div className="flex items-start justify-between gap-3">
                   <span className={`inline-flex items-center justify-center w-11 h-11 rounded-[12px] shrink-0 ${c.id === "maquininha-pinbank" ? "bg-surface-1" : "bg-ink"}`}>
                     {c.id === "maquininha-pinbank"
-                      ? <MaquininhaMockup altura={38} decorativa />
+                      ? <MaquininhaMockup altura={32} decorativa />
                       : <Icon name={c.icone} size={18} color="var(--color-lime)" />}
                   </span>
                   <span className="inline-flex items-center gap-[6px] text-caption text-muted">
