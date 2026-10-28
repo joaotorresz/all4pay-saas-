@@ -41,6 +41,10 @@ type Estado = {
   pedidoConta: PedidoConta;
   cobrancas: Cobranca[];
   link: string | null;
+  /** O e-mail do cadastro do cliente do título (vazio = falta cadastrar). */
+  emailCliente: string | null;
+  /** O último envio do link por e-mail (registro mascarado). */
+  envioLink: { status: string; destino_mascarado: string | null; atualizado_em: string } | null;
 };
 
 const TOM: Record<SituacaoCobranca, "warning" | "neutral" | "positive" | "ink"> = {
@@ -61,12 +65,23 @@ const NOME: Record<SituacaoCobranca, string> = {
   paga: "Paga",
   cancelada: "Cancelada",
 };
+/** O último envio do link, em uma frase: o simulado nunca é "enviado". */
+function fraseDoEnvio(e: { status: string; destino_mascarado: string | null; atualizado_em: string }): string {
+  const quando = new Date(e.atualizado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const para = e.destino_mascarado ?? "o cliente";
+  if (e.status === "enviado") return `Enviado para ${para} em ${quando}.`;
+  if (e.status === "simulado") return `Em ${quando} o envio foi só simulado: o e-mail não está configurado neste ambiente.`;
+  if (e.status === "falhou") return `O envio de ${quando} não saiu. Tente de novo.`;
+  return `Enviando para ${para}…`;
+}
+
 const VIVAS: SituacaoCobranca[] = ["reservada", "emitida", "incerta", "a_cancelar"];
 
 export function CobrancaPinbank({ movementId, show }: { movementId: string; show: (m: string) => void }) {
   const [estado, setEstado] = React.useState<Estado | null>(null);
   const [gerando, setGerando] = React.useState<TipoCobranca | null>(null);
   const [criandoLink, setCriandoLink] = React.useState(false);
+  const [enviando, setEnviando] = React.useState(false);
 
   const carregar = React.useCallback(async () => {
     try {
@@ -80,6 +95,8 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
         pedidoConta: j.pedidoConta && typeof j.pedidoConta.criado_em === "string" ? j.pedidoConta : null,
         cobrancas: Array.isArray(j.cobrancas) ? j.cobrancas : [],
         link: typeof j.link === "string" ? j.link : null,
+        emailCliente: typeof j.emailCliente === "string" ? j.emailCliente : null,
+        envioLink: j.envioLink && typeof j.envioLink.atualizado_em === "string" ? j.envioLink : null,
       });
     } catch {
       setEstado(null);
@@ -142,6 +159,26 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
       show("Não foi possível falar com o servidor.");
     } finally {
       setCriandoLink(false);
+      await carregar();
+    }
+  };
+
+  // O link por e-mail, no modelo da Asaas: o servidor lê o e-mail do cadastro e monta a mensagem.
+  const enviarEmail = async () => {
+    setEnviando(true);
+    try {
+      const r = await fetch("/api/pinbank/checkout/email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ movementId }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { situacao?: string; destino?: string; motivo?: string };
+      if (r.ok && j.situacao === "enviado") show(`Link enviado para ${j.destino ?? "o e-mail do cliente"}.`);
+      else show(j.motivo ?? "O e-mail não saiu. Tente de novo em alguns minutos.");
+    } catch {
+      show("Não foi possível falar com o servidor.");
+    } finally {
+      setEnviando(false);
       await carregar();
     }
   };
@@ -227,6 +264,26 @@ export function CobrancaPinbank({ movementId, show }: { movementId: string; show
           <span className="text-caption text-muted leading-[1.5]">
             Uma página para o cliente pagar pelo Pix ou pelo boleto, sem entrar no sistema. A baixa ainda é feita aqui quando o dinheiro cair.
           </span>
+          {estado.link && (
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="flex items-center justify-between gap-2">
+                {estado.emailCliente ? (
+                  <span className="flex min-w-0 flex-col text-caption">
+                    <span className="text-muted">Enviar para</span>
+                    <span className="truncate text-ink" title={estado.emailCliente}>{estado.emailCliente}</span>
+                  </span>
+                ) : (
+                  <span className="text-caption text-ink">O cliente não tem e-mail no cadastro.</span>
+                )}
+                <Button variant="secondary" onClick={() => void enviarEmail()} disabled={enviando || !estado.emailCliente}>
+                  {enviando ? "Enviando…" : "Enviar por e-mail"}
+                </Button>
+              </div>
+              <span className="text-caption text-muted leading-[1.5]">
+                {estado.envioLink ? fraseDoEnvio(estado.envioLink) : "O e-mail sai no nome da empresa, com o valor, o vencimento e o botão para pagar."}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

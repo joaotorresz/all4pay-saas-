@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { semAmostra } from "@/lib/supabase/filtros";
 import { createAdmin } from "@/lib/supabase/admin";
 import { cobrancaPinbankLiberada, emitirCobrancaPinbank } from "@/lib/pinbank/api";
 import { lerReservaCobranca, problemasDoDevedor, type ReservaCobranca, type ResultadoCobranca } from "@/core/pinbank/cobranca";
@@ -8,7 +9,7 @@ import { lerReservaCobranca, problemasDoDevedor, type ReservaCobranca, type Resu
  * A COBRANÇA POR PIX E BOLETO PELA CONTA PINBANK — pedida pela EMPRESA a partir
  * de um título a receber.
  *
- *   GET  /api/pinbank/cobranca?movementId=<uuid>   → { liberada, ligada, contaPronta, pedidoConta, cobrancas }
+ *   GET  /api/pinbank/cobranca?movementId=<uuid>   → { liberada, ligada, contaPronta, pedidoConta, cobrancas, link, emailCliente, envioLink }
  *   POST /api/pinbank/cobranca  { movementId, tipo: "pix" | "boleto" }
  *
  * ⚠️ **MUDA QUEM PODE CHAMAR O QUÊ.** É o primeiro caminho em que a EMPRESA faz
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
   if (!liberada.liberada) return resposta(200, { ok: true, liberada: false, ligada: false, contaPronta: false, pedidoConta: null, cobrancas: [] });
 
   // Como a pessoa: a política só devolve o que é da empresa aberta.
-  const [{ data: vinculos }, { data: cobrancas, error }, { data: links }, { data: pedidos }] = await Promise.all([
+  const [{ data: vinculos }, { data: cobrancas, error }, { data: links }, { data: pedidos }, { data: mov }, { data: envios }] = await Promise.all([
     s.from("pinbank_vinculos").select("cobranca_ativa, codigo_cliente, ativo").is("excluido_em", null).limit(20),
     s.from("pinbank_cobrancas").select(COLUNAS).eq("movement_id", movementId).order("criado_em", { ascending: false }).limit(20),
     // O link de pagamento vivo (etapa 4). Sem a migration a leitura falha e o link some, nada mais.
@@ -75,7 +76,14 @@ export async function GET(req: Request) {
     // O pedido de conta Quattro em aberto (quem não tem conta pede na própria baixa).
     s.from("maquininha_pedidos").select("criado_em, situacao").eq("tipo", "conta_pix")
       .not("situacao", "in", "(concluido,cancelado)").order("criado_em", { ascending: false }).limit(1),
+    // Para "Enviar por e-mail": o cliente do título e o último envio do link.
+    semAmostra(s.from("movements").select("party_id")).eq("id", movementId).maybeSingle(),
+    s.from("automacao_envios").select("status, destino_mascarado, atualizado_em").eq("tipo", "regua_cobranca")
+      .like("chave", `link:${movementId}:%`).order("atualizado_em", { ascending: false }).limit(1),
   ]);
+  const { data: parte } = mov?.party_id
+    ? await s.from("parties").select("email").eq("id", mov.party_id).maybeSingle()
+    : { data: null };
   const vivos = vinculos ?? [];
   if (error) return resposta(500, { ok: false, codigo: "leitura_falhou", motivo: "Não foi possível ler as cobranças deste título." });
   return resposta(200, {
@@ -87,6 +95,9 @@ export async function GET(req: Request) {
     pedidoConta: (pedidos ?? [])[0] ?? null,
     cobrancas: cobrancas ?? [],
     link: (links ?? [])[0]?.token ?? null,
+    // O e-mail do cadastro, como a pessoa já o vê em Clientes; vazio = falta cadastrar.
+    emailCliente: typeof parte?.email === "string" && parte.email.trim() ? parte.email.trim() : null,
+    envioLink: (envios ?? [])[0] ?? null,
   });
 }
 
