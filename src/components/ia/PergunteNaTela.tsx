@@ -104,7 +104,7 @@ export function PergunteNaTela({ nomeTela }: { nomeTela?: string | null }) {
           <div className="a4p-varredura-feixe" />
         </div>
       )}
-      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[45] w-[min(440px,calc(100%-32px))]">
+      <div className="fixed bottom-[calc(20px+var(--a4p-barra-baixo,0px))] left-1/2 -translate-x-1/2 z-[45] w-[min(440px,calc(100%-32px))]">
         <button
           type="button"
           onClick={abrir}

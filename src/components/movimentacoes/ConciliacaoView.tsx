@@ -253,7 +253,7 @@ function Regras() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button variant="primary" onClick={() => setEditando(nova())}>
           <Icon name="plus" size={15} color="currentColor" />
           Nova regra

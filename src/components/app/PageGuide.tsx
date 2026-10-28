@@ -97,14 +97,14 @@ export function PageGuide() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Abrir guia da página"
-        className="fixed bottom-[84px] right-5 z-40 inline-flex items-center gap-2 rounded-pill bg-white text-ink px-4 py-[10px] hover:bg-surface-2 transition"
+        className="fixed bottom-[calc(84px+var(--a4p-barra-baixo,0px))] right-5 z-40 hidden lg:inline-flex items-center gap-2 rounded-pill bg-white text-ink px-4 py-[10px] hover:bg-surface-2 transition"
       >
         <Icon name="help-circle" size={16} color="var(--color-ink)" />
         <span className="text-label font-medium">Guia</span>
       </button>
 
       {conviteTour && !convite && (
-        <div className="a4p-sobreposto fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
+        <div className="a4p-sobreposto fixed bottom-[calc(136px+var(--a4p-barra-baixo,0px))] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
           <div className="flex items-start gap-2">
             <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0">
               <Icon name="help-circle" size={14} color="var(--color-on-lime)" />
@@ -136,7 +136,7 @@ export function PageGuide() {
       )}
 
       {convite && (
-        <div className="a4p-sobreposto fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
+        <div className="a4p-sobreposto fixed bottom-[calc(136px+var(--a4p-barra-baixo,0px))] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover p-4 flex flex-col gap-3">
           <div className="flex items-start gap-2">
             <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0">
               <Icon name="help-circle" size={14} color="var(--color-on-lime)" />

@@ -112,8 +112,8 @@ export function InstitutionalView({ semTrilha = false }: { semTrilha?: boolean }
             const faixa =
               r.ateValor === Infinity ? `acima de ${formatBRL(de)}` : `${formatBRL(de)} – ${formatBRL(r.ateValor)}`;
             return (
-              <div key={i} className="flex items-center gap-3 rounded-md border border-border-soft p-3">
-                <span className="text-[16px] text-ink tabular-nums w-[190px] shrink-0">{faixa}</span>
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-md border border-border-soft p-3">
+                <span className="text-[16px] text-ink tabular-nums sm:w-[190px] shrink-0">{faixa}</span>
                 {r.auto ? (
                   <span className="text-caption text-positive">Aprovação automática</span>
                 ) : (

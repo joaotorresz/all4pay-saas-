@@ -86,7 +86,7 @@ export function FechamentoView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button variant="primary" onClick={() => setModo("novo")}>
           <Icon name="plus" size={15} color="currentColor" />
           Novo fechamento

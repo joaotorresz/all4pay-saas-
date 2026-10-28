@@ -288,6 +288,7 @@ function ChatAjuda() {
             )}
             <div className="flex items-end gap-2">
               <Textarea
+                containerClassName="flex-1"
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 rows={2}

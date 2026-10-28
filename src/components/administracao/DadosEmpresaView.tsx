@@ -174,7 +174,7 @@ export function DadosEmpresaView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         {d.documento && (
           <span className="text-caption text-faint tabular-nums px-3 py-1 rounded-pill bg-surface-2">
             ID {d.documento}

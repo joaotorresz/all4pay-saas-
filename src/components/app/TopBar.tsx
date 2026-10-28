@@ -74,7 +74,7 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    <header className="shrink-0 flex items-center gap-3 h-[60px] px-5 mx-3 mt-3 a4p-topbar bg-white rounded-[20px]">
+    <header className="shrink-0 flex items-center gap-2 sm:gap-3 h-[60px] px-3 sm:px-5 mx-3 mt-3 a4p-topbar bg-white rounded-[20px]">
       {/* ⚠️ Só existe quando HÁ gaveta. O grupo ativo pode não ter itens (o
           Início é folha) e aí a lateral não é renderizada — um hambúrguer ali
           seria um botão que abre o nada, que é pior que botão nenhum. */}
@@ -94,7 +94,7 @@ export function TopBar() {
         {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
             versão escura sumiria no claro — o inverso do que fazia antes. */}
         {/* Logo em UMA cor (canvas): o arquivo vira máscara, a cor é o token. */}
-        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
+        <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[104px] h-[20px] sm:w-[125px] sm:h-[24px]" />
         {isDemo && (
           <span className="hidden sm:block text-[11px] leading-none" style={{ color: "var(--color-text-secondary)" }}>
             Demonstração
@@ -104,7 +104,11 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration/company-data")} />
+      {/* No telefone a engrenagem mora no menu da conta: quatro botões de 44px
+          mais o logo não cabem em 366px, e o avatar saía cortado na borda. */}
+      <span className="hidden sm:contents">
+        <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration/company-data")} />
+      </span>
       <AcaoTopo
         icone="bell"
         rotulo={naoLidos > 0 ? `Anúncios (${naoLidos} não lidos)` : "Anúncios"}
@@ -124,7 +128,7 @@ export function TopBar() {
           data-topbar="conta"
           aria-label="Conta e mais opções"
           aria-expanded={menu}
-          className="flex items-center gap-2.5 h-11 pl-1.5 pr-2 sm:pr-3 rounded-pill transition-colors"
+          className="flex items-center gap-2.5 h-11 pl-1.5 pr-1.5 sm:pr-3 rounded-pill transition-colors"
           style={{ background: menu ? "var(--color-surface-3)" : "var(--color-surface-2)" }}
         >
           <Avatar name={nome} size={32} />
@@ -132,7 +136,7 @@ export function TopBar() {
             <span className="text-[13px] font-medium leading-tight truncate w-full" style={{ color: "var(--color-ink)" }}>{nome}</span>
             <span className="text-[11px] leading-tight truncate w-full" style={{ color: "var(--color-text-secondary)" }}>{email}</span>
           </span>
-          <span style={{ color: "var(--color-text-secondary)" }} className="shrink-0">
+          <span style={{ color: "var(--color-text-secondary)" }} className="hidden sm:inline shrink-0">
             <Icon name="chevron-down" size={16} color="currentColor" />
           </span>
         </button>
@@ -146,6 +150,9 @@ export function TopBar() {
                 <div className="text-caption text-faint truncate">{email}</div>
               </div>
             </div>
+            <span className="sm:hidden">
+              <ItemMenu icone="building" rotulo="Configurações da empresa" onClick={() => { setMenu(false); router.push("/dashboard/administration/company-data"); }} />
+            </span>
             <ItemMenu icone="settings" rotulo="Meu perfil" onClick={() => { setMenu(false); router.push("/configuracoes"); }} />
             <ItemMenu icone="shield-check" rotulo="Segurança da conta" onClick={() => { setMenu(false); router.push(ROTA_SEGURANCA_CONTA); }} />
             <ItemMenu icone="help-circle" rotulo="Central de ajuda" onClick={() => { setMenu(false); router.push("/dashboard/help"); }} />

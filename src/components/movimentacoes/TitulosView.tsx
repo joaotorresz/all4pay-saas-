@@ -387,7 +387,7 @@ export function TitulosView({ direcao, painel }: { direcao: Direcao; painel?: Re
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <span />
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
+        <div className="flex items-center gap-2 flex-wrap max-w-full">
           <Button variant="primary" onClick={() => router.push(rotaNovo)}>
             <Icon name="plus" size={15} color="currentColor" />
             Nova conta a {direcao}
