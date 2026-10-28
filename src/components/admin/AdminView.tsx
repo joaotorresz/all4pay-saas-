@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Área da plataforma (dono do SaaS) — seis seções, uma página cada
- * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Maquininhas · Cobrança ·
+ * Área da plataforma (dono do SaaS) — uma página por seção
+ * (`SECOES_ADMIN`): Visão geral · Clientes e planos · Cadastros · Maquininhas · Cobrança ·
  * Acessos · Suporte. Moldura própria (`AdminShell`), nunca a do cliente.
  *
  * ⚠️ O painel era UMA página de 682 linhas com tudo empilhado. A separação
@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, Input, Button, type InfoConteudo, PontoStatus, CartaoBiblioteca, BarrasDestaque, LinhaPontos } from "@/components/ui";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { CadastrosAdmin } from "@/components/admin/CadastrosAdmin";
 import { formatBRL, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
@@ -173,7 +174,7 @@ function FerramentasInternas() {
 }
 
 
-export type SecaoPainel = "visao-geral" | "clientes" | "maquininhas" | "cobranca" | "acessos" | "suporte";
+export type SecaoPainel = "visao-geral" | "clientes" | "cadastros" | "maquininhas" | "cobranca" | "acessos" | "suporte";
 
 /**
  * A porta do cliente: confirma o papel antes de montar qualquer seção.
@@ -200,6 +201,7 @@ export function AdminView({ secao = "visao-geral" }: { secao?: SecaoPainel }) {
       <div className="flex flex-col gap-6 pb-4">
         {secao === "visao-geral" && <SecaoVisaoGeral />}
         {secao === "clientes" && <SecaoClientes />}
+        {secao === "cadastros" && <CadastrosAdmin />}
         {secao === "maquininhas" && <SecaoMaquininhas />}
         {secao === "cobranca" && <SecaoCobranca />}
         {secao === "acessos" && <SecaoAcessos />}

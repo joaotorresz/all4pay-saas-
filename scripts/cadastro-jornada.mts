@@ -10,6 +10,7 @@ import {
   normalizarEvento, estadoDaJornada, podeRecuperar, PARADA_MIN, RECUPERAR_APOS_H,
 } from "../src/core/cadastro/jornada.ts";
 import { caminhoDoDocumento, caminhoAceitoPeloBanco } from "../src/core/cadastro/documentos.ts";
+import { resumirFunil, faseAlcancada, nomeDoPasso, jornadaDaLinha, FASES_FUNIL, type JornadaAdmin } from "../src/core/cadastro/funil.ts";
 
 let falhas = 0;
 const ok = (nome: string, cond: boolean) => {
@@ -90,6 +91,66 @@ ok("o documento da empresa leva o arquivo", /onEnviar\(t, a\)/.test(tela));
 const libDoc = readFileSync("src/lib/cadastro-documentos.ts", "utf8");
 ok("em demonstração nenhum documento sai", /if \(isDemo \|\| pendentes\.length === 0\) return r;/.test(libDoc));
 ok("o envio nunca sobrescreve um documento", /upsert: false/.test(libDoc));
+
+// ── o funil no admin (etapa 3) ──────────────────────────────────────────────
+{
+  const AGORA = new Date("2026-10-28T12:00:00Z");
+  const h = (n: number) => new Date(AGORA.getTime() - n * 3_600_000).toISOString();
+  const j = (id: string, etapa: string, passos: string[], ultimoH: number, extra: Partial<JornadaAdmin> = {}): JornadaAdmin => ({
+    id, etapa, etapas: Object.fromEntries(passos.map((p) => [p, h(ultimoH)])), tipo: "pj",
+    nome: null, whatsapp: null, email: null, orgId: null, empresa: null,
+    iniciadaEm: h(ultimoH + 1), atualizadaEm: h(ultimoH), concluidaEm: null, documentos: 0, ...extra,
+  });
+  const lista = [
+    j("1", "pronto", ["tipo", "documento", "repTelefone", "senha", "pronto"], 50, { concluidaEm: h(50), orgId: "o1" }),
+    j("2", "facial", ["tipo", "documento", "repTelefone", "senha", "facial"], 30, { whatsapp: "11987654321" }),
+    j("3", "repTelefone", ["tipo", "documento", "repTelefone"], 5),
+    j("4", "repTelefone", ["tipo", "documento", "repTelefone"], 3),
+    j("5", "documento", ["tipo", "documento"], 0.1),
+    // ⚠️ do Google: o contato veio respondido, sem passo de contato registrado
+    j("6", "senha", ["tipo", "documento", "senha"], 2),
+  ];
+  const r = resumirFunil(lista, AGORA);
+  ok("funil: 6 começaram, 1 concluiu, 4 pararam, 1 em andamento",
+     r.total === 6 && r.concluidas === 1 && r.pararam === 4 && r.emAndamento === 1);
+  ok("funil: taxa de conclusão 1/6", Math.abs((r.taxaConclusao ?? 0) - 1 / 6) < 1e-9);
+  ok("funil: só a parada com contato há mais de 24 h é recuperável", r.recuperaveis === 1);
+  ok("funil: as fases nunca crescem ao avançar (é funil)", r.fases.every((f, i) => i === 0 || f.alcancaram <= r.fases[i - 1].alcancaram));
+  ok("funil: quem pulou o passo de contato (Google) conta no contato e na senha",
+     faseAlcancada(lista[5]) === 4 && r.fases[2].alcancaram === 5 && r.fases[3].alcancaram === 3);
+  ok("funil: concluída conta em todas as fases", faseAlcancada({ etapas: {}, concluidaEm: h(1) }) === FASES_FUNIL.length);
+  ok("funil: onde param, o passo mais comum primeiro", r.ondeParam[0]?.passo === "repTelefone" && r.ondeParam[0]?.quantas === 2);
+  ok("funil: sem jornada a taxa é ausente, não 0%", resumirFunil([], AGORA).taxaConclusao === null);
+  ok("funil: o passo tem nome legível", nomeDoPasso("facial") === "Foto do rosto" && nomeDoPasso("repTelefone") === "Contato · WhatsApp");
+  ok("funil: linha sem id ou etapa é descartada", jornadaDaLinha({ etapa: "tipo" }) === null
+     && jornadaDaLinha({ id: "x", etapa: "tipo", iniciada_em: h(1), atualizada_em: h(1), documentos: "2" })?.documentos === 2);
+
+  const sql = readFileSync("supabase/migrations/20261028140000_admin_cadastro_funil.sql", "utf8");
+  const corpo = (nome: string) => sql.slice(sql.indexOf(`function public.${nome}(`), sql.indexOf("$$;", sql.indexOf(`function public.${nome}(`)));
+  ok("admin: as três leituras passam pelo portão administrativo",
+     ["admin_cadastro_funil", "admin_cadastro_documentos", "admin_cadastro_documento_abrir"].every((f) => corpo(f).includes(`admin_exigir_acesso('${f}'`)));
+  ok("admin: ver documento exige o segundo fator NA FUNÇÃO",
+     ["admin_cadastro_documentos", "admin_cadastro_documento_abrir"].every((f) => corpo(f).includes("admin_cadastro_exigir_segundo_fator()"))
+     && /'aal'.*is distinct from 'aal2'/.test(corpo("admin_cadastro_exigir_segundo_fator")));
+  ok("admin: a lista de documentos não leva o caminho do arquivo", !/'caminho'/.test(corpo("admin_cadastro_documentos")));
+  ok("admin: abrir documento deixa o rastro em admin_audit", /insert into public\.admin_audit[\s\S]*'cadastro\.documento_aberto'/.test(corpo("admin_cadastro_documento_abrir")));
+  ok("admin: anon não executa nenhuma das funções", (sql.match(/revoke all on function public\.admin_cadastro_\w+\([^)]*\) from public, anon, authenticated, service_role;/g) ?? []).length === 4);
+
+  const rota = readFileSync("src/app/api/admin/cadastro/documento/route.ts", "utf8");
+  const iBanco = rota.indexOf('doChamador.rpc("admin_cadastro_documento_abrir"'), iChave = rota.indexOf("createAdmin()", rota.indexOf("export async function GET"));
+  const ordem = (t: string) => {
+    const a = t.indexOf('doChamador.rpc("admin_cadastro_documento_abrir"'), b = t.indexOf("createAdmin()", t.indexOf("export async function GET"));
+    return a > 0 && b > a;
+  };
+  ok("rota: o banco (com a sessão de quem pede) decide ANTES da chave de serviço", iBanco > 0 && iChave > iBanco && ordem(rota));
+  ok("rota: (defeito plantado) a chave de serviço antes do banco é REPROVADA",
+     !ordem(rota.replace('const { data: caminho, error } = await doChamador.rpc("admin_cadastro_documento_abrir", { p_documento: id });', "").replace("const admin = createAdmin();", 'const admin = createAdmin(); const { data: caminho, error } = await doChamador.rpc("admin_cadastro_documento_abrir", { p_documento: id });')));
+  const validade = Number(/const VALIDADE_S = (\d+);/.exec(rota)?.[1] ?? "0");
+  ok("rota: o link assinado vence em até 2 minutos", validade > 0 && validade <= 120 && /createSignedUrl\(caminho, VALIDADE_S\)/.test(rota));
+  ok("rota: a resposta não fica em cache", (rota.match(/no-store/g) ?? []).length >= 2);
+  const view = readFileSync("src/components/admin/CadastrosAdmin.tsx", "utf8");
+  ok("tela: o documento abre pela rota (nunca por link direto ao Storage)", /href=\{rotaDoDocumento\(d\.id\)\}/.test(view) && !/storage/.test(view));
+}
 
 
 console.log(falhas ? `\n✗ ${falhas} falha(s) na jornada do cadastro` : "\n✓ jornada do cadastro: evento, estado, rota e tela conferidos");
