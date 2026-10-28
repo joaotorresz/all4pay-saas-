@@ -6,6 +6,8 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { enderecoWhatsapp } from "@/core/financial-os/notifications.server";
+import { telefoneE164 } from "@/lib/telefone";
 import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
@@ -7676,6 +7678,27 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      Object.keys(vl).length === 4 && !("5" in vl) && va["5"] === "7", JSON.stringify({ vl, va }));
   for (const m of regua.mensagens.filter((x) => x.finalidade === "cobranca_lembrete"))
     ok("aut: a régua manda o lembrete sem a 5ª variável", !("5" in m.variaveis), JSON.stringify(m.variaveis));
+  // A Twilio recusa (400) o número sem DDI — medido em produção em 28/10/2026.
+  {
+    const casos: [string, string][] = [
+      ["11998388744", "whatsapp:+5511998388744"],
+      ["(11) 99838-8744", "whatsapp:+5511998388744"],
+      ["1133334444", "whatsapp:+551133334444"],
+      ["5511998388744", "whatsapp:+5511998388744"],
+      ["+55 11 99838-8744", "whatsapp:+5511998388744"],
+      ["+14155238886", "whatsapp:+14155238886"],
+      ["whatsapp:+14155238886", "whatsapp:+14155238886"],
+    ];
+    for (const [ent, esp] of casos)
+      ok(`aut: o WhatsApp sai em E.164 (${ent})`, enderecoWhatsapp(ent) === esp, enderecoWhatsapp(ent));
+    // E o cadastro grava pela mesma regra (espelho de public.telefone_e164).
+    const grava: [string | null, string | null][] = [
+      ["11998388744", "+5511998388744"], ["(11) 99838-8744", "+5511998388744"],
+      ["+14155238886", "+14155238886"], ["", null], [null, null], ["123", "123"],
+    ];
+    for (const [ent, esp] of grava)
+      ok(`aut: o telefone é gravado em E.164 (${ent})`, telefoneE164(ent) === esp, String(telefoneE164(ent)));
+  }
   // Encargo só quando configurado, e pela calculadora canônica.
   const comMora = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 0.02, jurosMesPct: 0.01 } }, ctx);
   const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
