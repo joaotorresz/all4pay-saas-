@@ -13,7 +13,7 @@
  * redigido. Ver `core/ajuda/segredos`.
  */
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Card, Button, Icon, Input, Select, Textarea, Switch } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { buscarKB } from "@/lib/assistant-kb";
@@ -36,68 +36,40 @@ import { METODOLOGIAS, METODOLOGIA_VERSION } from "@/core/metodologia";
 import { pctDeInteiro } from "@/lib/format";
 import { JornadaView } from "@/components/comece/Jornada";
 import { DigitandoIA, TextoRevelado } from "@/components/ia/conversa";
+import { Secoes } from "@/components/app/Secoes";
 
 const agora = () => new Date().toISOString();
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-type Aba = "chat" | "tours" | "anuncios" | "glossario" | "metodologia" | "passos";
-
 export function AjudaView() {
-  const params = useSearchParams();
-  const inicial = (params.get("aba") as Aba) || "chat";
-  const [aba, setAba] = React.useState<Aba>(inicial);
   const [anuncios, setAnuncios] = React.useState<Anuncio[]>([]);
   React.useEffect(() => { setAnuncios(listarAnuncios()); }, []);
 
   const naoLidas = naoLidos(anuncios);
 
+  // As seis partes ficam EMPILHADAS (27/10/2026, decisão do dono: nenhuma
+  // página com abas por dentro). O `?aba=` antigo rola até a seção.
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-1 border-b border-border-soft overflow-x-auto">
-        {([
-          ["chat", "Chat online", "help-circle"],
-          ["tours", "Tours guiados", "layers"],
-          ["anuncios", "Anúncios", "mail"],
-          ["glossario", "Glossário", "file-text"],
-          // ⚠️ A4P-032: "Chance de ruptura 97%" e "Financial Score 28/100"
-          // saíam na tela sem componente, peso, janela nem versão de modelo —
-          // e o 97% é o TETO da fórmula, não uma medida. Número de modelo sem
-          // metodologia escrita não pode ir a material de investidor.
-          ["metodologia", "Metodologia", "gauge"],
-          // ⚠️ "Primeiros passos" precisa de uma porta AQUI. A jornada tinha
-          // duas moradas declaradas — o menu ⋮ e um cartão na Home —, e o
-          // cartão deixou de existir quando a Home virou quatro cards: o
-          // `JornadaCard` só era montado no `OverviewGrid`, que ficou órfão.
-          // A declaração continuou prometendo uma porta que não abria mais.
-          ["passos", "Primeiros passos", "target"],
-        ] as const).map(([id, label, icone]) => (
-          <button
-            key={id}
-            onClick={() => setAba(id)}
-            className={`inline-flex items-center gap-2 px-4 py-3 text-label whitespace-nowrap transition-colors border-b-2 -mb-px ${
-              aba === id ? "text-ink border-ink font-medium" : "text-muted border-transparent hover:text-ink"
-            }`}
-          >
-            <Icon name={icone} size={15} color="currentColor" />
-            {label}
-            {id === "anuncios" && naoLidas > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pill bg-lime text-on-lime text-caption tabular-nums">
-                {naoLidas}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {aba === "chat" && <ChatAjuda />}
-      {aba === "tours" && <ToursGuiados />}
-      {aba === "anuncios" && <Anuncios lista={anuncios} setLista={setAnuncios} />}
-      {aba === "glossario" && <Glossario />}
-      {aba === "metodologia" && <MetodologiaDosNumeros />}
-      {/* A jornada inteira, aninhada: o `ShellGate` corta o chrome duplicado. */}
-      {aba === "passos" && <JornadaView />}
-    </div>
+    <Secoes
+      secoes={[
+        { id: "chat", titulo: "Chat online", desc: "Dúvidas de como usar o sistema, respondidas na hora.", conteudo: <ChatAjuda /> },
+        { id: "tours", titulo: "Tours guiados", desc: "Passo a passo de cada tela.", conteudo: <ToursGuiados /> },
+        {
+          id: "anuncios",
+          titulo: naoLidas > 0 ? `Anúncios · ${naoLidas} não lido${naoLidas > 1 ? "s" : ""}` : "Anúncios",
+          desc: "O que mudou no sistema.",
+          conteudo: <Anuncios lista={anuncios} setLista={setAnuncios} />,
+        },
+        { id: "glossario", titulo: "Glossário", desc: "As palavras que o sistema usa e o que cada uma quer dizer.", conteudo: <Glossario /> },
+        // ⚠️ A4P-032: número de modelo sem metodologia escrita não pode ir a
+        // material de investidor (o 97% da ruptura é o TETO da fórmula).
+        { id: "metodologia", titulo: "Metodologia", desc: "Como cada indicador é calculado e o que ele não enxerga.", conteudo: <MetodologiaDosNumeros /> },
+        // "Primeiros passos" precisa de uma porta aqui: o cartão da Home que a
+        // abria deixou de existir. O `ShellGate` corta o chrome duplicado.
+        { id: "passos", titulo: "Primeiros passos", desc: "A jornada de adesão, do primeiro dado à operação.", conteudo: <JornadaView /> },
+      ]}
+    />
   );
 }
 
@@ -124,7 +96,13 @@ function ChatAjuda() {
     // mostraria o cache velho do navegador até a próxima visita.
     return inscreverAjuda(carregar);
   }, []);
-  React.useEffect(() => { fim.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs.length]);
+  // Rola só depois de a pessoa ENVIAR: na montagem, a conversa guardada
+  // puxaria a página empilhada para baixo (e brigaria com o `?aba=` que rola
+  // até outra seção).
+  const rolar = React.useRef(false);
+  React.useEffect(() => {
+    if (rolar.current) fim.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [msgs.length]);
 
   // Detecção ao VIVO: o aviso aparece enquanto a pessoa digita, não depois de
   // enviar — depois de enviar já é tarde.
@@ -133,6 +111,7 @@ function ChatAjuda() {
   function enviar(pergunta?: string) {
     const cru = (pergunta ?? texto).trim();
     if (!cru) return;
+    rolar.current = true;
     const encontrados = detectarSegredos(cru);
     const limpo = redigirSegredos(cru, encontrados);
 

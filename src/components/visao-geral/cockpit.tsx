@@ -239,7 +239,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "health_score", label: "Financial Health Score", categoria: "Resumo executivo",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard href="/quattro-ai?aba=quant" hrefLabel="Ver saúde financeira" icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
+      <MetricCard href="/inteligencia" hrefLabel="Ver saúde financeira" icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
         value={`${c.quant.score.score}/100`}
         answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · prob. de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em 90d.`}
         info={{ titulo: "Financial Health Score", oQue: "Resume a saúde financeira da empresa num único número de 0 a 100.", comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento." }} />
@@ -248,7 +248,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "empresa_risco", label: "Empresa em risco?", categoria: "Resumo executivo",
     render: (c) => !c.risco ? <Loading /> : (
-      <MetricCard href="/quattro-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
+      <MetricCard href="/risco" hrefLabel="Ver risco de caixa" icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
         value={c.risco.nivel === "baixo" ? "🟢 Saudável" : c.risco.nivel === "medio" ? "🟡 Atenção" : "🔴 Risco"}
         answer={`Chance de ruptura de caixa em 60 dias: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
         info={{ titulo: "Empresa em risco?", oQue: "Sinaliza, num semáforo, se o caixa corre risco no curto prazo.", comoCalcula: "Deriva do score de risco de caixa e da probabilidade de ruptura projetada em 60 dias." }} />
@@ -640,7 +640,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const p = c.decisao.previsao.probabilidadeNegativo;
       return (
-        <MetricCard href="/quattro-ai?aba=decisao" hrefLabel="Ver decisão" icon="triangle-alert" label="Risco de caixa negativo"
+        <MetricCard href="/decisao" hrefLabel="Ver decisão" icon="triangle-alert" label="Risco de caixa negativo"
           tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
           value={pctTxt(p)}
           answer={c.decisao.previsao.semanaProvavel
@@ -682,7 +682,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const dia = c.decisao.previsao.diaProvavelNegativo;
       return (
-        <MetricCard href="/quattro-ai?aba=decisao" hrefLabel="Ver decisão" icon="calendar" label="Data provável de aperto"
+        <MetricCard href="/decisao" hrefLabel="Ver decisão" icon="calendar" label="Data provável de aperto"
           tone={dia != null ? NEG : POS}
           value={dia != null ? `${dia} dias` : "Sem aperto"}
           answer={dia != null
@@ -734,7 +734,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const rec = c.decisao.recomendacoes[0];
       if (!rec) return (
-        <MetricCard href="/quattro-ai?aba=decisao" hrefLabel="Ver decisão" icon="sparkles" label="Impacto da melhor ação" value="—"
+        <MetricCard href="/decisao" hrefLabel="Ver decisão" icon="sparkles" label="Impacto da melhor ação" value="—"
           answer="Nenhuma ação com impacto relevante no caixa agora."
           info={{ titulo: "Impacto da melhor ação", oQue: "Quanto de fôlego de caixa a ação mais recomendada geraria.", comoCalcula: "O motor de decisão simula cada ação e mede o ganho de runway em dias." }} />
       );
@@ -764,7 +764,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const plano = c.decisao.plano;
       const n = plano.acoes.length;
       return (
-        <MetricCard href="/quattro-ai?aba=autonomo" hrefLabel="Ver sugestões" icon="activity" label="Sugestões da IA"
+        <MetricCard href="/autonomo" hrefLabel="Ver sugestões" icon="activity" label="Sugestões da IA"
           tone={plano.ativo ? (plano.severidade === "critico" || plano.severidade === "alto" ? NEG : WARN) : POS}
           value={plano.ativo ? `${n} sugestão(ões)` : "Nenhuma"}
           answer={plano.ativo ? plano.resumo : "Nada a sugerir no momento."}
@@ -1046,7 +1046,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const r = c.risco.runway;
       const pess = Math.max(0, r.pessimista);
       return (
-        <MetricCard href="/quattro-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="trending-up" label="Fôlego no pior cenário"
+        <MetricCard href="/risco" hrefLabel="Ver risco de caixa" icon="trending-up" label="Fôlego no pior cenário"
           tone={pess < 30 ? NEG : pess < 90 ? WARN : POS}
           value={`${pess} dias`}
           answer={`No cenário pessimista o caixa dura ${pess} dias (base ${Math.max(0, r.base)} · otimista ${Math.max(0, r.otimista)}).`}
@@ -1138,7 +1138,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         (a.nivel === "critico" ? 0 : a.nivel === "atencao" ? 1 : 2) -
         (b.nivel === "critico" ? 0 : b.nivel === "atencao" ? 1 : 2))[0];
       return (
-        <MetricCard href="/quattro-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="triangle-alert" label="Alertas do motor de risco"
+        <MetricCard href="/risco" hrefLabel="Ver risco de caixa" icon="triangle-alert" label="Alertas do motor de risco"
           tone={criticos > 0 ? NEG : atencao > 0 ? WARN : POS}
           value={`${alertas.length}`}
           answer={alertas.length

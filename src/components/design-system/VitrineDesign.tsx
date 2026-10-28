@@ -25,7 +25,7 @@
  */
 import * as React from "react";
 import tokensJson from "@/design/tokens.json";
-import { HubShell, type AbaHub } from "@/components/app/HubShell";
+import { Secoes, type Secao } from "@/components/app/Secoes";
 import { useTheme } from "@/components/app/ThemeToggle";
 import {
   Button, Card, Badge, Pill, Input, Select, CurrencyInput, Switch, Checkbox, Textarea,
@@ -427,15 +427,15 @@ function AbaMoldura() {
   );
 }
 
-const ABAS: AbaHub[] = [
-  { id: "cores", label: "Cores", render: () => <AbaCores /> },
-  { id: "tipografia", label: "Tipografia", render: () => <AbaTipografia /> },
-  { id: "formas", label: "Formas", render: () => <AbaFormas /> },
-  { id: "controles", label: "Botões e campos", render: () => <AbaControles /> },
-  { id: "cards", label: "Cards e valores", render: () => <AbaCards /> },
-  { id: "graficos", label: "Gráficos", render: () => <AbaGraficos /> },
-  { id: "tabelas", label: "Tabelas e situações", render: () => <AbaTabelas /> },
-  { id: "moldura", label: "Menu e moldura", render: () => <AbaMoldura /> },
+const SECOES: Secao[] = [
+  { id: "cores", titulo: "Cores", conteudo: <AbaCores /> },
+  { id: "tipografia", titulo: "Tipografia", conteudo: <AbaTipografia /> },
+  { id: "formas", titulo: "Formas", conteudo: <AbaFormas /> },
+  { id: "controles", titulo: "Botões e campos", conteudo: <AbaControles /> },
+  { id: "cards", titulo: "Cards e valores", conteudo: <AbaCards /> },
+  { id: "graficos", titulo: "Gráficos", conteudo: <AbaGraficos /> },
+  { id: "tabelas", titulo: "Tabelas e situações", conteudo: <AbaTabelas /> },
+  { id: "moldura", titulo: "Menu e moldura", conteudo: <AbaMoldura /> },
 ];
 
 export function VitrineDesign() {
@@ -450,7 +450,7 @@ export function VitrineDesign() {
           </div>
         </div>
         <Card><BarraEditor /></Card>
-        <HubShell abas={ABAS} />
+        <Secoes secoes={SECOES} />
       </div>
     </EditorProvider>
   );
