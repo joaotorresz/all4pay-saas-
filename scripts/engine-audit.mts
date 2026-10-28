@@ -14,7 +14,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -13103,6 +13103,26 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("maquininha-oferta: vínculo exige o número do estabelecimento só com dígitos", !!eV.codigoEstabelecimento && !eV.endereco, JSON.stringify(eV));
   const eP = validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", endereco: "Rua A, 123, Centro" });
   ok("maquininha-oferta: pedido sem telefone nem e-mail é recusado", !!eP.contatoTelefone, JSON.stringify(eP));
+  // A simulação que vai ao CRM (28/10/2026): a MESMA comparação da tela, e
+  // conferida na leitura, porque quem a monta é o navegador.
+  const entSim = { volumeMensal: 10_000, mix: { pix: 0, debito: 0.5, credito: 0.5, parcelado: 0 }, parcelasMedias: 4, taxasAtuais: { debito: 0.01, credito: 0.05 } };
+  const completasSim = completarTaxasAtuaisMq({ debito: 0.01, credito: 0.05 }, mercado);
+  const sim = simulacaoDoPedidoMq(entSim, completasSim, porForma);
+  ok("maquininha-oferta: a simulação do pedido leva os números da tela (300 hoje, 225 Quattro, economia 75)",
+     sim.custoAtualMes === 300 && sim.custoQuattroMes === 225 && sim.economiaMes === 75 && sim.veredito === "quattro_mais_barata"
+     && sim.taxasAtuais.debito.origem === "informada" && sim.taxasAtuais.pix.origem === "estimada", JSON.stringify(sim));
+  ok("maquininha-oferta: a simulação sobrevive à ida e volta pelo banco (lerSimulacao)",
+     JSON.stringify(lerSimulacaoMq(JSON.parse(JSON.stringify(sim)))) === JSON.stringify(sim));
+  ok("maquininha-oferta: economia de 10 milhões por mês não entra no funil", lerSimulacaoMq({ ...sim, economiaMes: 10_000_000_000 }) === null);
+  ok("maquininha-oferta: taxa de 150% não entra no funil",
+     lerSimulacaoMq({ ...sim, taxasAtuais: { ...sim.taxasAtuais, credito: { taxa: 1.5, origem: "informada" } } }) === null);
+  ok("maquininha-oferta: mix que não soma 100% não entra no funil", lerSimulacaoMq({ ...sim, mix: { pix: 0.9, debito: 0.9, credito: 0, parcelado: 0 } }) === null);
+  ok("maquininha-oferta: veredito inventado, array e texto não entram no funil",
+     lerSimulacaoMq({ ...sim, veredito: "ganhamos" }) === null && lerSimulacaoMq([sim]) === null && lerSimulacaoMq("x") === null);
+  ok("maquininha-oferta: origem do pedido — economia só quando a Quattro sai mais barata",
+     origemDoPedidoMq("quattro_mais_barata") === "economia" && origemDoPedidoMq("atual_mais_barata") === "consultor"
+     && origemDoPedidoMq("empate") === "consultor" && origemDoPedidoMq(null) === "formulario");
+
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }
 
