@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import {
   normalizarEvento, estadoDaJornada, podeRecuperar, PARADA_MIN, RECUPERAR_APOS_H,
 } from "../src/core/cadastro/jornada.ts";
+import { caminhoDoDocumento, caminhoAceitoPeloBanco } from "../src/core/cadastro/documentos.ts";
 
 let falhas = 0;
 const ok = (nome: string, cond: boolean) => {
@@ -68,6 +69,27 @@ ok("em demonstração nada sai", (lib.match(/if \(isDemo\) return;/g) ?? []).len
 ok("o envio não espera nem derruba a tela (keepalive, falha engolida)", /keepalive: true/.test(lib) && /\.catch\(\(\) => undefined\)/.test(lib));
 const trilha = readFileSync("scripts/trilha-completa.sql", "utf8");
 ok("a tabela está declarada fora da trilha, com motivo", /'cadastro_jornadas'/.test(trilha));
+
+
+// ── o cofre dos documentos ──────────────────────────────────────────────────
+// ⚠️ O formato do caminho mora nas duas pontas (aqui e em
+// `cadastro_documento_registrar`): se uma mudar sem a outra, o banco recusa
+// todo documento do cadastro, calado.
+const ORG = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+const cam = caminhoDoDocumento(ORG, "selfie", ID, "image/jpeg", 200_000);
+ok("o caminho do navegador é o que o banco aceita", !!cam && caminhoAceitoPeloBanco(ORG, "selfie", cam));
+const migr = readFileSync("supabase/migrations/20261028130000_cadastro_documentos.sql", "utf8");
+ok("a regra do banco é a mesma desta guarda", migr.includes(`'^' || org::text || '/' || p_tipo || '-[0-9a-f-]{36}\\.(jpg|png|webp|heic|pdf)$'`));
+ok("arquivo acima de 10 MB não sobe", caminhoDoDocumento(ORG, "rg", ID, "image/jpeg", 10 * 1024 * 1024 + 1) === null);
+ok("formato fora da lista não sobe", caminhoDoDocumento(ORG, "rg", ID, "image/gif", 1000) === null);
+ok("arquivo vazio não sobe", caminhoDoDocumento(ORG, "rg", ID, "application/pdf", 0) === null);
+ok("PDF vira .pdf", caminhoDoDocumento(ORG, "contrato", ID, "application/pdf", 1000)?.endsWith(".pdf") === true);
+ok("a tela sobe os documentos DEPOIS de a conta existir", /void concluirJornada\(\);[\s\S]{0,400}enviarDocumentosDoCadastro\(docs\)/.test(tela));
+ok("a selfie é o quadro da câmera, não só a marca de \"tirada\"", /toBlob\(/.test(tela) && /onConcluir\("capturada", foto\)/.test(tela));
+ok("o documento da empresa leva o arquivo", /onEnviar\(t, a\)/.test(tela));
+const libDoc = readFileSync("src/lib/cadastro-documentos.ts", "utf8");
+ok("em demonstração nenhum documento sai", /if \(isDemo \|\| pendentes\.length === 0\) return r;/.test(libDoc));
+ok("o envio nunca sobrescreve um documento", /upsert: false/.test(libDoc));
 
 
 console.log(falhas ? `\n✗ ${falhas} falha(s) na jornada do cadastro` : "\n✓ jornada do cadastro: evento, estado, rota e tela conferidos");
