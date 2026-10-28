@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-27",
+  "gerado_em": "2026-10-28",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 84,
-    "funcoes": 149,
-    "politicas": 156,
-    "gatilhos": 104,
-    "indices": 262,
+    "tabelas": 94,
+    "funcoes": 178,
+    "politicas": 161,
+    "gatilhos": 111,
+    "indices": 288,
     "enums": 12,
-    "colunas": 912,
-    "restricoes": 323
+    "colunas": 1028,
+    "restricoes": 406
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -154,7 +154,18 @@
     "20261022120000_pinbank_checkout",
     "20261026120000_maquininha_pedidos",
     "20261026130000_nfse_focus",
-    "20261027120000_nome_da_empresa_google"
+    "20261027120000_nome_da_empresa_google",
+    "20261027130000_cadastro_jornadas",
+    "20261028120000_cobranca_banco",
+    "20261028130000_cadastro_documentos",
+    "20261028140000_admin_cadastro_funil",
+    "20261028150000_cadastro_lembretes",
+    "20261028160000_regua_link_pagamento",
+    "20261028170000_maquininha_pedidos_simulacao",
+    "20261028180000_telefone_e164",
+    "20261029120000_maquininha_pedidos_proposta",
+    "20261029130000_maquininha_leads",
+    "20261029140000_mensalidade_pinbank"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -168,140 +179,7 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [
-      {
-        "nome": "20261027130000_cadastro_jornadas",
-        "motivo": "Jornada do cadastro (etapa 1 do plano de documentos e funil): o registro dos passos de quem abre conta, para o admin ver quem concluiu e quem parou. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "tabela cadastro_jornadas — RLS sem política, anon e authenticated sem acesso",
-          "função cadastro_jornada_registrar(uuid, text, text, text, text, text, text) — só service_role",
-          "função cadastro_jornada_concluir(uuid) — authenticated, liga à empresa aberta de quem chama"
-        ],
-        "impacto": "Até ser aplicada, a rota /api/cadastro/jornada recebe o passo e o banco recusa (fica só o log); o cadastro segue igual. Nada que já existe muda.",
-        "resolver_ate": "2026-11-10",
-        "origem": "sessão Claude de 27/10/2026 (documentos e funil do cadastro, etapa 1)"
-      },
-      {
-        "nome": "20261028120000_cobranca_banco",
-        "motivo": "Cobrança pela conta bancária, etapa 3 (Conectar meu banco): a conexão de cada empresa com o Inter, o segredo cifrado e a reserva genérica. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "tabelas cobranca_banco_conexoes, cobranca_banco_segredos (só service_role lê) e cobrancas_banco",
-          "funções cobranca_banco_conectar/desconectar (administrar), cobranca_banco_reservar (lançar), cobranca_banco_credencial e cobranca_banco_registrar (service_role)",
-          "gatilho cobranca_banco_titulo_mudou em movements (leva a cobrança viva a 'a cancelar' quando o título muda)"
-        ],
-        "impacto": "Até ser aplicada, o cartão 'Banco Inter · cobrança' diz que a função está sendo instalada e o botão no título não aparece. Nada que já existe muda; o interruptor COBRANCA_BANCO nasce desligado.",
-        "resolver_ate": "2026-11-15",
-        "origem": "sessão Claude de 27/10/2026 (cobrança pela conta bancária, etapa 3) — o merge espera o OK do dono (muda quem pode chamar o quê)"
-      },
-      {
-        "nome": "20261028130000_cadastro_documentos",
-        "motivo": "Cofre dos documentos do cadastro (etapa 2 do plano de documentos e funil): a foto do rosto, o RG/CNH e o contrato social ou comprovante passam a ser guardados, por 5 anos, num bucket privado. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "tabela cadastro_documentos — RLS sem política, anon e authenticated sem acesso",
-          "função cadastro_documento_registrar(text, text) — authenticated, confere pasta, dono e teto",
-          "bucket privado cadastro-documentos e a política cadastro_documentos_envio (só criar, na pasta da empresa)"
-        ],
-        "impacto": "Até ser aplicada, o envio do documento ao fim do cadastro falha (o bucket não existe) e é reportado; o cadastro segue igual, com o documento como enviado. Nada que já existe muda.",
-        "resolver_ate": "2026-11-10",
-        "origem": "sessão Claude de 27/10/2026 (documentos e funil do cadastro, etapa 2)"
-      },
-      {
-        "nome": "20261028140000_admin_cadastro_funil",
-        "motivo": "Funil do cadastro no admin (etapa 3 do plano de documentos e funil): a plataforma lê quem terminou e quem parou, e vê os documentos só com o segundo fator, com rastro de quem abriu. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "função admin_cadastro_funil(integer) — authenticated, atrás de admin_exigir_acesso",
-          "função admin_cadastro_exigir_segundo_fator() — sem concessão, chamada só pelas outras",
-          "função admin_cadastro_documentos(uuid) — authenticated, exige aal2, sem o caminho",
-          "função admin_cadastro_documento_abrir(uuid) — authenticated, exige aal2, grava admin_audit"
-        ],
-        "impacto": "Até ser aplicada, a seção Cadastros do admin mostra o erro da leitura; nada que já existe muda.",
-        "resolver_ate": "2026-11-10",
-        "origem": "sessão Claude de 28/10/2026 (documentos e funil do cadastro, etapa 3)"
-      },
-      {
-        "nome": "20261028150000_cadastro_lembretes",
-        "motivo": "Lembretes de quem parou no cadastro (etapa 5 do plano de documentos e funil): WhatsApp depois de 24 h, e-mail depois de 3 dias, no máximo dois, com a reserva no banco antes do envio. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "tabela cadastro_lembretes — RLS sem política, único (jornada, canal)",
-          "função cadastro_lembretes_candidatas(integer) — só service_role",
-          "função cadastro_lembrete_reservar(uuid, text) — só service_role",
-          "função cadastro_lembrete_concluir(uuid, text, text, text) — só service_role",
-          "função admin_cadastro_funil(integer) refeita — devolve também os lembretes"
-        ],
-        "impacto": "Até ser aplicada, o executor dos lembretes responde com o erro da leitura e não envia nada; o funil segue sem a coluna de lembretes. Nasce desligado (CADASTRO_LEMBRETES=ligado).",
-        "resolver_ate": "2026-11-10",
-        "origem": "sessão Claude de 28/10/2026 (documentos e funil do cadastro, etapa 5)"
-      },
-      {
-        "nome": "20261028160000_regua_link_pagamento",
-        "motivo": "A régua manda o link de pagamento (etapa 5 da cobrança): o executor da régua lê o link /pagar vivo dos títulos que vai cobrar hoje. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "função regua_links_de_pagamento(uuid, uuid[]) — só service_role, só link vivo de título a receber em aberto com cobrança emitida"
-        ],
-        "impacto": "Até ser aplicada, o executor responde com o erro da leitura e a régua sai sem link, como hoje. Nada que já existe muda; sem PINBANK_COBRANCA=ligado a leitura nem é feita.",
-        "resolver_ate": "2026-11-15",
-        "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 1)"
-      },
-      {
-        "nome": "20261029140000_mensalidade_pinbank",
-        "motivo": "A mensalidade do ERP paga por Pix ou boleto na conta Pinbank da Quattro: a plataforma gera a fatura, a empresa paga e a baixa renova a assinatura. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "tabelas mensalidade_faturas e mensalidade_cobrancas (RLS: a empresa só lê as suas)",
-          "funções admin_mensalidade_gerar/baixar/cancelar/listar (portão admin_exigir_acesso + admin_audit)",
-          "funções mensalidade_reservar (papel de administrar, empresa aberta) e mensalidade_registrar (só service_role)",
-          "função interna mensalidade_renovar"
-        ],
-        "impacto": "Até ser aplicada, a seção Cobrança do painel da plataforma diz que não conseguiu ler as faturas e a tela de Assinatura do cliente não mostra o cartão da mensalidade. Nada que já existe muda; sem MENSALIDADE_PINBANK=ligado nenhuma cobrança sai para a Pinbank.",
-        "resolver_ate": "2026-11-30",
-        "origem": "sessão Claude de 28/10/2026 (mensalidade do ERP pela Pinbank da Quattro)"
-      },
-      {
-        "nome": "20261028170000_maquininha_pedidos_simulacao",
-        "motivo": "O pedido de maquininha passa a levar a origem (formulário, economia, consultor) e a simulação estruturada, para o CRM da plataforma (etapa 1). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "colunas maquininha_pedidos.origem e maquininha_pedidos.simulacao",
-          "função maquininha_pedido_criar com p_origem e p_simulacao (a de dez parâmetros é apagada)"
-        ],
-        "impacto": "Até ser aplicada, o envio do pedido cai no caminho antigo (sem a simulação) e a fila do admin não mostra a economia. Nada que já existe muda.",
-        "resolver_ate": "2026-11-15",
-        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 1)"
-      },
-      {
-        "nome": "20261028180000_telefone_e164",
-        "motivo": "O telefone do contato passa a ser gravado em E.164 (+55…): a Twilio recusou com 400 o WhatsApp para um número salvo sem o país (medido em produção em 28/10/2026). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
-        "objetos_ausentes": [
-          "função telefone_e164(text) — espelho de telefoneE164 em src/lib/telefone.ts",
-          "gatilho parties_telefone_e164 (before insert or update of phone em parties)",
-          "reescrita dos telefones já cadastrados para E.164"
-        ],
-        "impacto": "Até ser aplicada, o cadastro pela tela já grava em E.164 e o envio já normaliza qualquer número; ficam sem o +55 só os telefones antigos e o que for gravado por fora da tela. O SAIR/VOLTAR não muda: telefone_canonico tira o 55.",
-        "resolver_ate": "2026-11-15",
-        "origem": "sessão Claude de 28/10/2026 (WhatsApp sem +55)"
-      },
-      {
-        "nome": "20261029120000_maquininha_pedidos_proposta",
-        "motivo": "O funil Comercial da plataforma (CRM, etapa 2) ganha a coluna Proposta: a situação 'proposta' entra na restrição da tabela e na função que a muda.",
-        "objetos_ausentes": [
-          "restrição maquininha_pedidos_situacao_valida (com 'proposta')",
-          "admin_maquininha_pedido_situacao aceitando 'proposta'"
-        ],
-        "impacto": "Até ser aplicada, mover um card para Proposta é recusado pelo banco com mensagem nomeada. As outras colunas funcionam.",
-        "resolver_ate": "2026-11-15",
-        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 2)"
-      },
-      {
-        "nome": "20261029130000_maquininha_leads",
-        "motivo": "A ficha do lead do funil Comercial (CRM, etapa 3): responsável, próximo contato, motivo de perda, taxas propostas e o histórico de anotações, em tabelas só da plataforma.",
-        "objetos_ausentes": [
-          "tabelas maquininha_leads e maquininha_lead_notas",
-          "funções admin_maquininha_lead, admin_maquininha_lead_salvar e admin_maquininha_lead_anotar",
-          "admin_maquininha_pedidos com responsável, próximo contato, motivo de perda e contagem de anotações"
-        ],
-        "impacto": "Até ser aplicada, abrir a ficha mostra o erro nomeado do banco e o funil segue como na etapa 2. Nada que já existe muda.",
-        "resolver_ate": "2026-11-15",
-        "origem": "sessão Claude de 28/10/2026 (CRM da maquininha, etapa 3)"
-      }
-    ],
+    "arquivo_sem_aplicacao": [],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
