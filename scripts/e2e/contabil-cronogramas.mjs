@@ -16,7 +16,7 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
 const valorBRL = (t) => { const s = t.replace(/\s+/g, ""); return (/^[−-]/.test(s) ? -1 : 1) * brl(s.replace(/^[−-]/, "")); };
 
 async function razao(u) {
-  await u.ir("/contabilidade?aba=razao");
+  await u.ir("/contabilidade");
   await u.page.locator("[data-n-lancamentos]").waitFor({ timeout: 30000 });
   const bal = Object.fromEntries(await u.page.locator("[data-conta]").evaluateAll((els) =>
     els.map((e) => [e.getAttribute("data-conta"), e.querySelector("[data-saldo]").innerText])));
@@ -30,7 +30,7 @@ async function razao(u) {
 }
 
 async function lancar(u) {
-  await u.ir("/contabilidade?aba=cronogramas");
+  await u.ir("/cronogramas");
   const total = valorBRL((await u.texto()).match(/Total a lançar \(saída\)\s*([\s\S]*?,\d{2})/)[1]);
   await u.page.getByRole("button", { name: "Lançar no razão" }).click();
   await u.page.waitForTimeout(1500);
@@ -59,7 +59,7 @@ export default async function contabilCronogramas(navegador) {
   v.ok(c.n === b.n && Math.abs(c.dep + c.amort - (b.dep + b.amort)) < 0.01, "e nada duplica", `${b.n} → ${c.n}`);
 
   // 3. Muda um cronograma: a licença passa de R$ 12.000 para R$ 24.000 (parcela +R$ 1.000).
-  await u.ir("/contabilidade?aba=cronogramas");
+  await u.ir("/cronogramas");
   await u.page.getByRole("button", { name: "Editar" }).first().click();
   const campo = u.page.getByLabel("Valor total", { exact: true });
   await campo.fill("");

@@ -35,7 +35,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <div
           className={cn(
-            "flex items-center gap-2 bg-white rounded-md px-4 h-11 border-campo focus-within:border-ink",
+            "a4p-campo flex items-center gap-2 bg-white rounded-md px-4 h-11 border-campo focus-within:border-ink",
             invalid ? "border-warning" : "border-border",
           )}
         >

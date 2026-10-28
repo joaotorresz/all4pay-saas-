@@ -10,7 +10,8 @@
  * do mês. Mostrar o líquido ao lado do bruto é o ponto da tela.
  */
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { cadastroDe, useParametrosDoFormulario, useSaidaDoFormulario } from "@/components/app/criacao";
+import type { CadastroNoCampo } from "@/components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card, Button, Icon, Input, Textarea, Select, DateField, CurrencyInput, Checkbox, BRL,
@@ -55,8 +56,9 @@ const TAXAS: { chave: keyof Pick<Venda, "taxaPlataforma" | "taxaAntecipacao" | "
 ];
 
 export function VendaForm() {
-  const router = useRouter();
-  const sp = useSearchParams();
+  // ⚠️ O MESMO formulário na página e no pop-up único (`abrirCriacao("venda")`).
+  const saida = useSaidaDoFormulario();
+  const sp = useParametrosDoFormulario();
   const qc = useQueryClient();
   const { show, node } = useToast();
   const { data: partes } = usePartiesList();
@@ -144,8 +146,8 @@ export function VendaForm() {
       // voltam juntos, e a próxima tentativa não duplica nada.
       const { aviso } = await salvarVendaDoc(doc);
       await qc.invalidateQueries();
-      show(aviso ?? "Venda salva · recebível gerado.");
-      if (!aviso) router.push("/contas-a-receber/painel-de-vendas");
+      if (aviso) show(aviso);
+      else saida.concluir("Venda salva · recebível gerado.", "/contas-a-receber/painel-de-vendas", doc.id);
     } catch (err) {
       show(`Não foi possível salvar: ${(err as Error).message}`);
     } finally {
@@ -155,10 +157,10 @@ export function VendaForm() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <button onClick={() => router.back()} className="inline-flex items-center gap-1 self-start text-caption text-muted hover:text-ink">
+      {!saida.naJanela && <button onClick={() => saida.cancelar()} className="inline-flex items-center gap-1 self-start text-caption text-muted hover:text-ink">
         <Icon name="chevron-left" size={14} color="currentColor" />
         Cancelar
-      </button>
+      </button>}
 
       {/* ------------------------------ cliente ------------------------------ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
@@ -169,6 +171,7 @@ export function VendaForm() {
               onChange={(id) => setV((s) => ({ ...s, clienteId: id, clienteNome: clientes.find((c) => c.id === id)?.name ?? "" }))}
               placeholder="Selecione o cliente"
               options={clientes.map((c) => ({ value: c.id, label: c.name }))}
+              cadastrar={cadastroDe("cliente")}
             />
           </Campo>
           {/* E-mail e telefone vêm do cadastro: quem lança a venda não deve
@@ -216,6 +219,7 @@ export function VendaForm() {
                   })}
                   placeholder="Selecione o produto"
                   options={(produtos ?? []).map((p) => ({ value: p.id, label: p.name }))}
+                  cadastrar={cadastroDe("produto")}
                 />
               </Campo>
               <Campo label={i === 0 ? "Quantidade" : ""} obrigatorio={i === 0}>
@@ -292,7 +296,7 @@ export function VendaForm() {
                     onChange={(id) => set(t.chave, { ...v[t.chave], fornecedorId: id })}
                     placeholder="Selecione um fornecedor"
                     options={fornecedores.map((f) => ({ value: f.id, label: f.name }))}
-                    disabled={fornecedores.length === 0}
+                    cadastrar={cadastroDe("fornecedor")}
                   />
                 </Campo>
               </div>
@@ -307,7 +311,7 @@ export function VendaForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
             <Select value={v.contaId} onChange={(x) => set("contaId", x)} placeholder="Selecione a conta"
-              options={opcoes.contas} />
+              options={opcoes.contas} cadastrar={cadastroDe("conta-bancaria")} />
           </Campo>
           <Campo label="Operação">
             <Select value={v.operacao} onChange={(x) => set("operacao", x as Venda["operacao"])}
@@ -326,7 +330,8 @@ export function VendaForm() {
           </Campo>
           <Campo label="Categoria da conta a receber" obrigatorio erro={erros.categoria}>
             <Select value={v.categoria} onChange={(x) => set("categoria", x)} placeholder="Selecione a categoria"
-              options={categorias.map((c) => ({ value: c.id, label: c.caminho || c.name }))} />
+              options={categorias.map((c) => ({ value: c.id, label: c.caminho || c.name }))}
+              cadastrar={cadastroDe("categoria", { natureza: "receita" })} />
           </Campo>
           <Campo label="Tipo de pagamento">
             <Select value={v.tipoPagamento} onChange={(x) => set("tipoPagamento", x as Venda["tipoPagamento"])}
@@ -382,10 +387,10 @@ export function VendaForm() {
 
       {/* --------------------- projeto e centro de custo --------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Rateio titulo="Projetos" singular="projeto"
+        <Rateio titulo="Projetos" singular="projeto" cadastrar={cadastroDe("projeto")}
           opcoes={opcoes.projetos}
           linhas={v.projetos} onChange={(l) => set("projetos", l)} erro={erros.projetos} />
-        <Rateio titulo="Centros de custo" singular="centro de custo"
+        <Rateio titulo="Centros de custo" singular="centro de custo" cadastrar={cadastroDe("centro")}
           opcoes={opcoes.centros}
           linhas={v.centros} onChange={(l) => set("centros", l)} erro={erros.centros} />
       </div>
@@ -407,7 +412,7 @@ export function VendaForm() {
       </Card>
 
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => saida.cancelar()}>Cancelar</Button>
         <Button variant="primary" disabled={salvando} onClick={salvar}>
           <Icon name="check" size={15} color="currentColor" />
           {salvando ? "Salvando…" : "Salvar venda"}
@@ -467,9 +472,10 @@ function Somente({ label, valor }: { label: string; valor: string }) {
 }
 
 function Rateio({
-  titulo, singular, opcoes, linhas, onChange, erro,
+  titulo, singular, opcoes, linhas, onChange, erro, cadastrar,
 }: {
   titulo: string; singular: string;
+  cadastrar: CadastroNoCampo;
   opcoes: { value: string; label: string }[];
   linhas: LinhaRateio[];
   onChange: (l: LinhaRateio[]) => void;
@@ -496,13 +502,20 @@ function Rateio({
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {opcoes.length === 0 ? (
-          <span className="text-caption text-faint">Nenhum {singular} cadastrado.</span>
+          // A lista vazia vira convite: o item criado já entra com 100%.
+          <span className="text-caption text-faint">
+            Nenhum {singular} cadastrado.{" "}
+            <button type="button" className="font-medium text-ink underline underline-offset-2 hover:no-underline"
+              onClick={() => cadastrar.abrir((id) => onChange([...linhas, { id, percentual: linhas.length === 0 ? 100 : 0 }]))}>
+              Cadastrar o primeiro
+            </button>
+          </span>
         ) : linhas.length === 0 ? (
           <span className="text-caption text-faint">Nenhuma alocação cadastrada.</span>
         ) : linhas.map((l, k) => (
           <div key={k} className="flex items-center gap-2">
             <Select value={l.id} onChange={(x) => onChange(linhas.map((y, i) => (i === k ? { ...y, id: x } : y)))}
-              placeholder={`Selecione o ${singular}`} options={opcoes} containerClassName="flex-1 min-w-0" />
+              placeholder={`Selecione o ${singular}`} options={opcoes} cadastrar={cadastrar} containerClassName="flex-1 min-w-0" />
             <Input type="number" value={String(l.percentual)} containerClassName="w-[100px]"
               onChange={(e) => onChange(linhas.map((y, i) => (i === k ? { ...y, percentual: Number(e.target.value) || 0 } : y)))} />
             <button onClick={() => onChange(linhas.filter((_, i) => i !== k))} aria-label="Remover"

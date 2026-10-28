@@ -8,7 +8,8 @@
 import { analisarImportacao, csvDeLinhas } from "@/core/fdip";
 import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
 import { refinarDocumento } from "@/core/compras/refino";
-import { ocrLocalImagem, ocrLocalPdf, itensDoPdf, type DocExtraido } from "@/lib/ocr-local";
+import { ocrLocalImagem, ocrLocalPdf, itensDoPdf, paginasDoPdf, type DocExtraido } from "@/lib/ocr-local";
+import { csvDasPaginas, TETO_PAGINAS_IA, type PaginaIA } from "@/core/fdip/extrato-ia";
 import type { DocFields } from "@/lib/upload-doc";
 import type { FDIPReport } from "@/core/fdip/types";
 
@@ -18,8 +19,87 @@ export type LeituraDocumento =
    * `texto` é o extrato já em texto tabulado — quem junta vários arquivos numa
    * análise só (a aba Enviar) precisa dele; o relatório sozinho não se soma.
    */
-  | { kind: "bulk"; report: FDIPReport; texto: string }
+  | { kind: "bulk"; report: FDIPReport; texto: string; ia?: LeituraIA }
   | { kind: "erro"; motivo: string };
+
+/**
+ * Como foi a leitura do extrato escaneado pela IA — para a tela dizer o que
+ * foi lido e, sobretudo, o que NÃO foi: página que falhou e páginas além do
+ * teto não podem sumir caladas, senão o mês não fecha com o banco.
+ */
+export interface LeituraIA {
+  tipo: "extrato" | "fatura";
+  /** Páginas do arquivo. */
+  paginas: number;
+  /** Páginas enviadas (até o teto). */
+  lidas: number;
+  /** Números das páginas que a IA não conseguiu ler. */
+  falhas: number[];
+  /** Linhas que vieram e foram recusadas na conferência. */
+  recusadas: number;
+}
+
+/** O que a tela mostra enquanto lê. */
+export type EtapaLeitura =
+  | { fase: "arquivo" }
+  | { fase: "pagina"; pagina: number; total: number };
+
+async function paginaPorIA(imagemBase64: string, pagina: number, total: number): Promise<PaginaIA | null> {
+  try {
+    const r = await fetch("/api/inbox/extrato", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imagemBase64, pagina, total }),
+    }).then((x) => x.json());
+    return r?.ok && r.pagina ? (r.pagina as PaginaIA) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lê um extrato/fatura página a página pela IA. A PRIMEIRA página decide: se
+ * ela não é lista de lançamentos (boleto, nota), devolve `null` e o arquivo
+ * segue como documento. As outras vão em paralelo, três por vez.
+ */
+async function extratoPorIA(
+  imagem: (p: number) => Promise<string>,
+  total: number,
+  onEtapa?: (e: EtapaLeitura) => void,
+): Promise<{ report: FDIPReport; texto: string; ia: LeituraIA } | null> {
+  const lidas = Math.min(total, TETO_PAGINAS_IA);
+  onEtapa?.({ fase: "pagina", pagina: 1, total: lidas });
+  const primeira = await paginaPorIA(await imagem(1), 1, total);
+  if (!primeira || primeira.tipo === "documento") return null;
+
+  const paginas: (PaginaIA | null)[] = [primeira];
+  let feitas = 1;
+  let proxima = 2;
+  const trabalhador = async () => {
+    while (proxima <= lidas) {
+      const p = proxima++;
+      const lida = await paginaPorIA(await imagem(p), p, total).catch(() => null);
+      paginas[p - 1] = lida;
+      feitas++;
+      onEtapa?.({ fase: "pagina", pagina: feitas, total: lidas });
+    }
+  };
+  await Promise.all([trabalhador(), trabalhador(), trabalhador()]);
+
+  const boas = paginas.filter((p): p is PaginaIA => !!p);
+  const texto = csvDasPaginas(boas);
+  if (!texto) return null;
+  const report = analisarImportacao(texto);
+  if (!report.records.length) return null;
+  return {
+    report, texto,
+    ia: {
+      tipo: boas.some((p) => p.tipo === "fatura") ? "fatura" : "extrato",
+      paginas: total, lidas,
+      falhas: paginas.map((p, i) => (p ? 0 : i + 1)).filter(Boolean),
+      recusadas: boas.reduce((s, p) => s + p.recusadas, 0),
+    },
+  };
+}
 
 /** O servidor tem ANTHROPIC_API_KEY? (OCR por IA disponível.) */
 export async function ocrConfigurado(): Promise<boolean> {
@@ -91,7 +171,11 @@ async function lerArquivo(file: File, downscale: boolean): Promise<{ data: strin
   return { data, mediaType: file.type || "application/octet-stream" };
 }
 
-export async function lerDocumento(file: File, ocrOn: boolean): Promise<LeituraDocumento> {
+export async function lerDocumento(
+  file: File,
+  ocrOn: boolean,
+  onEtapa?: (e: EtapaLeitura) => void,
+): Promise<LeituraDocumento> {
   const isText = /\.(ofx|csv|txt)$/i.test(file.name);
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   const isImg = /^image\//.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name);
@@ -122,6 +206,18 @@ export async function lerDocumento(file: File, ocrOn: boolean): Promise<LeituraD
         }
       }
     }
+    // ⚠️ **PDF ESCANEADO PODE SER EXTRATO.** Sem camada de texto (ou com um
+    // layout que a reconstrução não entende), ele ia direto ao OCR de
+    // DOCUMENTO e virava UM lançamento — um extrato de 40 linhas lido como
+    // "Documento, R$ 0". Agora a IA lê página a página; se a 1ª não for lista
+    // de lançamentos, o arquivo segue como documento, como antes.
+    if (isPdf && ocrOn) {
+      const pdf = await paginasDoPdf(file).catch(() => null);
+      if (pdf && pdf.total > 0) {
+        const lido = await extratoPorIA(pdf.imagem, pdf.total, onEtapa);
+        if (lido) return { kind: "bulk", ...lido };
+      }
+    }
     if ((isImg || isPdf) && ocrOn) {
       // OCR por IA (visão do Claude).
       const { data, mediaType } = await lerArquivo(file, isImg && !isPdf);
@@ -129,7 +225,15 @@ export async function lerDocumento(file: File, ocrOn: boolean): Promise<LeituraD
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileBase64: data, mediaType: isPdf ? "application/pdf" : mediaType }),
       }).then((x) => x.json());
-      if (r.ok && r.doc) return { kind: "doc", fields: fieldsFrom(r.doc), modo: "ia" };
+      if (r.ok && r.doc) {
+        // A FOTO de um extrato ou de uma fatura também é lista de lançamentos:
+        // lida como documento, a página inteira viraria um lançamento só.
+        if (isImg && /extrato|fatura/i.test(String(r.doc.tipo ?? ""))) {
+          const lido = await extratoPorIA(async () => data, 1, onEtapa);
+          if (lido) return { kind: "bulk", ...lido };
+        }
+        return { kind: "doc", fields: fieldsFrom(r.doc), modo: "ia" };
+      }
       // Falhou a IA → tenta local.
     }
     if (isImg || isPdf) {

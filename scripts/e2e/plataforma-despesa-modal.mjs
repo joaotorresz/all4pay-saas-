@@ -79,7 +79,7 @@ export default async function despesaModal(navegador) {
   await u.ir("/dashboard/financial/statement");
   const ext = (await u.texto()).replace(/\n/g, " ");
   v.ok(ext.includes(DESCRICAO) || /4\.321\s*,07/.test(ext), "a despesa aparece no extrato");
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const tit = (await u.texto()).replace(/\n/g, " ");
   v.ok(tit.includes(DESCRICAO) && /4\.321\s*,07/.test(tit), "a despesa aparece nos títulos a pagar, com o valor");
 

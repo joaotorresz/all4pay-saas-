@@ -103,7 +103,7 @@ export default async function venderImpostos(navegador) {
     return (ds.movements ?? []).filter((m) => /· competência /.test(m.description ?? ""))
       .map((m) => ({ d: m.description, valor: m.amount, venc: m.due_date, tipo: m.type, cat: m.category }));
   });
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const titulos = norm(await u.texto());

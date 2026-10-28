@@ -91,13 +91,14 @@ const MOLDES: Molde[] = [
     ],
   },
   {
-    rota: "/contas-a-pagar", nome: "Contas a pagar", assunto: "as suas contas a pagar",
+    rota: "/contas-a-pagar/painel-de-despesas", nome: "Painel de despesas", assunto: "as suas despesas",
     caminhos: [
       saber("cp-total", "Quanto tenho a pagar", "Quanto eu tenho a pagar?", "credit-card"),
       saber("cp-semana", "O que vence esta semana", "O que vence esta semana?", "calendar"),
       falhas("cp-fornecedores", "Para quem mais pago", "Quem são meus maiores fornecedores?"),
       falhas("cp-economizar", "Onde economizar", "Onde posso economizar?"),
       adicionar("cp-novo", "Nova conta a pagar", "/dashboard/financial/payables/new"),
+      adicionar("cp-compra", "Nova compra", "/dashboard/purchases/new"),
     ],
   },
   {
@@ -158,14 +159,6 @@ const MOLDES: Molde[] = [
       saber("ve-ticket", "Ticket médio", "Qual o meu ticket médio?", "receipt"),
       falhas("ve-concentracao", "Dependência de clientes", "Qual a concentração de receita?"),
       adicionar("ve-nova", "Nova venda", "/dashboard/sales-invoices/new"),
-    ],
-  },
-  {
-    rota: "/dashboard/purchases", nome: "Compras", assunto: "as suas compras",
-    caminhos: [
-      saber("co-fornecedores", "Para quem mais pago", "Quem são meus maiores fornecedores?", "users"),
-      falhas("co-economizar", "Onde economizar", "Onde posso economizar?"),
-      adicionar("co-nova", "Nova compra", "/dashboard/purchases/new"),
     ],
   },
   {

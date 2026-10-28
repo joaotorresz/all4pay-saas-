@@ -576,16 +576,19 @@ export const FAIXAS_FATURAMENTO: { rotulo: string; porte: string }[] = [
 ];
 export const FAIXAS_RENDA = ["Até R$ 5.000", "R$ 5.001 - R$ 10.000", "R$ 10.001 - R$ 30.000", "R$ 30.001 - R$ 100.000", "Acima de R$ 100.000"];
 
-export const DICAS_FACIAL: { titulo: string; icone: string }[] = [
-  { titulo: "Procure um lugar iluminado", icone: "sun" },
-  { titulo: "Retire acessórios como óculos e bonés", icone: "glasses" },
-  { titulo: "Posicione o rosto no centro da tela", icone: "scan-face" },
+/** A `ilustracao` é o nome do ícone 3D (`public/icones-3d/<icone>.png`, 3dicons CC0). */
+export type IconeDica = "sun" | "picture" | "boy" | "bulb" | "copy" | "file-new";
+
+export const DICAS_FACIAL: { titulo: string; ilustracao: IconeDica }[] = [
+  { titulo: "Procure um lugar iluminado", ilustracao: "sun" },
+  { titulo: "Retire acessórios como óculos e bonés", ilustracao: "picture" },
+  { titulo: "Posicione o rosto no centro da tela", ilustracao: "boy" },
 ];
 
-export const DICAS_DOCUMENTO: { titulo: string; icone: string }[] = [
-  { titulo: "Procure um lugar iluminado", icone: "lightbulb" },
-  { titulo: "Retire o documento do plástico", icone: "id-card" },
-  { titulo: "Posicione seu documento em uma mesa plana", icone: "table" },
+export const DICAS_DOCUMENTO: { titulo: string; ilustracao: IconeDica }[] = [
+  { titulo: "Procure um lugar iluminado", ilustracao: "bulb" },
+  { titulo: "Retire o documento do plástico", ilustracao: "copy" },
+  { titulo: "Posicione seu documento em uma mesa plana", ilustracao: "file-new" },
 ];
 
 export const TIPOS_DOCUMENTO: Record<"rg" | "cnh", string> = { rg: "RG", cnh: "CNH" };

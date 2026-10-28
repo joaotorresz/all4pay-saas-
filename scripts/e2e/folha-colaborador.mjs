@@ -28,7 +28,7 @@ async function escolherConta(u) {
 
 /** As linhas da tabela de títulos: [descrição/fornecedor, vencimento, valor]. */
 async function titulosDoMes(u, mes) {
-  await u.ir(`/contas-a-pagar/titulos?mes=${mes}`);
+  await u.ir(`/contas-a-pagar/painel-de-despesas?mes=${mes}`);
   return u.page.evaluate(() => [...document.querySelectorAll("main table tbody tr")].map((tr) => {
     // O <BRL> quebra "R$ 4.490 ,40" em partes: junta antes de comparar.
     const tds = [...tr.querySelectorAll("td")].map((td) => td.innerText.replace(/\s+/g, " ").replace(/ ,/g, ",").trim());

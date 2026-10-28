@@ -38,6 +38,9 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { criarContaEEntrar, emailDaSessao, nomearEmpresaDaConta } from "@/lib/entrada";
 import { persistCompany, saveCompany, type StoredCompany } from "@/lib/company";
+import { concluirJornada, registrarPasso } from "@/lib/cadastro-jornada";
+import { enviarDocumentosDoCadastro, type DocumentoPendente } from "@/lib/cadastro-documentos";
+import type { TipoDocumento } from "@/core/cadastro/documentos";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
 import { reportar, motivoDaRecusa } from "@/lib/erros";
@@ -89,7 +92,7 @@ interface Fala {
  * 3dicons (CC0), ângulo Dynamic, estilo Color, em `public/icones-3d/`. Só a
  * abertura de conta os usa; o resto do sistema segue no Lucide.
  */
-type Icone3D = "boy" | "folder" | "copy" | "camera" | "locker" | "folder-fav" | "lock" | "wallet" | "credit-card" | "tick";
+type Icone3D = "boy" | "folder" | "copy" | "camera" | "locker" | "folder-fav" | "lock" | "wallet" | "credit-card" | "tick" | "sun" | "picture" | "bulb" | "file-new";
 /** A pergunta que abre com ícone próprio (as que não têm cartão). */
 const ICONE_DA_PERGUNTA: Record<string, Icone3D> = { senha: "lock", bancos: "wallet", maquininha: "credit-card" };
 function Icone3d({ nome, tamanho }: { nome: Icone3D; tamanho: number }) {
@@ -171,6 +174,27 @@ export function CriarContaView() {
   /** A leitura do documento no navegador (OCR) em andamento. */
   const [lendoDoc, setLendoDoc] = React.useState(false);
 
+  /*
+   * ⚠️ **A JORNADA É REGISTRADA A CADA PASSO** (`lib/cadastro-jornada`): é o
+   * que deixa o admin ver quem parou e onde. Na pergunta, o passo é o campo
+   * perguntado ("repTelefone"), não a palavra "pergunta" — senão o funil teria
+   * um degrau só para quinze perguntas. Só o contato sai; documento, CPF e
+   * senha nunca.
+   */
+  const passoDaJornada = etapa === "pergunta" ? atual?.id ?? null : etapa;
+  React.useEffect(() => {
+    if (!passoDaJornada || passoDaJornada === "pronto") return;
+    registrarPasso({
+      etapa: passoDaJornada,
+      ...(cad.tipo ? { tipo: cad.tipo } : {}),
+      nome: (cad.tipo === "pf" ? cad.nome : cad.repNome) || undefined,
+      whatsapp: cad.repTelefone || undefined,
+      email: (cad.tipo === "pf" ? cad.email : cad.repEmail) || undefined,
+    });
+    // ⚠️ Só o PASSO dispara: o contato vai junto com o passo seguinte, não a cada tecla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passoDaJornada]);
+
   const vivoRef = React.useRef(true);
   const campoRef = React.useRef<HTMLInputElement>(null);
   /**
@@ -182,6 +206,7 @@ export function CriarContaView() {
   const semMovimento = React.useRef(false);
   /** A conta já existe (o "Tentar de novo" depois dela só refaz o resto). */
   const contaCriada = React.useRef(false);
+  const documentosRef = React.useRef<DocumentoPendente[]>([]);
   /**
    * ⚠️ **A conta que voltou do Google** (`/criar-conta?google=1`, `core/google`):
    * o e-mail da sessão. Ela já existe no Auth — a conversa não pergunta e-mail
@@ -405,9 +430,19 @@ export function CriarContaView() {
 
   const aceitarTermos = () =>
     void concluirPasso("termos", "Li e aceito os termos e condições", { ...cad, aceiteTermos: new Date().toISOString() });
-  const concluirFacial = (status: "capturada" | "pendente") =>
+  /**
+   * ⚠️ OS ARQUIVOS ESPERAM NA MEMÓRIA DA ABA até a conta nascer (antes dela não
+   * há sessão para subir ao cofre). Refazer um passo TROCA o arquivo do mesmo
+   * papel, nunca acumula. Sobem logo depois da conta (`enviarDocumentosDoCadastro`).
+   */
+  const guardarDocumento = (tipos: TipoDocumento[], novo: DocumentoPendente | null) => {
+    documentosRef.current = [...documentosRef.current.filter((d) => !tipos.includes(d.tipo)), ...(novo ? [novo] : [])];
+  };
+  const concluirFacial = (status: "capturada" | "pendente", foto?: Blob) => {
+    guardarDocumento(["selfie"], status === "capturada" && foto ? { tipo: "selfie", arquivo: foto } : null);
     void concluirPasso("facial", status === "capturada" ? "Foto enviada" : "Validar depois", { ...cad, biometria: status },
       [status === "capturada" ? "Recebi a sua foto. Obrigado!" : "Tudo bem: a validação fica pendente e eu te lembro dela lá dentro."]);
+  };
 
   /**
    * O DOCUMENTO DE IDENTIDADE: foto (câmera traseira) ou arquivo anexado,
@@ -418,6 +453,7 @@ export function CriarContaView() {
   const enviarDocumento = async (tipo: "rg" | "cnh", arquivo: File, origem: "foto" | "anexo") => {
     if (etapa !== "docIdentidade" || ocupadoFala) return;
     setDocAberto(null);
+    guardarDocumento(["rg", "cnh"], { tipo, arquivo });
     const nome = TIPOS_DOCUMENTO[tipo];
     voce(origem === "foto" ? `Foto do ${nome} enviada` : `${nome} anexado`, "docIdentidade");
     setLendoDoc(true);
@@ -442,21 +478,26 @@ export function CriarContaView() {
       ? `Conferi o seu ${nome}: os dados batem com o cadastro.`
       : `Recebi o seu ${nome}. Não consegui ler tudo agora, então ele fica para conferência e você segue normalmente.`]);
   };
-  const documentoDepois = (tipo: "rg" | "cnh") =>
+  const documentoDepois = (tipo: "rg" | "cnh") => {
+    guardarDocumento(["rg", "cnh"], null);
     void concluirPasso("docIdentidade", "Validar depois", { ...cad, docTipo: tipo, documento: "pendente" },
       ["Tudo bem: a validação do documento fica pendente e eu te lembro dela lá dentro."]);
+  };
   /**
-   * O CONTRATO SOCIAL OU O COMPROVANTE DE ENDEREÇO (opcional). ⚠️ O arquivo,
-   * como a foto do rosto e a do documento, ainda não sai do aparelho: o
-   * cadastro guarda só QUAL documento foi enviado.
+   * O CONTRATO SOCIAL OU O COMPROVANTE DE ENDEREÇO (opcional). O arquivo, como
+   * a foto do rosto e a do documento, vai ao cofre depois de a conta nascer.
    */
   const NOME_DOC_EMPRESA = { contrato: "contrato social", comprovante: "comprovante de endereço" } as const;
-  const enviarDocEmpresa = (tipo: "contrato" | "comprovante") =>
+  const enviarDocEmpresa = (tipo: "contrato" | "comprovante", arquivo: File) => {
+    guardarDocumento(["contrato", "comprovante"], { tipo, arquivo });
     void concluirPasso("docEmpresa", `${NOME_DOC_EMPRESA[tipo][0].toUpperCase()}${NOME_DOC_EMPRESA[tipo].slice(1)} anexado`, { ...cad, docEmpresa: tipo },
       [`Recebi o ${NOME_DOC_EMPRESA[tipo]}. Obrigado!`]);
-  const docEmpresaDepois = () =>
+  };
+  const docEmpresaDepois = () => {
+    guardarDocumento(["contrato", "comprovante"], null);
     void concluirPasso("docEmpresa", "Enviar depois", { ...cad, docEmpresa: "depois" },
       ["Sem problema: você envia depois, em Configurações."]);
+  };
 
   /* ─── 3. as perguntas ────────────────────────────────────────────────── */
   const responderPergunta = async (valor: string) => {
@@ -530,6 +571,8 @@ export function CriarContaView() {
         }));
         if (!vivoRef.current) return;
         if (!r.ok && r.confirmarEmail) {
+          // ⚠️ Os DOCUMENTOS não sobem neste caminho: sem sessão não há cofre, e eles
+          // ficam para validar lá dentro (a confirmação de e-mail está desligada).
           // ⚠️ O cadastro INTEIRO fica guardado: ao voltar pelo link, ele já está
           // aqui. E é um cadastro NOVO, não uma mescla com a empresa de quem
           // estava logado antes neste navegador.
@@ -558,6 +601,17 @@ export function CriarContaView() {
           return;
         }
         contaCriada.current = true;
+      }
+      // A jornada fica ligada à empresa que acabou de nascer (sem esperar: é telemetria).
+      void concluirJornada();
+      // Os documentos guardados na aba sobem ao cofre (sem esperar: a falha é
+      // reportada e o cliente segue, com o documento "a validar" lá dentro).
+      const docs = documentosRef.current;
+      documentosRef.current = [];
+      if (docs.length) {
+        void enviarDocumentosDoCadastro(docs)
+          .then((r) => r.falhas.forEach((f) => reportar("criar-conta.cofre", new Error(f.motivo), `o documento "${f.tipo}" do cadastro não chegou ao cofre; ele segue como enviado, para validar lá dentro`, true)))
+          .catch((e) => reportar("criar-conta.cofre", e, "os documentos do cadastro não chegaram ao cofre; eles seguem como enviados, para validar lá dentro", true));
       }
       // Daqui para baixo existe sessão. A MESMA ordem do cadastro de sete passos.
       let falhaAlcada: string | null = null;
@@ -1075,7 +1129,7 @@ function CartaoDaConversa({
   onAceite: () => void;
   onFacial: () => void;
   onDocumento: (t: "rg" | "cnh") => void;
-  onDocEmpresa: (t: "contrato" | "comprovante") => void;
+  onDocEmpresa: (t: "contrato" | "comprovante", arquivo: File) => void;
 }) {
   const caixa = "w-full max-w-[420px] rounded-card p-5 flex flex-col gap-4";
   const fundo = { background: "var(--color-white)" };
@@ -1115,17 +1169,19 @@ function CartaoDaConversa({
       <div data-cartao="documento" className={caixa} style={fundo}>
         <Ladrilho ilustracao={cartao.rotulo === "CNPJ" ? "folder" : "boy"} />
         {cartao.linhas?.length ? (
-          <dl className="m-0 flex flex-col gap-3">
+          <dl data-sem-num className="m-0 flex flex-col gap-3">
+            {/* ⚠️ UM padrão só: rótulo em cinza, valor em tinta, os dois em Inter —
+                número e texto lado a lado no mesmo papel (data-sem-num). */}
             {cartao.linhas.map((l) => (
-              <div key={l.rotulo} className="flex flex-col">
-                <dt className="text-[14px] font-medium text-ink">{l.rotulo}</dt>
-                <dd className="m-0 text-[15px] text-ink tabular-nums break-words">{l.valor}</dd>
+              <div key={l.rotulo} className="flex flex-col gap-0.5">
+                <dt className="text-[13px] text-muted">{l.rotulo}</dt>
+                <dd className="m-0 text-[15px] font-medium text-ink break-words">{l.valor}</dd>
               </div>
             ))}
           </dl>
         ) : (
-          <div className="min-w-0 flex flex-col">
-            <span className="text-[13px] text-muted tabular-nums">{cartao.rotulo} {cartao.documento}</span>
+          <div data-sem-num className="min-w-0 flex flex-col gap-0.5">
+            <span className="text-[13px] text-muted">{cartao.rotulo} {cartao.documento}</span>
             <span className="text-[16px] font-medium text-ink break-words">{cartao.nome}</span>
             {cartao.detalhe && <span className="text-[13px] text-muted">{cartao.detalhe}</span>}
           </div>
@@ -1141,7 +1197,7 @@ function CartaoDaConversa({
         <p className={titulo}>Termos e Condições de Uso</p>
         <label className="flex items-center gap-2.5 text-[14px] text-ink cursor-pointer">
           <input type="checkbox" checked={aceite} onChange={onAceite} disabled={!ativo} className="sr-only peer" />
-          <span aria-hidden className="w-5 h-5 flex-none rounded-[6px] flex items-center justify-center border border-border peer-focus-visible:ring-2 peer-focus-visible:ring-ink"
+          <span aria-hidden className="w-5 h-5 flex-none rounded-[6px] flex items-center justify-center bg-surface-3 peer-focus-visible:ring-2 peer-focus-visible:ring-ink"
             style={aceite ? { background: "var(--erp-num-cor)", color: "var(--color-surface-1)", borderColor: "transparent" } : undefined}>
             {aceite && <Icon name="check" size={13} color="currentColor" />}
           </span>
@@ -1196,10 +1252,10 @@ function CartaoDaConversa({
 
 /**
  * O CONTRATO SOCIAL OU O COMPROVANTE DE ENDEREÇO: foto ou PDF de até 10 MB,
- * conferidos ANTES de seguir. O arquivo não sai do aparelho (ver `enviarDocEmpresa`).
+ * conferidos ANTES de seguir. O arquivo vai ao cofre depois da conta (ver `enviarDocEmpresa`).
  */
 const TETO_DOC_EMPRESA = 10 * 1024 * 1024;
-function CartaoDocEmpresa({ ativo, pj, onEnviar }: { ativo: boolean; pj: boolean; onEnviar: (t: "contrato" | "comprovante") => void }) {
+function CartaoDocEmpresa({ ativo, pj, onEnviar }: { ativo: boolean; pj: boolean; onEnviar: (t: "contrato" | "comprovante", arquivo: File) => void }) {
   const contratoRef = React.useRef<HTMLInputElement>(null);
   const comprovanteRef = React.useRef<HTMLInputElement>(null);
   const [erro, setErro] = React.useState<string | null>(null);
@@ -1210,7 +1266,7 @@ function CartaoDocEmpresa({ ativo, pj, onEnviar }: { ativo: boolean; pj: boolean
     if (a.size > TETO_DOC_EMPRESA) { setErro("Esse arquivo passa de 10 MB. Envie uma foto ou um PDF menor."); return; }
     if (!/^image\//.test(a.type) && a.type !== "application/pdf") { setErro("Envie uma foto ou um PDF."); return; }
     setErro(null);
-    onEnviar(t);
+    onEnviar(t, a);
   };
   const botao = "inline-flex items-center justify-center gap-2 h-12 rounded-pill text-[15px] font-medium disabled:opacity-50";
   return (
@@ -1243,12 +1299,12 @@ function CartaoDocEmpresa({ ativo, pj, onEnviar }: { ativo: boolean; pj: boolean
  * RECONHECIMENTO FACIAL — as dicas em carrossel e a câmera frontal.
  *
  * ⚠️ **A verificação biométrica ainda não existe** (não há provedor
- * contratado). A tela pede a câmera de verdade e tira a foto, mas a foto NÃO
- * sai do aparelho: o cadastro guarda só que ela foi tirada (`capturada`). Sem
+ * contratado). A tela pede a câmera de verdade e tira a foto, que vai ao cofre
+ * depois de a conta nascer, para conferência pela plataforma. Sem
  * câmera, a validação fica `pendente` — ninguém é impedido de abrir a conta
  * por estar num computador sem câmera.
  */
-function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; onConcluir: (s: "capturada" | "pendente") => void }) {
+function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; onConcluir: (s: "capturada" | "pendente", foto?: Blob) => void }) {
   const [modo, setModo] = React.useState<"dicas" | "camera" | "erro">("dicas");
   const [dica, setDica] = React.useState(0);
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -1295,11 +1351,22 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
     }
   };
   const fotoNativa = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const tirou = !!e.target.files?.length;
+    const foto = e.target.files?.[0];
     e.target.value = "";
-    if (tirou) { parar(); onConcluir("capturada"); }
+    if (foto) { parar(); onConcluir("capturada", foto); }
   };
-  const capturar = () => { parar(); onConcluir("capturada"); };
+  // O quadro do vídeo vira JPEG antes de a câmera desligar.
+  const capturar = () => {
+    const v = videoRef.current;
+    const tela = document.createElement("canvas");
+    const fim = (foto?: Blob) => { parar(); onConcluir("capturada", foto ?? undefined); };
+    if (!v || !v.videoWidth) { fim(); return; }
+    tela.width = v.videoWidth; tela.height = v.videoHeight;
+    const ctx = tela.getContext("2d");
+    if (!ctx) { fim(); return; }
+    ctx.drawImage(v, 0, 0);
+    tela.toBlob((b) => fim(b ?? undefined), "image/jpeg", 0.9);
+  };
   const fechar = () => { parar(); onFechar(); };
   const d = DICAS_FACIAL[dica];
 
@@ -1314,9 +1381,9 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         {modo === "dicas" && (
           <>
             <span aria-hidden className="relative w-[200px] h-[200px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
-              <Icon name={d.icone} size={88} strokeWidth={1.25} />
+              <Icone3d nome={d.ilustracao} tamanho={120} />
               <span className="absolute top-3 right-3 w-11 h-11 rounded-pill flex items-center justify-center bg-lime text-on-lime">
-                <Icon name={d.icone === "glasses" ? "x" : "check"} size={20} color="currentColor" />
+                <Icon name={d.ilustracao === "picture" ? "x" : "check"} size={20} color="currentColor" />
               </span>
             </span>
             <p className="m-0 max-w-[320px] text-[28px] leading-[1.15] font-medium text-ink" aria-live="polite">{d.titulo}</p>
@@ -1339,7 +1406,7 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
         {modo === "erro" && (
           <>
             <span aria-hidden className="w-[120px] h-[120px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
-              <Icon name="camera" size={52} strokeWidth={1.25} />
+              <Icone3d nome="camera" tamanho={72} />
             </span>
             <div className="flex flex-col gap-2 max-w-[340px]">
               <p className="m-0 text-[22px] font-medium text-ink">Não consegui abrir a câmera</p>
@@ -1368,7 +1435,7 @@ function ReconhecimentoFacial({ onFechar, onConcluir }: { onFechar: () => void; 
  * VALIDAÇÃO DO DOCUMENTO — as dicas em carrossel e as duas portas: "Tirar
  * foto" (câmera traseira no celular, `capture="environment"`) e "Anexar
  * arquivo" (foto ou PDF já guardados). No computador as duas abrem o seletor
- * de arquivos. A imagem não sai do aparelho: quem a lê é o OCR do navegador.
+ * de arquivos. Quem a lê é o OCR do navegador; o arquivo vai ao cofre depois da conta.
  */
 function ValidacaoDocumento({ tipo, onFechar, onArquivo, onDepois }: {
   tipo: "rg" | "cnh";
@@ -1410,7 +1477,7 @@ function ValidacaoDocumento({ tipo, onFechar, onArquivo, onDepois }: {
       </div>
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-8 px-6 text-center">
         <span aria-hidden className="relative w-[200px] h-[200px] rounded-pill flex items-center justify-center text-ink" style={{ background: "var(--color-white)" }}>
-          <Icon name={d.icone} size={88} strokeWidth={1.25} />
+          <Icone3d nome={d.ilustracao} tamanho={120} />
           <span className="absolute top-3 right-3 w-11 h-11 rounded-pill flex items-center justify-center bg-lime text-on-lime">
             <Icon name="check" size={20} color="currentColor" />
           </span>

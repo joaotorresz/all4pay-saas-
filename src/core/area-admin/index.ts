@@ -161,6 +161,9 @@ export interface SecaoAdmin { id: string; rotulo: string; href: string; icone: s
 export const SECOES_ADMIN: readonly SecaoAdmin[] = [
   { id: "visao-geral", rotulo: "Visão geral", href: "/admin", icone: "house", resumo: "Receita recorrente, base de clientes e crescimento." },
   { id: "clientes", rotulo: "Clientes e planos", href: "/admin/clientes", icone: "building", resumo: "Plano e status de cobrança de cada empresa, e os planos oferecidos." },
+  // O funil da abertura de conta (etapa 3 do plano de documentos e funil):
+  // quem terminou, quem parou e onde, e os documentos do cofre (só com 2FA).
+  { id: "cadastros", rotulo: "Cadastros", href: "/admin/cadastros", icone: "users", resumo: "Quem terminou a abertura de conta, quem parou e em que passo, e os documentos enviados." },
   // ⚠️ O vínculo do EC morava no fim de Suporte, abaixo da lista de TODAS as
   // empresas — o dono procurou e não achou. Credenciar maquininha é tarefa
   // própria, e tarefa própria tem item no menu.

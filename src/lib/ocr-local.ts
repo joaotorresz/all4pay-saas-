@@ -289,6 +289,35 @@ export async function itensDoPdf(file: File): Promise<ItemPdf[]> {
 }
 
 /**
+ * Cada página do PDF como imagem (JPEG, ~1600px de largura) para a leitura do
+ * extrato por IA — uma chamada por página. Diferente de `rasterizarPdf`, que
+ * existe para o documento de uma página só, esta percorre o arquivo inteiro
+ * até `teto` e devolve também o total, para a tela dizer quando cortou.
+ * Gera sob demanda (`imagem(p)`): renderizar 30 páginas de uma vez seguraria
+ * dezenas de megabytes de canvas na memória do navegador.
+ */
+export async function paginasDoPdf(file: File): Promise<{ total: number; imagem: (p: number) => Promise<string> }> {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = workerDoPdf();
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const imagem = async (p: number) => {
+    const page = await pdf.getPage(p);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: Math.min(2.5, Math.max(1, 1600 / base.width)) });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas 2d indisponível");
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    const url = canvas.toDataURL("image/jpeg", 0.85);
+    canvas.width = 0; canvas.height = 0; // devolve a memória do canvas
+    return url;
+  };
+  return { total: pdf.numPages, imagem };
+}
+
+/**
  * O TEXTO cru de um documento de identidade (RG ou CNH), foto ou PDF, para a
  * conferência do cadastro (`core/cadastro.lerDocumentoIdentidade`). Roda no
  * navegador: a imagem não sai do aparelho.

@@ -238,7 +238,7 @@ export default function LoginPage() {
                   sete etapas. Quem chega ao login sem conta quer entrar, não
                   preencher inscrição municipal — o cadastro completo continua a
                   um clique dentro da própria tela de criar conta. */}
-              <Button variant="secondary" fullWidth onClick={() => router.push(pessoal ? "/comecar" : "/criar-conta")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
+              <Button variant="secondary" fullWidth onClick={() => router.push("/criar-conta")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
                 {pessoal ? "Criar conta pessoal" : "Criar conta"}
               </Button>
             </div>

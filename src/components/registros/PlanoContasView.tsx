@@ -23,6 +23,7 @@
  *    padrão, taxa de plataforma, chargeback…). Só FOLHAS entram.
  */
 import * as React from "react";
+import { abrirCriacao } from "@/components/app/criacao";
 import { Card, Button, Input, Select, Icon } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
@@ -106,7 +107,7 @@ function Arvore({ cats, carregando, carregado }: { cats: CategoriaCadastro[]; ca
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário de nova categoria já aberto.
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(nova(null, "despesa"));
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao("categoria");
   }, []);
   const { show, node } = useToast();
 
@@ -204,7 +205,7 @@ function Arvore({ cats, carregando, carregado }: { cats: CategoriaCadastro[]; ca
           <Icon name={recolhidos.size > 0 ? "chevron-down" : "chevron-right"} size={15} color="currentColor" />
           {recolhidos.size > 0 ? "Expandir tudo" : "Recolher tudo"}
         </Button>
-        <Button variant="outline" onClick={() => setEditando(nova(null, "despesa"))}>
+        <Button variant="outline" onClick={() => abrirCriacao("categoria")}>
           <Icon name="plus" size={15} color="currentColor" />
           Nova categoria ou grupo
         </Button>
@@ -318,6 +319,25 @@ function Legenda({ cor, children }: { cor: string; children: React.ReactNode }) 
       <span className="w-[8px] h-[8px] rounded-pill" style={{ background: cor }} />
       {children}
     </span>
+  );
+}
+
+/**
+ * O formulário de categoria da PORTA ÚNICA (o mesmo desta tela). A natureza
+ * vem de quem pede: o "+" do campo de categoria de uma conta a receber abre
+ * uma categoria de RECEITA. "Adicionar subcategoria" segue aqui, com o pai.
+ */
+export function NovaCategoria({ natureza = "despesa", onClose, onCriado }: {
+  natureza?: Natureza; onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  const arvore = useCategoriasArvore();
+  return (
+    <FormCategoria
+      inicial={nova(null, natureza)}
+      todas={arvore.data ?? []}
+      onClose={onClose}
+      onSalvo={(c) => onCriado(c.id || null, `Categoria "${c.nome}" criada.`)}
+    />
   );
 }
 

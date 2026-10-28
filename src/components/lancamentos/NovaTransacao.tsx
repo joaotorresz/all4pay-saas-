@@ -6,6 +6,7 @@ import { Input, Select, CurrencyInput, DateField } from "@/components/ui";
 import { useCreateLancamento, useCategories, useAccountsList, usePartiesByRole } from "./hooks";
 import { isoDay } from "@/lib/aggregations";
 import { cn } from "@/lib/utils";
+import { cadastroDe } from "@/components/app/criacao";
 import type { LancamentoInput } from "@/lib/types";
 
 /**
@@ -125,6 +126,7 @@ function FormModalShell({ tipo, onPickTipo, onClose }: { tipo: Tipo | null; onPi
           onChange={setPartyId}
           placeholder="Selecionar contato"
           options={(contatos ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          cadastrar={cadastroDe(kind === "receita" ? "cliente" : "fornecedor")}
         />
         <Select
           label="Categoria (opcional)"
@@ -132,6 +134,7 @@ function FormModalShell({ tipo, onPickTipo, onClose }: { tipo: Tipo | null; onPi
           onChange={setCategoryId}
           placeholder="Selecionar categoria"
           options={(categorias ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          cadastrar={cadastroDe("categoria", { natureza: kind })}
         />
         <Select
           label="Conta"
@@ -139,6 +142,7 @@ function FormModalShell({ tipo, onPickTipo, onClose }: { tipo: Tipo | null; onPi
           onChange={setAccountId}
           placeholder="Selecionar conta"
           options={(contas ?? []).map((a) => ({ value: a.id, label: a.name }))}
+          cadastrar={cadastroDe("conta-bancaria")}
         />
         <Input label="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Venda balcão, aluguel…" />
         {erro && <p className={cn("text-caption text-negative")}>{erro}</p>}

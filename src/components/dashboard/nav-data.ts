@@ -155,19 +155,24 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
-    // O ciclo da DESPESA, do pedido de compra ao título pago. As NFs da SEFAZ e
-    // os boletos do DDA moram na caixa de entrada de Títulos a pagar; os
-    // contratos de fornecedor, em Contas recorrentes.
-    id: "contas-a-pagar", label: "Comprar e pagar", icon: "arrow-down",
-    acao: { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus" },
+    // O ciclo da DESPESA, do pedido de compra ao título pago — o ESPELHO da
+    // Central de vendas (pedido do dono, 27/10/2026): quem aprendeu um lado
+    // sabe usar o outro. Mesma ordem, linha a linha: o painel único (calendário,
+    // status, títulos e a lista de compras, como o de vendas tem a de vendas) ·
+    // o canal próprio (folha, como a maquininha) · os documentos fiscais (o que
+    // chegou: NFs da SEFAZ e boletos do DDA, como as notas emitidas) · o que
+    // espera decisão (reembolsos, como a cobrança) · o que se repete (contas
+    // recorrentes e contratos de fornecedor, como assinaturas e contratos).
+    // Painel de contas a pagar, Títulos a pagar e Compras responderam 308 para
+    // o Painel de despesas.
+    id: "contas-a-pagar", label: "Central de despesas", icon: "arrow-down",
+    acao: { label: "Nova despesa", href: "/dashboard/financial/payables/new", icon: "plus" },
     items: [
-      { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "layout-dashboard" },
-      { label: "Títulos a pagar", desc: "O que você deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
-      { label: "Caixa de entrada", desc: "Documentos lidos, NFs da SEFAZ e boletos do DDA", href: "/contas-a-pagar/caixa-de-entrada", icon: "inbox" },
-      { label: "Compras", desc: "Pedidos de compra e aprovação", href: "/dashboard/purchases", icon: "inbox" },
-      { label: "Contas recorrentes", desc: "O que se repete, e os contratos de fornecedor", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
+      { label: "Painel de despesas", desc: "Calendário, status, títulos a pagar e compras numa tela só", href: "/contas-a-pagar/painel-de-despesas", icon: "gauge" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
-      { label: "Reembolsos", desc: "Despesa do colaborador", href: "/dashboard/financial/reimbursements", icon: "receipt" },
+      { label: "Caixa de entrada", desc: "Documentos lidos, NFs da SEFAZ e boletos do DDA", href: "/contas-a-pagar/caixa-de-entrada", icon: "file-text" },
+      { label: "Reembolsos", desc: "Despesa do colaborador, à espera de aprovação", href: "/dashboard/financial/reimbursements", icon: "receipt" },
+      { label: "Contas recorrentes", desc: "O que se repete, e os contratos de fornecedor", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
     ],
   },
   {
@@ -176,9 +181,13 @@ export const SECTIONS: Section[] = [
     id: "caixa", label: "Caixa e bancos", icon: "arrow-left-right", items: [
       { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "activity" },
-      { label: "Contas e cartões", desc: "Contas, faturas do cartão e transferências", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
+      { label: "Contas bancárias", desc: "Contas e cartões cadastrados", href: "/dashboard/registrations/bank-accounts", icon: "building" },
+      { label: "Faturas do cartão", desc: "O ciclo de cada cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
+      { label: "Transferências", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/transfers", icon: "arrow-left-right" },
       { label: "Conciliação bancária", desc: "Banco × lançamentos, inclusive Open Finance", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Entrada de dados", desc: "Conectar banco e enviar extrato", href: "/upload", icon: "upload" },
+      { label: "Regras de categoria", desc: "Categorização automática na importação", href: "/upload/regras", icon: "workflow" },
+      { label: "Duplicatas", desc: "Cópias já gravadas na base", href: "/upload/duplicatas", icon: "scan-line" },
       { label: "Baixas a confirmar", desc: "O que falta confirmar e baixar", href: "/central", icon: "list-checks" },
       { label: "Aprovações", desc: "Solicitações acima da alçada", href: "/aprovacoes", icon: "shield-check", pro: true },
     ],
@@ -187,10 +196,15 @@ export const SECTIONS: Section[] = [
     // O registro contábil e o que sai para o escritório. Os relatórios do
     // razão foram para Relatórios; o consolidado, para Multiempresas.
     id: "contabil", label: "Contabilidade", icon: "receipt", items: [
-      { label: "Razão contábil", desc: "Lançamentos, receita, cronogramas e dimensões", href: "/contabilidade?aba=razao", icon: "receipt" },
+      { label: "Razão contábil", desc: "Os lançamentos em partidas dobradas", href: "/contabilidade", icon: "receipt" },
+      { label: "Reconhecimento de receita", desc: "Receita diferida reconhecida mês a mês", href: "/receita", icon: "trending-up" },
+      { label: "Cronogramas", desc: "Amortização e depreciação", href: "/cronogramas", icon: "layers" },
+      { label: "Dimensões", desc: "Tags e o pivot do razão", href: "/dimensoes", icon: "layers" },
       { label: "Fechamento mensal", desc: "Checklist, provisões, trava e relatório do mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
-      { label: "Enviar ao contador", desc: "Razão e DRE, TXT Domínio e as NFs do mês", href: "/exportar", icon: "download" },
+      { label: "Razão e DRE para o contador", desc: "Planilha do razão e do DRE do período", href: "/exportar", icon: "download" },
+      { label: "TXT Domínio", desc: "O movimento no layout do Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
+      { label: "Envio das NFs", desc: "O pacote mensal de XMLs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail" },
     ],
   },
   {
@@ -202,7 +216,9 @@ export const SECTIONS: Section[] = [
       { label: "Balanço patrimonial", desc: "Ativo, passivo e PL em duas datas", href: "/dashboard/reports/balance-sheet", icon: "layers" },
       { label: "Análise de variação", desc: "O que mudou no mês, e por quê", href: "/dashboard/reports/variance", icon: "activity" },
       { label: "Orçamento", desc: "O previsto e o confronto com o real", href: "/orcamento", icon: "target" },
-      { label: "Multiempresas", desc: "DRE, DFC e posição do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DRE multiempresas", desc: "O resultado do grupo, empresa a empresa", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DFC multiempresas", desc: "O caixa do grupo, empresa a empresa", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "Posição consolidada", desc: "Saldo e resultado do grupo, com eliminações", href: "/consolidado", icon: "building", pro: true },
       { label: "Relatório ao investidor", desc: "O relatório mensal para quem investe", href: "/investidores", icon: "mail", pro: true },
       { label: "Meus painéis", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
     ],
@@ -281,7 +297,7 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", desc: "Seu mês em uma tela", href: "/", icon: "house" },
-      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
+      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/contas-a-pagar/painel-de-despesas", icon: "arrow-down" },
       { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/contas-a-receber/painel-de-vendas", icon: "arrow-up" },
     ],
   },

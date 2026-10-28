@@ -52,7 +52,7 @@ export default async function venderPos(navegador) {
   const verTudo = u.page.getByText("ver todo o período");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   v.ok(norm(await u.texto()).includes("R$ 730,00"), "a parcela de R$ 730,00 aparece em Títulos a receber");
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   if (await verTudo.count()) { await verTudo.first().click(); await u.page.waitForTimeout(800); }
   const taxaParcela = saidas[0]?.valor ?? NaN;
   const fmt = (n) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

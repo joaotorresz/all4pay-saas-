@@ -1,30 +1,15 @@
-"use client";
-
-import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
-import { HubShell, type AbaHub } from "@/components/app/HubShell";
 import { MultiempresaView } from "@/components/relatorios/MultiempresaView";
-import { ConsolidadoView } from "@/components/consolidado/ConsolidadoView";
 
 /**
- * Multiempresas — o grupo inteiro numa tela (reorganização dos menus,
- * 19/10/2026): DRE, DFC e a posição consolidada. Eram três rotas (uma delas
- * aba do Razão).
- *
- * ⚠️ A posição consolidada continua Pro (`ABAS_PRO`), como era no Razão.
+ * O DRE do grupo. "Multiempresas" tinha três abas (27/10/2026, fim das abas
+ * internas): o DFC voltou a `/dashboard/reports/dfc-multi` e a posição
+ * consolidada a `/consolidado` (Pro pelo prefixo em `ROTAS_PRO`).
  */
-const ABAS: AbaHub[] = [
-  { id: "dre", label: "DRE", render: () => <MultiempresaView tipo="dre" /> },
-  { id: "dfc", label: "DFC", render: () => <MultiempresaView tipo="dfc" /> },
-  { id: "consolidado", label: "Posição consolidada", render: () => <ConsolidadoView /> },
-];
-
-export default function MultiempresasPage() {
+export default function DreMultiPage() {
   return (
-    <AppShell title="Multiempresas" crumb="Relatórios">
-      <Suspense fallback={null}>
-        <HubShell abas={ABAS} />
-      </Suspense>
+    <AppShell title="DRE multiempresas" crumb="Relatórios">
+      <MultiempresaView tipo="dre" />
     </AppShell>
   );
 }

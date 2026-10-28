@@ -232,7 +232,7 @@ console.log("\nAVALIAÇÃO DA IA — casos conhecidos\n");
 // telas por id, e id inventado não vira botão.
 {
   const cheia = responderLocal("quanto gastei nos últimos 3 meses", INPUT);
-  ok("próximo passo: gasto leva a contas a pagar", !!cheia?.acoes?.some((a) => a.rota === "/contas-a-pagar"), JSON.stringify(cheia?.acoes));
+  ok("próximo passo: gasto leva a contas a pagar", !!cheia?.acoes?.some((a) => a.rota === "/contas-a-pagar/painel-de-despesas"), JSON.stringify(cheia?.acoes));
   const venc = acoesDeSeguimento("quem está me devendo?", ["recebíveis vencidos"]);
   ok("próximo passo: vencido de cliente leva a cobrar", venc[0]?.rota === "/dashboard/financial/overdue", JSON.stringify(venc));
   ok("próximo passo: calculadora não leva a tela de dados", acoesDeSeguimento("2% ao mês quanto dá ao ano", ["conversão de taxa"]).length === 0);

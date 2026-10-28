@@ -305,6 +305,30 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/caixa-email.sql
+      # A jornada do cadastro: só a chave de serviço registra, o passo guarda a
+      # PRIMEIRA chegada, teto por origem, a conclusão liga à empresa aberta e
+      # o cliente não chega na tabela.
+      - name: Guarda da jornada do cadastro (registro, teto, conclusão, acesso)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-jornada.sql
+      # O cofre dos documentos do cadastro: registra só o arquivo da própria
+      # empresa e da própria pessoa, tamanho e formato vêm do Storage, guarda 5
+      # anos, teto por empresa, e ninguém lê a tabela pelo app.
+      - name: Guarda do cofre de documentos do cadastro (pasta, dono, teto, acesso)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-documentos.sql
+      # O funil do cadastro no admin: só a plataforma lê; documento só com o
+      # segundo fator, sem o caminho na lista, e cada abertura deixa rastro.
+      - name: Guarda do funil do cadastro no admin (plataforma, segundo fator, rastro)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-admin.sql
+      - name: Guarda dos lembretes do cadastro (candidatas, um por canal, dois no máximo)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-lembretes.sql
       # ⚠️ Rodada 6: o papel vale em toda tabela de dinheiro — leitor recusado
       # em venda, recorrência, cadastro e razão; contador externo grava no
       # razão e é recusado na venda; o leitor continua lendo.
@@ -351,6 +375,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-checkout.sql
+      # A cobrança pela conta bancária conectada (Inter, etapa 3): só quem
+      # administra conecta, o segredo cifrado só a chave de serviço lê, uma
+      # cobrança viva por título (contando a Pinbank), processando/incerta
+      # nunca liberam outra. 15 defeitos plantados, lendo a mensagem.
+      - name: Guarda — cobrança pela conta bancária (conexão e reserva)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cobranca-banco.sql
       # ⚠️ O PRIMEIRO passo deste job a falar com o Auth (GoTrue/Kong), não só
       # com o Postgres: arreio novo, declarado no PR. Prova que o config.toml
       # commitado LIGA o aplicativo autenticador (o padrão local é desligado),

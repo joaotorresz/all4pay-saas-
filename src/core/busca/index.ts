@@ -92,7 +92,7 @@ export interface ResultadoBusca {
  * setembro, cairia fora da janela do mês corrente e a tela diria "nenhum".
  */
 export function rotaDoTitulo(m: Pick<RiskMovement, "id" | "type">): string {
-  const base = m.type === "entrada" ? "/contas-a-receber/painel-de-vendas" : "/contas-a-pagar/titulos";
+  const base = m.type === "entrada" ? "/contas-a-receber/painel-de-vendas" : "/contas-a-pagar/painel-de-despesas";
   return `${base}?busca=${encodeURIComponent(m.id)}`;
 }
 

@@ -22,7 +22,7 @@ import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
 import { AcaoDestrutiva } from "@/components/ui/AcaoDestrutiva";
 import { hasImported } from "@/lib/imported";
-import { lerDocumento } from "@/lib/ocr-ingest";
+import { lerDocumento, type EtapaLeitura, type LeituraIA } from "@/lib/ocr-ingest";
 import { autoCategorizar, iaCategorizadorAtivo } from "@/lib/puzzlebot";
 import { RevisaoImportacao } from "./RevisaoImportacao";
 import { AssistenteImportacao } from "./AssistenteImportacao";
@@ -54,6 +54,10 @@ export function UploadView() {
   const [resultado, setResultado] = React.useState<ResultadoOnboarding | null>(null);
   const [importado, setImportado] = React.useState(false);
   const [lendo, setLendo] = React.useState(false);
+  /** Extrato escaneado: em que página a IA está (a leitura de 12 páginas leva tempo, e calada parece travada). */
+  const [progresso, setProgresso] = React.useState<EtapaLeitura | null>(null);
+  /** O que a IA NÃO leu (página que falhou, além do teto, linha recusada) — dito, nunca calado. */
+  const [avisoIA, setAvisoIA] = React.useState<string | null>(null);
   const [erro, setErro] = React.useState<string | null>(null);
   const [drag, setDrag] = React.useState(false);
   const [iaCat, setIaCat] = React.useState(false);
@@ -181,7 +185,7 @@ export function UploadView() {
 
   /** Lê N arquivos (lote ou individual): texto vai direto; documento passa por OCR. */
   const lerArquivos = async (files: FileList | File[]) => {
-    setErro(null); setLendo(true);
+    setErro(null); setLendo(true); setAvisoIA(null);
     try {
       const linhas: string[] = texto.trim() ? [texto.trim()] : [];
       for (const f of Array.from(files)) {
@@ -193,13 +197,14 @@ export function UploadView() {
           const csv = csvDeLinhas(rows);
           if (csv.trim()) linhas.push(csv); else setErro("A planilha não tinha linhas com dado.");
         } else {
-          const r = await lerDocumento(f, true); // PDF com texto → lote; imagem/PDF escaneado → OCR
+          const r = await lerDocumento(f, true, setProgresso); // PDF com texto → lote; escaneado → IA página a página ou OCR
           // ⚠️ **O extrato em PDF é LOTE.** `lerDocumento` reconstrói a tabela do
           // PDF e devolve `bulk`; este laço só tratava `doc` e `erro`, então a
           // tabela inteira era lida e DESCARTADA em silêncio — o extrato entrava
           // como nenhum lançamento. Guarda no `engine-audit` (bloco `pdf-lote:`).
           if (r.kind === "bulk") {
             if (r.texto.trim()) linhas.push(r.texto.trim());
+            if (r.ia) setAvisoIA(avisoDaLeituraIA(f.name, r.ia));
           } else if (r.kind === "doc") {
             const l = docParaLinha(r.fields);
             if (l) linhas.push(l); else setErro("Não consegui ler o valor de um documento.");
@@ -214,7 +219,7 @@ export function UploadView() {
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao ler o arquivo.");
     } finally {
-      setLendo(false);
+      setLendo(false); setProgresso(null);
     }
   };
 
@@ -325,7 +330,7 @@ export function UploadView() {
           <div className="text-caption text-faint">CSV · OFX · TXT · PNG · JPG · PDF</div>
           <div className="flex items-center justify-center gap-2 flex-wrap mt-3">
             <label className="inline-block text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
-              {lendo ? "Lendo…" : "Escolher arquivos"}
+              {lendo ? (progresso?.fase === "pagina" ? `Lendo página ${progresso.pagina} de ${progresso.total}…` : "Lendo…") : "Escolher arquivos"}
               <input type="file" multiple accept=".csv,.ofx,.txt,.xlsx,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
             </label>
 
@@ -374,6 +379,7 @@ export function UploadView() {
           </div>
         </details>
         {erro && <span className="text-caption text-negative">{erro}</span>}
+        {avisoIA && <span className="text-caption text-muted">{avisoIA}</span>}
       </Card>
 
       {importado && !report && (
@@ -471,4 +477,15 @@ export function UploadView() {
       )}
     </div>
   );
+}
+
+/** A frase do que a IA leu de um extrato escaneado — e do que ficou de fora. */
+function avisoDaLeituraIA(arquivo: string, ia: LeituraIA): string {
+  const lidas = ia.lidas - ia.falhas.length;
+  const partes = [`${arquivo}: a IA leu ${lidas} de ${ia.paginas} ${ia.paginas === 1 ? "página" : "páginas"}`];
+  if (ia.falhas.length) partes.push(`não conseguiu ler ${ia.falhas.length === 1 ? "a página" : "as páginas"} ${ia.falhas.join(", ")}`);
+  if (ia.paginas > ia.lidas) partes.push(`o teto é de ${ia.lidas} páginas por arquivo`);
+  if (ia.recusadas) partes.push(`${ia.recusadas} ${ia.recusadas === 1 ? "linha ficou" : "linhas ficaram"} de fora (saldo, total ou ilegível)`);
+  const falta = ia.falhas.length > 0 || ia.paginas > ia.lidas;
+  return partes.join("; ") + (falta ? ". Confira o total com o banco antes de importar." : ".");
 }
