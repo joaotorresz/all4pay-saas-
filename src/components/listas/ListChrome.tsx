@@ -246,7 +246,7 @@ export function useToast() {
   // um card ele ancorava no rodapé do card, não da tela.
   const node = toast
     ? createPortal(
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[70]">
+        <div className="fixed bottom-[calc(24px+var(--a4p-barra-baixo,0px))] left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[70]">
           <Icon name="check" size={15} color="var(--color-lime)" />
           <span>{toast}</span>
         </div>,

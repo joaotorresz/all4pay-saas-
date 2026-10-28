@@ -35,7 +35,7 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
         ? `dt-${label.replace(/\s+/g, "-").toLowerCase()}`
         : `dt-${gerado}`);
     return (
-      <div className={cn("flex flex-col gap-[6px]", containerClassName)}>
+      <div className={cn("flex flex-col gap-[6px] min-w-0", containerClassName)}>
         {label && (
           <label htmlFor={inputId} className="text-label font-medium text-muted">
             {label}

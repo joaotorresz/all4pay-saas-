@@ -100,7 +100,7 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         {consolidado && <BotoesExportar nome={`${tipo}-multiempresas`} relatorio={consolidado.consolidado} layout={layout} />}
       </div>
 

@@ -61,7 +61,7 @@ export function DatePicker({ label, value, onChange, min, max, invalid, containe
   };
 
   return (
-    <div ref={ref} className={cn("flex flex-col gap-[6px] relative", containerClassName)}>
+    <div ref={ref} className={cn("flex flex-col gap-[6px] relative min-w-0", containerClassName)}>
       {label && <span className="text-label font-medium text-muted">{label}</span>}
       <button
         type="button"

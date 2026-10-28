@@ -71,7 +71,8 @@
     "pinbank-conferencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/pinbank-conferencia.mts",
     "tokens": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/tokens.mts",
     "nfse-focus": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/nfse-focus.mts",
-    "cobranca-banco-conexao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/cobranca-banco-conexao.mts"
+    "cobranca-banco-conexao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/cobranca-banco-conexao.mts",
+    "mobile-largura": "node scripts/mobile-largura.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",

@@ -327,7 +327,7 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
     warning: "var(--color-warning)", negative: "var(--color-negative)",
   };
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((c) => (
         <Card key={c.label} className="flex flex-col gap-1" info={"info" in c ? c.info : undefined}>
           <span className="inline-flex items-center gap-[6px] text-caption text-faint">

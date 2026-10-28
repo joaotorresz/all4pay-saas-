@@ -102,7 +102,7 @@ export function VariacaoView() {
             info={{ titulo: "Comentário do mês", oQue: "Um texto pronto para enviar ao sócio, ao conselho ou ao contador, explicando o que mudou.", comoCalcula: "Redigido a partir das linhas materiais e das categorias que mais pesaram em cada uma. Pode ser editado antes de copiar." }}>
             <span className="text-label font-medium text-muted">Comentário do mês</span>
             <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={Math.min(14, 3 + texto.split("\n").length * 2)} />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="secondary" onClick={copiar} leftIcon={<Icon name={copiado ? "check" : "file-text"} size={14} color="currentColor" />}>
                 {copiado ? "Copiado" : "Copiar comentário"}
               </Button>

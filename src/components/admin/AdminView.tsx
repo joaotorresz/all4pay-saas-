@@ -654,7 +654,7 @@ function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string;
             <div className="text-caption text-faint">Ver como cliente · read-only</div>
             <h3 className="m-0 text-h3 font-medium text-ink">{nome}</h3>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap max-w-full">
             <button onClick={logarComo} disabled={impBusy} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[6px] disabled:opacity-60">
               {impBusy ? "Abrindo…" : "Logar como"}
             </button>

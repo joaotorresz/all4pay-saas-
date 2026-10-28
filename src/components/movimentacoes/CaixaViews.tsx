@@ -77,7 +77,7 @@ export function FluxoCaixaMensalView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button
           variant="outline" disabled={!fluxo || fluxo.linhas.length === 0}
           onClick={() => baixarXLSX(`fluxo-de-caixa-${mes}`, [{ nome: "Fluxo de caixa", linhas: linhasXLSX }])}
@@ -212,7 +212,7 @@ export function ExtratoView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button
           variant="outline" disabled={!ext || ext.linhas.length === 0}
           onClick={() => ext && baixarXLSX(`extrato-${de}-${ate}`, [{

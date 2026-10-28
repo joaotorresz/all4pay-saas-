@@ -276,7 +276,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-3 shrink-0">
           <span className="rounded-pill bg-surface-2 px-3 py-[6px] text-caption text-muted">
             Regime <b className="text-ink">{regimeEmpresa === "presumido" ? "Lucro Presumido" : regimeEmpresa === "real" ? "Lucro Real" : "Simples Nacional"}</b>
@@ -554,7 +554,7 @@ export function AssinaturasVendasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button variant="outline" disabled={visiveis.length === 0}
           onClick={() => baixarXLSX("assinaturas", [{
             nome: "Assinaturas",
@@ -660,7 +660,7 @@ export function LinksPagamentoView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button variant="primary" onClick={() => setNovo(criar())}>
           <Icon name="plus" size={15} color="currentColor" />
           Novo link

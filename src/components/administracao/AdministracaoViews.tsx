@@ -366,8 +366,8 @@ export function UsuariosView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap max-w-full">
           <Button variant="primary" onClick={() => { setErro(null); setConvite(true); }}>
             <Icon name="plus" size={15} color="currentColor" />
             Convidar usuário
@@ -566,7 +566,7 @@ export function LogsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button variant="outline" disabled={lista.length === 0} onClick={() => baixarXLSX("logs", [{ nome: "Logs", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
           Exportar XLSX
@@ -668,7 +668,7 @@ export function RelatoriosExportadosView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button variant="ghost" onClick={() => { setLista(listarExportacoes()); toast("Lista recarregada."); }}>
           <Icon name="rotate-ccw" size={15} color="currentColor" />
           Recarregar

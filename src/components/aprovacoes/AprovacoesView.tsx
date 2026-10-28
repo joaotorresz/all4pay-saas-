@@ -100,12 +100,12 @@ export function AprovacoesView() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Fila */}
       <Card padded={false} className="lg:col-span-2">
-        <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
+        <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft overflow-x-auto [scrollbar-width:none]">
           {ABAS.map((a) => {
             const n = contaAba(lista, a.id);
             const on = aba === a.id;
             return (
-              <button key={a.id} onClick={() => setAba(a.id)} className={`relative inline-flex items-center gap-2 px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>
+              <button key={a.id} onClick={() => setAba(a.id)} className={`relative shrink-0 inline-flex items-center gap-2 px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>
                 {a.label}<span className="text-[12px] tabular-nums text-faint bg-surface-2 rounded-pill px-[6px]">{n}</span>
                 {on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}
               </button>

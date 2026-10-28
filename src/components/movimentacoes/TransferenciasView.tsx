@@ -69,8 +69,8 @@ export function TransferenciasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap max-w-full">
           <Button variant="primary" onClick={() => abrirCriacao("transferencia")}>
             <Icon name="plus" size={15} color="currentColor" />
             Nova transferência
