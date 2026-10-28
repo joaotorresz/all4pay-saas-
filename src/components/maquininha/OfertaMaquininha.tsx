@@ -26,8 +26,8 @@ import {
 import { usePermissoes } from "@/components/app/usePermissoes";
 import {
   ETAPAS_PEDIDO, NOME_FORMA, NOME_SITUACAO, PEDIDO_VAZIO, TETO_MAQUININHAS, compararTaxas, completarTaxasAtuais,
-  simularRepasse, simularVenda, validarPedido,
-  type Comparacao, type FormaOferta, type PedidoMaquininha, type TaxasPorForma, type TipoPedido,
+  origemDoPedido, simulacaoDoPedido, simularRepasse, simularVenda, validarPedido,
+  type Comparacao, type FormaOferta, type PedidoMaquininha, type SimulacaoDoPedido, type TaxasPorForma, type TipoPedido,
 } from "@/core/maquininha/oferta";
 import { SEGMENTOS, SEGMENTO_PADRAO, enviarPedido, listarPedidos, taxaDeReferencia, taxasDeMercado } from "@/lib/maquininha-oferta";
 import { isDemo } from "@/lib/demo";
@@ -36,6 +36,9 @@ import { dataBR, formatBRL, pct } from "@/lib/format";
 const LINK_INTEGRACAO = "/dashboard/administration/integrations?cartao=maquininha-pinbank";
 const cartao = { background: "var(--color-white)", borderRadius: "var(--a4p-box-radius)" } as const;
 const FORMAS: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+
+/** O que a comparação leva ao formulário: faturamento, texto e a simulação estruturada (vai ao CRM). */
+interface Preenchimento { vez: number; faturamento: number; observacao: string; simulacao: SimulacaoDoPedido }
 
 function hojeISO(): string {
   const d = new Date();
@@ -90,11 +93,11 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
   const [tipo, setTipo] = React.useState<TipoPedido>("pedir");
   // O que a comparação leva ao formulário (faturamento e as taxas de hoje),
   // para quem chega pelo pop-up não digitar de novo. `vez` refaz o preenchimento.
-  const [preenchimento, setPreenchimento] = React.useState<{ vez: number; faturamento: number; observacao: string } | null>(null);
+  const [preenchimento, setPreenchimento] = React.useState<Preenchimento | null>(null);
 
   const abrirPedido = (t: TipoPedido) => { setTipo(t); rolarPara("oferta-pedido"); };
-  const levarAoPedido = (faturamento: number, observacao: string) => {
-    setPreenchimento((x) => ({ vez: (x?.vez ?? 0) + 1, faturamento, observacao }));
+  const levarAoPedido = (faturamento: number, observacao: string, simulacao: SimulacaoDoPedido) => {
+    setPreenchimento((x) => ({ vez: (x?.vez ?? 0) + 1, faturamento, observacao, simulacao }));
     abrirPedido("pedir");
   };
 
@@ -317,7 +320,7 @@ const pctCampo = (f: number) => (f * 100).toFixed(2).replace(".", ",");
 
 function CompararMaquininha({ taxaDe, aoSeguir }: {
   taxaDe: ReturnType<typeof taxaDeReferencia>;
-  aoSeguir: (faturamento: number, observacao: string) => void;
+  aoSeguir: (faturamento: number, observacao: string, simulacao: SimulacaoDoPedido) => void;
 }) {
   const [volume, setVolume] = React.useState(30000);
   const [textos, setTextos] = React.useState<Record<FormaOferta, string>>({ pix: "", debito: "", credito: "", parcelado: "" });
@@ -335,11 +338,12 @@ function CompararMaquininha({ taxaDe, aoSeguir }: {
   const completas = React.useMemo(() => completarTaxasAtuais(informadas, taxasDeMercado(antecipado)), [informadas, antecipado]);
   const estimadas = FORMAS.filter((f) => completas[f].origem === "estimada");
 
-  const c = React.useMemo(() => compararTaxas({
+  const entrada = React.useMemo(() => ({
     volumeMensal: volume, mix: { pix: pix / 100, debito: debito / 100, credito: credito / 100, parcelado: parcelado / 100 },
     parcelasMedias: 4, antecipado,
     taxasAtuais: { pix: completas.pix.taxa, debito: completas.debito.taxa, credito: completas.credito.taxa, parcelado: completas.parcelado.taxa },
-  }, taxaDe), [volume, pix, debito, credito, parcelado, completas, antecipado, taxaDe]);
+  }), [volume, pix, debito, credito, parcelado, completas, antecipado]);
+  const c = React.useMemo(() => compararTaxas(entrada, taxaDe), [entrada, taxaDe]);
 
   // Mexer num pedaço do mix nunca passa de 100%: o crédito à vista fica com a sobra.
   const ajustar = (set: (n: number) => void, outros: number) => (n: number) => set(Math.min(n, 100 - outros));
@@ -423,7 +427,7 @@ function CompararMaquininha({ taxaDe, aoSeguir }: {
         <PopupEconomia
           c={c}
           aoFechar={() => setPopup(false)}
-          aoSeguir={() => { setPopup(false); aoSeguir(volume, observacao()); }}
+          aoSeguir={() => { setPopup(false); aoSeguir(volume, observacao(), simulacaoDoPedido(entrada, completas, c)); }}
         />
       )}
     </section>
@@ -531,7 +535,7 @@ function OQueVemJunto() {
 
 function FormularioPedido({ tipo, setTipo, segmento, preenchimento }: {
   tipo: TipoPedido; setTipo: (t: TipoPedido) => void; segmento: string;
-  preenchimento: { vez: number; faturamento: number; observacao: string } | null;
+  preenchimento: Preenchimento | null;
 }) {
   const qc = useQueryClient();
   const permissoes = usePermissoes();
@@ -548,7 +552,13 @@ function FormularioPedido({ tipo, setTipo, segmento, preenchimento }: {
   React.useEffect(() => {
     if (!preenchimento) return;
     setEnviado(null);
-    setP((x) => ({ ...x, faturamentoMensal: preenchimento.faturamento > 0 ? preenchimento.faturamento : x.faturamentoMensal, observacao: preenchimento.observacao.slice(0, 500) }));
+    setP((x) => ({
+      ...x,
+      faturamentoMensal: preenchimento.faturamento > 0 ? preenchimento.faturamento : x.faturamentoMensal,
+      observacao: preenchimento.observacao.slice(0, 500),
+      simulacao: preenchimento.simulacao,
+      origem: origemDoPedido(preenchimento.simulacao.veredito),
+    }));
   }, [vez]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enviar = async (e: React.FormEvent) => {

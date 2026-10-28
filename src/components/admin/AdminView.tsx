@@ -498,6 +498,13 @@ function PedidosMaquininhaCard({ toast }: { toast: (s: string) => void }) {
               {p.faturamento_mensal ? ` · ${formatBRL(p.faturamento_mensal)}/mês` : ""}
               {p.observacao ? ` · "${p.observacao}"` : ""}
             </span>
+            {p.origem !== "formulario" && (
+              <span className="text-ink tabular-nums" title={p.simulacao ? `Hoje ${formatBRL(p.simulacao.custoAtualMes)}/mês · Quattro ${formatBRL(p.simulacao.custoQuattroMes)}/mês` : undefined}>
+                {p.origem === "economia"
+                  ? `Economia de ${p.simulacao ? formatBRL(p.simulacao.economiaMes) : "—"}/mês`
+                  : "Quer proposta de taxas"}
+              </span>
+            )}
             <span className="text-muted tabular-nums">{p.criado_em.slice(8, 10)}/{p.criado_em.slice(5, 7)}/{p.criado_em.slice(0, 4)}</span>
             <div className="w-[160px]">
               <Select aria-label="Situação do pedido" value={p.situacao} onChange={(v) => mudar(p.id, v as SituacaoPedido)} options={opcoes} />
