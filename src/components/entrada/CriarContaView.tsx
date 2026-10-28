@@ -43,7 +43,7 @@ import { enviarDocumentosDoCadastro, type DocumentoPendente } from "@/lib/cadast
 import type { TipoDocumento } from "@/core/cadastro/documentos";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
-import { reportar } from "@/lib/erros";
+import { reportar, motivoDaRecusa } from "@/lib/erros";
 import { textoDoDocumento } from "@/lib/ocr-local";
 import { consultarCNPJ, type DadosCNPJ } from "@/lib/cnpj";
 import { lookupCep } from "@/lib/viacep";
@@ -619,7 +619,7 @@ export function CriarContaView() {
         try { await aplicarAlcadaDoOnboarding(alcadaDoOnboarding(montado.participantes)); }
         catch (e) {
           reportar("organizacao.alcada", e, "os limites de aprovação respondidos no cadastro não foram gravados; vale o teto padrão até alguém ajustar");
-          falhaAlcada = e instanceof Error ? e.message : String(e);
+          falhaAlcada = motivoDaRecusa(e);
         }
       }
       // ⚠️ `limite` sai do perfil: a alçada mora em `central_alcada`, não aqui.
@@ -637,7 +637,7 @@ export function CriarContaView() {
         try {
           await enviarPedido(pedido);
         } catch (e) {
-          falhaPedido = e instanceof Error ? e.message : String(e);
+          falhaPedido = motivoDaRecusa(e);
           reportar("criar-conta.maquininha", e, "o pedido da maquininha feito na abertura não foi registrado; a pessoa refaz na página Maquininha");
         }
       }
@@ -661,7 +661,7 @@ export function CriarContaView() {
       setDigitando(false);
       setEtapa("erro");
       await falar(
-        [`Sua conta foi criada, mas não consegui salvar todo o cadastro: ${e instanceof Error ? e.message : String(e)}.`],
+        [`Sua conta foi criada, mas não consegui salvar todo o cadastro: ${motivoDaRecusa(e)}.`],
         { alerta: true, acoes: [{ rotulo: "Tentar de novo", icone: "rotate-ccw", fazer: () => void criar(c, senha) }] },
       );
     }

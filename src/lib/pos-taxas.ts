@@ -12,9 +12,9 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
-import { ler, gravar as gravarOrg } from "@/lib/store-org";
+import { ler, gravar as gravarOrg, organizacaoAtivaDoServidor } from "@/lib/store-org";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
-import { reportar } from "@/lib/erros";
+import { reportar, motivoDaRecusa } from "@/lib/erros";
 import { diasDeAntecipacao, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
 export type Bandeira = "master" | "visa" | "elo";
@@ -256,13 +256,20 @@ export async function persistPosConfig(c: PosConfig): Promise<void> {
   savePosConfig(c);
   if (isDemo) return;
   const s = createClient();
-  const { data, error } = await s
-    .from("pos_rates")
-    .update({ config: c, updated_at: new Date().toISOString() })
-    .select("org_id").limit(TETO_LINHAS);
-  if (error) throw error;
-  if (!data || data.length === 0) {
+  // ⚠️ O UPDATE precisa de filtro: o banco (safeupdate) recusa UPDATE sem WHERE.
+  const orgAtiva = await organizacaoAtivaDoServidor();
+  let gravou = false;
+  if (orgAtiva) {
+    const { data, error } = await s
+      .from("pos_rates")
+      .update({ config: c, updated_at: new Date().toISOString() })
+      .eq("org_id", orgAtiva)
+      .select("org_id").limit(TETO_LINHAS);
+    if (error) throw new Error(motivoDaRecusa(error));
+    gravou = !!data && data.length > 0;
+  }
+  if (!gravou) {
     const { error: insErr } = await s.from("pos_rates").insert({ config: c });
-    if (insErr) throw insErr;
+    if (insErr) throw new Error(motivoDaRecusa(insErr));
   }
 }
