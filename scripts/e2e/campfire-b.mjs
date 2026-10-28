@@ -22,8 +22,8 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
 const LINHA_1234 = "34191234546789012345767890123457416050000123456"; // Itaú · R$ 1.234,56 · vence 20/10/2026
 const LINHA_777 = "34199876504321098765743210987657516050000077777";  // Itaú · R$ 777,77
 
-async function escolherNaBusca(u, rotuloBotao) {
-  await u.page.locator("main button", { hasText: rotuloBotao }).first().click({ timeout: 8000 });
+async function escolherNaBusca(u, rotuloBotao, raiz = u.page.locator("main")) {
+  await raiz.locator("button", { hasText: rotuloBotao }).first().click({ timeout: 8000 });
   await u.page.waitForTimeout(300);
   const opcao = u.page.locator('[role="option"]').first();
   const tem = await opcao.count();
@@ -76,21 +76,23 @@ export default async function campfireB(navegador) {
   await page.waitForTimeout(300);
 
   await page.locator("li[data-caixa-item]", { hasText: "Energia Campfire SA" }).getByRole("button", { name: "Criar conta a pagar" }).click();
-  await page.waitForURL(/payables\/new/, { timeout: 20000 });
+  // Desde 27/10/2026 toda criação abre o MESMO formulário em pop-up, sem sair da tela.
+  const dlg = page.locator('[role="dialog"]').last();
+  await dlg.waitFor({ timeout: 20000 });
   await page.waitForTimeout(1500);
-  t = plano(await u.texto());
+  t = plano(await dlg.innerText());
   v.ok(/caixa de entrada/i.test(t) && /Energia Campfire SA/.test(t), "o formulário abre dizendo de onde veio");
-  const valorCampo = await page.locator('main input[placeholder="0,00"]').first().inputValue();
+  const valorCampo = await dlg.locator('input[placeholder="0,00"]').first().inputValue();
   v.ok(brl(valorCampo) === 1234.56, "o valor do boleto já vem preenchido", valorCampo);
-  const venc = await page.locator('main [data-campo="vencimento"] input[type="date"]').first().inputValue().catch(() => "");
+  const venc = await dlg.locator('[data-campo="vencimento"] input[type="date"]').first().inputValue().catch(() => "");
   v.ok(venc === "2026-10-20", "o vencimento do boleto já vem preenchido", venc);
-  await escolherNaBusca(u, /Busque a conta/);
-  await escolherNaBusca(u, /Busque ou crie/);
-  if (await page.locator("main button", { hasText: /Digite nome ou documento/ }).count()) await escolherNaBusca(u, /Digite nome ou documento/);
-  for (const d of await page.locator('main input[type="date"]').all()) if (!(await d.inputValue())) await d.fill("2026-10-20");
-  await page.getByRole("button", { name: "Salvar" }).last().click();
+  await escolherNaBusca(u, /Busque a conta/, dlg);
+  await escolherNaBusca(u, /Busque ou crie/, dlg);
+  if (await dlg.locator("button", { hasText: /Digite nome ou documento/ }).count()) await escolherNaBusca(u, /Digite nome ou documento/, dlg);
+  for (const d of await dlg.locator('input[type="date"]').all()) if (!(await d.inputValue())) await d.fill("2026-10-20");
+  await dlg.getByRole("button", { name: "Salvar" }).last().click();
   await page.waitForTimeout(2500);
-  v.ok(!page.url().includes("/new"), "salvar sai do formulário", page.url());
+  v.ok((await page.locator('[role="dialog"]').count()) === 0, "salvar fecha o formulário", page.url());
 
   await u.ir("/contas-a-pagar/caixa-de-entrada");
   const aba3 = plano(await page.locator('[data-contador-caixa]').first().innerText());
@@ -108,14 +110,14 @@ export default async function campfireB(navegador) {
   v.ok(await hit.count() > 0, "a busca por \"1.234,56\" acha o título");
   if (await hit.count()) {
     await hit.click();
-    await page.waitForURL(/contas-a-pagar\/titulos\?busca=/, { timeout: 20000 });
+    await page.waitForURL(/contas-a-pagar\/painel-de-despesas\?busca=/, { timeout: 20000 });
     await page.waitForTimeout(2500);
     t = plano(await u.texto());
     v.ok(/1\.234\s*,56/.test(t), "a busca abre a lista de títulos já filtrada no título", page.url());
   }
 
   /* ── 3. edição em massa ──────────────────────────────────────────────── */
-  const linhas = page.locator("main tbody tr");
+  const linhas = page.locator('main table[data-tabela="titulos"] tbody tr');
   v.ok(await linhas.count() === 1, "a lista filtrada pela busca mostra só aquele título", String(await linhas.count()));
   const catAntes = plano(await linhas.first().innerText());
   await linhas.first().locator("label").first().click();
@@ -130,12 +132,12 @@ export default async function campfireB(navegador) {
   v.ok(/Vão mudar 1 título/.test(planoTxt) && /1\.234\s*,56/.test(planoTxt) && planoTxt.includes(alvo ?? "§"), "o plano mostra quantos, quanto e o de→para ANTES de aplicar", planoTxt);
   await page.getByRole("button", { name: /Aplicar a 1 título/ }).click();
   await page.waitForTimeout(2000);
-  const catDepois = plano(await page.locator("main tbody tr").first().innerText().catch(() => ""));
+  const catDepois = plano(await page.locator('main table[data-tabela="titulos"] tbody tr').first().innerText().catch(() => ""));
   v.ok(!!alvo && catDepois.includes(alvo), "a nova categoria aparece na lista", `${alvo} · ${catDepois}`);
   const catDe = (planoTxt.match(/Categoria: (.+?) →/) ?? [])[1] ?? "§";
 
   /* ── 4. extrato (do fornecedor do título, pela ficha aberta na lista) ── */
-  await page.locator("main tbody tr").first().locator("td button.decoration-dotted").first().click();
+  await page.locator('main table[data-tabela="titulos"] tbody tr').first().locator("td button.decoration-dotted").first().click();
   await page.waitForTimeout(2500);
   v.ok(!/Confirmar pagamento/.test(await u.texto()), "clicar no nome do fornecedor abre SÓ a ficha (não o modal de baixa por cima)");
   await extrato();
@@ -174,7 +176,9 @@ export default async function campfireB(navegador) {
   await u.ir("/consolidado");
   await page.waitForTimeout(1500);
   t = plano(await u.texto());
-  v.ok(/Eliminações entre empresas/.test(t) && /Critério conservador/.test(t), "o consolidado mostra as eliminações e o critério");
+  // O critério saiu do corpo do cartão para o "i" no design system de 16/10/2026
+  // (sem textos de apoio): basta o bloco das eliminações estar na tela.
+  v.ok(/Eliminações entre empresas/.test(t), "o consolidado mostra as eliminações");
   const linhasElim = await page.locator("[data-eliminacoes] tbody tr").count();
   v.ok(linhasElim >= 2, "a lista diz quem, quanto e em que competência", String(linhasElim));
   const tot = async (q) => (await page.locator(`[data-linha-total="${q}"] > span`).allInnerTexts()).map(brl);

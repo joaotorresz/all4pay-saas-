@@ -6,6 +6,8 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
+import { enderecoWhatsapp } from "@/core/financial-os/notifications.server";
+import { telefoneE164 } from "@/lib/telefone";
 import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
 import { BANCO_GLIFOS } from "@/components/ui/bancos-icones";
@@ -14,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, margemDaFaixa as margemDaFaixaMq, acrescimosDaMargem as acrescimosDaMargemMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -7719,6 +7721,27 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      Object.keys(vl).length === 4 && !("5" in vl) && va["5"] === "7", JSON.stringify({ vl, va }));
   for (const m of regua.mensagens.filter((x) => x.finalidade === "cobranca_lembrete"))
     ok("aut: a régua manda o lembrete sem a 5ª variável", !("5" in m.variaveis), JSON.stringify(m.variaveis));
+  // A Twilio recusa (400) o número sem DDI — medido em produção em 28/10/2026.
+  {
+    const casos: [string, string][] = [
+      ["11998388744", "whatsapp:+5511998388744"],
+      ["(11) 99838-8744", "whatsapp:+5511998388744"],
+      ["1133334444", "whatsapp:+551133334444"],
+      ["5511998388744", "whatsapp:+5511998388744"],
+      ["+55 11 99838-8744", "whatsapp:+5511998388744"],
+      ["+14155238886", "whatsapp:+14155238886"],
+      ["whatsapp:+14155238886", "whatsapp:+14155238886"],
+    ];
+    for (const [ent, esp] of casos)
+      ok(`aut: o WhatsApp sai em E.164 (${ent})`, enderecoWhatsapp(ent) === esp, enderecoWhatsapp(ent));
+    // E o cadastro grava pela mesma regra (espelho de public.telefone_e164).
+    const grava: [string | null, string | null][] = [
+      ["11998388744", "+5511998388744"], ["(11) 99838-8744", "+5511998388744"],
+      ["+14155238886", "+14155238886"], ["", null], [null, null], ["123", "123"],
+    ];
+    for (const [ent, esp] of grava)
+      ok(`aut: o telefone é gravado em E.164 (${ent})`, telefoneE164(ent) === esp, String(telefoneE164(ent)));
+  }
   // Encargo só quando configurado, e pela calculadora canônica.
   const comMora = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 0.02, jurosMesPct: 0.01 } }, ctx);
   const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
@@ -12214,10 +12237,58 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       devedor: { documento: "123.456.789-09", nome: "Fulano", email: null, logradouro: "Rua A", numero: "1", complemento: null, bairro: "Centro", cidade: "São Paulo", cep: "01000-000", uf: "sp" } };
     const pix = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix" } as never, 1919, new Date("2026-10-28T23:59:59-03:00"));
     ok("cobranca-pinbank: o Pix leva SegundosExpiracao até o fim do vencimento (1 dia = 86400)", pix.SegundosExpiracao === 86_400, String(pix.SegundosExpiracao));
+    ok("cobranca-pinbank: o Pix leva WebHook: true (pedido da Pinbank, 28/10/2026)", pix.WebHook === true, String(pix.WebHook));
     const pixVencido = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix" } as never, 1919, new Date("2026-11-30T12:00:00-03:00"));
     ok("cobranca-pinbank: título vencido ainda gera Pix com 1 hora de validade (nunca zero ou negativo)", pixVencido.SegundosExpiracao === 3600, String(pixVencido.SegundosExpiracao));
     const bol = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
     ok("cobranca-pinbank: o boleto leva Juros e Multa zerados", bol.Juros?.Valor === 0 && bol.Multa?.Valor === 0);
+  }
+  /* ── mensalidade-pinbank: a mensalidade do ERP pela conta da QUATTRO ─── */
+  {
+    const ROTA_MEN = "src/app/api/mensalidade/cobranca/route.ts";
+    const rotaMen = lerF(ROTA_MEN);
+    const ordemMen = (t: string) => {
+      const x = semComF(t).slice(semComF(t).indexOf("export async function POST"));
+      const iDemo = x.indexOf("NEXT_PUBLIC_SUPABASE_URL");
+      const iUser = x.indexOf("auth.getUser()");
+      const iLib = x.indexOf("mensalidadePinbankLiberada()");
+      const iRes = x.indexOf('s.rpc("mensalidade_reservar"');
+      const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+      const iReg = x.indexOf("mensalidade_registrar");
+      return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
+    };
+    ok("mensalidade-pinbank: a rota recusa sem banco → sessão → interruptor → reserva no banco → só então a Pinbank", ordemMen(rotaMen));
+    ok("mensalidade-pinbank: (defeito plantado) chamar a Pinbank antes da reserva é REPROVADO",
+       !ordemMen(rotaMen.replace("export async function POST(req: Request) {", "export async function POST(req: Request) {\n  await emitirCobrancaPinbank(reserva);")));
+    const comoPessoa = (t: string) => /s\.rpc\("mensalidade_reservar"/.test(semComF(t)) && !/admin\.rpc\("mensalidade_reservar"/.test(semComF(t));
+    ok("mensalidade-pinbank: a reserva roda com a sessão da pessoa, nunca com a chave de serviço", comoPessoa(rotaMen));
+    ok("mensalidade-pinbank: (defeito plantado) reservar pela chave de serviço é ACUSADO",
+       !comoPessoa(rotaMen.replace('s.rpc("mensalidade_reservar"', 'admin.rpc("mensalidade_reservar"')));
+    const regForaMen = (ler: (p: string) => string) => arqsF.filter((p) => p !== ROTA_MEN && /mensalidade_registrar/.test(semComF(ler(p))));
+    ok("mensalidade-pinbank: só a rota grava o resultado (mensalidade_registrar)", regForaMen(lerF).length === 0, regForaMen(lerF).join(", "));
+    // O código da conta que RECEBE e o interruptor moram numa casa só.
+    const VARS_MEN = /\b(MENSALIDADE_PINBANK|PINBANK_QUATTRO_CODIGO_CLIENTE)\b/;
+    const leMen = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && VARS_MEN.test(semComF(ler(p))));
+    ok("mensalidade-pinbank: MENSALIDADE_PINBANK e o código da conta da Quattro só são lidos pelo cliente da API",
+       leMen(lerF).length === 0 && /MENSALIDADE_PINBANK/.test(semComF(lerF(P_API))) && /PINBANK_QUATTRO_CODIGO_CLIENTE/.test(semComF(lerF(P_API))), leMen(lerF).join(", "));
+    ok("mensalidade-pinbank: (defeito plantado) a rota lendo o código da conta direto é ACUSADA",
+       leMen((p) => (p === ROTA_MEN ? lerF(p) + "\nconst c = process.env.PINBANK_QUATTRO_CODIGO_CLIENTE;" : lerF(p))).includes(ROTA_MEN));
+    ok("mensalidade-pinbank: as duas variáveis estão no .env.example",
+       /^#?\s*MENSALIDADE_PINBANK=/m.test(docEnv) && /^#?\s*PINBANK_QUATTRO_CODIGO_CLIENTE=/m.test(docEnv));
+    const API = await import("@/lib/pinbank/api");
+    const base = { PINBANK_API_AMBIENTE: "producao" } as Record<string, string>;
+    const credOk = Object.fromEntries(API.variaveisFaltando({}).map((n) => [n, "x"]));
+    const env = { ...credOk, ...base, MENSALIDADE_PINBANK: "ligado", PINBANK_QUATTRO_CODIGO_CLIENTE: "119446" };
+    const lib = API.mensalidadePinbankLiberada(env);
+    ok("mensalidade-pinbank: ligada com credencial, produção e código → liberada com o código", lib.liberada && lib.codigoCliente === 119446);
+    ok("mensalidade-pinbank: nasce DESLIGADA", !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "" }).liberada);
+    ok("mensalidade-pinbank: código da conta ausente ou inválido → não liberada",
+       !API.mensalidadePinbankLiberada({ ...env, PINBANK_QUATTRO_CODIGO_CLIENTE: "" }).liberada
+       && !API.mensalidadePinbankLiberada({ ...env, PINBANK_QUATTRO_CODIGO_CLIENTE: "12a" }).liberada
+       && !API.mensalidadePinbankLiberada({ ...env, PINBANK_QUATTRO_CODIGO_CLIENTE: "-5" }).liberada);
+    ok("mensalidade-pinbank: credencial de teste → não liberada", !API.mensalidadePinbankLiberada({ ...env, PINBANK_API_AMBIENTE: "dev" }).liberada);
+    ok("mensalidade-pinbank: ligar a cobrança dos clientes NÃO liga a mensalidade",
+       !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "", PINBANK_COBRANCA: "ligado" }).liberada);
   }
   /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
   const PG_PAGAR = "src/app/pagar/page.tsx";
@@ -13199,6 +13270,49 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        && !/filaDePedidos/.test(sem("src/components/admin/AdminView.tsx")));
   }
 
+  // ── A ficha do lead (CRM etapa 3): a proposta do consultor e o próximo contato.
+  ok("maquininha-oferta: taxa proposta fora de [0, 20%] e forma inventada são descartadas uma a uma",
+     JSON.stringify(lerTaxasPropostasMq({ debito: 0.01, credito: 0.35, boleto: 0.01, pix: -0.01 })) === JSON.stringify({ debito: 0.01 })
+     && lerTaxasPropostasMq({ credito: TETO_TAXA_PROPOSTA_MQ })?.credito === TETO_TAXA_PROPOSTA_MQ);
+  ok("maquininha-oferta: nenhuma taxa válida é \"sem proposta\", não proposta de 0%",
+     lerTaxasPropostasMq({}) === null && lerTaxasPropostasMq({ credito: "1,5" }) === null && lerTaxasPropostasMq([0.01]) === null && lerTaxasPropostasMq(null) === null);
+  ok("maquininha-oferta: sem taxa proposta não há comparação da proposta", comparacaoDaPropostaMq(sim, null) === null && comparacaoDaPropostaMq(sim, {}) === null);
+  const igual = comparacaoDaPropostaMq(sim, { ...sim.taxasQuattro });
+  ok("maquininha-oferta: propor as taxas da tabela reproduz a simulação do cliente (mesma conta)",
+     !!igual && Math.abs(igual.custoQuattro - sim.custoQuattroMes) < 0.005 && Math.abs(igual.custoAtual - sim.custoAtualMes) < 0.005, JSON.stringify(igual));
+  const prop = comparacaoDaPropostaMq(sim, { debito: 0.005 });
+  ok("maquininha-oferta: baixar só o débito baixa só a parte do débito (o crédito segue na taxa da tabela)",
+     !!prop && Math.abs(prop.custoQuattro - (sim.custoQuattroMes - 5_000 * (sim.taxasQuattro.debito - 0.005))) < 0.005, JSON.stringify(prop));
+  ok("maquininha-oferta: o próximo contato contra hoje (atrasado · hoje · agendado · sem data)",
+     situacaoDoContatoMq("2026-10-27", "2026-10-28") === "atrasado" && situacaoDoContatoMq("2026-10-28", "2026-10-28") === "hoje"
+     && situacaoDoContatoMq("2026-10-29T00:00:00", "2026-10-28") === "agendado" && situacaoDoContatoMq(null, "2026-10-28") === null);
+  {
+    const sem = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("maquininha-oferta: a ficha do lead é lida só pela própria ficha (uma morada só)",
+       /fichaDoLead\(/.test(sem("src/components/admin/FichaLead.tsx"))
+       && !/fichaDoLead/.test(sem("src/components/admin/FunilComercial.tsx")) && !/fichaDoLead/.test(sem("src/components/admin/AdminView.tsx")));
+  }
+
+  {
+    // A margem por faixa (planilha de precificação, 28/10/2026) e a média sobre o mix.
+    const FX = [{ ate: 10000, margem: 0.015 }, { ate: 25000, margem: 0.012 }, { ate: null, margem: 0.009 }];
+    ok("maquininha-oferta: R$ 10.000,00 ainda é a primeira faixa (1,5%)", margemDaFaixaMq(10000, FX) === 0.015);
+    ok("maquininha-oferta: R$ 10.000,01 já é a segunda (1,2%)", margemDaFaixaMq(10000.01, FX) === 0.012);
+    ok("maquininha-oferta: acima de R$ 25 mil é 0,9%, sem teto", margemDaFaixaMq(25000.01, FX) === 0.009 && margemDaFaixaMq(5e6, FX) === 0.009);
+    ok("maquininha-oferta: faturamento ausente cai na primeira faixa", margemDaFaixaMq(0, FX) === 0.015 && margemDaFaixaMq(NaN, FX) === 0.015);
+    ok("maquininha-oferta: faixas fora de ordem dão o mesmo resultado", margemDaFaixaMq(20000, [...FX].reverse()) === 0.012);
+    const media = (a: Record<string, number>, m: { pix: number; debito: number; credito: number; parcelado: number }) => a.pix * m.pix + a.debito * m.debito + a.credito * m.credito + a.parcelado * m.parcelado;
+    const MIX = { pix: 0.25, debito: 0.3, credito: 0.3, parcelado: 0.15 };
+    const a1 = acrescimosDaMargemMq(0.009, MIX, 0.04);
+    ok("maquininha-oferta: mix padrão — Pix e débito no custo, crédito e parcelado +2 pontos", a1.pix === 0 && a1.debito === 0 && Math.abs(a1.credito - 0.02) < 1e-12 && a1.credito === a1.parcelado);
+    const mixes = [MIX, { pix: 0.6, debito: 0.3, credito: 0.1, parcelado: 0 }, { pix: 0, debito: 0, credito: 0.5, parcelado: 0.5 }, { pix: 0.5, debito: 0.5, credito: 0, parcelado: 0 }, { pix: 0.05, debito: 0.05, credito: 0.05, parcelado: 0.85 }];
+    ok("maquininha-oferta: a média do mix é SEMPRE a margem da faixa", mixes.every((m) => [0.015, 0.012, 0.009].every((mg) => Math.abs(media(acrescimosDaMargemMq(mg, m, 0.04), m) - mg) < 1e-12)));
+    const a2 = acrescimosDaMargemMq(0.015, { pix: 0.6, debito: 0.3, credito: 0.1, parcelado: 0 }, 0.04);
+    ok("maquininha-oferta: pouco crédito — o acréscimo para no teto e o resto vai em Pix e débito", a2.credito === 0.04 && a2.pix > 0 && Math.abs(a2.pix - a2.debito) < 1e-15);
+    const a3 = acrescimosDaMargemMq(0.012, { pix: 0.5, debito: 0.5, credito: 0, parcelado: 0 }, 0.04);
+    ok("maquininha-oferta: sem cartão no mix, a margem vai inteira em Pix e débito", Math.abs(a3.pix - 0.012) < 1e-15 && a3.credito === 0);
+    ok("maquininha-oferta: margem inválida não sobe taxa nenhuma", Object.values(acrescimosDaMargemMq(NaN, MIX, 0.04)).every((x) => x === 0));
+  }
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }
 

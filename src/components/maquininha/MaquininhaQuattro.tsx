@@ -28,9 +28,10 @@ import {
   BarrasDestaque, BRL, Button, Card, CartaoBiblioteca, CurrencyInput, Icon, InfoHint, ListaProgresso, MapaCalorGrade, MetaCirculo, PizzaFatias, RoscaFatias,
   type CelulaCalor,
 } from "@/components/ui";
+import { MaquininhaMockup } from "@/components/maquininha/MaquininhaMockup";
 import { OfertaMaquininha } from "@/components/maquininha/OfertaMaquininha";
 import { precoParaReceber, ritmoDaMeta, simularAntecipacao } from "@/core/maquininha/oferta";
-import { SEGMENTO_PADRAO, taxaDeReferencia } from "@/lib/maquininha-oferta";
+import { SEGMENTO_PADRAO, taxaDaOferta } from "@/lib/maquininha-oferta";
 import { POS_DEFAULT } from "@/lib/pos-taxas";
 import { gravarPreferencia, lerPreferencia } from "@/lib/store-org";
 import { usePermissoes } from "@/components/app/usePermissoes";
@@ -140,7 +141,7 @@ function CardAntecipar({ dias, hoje }: { dias: { dia: string; valor: number }[];
 function CardQuantoCobrar({ observadas }: { observadas: { chave: string; nome: string; taxa: number }[] }) {
   const opcoes = React.useMemo(() => {
     if (observadas.length) return observadas;
-    const t = taxaDeReferencia(SEGMENTO_PADRAO);
+    const t = taxaDaOferta(SEGMENTO_PADRAO);
     const ref: { chave: string; nome: string; taxa: number | null }[] = [
       { chave: "pix", nome: "Pix", taxa: t("pix", 0, false) },
       { chave: "debito", nome: "Débito", taxa: t("debito", 0, false) },
@@ -323,12 +324,12 @@ export function MaquininhaQuattro() {
         <CardQuantoCobrar observadas={taxasObservadas} />
         <section className="flex flex-col gap-4 p-6 min-w-0" style={cartao}>
           <span className="text-[15px] text-ink">Mais um ponto de venda?</span>
-          <span className="w-11 h-11 rounded-pill flex items-center justify-center" style={{ background: "var(--color-surface-1)" }}>
-            <Icon name="smartphone" size={20} strokeWidth={1.75} />
-          </span>
-          <p className="text-[13px] text-muted m-0 flex-1">
-            Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
-          </p>
+          <div className="flex items-start gap-4 flex-1">
+            <p className="text-[13px] text-muted m-0 flex-1">
+              Peça outra maquininha para o balcão, o delivery ou uma nova loja. As vendas de todas aparecem juntas aqui, separadas por maquininha.
+            </p>
+            <MaquininhaMockup altura={96} decorativa />
+          </div>
           <Button variant="secondary" onClick={() => setVerOferta(true)}>Pedir outra maquininha</Button>
         </section>
       </div>

@@ -7,6 +7,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORIA_TRANSFERENCIA } from "@/core/indicadores/convencoes";
 import { isDemo } from "@/lib/demo";
+import { telefoneE164 } from "@/lib/telefone";
 import { importedParties, updateImportedParty, gravarParteDemo } from "@/lib/imported";
 import {
   DEMO_BRANDS,
@@ -336,7 +337,9 @@ export async function createContrato(input: ContratoInput): Promise<void> {
  * Cria um contato e devolve o ID — quem chama precisa dele para escolher o
  * contato recém-criado no formulário.
  */
-export async function createParty(input: PartyInput): Promise<{ id: string }> {
+export async function createParty(entrada: PartyInput): Promise<{ id: string }> {
+  // O telefone sai daqui em E.164 (+55…): é como o WhatsApp o aceita.
+  const input: PartyInput = { ...entrada, phone: telefoneE164(entrada.phone) };
   if (isDemo) {
     await delay();
     const id = `party-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -354,7 +357,8 @@ export async function createParty(input: PartyInput): Promise<{ id: string }> {
 }
 
 /** Atualiza um contato existente (ex.: adicionar telefone para cobrança). */
-export async function updateParty(id: string, patch: Partial<PartyInput>): Promise<void> {
+export async function updateParty(id: string, mudanca: Partial<PartyInput>): Promise<void> {
+  const patch: Partial<PartyInput> = "phone" in mudanca ? { ...mudanca, phone: telefoneE164(mudanca.phone) } : mudanca;
   if (isDemo) {
     await delay();
     // Em demo, reflete no dataset importado (quando o contato veio do FDIP).

@@ -11,7 +11,7 @@
  * "Burn mensal" era a média BRUTA das saídas e o runway dava "0 meses" sem
  * despesa —, e a lista gravava fora do `store-org`.
  */
-import { novoUsuario, verificador, brl } from "./kit.mjs";
+import { novoUsuario, verificador, brl, saldoDaHome } from "./kit.mjs";
 
 async function adicionar(u, nomeCatalogo) {
   await u.page.getByRole("button", { name: "Adicionar widget" }).click();
@@ -26,9 +26,7 @@ export default async function dashboards(navegador) {
   const v = verificador("plataforma-dashboards");
   const u = await novoUsuario(navegador);
 
-  await u.ir("/");
-  const home = (await u.texto()).replace(/\n/g, " ");
-  const saldoHome = brl(home.match(/Saldo em conta hoje\s*R\$\s*([\d.]+)/)?.[1] ?? "x");
+  const saldoHome = await saldoDaHome(u);
 
   await u.ir("/dashboard/dashboards/custom");
   await u.page.getByRole("button", { name: "Novo painel" }).first().click();

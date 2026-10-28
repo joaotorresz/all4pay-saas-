@@ -1072,6 +1072,17 @@ pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
   taxas são de REFERÊNCIA do segmento (`lib/maquininha-oferta`, sobre a tabela do
   simulador do POS, média das bandeiras) e a tela diz isso. Quando a taxa de hoje
   do cliente é MENOR, a frase diz — nunca "mais barata" à força.
+- ⚠️ **A taxa da oferta é CUSTO + MARGEM DA FAIXA (28/10/2026, decisão do
+  dono).** Custo da tabela do POS (faixa 1) sem o spread antigo, mais a
+  margem da planilha de precificação por faturamento mensal
+  (`FAIXAS_DE_MARGEM`: 1,5% até R$ 10 mil · 1,2% até R$ 25 mil · 0,9% acima),
+  aplicada na MÉDIA do mix (`acrescimosDaMargem`): Pix e débito no custo,
+  crédito e parcelado carregam, até `TETO_ACRESCIMO_CARTAO` (4 pontos); o
+  que passar vai igual em Pix e débito. Σ mix × acréscimo = margem (guarda no
+  bloco `maquininha-oferta:`). Faturamento e mix são da PÁGINA: taxas de
+  referência, simulador e comparação usam o mesmo perfil. O dono escolheu a
+  margem CHEIA mesmo acima do mercado (no mix padrão a folga contra o
+  mercado era 0,41 ponto) — não "corrigir" para baixo sem ele.
 - **O pedido chega à PLATAFORMA** (`maquininha_pedidos`, migration
   `20261026120000`, RPC `maquininha_pedido_criar`, só quem administra, teto de 5
   em aberto) e é atendido em Administração › **Comercial** (`admin_maquininha_pedidos`,
@@ -1084,7 +1095,15 @@ pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
   Instalado · Perdido). ⚠️ Cada coluna É uma situação do pedido: mover o card
   muda a situação que a empresa vê, e não existe um segundo campo de "etapa
   comercial". A lista de pedidos mora SÓ no funil (Maquininhas ficou com o
-  credenciamento do EC). Guarda `scripts/maquininha-pedidos.sql` no CI. ⚠️ O pedido de VÍNCULO não vincula: só a
+  credenciamento do EC). Guarda `scripts/maquininha-pedidos.sql` no CI. ⚠️ **A ficha do lead (etapa 3, migration `20261029130000`)**:
+  "Abrir ficha" no card abre responsável (alguém da plataforma), próximo
+  contato (atrasado/hoje no card), taxas propostas pelo consultor com a
+  economia refeita pela MESMA `compararTaxas` (`comparacaoDaProposta`),
+  motivo de perda e anotações. Mora em `maquininha_leads`/
+  `maquininha_lead_notas`, tabelas SEM concessão a ninguém — nunca coluna em
+  `maquininha_pedidos`, que a empresa lê. A anotação é HISTÓRICO: não há
+  função que a edite ou apague. Etapa do funil continua sendo só a situação.
+  Guarda `scripts/maquininha-leads.sql` no CI. ⚠️ O pedido de VÍNCULO não vincula: só a
   plataforma liga EC → empresa. Em demonstração o pedido fica só na memória da aba.
 - **Com maquininha**: cards da Home (sem a caixa da Quattro AI, a pedido do dono) e três
   interativos (meta do mês com ritmo, antecipar a agenda, quanto cobrar para

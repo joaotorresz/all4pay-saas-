@@ -1,10 +1,11 @@
 /**
  * A OFERTA DA MAQUININHA — a ponte entre a tela e o resto do sistema:
  *
- * - `taxaDeReferencia(segmento)`: a `TaxaDe` do motor puro
- *   (`core/maquininha/oferta`), montada sobre a MESMA tabela do simulador de
- *   taxas do POS (`lib/pos-taxas`, faixa 1, sem spread próprio). Média entre
- *   as bandeiras, porque quem simula não sabe com que cartão o cliente paga.
+ * - `taxaDaOferta(segmento, perfil)`: a `TaxaDe` do motor puro
+ *   (`core/maquininha/oferta`) = o CUSTO da tabela do simulador de taxas do
+ *   POS (`lib/pos-taxas`, faixa 1) + a margem da faixa de faturamento,
+ *   repartida sobre o mix (`acrescimosDaMargem`). Média entre as bandeiras,
+ *   porque quem simula não sabe com que cartão o cliente paga.
  * - `listarPedidos` / `enviarPedido`: o pedido de maquininha (ou de vínculo)
  *   que chega à plataforma (`maquininha_pedidos`, RPC
  *   `maquininha_pedido_criar`). Em demonstração fica só na memória desta aba
@@ -13,9 +14,9 @@
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { motivoDaRecusa, reportar } from "@/lib/erros";
-import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira } from "@/lib/pos-taxas";
-import { lerSimulacao } from "@/core/maquininha/oferta";
-import type { FormaOferta, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe } from "@/core/maquininha/oferta";
+import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira, type RateTable } from "@/lib/pos-taxas";
+import { acrescimosDaMargem, lerSimulacao, lerTaxasPropostas, margemDaFaixa } from "@/core/maquininha/oferta";
+import type { FaixaDeMargem, FormaOferta, MixVendas, MotivoPerda, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe, TaxasPorForma } from "@/core/maquininha/oferta";
 
 /** Segmentos que a tabela de referência conhece (MCC da planilha do POS). */
 export const SEGMENTOS: { id: string; nome: string; mcc: string }[] = [
@@ -31,14 +32,48 @@ export const SEGMENTO_PADRAO = SEGMENTOS[4].id;
 
 const BANDEIRAS: Bandeira[] = ["master", "visa", "elo"];
 
-/** A taxa de referência do segmento, para o motor da oferta. */
-export function taxaDeReferencia(segmento: string, taxaAntecipMensal = POS_DEFAULT.taxaAntecipMensal): TaxaDe {
+/**
+ * A margem da Quattro por faixa de faturamento mensal, da planilha de
+ * precificação do dono (aba "simulador de resultado carteira", 28/10/2026):
+ * 1,5% até R$ 10 mil, 1,2% até R$ 25 mil, 0,9% acima.
+ */
+export const FAIXAS_DE_MARGEM: readonly FaixaDeMargem[] = [
+  { ate: 10000, margem: 0.015 },
+  { ate: 25000, margem: 0.012 },
+  { ate: null, margem: 0.009 },
+];
+
+/** Até quanto o crédito e o parcelado sobem sobre o custo; o resto da margem vai em Pix e débito. */
+export const TETO_ACRESCIMO_CARTAO = 0.04;
+
+/** O faturamento e o mix com que a página abre (e os da "Quanto cobrar" sem vendas). */
+export interface PerfilDeVendas { volumeMensal: number; mix: MixVendas }
+export const PERFIL_PADRAO: PerfilDeVendas = { volumeMensal: 30000, mix: { pix: 0.25, debito: 0.3, credito: 0.3, parcelado: 0.15 } };
+
+/** A margem e o acréscimo de cada forma para um perfil (a tela mostra os dois). */
+export function margemDoPerfil(perfil: PerfilDeVendas) {
+  const margem = margemDaFaixa(perfil.volumeMensal, FAIXAS_DE_MARGEM);
+  return { margem, acrescimos: acrescimosDaMargem(margem, perfil.mix, TETO_ACRESCIMO_CARTAO) };
+}
+
+/** A taxa da Quattro para o segmento e o perfil, para o motor da oferta. */
+export function taxaDaOferta(segmento: string, perfil: PerfilDeVendas = PERFIL_PADRAO, taxaAntecipMensal = POS_DEFAULT.taxaAntecipMensal): TaxaDe {
   const custo = custoTable(segmento, "RANGE 1");
+  const { acrescimos } = margemDoPerfil(perfil);
+  const todas = (x: number) => ({ master: x, visa: x, elo: x });
+  // O spread da tabela do POS é a própria margem, por grupo: Pix e débito
+  // com o acréscimo deles, crédito à vista com o do crédito, e todo parcelado
+  // com o do parcelado.
+  const spread: RateTable = {
+    pix: todas(acrescimos.pix), debito: todas(acrescimos.debito), credito_vista: todas(acrescimos.credito),
+    parc_2_6: todas(acrescimos.parcelado), parc_7_12: todas(acrescimos.parcelado),
+    parc_13_18: todas(acrescimos.parcelado), parc_19_24: todas(acrescimos.parcelado),
+  };
   return (forma: FormaOferta, parcelas: number, antecipado: boolean) => {
     const id = forma === "pix" ? "pix" : forma === "debito" ? "debito" : parcelas <= 1 ? "cv" : `p${parcelas}`;
     const row = PARCELAS.find((p) => p.id === id);
     if (!row) return null;
-    const cfg = { ...POS_DEFAULT, mccDesc: segmento, antecipacao: antecipado, online: false, taxaAntecipMensal };
+    const cfg = { ...POS_DEFAULT, spread, mccDesc: segmento, antecipacao: antecipado, online: false, taxaAntecipMensal };
     const taxas = BANDEIRAS.map((b) => taxaFinalParcela(cfg, custo, row, b)).filter((t): t is number => typeof t === "number");
     if (!taxas.length) return null;
     return taxas.reduce((s, t) => s + t, 0) / taxas.length;
@@ -177,6 +212,11 @@ export interface PedidoNaFila {
   simulacao: SimulacaoDoPedido | null;
   criado_em: string;
   atualizado_em: string | null;
+  /** O resumo da ficha do lead (ausente antes da migration 20261029130000). */
+  responsavel_email?: string | null;
+  proximo_contato?: string | null;
+  motivo_perda?: MotivoPerda | null;
+  notas?: number;
 }
 
 export async function filaDePedidos(): Promise<PedidoNaFila[]> {
@@ -187,6 +227,10 @@ export async function filaDePedidos(): Promise<PedidoNaFila[]> {
       contato_nome: "Contato de demonstração", contato_telefone: null, contato_email: null, endereco: null,
       observacao: null, situacao: p.situacao, origem: p.origem ?? "formulario", simulacao: p.simulacao ?? null,
       criado_em: p.criadoEm, atualizado_em: null,
+      responsavel_email: fichasDemo[p.id]?.responsavel ? EMAIL_DEMO : null,
+      proximo_contato: fichasDemo[p.id]?.proximo_contato ?? null,
+      motivo_perda: fichasDemo[p.id]?.motivo_perda ?? null,
+      notas: fichasDemo[p.id]?.notas.length ?? 0,
     }));
   }
   const { data, error } = await createClient().rpc("admin_maquininha_pedidos");
@@ -204,5 +248,83 @@ export async function mudarSituacaoPedido(id: string, situacao: SituacaoPedido):
     return;
   }
   const { error } = await createClient().rpc("admin_maquininha_pedido_situacao", { p_pedido: id, p_situacao: situacao });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
+
+/* ------------------------- a ficha do lead (CRM, etapa 3) ------------------------- */
+
+export interface DadosDoLead {
+  responsavel: string | null;
+  proximo_contato: string | null;
+  motivo_perda: MotivoPerda | null;
+  motivo_detalhe: string | null;
+  taxas_propostas: TaxasPorForma | null;
+}
+
+export interface NotaDoLead { id: string; autor_email: string | null; texto: string; criado_em: string }
+
+export interface FichaDoLead extends DadosDoLead {
+  atualizado_em: string | null;
+  notas: NotaDoLead[];
+  /** Quem da plataforma pode ser o responsável. */
+  responsaveis: { id: string; email: string }[];
+}
+
+export const LEAD_VAZIO: DadosDoLead = { responsavel: null, proximo_contato: null, motivo_perda: null, motivo_detalhe: null, taxas_propostas: null };
+
+/** Demonstração: a ficha também fica só na memória desta aba. */
+const ID_DEMO = "demo-plataforma";
+const EMAIL_DEMO = "voce@quattro.finance";
+const fichasDemo: Record<string, DadosDoLead & { notas: NotaDoLead[]; atualizado_em: string | null }> = {};
+
+export async function fichaDoLead(pedido: string): Promise<FichaDoLead> {
+  if (isDemo) {
+    const f = fichasDemo[pedido] ?? { ...LEAD_VAZIO, notas: [], atualizado_em: null };
+    return { ...f, notas: [...f.notas], responsaveis: [{ id: ID_DEMO, email: EMAIL_DEMO }] };
+  }
+  const { data, error } = await createClient().rpc("admin_maquininha_lead", { p_pedido: pedido });
+  if (error) throw new Error(motivoDaRecusa(error));
+  const d = (data ?? {}) as { lead?: Record<string, unknown> | null; notas?: NotaDoLead[]; responsaveis?: { id: string; email: string }[] };
+  const l = d.lead ?? {};
+  return {
+    responsavel: (l.responsavel as string | null) ?? null,
+    proximo_contato: (l.proximo_contato as string | null) ?? null,
+    motivo_perda: (l.motivo_perda as MotivoPerda | null) ?? null,
+    motivo_detalhe: (l.motivo_detalhe as string | null) ?? null,
+    taxas_propostas: lerTaxasPropostas(l.taxas_propostas),
+    atualizado_em: (l.atualizado_em as string | null) ?? null,
+    notas: d.notas ?? [],
+    responsaveis: d.responsaveis ?? [],
+  };
+}
+
+export async function salvarLead(pedido: string, dados: DadosDoLead): Promise<void> {
+  const taxas = lerTaxasPropostas(dados.taxas_propostas);
+  if (isDemo) {
+    const antes = fichasDemo[pedido];
+    fichasDemo[pedido] = { ...dados, taxas_propostas: taxas, notas: antes?.notas ?? [], atualizado_em: new Date().toISOString() };
+    return;
+  }
+  const { error } = await createClient().rpc("admin_maquininha_lead_salvar", {
+    p_pedido: pedido,
+    p_responsavel: dados.responsavel,
+    p_proximo_contato: dados.proximo_contato || null,
+    p_motivo_perda: dados.motivo_perda,
+    p_motivo_detalhe: dados.motivo_detalhe,
+    p_taxas_propostas: taxas,
+  });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
+
+export async function anotarLead(pedido: string, texto: string): Promise<void> {
+  const t = texto.trim();
+  if (!t) throw new Error("A anotação está vazia.");
+  if (isDemo) {
+    const f = fichasDemo[pedido] ?? { ...LEAD_VAZIO, notas: [], atualizado_em: null };
+    f.notas = [{ id: `nota-${f.notas.length + 1}`, autor_email: EMAIL_DEMO, texto: t, criado_em: new Date().toISOString() }, ...f.notas];
+    fichasDemo[pedido] = f;
+    return;
+  }
+  const { error } = await createClient().rpc("admin_maquininha_lead_anotar", { p_pedido: pedido, p_texto: t });
   if (error) throw new Error(motivoDaRecusa(error));
 }

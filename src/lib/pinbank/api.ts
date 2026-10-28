@@ -207,6 +207,29 @@ export function cobrancaPinbankLiberada(env: Ambiente = process.env):
   return { liberada: true };
 }
 
+/**
+ * A MENSALIDADE do ERP pode ser cobrada pela conta Pinbank DA QUATTRO? As três
+ * perguntas da cobrança, com interruptor próprio (`MENSALIDADE_PINBANK=ligado`,
+ * nasce DESLIGADA), mais o código da conta que RECEBE
+ * (`PINBANK_QUATTRO_CODIGO_CLIENTE`, inteiro positivo).
+ *
+ * ⚠️ O código da conta da Quattro mora SÓ aqui, no servidor: o banco não o
+ * guarda e a reserva não o carrega — um valor gravado em tabela poderia ser
+ * trocado por quem escreve nela, e o Pix do cliente cairia em outra conta.
+ *
+ * ⚠️ É o ÚNICO lugar que lê as duas variáveis (guarda no `engine-audit`).
+ */
+export function mensalidadePinbankLiberada(env: Ambiente = process.env):
+  { liberada: true; codigoCliente: number } | { liberada: false; codigo: MotivoCobrancaIndisponivel } {
+  if (env.MENSALIDADE_PINBANK !== "ligado") return { liberada: false, codigo: "desligada" };
+  const codigo = Number((env.PINBANK_QUATTRO_CODIGO_CLIENTE ?? "").trim());
+  if (variaveisFaltando(env).length || !Number.isSafeInteger(codigo) || codigo <= 0) {
+    return { liberada: false, codigo: "sem_configuracao" };
+  }
+  if ((env.PINBANK_API_AMBIENTE ?? "").trim() !== "producao") return { liberada: false, codigo: "ambiente_teste" };
+  return { liberada: true, codigoCliente: codigo };
+}
+
 export interface OpcoesApi {
   /** Padrão: lerCredencialPinbank(). */
   credencial?: CredencialPinbank;

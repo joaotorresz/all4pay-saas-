@@ -32,7 +32,9 @@ const tem = (linhas, texto, valor, venc) =>
  * arquivo reservado nesta rodada.)
  */
 const parcela = (linhas, compraId, n, valor, venc) =>
-  linhas.filter((l) => l.startsWith(`compra-${compraId}-${n} `) || l.includes(` compra-${compraId}-${n} `) || l.includes(`compra-${compraId}-${n} |`))
+  // O ID vem numa célula própria (no começo ou, desde o Painel de despesas, no
+  // fim da linha): casa o ID inteiro, nunca "-1" dentro de "-12".
+  linhas.filter((l) => new RegExp(`(^|[ |])compra-${compraId}-${n}($|[ |])`).test(l))
     .some((l) => (valor == null || l.includes(valor)) && (venc == null || l.includes(venc)));
 const idDaCompra = (u, numero) => u.page.evaluate((numero) => {
   try {

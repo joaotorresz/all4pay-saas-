@@ -34,6 +34,7 @@
  * mensagem foi ENTREGUE. Sem status callback, "enviado" é o máximo que se pode
  * afirmar — e a tela diz "enviado", nunca "entregue".
  */
+import { telefoneE164 } from "@/lib/telefone";
 import type { CanalEnvio, FinalidadeTemplate, MensagemAutomacao, ProvedorEnvio } from "@/core/automacoes";
 import { enderecoDoRemetente } from "@/core/automacoes/remetente";
 
@@ -72,7 +73,17 @@ export function statusNotificacoes() {
   };
 }
 
-const waAddr = (n: string) => (n.startsWith("whatsapp:") ? n : `whatsapp:${n.replace(/[^\d+]/g, "")}`);
+/**
+ * O endereço que a Twilio aceita: `whatsapp:+<DDI><número>` (E.164), pela
+ * MESMA regra que grava o telefone (`telefoneE164`). Vale também para o que
+ * foi cadastrado antes da regra: o envio não depende de o cadastro estar certo.
+ */
+export function enderecoWhatsapp(n: string): string {
+  if (n.startsWith("whatsapp:")) return n;
+  const e = telefoneE164(n) ?? "";
+  return `whatsapp:${e.startsWith("+") ? e : `+${e.replace(/\D/g, "")}`}`;
+}
+const waAddr = enderecoWhatsapp;
 const ehTelefone = (s?: string) => !!s && s.replace(/\D/g, "").length >= 10;
 
 /** Envio de WhatsApp via Twilio. Com `opts.contentSid`, usa template aprovado

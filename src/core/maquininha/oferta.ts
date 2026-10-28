@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.3.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.5.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -178,6 +178,45 @@ export function normalizarMix(mix: MixVendas): MixVendas {
   if (soma > 1) { pix /= soma; debito /= soma; parcelado /= soma; }
   const credito = Math.max(0, 1 - pix - debito - parcelado);
   return { pix, debito, credito, parcelado };
+}
+
+/* ------------------------- a margem por faixa ------------------------- */
+
+/** Uma faixa de faturamento mensal e a margem da Quattro sobre ele. `ate: null` = sem teto. */
+export interface FaixaDeMargem { ate: number | null; margem: number }
+
+/**
+ * A margem da faixa em que o faturamento cai. Fronteira FECHADA em cima:
+ * R$ 10.000,00 ainda é a primeira faixa. Faturamento ausente, zero ou
+ * inválido fica na PRIMEIRA (quem não disse quanto vende é tratado como o
+ * menor), e faixas fora de ordem são ordenadas antes.
+ */
+export function margemDaFaixa(volumeMensal: number, faixas: readonly FaixaDeMargem[]): number {
+  if (!faixas.length) return 0;
+  const ord = [...faixas].sort((a, b) => (a.ate ?? Infinity) - (b.ate ?? Infinity));
+  const v = Number.isFinite(volumeMensal) && volumeMensal > 0 ? volumeMensal : 0;
+  return (ord.find((f) => f.ate == null || v <= f.ate) ?? ord[ord.length - 1]).margem;
+}
+
+/**
+ * Quanto cada forma sobe sobre o custo para a MÉDIA do mix render a margem
+ * (decisão do dono, 28/10/2026: "margem média sobre o mix", cheia).
+ *
+ * Pix e débito ficam no custo; crédito e parcelado carregam a margem, o
+ * mesmo acréscimo nos dois. ⚠️ Com pouco crédito no mix o acréscimo
+ * explodiria (10% de crédito × 1,5% = 15 pontos), então ele para em `teto`
+ * e o que faltar se reparte igual entre Pix e débito — a média continua
+ * sendo a margem. Sem crédito nem parcelado, a margem vai inteira em Pix e
+ * débito. Invariante: Σ mix × acréscimo = margem.
+ */
+export function acrescimosDaMargem(margem: number, mix: MixVendas, teto: number): Record<FormaOferta, number> {
+  const m = Number.isFinite(margem) && margem > 0 ? margem : 0;
+  const x = normalizarMix(mix);
+  const cartao = x.credito + x.parcelado;
+  const avista = x.pix + x.debito;
+  const a = cartao > 0 ? (avista > 0 ? Math.min(m / cartao, Math.max(0, teto)) : m / cartao) : 0;
+  const b = avista > 0 ? (m - a * cartao) / avista : 0;
+  return { pix: b, debito: b, credito: a, parcelado: a };
 }
 
 /**
@@ -566,6 +605,68 @@ export function resumoDoFunil<T extends PedidoNoFunil>(colunas: readonly ColunaD
     /** Instalados ÷ fechados (instalados + perdidos). `null` sem nenhum fechado: 0% diria "perdemos todos". */
     conversao: ganhos + perdidos > 0 ? ganhos / (ganhos + perdidos) : null,
   };
+}
+
+/* ------------------------- a ficha do lead (CRM, etapa 3) ------------------------- */
+
+export type MotivoPerda = "preco" | "concorrente" | "sem_resposta" | "sem_interesse" | "credito" | "outro";
+
+/** Os motivos de perda que o banco aceita (a mesma lista da restrição da tabela). */
+export const NOME_MOTIVO_PERDA: Record<MotivoPerda, string> = {
+  preco: "Preço",
+  concorrente: "Fechou com outra",
+  sem_resposta: "Sem resposta",
+  sem_interesse: "Sem interesse",
+  credito: "Crédito recusado",
+  outro: "Outro",
+};
+
+/** Teto da taxa proposta: acima disso é dígito trocado ("3,5" no lugar de "0,035"). O banco confere o mesmo. */
+export const TETO_TAXA_PROPOSTA = 0.2;
+
+const FORMAS_LEAD: FormaOferta[] = ["pix", "debito", "credito", "parcelado"];
+
+/**
+ * Lê as taxas propostas vindas de FORA (o jsonb do banco ou o formulário).
+ * Forma inventada e taxa fora de [0, 20%] são descartadas uma a uma; sem
+ * nenhuma válida, `null` — "nenhuma proposta" não é "proposta de 0%".
+ */
+export function lerTaxasPropostas(x: unknown): TaxasPorForma | null {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  const out: TaxasPorForma = {};
+  for (const f of FORMAS_LEAD) {
+    const v = o[f];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= TETO_TAXA_PROPOSTA) out[f] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * A conta da PROPOSTA: o mesmo volume, o mesmo mix e as mesmas taxas de hoje
+ * da simulação que o cliente fez, com as taxas que o consultor propôs no
+ * lugar das da tabela. ⚠️ A forma sem taxa proposta segue com a taxa da
+ * Quattro que a simulação usou — a proposta muda o que o consultor digitou,
+ * não zera o resto. É a MESMA `compararTaxas` da página do cliente: uma
+ * segunda conta discordaria dela no primeiro centavo.
+ */
+export function comparacaoDaProposta(sim: SimulacaoDoPedido, taxas: TaxasPorForma | null): Comparacao | null {
+  if (!taxas || !FORMAS_LEAD.some((f) => typeof taxas[f] === "number")) return null;
+  const atuais: TaxasPorForma = {};
+  for (const f of FORMAS_LEAD) atuais[f] = sim.taxasAtuais[f].taxa;
+  return compararTaxas(
+    { volumeMensal: sim.volumeMensal, mix: sim.mix, parcelasMedias: 1, taxasAtuais: atuais, antecipado: sim.antecipado },
+    (forma) => taxas[forma] ?? sim.taxasQuattro[forma],
+  );
+}
+
+export type SituacaoDoContato = "atrasado" | "hoje" | "agendado";
+
+/** O próximo contato contra hoje (datas ISO, comparadas como texto — sem fuso). */
+export function situacaoDoContato(proximo: string | null | undefined, hoje: string): SituacaoDoContato | null {
+  if (!proximo) return null;
+  const d = proximo.slice(0, 10);
+  return d < hoje ? "atrasado" : d === hoje ? "hoje" : "agendado";
 }
 
 /* ------------------------------ a meta do mês ------------------------------ */
