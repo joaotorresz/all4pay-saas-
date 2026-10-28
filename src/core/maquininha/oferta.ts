@@ -16,7 +16,7 @@
  */
 import { dividir, fracaoDeAntecipacao } from "@/core/vendas/pos";
 
-export const OFERTA_VERSION = "maquininha-oferta/1.4.0";
+export const OFERTA_VERSION = "maquininha-oferta/1.5.0";
 
 export type FormaOferta = "pix" | "debito" | "credito" | "parcelado";
 
@@ -178,6 +178,45 @@ export function normalizarMix(mix: MixVendas): MixVendas {
   if (soma > 1) { pix /= soma; debito /= soma; parcelado /= soma; }
   const credito = Math.max(0, 1 - pix - debito - parcelado);
   return { pix, debito, credito, parcelado };
+}
+
+/* ------------------------- a margem por faixa ------------------------- */
+
+/** Uma faixa de faturamento mensal e a margem da Quattro sobre ele. `ate: null` = sem teto. */
+export interface FaixaDeMargem { ate: number | null; margem: number }
+
+/**
+ * A margem da faixa em que o faturamento cai. Fronteira FECHADA em cima:
+ * R$ 10.000,00 ainda é a primeira faixa. Faturamento ausente, zero ou
+ * inválido fica na PRIMEIRA (quem não disse quanto vende é tratado como o
+ * menor), e faixas fora de ordem são ordenadas antes.
+ */
+export function margemDaFaixa(volumeMensal: number, faixas: readonly FaixaDeMargem[]): number {
+  if (!faixas.length) return 0;
+  const ord = [...faixas].sort((a, b) => (a.ate ?? Infinity) - (b.ate ?? Infinity));
+  const v = Number.isFinite(volumeMensal) && volumeMensal > 0 ? volumeMensal : 0;
+  return (ord.find((f) => f.ate == null || v <= f.ate) ?? ord[ord.length - 1]).margem;
+}
+
+/**
+ * Quanto cada forma sobe sobre o custo para a MÉDIA do mix render a margem
+ * (decisão do dono, 28/10/2026: "margem média sobre o mix", cheia).
+ *
+ * Pix e débito ficam no custo; crédito e parcelado carregam a margem, o
+ * mesmo acréscimo nos dois. ⚠️ Com pouco crédito no mix o acréscimo
+ * explodiria (10% de crédito × 1,5% = 15 pontos), então ele para em `teto`
+ * e o que faltar se reparte igual entre Pix e débito — a média continua
+ * sendo a margem. Sem crédito nem parcelado, a margem vai inteira em Pix e
+ * débito. Invariante: Σ mix × acréscimo = margem.
+ */
+export function acrescimosDaMargem(margem: number, mix: MixVendas, teto: number): Record<FormaOferta, number> {
+  const m = Number.isFinite(margem) && margem > 0 ? margem : 0;
+  const x = normalizarMix(mix);
+  const cartao = x.credito + x.parcelado;
+  const avista = x.pix + x.debito;
+  const a = cartao > 0 ? (avista > 0 ? Math.min(m / cartao, Math.max(0, teto)) : m / cartao) : 0;
+  const b = avista > 0 ? (m - a * cartao) / avista : 0;
+  return { pix: b, debito: b, credito: a, parcelado: a };
 }
 
 /**

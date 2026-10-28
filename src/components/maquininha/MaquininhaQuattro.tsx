@@ -31,7 +31,7 @@ import {
 import { MaquininhaMockup } from "@/components/maquininha/MaquininhaMockup";
 import { OfertaMaquininha } from "@/components/maquininha/OfertaMaquininha";
 import { precoParaReceber, ritmoDaMeta, simularAntecipacao } from "@/core/maquininha/oferta";
-import { SEGMENTO_PADRAO, taxaDeReferencia } from "@/lib/maquininha-oferta";
+import { SEGMENTO_PADRAO, taxaDaOferta } from "@/lib/maquininha-oferta";
 import { POS_DEFAULT } from "@/lib/pos-taxas";
 import { gravarPreferencia, lerPreferencia } from "@/lib/store-org";
 import { usePermissoes } from "@/components/app/usePermissoes";
@@ -141,7 +141,7 @@ function CardAntecipar({ dias, hoje }: { dias: { dia: string; valor: number }[];
 function CardQuantoCobrar({ observadas }: { observadas: { chave: string; nome: string; taxa: number }[] }) {
   const opcoes = React.useMemo(() => {
     if (observadas.length) return observadas;
-    const t = taxaDeReferencia(SEGMENTO_PADRAO);
+    const t = taxaDaOferta(SEGMENTO_PADRAO);
     const ref: { chave: string; nome: string; taxa: number | null }[] = [
       { chave: "pix", nome: "Pix", taxa: t("pix", 0, false) },
       { chave: "debito", nome: "Débito", taxa: t("debito", 0, false) },

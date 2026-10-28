@@ -1,10 +1,11 @@
 /**
  * A OFERTA DA MAQUININHA — a ponte entre a tela e o resto do sistema:
  *
- * - `taxaDeReferencia(segmento)`: a `TaxaDe` do motor puro
- *   (`core/maquininha/oferta`), montada sobre a MESMA tabela do simulador de
- *   taxas do POS (`lib/pos-taxas`, faixa 1, sem spread próprio). Média entre
- *   as bandeiras, porque quem simula não sabe com que cartão o cliente paga.
+ * - `taxaDaOferta(segmento, perfil)`: a `TaxaDe` do motor puro
+ *   (`core/maquininha/oferta`) = o CUSTO da tabela do simulador de taxas do
+ *   POS (`lib/pos-taxas`, faixa 1) + a margem da faixa de faturamento,
+ *   repartida sobre o mix (`acrescimosDaMargem`). Média entre as bandeiras,
+ *   porque quem simula não sabe com que cartão o cliente paga.
  * - `listarPedidos` / `enviarPedido`: o pedido de maquininha (ou de vínculo)
  *   que chega à plataforma (`maquininha_pedidos`, RPC
  *   `maquininha_pedido_criar`). Em demonstração fica só na memória desta aba
@@ -13,9 +14,9 @@
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { motivoDaRecusa, reportar } from "@/lib/erros";
-import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira } from "@/lib/pos-taxas";
-import { lerSimulacao, lerTaxasPropostas } from "@/core/maquininha/oferta";
-import type { FormaOferta, MotivoPerda, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe, TaxasPorForma } from "@/core/maquininha/oferta";
+import { POS_DEFAULT, PARCELAS, custoTable, taxaFinalParcela, type Bandeira, type RateTable } from "@/lib/pos-taxas";
+import { acrescimosDaMargem, lerSimulacao, lerTaxasPropostas, margemDaFaixa } from "@/core/maquininha/oferta";
+import type { FaixaDeMargem, FormaOferta, MixVendas, MotivoPerda, OrigemPedido, PedidoMaquininha, SimulacaoDoPedido, SituacaoPedido, TaxaDe, TaxasPorForma } from "@/core/maquininha/oferta";
 
 /** Segmentos que a tabela de referência conhece (MCC da planilha do POS). */
 export const SEGMENTOS: { id: string; nome: string; mcc: string }[] = [
@@ -31,14 +32,48 @@ export const SEGMENTO_PADRAO = SEGMENTOS[4].id;
 
 const BANDEIRAS: Bandeira[] = ["master", "visa", "elo"];
 
-/** A taxa de referência do segmento, para o motor da oferta. */
-export function taxaDeReferencia(segmento: string, taxaAntecipMensal = POS_DEFAULT.taxaAntecipMensal): TaxaDe {
+/**
+ * A margem da Quattro por faixa de faturamento mensal, da planilha de
+ * precificação do dono (aba "simulador de resultado carteira", 28/10/2026):
+ * 1,5% até R$ 10 mil, 1,2% até R$ 25 mil, 0,9% acima.
+ */
+export const FAIXAS_DE_MARGEM: readonly FaixaDeMargem[] = [
+  { ate: 10000, margem: 0.015 },
+  { ate: 25000, margem: 0.012 },
+  { ate: null, margem: 0.009 },
+];
+
+/** Até quanto o crédito e o parcelado sobem sobre o custo; o resto da margem vai em Pix e débito. */
+export const TETO_ACRESCIMO_CARTAO = 0.04;
+
+/** O faturamento e o mix com que a página abre (e os da "Quanto cobrar" sem vendas). */
+export interface PerfilDeVendas { volumeMensal: number; mix: MixVendas }
+export const PERFIL_PADRAO: PerfilDeVendas = { volumeMensal: 30000, mix: { pix: 0.25, debito: 0.3, credito: 0.3, parcelado: 0.15 } };
+
+/** A margem e o acréscimo de cada forma para um perfil (a tela mostra os dois). */
+export function margemDoPerfil(perfil: PerfilDeVendas) {
+  const margem = margemDaFaixa(perfil.volumeMensal, FAIXAS_DE_MARGEM);
+  return { margem, acrescimos: acrescimosDaMargem(margem, perfil.mix, TETO_ACRESCIMO_CARTAO) };
+}
+
+/** A taxa da Quattro para o segmento e o perfil, para o motor da oferta. */
+export function taxaDaOferta(segmento: string, perfil: PerfilDeVendas = PERFIL_PADRAO, taxaAntecipMensal = POS_DEFAULT.taxaAntecipMensal): TaxaDe {
   const custo = custoTable(segmento, "RANGE 1");
+  const { acrescimos } = margemDoPerfil(perfil);
+  const todas = (x: number) => ({ master: x, visa: x, elo: x });
+  // O spread da tabela do POS é a própria margem, por grupo: Pix e débito
+  // com o acréscimo deles, crédito à vista com o do crédito, e todo parcelado
+  // com o do parcelado.
+  const spread: RateTable = {
+    pix: todas(acrescimos.pix), debito: todas(acrescimos.debito), credito_vista: todas(acrescimos.credito),
+    parc_2_6: todas(acrescimos.parcelado), parc_7_12: todas(acrescimos.parcelado),
+    parc_13_18: todas(acrescimos.parcelado), parc_19_24: todas(acrescimos.parcelado),
+  };
   return (forma: FormaOferta, parcelas: number, antecipado: boolean) => {
     const id = forma === "pix" ? "pix" : forma === "debito" ? "debito" : parcelas <= 1 ? "cv" : `p${parcelas}`;
     const row = PARCELAS.find((p) => p.id === id);
     if (!row) return null;
-    const cfg = { ...POS_DEFAULT, mccDesc: segmento, antecipacao: antecipado, online: false, taxaAntecipMensal };
+    const cfg = { ...POS_DEFAULT, spread, mccDesc: segmento, antecipacao: antecipado, online: false, taxaAntecipMensal };
     const taxas = BANDEIRAS.map((b) => taxaFinalParcela(cfg, custo, row, b)).filter((t): t is number => typeof t === "number");
     if (!taxas.length) return null;
     return taxas.reduce((s, t) => s + t, 0) / taxas.length;
