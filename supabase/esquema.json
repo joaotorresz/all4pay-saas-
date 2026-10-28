@@ -241,6 +241,18 @@
         "impacto": "Até ser aplicada, o executor responde com o erro da leitura e a régua sai sem link, como hoje. Nada que já existe muda; sem PINBANK_COBRANCA=ligado a leitura nem é feita.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 1)"
+      },
+      {
+        "nome": "20261028170000_telefone_e164",
+        "motivo": "O telefone do contato passa a ser gravado em E.164 (+55…): a Twilio recusou com 400 o WhatsApp para um número salvo sem o país (medido em produção em 28/10/2026). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função telefone_e164(text) — espelho de telefoneE164 em src/lib/telefone.ts",
+          "gatilho parties_telefone_e164 (before insert or update of phone em parties)",
+          "reescrita dos telefones já cadastrados para E.164"
+        ],
+        "impacto": "Até ser aplicada, o cadastro pela tela já grava em E.164 e o envio já normaliza qualquer número; ficam sem o +55 só os telefones antigos e o que for gravado por fora da tela. O SAIR/VOLTAR não muda: telefone_canonico tira o 55.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (WhatsApp sem +55)"
       }
     ],
     "objetos_sem_migration": [
