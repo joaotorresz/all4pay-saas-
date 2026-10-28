@@ -32,7 +32,8 @@ const EMITENTE = JSON.stringify({
   "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800" },
   "org-com-aliquota": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: true, aliquota: "2,9" },
   "org-aliquota-absurda": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", aliquota: 15 },
-  "org-nacional": { cnpj: "54579688000135", inscricaoMunicipal: "13017047", codigoMunicipio: "3550308", optanteSimples: true, aliquota: 2, padrao: "nacional", codigoTributacaoNacional: "17.01.01" },
+  "org-nacional": { cnpj: "54579688000135", inscricaoMunicipal: "13017047", codigoMunicipio: "3550308", optanteSimples: true, aliquota: 2, padrao: "nacional", codigoTributacaoNacional: "17.01.01", percentualTributosSimples: "6,5" },
+  "org-nacional-sem-percentual": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: true, padrao: "nacional", codigoTributacaoNacional: "170101" },
   "org-nacional-sem-codigo": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", padrao: "nacional" },
   "org-sem-im": { cnpj: "54579688000135", codigoMunicipio: "3550308" },
   "org-cnpj-curto": { cnpj: "5457968800013", inscricaoMunicipal: "1", codigoMunicipio: "3550308" },
@@ -59,7 +60,11 @@ function casosDoMotor(m: Motor): Caso[] {
   const pn = nac && nac.ok ? nac.pedido : null;
   const ens = emitentes["org-nacional-sem-codigo"];
   const nacSemCod = ens ? m.montarPedidoNacional(NOTA, TOMADOR, ens, "x", "2026-10-28", 1) : null;
+  const esp = emitentes["org-nacional-sem-percentual"];
+  const nacSemPct = esp ? m.montarPedidoNacional(NOTA, TOMADOR, esp, "x", "2026-10-28", 1) : null;
   return [
+    ["nacional: optante leva o percentual de tributos do Simples (6,5 → 6.5)", pn?.percentual_total_tributos_simples_nacional === 6.5],
+    ["nacional: optante sem o percentual é recusado ANTES de sair", !!nacSemPct && !nacSemPct.ok],
     ["nacional: padrão e código de tributação (6 dígitos) entram no emitente", en?.padrao === "nacional" && en?.codigoTributacaoNacional === "170101"],
     ["nacional: sem código de tributação o pedido é recusado ANTES de sair", !!nacSemCod && !nacSemCod.ok && problemas.some((p) => p.includes("org-nacional-sem-codigo"))],
     ["nacional: DPS com prestador do vínculo, Simples ME/EPP e código nacional", pn?.cnpj_prestador === "54579688000135" && pn?.inscricao_municipal_prestador === "13017047" && pn?.codigo_opcao_simples_nacional === "3" && pn?.codigo_tributacao_nacional_iss === "170101" && pn?.codigo_municipio_prestacao === "3550308"],
@@ -152,6 +157,8 @@ await plantarMotor("alíquota da plataforma esquecida", "...(emitente.aliquota !
 await plantarMotor("alíquota sem teto", "n > 0 && n <= 5", "n > 0", "emitente: alíquota acima de 5% é ignorada e avisada");
 await plantarMotor("referência nacional sem marca", '`quattro-${nacional ? "nac-" : ""}', '`quattro-${nacional ? "" : ""}', "nacional: a referência escolhe o endereço (nacional × prefeitura)");
 await plantarMotor("retenção do ISS ignorada no nacional", 'tipo_retencao_iss: nota.issRetido ? "2" : "1"', 'tipo_retencao_iss: "1"', "nacional: tomador por CNPJ, ISS retido = 2, alíquota da plataforma e valor em centavos");
+await plantarMotor("total de tributos esquecido", "? { percentual_total_tributos_simples_nacional: emitente.percentualTributosSimples } : {}", "? {} : {}", "nacional: optante leva o percentual de tributos do Simples (6,5 → 6.5)");
+await plantarMotor("optante sem percentual sai assim mesmo", "if (emitente.optanteSimples && emitente.percentualTributosSimples === undefined) problemas.push", "if (false) problemas.push", "nacional: optante sem o percentual é recusado ANTES de sair");
 await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigoTributacaoNacional) problemas.push', "if (false) problemas.push", "nacional: sem código de tributação o pedido é recusado ANTES de sair");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");
 await plantarMotor("status desconhecido autoriza", 'return { estado: "processando" };\n}', 'return { estado: "autorizada" };\n}', "consulta: status desconhecido é PROCESSANDO, nunca autorizada");

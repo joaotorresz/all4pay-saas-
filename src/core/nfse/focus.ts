@@ -65,6 +65,12 @@ export interface EmitenteFocus {
   codigoNbs?: string;
   /** Série da DPS (1–49999), padrão "1". */
   serieDps?: string;
+  /**
+   * Percentual aproximado do total de tributos do Simples (pTotTribSN, em %:
+   * 6 = 6%). O Ambiente Nacional EXIGE o grupo de totais de tributos, e para
+   * o optante ele é este número — a alíquota efetiva do DAS, que vem do contador.
+   */
+  percentualTributosSimples?: number;
 }
 
 const so = (s: unknown) => (typeof s === "string" ? s.replace(/\D/g, "") : typeof s === "number" ? String(s) : "");
@@ -106,6 +112,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(so(e.codigoCnae) ? { codigoCnae: so(e.codigoCnae) } : {}),
       ...(aliquotaValida(e.aliquota) ? { aliquota: numeroDaAliquota(e.aliquota) } : {}),
       ...(e.padrao === "nacional" ? { padrao: "nacional" as const } : {}),
+      ...(percentualValido(e.percentualTributosSimples) ? { percentualTributosSimples: numeroDaAliquota(e.percentualTributosSimples) } : {}),
       ...(so(e.codigoTributacaoNacional).length === 6 ? { codigoTributacaoNacional: so(e.codigoTributacaoNacional) } : {}),
       ...(so(e.codigoNbs).length === 9 ? { codigoNbs: so(e.codigoNbs) } : {}),
       ...(/^\d{1,5}$/.test(so(e.serieDps)) && Number(so(e.serieDps)) >= 1 && Number(so(e.serieDps)) <= 49999 ? { serieDps: String(Number(so(e.serieDps))) } : {}),
@@ -119,6 +126,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
 /** ISS vai até 5% (LC 116): acima disso é engano de digitação ("15" no lugar de "1,5"), e a alíquota é ignorada com aviso. */
 const numeroDaAliquota = (v: unknown): number =>
   typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : NaN;
+function percentualValido(v: unknown): boolean { const n = numeroDaAliquota(v); return Number.isFinite(n) && n > 0 && n <= 33; }
 function aliquotaValida(v: unknown): boolean {
   const n = numeroDaAliquota(v);
   return Number.isFinite(n) && n > 0 && n <= 5;
@@ -254,6 +262,7 @@ export function montarPedidoNacional(
   if (!(nota.valor > 0)) problemas.push("O valor do serviço tem de ser maior que zero.");
   if (!texto(nota.descricao)) problemas.push("A descrição do serviço está vazia.");
   if (!emitente.codigoTributacaoNacional) problemas.push("Falta o código de tributação nacional do serviço no cadastro fiscal da empresa. Fale com o suporte da Quattro.");
+  if (emitente.optanteSimples && emitente.percentualTributosSimples === undefined) problemas.push("Falta o percentual aproximado de tributos do Simples no cadastro fiscal da empresa. Fale com o suporte da Quattro.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(competencia)) problemas.push("Data de competência inválida.");
   if (!Number.isInteger(numeroDps) || numeroDps < 1 || String(numeroDps).length > 15) problemas.push("Número da DPS inválido.");
   if (problemas.length) return { ok: false, problemas };
@@ -283,6 +292,10 @@ export function montarPedidoNacional(
     tributacao_iss: "1",
     tipo_retencao_iss: nota.issRetido ? "2" : "1",
     ...(emitente.aliquota !== undefined ? { percentual_aliquota_relativa_municipio: emitente.aliquota } : {}),
+    // O grupo de totais de tributos é obrigatório (sem ele: "trib: Missing
+    // child element … totTrib"); o optante informa o percentual do Simples.
+    ...(emitente.optanteSimples && emitente.percentualTributosSimples !== undefined
+      ? { percentual_total_tributos_simples_nacional: emitente.percentualTributosSimples } : {}),
   };
   return { ok: true, pedido };
 }

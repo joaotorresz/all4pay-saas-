@@ -9,7 +9,8 @@
  *                                 codigoMunicipio, optanteSimples, regimeEspecial?,
  *                                 itemListaServico?, codigoTributarioMunicipio?,
  *                                 aliquota?, padrao?: "nacional",
- *                                 codigoTributacaoNacional?, codigoNbs?, serieDps? } }
+ *                                 codigoTributacaoNacional?, codigoNbs?, serieDps?,
+ *                                 percentualTributosSimples? } }
  *
  * ⚠️ O ambiente escolhe a BASE e o TOKEN juntos, nunca uma URL livre: com o
  * token de produção apontado para a homologação (ou o contrário) a Focus
