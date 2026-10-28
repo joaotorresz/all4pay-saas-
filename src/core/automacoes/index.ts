@@ -37,14 +37,15 @@ import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import { ponteRupturaRunway } from "@/core/ia/coerencia";
 import { montarFechamento } from "@/core/close";
 import {
-  montarRegua, reguaDaEmpresa, redigirMensagem, identificacaoDoCredor, FINALIDADE_DO_TOM, variaveisDoModelo, SE_JA_PAGOU, type EnvioRegistrado,
+  montarRegua, reguaDaEmpresa, redigirMensagem, identificacaoDoCredor, documentoLegivel, FINALIDADE_DO_TOM, variaveisDoModelo, SE_JA_PAGOU, type EnvioRegistrado,
   type ItemRegua, type EtapaRegua,
 } from "@/core/cobranca";
 import { calcularMora } from "@/core/late-fee";
 import { gerarPixCopiaECola } from "@/core/pix";
 import { diaUtilDoMes } from "@/core/folha/calendario";
 import { formatBRL, comSinal } from "@/lib/format";
-import { montarHtml, type LinhaEmail, type SecaoEmail } from "./email";
+import { montarHtml, montarHtmlCobranca, type LinhaEmail, type SecaoEmail } from "./email";
+import { remetenteDaCobranca } from "./remetente";
 import {
   hojeEm, somarDias, diaDaSemana, diasEntre, diaUtil, proximoDiaUtil, segundaDaSemana,
   primeiroDiaUtilDaSemana, diaMes, dataBRcurta, nomeDoMes, mesAnterior,
@@ -58,7 +59,8 @@ import {
 
 export * from "./tipos";
 export { hojeEm, FUSO_DAS_AUTOMACOES } from "./tempo";
-export { montarHtml } from "./email";
+export { montarHtml, montarHtmlCobranca } from "./email";
+export { remetenteDaCobranca, enderecoDoRemetente, nomeDoRemetente, tagDaEmpresa, type Remetente } from "./remetente";
 export { AUTOMACOES_VERSION };
 
 /* ========================================================================== */
@@ -636,6 +638,36 @@ export function tituloDaCobranca(dia: number, tom: string, quantidade = 1): stri
   return varias ? "Suas cobranças estão vencidas" : "Sua cobrança está vencida";
 }
 
+/** O nome com que a empresa assina a cobrança: a razão social quando existe, como no modelo. */
+const nomeDaEmpresa = (ctx: ContextoAutomacao) => (ctx.credor.razaoSocial || ctx.credor.nome || "").trim() || "a empresa credora";
+
+/**
+ * O título DENTRO do e-mail, no modelo da Asaas: o vencido diz "Não
+ * registramos o pagamento" (o assunto segue o de `tituloDaCobranca`, que é o
+ * que o dono pediu para a caixa de entrada).
+ */
+export function tituloDoEmailDeCobranca(dia: number, tom: string, quantidade = 1): string {
+  if (tom !== "formal" && dia > 0) return quantidade > 1 ? "Não registramos o pagamento das suas cobranças" : "Não registramos o pagamento da sua cobrança";
+  return tituloDaCobranca(dia, tom, quantidade);
+}
+
+function paragrafoDaCobranca(ctx: ContextoAutomacao, etapa: EtapaRegua, n: number, total: number, venc: string): string {
+  const empresa = nomeDaEmpresa(ctx);
+  if (n > 1) {
+    if (etapa.tom === "formal") return `${empresa} informa que constam em aberto os ${n} títulos abaixo, que somam ${BRL(total)}. Solicitamos a regularização para evitar medidas de cobrança.`;
+    return etapa.dia < 0 ? `As ${n} cobranças abaixo, geradas por ${empresa}, já estão disponíveis para pagamento e somam ${BRL(total)}.`
+      : `As ${n} cobranças abaixo, geradas por ${empresa}, somam ${BRL(total)} e ainda não tiveram o pagamento registrado.`;
+  }
+  const v = dataBRcurta(venc);
+  if (etapa.tom === "formal") return `${empresa} informa que consta em aberto a cobrança de ${BRL(total)}, vencida em ${v}. Solicitamos a regularização para evitar medidas de cobrança.`;
+  if (etapa.dia < 0) return `A cobrança de ${BRL(total)} gerada por ${empresa}, com vencimento em ${v}, já está disponível para pagamento.`;
+  if (etapa.dia === 0) return `A cobrança de ${BRL(total)} gerada por ${empresa} vence hoje, ${v}.`;
+  return `A cobrança de ${BRL(total)} gerada por ${empresa}, com vencimento em ${v}, ainda não teve o pagamento registrado.`;
+}
+
+/** A linha da plataforma no pé do e-mail (os dados da empresa o HTML monta do credor). */
+const rodapeDaCobranca = (ctx: ContextoAutomacao) => ({ plataforma: `Este e-mail é enviado em nome de ${ctx.credor.nome} pela plataforma Quattro.` });
+
 /** A mensagem de UM cliente, com todos os títulos do dia — uma mensagem por dia, não uma por título. */
 export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: ParametrosAutomacao): Conteudo {
   const itens = [...g.itens].sort((a, b) => b.dias - a.dias || a.vencimento.localeCompare(b.vencimento));
@@ -674,9 +706,10 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
   // vivo com cobrança emitida. Um título só: o botão do e-mail. Vários: uma
   // linha por título — um botão só pagaria um deles.
   const links = linksDosItens(ctx, itens);
-  const secoes: SecaoEmail[] = [{ titulo: itens.length === 1 ? "Título" : `Títulos · total ${BRL(total)}`, linhas }];
-  if (links.length > 1) secoes.push({ titulo: "Pagar por Pix ou boleto", linhas: links.map((l) => ({ rotulo: `Vencimento ${dataBRcurta(l.vencimento)}`, valor: l.url })) });
-  if (pix) secoes.push({ titulo: "PIX copia e cola", linhas: [{ rotulo: pix, valor: BRL(total) }] });
+  const extras: SecaoEmail[] = [];
+  if (links.length > 1) extras.push({ titulo: "Pagar por Pix ou boleto", linhas: links.map((l) => ({ rotulo: `Vencimento ${dataBRcurta(l.vencimento)}`, valor: l.url })) });
+  if (pix) extras.push({ titulo: "Pix copia e cola", linhas: [{ rotulo: BRL(total), valor: pix }] });
+  const rodape = rodapeDaCobranca(ctx);
   const texto = [
     intro,
     ...linhas.map((l) => `· ${l.rotulo}: ${l.valor}${l.detalhe ? ` (${l.detalhe})` : ""}`),
@@ -687,17 +720,31 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
     SE_JA_PAGOU,
   ].filter(Boolean).join("\n");
   const primeiro = itens[0];
+  const titulo = tituloDoEmailDeCobranca(etapa.dia, etapa.tom, itens.length);
   return {
     chaveBase: chaveDoClienteNoDia(g.clienteChave, ctx.hoje),
     assunto: `${tituloDaCobranca(etapa.dia, etapa.tom, itens.length)} — ${credor}`,
     texto,
-    html: montarHtml({
-      preheader: `${credor}: ${BRL(total)} ${itens.length === 1 ? "em aberto" : `em ${itens.length} títulos`}.`,
-      titulo: tituloDaCobranca(etapa.dia, etapa.tom, itens.length),
-      abertura: intro, secoes, avisos: [SE_JA_PAGOU],
+    html: montarHtmlCobranca({
+      preheader: `${nomeDaEmpresa(ctx)}: ${BRL(total)} ${itens.length === 1 ? `com vencimento em ${dataBRcurta(primeiro.vencimento)}` : `em ${itens.length} títulos`}.`,
+      titulo,
+      empresa: {
+        nome: ctx.credor.nome, razaoSocial: ctx.credor.razaoSocial ?? null, documento: documentoLegivel(ctx.credor.documento) || null,
+        email: ctx.credor.email ?? null, telefone: ctx.credor.telefone ?? null, endereco: ctx.credor.endereco ?? [],
+      },
+      saudacao: etapa.tom === "formal" ? `Prezado(a) ${g.cliente},` : `Olá, ${g.cliente}.`,
+      paragrafos: [
+        paragrafoDaCobranca(ctx, etapa, itens.length, total, primeiro.vencimento),
+        links.length === 1 ? "Clique no botão abaixo para pagar por Pix ou boleto." : links.length > 1 ? "Cada título tem o seu link de pagamento, logo abaixo." : "",
+      ].filter(Boolean),
+      linhas,
+      total: itens.length > 1 ? { rotulo: "Total", valor: BRL(total) } : undefined,
       link: links.length === 1 ? { rotulo: "Pagar agora", url: links[0].url } : undefined,
-      rodape: `${credor}. Mensagem enviada em nome da empresa credora pelo Quattro.`,
+      extras,
+      aviso: "Se você já pagou, desconsidere esta mensagem: o registro do boleto pode levar até 3 dias úteis.",
+      plataforma: rodape.plataforma,
     }),
+    remetente: remetenteDaCobranca(ctx.orgId, ctx.credor),
     finalidade: FINALIDADE_DO_TOM[etapa.tom],
     variaveis: variaveisDoModelo({
       "1": g.cliente, "2": credor, "3": BRL(total),
@@ -762,6 +809,7 @@ function envelope(tipo: TipoAutomacao, c: Conteudo, canal: CanalEnvio, destino: 
     texto: tipo === "regua_cobranca" && canal === "whatsapp" ? `${c.texto}\n\n${RODAPE_SAIR}` : c.texto,
     html: c.html, finalidade: c.finalidade, variaveis: c.variaveis,
     chavesExtras: c.chavesExtras,
+    ...(c.remetente && canal === "email" ? { remetente: c.remetente } : {}),
   };
 }
 

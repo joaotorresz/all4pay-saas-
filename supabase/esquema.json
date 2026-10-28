@@ -179,7 +179,18 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [],
+    "arquivo_sem_aplicacao": [
+      {
+        "nome": "20261029150000_checkout_dados_da_empresa",
+        "motivo": "A página da fatura no modelo Asaas: o link /pagar passa a mostrar a empresa que cobra (nome, razão social, documento, contato e endereço do cadastro) e só o nome do pagador. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função pinbank_checkout_ler(text) com as chaves credor e comprador — só service_role, lista de permitidos do cadastro, do pagador só o nome"
+        ],
+        "impacto": "Até ser aplicada, a página mostra só o nome da empresa, como hoje; nada que já existe muda. Sem PINBANK_COBRANCA=ligado a página nem lê.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 2)"
+      }
+    ],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",

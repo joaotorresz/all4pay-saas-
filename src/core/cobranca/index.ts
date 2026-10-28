@@ -68,18 +68,67 @@ export interface Credor {
   razaoSocial?: string | null;
   /** CNPJ (ou CPF do empresário individual), com ou sem máscara. */
   documento?: string | null;
+  /** Contato e endereço do cadastro — o rodapé do e-mail e o cabeçalho da fatura. */
+  email?: string | null;
+  telefone?: string | null;
+  /** O endereço em linhas prontas ("Rua X, 10 - Centro", "01310-100 · São Paulo - SP"). */
+  endereco?: string[] | null;
 }
 
 const so = (s: string | null | undefined) => String(s ?? "").replace(/\D/g, "");
+
+/** "12.345.678/0001-95" ou "123.456.789-09" — o documento como se lê; vazio quando não é um dos dois. */
+export function documentoLegivel(doc: string | null | undefined): string {
+  const d = so(doc);
+  if (d.length === 14) return `CNPJ ${d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}`;
+  if (d.length === 11) return `CPF ${d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")}`;
+  return "";
+}
+
+const txt = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+/**
+ * O credor a partir do nome da organização + o cadastro jurídico
+ * (`company_profiles.profile.db`, as chaves que Dados da empresa grava). UMA
+ * leitura para o e-mail da régua e para a página da fatura: duas montariam o
+ * endereço de dois jeitos, e o cliente veria a empresa escrita diferente no
+ * e-mail e no link que ele abre.
+ *
+ * ⚠️ O logo NÃO entra: ele mora no cadastro como imagem embutida (megabytes),
+ * e um e-mail ou uma resposta pública com ele dentro seria pesada e cortada.
+ */
+export function credorDoCadastro(nomeOrg: string | null | undefined, perfil: Record<string, unknown> | null | undefined): Credor {
+  const p = perfil ?? {};
+  const rua = [txt(p.rua), txt(p.numero)].filter(Boolean).join(", ");
+  const l1 = [rua, txt(p.complemento), txt(p.bairro)].filter(Boolean).join(" - ");
+  const cep = so(txt(p.cep));
+  const cidade = [txt(p.cidade), txt(p.estado)].filter(Boolean).join(" - ");
+  const l2 = [cep.length === 8 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : "", cidade].filter(Boolean).join(" · ");
+  const fone = so(txt(p.telefone) ?? txt(p.whatsapp));
+  const ddi = so(txt(p.ddi));
+  return {
+    nome: txt(p.fantasia) ?? txt(nomeOrg) ?? txt(p.razaoSocial) ?? "Minha empresa",
+    razaoSocial: txt(p.razaoSocial),
+    documento: txt(p.cnpj) ?? txt(p.cpf),
+    email: (() => { const e = txt(p.email); return e && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(e) ? e : null; })(),
+    telefone: fone.length >= 10 ? telefoneLegivel(fone, ddi) : null,
+    endereco: [l1, l2].filter(Boolean),
+  };
+}
+
+/** "(11) 98765-4321" — com o DDI na frente só quando não é o do Brasil. */
+function telefoneLegivel(d: string, ddi: string): string {
+  const local = d.length === 11 ? d.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3")
+    : d.length === 10 ? d.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3") : d;
+  return ddi && ddi !== "55" ? `+${ddi} ${local}` : local;
+}
 
 /** "Padaria Aurora Ltda (CNPJ 12.345.678/0001-95)" — o credor como a mensagem o cita. */
 export function identificacaoDoCredor(c: Credor | null | undefined): string {
   if (!c) return "a empresa credora";
   const nome = (c.razaoSocial || c.nome || "").trim() || "a empresa credora";
-  const d = so(c.documento);
-  if (d.length === 14) return `${nome} (CNPJ ${d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")})`;
-  if (d.length === 11) return `${nome} (CPF ${d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")})`;
-  return nome;
+  const d = documentoLegivel(c.documento);
+  return d ? `${nome} (${d})` : nome;
 }
 
 /** A frase que toda cobrança carrega — o cliente que pagou ontem não é devedor. */

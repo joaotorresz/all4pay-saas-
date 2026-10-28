@@ -12,8 +12,10 @@
 --      pedido devolve o mesmo);
 --   3. o leitor não cria link, e a empresa B não cria link de título da A;
 --   4. a leitura pública só roda como o SERVIDOR (visitante e sessão de
---      cliente levam "permission denied") e devolve SÓ o mínimo do pagamento,
---      nada do cadastro do pagador nem da conta;
+--      cliente levam "permission denied") e devolve SÓ o mínimo do pagamento:
+--      a empresa que cobra pela lista de permitidos do cadastro dela
+--      (20261029150000 — nada de logo, faturamento ou representante) e, do
+--      pagador, SÓ o nome — nada do contato, do documento nem do endereço;
 --   5. token desconhecido, mal formado ou revogado não abre nada;
 --   6. o título mudou depois da emissão (cobrança `a_cancelar`): o link deixa
 --      de mostrar o Pix velho;
@@ -65,6 +67,15 @@ begin
   values (oa, 'pj', 'Cliente da cobrança', '11.222.333/0001-81', true, 'cliente@guarda.local',
           '01310100', 'Avenida Paulista', '1000', 'Bela Vista', 'São Paulo', 'SP')
   returning id into pa;
+  -- O cadastro da empresa: chaves que a fatura MOSTRA e chaves que ela NÃO pode
+  -- mostrar (logo embutido, faturamento, regime, o representante).
+  insert into public.company_profiles (org_id, profile) values (oa, jsonb_build_object('db', jsonb_build_object(
+    'fantasia', 'Padaria da guarda', 'razaoSocial', 'Padaria da Guarda Ltda', 'cnpj', '11.444.777/0001-61',
+    'email', 'financeiro@guarda.local', 'telefone', '11987654321', 'rua', 'Rua das Flores', 'numero', '10',
+    'cidade', 'São Paulo', 'estado', 'SP', 'cep', '01001000',
+    'logo', 'data:image/png;base64,AAAA', 'faturamentoMensal', 90000, 'regime', 'Simples Nacional',
+    'representanteCpf', '529.982.247-25')))
+  on conflict (org_id) do update set profile = excluded.profile;
 
   perform set_config('guarda.ua', ua::text, true);
   perform set_config('guarda.ul', ul::text, true);
@@ -251,10 +262,33 @@ begin
     raise exception 'CASO 4 FALHOU: o link aberto não mostrou o Pix do título (veio: %).', r;
   end if;
   for k in select jsonb_object_keys(r) loop
-    if k not in ('situacao','empresa','descricao','valor','vencimento','cobrancas') then
+    if k not in ('situacao','empresa','credor','comprador','descricao','valor','vencimento','cobrancas') then
       raise exception 'CASO 4 FALHOU: o link público EXPÕE o campo "%".', k;
     end if;
   end loop;
+  -- A empresa que cobra: o cabeçalho da fatura, só das chaves permitidas.
+  if r->'credor'->>'razaoSocial' is distinct from 'Padaria da Guarda Ltda' or r->'credor'->>'cnpj' is null
+     or r->'credor'->>'email' is distinct from 'financeiro@guarda.local' then
+    raise exception 'CASO 4 FALHOU: a fatura não mostrou a empresa que cobra (veio: %).', r->'credor';
+  end if;
+  for k in select jsonb_object_keys(r->'credor') loop
+    if k not in ('fantasia','razaoSocial','cnpj','cpf','email','telefone','whatsapp','ddi',
+                 'rua','numero','complemento','bairro','cidade','estado','cep') then
+      raise exception 'CASO 4 FALHOU: o link público EXPÕE o campo "%" do cadastro da empresa.', k;
+    end if;
+  end loop;
+  -- Do pagador, SÓ o nome.
+  if r->'comprador'->>'nome' is distinct from 'Cliente da cobrança' then
+    raise exception 'CASO 4 FALHOU: a fatura não mostrou o nome do cliente (veio: %).', r->'comprador';
+  end if;
+  for k in select jsonb_object_keys(r->'comprador') loop
+    if k <> 'nome' then
+      raise exception 'CASO 4 FALHOU: o link público EXPÕE o campo "%" do pagador.', k;
+    end if;
+  end loop;
+  if r::text like '%cliente@guarda.local%' or r::text like '%11.222.333%' or r::text like '%Paulista%' then
+    raise exception 'CASO 4 FALHOU: o link público EXPÕE o contato, o documento ou o endereço do PAGADOR (veio: %).', r;
+  end if;
   for c in select jsonb_array_elements(r->'cobrancas') loop
     for k in select jsonb_object_keys(c) loop
       if k not in ('tipo','valor','vencimento','textoQrCode','linhaDigitavel') then
@@ -295,6 +329,9 @@ begin
   r := pg_temp.ler(tk2);
   if r->>'situacao' <> 'pago' or jsonb_array_length(r->'cobrancas') <> 0 then
     raise exception 'CASO 7 FALHOU: o título recebido não apareceu como pago (veio: %).', r;
+  end if;
+  if r->'comprador' is not null and jsonb_typeof(r->'comprador') <> 'null' then
+    raise exception 'CASO 7 FALHOU: o link do título recebido seguiu mostrando o nome do cliente (veio: %).', r->'comprador';
   end if;
 
   -- 5b. o link revogado não abre
@@ -421,6 +458,22 @@ do $d9$ begin
 end $d9$;
 rollback to savepoint caso;
 
+-- d9b · o cadastro inteiro da empresa no link (logo, faturamento, representante)
+savepoint caso;
+do $d9b$ begin
+  perform pg_temp.plantar_ler('v_credor := v_credor || jsonb_build_object(k, left(btrim(v_db ->> k), 120));', 'v_credor := v_db;');
+  perform pg_temp.reprova('%CASO 4 FALHOU%EXPÕE o campo%do cadastro da empresa%', 'o cadastro inteiro da empresa no link público');
+end $d9b$;
+rollback to savepoint caso;
+
+-- d9c · o contato do pagador no link
+savepoint caso;
+do $d9c$ begin
+  perform pg_temp.plantar_ler('jsonb_build_object(''nome'', v_comprador)', 'jsonb_build_object(''nome'', v_comprador, ''email'', (select p.email from public.parties p where p.id = m.party_id))');
+  perform pg_temp.reprova('%CASO 4 FALHOU%EXPÕE o campo "email" do pagador%', 'o e-mail do pagador no link público');
+end $d9c$;
+rollback to savepoint caso;
+
 -- ═══ A RÉGUA LÊ OS LINKS (migration 20261028160000) ═══
 -- `regua_links_de_pagamento`: só o servidor; só o link vivo de título a
 -- receber em aberto com cobrança emitida; só da empresa e dos títulos pedidos.
@@ -534,6 +587,6 @@ do $d13$ begin
 end $d13$;
 rollback to savepoint caso;
 
-do $fim$ begin raise notice 'pinbank-checkout: 12 casos · 13 defeitos plantados pegos · o link e a régua conferem'; end $fim$;
+do $fim$ begin raise notice 'pinbank-checkout: 12 casos · 15 defeitos plantados pegos · o link e a régua conferem'; end $fim$;
 
 rollback;
