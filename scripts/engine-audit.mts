@@ -16,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, margemDaFaixa as margemDaFaixaMq, acrescimosDaMargem as acrescimosDaMargemMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -13202,6 +13202,26 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        && !/fichaDoLead/.test(sem("src/components/admin/FunilComercial.tsx")) && !/fichaDoLead/.test(sem("src/components/admin/AdminView.tsx")));
   }
 
+  {
+    // A margem por faixa (planilha de precificação, 28/10/2026) e a média sobre o mix.
+    const FX = [{ ate: 10000, margem: 0.015 }, { ate: 25000, margem: 0.012 }, { ate: null, margem: 0.009 }];
+    ok("maquininha-oferta: R$ 10.000,00 ainda é a primeira faixa (1,5%)", margemDaFaixaMq(10000, FX) === 0.015);
+    ok("maquininha-oferta: R$ 10.000,01 já é a segunda (1,2%)", margemDaFaixaMq(10000.01, FX) === 0.012);
+    ok("maquininha-oferta: acima de R$ 25 mil é 0,9%, sem teto", margemDaFaixaMq(25000.01, FX) === 0.009 && margemDaFaixaMq(5e6, FX) === 0.009);
+    ok("maquininha-oferta: faturamento ausente cai na primeira faixa", margemDaFaixaMq(0, FX) === 0.015 && margemDaFaixaMq(NaN, FX) === 0.015);
+    ok("maquininha-oferta: faixas fora de ordem dão o mesmo resultado", margemDaFaixaMq(20000, [...FX].reverse()) === 0.012);
+    const media = (a: Record<string, number>, m: { pix: number; debito: number; credito: number; parcelado: number }) => a.pix * m.pix + a.debito * m.debito + a.credito * m.credito + a.parcelado * m.parcelado;
+    const MIX = { pix: 0.25, debito: 0.3, credito: 0.3, parcelado: 0.15 };
+    const a1 = acrescimosDaMargemMq(0.009, MIX, 0.04);
+    ok("maquininha-oferta: mix padrão — Pix e débito no custo, crédito e parcelado +2 pontos", a1.pix === 0 && a1.debito === 0 && Math.abs(a1.credito - 0.02) < 1e-12 && a1.credito === a1.parcelado);
+    const mixes = [MIX, { pix: 0.6, debito: 0.3, credito: 0.1, parcelado: 0 }, { pix: 0, debito: 0, credito: 0.5, parcelado: 0.5 }, { pix: 0.5, debito: 0.5, credito: 0, parcelado: 0 }, { pix: 0.05, debito: 0.05, credito: 0.05, parcelado: 0.85 }];
+    ok("maquininha-oferta: a média do mix é SEMPRE a margem da faixa", mixes.every((m) => [0.015, 0.012, 0.009].every((mg) => Math.abs(media(acrescimosDaMargemMq(mg, m, 0.04), m) - mg) < 1e-12)));
+    const a2 = acrescimosDaMargemMq(0.015, { pix: 0.6, debito: 0.3, credito: 0.1, parcelado: 0 }, 0.04);
+    ok("maquininha-oferta: pouco crédito — o acréscimo para no teto e o resto vai em Pix e débito", a2.credito === 0.04 && a2.pix > 0 && Math.abs(a2.pix - a2.debito) < 1e-15);
+    const a3 = acrescimosDaMargemMq(0.012, { pix: 0.5, debito: 0.5, credito: 0, parcelado: 0 }, 0.04);
+    ok("maquininha-oferta: sem cartão no mix, a margem vai inteira em Pix e débito", Math.abs(a3.pix - 0.012) < 1e-15 && a3.credito === 0);
+    ok("maquininha-oferta: margem inválida não sobe taxa nenhuma", Object.values(acrescimosDaMargemMq(NaN, MIX, 0.04)).every((x) => x === 0));
+  }
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }
 

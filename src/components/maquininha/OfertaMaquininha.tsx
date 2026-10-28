@@ -8,10 +8,11 @@
  * quanto cai e quando, quanto custaria contra a maquininha de hoje) e termina
  * no formulário.
  *
- * ⚠️ As contas são de `core/maquininha/oferta`; as taxas, da tabela de
- * referência do simulador do POS (`lib/maquininha-oferta`). São de
- * REFERÊNCIA do segmento — a tela diz isso ao lado de todo número, e a
- * comparação diz quando a taxa de hoje é menor.
+ * ⚠️ As contas são de `core/maquininha/oferta`; as taxas, do custo da
+ * tabela do simulador do POS + a margem da faixa de faturamento repartida
+ * sobre o mix (`lib/maquininha-oferta`). Por isso o faturamento e o mix são
+ * da PÁGINA, não da comparação: as taxas de referência, o simulador de venda
+ * e a comparação usam o mesmo perfil, e mexer no mix muda as três.
  *
  * ⚠️ O pedido de vínculo é um RECADO à plataforma, nunca o vínculo: só a
  * plataforma liga um estabelecimento a uma empresa.
@@ -29,7 +30,7 @@ import {
   origemDoPedido, simulacaoDoPedido, simularRepasse, simularVenda, validarPedido,
   type Comparacao, type FormaOferta, type PedidoMaquininha, type SimulacaoDoPedido, type TaxasPorForma, type TipoPedido,
 } from "@/core/maquininha/oferta";
-import { SEGMENTOS, SEGMENTO_PADRAO, enviarPedido, listarPedidos, taxaDeReferencia, taxasDeMercado } from "@/lib/maquininha-oferta";
+import { PERFIL_PADRAO, SEGMENTOS, SEGMENTO_PADRAO, enviarPedido, listarPedidos, margemDoPerfil, taxaDaOferta, taxasDeMercado, type PerfilDeVendas } from "@/lib/maquininha-oferta";
 import { isDemo } from "@/lib/demo";
 import { dataBR, formatBRL, pct } from "@/lib/format";
 
@@ -89,7 +90,15 @@ function rolarPara(id: string) {
 export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?: number }) {
   const hoje = hojeISO();
   const [segmento, setSegmento] = React.useState(SEGMENTO_PADRAO);
-  const taxaDe = React.useMemo(() => taxaDeReferencia(segmento), [segmento]);
+  // O faturamento e o mix (em %, como a pessoa digita) moram aqui: a taxa
+  // depende deles (margem da faixa sobre o mix).
+  const [vendas, setVendas] = React.useState<VendasTela>(() => ({
+    volume: PERFIL_PADRAO.volumeMensal,
+    pix: PERFIL_PADRAO.mix.pix * 100, debito: PERFIL_PADRAO.mix.debito * 100, parcelado: PERFIL_PADRAO.mix.parcelado * 100,
+  }));
+  const perfil = React.useMemo(() => perfilDe(vendas), [vendas]);
+  const taxaDe = React.useMemo(() => taxaDaOferta(segmento, perfil), [segmento, perfil]);
+  const { margem } = margemDoPerfil(perfil);
   const [tipo, setTipo] = React.useState<TipoPedido>("pedir");
   // O que a comparação leva ao formulário (faturamento e as taxas de hoje),
   // para quem chega pelo pop-up não digitar de novo. `vez` refaz o preenchimento.
@@ -151,7 +160,9 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1">
           <span className="a4p-titulo-secao text-[15px] text-muted">Taxas de referência</span>
-          <span className="text-[12px] text-muted">A proposta final sai na análise do pedido, com o seu faturamento.</span>
+          <span className="text-[12px] text-muted">
+            Para {formatBRL(vendas.volume)} por mês no mix da comparação abaixo. A proposta final sai na análise do pedido.
+          </span>
         </div>
         <div className="w-full sm:w-[300px]">
           <Select
@@ -179,7 +190,7 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SimuladorVenda taxaDe={taxaDe} hoje={hoje} />
-        <CompararMaquininha taxaDe={taxaDe} aoSeguir={levarAoPedido} />
+        <CompararMaquininha taxaDe={taxaDe} vendas={vendas} setVendas={setVendas} aoSeguir={levarAoPedido} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -193,7 +204,8 @@ export function OfertaMaquininha({ vinculosPendentes = 0 }: { vinculosPendentes?
 
       <p className="text-[12px] text-muted m-0">
         Taxas de referência do segmento {SEGMENTOS.find((s) => s.id === segmento)?.nome.toLowerCase()}, média entre as bandeiras
-        Mastercard, Visa e Elo. A antecipação é de {pct(0.019)} ao mês, proporcional aos dias que faltam. As taxas
+        Mastercard, Visa e Elo, com a margem de {pct(margem, 1)} da faixa de faturamento sobre a média do mix: Pix e débito
+        ficam no custo e o crédito e o parcelado carregam a margem. A antecipação é de {pct(0.019)} ao mês, proporcional aos dias que faltam. As taxas
         estimadas da sua maquininha atual partem de taxas típicas do mercado e das que você digitou; confira no seu extrato.
         {isDemo && " Em demonstração, os pedidos ficam só nesta tela e não são enviados."}
       </p>
@@ -214,7 +226,7 @@ function Linha({ rotulo, children, forte }: { rotulo: string; children: React.Re
   );
 }
 
-function SimuladorVenda({ taxaDe, hoje }: { taxaDe: ReturnType<typeof taxaDeReferencia>; hoje: string }) {
+function SimuladorVenda({ taxaDe, hoje }: { taxaDe: ReturnType<typeof taxaDaOferta>; hoje: string }) {
   const [valor, setValor] = React.useState(500);
   const [forma, setForma] = React.useState<FormaOferta>("parcelado");
   const [parcelas, setParcelas] = React.useState(3);
@@ -318,16 +330,27 @@ function lerPercentual(t: string): number | null {
 
 const pctCampo = (f: number) => (f * 100).toFixed(2).replace(".", ",");
 
-function CompararMaquininha({ taxaDe, aoSeguir }: {
-  taxaDe: ReturnType<typeof taxaDeReferencia>;
+/** O faturamento e o mix como a tela os guarda (o mix em %, o crédito à vista é a sobra). */
+interface VendasTela { volume: number; pix: number; debito: number; parcelado: number }
+
+function perfilDe(v: VendasTela): PerfilDeVendas {
+  const credito = Math.max(0, 100 - v.pix - v.debito - v.parcelado);
+  return { volumeMensal: v.volume, mix: { pix: v.pix / 100, debito: v.debito / 100, credito: credito / 100, parcelado: v.parcelado / 100 } };
+}
+
+function CompararMaquininha({ taxaDe, vendas, setVendas, aoSeguir }: {
+  taxaDe: ReturnType<typeof taxaDaOferta>;
+  vendas: VendasTela;
+  setVendas: React.Dispatch<React.SetStateAction<VendasTela>>;
   aoSeguir: (faturamento: number, observacao: string, simulacao: SimulacaoDoPedido) => void;
 }) {
-  const [volume, setVolume] = React.useState(30000);
+  const { volume, pix, debito, parcelado } = vendas;
+  const setVolume = (n: number) => setVendas((v) => ({ ...v, volume: n }));
+  const setPix = (n: number) => setVendas((v) => ({ ...v, pix: n }));
+  const setDebito = (n: number) => setVendas((v) => ({ ...v, debito: n }));
+  const setParcelado = (n: number) => setVendas((v) => ({ ...v, parcelado: n }));
   const [textos, setTextos] = React.useState<Record<FormaOferta, string>>({ pix: "", debito: "", credito: "", parcelado: "" });
   const [antecipado, setAntecipado] = React.useState(false);
-  const [pix, setPix] = React.useState(25);
-  const [debito, setDebito] = React.useState(30);
-  const [parcelado, setParcelado] = React.useState(15);
   const [popup, setPopup] = React.useState(false);
   const credito = Math.max(0, 100 - pix - debito - parcelado);
 
