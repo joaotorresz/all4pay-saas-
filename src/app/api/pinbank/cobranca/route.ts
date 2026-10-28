@@ -8,7 +8,7 @@ import { lerReservaCobranca, problemasDoDevedor, type ReservaCobranca, type Resu
  * A COBRANÇA POR PIX E BOLETO PELA CONTA PINBANK — pedida pela EMPRESA a partir
  * de um título a receber.
  *
- *   GET  /api/pinbank/cobranca?movementId=<uuid>   → { liberada, ligada, cobrancas }
+ *   GET  /api/pinbank/cobranca?movementId=<uuid>   → { liberada, ligada, contaPronta, pedidoConta, cobrancas }
  *   POST /api/pinbank/cobranca  { movementId, tipo: "pix" | "boleto" }
  *
  * ⚠️ **MUDA QUEM PODE CHAMAR O QUÊ.** É o primeiro caminho em que a EMPRESA faz
@@ -64,20 +64,27 @@ export async function GET(req: Request) {
   if (!UUID.test(movementId)) return resposta(400, { ok: false, codigo: "pedido_invalido", motivo: "Título não informado." });
 
   const liberada = cobrancaPinbankLiberada();
-  if (!liberada.liberada) return resposta(200, { ok: true, liberada: false, ligada: false, cobrancas: [] });
+  if (!liberada.liberada) return resposta(200, { ok: true, liberada: false, ligada: false, contaPronta: false, pedidoConta: null, cobrancas: [] });
 
   // Como a pessoa: a política só devolve o que é da empresa aberta.
-  const [{ data: vinculos }, { data: cobrancas, error }, { data: links }] = await Promise.all([
-    s.from("pinbank_vinculos").select("id").eq("cobranca_ativa", true).is("excluido_em", null).limit(1),
+  const [{ data: vinculos }, { data: cobrancas, error }, { data: links }, { data: pedidos }] = await Promise.all([
+    s.from("pinbank_vinculos").select("cobranca_ativa, codigo_cliente, ativo").is("excluido_em", null).limit(20),
     s.from("pinbank_cobrancas").select(COLUNAS).eq("movement_id", movementId).order("criado_em", { ascending: false }).limit(20),
     // O link de pagamento vivo (etapa 4). Sem a migration a leitura falha e o link some, nada mais.
     s.from("pinbank_checkout_links").select("token").eq("movement_id", movementId).is("revogado_em", null).limit(1),
+    // O pedido de conta Quattro em aberto (quem não tem conta pede na própria baixa).
+    s.from("maquininha_pedidos").select("criado_em, situacao").eq("tipo", "conta_pix")
+      .not("situacao", "in", "(concluido,cancelado)").order("criado_em", { ascending: false }).limit(1),
   ]);
+  const vivos = vinculos ?? [];
   if (error) return resposta(500, { ok: false, codigo: "leitura_falhou", motivo: "Não foi possível ler as cobranças deste título." });
   return resposta(200, {
     ok: true,
     liberada: true,
-    ligada: (vinculos ?? []).length > 0,
+    ligada: vivos.some((v) => v.cobranca_ativa),
+    // A conta existe (a plataforma pôs o código no vínculo) mas a empresa ainda não ligou a cobrança.
+    contaPronta: vivos.some((v) => v.ativo && v.codigo_cliente != null),
+    pedidoConta: (pedidos ?? [])[0] ?? null,
     cobrancas: cobrancas ?? [],
     link: (links ?? [])[0]?.token ?? null,
   });

@@ -189,6 +189,17 @@
         "impacto": "Até ser aplicada, a página mostra só o nome da empresa, como hoje; nada que já existe muda. Sem PINBANK_COBRANCA=ligado a página nem lê.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 2)"
+      },
+      {
+        "nome": "20261029160000_pedido_conta_pix",
+        "motivo": "Pedido de conta Quattro na baixa do título: o funil Comercial passa a aceitar o tipo conta_pix e a origem cobranca. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "restrição maquininha_pedidos_tipo_check com conta_pix",
+          "restrição maquininha_pedidos_origem_valida com cobranca"
+        ],
+        "impacto": "Até ser aplicada, o banco recusa o pedido de conta e a tela mostra a mensagem de erro; nenhum pedido de maquininha muda.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (conta Quattro pedida na baixa)"
       }
     ],
     "objetos_sem_migration": [

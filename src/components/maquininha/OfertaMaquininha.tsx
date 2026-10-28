@@ -28,7 +28,7 @@ import { MaquininhaMockup } from "@/components/maquininha/MaquininhaMockup";
 import { usePermissoes } from "@/components/app/usePermissoes";
 import {
   ETAPAS_PEDIDO, NOME_FORMA, NOME_SITUACAO, PEDIDO_VAZIO, TETO_MAQUININHAS, compararTaxas, completarTaxasAtuais,
-  origemDoPedido, simulacaoDoPedido, simularRepasse, simularVenda, validarPedido,
+  nomeDoTipoPedido, origemDoPedido, simulacaoDoPedido, simularRepasse, simularVenda, validarPedido,
   type Comparacao, type FormaOferta, type PedidoMaquininha, type SimulacaoDoPedido, type TaxasPorForma, type TipoPedido,
 } from "@/core/maquininha/oferta";
 import { PERFIL_PADRAO, SEGMENTOS, SEGMENTO_PADRAO, enviarPedido, listarPedidos, margemDoPerfil, taxaDaOferta, taxasDeMercado, type PerfilDeVendas } from "@/lib/maquininha-oferta";
@@ -678,7 +678,7 @@ function SeusPedidos() {
             <li key={p.id} className="flex flex-col gap-2 py-3 border-t" style={{ borderColor: "var(--erp-menu-borda)" }}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <span className="text-[14px] text-ink">
-                  {p.tipo === "pedir" ? `${p.quantidade} ${p.quantidade === 1 ? "maquininha" : "maquininhas"}` : `Vínculo do estabelecimento ${p.codigoEstabelecimento ?? ""}`}
+                  {p.tipo === "vincular" ? `Vínculo do estabelecimento ${p.codigoEstabelecimento ?? ""}` : nomeDoTipoPedido(p.tipo, p.quantidade)}
                   <span className="text-muted tabular-nums"> · pedido em {dataBR(p.criadoEm.slice(0, 10))}</span>
                 </span>
                 <span className="text-[12px] font-medium px-[10px] py-[3px] rounded-pill text-ink" style={{ background: "var(--color-surface-1)" }}>{NOME_SITUACAO[p.situacao]}</span>
