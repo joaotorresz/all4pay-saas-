@@ -231,6 +231,16 @@
         "impacto": "Até ser aplicada, o executor dos lembretes responde com o erro da leitura e não envia nada; o funil segue sem a coluna de lembretes. Nasce desligado (CADASTRO_LEMBRETES=ligado).",
         "resolver_ate": "2026-11-10",
         "origem": "sessão Claude de 28/10/2026 (documentos e funil do cadastro, etapa 5)"
+      },
+      {
+        "nome": "20261028160000_regua_link_pagamento",
+        "motivo": "A régua manda o link de pagamento (etapa 5 da cobrança): o executor da régua lê o link /pagar vivo dos títulos que vai cobrar hoje. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função regua_links_de_pagamento(uuid, uuid[]) — só service_role, só link vivo de título a receber em aberto com cobrança emitida"
+        ],
+        "impacto": "Até ser aplicada, o executor responde com o erro da leitura e a régua sai sem link, como hoje. Nada que já existe muda; sem PINBANK_COBRANCA=ligado a leitura nem é feita.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 28/10/2026 (cobrança no modelo Asaas, etapa 1)"
       }
     ],
     "objetos_sem_migration": [
