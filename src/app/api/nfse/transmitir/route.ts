@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { emitenteDaOrg, emitirNaFocus, focusConfigurada, ambienteFocus } from "@/lib/focusnfe";
 import { abrirSessao, lerId, lerNota, podeLancar, registrar, resposta, UUID } from "@/lib/nfse-servidor";
-import { montarPedido, motivoDaRecusa, proximaTentativa, refDaTentativa } from "@/core/nfse/focus";
+import { dataEmissaoNacional, montarPedido, montarPedidoNacional, motivoDaRecusa, proximaTentativa, refDaTentativa } from "@/core/nfse/focus";
 
 /**
  * TRANSMITIR A NFS-e À PREFEITURA, pela Focus NFe.
@@ -52,13 +52,17 @@ export async function POST(req: Request) {
   }
   if (!nota.tomador) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: "A nota não tem cliente (tomador)." });
 
-  const montado = montarPedido(
-    { id: nota.id, descricao: nota.description ?? "", codigoServico: nota.service_code ?? "", valor: nota.amount, issRetido: nota.iss_retained === true },
-    nota.tomador, emitente, new Date().toISOString(),
-  );
+  const dadosNota = { id: nota.id, descricao: nota.description ?? "", codigoServico: nota.service_code ?? "", valor: nota.amount, issRetido: nota.iss_retained === true };
+  const nacional = emitente.padrao === "nacional";
+  const agora = new Date();
+  // Competência na data de São Paulo (UTC−3): às 22h o UTC já é amanhã.
+  const competencia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+  const montado = nacional
+    ? montarPedidoNacional(dadosNota, nota.tomador, emitente, dataEmissaoNacional(agora.getTime()), competencia, agora.getTime())
+    : montarPedido(dadosNota, nota.tomador, emitente, agora.toISOString());
   if (!montado.ok) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: montado.problemas.join(" ") });
 
-  const ref = refDaTentativa(nota.id, proximaTentativa(nota.provedor_ref));
+  const ref = refDaTentativa(nota.id, proximaTentativa(nota.provedor_ref), nacional);
   const ambiente = ambienteFocus();
   // ⚠️ Marca ANTES de enviar, e só se a nota ainda estiver como foi lida: dois
   // cliques (ou duas abas) não viram duas notas na prefeitura.

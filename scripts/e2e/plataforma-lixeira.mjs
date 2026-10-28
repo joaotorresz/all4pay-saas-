@@ -23,7 +23,7 @@ import { novoUsuario, verificador, brl } from "./kit.mjs";
  * vencido — o teste dependia do DIA em que rodava. O "Total" soma os dois.
  */
 async function cardsDePagar(u) {
-  await u.ir("/contas-a-pagar/titulos");
+  await u.ir("/contas-a-pagar/painel-de-despesas");
   const t = (await u.texto()).replace(/\n/g, " ");
   const card = (rotulo) => {
     const m = t.match(new RegExp(`${rotulo} \\((\\d+)\\)\\s*R\\$\\s*([\\d.\\s]+,\\s*\\d{2})`));

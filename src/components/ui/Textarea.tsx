@@ -21,7 +21,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         ? `ta-${label.replace(/\s+/g, "-").toLowerCase()}`
         : undefined);
     return (
-      <div className={cn("flex flex-col gap-[6px]", containerClassName)}>
+      <div className={cn("flex flex-col gap-[6px] min-w-0", containerClassName)}>
         {label && (
           <label htmlFor={taId} className="text-label font-medium text-muted">
             {label}

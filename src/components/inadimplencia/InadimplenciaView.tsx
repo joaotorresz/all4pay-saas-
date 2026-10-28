@@ -95,11 +95,11 @@ export function InadimplenciaView() {
           <span className="text-caption text-faint">ordenado por score</span>
         </div>
         <div className="flex flex-col">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-2 pb-2 text-caption text-faint border-b border-border-soft">
+          <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_auto_auto_auto] gap-3 px-2 pb-2 text-caption text-faint border-b border-border-soft">
             <span>Cliente</span>
             <span className="text-right w-[120px]">Score / prob.</span>
             <span className="text-right w-[110px]">Em aberto</span>
-            <span className="text-right w-[88px]">Classe</span>
+            <span className="hidden sm:block text-right w-[88px]">Classe</span>
           </div>
           {data.clientes.map((c) => (
             <ClienteRow
@@ -187,7 +187,7 @@ function ClienteRow({
   return (
     <button
       onClick={onClick}
-      className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-2 py-[10px] text-left border-b border-border-soft rounded-sm ${
+      className={`grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-2 py-[10px] text-left border-b border-border-soft rounded-sm ${
         active ? "bg-surface-2" : "hover:bg-surface-1"
       }`}
     >
@@ -217,7 +217,7 @@ function ClienteRow({
       <span className="w-[110px] text-right text-[17px] text-ink tabular-nums">
         <BRL value={c.features.volumeAberto} />
       </span>
-      <span className="w-[88px] flex justify-end">
+      <span className="hidden sm:flex w-[88px] justify-end">
         <span
           className="inline-flex items-center gap-[6px] rounded-pill px-2 py-[2px] text-caption font-medium"
           style={{ background: "var(--color-surface-2)", color: COR[c.classificacao] }}

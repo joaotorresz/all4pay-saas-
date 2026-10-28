@@ -182,7 +182,7 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         regime={tipo === "dre" ? "competencia" : "caixa"}
         recorte={visao === "com-previsto" ? "Confirmado e previsto" : "Só o confirmado"}
       />
-      <div className="flex items-start justify-end gap-4 flex-wrap" data-nao-imprime>
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap" data-nao-imprime>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="group" aria-label="O que entra no relatório">
             {([["com-previsto", "Com previsto"], ["confirmado", "Só confirmado"]] as const).map(([v, r]) => (
@@ -453,7 +453,7 @@ function CartoesExecutivos({ input, filtro }: {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
       {cartoes.map((c) => (
         <Card key={c.label} className="flex flex-col gap-1">
           <span className="text-caption text-faint">{c.label}</span>

@@ -23,7 +23,7 @@ const REGRAS: { re: RegExp; origem: OrigemNumero }[] = [
   { re: /^(total a receber|recebido no m[eê]s|total recebido|a receber)$/i,
     origem: { rota: "/contas-a-receber/painel-de-vendas", tela: "Painel de vendas" } },
   { re: /^(total a pagar|total pago|a pagar)$/i,
-    origem: { rota: "/contas-a-pagar", tela: "Contas a pagar" } },
+    origem: { rota: "/contas-a-pagar/painel-de-despesas", tela: "Contas a pagar" } },
   { re: /^(t[ií]tulos vencidos|total em atraso)$/i,
     origem: { rota: "/dashboard/financial/overdue", tela: "Inadimplência" } },
   { re: /^custo fixo$/i, origem: { rota: "/contas-a-pagar/recorrentes", tela: "Contas recorrentes" } },

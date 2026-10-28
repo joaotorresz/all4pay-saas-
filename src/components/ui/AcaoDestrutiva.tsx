@@ -50,7 +50,7 @@ function AvisoDesfazer({ titulo, desfazer, aoFim }: {
   return (
     <div
       role="status"
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 bg-ink text-white text-label px-4 py-3 rounded-md"
+      className="fixed bottom-[calc(24px+var(--a4p-barra-baixo,0px))] left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 bg-ink text-white text-label px-4 py-3 rounded-md"
     >
       <Icon name="check" size={15} color="var(--color-lime)" />
       <span>{titulo} — feito.</span>

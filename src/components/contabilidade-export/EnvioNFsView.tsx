@@ -131,7 +131,7 @@ export function EnvioNFsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <Button
           variant="primary"
           disabled={!podeAdicionar(destinatarios)}

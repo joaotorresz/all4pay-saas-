@@ -97,7 +97,7 @@ export default async function iaNumeros(navegador) {
   // 3) semana × painéis de contas a pagar/receber (segunda a domingo nos dois)
   const semIA = rSemana.match(new RegExp(`${RS} a receber e ${RS} a pagar`));
   const recIA = semIA ? brl(semIA[1]) : NaN, pagIA = semIA ? brl(semIA[2]) : NaN;
-  const pagTela = await semanaDoPainel(u, "/contas-a-pagar", ["Contas atrasadas", "Contas a vencer"]);
+  const pagTela = await semanaDoPainel(u, "/contas-a-pagar/painel-de-despesas", ["Contas atrasadas", "Contas a vencer"]);
   const recTela = await semanaDoPainel(u, "/contas-a-receber/painel-de-vendas", ["Contas a vencer", "Contas vencidas"]);
   v.ok(Math.abs(pagIA - pagTela) < 0.005, "o que vence a pagar na semana é o do painel de contas a pagar", `IA ${pagIA} · tela ${pagTela}`);
   v.ok(Math.abs(recIA - recTela) < 0.005, "o que vence a receber na semana é o do painel de contas a receber", `IA ${recIA} · tela ${recTela}`);
@@ -137,7 +137,7 @@ export default async function iaNumeros(navegador) {
   const aviso = await u.page.evaluate(() => [...document.querySelectorAll("[role=status], [role=alert], .text-negative")].map((e) => e.textContent.trim()).filter(Boolean).join(" | "));
   v.ok(!u.page.url().includes("/new"), "a conta a pagar de R$ 4.321,77 é salva", aviso || u.page.url());
 
-  const pagTela2 = await semanaDoPainel(u, "/contas-a-pagar", ["Contas atrasadas", "Contas a vencer"]);
+  const pagTela2 = await semanaDoPainel(u, "/contas-a-pagar/painel-de-despesas", ["Contas atrasadas", "Contas a vencer"]);
   v.ok(Math.abs(pagTela2 - pagTela - 4321.77) < 0.005, "o painel da semana sobe exatamente R$ 4.321,77 (o vencimento de domingo entra)", `${pagTela} → ${pagTela2}`);
   await u.ir("/quattro-ai");
   const rSemana2 = await perguntar(u, "o que vence esta semana?");

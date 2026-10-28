@@ -2,13 +2,8 @@
 
 import * as React from "react";
 import { Button, Icon, DropdownMenu, type DropdownGroup } from "@/components/ui";
-import { ReceitaForm } from "@/components/lancamentos/ReceitaForm";
-import { TransferenciaForm } from "@/components/lancamentos/TransferenciaForm";
-import { VendaCompraForm } from "@/components/lancamentos/VendaCompraForm";
-import { ContratoForm } from "@/components/lancamentos/ContratoForm";
-import { PartyForm } from "@/components/lancamentos/PartyForm";
-import { ProdutoServicoForm } from "@/components/lancamentos/ProdutoServicoForm";
-import { MarcaForm, UnidadeForm } from "@/components/lancamentos/MarcaUnidadeForm";
+import { abrirCriacao } from "@/components/app/criacao";
+import type { TipoCriacao } from "@/core/criar";
 import { useTipoConta } from "@/components/app/useTipoConta";
 
 /**
@@ -67,11 +62,24 @@ const shortcutsDe = (groups: DropdownGroup[]): Record<string, string> => Object.
   ),
 );
 
+/**
+ * ⚠️ Cada item abre a PORTA ÚNICA (`abrirCriacao`): o mesmo pop-up do Criar,
+ * do botão da tela e do menu. Antes este menu tinha os SEUS formulários — a
+ * "Venda de produto" daqui gravava outra coisa que a "Nova venda" do Painel.
+ */
+const TIPO_DO_ITEM: Record<string, TipoCriacao> = {
+  receita: "receber", despesa: "pagar", transferencia: "transferencia",
+  "venda-produto": "venda", "venda-servico": "venda", orcamento: "orcamento-venda",
+  "compra-produto": "compra", "compra-servico": "compra", contrato: "contrato-cliente",
+  produto: "produto", servico: "servico", cliente: "cliente", fornecedor: "fornecedor",
+  transportadora: "transportadora", marca: "marca", unidade: "unidade",
+};
+
+const abrir = (id: string) => { const t = TIPO_DO_ITEM[id]; if (t) abrirCriacao(t); };
+
 export function NovoDeposito() {
   const { pessoal } = useTipoConta();
   const groups = pessoal ? GROUPS_PESSOAL : GROUPS;
-  const [action, setAction] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const shortcuts = shortcutsDe(groups);
@@ -80,103 +88,31 @@ export function NovoDeposito() {
       const id = shortcuts[e.key.toLowerCase()];
       if (id) {
         e.preventDefault();
-        setAction(id);
+        abrir(id);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [groups]);
 
-  React.useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const close = () => setAction(null);
-
   return (
-    <>
-      <DropdownMenu
-        groups={groups}
-        onSelect={setAction}
-        menuLabel={pessoal ? "Adicionar" : "Novo registro"}
-        width={272}
-        trigger={({ open, toggle }) => (
-          <Button
-            variant="primary"
-            aria-haspopup="menu"
-            aria-expanded={open}
-            onClick={toggle}
-            rightIcon={<Icon name="chevron-down" size={15} />}
-            leftIcon={<Icon name="plus" size={15} />}
-          >
-            {pessoal ? "Adicionar" : "Novo lançamento"}
-          </Button>
-        )}
-      />
-
-      {renderForm(action, close, setToast, pessoal)}
-
-      {toast && <Toast text={toast} />}
-    </>
-  );
-}
-
-function renderForm(
-  action: string | null,
-  close: () => void,
-  onToast: (m: string) => void,
-  pessoal = false,
-) {
-  if (!action) return null;
-  const p = { onClose: close, onToast };
-  switch (action) {
-    // No modo pessoal o título fala a língua de quem controla gasto — o MESMO
-    // texto que o painel "Criar" já usa (`CriarNovo`), para as duas portas não
-    // chamarem a mesma coisa por dois nomes.
-    case "receita":
-      return <ReceitaForm kind="receita" {...(pessoal ? { titulo: "Nova receita" } : {})} {...p} />;
-    case "despesa":
-      return <ReceitaForm kind="despesa" {...(pessoal ? { titulo: "Nova despesa" } : {})} {...p} />;
-    case "transferencia":
-      return <TransferenciaForm {...p} />;
-    case "venda-produto":
-      return <VendaCompraForm docKind="venda" itemKind="produto" {...p} />;
-    case "venda-servico":
-      return <VendaCompraForm docKind="venda" itemKind="servico" {...p} />;
-    case "orcamento":
-      return <VendaCompraForm docKind="orcamento" itemKind="produto" {...p} />;
-    case "compra-produto":
-      return <VendaCompraForm docKind="compra" itemKind="produto" {...p} />;
-    case "compra-servico":
-      return <VendaCompraForm docKind="compra" itemKind="servico" {...p} />;
-    case "contrato":
-      return <ContratoForm {...p} />;
-    case "produto":
-      return <ProdutoServicoForm kind="produto" {...p} />;
-    case "servico":
-      return <ProdutoServicoForm kind="servico" {...p} />;
-    case "cliente":
-      return <PartyForm role="customer" {...p} />;
-    case "fornecedor":
-      return <PartyForm role="supplier" {...p} />;
-    case "transportadora":
-      return <PartyForm role="carrier" {...p} />;
-    case "marca":
-      return <MarcaForm {...p} />;
-    case "unidade":
-      return <UnidadeForm {...p} />;
-    default:
-      return null;
-  }
-}
-
-function Toast({ text }: { text: string }) {
-  return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[70]">
-      <Icon name="check" size={15} color="var(--color-lime)" />
-      <span>{text}</span>
-    </div>
+    <DropdownMenu
+      groups={groups}
+      onSelect={abrir}
+      menuLabel={pessoal ? "Adicionar" : "Novo registro"}
+      width={272}
+      trigger={({ open, toggle }) => (
+        <Button
+          variant="primary"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={toggle}
+          rightIcon={<Icon name="chevron-down" size={15} />}
+          leftIcon={<Icon name="plus" size={15} />}
+        >
+          {pessoal ? "Adicionar" : "Novo lançamento"}
+        </Button>
+      )}
+    />
   );
 }

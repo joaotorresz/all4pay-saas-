@@ -2054,3 +2054,20 @@ label { transition: color var(--dur-rapida) ease; }
   .shadow-popover { animation: none; }
   .a4p-campo, .a4p-campo input::placeholder, label { transition: none; }
 }
+
+/* ============================================================
+   NAVEGAÇÃO NO CELULAR (28/10/2026, pedido do João)
+   A barra de baixo (`app/NavegacaoCelular`) só existe abaixo de `lg`, a mesma
+   fronteira em que a lateral vira gaveta. `--a4p-barra-baixo` é a altura que
+   ela ocupa (com a faixa do gesto do iPhone): tudo o que é fixo embaixo soma
+   esta altura, e no computador ela vale zero pelo fallback de cada uso.
+   Mora fora do bloco gerado de propósito: não é cor nem forma do tema, é a
+   geometria de uma peça, e só existe dentro desta consulta de largura.
+   ============================================================ */
+@media (max-width: 1023.98px) {
+  :root { --a4p-barra-baixo: calc(64px + env(safe-area-inset-bottom, 0px)); }
+}
+.a4p-nav-celular {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--color-border-soft);
+}

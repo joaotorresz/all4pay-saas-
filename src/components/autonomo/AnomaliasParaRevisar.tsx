@@ -31,8 +31,8 @@ import { SEV_COR } from "./severidade";
 /** Onde se confere cada classe — rotas canônicas do inventário, nunca alias. */
 export const ONDE_CONFERIR: Record<Anomalia["classe"], { label: string; href: string }> = {
   despesa: { label: "Revisar despesa", href: "/dashboard/reports/dre" },
-  duplicidade: { label: "Verificar duplicidade", href: "/contas-a-pagar/titulos" },
-  fraude: { label: "Investigar pagamento", href: "/contas-a-pagar/titulos" },
+  duplicidade: { label: "Verificar duplicidade", href: "/contas-a-pagar/painel-de-despesas" },
+  fraude: { label: "Investigar pagamento", href: "/contas-a-pagar/painel-de-despesas" },
 };
 
 export function AnomaliasParaRevisar() {

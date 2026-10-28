@@ -53,6 +53,24 @@ export interface EmitenteFocus {
    * sem ela a nota sai com 0. Nunca vem da tela (ver `montarPedido`).
    */
   aliquota?: number;
+  /**
+   * "nacional" = NFS-e NACIONAL (DPS, `POST /v2/nfsen`) no lugar do padrão da
+   * prefeitura. Obrigatório para o Simples Nacional a partir de 01/11/2026
+   * (orientação da Focus, 28/10/2026), em qualquer município.
+   */
+  padrao?: "municipal" | "nacional";
+  /** Código de tributação NACIONAL do ISS (cTribNac, 6 dígitos). Exigido no padrão nacional. */
+  codigoTributacaoNacional?: string;
+  /** Código NBS do serviço (9 dígitos), opcional. */
+  codigoNbs?: string;
+  /** Série da DPS (1–49999), padrão "1". */
+  serieDps?: string;
+  /**
+   * Percentual aproximado do total de tributos do Simples (pTotTribSN, em %:
+   * 6 = 6%). O Ambiente Nacional EXIGE o grupo de totais de tributos, e para
+   * o optante ele é este número — a alíquota efetiva do DAS, que vem do contador.
+   */
+  percentualTributosSimples?: number;
 }
 
 const so = (s: unknown) => (typeof s === "string" ? s.replace(/\D/g, "") : typeof s === "number" ? String(s) : "");
@@ -93,7 +111,13 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(texto(e.codigoTributarioMunicipio) ? { codigoTributarioMunicipio: texto(e.codigoTributarioMunicipio) } : {}),
       ...(so(e.codigoCnae) ? { codigoCnae: so(e.codigoCnae) } : {}),
       ...(aliquotaValida(e.aliquota) ? { aliquota: numeroDaAliquota(e.aliquota) } : {}),
+      ...(e.padrao === "nacional" ? { padrao: "nacional" as const } : {}),
+      ...(percentualValido(e.percentualTributosSimples) ? { percentualTributosSimples: numeroDaAliquota(e.percentualTributosSimples) } : {}),
+      ...(so(e.codigoTributacaoNacional).length === 6 ? { codigoTributacaoNacional: so(e.codigoTributacaoNacional) } : {}),
+      ...(so(e.codigoNbs).length === 9 ? { codigoNbs: so(e.codigoNbs) } : {}),
+      ...(/^\d{1,5}$/.test(so(e.serieDps)) && Number(so(e.serieDps)) >= 1 && Number(so(e.serieDps)) <= 49999 ? { serieDps: String(Number(so(e.serieDps))) } : {}),
     };
+    if (e.padrao === "nacional" && so(e.codigoTributacaoNacional).length !== 6) problemas.push(`emitente da organização ${org}: padrão nacional sem código de tributação nacional de 6 dígitos`);
     if (e.aliquota !== undefined && !aliquotaValida(e.aliquota)) problemas.push(`emitente da organização ${org}: alíquota fora de 0–5% ignorada`);
   }
   return { emitentes, problemas };
@@ -102,6 +126,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
 /** ISS vai até 5% (LC 116): acima disso é engano de digitação ("15" no lugar de "1,5"), e a alíquota é ignorada com aviso. */
 const numeroDaAliquota = (v: unknown): number =>
   typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : NaN;
+function percentualValido(v: unknown): boolean { const n = numeroDaAliquota(v); return Number.isFinite(n) && n > 0 && n <= 33; }
 function aliquotaValida(v: unknown): boolean {
   const n = numeroDaAliquota(v);
   return Number.isFinite(n) && n > 0 && n <= 5;
@@ -208,9 +233,99 @@ export function montarPedido(
   };
 }
 
+/** O pedido da NFS-e NACIONAL (DPS): campos planos, como a Focus documenta em `/v2/nfsen`. */
+export type PedidoNacional = Record<string, string | number>;
+
+/**
+ * Monta a DPS da NFS-e Nacional. Mesmas regras do `montarPedido`: o prestador
+ * sai do vínculo da plataforma, a alíquota só a da plataforma, e o que falta
+ * volta como PROBLEMA antes de sair.
+ *
+ * ⚠️ `numeroDps` vem de quem chama (a rota, que tem relógio) e é único POR
+ * TENTATIVA: o Ambiente Nacional recusa DPS repetida, e reenviar uma recusada
+ * com o mesmo número esbarraria na anterior. ⚠️ `competencia` é a data LOCAL
+ * (São Paulo), nunca a do UTC: às 22h a data UTC já é amanhã, e competência
+ * futura é recusada.
+ *
+ * ⚠️ O endereço do tomador NÃO vai: o padrão nacional o exige com o código IBGE
+ * do município, que o cadastro do contato não tem — mandar só a rua é recusa.
+ * Os campos da reforma (IBS/CBS) também não: em 2026 o grupo é opcional.
+ */
+/**
+ * A data de emissão da DPS no formato que o Ambiente Nacional aceita: hora de
+ * São Paulo com o fuso escrito (`2026-10-28T14:51:00-03:00`), sem milésimos, e
+ * um minuto ANTES de agora. ⚠️ O `toISOString()` (UTC com "Z") foi recusado com
+ * "a data de emissão da DPS não pode ser posterior à data do seu
+ * processamento": o relógio de lá é a régua, e um segundo de diferença entre
+ * os servidores já põe a emissão no futuro. Recuar um minuto não muda o dia
+ * (a competência é calculada à parte) e tira a corrida.
+ */
+export function dataEmissaoNacional(agoraMs: number): string {
+  const local = new Date(agoraMs - 60_000 - 3 * 3600_000).toISOString().slice(0, 19);
+  return `${local}-03:00`;
+}
+
+export function montarPedidoNacional(
+  nota: NotaParaEmitir, tomador: TomadorParaEmitir, emitente: EmitenteFocus,
+  agoraISO: string, competencia: string, numeroDps: number,
+): { ok: true; pedido: PedidoNacional } | { ok: false; problemas: string[] } {
+  const problemas: string[] = [];
+  const doc = so(tomador.documento);
+  if (doc.length !== 11 && doc.length !== 14) problemas.push("O cliente da nota não tem CPF ou CNPJ válido no cadastro.");
+  if (!texto(tomador.nome)) problemas.push("O cliente da nota está sem nome.");
+  if (!(nota.valor > 0)) problemas.push("O valor do serviço tem de ser maior que zero.");
+  if (!texto(nota.descricao)) problemas.push("A descrição do serviço está vazia.");
+  if (!emitente.codigoTributacaoNacional) problemas.push("Falta o código de tributação nacional do serviço no cadastro fiscal da empresa. Fale com o suporte da Quattro.");
+  if (emitente.optanteSimples && emitente.percentualTributosSimples === undefined) problemas.push("Falta o percentual aproximado de tributos do Simples no cadastro fiscal da empresa. Fale com o suporte da Quattro.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(competencia)) problemas.push("Data de competência inválida.");
+  if (!Number.isInteger(numeroDps) || numeroDps < 1 || String(numeroDps).length > 15) problemas.push("Número da DPS inválido.");
+  if (problemas.length) return { ok: false, problemas };
+
+  const pedido: PedidoNacional = {
+    data_emissao: agoraISO,
+    data_competencia: competencia,
+    serie_dps: emitente.serieDps ?? "1",
+    numero_dps: numeroDps,
+    emitente_dps: "1",
+    codigo_municipio_emissora: emitente.codigoMunicipio,
+    cnpj_prestador: emitente.cnpj,
+    inscricao_municipal_prestador: emitente.inscricaoMunicipal,
+    // "3" = ME/EPP optante; "1" = não optante. MEI ("2") não é cliente hoje.
+    codigo_opcao_simples_nacional: emitente.optanteSimples ? "3" : "1",
+    ...(emitente.optanteSimples ? { regime_tributario_simples_nacional: "1" } : {}),
+    regime_especial_tributacao: emitente.regimeEspecial ?? "0",
+    [doc.length === 14 ? "cnpj_tomador" : "cpf_tomador"]: doc,
+    razao_social_tomador: texto(tomador.nome).slice(0, 150),
+    ...(texto(tomador.email) ? { email_tomador: texto(tomador.email).slice(0, 80) } : {}),
+    ...(/^\d{10,11}$/.test(so(tomador.telefone)) ? { telefone_tomador: so(tomador.telefone) } : {}),
+    codigo_municipio_prestacao: emitente.codigoMunicipio,
+    codigo_tributacao_nacional_iss: emitente.codigoTributacaoNacional as string,
+    ...(emitente.codigoNbs ? { codigo_nbs: emitente.codigoNbs } : {}),
+    descricao_servico: texto(nota.descricao).slice(0, 1000),
+    valor_servico: Math.round(nota.valor * 100) / 100,
+    tributacao_iss: "1",
+    tipo_retencao_iss: nota.issRetido ? "2" : "1",
+    ...(emitente.aliquota !== undefined ? { percentual_aliquota_relativa_municipio: emitente.aliquota } : {}),
+    // O grupo de totais de tributos é obrigatório (sem ele: "trib: Missing
+    // child element … totTrib"); o optante informa o percentual do Simples.
+    ...(emitente.optanteSimples && emitente.percentualTributosSimples !== undefined
+      ? { percentual_total_tributos_simples_nacional: emitente.percentualTributosSimples } : {}),
+  };
+  return { ok: true, pedido };
+}
+
+/**
+ * A referência diz o PADRÃO da nota (`quattro-nac-…` = nacional; o id da nota é UUID em hexadecimal, que nunca começa por "nac-"), e é ela que
+ * escolhe o endereço da consulta e do cancelamento: uma nota emitida pela
+ * prefeitura continua sendo consultada lá depois que a empresa passa ao
+ * nacional.
+ */
+export const caminhoDaRef = (ref: string): "/v2/nfse" | "/v2/nfsen" =>
+  ref.startsWith("quattro-nac-") ? "/v2/nfsen" : "/v2/nfse";
+
 /** A referência da nota na Focus: única por TENTATIVA (reenviar uma recusada abre outra). */
-export const refDaTentativa = (notaId: string, tentativa: number): string =>
-  `quattro-${notaId}-${Math.max(1, Math.floor(tentativa))}`;
+export const refDaTentativa = (notaId: string, tentativa: number, nacional = false): string =>
+  `quattro-${nacional ? "nac-" : ""}${notaId}-${Math.max(1, Math.floor(tentativa))}`;
 
 /** A tentativa seguinte a partir da referência guardada (sem referência → 1). */
 export function proximaTentativa(refAtual: string | null | undefined): number {

@@ -644,7 +644,7 @@ export function BotoesExportar({
   nome, relatorio, layout,
 }: { nome: string; relatorio: Relatorio; layout: LayoutTabela }) {
   return (
-    <div className="flex items-center gap-2 shrink-0" data-nao-imprime>
+    <div className="flex items-center gap-2 flex-wrap max-w-full" data-nao-imprime>
       {/*
         PDF pela impressão do navegador ("Salvar como PDF"): é o gerador de PDF
         que já está na máquina, respeita a fonte e a paginação, e não custa uma

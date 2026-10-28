@@ -7,7 +7,10 @@
  *   FOCUS_NFE_TOKEN_PRODUCAO    = o token de produção da conta da Quattro
  *   FOCUS_NFE_EMITENTES         = JSON { "<org_id>": { cnpj, inscricaoMunicipal,
  *                                 codigoMunicipio, optanteSimples, regimeEspecial?,
- *                                 itemListaServico?, codigoTributarioMunicipio? } }
+ *                                 itemListaServico?, codigoTributarioMunicipio?,
+ *                                 aliquota?, padrao?: "nacional",
+ *                                 codigoTributacaoNacional?, codigoNbs?, serieDps?,
+ *                                 percentualTributosSimples? } }
  *
  * ⚠️ O ambiente escolhe a BASE e o TOKEN juntos, nunca uma URL livre: com o
  * token de produção apontado para a homologação (ou o contrário) a Focus
@@ -17,7 +20,7 @@
  *
  * ⚠️ O token nunca sai daqui: nem na resposta da rota, nem no log.
  */
-import { BASE_FOCUS, lerEmitentes, type AmbienteFocus, type EmitenteFocus, type PedidoFocus } from "@/core/nfse/focus";
+import { BASE_FOCUS, caminhoDaRef, lerEmitentes, type AmbienteFocus, type EmitenteFocus, type PedidoFocus, type PedidoNacional } from "@/core/nfse/focus";
 
 export function ambienteFocus(): AmbienteFocus {
   return process.env.FOCUS_NFE_AMBIENTE?.trim() === "producao" ? "producao" : "homologacao";
@@ -73,11 +76,13 @@ async function chamar(metodo: "GET" | "POST" | "DELETE", caminho: string, corpo?
 
 export const baseFocus = (): string => BASE_FOCUS[ambienteFocus()];
 
-export const emitirNaFocus = (ref: string, pedido: PedidoFocus) =>
-  chamar("POST", `/v2/nfse?ref=${encodeURIComponent(ref)}`, pedido);
+// O endereço (prefeitura × nacional) sai da REFERÊNCIA, nunca de um parâmetro
+// solto: consulta e cancelamento vão sempre aonde a nota foi emitida.
+export const emitirNaFocus = (ref: string, pedido: PedidoFocus | PedidoNacional) =>
+  chamar("POST", `${caminhoDaRef(ref)}?ref=${encodeURIComponent(ref)}`, pedido);
 
 export const consultarNaFocus = (ref: string) =>
-  chamar("GET", `/v2/nfse/${encodeURIComponent(ref)}`);
+  chamar("GET", `${caminhoDaRef(ref)}/${encodeURIComponent(ref)}`);
 
 export const cancelarNaFocus = (ref: string, justificativa: string) =>
-  chamar("DELETE", `/v2/nfse/${encodeURIComponent(ref)}`, { justificativa });
+  chamar("DELETE", `${caminhoDaRef(ref)}/${encodeURIComponent(ref)}`, { justificativa });

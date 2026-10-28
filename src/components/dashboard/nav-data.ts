@@ -155,19 +155,24 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
-    // O ciclo da DESPESA, do pedido de compra ao título pago. As NFs da SEFAZ e
-    // os boletos do DDA moram na caixa de entrada de Títulos a pagar; os
-    // contratos de fornecedor, em Contas recorrentes.
-    id: "contas-a-pagar", label: "Comprar e pagar", icon: "arrow-down",
-    acao: { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus" },
+    // O ciclo da DESPESA, do pedido de compra ao título pago — o ESPELHO da
+    // Central de vendas (pedido do dono, 27/10/2026): quem aprendeu um lado
+    // sabe usar o outro. Mesma ordem, linha a linha: o painel único (calendário,
+    // status, títulos e a lista de compras, como o de vendas tem a de vendas) ·
+    // o canal próprio (folha, como a maquininha) · os documentos fiscais (o que
+    // chegou: NFs da SEFAZ e boletos do DDA, como as notas emitidas) · o que
+    // espera decisão (reembolsos, como a cobrança) · o que se repete (contas
+    // recorrentes e contratos de fornecedor, como assinaturas e contratos).
+    // Painel de contas a pagar, Títulos a pagar e Compras responderam 308 para
+    // o Painel de despesas.
+    id: "contas-a-pagar", label: "Central de despesas", icon: "arrow-down",
+    acao: { label: "Nova despesa", href: "/dashboard/financial/payables/new", icon: "plus" },
     items: [
-      { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "layout-dashboard" },
-      { label: "Títulos a pagar", desc: "O que você deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
-      { label: "Caixa de entrada", desc: "Documentos lidos, NFs da SEFAZ e boletos do DDA", href: "/contas-a-pagar/caixa-de-entrada", icon: "inbox" },
-      { label: "Compras", desc: "Pedidos de compra e aprovação", href: "/dashboard/purchases", icon: "inbox" },
-      { label: "Contas recorrentes", desc: "O que se repete, e os contratos de fornecedor", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
+      { label: "Painel de despesas", desc: "Calendário, status, títulos a pagar e compras numa tela só", href: "/contas-a-pagar/painel-de-despesas", icon: "gauge" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
-      { label: "Reembolsos", desc: "Despesa do colaborador", href: "/dashboard/financial/reimbursements", icon: "receipt" },
+      { label: "Caixa de entrada", desc: "Documentos lidos, NFs da SEFAZ e boletos do DDA", href: "/contas-a-pagar/caixa-de-entrada", icon: "file-text" },
+      { label: "Reembolsos", desc: "Despesa do colaborador, à espera de aprovação", href: "/dashboard/financial/reimbursements", icon: "receipt" },
+      { label: "Contas recorrentes", desc: "O que se repete, e os contratos de fornecedor", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
     ],
   },
   {
@@ -297,7 +302,7 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", desc: "Seu mês em uma tela", href: "/", icon: "house" },
-      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
+      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/contas-a-pagar/painel-de-despesas", icon: "arrow-down" },
       { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/contas-a-receber/painel-de-vendas", icon: "arrow-up" },
     ],
   },

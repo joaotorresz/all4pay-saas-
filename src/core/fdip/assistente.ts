@@ -34,7 +34,12 @@ export const CATEGORIAS_RECEITA = [
 export const CATEGORIAS_DESPESA = [
   "Aluguel", "Folha de pagamento", "Fornecedores / insumos", "Marketing",
   "Assinaturas / software", "Utilidades", "Combustível", "Impostos",
-  "Tarifas bancárias", CATEGORIA_TAXA_POS, "Serviços profissionais", "Outras despesas",
+  "Tarifas bancárias", CATEGORIA_TAXA_POS, "Serviços profissionais",
+  // as que o CNPJ (CNAE) e o cartão (MCC) produzem — sem elas no seletor, a
+  // categoria sugerida aparecia sozinha no topo, sem as irmãs ao lado
+  "Alimentação", "Frete e logística", "Viagens", "Manutenção", "Saúde", "Seguros",
+  "Educação", "Lazer", "Obras e instalações",
+  "Outras despesas",
 ] as const;
 
 export interface MesResumo { mes: string; entradas: number; saidas: number }

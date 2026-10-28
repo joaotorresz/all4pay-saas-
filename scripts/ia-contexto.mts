@@ -42,7 +42,7 @@ for (const c of todos) {
 for (const m of MOLDES_DE_TELA) ok(`${m.rota}: rota do molde existe ou é prefixo`, [...rotas].some((r) => r === m.rota || r.startsWith(`${m.rota}/`)));
 
 ok("folha casa a folha, não contas a pagar", contextoDaTela("/contas-a-pagar/folha").rota === "/contas-a-pagar/folha");
-ok("títulos a pagar casam contas a pagar", contextoDaTela("/contas-a-pagar/titulos").rota === "/contas-a-pagar");
+ok("títulos a pagar casam contas a pagar", contextoDaTela("/contas-a-pagar/painel-de-despesas").rota === "/contas-a-pagar/painel-de-despesas");
 ok("fluxo de caixa abre falando do fluxo", /fluxo de caixa/.test(contextoDaTela("/fluxo-caixa").abertura));
 ok("tela sem molde usa o nome da tela", contextoDaTela("/lixeira", "Lixeira").abertura.includes("Lixeira"));
 ok("sem botão na Home", !botaoNaTela("/"));

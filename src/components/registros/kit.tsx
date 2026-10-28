@@ -35,7 +35,7 @@ export function CabecalhoRegistro({
           Estrutura e cadastros ›
         </Link>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 max-w-full">
         {acaoNova && (
           <Button variant="primary" onClick={acaoNova.onClick}>
             <Icon name="plus" size={15} color="currentColor" />

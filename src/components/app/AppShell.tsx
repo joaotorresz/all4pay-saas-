@@ -14,6 +14,8 @@ import { RouteTracker } from "@/components/app/RouteTracker";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
 import { CriarNovo } from "@/components/app/CriarNovo";
+import { CriacaoGlobal } from "@/components/app/CriacaoGlobal";
+import { NavegacaoCelular } from "@/components/app/NavegacaoCelular";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -89,7 +91,7 @@ export function AppShell({
         </div>
       </div>
       {actions && (
-        <div className="flex items-center gap-[10px] flex-wrap justify-end">{actions}</div>
+        <div className="flex items-center gap-[10px] flex-wrap justify-start sm:justify-end max-w-full">{actions}</div>
       )}
     </header>
   );
@@ -140,7 +142,13 @@ export function AppShell({
             partir da caixa de conteúdo da área que rola, e com o padding o
             título grudava 72px mais baixo, por cima do primeiro cartão
             (medido no navegador). */}
-        <div data-area-rola className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-24">
+        {/* ⚠️ A ÁREA NÃO ROLA PARA O LADO (28/10/2026, João: "a página
+            arrasta para um lado e para o outro"). Com `overflow-y-auto` o
+            eixo x vira `auto` junto, e qualquer peça mais larga que o
+            telefone — botão do cabeçalho, filtro de largura fixa — arrastava
+            a tela INTEIRA. Tabela larga rola dentro do próprio cartão; a
+            página não. A guarda `npm run mobile-largura` mede as telas. */}
+        <div data-area-rola className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 pb-[calc(96px+var(--a4p-barra-baixo,0px))]">
           <div data-folga-barra aria-hidden className="h-[72px]" />
           {/* O bloco que GRUDA logo abaixo da barra: avisos da conta e o título
               da tela. ⚠️ Sem retângulo branco (dono, 15/10/2026): o fundo é um
@@ -180,6 +188,9 @@ export function AppShell({
       <ContatoDrawer />
       <NovaTransacao />
       <CriarNovo />
+      <CriacaoGlobal />
+      {/* Abaixo de `lg`: Início · Vendas · Criar · Despesas · Caixa a um toque. */}
+      <NavegacaoCelular />
     </div>
   );
 

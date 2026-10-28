@@ -41,7 +41,7 @@ export function FirstRunCard() {
             promete "configurar" e abre sete etapas de inscrição municipal faz a
             pessoa desistir no meio — foi assim que o defeito do passo 7 ficou
             dois meses sem ser visto. */}
-        <Button variant="secondary" onClick={() => router.push("/comecar")}>
+        <Button variant="secondary" onClick={() => router.push("/criar-conta")}>
           Cadastrar a empresa inteira
         </Button>
       </div>

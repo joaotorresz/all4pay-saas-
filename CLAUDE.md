@@ -147,6 +147,30 @@ campos, cards e valores, gráficos, tabelas, menu e moldura), nos dois temas.
 
 ---
 
+## ⚠️ UMA PORTA DE CRIAÇÃO, SEMPRE EM POP-UP (27/10/2026, decisão do dono)
+
+Todo "Novo" (Criar, "Novo" do topo, botão da tela, ⌘K, menu, link `?novo=1`
+ou `/new`) chama `abrirCriacao(tipo)` (`components/app/criacao`) e o
+anfitrião `CriacaoGlobal` (no `AppShell`) abre SEMPRE o mesmo formulário
+COMPLETO, em pop-up, sem sair da tela. Um tipo por item (`TipoCriacao` em
+`core/criar`). Os documentos (venda, compra, conta a receber/pagar,
+transferência) abrem na janela larga; os cadastros no modal deles. É uma
+PILHA: o "+" de um campo abre o cadastro por cima e devolve o item escolhido
+(`aoCriar`). Links de criação são interceptados (Ctrl/⌘ segue para a página,
+que monta o mesmo formulário); edição (`?id=`) não é criação. Formulário que
+também vive em página sai por `useSaidaDoFormulario`/`useParametrosDoFormulario`.
+⚠️ Nenhum `router.push` para rota de criação e nenhum segundo formulário do
+mesmo item — guardas "porta única" em `npm run consistencia`.
+
+⚠️ **"+ CADASTRAR NOVO X" EM TODO CAMPO DE CADASTRO (27/10/2026).** O `Select`
+e o `SelectBusca` aceitam `cadastrar={cadastroDe(tipo, parametros?)}`: a
+última opção abre o cadastro na mesma pilha e o item criado volta ESCOLHIDO
+(o `onChange` mora num ref; o anfitrião recarrega as listas ANTES de devolver
+o id). Lista vazia vira convite ("Cadastrar o primeiro"). A pilha mora num
+portal no `<body>` — dentro do `AppShell` o modal abria por baixo da janela.
+Guarda `cadastrar:` em `npm run consistencia` (campo de cadastro sem a opção
+reprova; provada plantando quatro defeitos).
+
 ## ⚠️ MENU REMODELADO (19/10/2026, decisão do dono)
 
 Uma pergunta, uma tela: telas irmãs viraram ABAS de uma tela só, e o menu
@@ -1015,9 +1039,19 @@ falhou — `processando` e `incerta` NUNCA deixam pedir outra cobrança). O Inte
 (`core/cobranca-banco/inter`, API v3, boleto com Pix numa chamada) sai por UMA
 porta (`lib/cobranca-banco/inter-saida.ts`, mTLS, só caminhos de cobrança): é a
 segunda porta de rede declarada do app (bloco `inter:` do `engine-audit`). O
-aviso do webhook só traz CÓDIGOS; a situação vem da consulta. Por ora a
-credencial é das variáveis `INTER_*` (piloto); por empresa, cifrada, é a
-próxima etapa. Guarda: `npm run inter-cobranca`.
+aviso do webhook só traz CÓDIGOS; a situação vem da consulta. Guarda:
+`npm run inter-cobranca`.
+
+⚠️ **Etapa 3 (27/10/2026, migration `20261028120000`): a credencial é POR
+EMPRESA.** Só quem administra conecta (Integrações › "Banco Inter · cobrança");
+o segredo é testado no Inter, cifrado (AES-256-GCM, `lib/cobranca-banco/cofre`,
+`COBRANCA_CHAVE_MESTRA`, dado adicional = id da conexão) e guardado numa tabela
+SEM `org_id` que só a chave de serviço lê — nenhuma resposta nem log o leva. A
+reserva (`cobranca_banco_reservar`, papel de lançar) tira valor, vencimento e
+pagador do título, uma cobrança viva por título (contando a Pinbank), e a
+pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
+(`COBRANCA_BANCO=ligado`). Guardas `scripts/cobranca-banco.sql` (CI) e
+`npm run cobranca-banco-conexao`.
 
 ## ⚠️ A PÁGINA MAQUININHA QUATTRO VENDE A MAQUININHA (26/10/2026, pedido do dono)
 

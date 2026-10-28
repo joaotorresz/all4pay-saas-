@@ -312,52 +312,12 @@ await fase("0. Entrar pelo cadastro pela conversa",
     return `${perguntas.length} perguntas, uma por vez, CNPJ com máscara · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
   });
 
-/* ─── 1. CRIAR A EMPRESA + DECLARAR O REGIME ───────────────────────────────
-   ⚠️ O regime entra AQUI, e é a decisão mais cara do cadastro: sem ele o
-   sistema não sabe se a folha recolhe contribuição patronal por fora nem qual
-   tabela de imposto usar. Preencher a etapa e pular o regime "funciona" e
-   produz número errado depois — por isso o cronômetro o trata como parada
-   obrigatória e reprova se o campo não existir. */
-await fase("1. Completar o cadastro e declarar o regime",
-  RITMO.telaNova + RITMO.campoFormatado * 2 + RITMO.campoCurto * 3 + RITMO.escolha * 2 + RITMO.clique,
-  async () => {
-    await page.goto(`${BASE}/comecar`, { waitUntil: "networkidle", timeout: 60000 });
-    await abortarSeAmbienteQuebrou(page, "criar empresa");
-    const preencher = async (label, valor) => {
-      const c = page.getByLabel(label, { exact: false }).first();
-      if (await c.count() === 0) return false;
-      await c.fill(valor); return true;
-    };
-    await preencher("CNPJ", "11222333000181");
-    await preencher("Razão social", "Cronômetro Comércio Ltda");
-    await preencher("Nome fantasia", "Cronômetro");
-    await preencher("Nome", "Maria Silva");
-    await preencher("E-mail", "maria@cronometro.com.br");
-
-    const regime = page.getByLabel("Regime tributário", { exact: false }).first();
-    const temRegime = await regime.count() > 0;
-    if (!temRegime) { falhas++; return "REPROVA: não há campo de regime no cadastro"; }
-    const opcoes = await regime.evaluate((s) => [...s.options].map((o) => o.value).filter(Boolean));
-    await regime.selectOption(opcoes[0]);
-    return `regime declarado: ${opcoes[0]} · ${opcoes.length} opções`;
-  });
-
-/* ─── 2. ATRAVESSAR ATÉ A IMPORTAÇÃO ───────────────────────────────────────
-   Três etapas entre o cadastro e o extrato. Elas são opcionais no produto — e
-   o cronômetro passa por elas como um usuário apressado passaria, clicando
-   "Próximo". O custo de cada tela nova conta mesmo sem preencher nada: ler e
-   decidir pular também é tempo. */
-await fase("2. Atravessar perfil, governança e estrutura",
-  RITMO.telaNova * 3 + RITMO.clique * 3,
-  async () => {
-    let etapas = 0;
-    for (let i = 0; i < 3; i++) {
-      const prox = page.getByRole("button", { name: /^(Próximo|Continuar|Avançar)$/i }).first();
-      if (await prox.count() === 0) break;
-      await prox.click(); await page.waitForTimeout(500); etapas++;
-    }
-    return `${etapas} etapas atravessadas`;
-  });
+/* ─── 1 e 2. O ASSISTENTE DE 7 PASSOS SAIU (27/10/2026) ────────────────────
+   ⚠️ O `/comecar` foi desativado por decisão do dono (responde 308 para
+   `/criar-conta`). O regime, que esta fase cobrava, agora é pergunta da
+   conversa, e a fase 0 reprova se ela chegar ao fim sem pedi-lo. Perfil,
+   governança e estrutura também moram na conversa ou no "completar cadastro".
+   Não há mais tela entre o cadastro e o extrato para atravessar. */
 
 /* ─── 3. IMPORTAR O EXTRATO ────────────────────────────────────────────────
    ⚠️ Com o arquivo REAL de `public/exemplos`, não com um CSV de três linhas
@@ -367,8 +327,8 @@ const CSV = readFileSync("public/exemplos/extrato-exemplo-quattro.csv");
 await fase("3. Importar o extrato (12 meses, arquivo real)",
   RITMO.telaNova + RITMO.arquivo + RITMO.clique + RITMO.revisao,
   async () => {
-    const prox = page.getByRole("button", { name: /^(Próximo|Continuar|Avançar)$/i }).first();
-    if (await prox.count() > 0) { await prox.click(); await page.waitForTimeout(600); }
+    await page.goto(`${BASE}/upload?aba=enviar`, { waitUntil: "networkidle", timeout: 60000 });
+    await abortarSeAmbienteQuebrou(page, "enviar o extrato");
     const campo = page.locator('input[type="file"]').first();
     if (await campo.count() === 0) { falhas++; return "REPROVA: não há campo de arquivo na etapa de importação"; }
     await campo.setInputFiles({ name: "extrato.csv", mimeType: "text/csv", buffer: CSV });
@@ -392,15 +352,24 @@ await fase("3. Importar o extrato (12 meses, arquivo real)",
    ⚠️ A prova não é "a tela do DRE abriu": é **um número aparecer**. Uma tela de
    DRE vazia abre igualzinho, e foi assim que a jornada pareceu completa em
    auditorias anteriores. */
-await fase("4. Concluir o cadastro e abrir o DRE",
-  RITMO.telaNova * 2 + RITMO.clique * 2,
+await fase("4. Confirmar a importação e abrir o DRE",
+  RITMO.telaNova * 2 + RITMO.clique * 5,
   async () => {
-    for (let i = 0; i < 3; i++) {
-      const btn = page.getByRole("button", { name: /Concluir e entrar|Concluir|^(Próximo|Continuar)$/i }).first();
-      if (await btn.count() === 0) break;
-      await btn.click(); await page.waitForTimeout(1200);
-      if (!page.url().includes("/comecar")) break;
+    // A revisão abre numa janela de quatro passos (Resumo · Receitas · Despesas
+    // · Confirmar): avança até o último e confirma, como quem aceita o que a
+    // leitura propôs.
+    const janela = page.getByRole("dialog", { name: "Revisar a importação" });
+    if (await janela.count() > 0) {
+      for (let i = 0; i < 4; i++) {
+        const avancar = janela.getByRole("button", { name: /^Avançar$/ });
+        if (await avancar.count() === 0) break;
+        await avancar.click(); await page.waitForTimeout(300);
+      }
+      await janela.getByRole("button", { name: /Confirmar e importar/ }).click();
+    } else {
+      await page.getByRole("button", { name: /Confirmar importação/i }).first().click();
     }
+    await page.waitForTimeout(1500);
     await page.goto(`${BASE}/dashboard/reports/dre`, { waitUntil: "networkidle", timeout: 60000 });
     await page.waitForTimeout(2500);
     await abortarSeAmbienteQuebrou(page, "abrir o DRE");

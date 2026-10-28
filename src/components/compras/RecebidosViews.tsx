@@ -14,7 +14,7 @@
  * muda quem preenche.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { abrirCriacao } from "@/components/app/criacao";
 import { documentosDasFontes, camposDoFormulario, chaveBoleto } from "@/core/caixa-entrada";
 import { lerEstadoCaixa } from "@/lib/caixa-entrada";
 import { Card, Button, Icon, Input, Select, BRL, PontoStatus } from "@/components/ui";
@@ -50,7 +50,6 @@ const COR_BOLETO: Record<StatusBoleto, string> = {
 };
 
 export function BoletosView() {
-  const router = useRouter();
   const { show: toast, node } = useToast();
   const [lista, setLista] = React.useState<BoletoRecebido[]>([]);
   // A ÚLTIMA decisão de cada documento da caixa de entrada (virou conta × descartado).
@@ -114,7 +113,7 @@ export function BoletosView() {
   function lancar(b: BoletoRecebido) {
     const doc = documentosDasFontes({ boletos: [b], nfs: [], ocr: [] })[0];
     if (!doc) { toast("Este boleto já foi pago ou já virou conta."); return; }
-    router.push(`/dashboard/financial/payables/new?${new URLSearchParams(camposDoFormulario(doc)).toString()}`);
+    abrirCriacao("pagar", { parametros: camposDoFormulario(doc) });
   }
 
   const linhasXLSX = [
@@ -128,7 +127,7 @@ export function BoletosView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" onClick={() => { setLista(listarBoletos()); toast("Lista recarregada."); }}>
             <Icon name="rotate-ccw" size={15} color="currentColor" />
@@ -371,7 +370,7 @@ export function NFsRecebidasView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" onClick={() => { setLista(listarNFs()); toast("Lista recarregada."); }}>
             <Icon name="rotate-ccw" size={15} color="currentColor" />

@@ -101,10 +101,17 @@ export function AssistenteImportacao({ report, aberto, aplicando, onFechar, onCo
         className="a4p-entra w-full max-w-[820px] max-h-[90vh] bg-white rounded-card flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* a raiz do DS mora DENTRO do cartão: `.ds-visor` zera o fundo, e no
+            cartão ele apagaria o branco da janela */}
+        <div className="ds-visor flex flex-col flex-1 min-h-0">
         {/* cabeçalho + passos */}
         <div className="px-6 pt-5 pb-4 flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
+              <span className="text-caption text-muted inline-flex items-center gap-2">
+                <span className="w-[6px] h-[6px] rounded-pill bg-lime" aria-hidden />
+                Importação · passo {passo + 1} de {PASSOS.length}
+              </span>
               <h2 className="m-0 text-h2 text-ink">Revisar a importação</h2>
               <span className="text-caption text-muted">
                 {a.resumo.lancamentos} lançamentos de {dataCurta(a.resumo.de)} a {dataCurta(a.resumo.ate)}. Nada entra no sistema antes de você confirmar.
@@ -183,6 +190,7 @@ export function AssistenteImportacao({ report, aberto, aplicando, onFechar, onCo
               Avançar
             </Button>
           )}
+        </div>
         </div>
       </div>
     </div>,
@@ -398,7 +406,7 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: number; sinal?: bool
   return (
     <div className="rounded-md bg-surface-1 p-4 flex flex-col gap-1">
       <span className="text-caption text-muted">{rotulo}</span>
-      <span className="text-h2 text-ink"><BRL value={valor} /></span>
+      <span className="a4p-heroi text-h2 text-ink leading-none"><BRL value={valor} /></span>
     </div>
   );
 }
@@ -422,7 +430,7 @@ function Destaque({ rotulo, valor, texto }: { rotulo: string; valor: number; tex
         <span className="text-label font-medium text-ink">{rotulo}</span>
         <span className="text-caption text-muted">{texto}</span>
       </div>
-      <span className="text-h2 text-ink"><BRL value={valor} /><span className="text-caption text-muted">/mês</span></span>
+      <span className="a4p-heroi text-h2 text-ink leading-none"><BRL value={valor} /><span className="text-caption text-muted">/mês</span></span>
     </div>
   );
 }

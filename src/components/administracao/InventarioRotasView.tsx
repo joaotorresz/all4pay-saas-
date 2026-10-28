@@ -124,11 +124,11 @@ export function InventarioRotasView() {
           <span className="text-label font-medium text-muted">Endereços antigos que ainda respondem</span>
         </div>
         {TODOS_OS_DESVIOS.map((a, k) => (
-          <div key={a.de} className={`flex items-baseline gap-3 px-5 py-2 ${k ? "border-t border-border-soft" : ""}`}>
-            <code className="text-caption text-muted shrink-0">{a.de}</code>
+          <div key={a.de} className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-2 ${k ? "border-t border-border-soft" : ""}`}>
+            <code className="text-caption text-muted break-all">{a.de}</code>
             <Icon name="arrow-up-right" size={11} color="var(--color-text-tertiary)" />
-            <code className="text-caption text-ink shrink-0">{a.para}</code>
-            <span className="text-caption text-placeholder truncate">{a.motivo}</span>
+            <code className="text-caption text-ink break-all">{a.para}</code>
+            <span className="text-caption text-placeholder truncate basis-full sm:basis-auto min-w-0">{a.motivo}</span>
           </div>
         ))}
       </Card>

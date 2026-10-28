@@ -17,6 +17,7 @@
  * "não consegui ler" não são a mesma coisa.
  */
 import * as React from "react";
+import { abrirCriacao } from "@/components/app/criacao";
 import { useRouter } from "next/navigation";
 import { Card, Button, Icon, BRL, Textarea } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
@@ -63,8 +64,7 @@ export function CaixaEntradaView() {
   React.useEffect(() => { void carregarEmails(); }, []);
 
   const criar = (d: DocumentoEntrada) => {
-    const q = new URLSearchParams(camposDoFormulario(d));
-    router.push(`/dashboard/financial/payables/new?${q.toString()}`);
+    abrirCriacao("pagar", { parametros: camposDoFormulario(d) });
   };
 
   const confirmarDescarte = async () => {

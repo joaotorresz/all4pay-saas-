@@ -16,6 +16,8 @@
  *     ninguém assina um recorrente sem ver as parcelas.
  */
 import * as React from "react";
+import { abrirCriacao, useAoCriar, cadastroDe } from "@/components/app/criacao";
+import type { CadastroNoCampo } from "@/components/ui";
 import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Switch } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
@@ -54,11 +56,12 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazio(ladoFixo ?? "fornecedor"));
+    if (new URLSearchParams(window.location.search).get("novo")) abrirCriacao(tipoContrato(ladoFixo ?? "fornecedor"));
   }, [ladoFixo]);
   const { show, node } = useToast();
 
   React.useEffect(() => { setItens(listContratos()); }, []);
+  useAoCriar(["contrato-cliente", "contrato-fornecedor"], () => setItens(listContratos()));
 
   const doLado = React.useMemo(() => itens.filter((c) => c.lado === lado), [itens, lado]);
   const visiveis = React.useMemo(() => {
@@ -83,7 +86,7 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        acaoNova={{ label: "Novo contrato", onClick: () => setEditando(vazio(lado)) }}
+        acaoNova={{ label: "Novo contrato", onClick: () => abrirCriacao(tipoContrato(lado)) }}
         exportar={{ nomeArquivo: `contratos-${lado}`, aba: "Contratos", linhas }}
       />
 
@@ -118,7 +121,7 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
               ? "Nenhum contrato cadastrado."
               : "Nenhum contrato encontrado com esses filtros."}
             acao={doLado.length === 0
-              ? <Button variant="primary" onClick={() => setEditando(vazio(lado))}>Novo contrato</Button>
+              ? <Button variant="primary" onClick={() => abrirCriacao(tipoContrato(lado))}>Novo contrato</Button>
               : undefined}
           />
         }
@@ -177,7 +180,23 @@ const vazio = (lado: "fornecedor" | "cliente"): Contrato => ({
   anexoNome: "", criadoEm: hoje(), vendas: null,
 });
 
+const tipoContrato = (lado: "fornecedor" | "cliente") =>
+  lado === "cliente" ? "contrato-cliente" as const : "contrato-fornecedor" as const;
+
 /* ------------------------------- formulário ------------------------------- */
+
+/** O formulário de contrato da PORTA ÚNICA (o mesmo desta tela). */
+export function NovoContrato({ lado, onClose, onCriado }: {
+  lado: "fornecedor" | "cliente"; onClose: () => void; onCriado: (id: string | null, msg: string) => void;
+}) {
+  return (
+    <FormContrato
+      inicial={vazio(lado)}
+      onClose={onClose}
+      onSalvo={(c) => { salvarContrato(c); onCriado(c.id, "Contrato salvo."); }}
+    />
+  );
+}
 
 function FormContrato({
   inicial, onClose, onSalvo,
@@ -223,6 +242,7 @@ function FormContrato({
           onChange={(v) => setC((s) => ({ ...s, parteId: v, parteNome: elegiveis.find((p) => p.id === v)?.name ?? "" }))}
           placeholder={`Selecione o ${c.lado}`}
           options={elegiveis.map((p) => ({ value: p.id, label: p.name }))}
+          cadastrar={cadastroDe(c.lado === "cliente" ? "cliente" : "fornecedor")}
         />
       </Campo>
 
@@ -255,6 +275,7 @@ function FormContrato({
         singular="projeto"
         vazioLabel="Selecione o projeto"
         opcoes={opcoes.projetos}
+        cadastrar={cadastroDe("projeto")}
         linhas={c.projetos}
         erro={erros.projetos}
         onChange={(l) => set("projetos", l)}
@@ -264,6 +285,7 @@ function FormContrato({
         singular="centro de custo"
         vazioLabel="Selecione o centro de custo"
         opcoes={opcoes.centros}
+        cadastrar={cadastroDe("centro")}
         linhas={c.centros}
         erro={erros.centros}
         onChange={(l) => set("centros", l)}
@@ -320,9 +342,9 @@ function FormContrato({
 /* --------------------------------- rateio --------------------------------- */
 
 function Rateio({
-  titulo, singular, vazioLabel, opcoes, linhas, erro, onChange,
+  titulo, singular, vazioLabel, opcoes, linhas, erro, onChange, cadastrar,
 }: {
-  titulo: string; singular: string; vazioLabel: string;
+  titulo: string; singular: string; vazioLabel: string; cadastrar: CadastroNoCampo;
   opcoes: { value: string; label: string }[];
   linhas: LinhaRateio[]; erro?: string;
   onChange: (l: LinhaRateio[]) => void;
@@ -342,8 +364,13 @@ function Rateio({
         )}
       </div>
       {opcoes.length === 0 ? (
+        // A lista vazia vira convite: o item criado já entra com 100%.
         <p className="m-0 text-caption text-faint">
-          Nenhum {singular} cadastrado — cadastre em Cadastros para poder ratear.
+          Nenhum {singular} cadastrado.{" "}
+          <button type="button" className="font-medium text-ink underline underline-offset-2 hover:no-underline"
+            onClick={() => cadastrar.abrir((id) => onChange([...linhas.filter((l) => l.id), { id, percentual: linhas.some((l) => l.id) ? 0 : 100 }]))}>
+            Cadastrar o primeiro
+          </button>
         </p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -354,6 +381,7 @@ function Rateio({
                 onChange={(v) => onChange(linhas.map((x, i) => (i === k ? { ...x, id: v } : x)))}
                 placeholder={vazioLabel}
                 options={opcoes}
+                cadastrar={cadastrar}
                 containerClassName="flex-1 min-w-0"
               />
               <Input
@@ -420,16 +448,16 @@ function BlocoVendas({
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Campo label="Produto/Serviço" obrigatorio erro={erros.vendaProduto}>
-              <Select value={cfg.produtoId} onChange={(v) => set("produtoId", v)} placeholder="Selecione o produto" options={produtos} />
+              <Select value={cfg.produtoId} onChange={(v) => set("produtoId", v)} placeholder="Selecione o produto" options={produtos} cadastrar={cadastroDe("produto")} />
             </Campo>
             <Campo label="Conta bancária" obrigatorio erro={erros.vendaConta}>
-              <Select value={cfg.contaId} onChange={(v) => set("contaId", v)} placeholder="Selecione a conta" options={contas} />
+              <Select value={cfg.contaId} onChange={(v) => set("contaId", v)} placeholder="Selecione a conta" options={contas} cadastrar={cadastroDe("conta-bancaria")} />
             </Campo>
             <Campo label="Método de pagamento">
               <Select value={cfg.metodo} onChange={(v) => set("metodo", v)} options={METODOS.map((m) => ({ value: m, label: m }))} />
             </Campo>
             <Campo label="Categoria" obrigatorio erro={erros.vendaCategoria}>
-              <Select value={cfg.categoria} onChange={(v) => set("categoria", v)} placeholder="Selecione a categoria" options={categorias} />
+              <Select value={cfg.categoria} onChange={(v) => set("categoria", v)} placeholder="Selecione a categoria" options={categorias} cadastrar={cadastroDe("categoria", { natureza: "receita" })} />
             </Campo>
           </div>
 

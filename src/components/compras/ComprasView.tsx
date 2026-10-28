@@ -9,7 +9,7 @@
  * reprovadas ou canceladas" — a pergunta da tela é sobre autorização.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { abrirCriacao } from "@/components/app/criacao";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, Input, Select, DateField, BRL, AcaoDestrutiva } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
@@ -36,7 +36,6 @@ const erroDe = (e: unknown): string =>
   e instanceof Error ? e.message : ((e as { message?: string } | null)?.message ?? "o banco recusou a operação");
 
 export function ComprasView() {
-  const router = useRouter();
   const qc = useQueryClient();
   const { show: toast, node } = useToast();
   const [compras, setCompras] = React.useState<Compra[]>([]);
@@ -138,9 +137,9 @@ export function ComprasView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="primary" onClick={() => router.push("/dashboard/purchases/new")}>
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap max-w-full">
+          <Button variant="primary" onClick={() => abrirCriacao("compra")}>
             <Icon name="plus" size={15} color="currentColor" />
             Nova compra
           </Button>
@@ -215,7 +214,7 @@ export function ComprasView() {
                 ? "Nenhuma compra registrada."
                 : "Nenhuma compra no filtro."}
             </p>
-            <Button variant="primary" onClick={() => router.push("/dashboard/purchases/new")}>
+            <Button variant="primary" onClick={() => abrirCriacao("compra")}>
               <Icon name="plus" size={15} color="currentColor" />
               Nova compra
             </Button>

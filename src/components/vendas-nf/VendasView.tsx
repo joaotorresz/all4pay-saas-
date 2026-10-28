@@ -9,6 +9,7 @@
  * com a NF a emitir é trabalho pendente, e um painel só esconderia isso.
  */
 import * as React from "react";
+import { abrirCriacao } from "@/components/app/criacao";
 import { useRouter } from "next/navigation";
 import { Card, Button, Icon, Input, Select, BRL, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
@@ -77,9 +78,9 @@ export function VendasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-end gap-4 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <Button variant="primary" onClick={() => router.push("/dashboard/sales-invoices/new")}>
+      <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap max-w-full">
+          <Button variant="primary" onClick={() => abrirCriacao("venda")}>
             <Icon name="plus" size={15} color="currentColor" />
             Nova venda
           </Button>
@@ -221,7 +222,7 @@ export function VendasView() {
 
                 : "Nenhuma venda encontrada com esses filtros."}
             </p>
-            <Button variant="primary" onClick={() => router.push("/dashboard/sales-invoices/new")}>Nova venda</Button>
+            <Button variant="primary" onClick={() => abrirCriacao("venda")}>Nova venda</Button>
           </div>
         ) : (
           <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">

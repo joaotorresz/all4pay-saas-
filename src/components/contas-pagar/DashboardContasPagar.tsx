@@ -77,7 +77,7 @@ export function DashboardContasPagar() {
   const invalido = !!periodo && periodoInvalido(periodo);
 
   const opcoes = React.useMemo(
-    () => (input ? opcoesDeFiltro(input) : { projetos: [], centros: [] }),
+    () => (input ? opcoesDeFiltro(input) : { projetos: [], centros: [], fornecedores: [] }),
     [input],
   );
 
