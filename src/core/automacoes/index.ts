@@ -572,6 +572,24 @@ export const TETO_JUROS_MES = 0.01;
 
 const txidDe = (s: string) => s.replace(/[^A-Za-z0-9]/g, "").slice(0, 25) || "COBRANCA";
 
+/** O endereço público do link de pagamento — a MESMA forma que a tela copia. */
+export const urlDoLinkDePagamento = (appUrl: string, token: string) => `${appUrl.replace(/\/+$/, "")}/pagar?t=${token}`;
+
+/**
+ * Os links de pagamento dos títulos da mensagem, na ordem dos títulos. Só entra
+ * o token com a forma do link (64 hexadecimais): o mapa vem do banco, e um
+ * valor estranho viraria um endereço quebrado na mão do cliente.
+ */
+export function linksDosItens(ctx: ContextoAutomacao, itens: { movimentoId: string; vencimento: string }[]): { movimentoId: string; vencimento: string; url: string }[] {
+  const mapa = ctx.linksDePagamento ?? {};
+  return itens.flatMap((i) => {
+    const t = mapa[i.movimentoId];
+    return typeof t === "string" && /^[0-9a-f]{64}$/.test(t) && ctx.appUrl
+      ? [{ movimentoId: i.movimentoId, vencimento: i.vencimento, url: urlDoLinkDePagamento(ctx.appUrl, t) }]
+      : [];
+  });
+}
+
 export interface GrupoRegua { clienteChave: string; cliente: string; partyId: string | null; itens: ItemRegua[] }
 
 /**
@@ -652,12 +670,19 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
       : etapa.dia === 0
         ? `Olá, ${g.cliente}. Aqui é ${credor}. ${itens.length === 1 ? "O pagamento abaixo vence hoje" : "Os pagamentos abaixo vencem ou estão em aberto"}.`
         : `Olá, ${g.cliente}. Aqui é ${credor}. Não identificamos ${itens.length === 1 ? "o pagamento abaixo" : "os pagamentos abaixo"}.`;
+  // ⚠️ O link de pagamento (Pix ou boleto) vai quando o título JÁ tem um link
+  // vivo com cobrança emitida. Um título só: o botão do e-mail. Vários: uma
+  // linha por título — um botão só pagaria um deles.
+  const links = linksDosItens(ctx, itens);
   const secoes: SecaoEmail[] = [{ titulo: itens.length === 1 ? "Título" : `Títulos · total ${BRL(total)}`, linhas }];
+  if (links.length > 1) secoes.push({ titulo: "Pagar por Pix ou boleto", linhas: links.map((l) => ({ rotulo: `Vencimento ${dataBRcurta(l.vencimento)}`, valor: l.url })) });
   if (pix) secoes.push({ titulo: "PIX copia e cola", linhas: [{ rotulo: pix, valor: BRL(total) }] });
   const texto = [
     intro,
     ...linhas.map((l) => `· ${l.rotulo}: ${l.valor}${l.detalhe ? ` (${l.detalhe})` : ""}`),
     itens.length > 1 ? `Total: ${BRL(total)}.` : "",
+    links.length === 1 ? `Pague por Pix ou boleto: ${links[0].url}` : "",
+    ...(links.length > 1 ? links.map((l) => `Pagar o de ${dataBRcurta(l.vencimento)}: ${l.url}`) : []),
     pix ? `PIX copia e cola: ${pix}` : "",
     SE_JA_PAGOU,
   ].filter(Boolean).join("\n");
@@ -670,6 +695,7 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
       preheader: `${credor}: ${BRL(total)} ${itens.length === 1 ? "em aberto" : `em ${itens.length} títulos`}.`,
       titulo: tituloDaCobranca(etapa.dia, etapa.tom, itens.length),
       abertura: intro, secoes, avisos: [SE_JA_PAGOU],
+      link: links.length === 1 ? { rotulo: "Pagar agora", url: links[0].url } : undefined,
       rodape: `${credor}. Mensagem enviada em nome da empresa credora pelo Quattro.`,
     }),
     finalidade: FINALIDADE_DO_TOM[etapa.tom],

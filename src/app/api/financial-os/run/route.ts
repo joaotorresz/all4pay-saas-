@@ -10,6 +10,7 @@ import { contextoDaRpc, configDaLinha, type ContextoBruto } from "@/lib/automaco
 import { registroSupabase } from "@/lib/automacoes-registro";
 import { saidasPara } from "@/lib/whatsapp-saidas";
 import { rodarLembretesReais } from "@/lib/cadastro-lembretes-servidor";
+import { linksDaRegua } from "@/lib/regua-links";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +81,9 @@ export async function GET(req: Request) {
     const { data: bruto, error: e } = await admin.rpc("automacao_contexto", { p_org: orgId });
     if (e) { empresas.push({ orgId, erro: e.message, automacoes: [] }); continue; }
     const ctx = contextoDaRpc(orgId, (bruto ?? {}) as ContextoBruto, hoje, appUrl);
+    // O link de pagamento que cada título da régua já tem (vazio sem cobrança liberada).
+    const { links, aviso: avisoLinks } = await linksDaRegua(admin, ctx, cfgs);
+    ctx.linksDePagamento = links;
     const antes = { ...rel };
     const resultados = mensagensDoDia(cfgs, ctx);
     // Quem respondeu SAIR não recebe WhatsApp de nenhuma automação.
@@ -87,6 +91,7 @@ export async function GET(req: Request) {
     for (const r of resultados) await despachar(orgId, r.mensagens, { registro, provedor, dryRun, saidas }, rel);
     empresas.push({
       orgId,
+      ...(avisoLinks ? { erro: avisoLinks } : {}),
       automacoes: resultados.map((r) => ({
         tipo: r.tipo,
         mensagens: r.mensagens.map((m) => ({ canal: m.canal, destino: m.destinoMascarado })),

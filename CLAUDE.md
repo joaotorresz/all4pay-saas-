@@ -1030,6 +1030,11 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   Guarda `scripts/pinbank-checkout.sql` (9 defeitos) e bloco
   `checkout-pinbank:` do `engine-audit`. Régua e baixa automática são as
   próximas etapas.
+  ⚠️ **A régua manda o link (28/10/2026, etapa 5, primeira metade):** o
+  executor lê o link vivo de cada título da fila (`regua_links_de_pagamento`,
+  só service_role, só com cobrança emitida e `cobrancaPinbankLiberada`) e a
+  mensagem leva "Pague por Pix ou boleto" + o botão do e-mail. Título sem
+  cobrança emitida segue sem link — emitir sozinho pelo cron espera o dono.
 
 ## ⚠️ COBRANÇA PELA CONTA BANCÁRIA DO CLIENTE (27/10/2026, `docs/rodada-11/cobranca-bancos.md`)
 

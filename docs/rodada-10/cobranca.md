@@ -12,7 +12,7 @@ sozinho no título.
 | 2 | Vincular a conta BaaS à empresa | **feito neste PR** |
 | 3 | Gerar a cobrança a partir do título a receber | **feito neste PR** |
 | 4 | Página pública de pagamento (o link) | **MVP neste PR** |
-| 5 | A régua manda o link | próxima |
+| 5 | A régua manda o link | primeira metade feita (28/10): o link que JÁ existe vai na mensagem; gerar a cobrança sozinha espera o dono |
 | 6 | Baixa automática pelo webhook de liquidação | depende da resposta da Pinbank |
 | 7 | Piloto com uma empresa, desligado por padrão | depois da 6 |
 
@@ -87,6 +87,24 @@ cobrança na empresa, gerar o Pix e o boleto de um título e mandar o link.
 
 Guardas: `scripts/pinbank-checkout.sql` no CI (8 casos, 9 defeitos plantados)
 e o bloco `checkout-pinbank:` do `engine-audit`.
+
+## A régua manda o link (etapa 5, primeira metade, 28/10/2026)
+
+- O executor da régua (`/api/financial-os/run`) pergunta ao banco, pela chave
+  de serviço, o link `/pagar` vivo dos títulos que vai cobrar HOJE
+  (`regua_links_de_pagamento`, migration `20261028160000`): só link de título
+  a receber em aberto com cobrança EMITIDA — a mesma regra do leitor público.
+  Leitura só com `cobrancaPinbankLiberada()` (`lib/regua-links.ts`).
+- Um título: "Pague por Pix ou boleto: <link>" no texto e o botão "Pagar
+  agora" no e-mail. Vários: uma linha por título, sem botão único.
+- ⚠️ O WhatsApp por TEMPLATE aprovado não leva o link (as variáveis são
+  fixas); o texto livre leva. Um template novo com a variável do link é tarefa
+  do remetente (etapa 2 do plano).
+- ⚠️ Título SEM cobrança emitida segue sem link. Emitir a cobrança sozinha no
+  primeiro envio chama a Pinbank pelo cron e cria dinheiro a receber: espera
+  o OK do dono.
+- Guardas: casos R1–R4 e d10–d13 em `scripts/pinbank-checkout.sql`; bloco
+  `aut-link:` do `engine-audit`.
 
 ## Perguntas para a Pinbank (etapa 1)
 

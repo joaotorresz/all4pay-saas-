@@ -3,7 +3,8 @@
 --
 --   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-checkout.sql
 --
--- Prova a migration 20261022120000 (sobre a 20261020120000):
+-- Prova a migration 20261022120000 (sobre a 20261020120000) e a leitura da
+-- régua (20261028160000, casos R1–R4 no fim):
 --
 --   1. sem Pix nem boleto EMITIDO, não nasce link (o cliente cairia numa página
 --      sem como pagar);
@@ -420,6 +421,119 @@ do $d9$ begin
 end $d9$;
 rollback to savepoint caso;
 
-do $fim$ begin raise notice 'pinbank-checkout: 8 casos · 9 defeitos plantados pegos · o link confere'; end $fim$;
+-- ═══ A RÉGUA LÊ OS LINKS (migration 20261028160000) ═══
+-- `regua_links_de_pagamento`: só o servidor; só o link vivo de título a
+-- receber em aberto com cobrança emitida; só da empresa e dos títulos pedidos.
+create or replace function pg_temp.links_regua(p_org uuid, p_movs uuid[]) returns setof text language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role service_role;
+  return query select r.movement_id::text || ':' || r.token from public.regua_links_de_pagamento(p_org, p_movs) r;
+  reset role;
+end $$;
+grant execute on all functions in schema pg_temp to authenticated, service_role, anon;
+
+create or replace function pg_temp.prova_regua() returns void language plpgsql as $$
+declare
+  ua uuid := current_setting('guarda.ua')::uuid;
+  ub uuid := current_setting('guarda.ub')::uuid;
+  oa uuid := current_setting('guarda.oa')::uuid;
+  ob uuid := current_setting('guarda.ob')::uuid;
+  v uuid; t uuid; t2 uuid; t3 uuid; tk text; tk2 text; msg text; got text[];
+begin
+  v := pg_temp.vincular(true);
+  perform pg_temp.ligar(v);
+  t := pg_temp.titulo();  perform pg_temp.emitir_pix(t);  tk := pg_temp.criar(ua, t);
+  t2 := pg_temp.titulo(); perform pg_temp.emitir_pix(t2); tk2 := pg_temp.criar(ua, t2);
+  t3 := pg_temp.titulo();  -- sem cobrança: sem link
+
+  -- R1. o servidor lê o link do título pedido, e só dele
+  got := array(select pg_temp.links_regua(oa, array[t, t3]));
+  if got is distinct from array[t::text || ':' || tk] then
+    raise exception 'REGUA R1 FALHOU: a régua não recebeu SÓ o link do título pedido (veio: %).', got;
+  end if;
+
+  -- R2. a empresa errada não devolve o link
+  if exists (select pg_temp.links_regua(ob, array[t, t2])) then
+    raise exception 'REGUA R2 FALHOU: pedindo pela empresa B, voltou link de título da A.';
+  end if;
+
+  -- R3. só o servidor executa
+  msg := pg_temp.erro_como(ua, format('select * from public.regua_links_de_pagamento(%L, array[%L]::uuid[])', oa, t));
+  if msg is null or msg not like '%permission denied%' then
+    raise exception 'REGUA R3 FALHOU: uma SESSÃO de cliente leu os links da régua (veio: %).', coalesce(msg, 'aceito');
+  end if;
+
+  -- R4. título mudou (cobrança a cancelar) e título recebido saem
+  update public.movements set amount = 300 where id = t;
+  update public.movements set situacao = 'confirmado' where id = t2;
+  update public.movements set situacao = 'baixado', paid_date = current_date where id = t2;
+  if exists (select pg_temp.links_regua(oa, array[t, t2])) then
+    raise exception 'REGUA R4 FALHOU: a régua mandaria link de título mudado ou já recebido.';
+  end if;
+end $$;
+grant execute on all functions in schema pg_temp to authenticated, service_role, anon;
+
+savepoint caso;
+select pg_temp.prova_regua();
+rollback to savepoint caso;
+
+create or replace function pg_temp.reprova_regua(p_espera text, p_defeito text) returns void language plpgsql as $$
+declare msg text;
+begin
+  begin
+    perform pg_temp.prova_regua();
+    msg := null;
+  exception when others then msg := SQLERRM;
+  end;
+  reset role;
+  if msg is null then
+    raise exception 'DEFEITO PLANTADO NÃO FOI PEGO: "%" — a prova da régua passou.', p_defeito;
+  end if;
+  if msg not like p_espera then
+    raise exception 'VERMELHO PELO MOTIVO ERRADO ("%"): esperado %, veio "%"', p_defeito, p_espera, msg;
+  end if;
+end $$;
+create or replace function pg_temp.plantar_regua(p_de text, p_para text) returns void language sql as $$
+  select pg_temp.plantar('public.regua_links_de_pagamento(uuid,uuid[])'::regprocedure, p_de, p_para)
+$$;
+grant execute on all functions in schema pg_temp to authenticated, service_role, anon;
+
+-- d10 · sem filtrar os títulos pedidos
+savepoint caso;
+do $d10$ begin
+  perform pg_temp.plantar_regua('and l.movement_id = any (coalesce(p_movements, ''{}''::uuid[]))', '');
+  perform pg_temp.reprova_regua('%REGUA R1 FALHOU%', 'a régua recebendo links de títulos que não pediu');
+end $d10$;
+rollback to savepoint caso;
+
+-- d11 · sem conferir a empresa
+savepoint caso;
+do $d11$ begin
+  perform pg_temp.plantar_regua('where l.org_id = p_org
+     and m.org_id = p_org', 'where true');
+  perform pg_temp.reprova_regua('%REGUA R2 FALHOU%', 'o link de outra empresa voltando');
+end $d11$;
+rollback to savepoint caso;
+
+-- d12 · aberta à sessão do cliente
+savepoint caso;
+do $d12$ begin
+  grant execute on function public.regua_links_de_pagamento(uuid, uuid[]) to authenticated;
+  perform pg_temp.reprova_regua('%REGUA R3 FALHOU%', 'a sessão lendo os links pela API');
+end $d12$;
+rollback to savepoint caso;
+
+-- d13 · o link de título mudado ou recebido seguindo na mensagem
+savepoint caso;
+do $d13$ begin
+  perform pg_temp.plantar_regua('and m.situacao in (''previsto'',''confirmado'')', '');
+  perform pg_temp.plantar_regua('where c.movement_id = m.id and c.situacao = ''emitida''', 'where c.movement_id = m.id');
+  perform pg_temp.reprova_regua('%REGUA R4 FALHOU%', 'o cliente recebendo link de título pago ou com Pix velho');
+end $d13$;
+rollback to savepoint caso;
+
+do $fim$ begin raise notice 'pinbank-checkout: 12 casos · 13 defeitos plantados pegos · o link e a régua conferem'; end $fim$;
 
 rollback;

@@ -151,6 +151,12 @@ export interface ContextoAutomacao {
   envios: EnvioHistorico[];
   /** A origem do app, para os links ("https://…"). */
   appUrl: string;
+  /**
+   * O token do link `/pagar` VIVO de cada título a receber (id do título →
+   * token), lido pelo runner só quando a cobrança está liberada. Ausente ou
+   * sem o título = a mensagem sai sem link, como antes.
+   */
+  linksDePagamento?: Record<string, string>;
   /** A base foi cortada no teto de linhas — a mensagem avisa. */
   truncado?: boolean;
 }

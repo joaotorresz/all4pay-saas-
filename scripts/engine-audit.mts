@@ -7628,6 +7628,30 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: cliente já cobrado HOJE por outra porta (copiloto, botão) não recebe de novo",
      !jaCobrado.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && jaCobrado.mensagens.length === 1);
 
+  // ---- 4b) O LINK DE PAGAMENTO NA MENSAGEM (etapa 5 da cobrança, 28/10/2026) ----
+  {
+    const T1 = "a".repeat(64), T2 = "b".repeat(64), T3 = "c".repeat(64);
+    const temTitulo = (m: { chavesExtras?: string[] }, id: string) => (m.chavesExtras ?? []).some((k) => k.startsWith(`titulo:${id}:`));
+    const semLink = regua.mensagens.every((m) => !m.texto.includes("/pagar?t=") && !m.html.includes("/pagar?t="));
+    ok("aut-link: sem link cadastrado, nenhuma mensagem da régua leva /pagar", semLink);
+    const comLinks = A.gerarMensagens(cfgRegua, ctxBase({ linksDePagamento: { "r-10": T1, "r-3a": T2, "r-3b": T3 } }));
+    const m10 = comLinks.mensagens.find((m) => temTitulo(m, "r-10"));
+    const url10 = `${ctx.appUrl}/pagar?t=${T1}`;
+    ok("aut-link: o título com link leva o endereço no texto E no botão do e-mail",
+       !!m10 && m10.texto.includes(url10) && m10.html.includes(url10) && m10.chavesExtras!.length === 1 && m10.html.includes("Pagar agora"),
+       m10?.texto);
+    const mVarios = comLinks.mensagens.find((m) => (m.chavesExtras ?? []).length > 1);
+    ok("aut-link: a fixture tem uma mensagem com VÁRIOS títulos (senão o caso abaixo não testa nada)", !!mVarios);
+    if (mVarios) {
+      ok("aut-link: vários títulos na mensagem — um link por título, sem botão único",
+         mVarios.chavesExtras!.every((k) => { const id = k.split(":")[1]; const t = ({ "r-10": T1, "r-3a": T2, "r-3b": T3 } as Record<string, string>)[id]; return !t || mVarios.texto.includes(t); })
+         && !mVarios.html.includes("Pagar agora"), mVarios.texto);
+    }
+    const lixo = A.gerarMensagens(cfgRegua, ctxBase({ linksDePagamento: { "r-10": "javascript:alert(1)", "r-3a": "abc" } }));
+    ok("aut-link: token sem a forma do link (64 hexadecimais) não vira endereço", lixo.mensagens.every((m) => !m.texto.includes("/pagar?t=") && !m.texto.includes("javascript")));
+    ok("aut-link: o endereço é o mesmo que a tela copia", A.urlDoLinkDePagamento("https://app.quattro.finance/", T1) === `https://app.quattro.finance/pagar?t=${T1}`);
+  }
+
   // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
   for (const m of regua.mensagens) {
     ok(`aut: a cobrança (${m.canal}) identifica o credor com razão social e CNPJ`,
