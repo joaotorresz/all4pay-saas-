@@ -1035,6 +1035,12 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   só service_role, só com cobrança emitida e `cobrancaPinbankLiberada`) e a
   mensagem leva "Pague por Pix ou boleto" + o botão do e-mail. Título sem
   cobrança emitida segue sem link — emitir sozinho pelo cron espera o dono.
+  ⚠️ **E-mail e `/pagar` no modelo Asaas (28/10/2026):** o e-mail sai de
+  `"<Empresa>" <cobrancas+<8 hex>@COBRANCA_EMAIL_DOMINIO>` com resposta para a
+  empresa (sem a variável, o remetente de sempre), com o cabeçalho e o rodapé
+  da empresa; a página mostra a empresa (lista de permitidos do cadastro) e o
+  NOME do pagador só em aberto (migration `20261029150000`). Sem juros e multa
+  na página: o valor emitido é fixo. Ver `docs/rodada-10/cobranca.md`.
 
 ## ⚠️ COBRANÇA PELA CONTA BANCÁRIA DO CLIENTE (27/10/2026, `docs/rodada-11/cobranca-bancos.md`)
 
@@ -1066,6 +1072,17 @@ pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
   taxas são de REFERÊNCIA do segmento (`lib/maquininha-oferta`, sobre a tabela do
   simulador do POS, média das bandeiras) e a tela diz isso. Quando a taxa de hoje
   do cliente é MENOR, a frase diz — nunca "mais barata" à força.
+- ⚠️ **A taxa da oferta é CUSTO + MARGEM DA FAIXA (28/10/2026, decisão do
+  dono).** Custo da tabela do POS (faixa 1) sem o spread antigo, mais a
+  margem da planilha de precificação por faturamento mensal
+  (`FAIXAS_DE_MARGEM`: 1,5% até R$ 10 mil · 1,2% até R$ 25 mil · 0,9% acima),
+  aplicada na MÉDIA do mix (`acrescimosDaMargem`): Pix e débito no custo,
+  crédito e parcelado carregam, até `TETO_ACRESCIMO_CARTAO` (4 pontos); o
+  que passar vai igual em Pix e débito. Σ mix × acréscimo = margem (guarda no
+  bloco `maquininha-oferta:`). Faturamento e mix são da PÁGINA: taxas de
+  referência, simulador e comparação usam o mesmo perfil. O dono escolheu a
+  margem CHEIA mesmo acima do mercado (no mix padrão a folga contra o
+  mercado era 0,41 ponto) — não "corrigir" para baixo sem ele.
 - **O pedido chega à PLATAFORMA** (`maquininha_pedidos`, migration
   `20261026120000`, RPC `maquininha_pedido_criar`, só quem administra, teto de 5
   em aberto) e é atendido em Administração › **Comercial** (`admin_maquininha_pedidos`,

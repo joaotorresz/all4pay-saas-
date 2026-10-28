@@ -106,6 +106,32 @@ e o bloco `checkout-pinbank:` do `engine-audit`.
 - Guardas: casos R1–R4 e d10–d13 em `scripts/pinbank-checkout.sql`; bloco
   `aut-link:` do `engine-audit`.
 
+## O e-mail e a página no modelo Asaas (28/10/2026)
+
+- **Remetente** (`core/automacoes/remetente`): `"<Empresa>" <cobrancas+<8 hex
+  da empresa>@COBRANCA_EMAIL_DOMINIO>`, com `reply_to` no e-mail da empresa
+  (quem responde fala com quem cobra). O nome é saneado (sem `<>"@,;:` nem
+  controle, até 60 letras). Sem `COBRANCA_EMAIL_DOMINIO` (ou inválido), sai
+  pelo `ALERTS_EMAIL_FROM` de sempre. ⚠️ O domínio precisa estar VERIFICADO no
+  Resend antes de ligar a variável — senão todo envio é recusado.
+- **E-mail** (`montarHtmlCobranca`): cabeçalho com o nome, razão e CNPJ da
+  empresa; "Não registramos o pagamento da sua cobrança" no vencido; valor,
+  vencimento, "Pagar agora"; aviso de 3 dias úteis do boleto; rodapé com os
+  dados do cadastro e "enviado em nome de X pela plataforma Quattro". Só cores
+  da paleta. O texto (WhatsApp) não muda.
+- **Página `/pagar`** (`components/checkout/FaturaView`): cartão da empresa,
+  "Dados da fatura" com a situação (`core/cobranca/fatura`), valor, vencimento,
+  cliente e descrição, depois Pix e boleto. ⚠️ Sem juros e multa: o valor do
+  Pix e do boleto emitidos é fixo, e mostrar um total corrigido que o QR não
+  cobra seria mentir.
+- ⚠️ **O link passou a mostrar MAIS dado** (migration `20261029150000`): o
+  cadastro da empresa por LISTA DE PERMITIDOS (fantasia, razão, CNPJ/CPF,
+  e-mail, telefone, endereço; cada um até 120 letras — logo, faturamento,
+  regime e dados do representante nunca) e o NOME do pagador, só com o título
+  em aberto. Documento, e-mail e endereço do pagador nunca. Guarda: casos 4 e 7
+  e os defeitos d9b/d9c de `scripts/pinbank-checkout.sql`; bloco 4c do
+  `engine-audit`.
+
 ## Perguntas para a Pinbank (etapa 1)
 
 1. Os métodos `Pix/SolicitarDynamicQrCode` e `CashIn/GerarBoleto` seguem o

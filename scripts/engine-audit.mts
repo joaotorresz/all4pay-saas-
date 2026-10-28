@@ -16,7 +16,7 @@ import { lerCompetencia as lerCompetenciaR8, competenciaFinal as competenciaFina
 import { categoriaDoOpenFinance as categoriaDoOpenFinanceA, CATEGORIAS_OPEN_FINANCE as CATEGORIAS_OPEN_FINANCE_A } from "@/core/categorias/open-finance";
 import { foraDaBaseTributavel as foraDaBaseTributavelA } from "@/core/indicadores";
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
-import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
+import { simularVenda as simularVendaMq, simularRepasse as simularRepasseMq, completarTaxasAtuais as completarTaxasAtuaisMq, compararTaxas as compararTaxasMq, precoParaReceber as precoParaReceberMq, simularAntecipacao as simularAntecipacaoMq, ritmoDaMeta as ritmoDaMetaMq, validarPedido as validarPedidoMq, PEDIDO_VAZIO as PEDIDO_VAZIO_MQ, simulacaoDoPedido as simulacaoDoPedidoMq, lerSimulacao as lerSimulacaoMq, origemDoPedido as origemDoPedidoMq, montarFunil as montarFunilMq, resumoDoFunil as resumoDoFunilMq, FUNIL_COMERCIAL as FUNIL_COMERCIAL_MQ, NOME_SITUACAO as NOME_SITUACAO_MQ, lerTaxasPropostas as lerTaxasPropostasMq, comparacaoDaProposta as comparacaoDaPropostaMq, situacaoDoContato as situacaoDoContatoMq, TETO_TAXA_PROPOSTA as TETO_TAXA_PROPOSTA_MQ, margemDaFaixa as margemDaFaixaMq, acrescimosDaMargem as acrescimosDaMargemMq, type TaxaDe as TaxaDeMq } from "@/core/maquininha/oferta";
 import {
   detectarColunas, validarMapeamento, assinaturaLayout,
 } from "@/core/ingestao/mapeamento";
@@ -7654,6 +7654,49 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("aut-link: o endereço é o mesmo que a tela copia", A.urlDoLinkDePagamento("https://app.quattro.finance/", T1) === `https://app.quattro.finance/pagar?t=${T1}`);
   }
 
+  // ---- 4c) O E-MAIL NO MODELO ASAAS (28/10/2026): remetente da empresa e o HTML ----
+  {
+    const R = await import("@/core/automacoes/remetente");
+    const { credorDoCadastro } = await import("@/core/cobranca");
+    const { situacaoDaFatura } = await import("@/core/cobranca/fatura");
+    const rem = R.remetenteDaCobranca("3f2a9c1e-0000-4000-8000-000000000000", { nome: 'Loja <x@y.com>, "Fake"', email: "financeiro@loja.com.br" });
+    const end = R.enderecoDoRemetente(rem, "paguequattro.com");
+    ok("asaas: o From é cobrancas+<8 hex da empresa>@domínio, no nome da empresa",
+       end?.from === '"Loja x y.com Fake" <cobrancas+3f2a9c1e@paguequattro.com>', end?.from);
+    ok("asaas: o nome do cadastro NÃO injeta outro endereço no From (< > aspas vírgula @ saem)",
+       !!end && (end.from.match(/</g) ?? []).length === 1 && (end.from.match(/@/g) ?? []).length === 1, end?.from);
+    ok("asaas: a resposta do cliente vai para o e-mail do cadastro da empresa", end?.replyTo === "financeiro@loja.com.br");
+    ok("asaas: sem domínio configurado (ou inválido), vale o remetente de sempre",
+       R.enderecoDoRemetente(rem, "") === null && R.enderecoDoRemetente(rem, "não é domínio") === null && R.enderecoDoRemetente(rem, "a@b.com") === null);
+    ok("asaas: e-mail inválido no cadastro não vira Reply-To", R.remetenteDaCobranca("x", { nome: "A", email: "a@b" }).responderPara === null);
+    ok("asaas: id de empresa estranho não entra no endereço", R.tagDaEmpresa("../../etc") === "empresa" && R.tagDaEmpresa(null) === "empresa");
+
+    const c = credorDoCadastro("Org", { fantasia: "Padaria", razaoSocial: "Padaria Ltda", cnpj: "11444777000161", email: "f@p.com",
+      telefone: "11987654321", rua: "Rua A", numero: "10", bairro: "Centro", cep: "01001000", cidade: "São Paulo", estado: "SP", logo: "data:image/png;base64,AAAA" });
+    ok("asaas: o credor do cadastro traz contato e endereço legíveis (e nunca o logo)",
+       c.telefone === "(11) 98765-4321" && JSON.stringify(c.endereco) === JSON.stringify(["Rua A, 10 - Centro", "01001-000 · São Paulo - SP"])
+       && !JSON.stringify(c).includes("data:image"), JSON.stringify(c));
+
+    const reguaA = A.gerarMensagens(cfgRegua, ctxBase({ linksDePagamento: { "r-10": "a".repeat(64) } }));
+    const mail = reguaA.mensagens.find((m) => m.canal === "email");
+    const wa = reguaA.mensagens.find((m) => m.canal === "whatsapp");
+    ok("asaas: a fixture tem cobrança por e-mail E por WhatsApp (senão os casos abaixo não testam nada)", !!mail && !!wa);
+    ok("asaas: a cobrança por e-mail leva o remetente da empresa; o WhatsApp não", !!mail?.remetente && !wa?.remetente);
+    ok("asaas: o HTML tem o cabeçalho da empresa, a frase, o endereço por extenso e a linha da plataforma",
+       !!mail && mail.html.includes("Padaria Aurora Ltda") && mail.html.includes("CNPJ 12.345.678/0001-95")
+       && mail.html.includes("pela plataforma Quattro") && mail.html.includes("desconsidere"), mail?.html.slice(0, 200));
+    ok("asaas: o vencido diz \"Não registramos o pagamento\"; o assunto segue o do dono",
+       A.tituloDoEmailDeCobranca(3, "aviso") === "Não registramos o pagamento da sua cobrança" && A.tituloDaCobranca(3, "aviso") === "Sua cobrança está vencida"
+       && A.tituloDoEmailDeCobranca(-5, "lembrete") === "Sua cobrança vence em 5 dias" && A.tituloDoEmailDeCobranca(30, "formal") === "Aviso de débito em aberto");
+    ok("asaas: o HTML escapa o nome do cliente (um < não vira tag)",
+       !A.montarHtmlCobranca({ preheader: "", titulo: "t", empresa: { nome: "<b>E</b>" }, saudacao: "Olá, <script>", paragrafos: [], linhas: [], aviso: "", plataforma: "" }).includes("<script>"));
+    ok("asaas: a fatura diz vencida há N dias, vence hoje ou vence em N dias",
+       situacaoDaFatura("aberto", "2026-10-15", "2026-10-28").prazo === "vencida há 13 dias"
+       && situacaoDaFatura("aberto", "2026-10-28", "2026-10-28").rotulo === "Vence hoje"
+       && situacaoDaFatura("aberto", "2026-11-02", "2026-10-28").prazo === "vence em 5 dias"
+       && situacaoDaFatura("pago", "2026-10-15", "2026-10-28").rotulo === "Pagamento recebido");
+  }
+
   // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
   for (const m of regua.mensagens) {
     ok(`aut: a cobrança (${m.canal}) identifica o credor com razão social e CNPJ`,
@@ -13252,6 +13295,26 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        && !/fichaDoLead/.test(sem("src/components/admin/FunilComercial.tsx")) && !/fichaDoLead/.test(sem("src/components/admin/AdminView.tsx")));
   }
 
+  {
+    // A margem por faixa (planilha de precificação, 28/10/2026) e a média sobre o mix.
+    const FX = [{ ate: 10000, margem: 0.015 }, { ate: 25000, margem: 0.012 }, { ate: null, margem: 0.009 }];
+    ok("maquininha-oferta: R$ 10.000,00 ainda é a primeira faixa (1,5%)", margemDaFaixaMq(10000, FX) === 0.015);
+    ok("maquininha-oferta: R$ 10.000,01 já é a segunda (1,2%)", margemDaFaixaMq(10000.01, FX) === 0.012);
+    ok("maquininha-oferta: acima de R$ 25 mil é 0,9%, sem teto", margemDaFaixaMq(25000.01, FX) === 0.009 && margemDaFaixaMq(5e6, FX) === 0.009);
+    ok("maquininha-oferta: faturamento ausente cai na primeira faixa", margemDaFaixaMq(0, FX) === 0.015 && margemDaFaixaMq(NaN, FX) === 0.015);
+    ok("maquininha-oferta: faixas fora de ordem dão o mesmo resultado", margemDaFaixaMq(20000, [...FX].reverse()) === 0.012);
+    const media = (a: Record<string, number>, m: { pix: number; debito: number; credito: number; parcelado: number }) => a.pix * m.pix + a.debito * m.debito + a.credito * m.credito + a.parcelado * m.parcelado;
+    const MIX = { pix: 0.25, debito: 0.3, credito: 0.3, parcelado: 0.15 };
+    const a1 = acrescimosDaMargemMq(0.009, MIX, 0.04);
+    ok("maquininha-oferta: mix padrão — Pix e débito no custo, crédito e parcelado +2 pontos", a1.pix === 0 && a1.debito === 0 && Math.abs(a1.credito - 0.02) < 1e-12 && a1.credito === a1.parcelado);
+    const mixes = [MIX, { pix: 0.6, debito: 0.3, credito: 0.1, parcelado: 0 }, { pix: 0, debito: 0, credito: 0.5, parcelado: 0.5 }, { pix: 0.5, debito: 0.5, credito: 0, parcelado: 0 }, { pix: 0.05, debito: 0.05, credito: 0.05, parcelado: 0.85 }];
+    ok("maquininha-oferta: a média do mix é SEMPRE a margem da faixa", mixes.every((m) => [0.015, 0.012, 0.009].every((mg) => Math.abs(media(acrescimosDaMargemMq(mg, m, 0.04), m) - mg) < 1e-12)));
+    const a2 = acrescimosDaMargemMq(0.015, { pix: 0.6, debito: 0.3, credito: 0.1, parcelado: 0 }, 0.04);
+    ok("maquininha-oferta: pouco crédito — o acréscimo para no teto e o resto vai em Pix e débito", a2.credito === 0.04 && a2.pix > 0 && Math.abs(a2.pix - a2.debito) < 1e-15);
+    const a3 = acrescimosDaMargemMq(0.012, { pix: 0.5, debito: 0.5, credito: 0, parcelado: 0 }, 0.04);
+    ok("maquininha-oferta: sem cartão no mix, a margem vai inteira em Pix e débito", Math.abs(a3.pix - 0.012) < 1e-15 && a3.credito === 0);
+    ok("maquininha-oferta: margem inválida não sobe taxa nenhuma", Object.values(acrescimosDaMargemMq(NaN, MIX, 0.04)).every((x) => x === 0));
+  }
   ok("maquininha-oferta: pedido completo passa", Object.keys(validarPedidoMq({ ...PEDIDO_VAZIO_MQ, contatoNome: "Ana", contatoEmail: "a@b.com", endereco: "Rua A, 123, Centro" })).length === 0);
 }
 
