@@ -16,8 +16,10 @@
  *     TWILIO_TEMPLATE_RESUMO_SID · TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID ·
  *     TWILIO_TEMPLATE_ALERTA_SID · TWILIO_TEMPLATE_FECHAMENTO_SID
  *       (variável 1 = o texto curto, numa linha)
- *     TWILIO_TEMPLATE_RESUMO_DIA_SID (o resumo do dia ORGANIZADO, 8 variáveis;
- *       sem ele o resumo sai pelo de uma linha — ver `modeloDoEnvio`)
+ *     TWILIO_TEMPLATE_RESUMO_DIA_SID (o resumo do dia ORGANIZADO, 8 variáveis) ·
+ *     TWILIO_TEMPLATE_LEMBRETE_PAGAR_DIA_SID · TWILIO_TEMPLATE_ALERTA_DIA_SID ·
+ *     TWILIO_TEMPLATE_FECHAMENTO_MES_SID (6 variáveis cada). Sem eles, cada
+ *     aviso sai pelo seu modelo de uma linha — ver `modeloDoEnvio`.
  *   E-mail (Resend): RESEND_API_KEY, ALERTS_EMAIL_FROM (remetente)
  *   Cobrança no nome da empresa: COBRANCA_EMAIL_DOMINIO (domínio da plataforma
  *     VERIFICADO no Resend — "Empresa" <cobrancas+<id>@domínio>, resposta para o
@@ -63,6 +65,11 @@ const TEMPLATE_DA_FINALIDADE: Record<FinalidadeTemplate, string> = {
   // hoje · paga hoje · vencidos a receber · vencidos a pagar · alerta). Sem ele,
   // o resumo sai pela RESERVA, o modelo de uma linha (`TWILIO_TEMPLATE_RESUMO_SID`).
   resumo_caixa_dia: "TWILIO_TEMPLATE_RESUMO_DIA_SID",
+  // Os outros organizados, cada um com reserva no de uma linha (6 variáveis:
+  // empresa e os números do aviso).
+  lembrete_pagar_dia: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_DIA_SID",
+  alerta_caixa_dia: "TWILIO_TEMPLATE_ALERTA_DIA_SID",
+  fechamento_mes: "TWILIO_TEMPLATE_FECHAMENTO_MES_SID",
 };
 
 /**

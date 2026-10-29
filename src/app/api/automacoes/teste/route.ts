@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
  * provedor nenhum (uma instância de demonstração com chave configurada não
  * pode virar porta de envio), e a tela registra no navegador.
  */
-const FINALIDADES: FinalidadeTemplate[] = ["resumo_diario", "resumo_caixa_dia", "lembrete_pagar", "alerta_caixa", "fechamento_pendente", "cobranca_lembrete", "cobranca_atraso", "cobranca_formal"];
+const FINALIDADES: FinalidadeTemplate[] = ["resumo_diario", "resumo_caixa_dia", "lembrete_pagar_dia", "alerta_caixa_dia", "fechamento_mes", "lembrete_pagar", "alerta_caixa", "fechamento_pendente", "cobranca_lembrete", "cobranca_atraso", "cobranca_formal"];
 
 const lerVariaveis = (v: unknown): Record<string, string> =>
   v && typeof v === "object"

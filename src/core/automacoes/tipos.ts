@@ -167,8 +167,8 @@ export type FinalidadeTemplate =
   | "cobranca_lembrete" | "cobranca_atraso" | "cobranca_formal"
   | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente"
   | "fluxo_agendado"
-  /** O resumo do dia ORGANIZADO (linhas, seções e emojis no próprio modelo). */
-  | "resumo_caixa_dia";
+  /** Os modelos ORGANIZADOS (linhas, seções e emojis no próprio modelo). */
+  | "resumo_caixa_dia" | "lembrete_pagar_dia" | "alerta_caixa_dia" | "fechamento_mes";
 
 /**
  * O modelo a usar quando o da `finalidade` ainda não está configurado.
