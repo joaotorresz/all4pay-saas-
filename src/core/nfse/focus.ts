@@ -63,6 +63,14 @@ export interface EmitenteFocus {
   codigoTributacaoNacional?: string;
   /** Código NBS do serviço (9 dígitos), opcional. */
   codigoNbs?: string;
+  /**
+   * Reforma tributária (IBS/CBS) no padrão da PREFEITURA: código indicador de
+   * operação (6 dígitos) e classificação tributária do IBS/CBS (6 dígitos).
+   * A empresa do Regime Normal é OBRIGADA a mandá-los (Focus, chamado #248663,
+   * 29/10/2026); vêm do contador, como o código do serviço.
+   */
+  codigoIndicadorOperacao?: string;
+  classificacaoTributariaIbsCbs?: string;
   /** Série da DPS (1–49999), padrão "1". */
   serieDps?: string;
   /**
@@ -115,6 +123,8 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(percentualValido(e.percentualTributosSimples) ? { percentualTributosSimples: numeroDaAliquota(e.percentualTributosSimples) } : {}),
       ...(so(e.codigoTributacaoNacional).length === 6 ? { codigoTributacaoNacional: so(e.codigoTributacaoNacional) } : {}),
       ...(so(e.codigoNbs).length === 9 ? { codigoNbs: so(e.codigoNbs) } : {}),
+      ...(so(e.codigoIndicadorOperacao).length === 6 ? { codigoIndicadorOperacao: so(e.codigoIndicadorOperacao) } : {}),
+      ...(so(e.classificacaoTributariaIbsCbs).length === 6 ? { classificacaoTributariaIbsCbs: so(e.classificacaoTributariaIbsCbs) } : {}),
       ...(/^\d{1,5}$/.test(so(e.serieDps)) && Number(so(e.serieDps)) >= 1 && Number(so(e.serieDps)) <= 49999 ? { serieDps: String(Number(so(e.serieDps))) } : {}),
     };
     if (e.padrao === "nacional" && so(e.codigoTributacaoNacional).length !== 6) problemas.push(`emitente da organização ${org}: padrão nacional sem código de tributação nacional de 6 dígitos`);
@@ -160,6 +170,10 @@ export interface PedidoFocus {
   natureza_operacao: "1";
   optante_simples_nacional: boolean;
   regime_especial_tributacao?: string;
+  exigibilidade_suspensa?: 0;
+  finalidade_emissao?: 0;
+  consumidor_final?: 0 | 1;
+  indicador_destinatario?: 0;
   prestador: { cnpj: string; inscricao_municipal: string; codigo_municipio: string };
   tomador: Record<string, unknown>;
   servico: Record<string, unknown>;
@@ -191,7 +205,20 @@ export function montarPedido(
   if (!texto(nota.descricao)) problemas.push("A discriminação do serviço está vazia.");
   const item = emitente.itemListaServico ?? itemDaLista(nota.codigoServico);
   if (!item) problemas.push("A nota está sem código de serviço.");
+  // ⚠️ Regime Normal leva o grupo do IBS/CBS (a prefeitura recusa sem ele).
+  // Faltando um código, a nota para AQUI, nomeando o que falta — não minutos
+  // depois, com a recusa genérica da prefeitura.
+  const ibsCbs = !emitente.optanteSimples || !!(emitente.codigoIndicadorOperacao || emitente.classificacaoTributariaIbsCbs);
+  if (ibsCbs) {
+    const faltaIbs = [
+      ...(emitente.codigoIndicadorOperacao ? [] : ["código indicador de operação"]),
+      ...(emitente.classificacaoTributariaIbsCbs ? [] : ["classificação tributária do IBS/CBS"]),
+      ...(emitente.codigoNbs ? [] : ["código NBS"]),
+    ];
+    if (faltaIbs.length) problemas.push(`A configuração fiscal da empresa está sem ${faltaIbs.join(", ")} (exigidos pela reforma tributária no Regime Normal).`);
+  }
   if (problemas.length) return { ok: false, problemas };
+  const valor = Math.round(nota.valor * 100) / 100;
 
   const endereco: Record<string, string> = {};
   const add = (k: string, v: unknown, digitos = false) => { const x = digitos ? so(v) : texto(v); if (x) endereco[k] = x; };
@@ -213,6 +240,7 @@ export function montarPedido(
       natureza_operacao: "1",
       optante_simples_nacional: emitente.optanteSimples,
       ...(emitente.regimeEspecial ? { regime_especial_tributacao: emitente.regimeEspecial } : {}),
+      ...(ibsCbs ? { exigibilidade_suspensa: 0 as const, finalidade_emissao: 0 as const, consumidor_final: doc.length === 11 ? 1 as const : 0 as const, indicador_destinatario: 0 as const } : {}),
       prestador: { cnpj: emitente.cnpj, inscricao_municipal: emitente.inscricaoMunicipal, codigo_municipio: emitente.codigoMunicipio },
       tomador: tomadorPedido,
       servico: {
@@ -220,7 +248,7 @@ export function montarPedido(
         // empresa digita faria a nota divergir do que a prefeitura apura. A
         // única alíquota que sai é a que a PLATAFORMA declarou no emitente,
         // junto com o código do serviço (São Paulo a exige no RPS).
-        valor_servicos: Math.round(nota.valor * 100) / 100,
+        valor_servicos: valor,
         iss_retido: nota.issRetido,
         item_lista_servico: item,
         discriminacao: texto(nota.descricao),
@@ -228,6 +256,13 @@ export function montarPedido(
         ...(emitente.codigoTributarioMunicipio ? { codigo_tributario_municipio: emitente.codigoTributarioMunicipio } : {}),
         ...(emitente.codigoCnae ? { codigo_cnae: emitente.codigoCnae } : {}),
         ...(emitente.aliquota !== undefined ? { aliquota: emitente.aliquota } : {}),
+        ...(ibsCbs ? {
+          valor_final_cobrado: valor,
+          valor_ipi: 0,
+          codigo_nbs: emitente.codigoNbs,
+          codigo_indicador_operacao: emitente.codigoIndicadorOperacao,
+          ibs_cbs_classificacao_tributaria: emitente.classificacaoTributariaIbsCbs,
+        } : {}),
       },
     },
   };
