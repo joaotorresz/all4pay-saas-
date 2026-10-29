@@ -8,6 +8,7 @@ import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { TituloDaAba } from "@/components/app/TituloDaAba";
 import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
+import { TravaBiometrica } from "@/components/app/TravaBiometrica";
 import { BannerAmostra } from "@/components/app/BannerAmostra";
 import { BannerAssinatura } from "@/components/app/BannerAssinatura";
 import { RouteTracker } from "@/components/app/RouteTracker";
@@ -176,6 +177,8 @@ export function AppShell({
       <TituloDaAba titulo={tituloAba ?? (typeof title === "string" ? title : null)} />
       <RouteTracker />
       <SincronizacaoOrg />
+      {/* Só no app das lojas, com a trava ligada em Segurança da conta. */}
+      <TravaBiometrica />
       {/* ⚠️ O Laboratório de Design e o Editor Visual SAÍRAM (16/10/2026). O
           design system se edita em Administração › Design system, que salva
           num PR por `src/design/tokens.json` — a mesma fonte das guardas. */}

@@ -30,8 +30,10 @@ npx cap open ios       # Xcode (Mac) → Product → Archive → enviar ao App S
 
 ## O que falta, por etapa
 
-- **Etapa 3 · recursos nativos** (a Apple recusa "só um site", diretriz 4.2): biometria
-  para destravar, notificações push e câmera nativa.
+- **Biometria** (feito): "Destravar com biometria" em Segurança da conta, só no app;
+  plugin `@aparajita/capacitor-biometric-auth`, chamado pela ponte global.
+- **Notificações push** (falta): exige o projeto no Firebase (`google-services.json`) e a
+  chave APNs da Apple.
 - **Exigências da Apple que o ERP precisa atender** (cada uma é motivo comum de recusa):
   - *Entrar com a Apple* (diretriz 4.8): o login oferece Google, então precisa oferecer Apple também.
   - *Excluir a conta dentro do app* (5.1.1(v)).
