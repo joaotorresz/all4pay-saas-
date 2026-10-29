@@ -64,6 +64,7 @@ import { categoriaPorMCC, normalizarMCC, CATEGORIAS_MCC } from "@/core/mcc";
 import { normalizarPaginaIA, csvDasPaginas } from "@/core/fdip/extrato-ia";
 import { importedAbertura } from "@/lib/imported";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { decidirExclusao } from "@/core/conta/exclusao";
 import { analisarQuantitativo } from "@/core/quant";
 import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -13498,6 +13499,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     rIA.classificacoes.find((c) => c.recordId === rIA.records[0].id)!.categoria === "Alimentação");
   ok("extrato-ia: nenhuma página com linha = texto vazio (não um extrato vazio 'bem-sucedido')",
     csvDasPaginas([normalizarPaginaIA({ tipo: "extrato", linhas: [] })]) === "");
+}
+
+// ── conta: excluir a própria conta (lojas, Apple 5.1.1(v)) ──
+{
+  const so = { orgId: "a", nome: "Loja A", papel: "owner", participantes: 1 };
+  const equipe = { orgId: "b", nome: "Loja B", papel: "owner", participantes: 3 };
+  const membro = { orgId: "c", nome: "Loja C", papel: "lancador", participantes: 5 };
+  const base = { administradorDaPlataforma: false, confirmacao: "excluir" };
+  const r1 = decidirExclusao({ ...base, vinculos: [so, membro] });
+  ok("conta: única pessoa da empresa exclui e a empresa fica guardada", r1.ok && r1.empresasGuardadas.join() === "Loja A");
+  const r2 = decidirExclusao({ ...base, vinculos: [so, equipe] });
+  ok("conta: titular com equipe é recusado e a empresa é nomeada", !r2.ok && r2.codigo === "titular_com_equipe" && r2.motivo.includes("Loja B"));
+  const r3 = decidirExclusao({ ...base, confirmacao: "sim", vinculos: [so] });
+  ok("conta: sem a palavra de confirmação nada acontece", !r3.ok && r3.codigo === "confirmacao");
+  const r4 = decidirExclusao({ ...base, administradorDaPlataforma: true, vinculos: [] });
+  ok("conta: administrador da plataforma não se exclui por aqui", !r4.ok && r4.codigo === "administrador_da_plataforma");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

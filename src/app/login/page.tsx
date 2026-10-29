@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
+import { useAppNativo } from "@/lib/app-nativo";
 import { entrarComGoogle, pedirRedefinicao, precisaDoCodigoAgora } from "@/lib/entrada";
 import { lerMotivoGoogle, MENSAGEM_GOOGLE } from "@/core/google";
 import { ROTA_CODIGO } from "@/core/segundo-fator";
@@ -20,6 +21,9 @@ type View = "signin" | "reset";
 export default function LoginPage() {
   const router = useRouter();
   const { pessoal, set: setTipo } = useTipoConta();
+  // ⚠️ No app das lojas o Google sai: o Google recusa login dentro de WebView,
+  // e a Apple (4.8) exigiria "Entrar com a Apple" ao lado dele.
+  const { nativo } = useAppNativo();
   const [view, setView] = React.useState<View>("signin");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -231,9 +235,11 @@ export default function LoginPage() {
               </div>
               {/* ⚠️ Quem não tem conta e clica aqui vai ao CADASTRO da empresa
                   antes de entrar (`core/google`), nunca direto ao sistema. */}
-              <Button variant="secondary" fullWidth disabled={busyGoogle} aria-busy={busyGoogle} onClick={google} leftIcon={<MarcaGoogle />}>
-                {busyGoogle ? "Abrindo o Google…" : "Entrar com Google"}
-              </Button>
+              {!nativo && (
+                <Button variant="secondary" fullWidth disabled={busyGoogle} aria-busy={busyGoogle} onClick={google} leftIcon={<MarcaGoogle />}>
+                  {busyGoogle ? "Abrindo o Google…" : "Entrar com Google"}
+                </Button>
+              )}
               {/* ⚠️ Aponta para o cadastro de TRÊS CAMPOS, não para o wizard de
                   sete etapas. Quem chega ao login sem conta quer entrar, não
                   preencher inscrição municipal — o cadastro completo continua a

@@ -2,10 +2,15 @@
   "appId": "finance.quattro.app",
   "appName": "Quattro",
   "webDir": "www",
+  "appendUserAgent": "QuattroApp",
   "server": {
     "url": "https://app.quattro.finance",
     "cleartext": false,
-    "allowNavigation": ["app.quattro.finance", "*.supabase.co", "accounts.google.com"],
+    "allowNavigation": [
+      "app.quattro.finance",
+      "*.supabase.co",
+      "accounts.google.com"
+    ],
     "errorPath": "sem-conexao.html"
   },
   "ios": {
