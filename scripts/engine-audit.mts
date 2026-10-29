@@ -12318,6 +12318,32 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !linkComoPessoa(rotaLink.replace('s.rpc("pinbank_checkout_link_criar"', 'admin.rpc("pinbank_checkout_link_criar"')));
   const mw = lerF("src/middleware.ts");
   ok("checkout-pinbank: /pagar é pública no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)));
+  /* ── checkout-email: o link de pagamento por e-mail, no modelo da Asaas ── */
+  {
+    const AU = await import("@/core/automacoes");
+    const TK = "a".repeat(64);
+    const credor = { nome: "Loja Exemplo", razaoSocial: "Loja Exemplo Ltda", documento: "12345678000195", email: "contato@loja.com.br", telefone: null, endereco: [] };
+    const base = { orgId: "0123abcd-0000-0000-0000-000000000000", hoje: "2026-10-28", credor, appUrl: "https://app.quattro.finance", token: TK };
+    const tit = { movimentoId: "11111111-1111-1111-1111-111111111111", cliente: "Maria", partyId: "p1", valor: 4.44, vencimento: "2026-10-30" };
+    const c = AU.redigirLinkDePagamento(base, tit);
+    const url = `https://app.quattro.finance/pagar?t=${TK}`;
+    ok("checkout-email: o e-mail leva o botão Pagar agora com o link /pagar do título", c.html.includes("Pagar agora") && c.html.includes(url) && c.texto.includes(url));
+    ok("checkout-email: o valor é o da cobrança emitida (R$ 4,44), sem encargo nem Pix próprio",
+       c.html.includes("4,44") && !/multa|PIX copia e cola/i.test(c.texto));
+    ok("checkout-email: sai no nome da empresa (remetente da régua)", c.remetente?.nome === "Loja Exemplo" && c.remetente?.tag === "0123abcd");
+    ok("checkout-email: a chave é do TÍTULO no dia (um envio por título por dia)", c.chaveBase === `link:${tit.movimentoId}:2026-10-28` && !(c.chavesExtras ?? []).length);
+    const atrasado = AU.redigirLinkDePagamento(base, { ...tit, vencimento: "2026-08-01" });
+    ok("checkout-email: vencido há 88 dias NÃO vira aviso formal (degrau de protesto é da régua)",
+       !/Aviso de débito|medidas de cobrança/.test(atrasado.html) && /Não registramos o pagamento/.test(atrasado.html));
+    const ROTA_EMAIL = "src/app/api/pinbank/checkout/email/route.ts";
+    const rotaEmail = semComF(lerF(ROTA_EMAIL));
+    const destinoDoCadastro = (t: string) => /const destino = String\(parte\?\.email/.test(t) && !/corpo\?\.(email|destino|para|html|texto|assunto)/.test(t)
+      && /s\.from\("parties"\)/.test(t) && !/createAdmin/.test(t);
+    ok("checkout-email: o destino é o e-mail do CADASTRO, lido como a pessoa — o pedido só diz o título", destinoDoCadastro(rotaEmail));
+    ok("checkout-email: (defeito plantado) destino vindo do corpo do pedido é ACUSADO",
+       !destinoDoCadastro(rotaEmail.replace("const destino = String(parte?.email", "const destino = String(corpo?.email ?? parte?.email")));
+    ok("checkout-email: grava antes de enviar (despachar com o registro da sessão)", /despachar\("", \[m\], \{ registro: registroSupabase\(s\)/.test(rotaEmail));
+  }
   const semDocApi = API.VARIAVEIS_API_PINBANK.filter((n) => !new RegExp(`^#?\\s*${n}=`, "m").test(docEnv));
   ok("extrato-pos: as variáveis da API estão no .env.example", semDocApi.length === 0, semDocApi.join(", "));
 }

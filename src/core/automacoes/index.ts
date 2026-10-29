@@ -37,7 +37,7 @@ import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import { ponteRupturaRunway } from "@/core/ia/coerencia";
 import { montarFechamento } from "@/core/close";
 import {
-  montarRegua, reguaDaEmpresa, redigirMensagem, identificacaoDoCredor, documentoLegivel, FINALIDADE_DO_TOM, variaveisDoModelo, SE_JA_PAGOU, type EnvioRegistrado,
+  montarRegua, reguaDaEmpresa, redigirMensagem, etapaDoDia, identificacaoDoCredor, documentoLegivel, FINALIDADE_DO_TOM, variaveisDoModelo, SE_JA_PAGOU, type EnvioRegistrado,
   type ItemRegua, type EtapaRegua,
 } from "@/core/cobranca";
 import { calcularMora } from "@/core/late-fee";
@@ -771,6 +771,52 @@ export function previaDaEtapa(ctx: ContextoAutomacao, p: ParametrosAutomacao, et
     mensagem: redigirMensagem(etapa, dados, ctx.credor),
   };
   return redigirCobranca(ctx, { clienteChave: "exemplo", cliente: dados.cliente, partyId: null, itens: [item] }, p);
+}
+
+/* ========================================================================== */
+/* O LINK DE PAGAMENTO POR E-MAIL — o envio avulso, pedido na baixa do título   */
+/* ========================================================================== */
+
+/** A chave do envio avulso do link: UM por título por dia (o índice do registro recusa o segundo). */
+export const chaveDoLinkNoDia = (movimentoId: string, dia: string) => `link:${movimentoId}:${dia}`;
+
+/** Até onde o envio avulso sobe o tom: o aviso formal (D+30) é degrau de protesto, e quem decide é a régua. */
+const TETO_DIAS_DO_LINK = 29;
+
+export interface TituloDoLink { movimentoId: string; cliente: string; partyId: string | null; valor: number; vencimento: string }
+
+/**
+ * O e-mail com o link `/pagar` de UM título, pedido pela pessoa na baixa — no
+ * modelo da Asaas, o MESMO desenho da régua (`redigirCobranca`): remetente no
+ * nome da empresa, cabeçalho com os dados dela, o valor, o vencimento e o
+ * botão "Pagar agora".
+ *
+ * ⚠️ Sem multa, juros nem Pix copia e cola próprio: a página mostra a cobrança
+ * JÁ EMITIDA, de valor fixo, e um total corrigido no e-mail discordaria dela.
+ * ⚠️ O tom para no "firme": o aviso formal antecede protesto e acordo, e um
+ * clique em "Enviar por e-mail" não é essa decisão.
+ */
+export function redigirLinkDePagamento(
+  base: { orgId: string; hoje: string; credor: ContextoAutomacao["credor"]; appUrl: string; token: string },
+  t: TituloDoLink,
+): Conteudo {
+  const dias = Math.min(TETO_DIAS_DO_LINK, diasEntre(t.vencimento, base.hoje));
+  const etapa = etapaDoDia(dias, "email");
+  const ctx = {
+    orgId: base.orgId, hoje: base.hoje, credor: base.credor, appUrl: base.appUrl,
+    linksDePagamento: { [t.movimentoId]: base.token },
+    input: { hoje: base.hoje, saldoAtual: 0, movements: [] } as unknown as RiskInput,
+    contas: [], contatos: {}, membros: [], aprovacoesPendentes: null, mesesTravados: [], envios: [],
+  } satisfies ContextoAutomacao;
+  const dados = { cliente: t.cliente, valor: t.valor, vencimento: t.vencimento, dias };
+  const item: ItemRegua = {
+    ...dados, movimentoId: t.movimentoId, partyId: t.partyId, etapa, hoje: true, proxima: null, jaEnviado: false,
+    mensagem: redigirMensagem(etapa, dados, base.credor),
+  };
+  const c = redigirCobranca(ctx, { clienteChave: t.partyId ?? `nome:${t.cliente.toLowerCase()}`, cliente: t.cliente, partyId: t.partyId, itens: [item] },
+    { multaPct: 0, jurosMesPct: 0, chavePix: "" });
+  // A chave é do TÍTULO no dia — nunca a do cliente da régua, que ainda pode mandar o lembrete dela.
+  return { ...c, chaveBase: chaveDoLinkNoDia(t.movimentoId, base.hoje), chavesExtras: [], canalPreferido: "email" };
 }
 
 /* ========================================================================== */
