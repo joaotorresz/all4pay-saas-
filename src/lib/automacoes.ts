@@ -197,7 +197,8 @@ export interface ResultadoTeste { ok: boolean; situacao: "enviado" | "simulado" 
 /** "Enviar teste para mim": a mensagem da prévia, só para quem clicou. */
 export async function enviarTeste(p: {
   tipo: TipoAutomacao; canal: CanalEnvio; assunto: string; texto: string; html: string;
-  finalidade: string; variaveis: Record<string, string>; telefone?: string | null;
+  finalidade: string; variaveis: Record<string, string>;
+  reserva?: { finalidade: string; variaveis: Record<string, string> }; telefone?: string | null;
 }): Promise<ResultadoTeste> {
   const r = await fetch("/api/automacoes/teste", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p),

@@ -217,7 +217,7 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
     try {
       const r = await enviarTeste({
         tipo: cfg.tipo, canal, assunto: p.assunto, texto: p.texto, html: p.html,
-        finalidade: p.finalidade, variaveis: p.variaveis,
+        finalidade: p.finalidade, variaveis: p.variaveis, reserva: p.reserva,
       });
       setResultadoTeste(
         r.situacao === "enviado" ? `Teste enviado para ${r.destino}. O provedor aceitou a mensagem.`

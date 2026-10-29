@@ -16,6 +16,8 @@
  *     TWILIO_TEMPLATE_RESUMO_SID · TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID ·
  *     TWILIO_TEMPLATE_ALERTA_SID · TWILIO_TEMPLATE_FECHAMENTO_SID
  *       (variável 1 = o texto curto, numa linha)
+ *     TWILIO_TEMPLATE_RESUMO_DIA_SID (o resumo do dia ORGANIZADO, 8 variáveis;
+ *       sem ele o resumo sai pelo de uma linha — ver `modeloDoEnvio`)
  *   E-mail (Resend): RESEND_API_KEY, ALERTS_EMAIL_FROM (remetente)
  *   Cobrança no nome da empresa: COBRANCA_EMAIL_DOMINIO (domínio da plataforma
  *     VERIFICADO no Resend — "Empresa" <cobrancas+<id>@domínio>, resposta para o
@@ -57,7 +59,25 @@ const TEMPLATE_DA_FINALIDADE: Record<FinalidadeTemplate, string> = {
   fechamento_pendente: "TWILIO_TEMPLATE_FECHAMENTO_SID",
   // Os fluxos que o cliente monta (Automações): variáveis 1 = título, 2 = resumo.
   fluxo_agendado: "TWILIO_TEMPLATE_FLUXO_SID",
+  // O resumo do dia organizado (8 variáveis: empresa · data · saldo · recebe
+  // hoje · paga hoje · vencidos a receber · vencidos a pagar · alerta). Sem ele,
+  // o resumo sai pela RESERVA, o modelo de uma linha (`TWILIO_TEMPLATE_RESUMO_SID`).
+  resumo_caixa_dia: "TWILIO_TEMPLATE_RESUMO_DIA_SID",
 };
+
+/**
+ * O modelo que o envio usa: o da finalidade, se configurado; senão o da
+ * reserva; senão nenhum (texto livre). A variável vai SEMPRE com o modelo que
+ * a define — mandar as 8 do organizado ao de uma linha trocaria o conteúdo.
+ */
+export function modeloDoEnvio(m: Pick<MensagemAutomacao, "finalidade" | "variaveis" | "reserva">):
+  { contentSid: string; contentVariables: Record<string, string> } | undefined {
+  const sid = templateDe(m.finalidade);
+  if (sid) return { contentSid: sid, contentVariables: m.variaveis };
+  const reserva = m.reserva ? templateDe(m.reserva.finalidade) : undefined;
+  if (reserva && m.reserva) return { contentSid: reserva, contentVariables: m.reserva.variaveis };
+  return undefined;
+}
 
 export const templateDe = (f: FinalidadeTemplate): string | undefined =>
   process.env[TEMPLATE_DA_FINALIDADE[f]] || undefined;
@@ -165,10 +185,7 @@ export function provedorReal(): ProvedorEnvio {
             // A cobrança sai no nome da empresa, pelo domínio da plataforma
             // (`COBRANCA_EMAIL_DOMINIO`); sem ele, pelo remetente de sempre.
             enderecoDoRemetente(m.remetente, process.env.COBRANCA_EMAIL_DOMINIO) ?? {})
-        : await enviarWhatsapp(m.destino, m.texto.slice(0, 1500), (() => {
-            const sid = templateDe(m.finalidade);
-            return sid ? { contentSid: sid, contentVariables: m.variaveis } : undefined;
-          })());
+        : await enviarWhatsapp(m.destino, m.texto.slice(0, 1500), modeloDoEnvio(m));
       return { ok: r.ok, id: r.id ?? null, erro: r.ok ? null : r.detalhe };
     },
   };

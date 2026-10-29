@@ -166,7 +166,20 @@ export interface ContextoAutomacao {
 export type FinalidadeTemplate =
   | "cobranca_lembrete" | "cobranca_atraso" | "cobranca_formal"
   | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente"
-  | "fluxo_agendado";
+  | "fluxo_agendado"
+  /** O resumo do dia ORGANIZADO (linhas, seções e emojis no próprio modelo). */
+  | "resumo_caixa_dia";
+
+/**
+ * O modelo a usar quando o da `finalidade` ainda não está configurado.
+ * ⚠️ Existe porque a Meta recusa quebra de linha DENTRO de variável: um resumo
+ * organizado só cabe num modelo próprio, com mais variáveis — e até ele ser
+ * aprovado e cadastrado, o envio segue pelo modelo de uma linha.
+ */
+export interface ModeloReserva {
+  finalidade: FinalidadeTemplate;
+  variaveis: Record<string, string>;
+}
 
 /** O conteúdo, antes de ter destino. É o que a PRÉVIA mostra. */
 export interface Conteudo {
@@ -179,6 +192,8 @@ export interface Conteudo {
   finalidade: FinalidadeTemplate;
   /** Variáveis do template aprovado (quando houver um configurado). */
   variaveis: Record<string, string>;
+  /** O modelo de reserva, quando o da `finalidade` não estiver configurado. */
+  reserva?: ModeloReserva;
   /** Régua: a quem se dirige (o destino vem do cadastro do contato). */
   contatoId?: string;
   /** Régua: as chaves por título/etapa que o envio também registra. */
@@ -209,6 +224,7 @@ export interface MensagemAutomacao {
   html: string;
   finalidade: FinalidadeTemplate;
   variaveis: Record<string, string>;
+  reserva?: ModeloReserva;
   chavesExtras?: string[];
   remetente?: Remetente;
 }

@@ -27,7 +27,12 @@ export const dynamic = "force-dynamic";
  * provedor nenhum (uma instância de demonstração com chave configurada não
  * pode virar porta de envio), e a tela registra no navegador.
  */
-const FINALIDADES: FinalidadeTemplate[] = ["resumo_diario", "lembrete_pagar", "alerta_caixa", "fechamento_pendente", "cobranca_lembrete", "cobranca_atraso", "cobranca_formal"];
+const FINALIDADES: FinalidadeTemplate[] = ["resumo_diario", "resumo_caixa_dia", "lembrete_pagar", "alerta_caixa", "fechamento_pendente", "cobranca_lembrete", "cobranca_atraso", "cobranca_formal"];
+
+const lerVariaveis = (v: unknown): Record<string, string> =>
+  v && typeof v === "object"
+    ? Object.fromEntries(Object.entries(v as Record<string, unknown>).slice(0, 10).map(([k, x]) => [k, String(x).slice(0, 900)]))
+    : {};
 
 export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -38,9 +43,11 @@ export async function POST(req: Request) {
   const texto = `[Teste] ${String(b.texto ?? "").slice(0, 4000)}`;
   const html = String(b.html ?? "").slice(0, 60_000);
   const finalidade = FINALIDADES.includes(b.finalidade as FinalidadeTemplate) ? (b.finalidade as FinalidadeTemplate) : "resumo_diario";
-  const variaveis = b.variaveis && typeof b.variaveis === "object"
-    ? Object.fromEntries(Object.entries(b.variaveis as Record<string, unknown>).slice(0, 10).map(([k, v]) => [k, String(v).slice(0, 900)]))
-    : {};
+  const variaveis = lerVariaveis(b.variaveis);
+  const r0 = b.reserva as { finalidade?: unknown; variaveis?: unknown } | undefined;
+  const reserva = r0 && FINALIDADES.includes(r0.finalidade as FinalidadeTemplate)
+    ? { finalidade: r0.finalidade as FinalidadeTemplate, variaveis: lerVariaveis(r0.variaveis) }
+    : undefined;
 
   if (isDemo) {
     return NextResponse.json({
@@ -74,7 +81,7 @@ export async function POST(req: Request) {
   const m: MensagemAutomacao = {
     tipo, canal, destino, destinoMascarado: mascarar(canal, destino),
     chave: `teste:${hashCurto(`${user.id}|${canal === "email" ? destino.toLowerCase() : soDigitos(destino)}`)}:${Date.now().toString(36)}`,
-    assunto, texto, html, finalidade, variaveis,
+    assunto, texto, html, finalidade, variaveis, ...(reserva ? { reserva } : {}),
   };
   try {
     const rel = await despachar("", [m], { registro: registroSupabase(supabase), provedor: provedorReal() }, relatorioVazio());
