@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { emitenteDaOrg, emitirNaFocus, focusConfigurada, ambienteFocus } from "@/lib/focusnfe";
 import { abrirSessao, lerId, lerNota, podeLancar, registrar, resposta, UUID } from "@/lib/nfse-servidor";
+import { comMunicipioDoCep } from "@/lib/cep-servidor";
 import { dataEmissaoNacional, montarPedido, montarPedidoNacional, motivoDaRecusa, proximaTentativa, refDaTentativa } from "@/core/nfse/focus";
 
 /**
@@ -51,6 +52,8 @@ export async function POST(req: Request) {
     return resposta(409, { ok: false, codigo: "estado_invalido", motivo: nota.status === "processando" ? "A nota já está na prefeitura. Atualize para ver o resultado." : "Só rascunho ou nota recusada pode ser transmitida." });
   }
   if (!nota.tomador) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: "A nota não tem cliente (tomador)." });
+  // O cadastro não guarda o IBGE da cidade; o leiaute da reforma o exige no endereço do tomador.
+  if (emitente.padrao !== "nacional") nota.tomador = await comMunicipioDoCep(nota.tomador);
 
   const dadosNota = { id: nota.id, descricao: nota.description ?? "", codigoServico: nota.service_code ?? "", valor: nota.amount, issRetido: nota.iss_retained === true };
   const nacional = emitente.padrao === "nacional";

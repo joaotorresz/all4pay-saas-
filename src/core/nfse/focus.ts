@@ -238,10 +238,13 @@ export function montarPedido(
   // da cidade antes do CEP (recusa de 30/10/2026: "CEP not expected, expected
   // cMun"). Sem o código, o endereço não vai — ele é opcional; mandá-lo
   // incompleto é recusa certa.
+  // ⚠️ E, com IBS/CBS, o endereço do tomador é OBRIGATÓRIO (recusa de
+  // 30/10/2026: "o tomador deve ser identificado por CNPJ ou CPF e seu
+  // endereço nacional informado"): sem o IBGE, a nota para ANTES de sair.
   const munTomador = so(tomador.codigoMunicipio);
   if (ibsCbs) {
     if (munTomador.length === 7) endereco.codigo_municipio = munTomador;
-    else for (const k of Object.keys(endereco)) delete endereco[k];
+    else return { ok: false, problemas: ["Não foi possível achar a cidade do cliente pelo CEP. Confira o CEP no cadastro do contato."] };
   }
   // ⚠️ O cTribMun do leiaute novo tem 3 dígitos; o código de 5 de SP ali é
   // recusa ("03158 not accepted by pattern [0-9]{3}").
