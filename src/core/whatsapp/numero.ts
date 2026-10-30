@@ -56,3 +56,35 @@ export function mensagemDoCodigo(codigo: string): string {
 
 /** A recusa do banco sem o prefixo técnico (`A4P-WAN-…:`). */
 export const semPrefixoNumero = (msg: string): string => msg.replace(/^A4P-[A-Z-]+:\s*/, "");
+
+/**
+ * A OFERTA DO VÍNCULO (30/10/2026, pedido do dono): no fim da abertura de conta
+ * e na primeira vez que a pessoa abre o chat, a Quattro AI pergunta se ela quer
+ * continuar a conversa pelo WhatsApp. ⚠️ As duas portas pedem o MESMO código
+ * de Segurança da conta: o número digitado no cadastro não prova que o celular
+ * é de quem o digitou.
+ *
+ * "Agora não" guarda o dia no aparelho e a oferta só volta depois de
+ * `DIAS_PAUSA_OFERTA` — uma oferta a cada abertura do chat vira obstáculo.
+ */
+export const CHAVE_OFERTA_WHATSAPP = "a4p_ia_whatsapp_oferta";
+export const DIAS_PAUSA_OFERTA = 14;
+
+export interface SinaisOferta {
+  ligado: boolean;
+  podeCadastrar: boolean;
+  /** Já há celular confirmado. */
+  confirmado: boolean;
+  /** O dia (AAAA-MM-DD) do último "Agora não", ou nulo. */
+  dispensadaEm: string | null;
+  /** Hoje, AAAA-MM-DD. */
+  hoje: string;
+}
+
+export function deveOferecerWhatsapp(s: SinaisOferta): boolean {
+  if (!s.ligado || !s.podeCadastrar || s.confirmado) return false;
+  if (!s.dispensadaEm || !/^\d{4}-\d{2}-\d{2}$/.test(s.dispensadaEm)) return true;
+  // Fatia a string em UTC: a conta de dias não pode depender do fuso.
+  const dias = (Date.parse(`${s.hoje}T00:00:00Z`) - Date.parse(`${s.dispensadaEm}T00:00:00Z`)) / 86_400_000;
+  return dias >= DIAS_PAUSA_OFERTA;
+}

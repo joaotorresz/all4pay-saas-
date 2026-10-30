@@ -75,7 +75,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE, CATEGORIAS_CNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
-import { celularCanonico, celularLegivel, iaWhatsappLigada, mensagemDoCodigo, semPrefixoNumero } from "@/core/whatsapp/numero";
+import { DIAS_PAUSA_OFERTA, celularCanonico, celularLegivel, deveOferecerWhatsapp, iaWhatsappLigada, mensagemDoCodigo, semPrefixoNumero } from "@/core/whatsapp/numero";
 import { execSync as execSyncIcone } from "node:child_process";
 import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
@@ -13608,8 +13608,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     /admin\.rpc\("whatsapp_numero_pedir_codigo", \{ p_usuario: uid,/.test(corpoPedir) && /auth\.getUser\(\)/.test(corpoPedir));
   ok("wa-numero: o código nunca vai para log nem volta à tela",
     !/console\.(log|info|warn|error)/.test(acoes) && !/mensagem:[^\n]*\$\{codigo\}/.test(acoes));
-  const telas = ["src/components/configuracoes/NumeroWhatsappCard.tsx"].map((f) => readFileSync(f, "utf8")).join("\n");
+  const PORTAS = ["src/components/configuracoes/NumeroWhatsappCard.tsx", "src/components/ia/OfertaWhatsapp.tsx", "src/components/entrada/CriarContaView.tsx"];
+  const telas = PORTAS.map((f) => readFileSync(f, "utf8")).join("\n");
   ok("wa-numero: nenhuma tela chama a geração do código direto", !telas.includes("whatsapp_numero_pedir_codigo"));
+
+  // A oferta do vínculo (fim do cadastro e primeira abertura do chat, 30/10/2026).
+  const base = { ligado: true, podeCadastrar: true, confirmado: false, dispensadaEm: null, hoje: "2026-10-30" };
+  ok("wa-oferta: oferece a quem pode e ainda não confirmou", deveOferecerWhatsapp(base));
+  ok("wa-oferta: desligado não oferece", !deveOferecerWhatsapp({ ...base, ligado: false }));
+  ok("wa-oferta: quem não pode cadastrar não vê", !deveOferecerWhatsapp({ ...base, podeCadastrar: false }));
+  ok("wa-oferta: celular já confirmado não vê de novo", !deveOferecerWhatsapp({ ...base, confirmado: true }));
+  ok("wa-oferta: 'Agora não' segura a oferta durante a pausa",
+    !deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-30" }) && !deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-17" }));
+  ok(`wa-oferta: depois de ${DIAS_PAUSA_OFERTA} dias ela volta`, deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-16" }));
+  ok("wa-oferta: as duas portas novas usam as MESMAS ações de Segurança da conta (nenhuma confirmação própria)",
+    PORTAS.slice(1).every((f) => {
+      const t = readFileSync(f, "utf8");
+      return t.includes("pedirCodigoNumeroAction") && t.includes("confirmarNumeroAction") && !t.includes(".rpc(");
+    }));
+  ok("wa-oferta: o chat monta a oferta", readFileSync("src/components/ia/ChatTelaCheia.tsx", "utf8").includes("<OfertaWhatsapp />"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
