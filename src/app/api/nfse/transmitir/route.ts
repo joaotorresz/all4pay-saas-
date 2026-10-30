@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   const competencia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
   const montado = nacional
     ? montarPedidoNacional(dadosNota, nota.tomador, emitente, dataEmissaoNacional(agora.getTime()), competencia, agora.getTime())
-    : montarPedido(dadosNota, nota.tomador, emitente, agora.toISOString());
+    : montarPedido(dadosNota, nota.tomador, emitente, dataEmissaoNacional(agora.getTime()));
   if (!montado.ok) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: montado.problemas.join(" ") });
 
   const ref = refDaTentativa(nota.id, proximaTentativa(nota.provedor_ref), nacional);
