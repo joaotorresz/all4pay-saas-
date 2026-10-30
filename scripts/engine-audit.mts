@@ -7473,6 +7473,30 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: hoje é o dia de Brasília (01:30 UTC de 01/10 ainda é 30/09)", A.hojeEm(new Date("2026-10-01T01:30:00Z")) === "2026-09-30");
   ok("aut: e às 03:30 UTC já virou", A.hojeEm(new Date("2026-10-01T03:30:00Z")) === "2026-10-01");
 
+  // ---- 0b) O TESTE COM EXEMPLO (30/10/2026): sem nada a avisar hoje, o botão
+  // de teste manda um exemplo MARCADO, sobre números que não são os da empresa.
+  {
+    const tranquilo = ctxBase({ input: { ...ctxBase().input, saldoAtual: 1_000_000 } });
+    const real = A.conteudoDoTeste(cfg("lembrete_pagar"), ctxBase());
+    ok("aut-exemplo: com algo a dizer hoje, o teste é a mensagem DE VERDADE",
+       "conteudo" in real && real.exemplo === null && !real.conteudo.assunto.startsWith("[Exemplo]"));
+    const ex = A.conteudoDoTeste(cfg("alerta_caixa"), tranquilo);
+    ok("aut-exemplo: o caixa sem risco hoje ainda tem o que testar (o exemplo RECEBEU valor)",
+       "conteudo" in ex && ex.exemplo?.codigo === "nada_a_avisar" && ex.conteudo.texto.includes(formatBRL(12_000)),
+       "semEnvio" in ex ? ex.semEnvio.motivo : "");
+    if ("conteudo" in ex) {
+      const c = ex.conteudo;
+      ok("aut-exemplo: MARCADO no assunto, no texto e na variável 1 do modelo do WhatsApp",
+         c.assunto.startsWith("[Exemplo]") && c.texto.startsWith("EXEMPLO") && c.variaveis["1"].startsWith("Exemplo")
+         && (c.reserva?.variaveis["1"] ?? "Exemplo").startsWith("Exemplo"), JSON.stringify(c.variaveis));
+      ok("aut-exemplo: nenhum número nem nome da empresa de verdade entra no exemplo",
+         !["Imobiliária Sol", "Luz SA", "Cliente Um", formatBRL(1_000_000)].some((x) => c.texto.includes(x)));
+    }
+    const desligadoDeVerdade = A.conteudoDoTeste(cfg("resumo_diario"), ctxBase({ input: { ...ctxBase().input, movements: [] } }));
+    ok("aut-exemplo: empresa sem lançamento também testa, pelo exemplo",
+       "conteudo" in desligadoDeVerdade && desligadoDeVerdade.exemplo?.codigo === "sem_dados");
+  }
+
   // ---- 1) REEXECUTAR NÃO ENVIA DE NOVO (índice único + grava-antes-de-enviar) ----
   const log: string[] = [];
   let chamadas = 0;
