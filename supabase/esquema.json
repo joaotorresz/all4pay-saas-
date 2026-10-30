@@ -223,6 +223,18 @@
         "impacto": "Até ser aplicada, o cartão do celular em Segurança da conta recusa o pedido de código. Ele só aparece com WHATSAPP_IA=ligado, que nasce desligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapa 1)"
+      },
+      {
+        "nome": "20261031120000_whatsapp_ia_conversa",
+        "motivo": "IA no WhatsApp, etapas 2 a 4: o webhook reconhece o número confirmado, lista as empresas que a pessoa lê, guarda a escolhida e reserva cada pergunta (teto de 20 por hora e trilha). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "coluna whatsapp_numeros_usuario.org_escolhida",
+          "tabela whatsapp_ia_perguntas",
+          "funções whatsapp_ia_empresas, whatsapp_ia_quem, whatsapp_ia_escolher e whatsapp_ia_reservar"
+        ],
+        "impacto": "Até ser aplicada, o webhook com WHATSAPP_IA=ligado não reconhece ninguém e segue com a resposta padrão. O interruptor nasce desligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapas 2 a 4)"
       }
     ],
     "objetos_sem_migration": [
