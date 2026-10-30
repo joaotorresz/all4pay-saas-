@@ -233,6 +233,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // se dá para acompanhar o ritmo, não um orçamento da empresa (que mora em
   // Orçamento, no servidor).
   "a4p_maquininha_meta",
+  // O "Agora não" da oferta de levar a Quattro AI ao WhatsApp: um lembrete do
+  // aparelho de quando perguntar de novo, não um dado da empresa.
+  "a4p_ia_whatsapp_oferta",
   // As prioridades que a pessoa marcou na caixa da IA e quantas vezes clicou
   // em cada sugestão. São de QUEM usa, não da empresa: o sócio que cuida de
   // vendas e o que cuida do caixa veem sugestões diferentes na mesma Home.

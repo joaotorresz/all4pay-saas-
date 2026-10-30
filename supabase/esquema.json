@@ -224,6 +224,17 @@
         "impacto": "Até ser aplicada, a tela de multa e juros não grava e a página do link mostra \"Não cobrados\". O boleto continua saindo sem encargo, como hoje.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 30/10/2026 (multa e juros da cobrança)"
+      },
+      {
+        "nome": "20261030150000_whatsapp_numero_usuario",
+        "motivo": "IA no WhatsApp, etapa 1: o celular de quem conversa com a Quattro AI, confirmado por código enviado ao próprio número. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabelas whatsapp_numeros_usuario e whatsapp_numero_envios",
+          "funções whatsapp_numero_pedir_codigo, whatsapp_numero_confirmar, whatsapp_numero_meu, whatsapp_numero_remover e whatsapp_numero_org_admin"
+        ],
+        "impacto": "Até ser aplicada, o cartão do celular em Segurança da conta recusa o pedido de código. Ele só aparece com WHATSAPP_IA=ligado, que nasce desligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapa 1)"
       }
     ],
     "objetos_sem_migration": [

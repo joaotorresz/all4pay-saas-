@@ -1071,7 +1071,14 @@ cobrança, **uma conta recebe por vez** (o conectar recusa o segundo banco), e
 o servidor RECUSA conectar o Itaú até ele estar em `BANCOS_QUE_EMITEM`
 (`core/cobranca-banco`) — a credencial de um banco nunca vira configuração do
 Inter. Guardas: caso 11 de `scripts/cobranca-banco.sql` e o bloco Itaú de
-`npm run cobranca-banco-conexao`.
+`npm run cobranca-banco-conexao`. Etapa 2: as regras puras do boleto com Pix
+em `core/cobranca-banco/itau` (emissão SÍNCRONA: 2xx sem linha é `incerta`;
+nosso número de 8 dígitos dado pela reserva; valor em centavos, 17 dígitos).
+Etapa 3: a TERCEIRA porta de rede, `lib/cobranca-banco/itau-saida.ts` (duas
+bases por ambiente, certificado obrigatório em produção dentro da porta),
+o cliente `itau-api.ts` e o teste `/api/admin/itau-teste` (só a plataforma,
+emitir só no sandbox). Guardas: `npm run itau-cobranca` e o bloco `itau:` do
+`engine-audit`.
 
 ## ⚠️ A PÁGINA MAQUININHA QUATTRO VENDE A MAQUININHA (26/10/2026, pedido do dono)
 

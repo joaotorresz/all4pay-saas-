@@ -70,6 +70,9 @@ const TEMPLATE_DA_FINALIDADE: Record<FinalidadeTemplate, string> = {
   lembrete_pagar_dia: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_DIA_SID",
   alerta_caixa_dia: "TWILIO_TEMPLATE_ALERTA_DIA_SID",
   fechamento_mes: "TWILIO_TEMPLATE_FECHAMENTO_MES_SID",
+  // O código que confirma o celular da Quattro AI no WhatsApp (categoria
+  // Autenticação na Meta; variável 1 = código). Sem ele, só dentro das 24 h.
+  codigo_whatsapp: "TWILIO_TEMPLATE_CODIGO_WHATSAPP_SID",
 };
 
 /**

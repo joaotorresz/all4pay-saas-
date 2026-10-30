@@ -75,6 +75,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE, CATEGORIAS_CNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
+import { DIAS_PAUSA_OFERTA, celularCanonico, celularLegivel, deveOferecerWhatsapp, iaWhatsappLigada, mensagemDoCodigo, semPrefixoNumero } from "@/core/whatsapp/numero";
 import { execSync as execSyncIcone } from "node:child_process";
 import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
@@ -7473,6 +7474,30 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: hoje é o dia de Brasília (01:30 UTC de 01/10 ainda é 30/09)", A.hojeEm(new Date("2026-10-01T01:30:00Z")) === "2026-09-30");
   ok("aut: e às 03:30 UTC já virou", A.hojeEm(new Date("2026-10-01T03:30:00Z")) === "2026-10-01");
 
+  // ---- 0b) O TESTE COM EXEMPLO (30/10/2026): sem nada a avisar hoje, o botão
+  // de teste manda um exemplo MARCADO, sobre números que não são os da empresa.
+  {
+    const tranquilo = ctxBase({ input: { ...ctxBase().input, saldoAtual: 1_000_000 } });
+    const real = A.conteudoDoTeste(cfg("lembrete_pagar"), ctxBase());
+    ok("aut-exemplo: com algo a dizer hoje, o teste é a mensagem DE VERDADE",
+       "conteudo" in real && real.exemplo === null && !real.conteudo.assunto.startsWith("[Exemplo]"));
+    const ex = A.conteudoDoTeste(cfg("alerta_caixa"), tranquilo);
+    ok("aut-exemplo: o caixa sem risco hoje ainda tem o que testar (o exemplo RECEBEU valor)",
+       "conteudo" in ex && ex.exemplo?.codigo === "nada_a_avisar" && ex.conteudo.texto.includes(formatBRL(12_000)),
+       "semEnvio" in ex ? ex.semEnvio.motivo : "");
+    if ("conteudo" in ex) {
+      const c = ex.conteudo;
+      ok("aut-exemplo: MARCADO no assunto, no texto e na variável 1 do modelo do WhatsApp",
+         c.assunto.startsWith("[Exemplo]") && c.texto.startsWith("EXEMPLO") && c.variaveis["1"].startsWith("Exemplo")
+         && (c.reserva?.variaveis["1"] ?? "Exemplo").startsWith("Exemplo"), JSON.stringify(c.variaveis));
+      ok("aut-exemplo: nenhum número nem nome da empresa de verdade entra no exemplo",
+         !["Imobiliária Sol", "Luz SA", "Cliente Um", formatBRL(1_000_000)].some((x) => c.texto.includes(x)));
+    }
+    const desligadoDeVerdade = A.conteudoDoTeste(cfg("resumo_diario"), ctxBase({ input: { ...ctxBase().input, movements: [] } }));
+    ok("aut-exemplo: empresa sem lançamento também testa, pelo exemplo",
+       "conteudo" in desligadoDeVerdade && desligadoDeVerdade.exemplo?.codigo === "sem_dados");
+  }
+
   // ---- 1) REEXECUTAR NÃO ENVIA DE NOVO (índice único + grava-antes-de-enviar) ----
   const log: string[] = [];
   let chamadas = 0;
@@ -11993,7 +12018,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // A SEGUNDA porta declarada (27/10/2026): o Banco Inter exige mTLS, que o
   // fetch do Node não faz sem undici. Ela fala SÓ com o Inter (bloco `inter:`).
   const PORTA_INTER = "src/lib/cobranca-banco/inter-saida.ts";
-  const PORTAS_REDE = [PORTA_F, PORTA_INTER];
+  const PORTA_ITAU = "src/lib/cobranca-banco/itau-saida.ts";
+  const PORTAS_REDE = [PORTA_F, PORTA_INTER, PORTA_ITAU];
   const comRede = (ler: (p: string) => string) => arqsF.filter((p) => !PORTAS_REDE.includes(p) && p.startsWith("src/") && REDE.test(semComF(ler(p))));
   ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora das duas portas", comRede(lerF).length === 0, comRede(lerF).join(", "));
   // inter: a porta do Inter não fala com a Pinbank, e o endereço do Inter só mora no core dele.
@@ -12009,6 +12035,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /BASES_INTER\[/.test(semComF(lerF(PORTA_INTER))) && /caminhoPermitidoInter\(/.test(semComF(lerF(PORTA_INTER))));
   ok("inter: (defeito plantado) um https.request num arquivo do Inter fora da porta é ACUSADO",
      comRede((p) => (p === "src/lib/cobranca-banco/inter-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/inter-api.ts"));
+  // itau: a TERCEIRA porta de rede declarada. Mesmas regras da do Inter, e o
+  // mTLS é exigido em produção dentro da própria porta.
+  const HOST_ITAU = /devportal\.itau\.com\.br|sts\.itau\.com\.br|api\.itau\b/i;
+  const CORE_ITAU = "src/core/cobranca-banco/itau.ts";
+  const comHostItau = (ler: (p: string) => string) => arqsF.filter((p) => p !== CORE_ITAU && HOST_ITAU.test(semComF(ler(p))));
+  ok("itau: o endereço do Itaú só aparece em core/cobranca-banco/itau.ts (BASES_ITAU)", comHostItau(lerF).length === 0, comHostItau(lerF).join(", "));
+  ok("itau: a varredura ainda ENXERGA o endereço no core", HOST_ITAU.test(semComF(lerF(CORE_ITAU))));
+  ok("itau: (defeito plantado) URL do Itaú no cliente é ACUSADA",
+     comHostItau((p) => (p === "src/lib/cobranca-banco/itau-api.ts" ? lerF(p) + '\nconst u = "https://secure.api.itau/x";' : lerF(p))).includes("src/lib/cobranca-banco/itau-api.ts"));
+  const portaItauOk = (t: string) => /BASES_ITAU\[/.test(t) && /caminhoPermitidoItau\(/.test(t)
+    && /opts\.ambiente === "producao" && !opts\.mtls\) throw/.test(t) && !/pinbank/i.test(t);
+  ok("itau: a porta só usa BASES_ITAU, confere o caminho, exige o certificado em produção e não cita a Pinbank", portaItauOk(semComF(lerF(PORTA_ITAU))));
+  ok("itau: (defeito plantado) a porta sem a exigência do certificado em produção é REPROVADA",
+     !portaItauOk(semComF(lerF(PORTA_ITAU)).replace('opts.ambiente === "producao" && !opts.mtls) throw', 'false) throw')));
+  ok("itau: (defeito plantado) um https.request no cliente do Itaú fora da porta é ACUSADO",
+     comRede((p) => (p === "src/lib/cobranca-banco/itau-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/itau-api.ts"));
   // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
   // ambiente escaparia da varredura do endereço.
   const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/(saida-fixa|pinbank-extrato))\//.test(p) && p !== PORTA_F);
@@ -13631,6 +13673,52 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     rIA.classificacoes.find((c) => c.recordId === rIA.records[0].id)!.categoria === "Alimentação");
   ok("extrato-ia: nenhuma página com linha = texto vazio (não um extrato vazio 'bem-sucedido')",
     csvDasPaginas([normalizarPaginaIA({ tipo: "extrato", linhas: [] })]) === "");
+}
+
+// ═══ wa-numero: o celular da Quattro AI só vale confirmado pelo próprio número ═══
+// (etapa 1 da IA no WhatsApp; a fechadura é do banco — scripts/whatsapp-numero.sql)
+{
+  ok("wa-numero: o interruptor nasce DESLIGADO (sem a variável, nada liga)",
+    !iaWhatsappLigada({}) && !iaWhatsappLigada({ WHATSAPP_IA: "true" }) && iaWhatsappLigada({ WHATSAPP_IA: "ligado" }));
+  ok("wa-numero: '+55 (11) 99999-7777', '11999997777' e '5511999997777' viram o MESMO canônico",
+    celularCanonico("+55 (11) 99999-7777") === "11999997777" && celularCanonico("11999997777") === "11999997777"
+      && celularCanonico("5511999997777") === "11999997777");
+  ok("wa-numero: sem DDD, curto demais ou começando por 0 é recusado ANTES de gastar um código",
+    celularCanonico("99999-7777") === null && celularCanonico("") === null && celularCanonico("011999997777") === null);
+  ok("wa-numero: o celular legível tem DDD entre parênteses", celularLegivel("11999997777") === "(11) 99999-7777");
+  ok("wa-numero: a mensagem leva o código e o prazo", /123456/.test(mensagemDoCodigo("123456")) && /10 minutos/.test(mensagemDoCodigo("1")));
+  ok("wa-numero: a recusa do banco chega sem o prefixo técnico",
+    semPrefixoNumero("A4P-WAN-OCUPADO: este celular já está confirmado") === "este celular já está confirmado");
+
+  const acoes = readFileSync("src/app/configuracoes/seguranca/acoes.ts", "utf8");
+  const corpoPedir = acoes.slice(acoes.indexOf("export async function pedirCodigoNumeroAction"));
+  ok("wa-numero: o interruptor é conferido ANTES de gerar o código",
+    corpoPedir.indexOf("iaWhatsappLigada()") > -1 && corpoPedir.indexOf("iaWhatsappLigada()") < corpoPedir.indexOf("whatsapp_numero_pedir_codigo"));
+  ok("wa-numero: sem Twilio configurada, recusa ANTES de gerar (simulado nunca é enviado)",
+    corpoPedir.indexOf("statusNotificacoes().whatsapp") > -1 && corpoPedir.indexOf("statusNotificacoes().whatsapp") < corpoPedir.indexOf("whatsapp_numero_pedir_codigo"));
+  ok("wa-numero: o código é pedido pela CHAVE DE SERVIÇO com o id da SESSÃO (nunca um id do formulário)",
+    /admin\.rpc\("whatsapp_numero_pedir_codigo", \{ p_usuario: uid,/.test(corpoPedir) && /auth\.getUser\(\)/.test(corpoPedir));
+  ok("wa-numero: o código nunca vai para log nem volta à tela",
+    !/console\.(log|info|warn|error)/.test(acoes) && !/mensagem:[^\n]*\$\{codigo\}/.test(acoes));
+  const PORTAS = ["src/components/configuracoes/NumeroWhatsappCard.tsx", "src/components/ia/OfertaWhatsapp.tsx", "src/components/entrada/CriarContaView.tsx"];
+  const telas = PORTAS.map((f) => readFileSync(f, "utf8")).join("\n");
+  ok("wa-numero: nenhuma tela chama a geração do código direto", !telas.includes("whatsapp_numero_pedir_codigo"));
+
+  // A oferta do vínculo (fim do cadastro e primeira abertura do chat, 30/10/2026).
+  const base = { ligado: true, podeCadastrar: true, confirmado: false, dispensadaEm: null, hoje: "2026-10-30" };
+  ok("wa-oferta: oferece a quem pode e ainda não confirmou", deveOferecerWhatsapp(base));
+  ok("wa-oferta: desligado não oferece", !deveOferecerWhatsapp({ ...base, ligado: false }));
+  ok("wa-oferta: quem não pode cadastrar não vê", !deveOferecerWhatsapp({ ...base, podeCadastrar: false }));
+  ok("wa-oferta: celular já confirmado não vê de novo", !deveOferecerWhatsapp({ ...base, confirmado: true }));
+  ok("wa-oferta: 'Agora não' segura a oferta durante a pausa",
+    !deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-30" }) && !deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-17" }));
+  ok(`wa-oferta: depois de ${DIAS_PAUSA_OFERTA} dias ela volta`, deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-16" }));
+  ok("wa-oferta: as duas portas novas usam as MESMAS ações de Segurança da conta (nenhuma confirmação própria)",
+    PORTAS.slice(1).every((f) => {
+      const t = readFileSync(f, "utf8");
+      return t.includes("pedirCodigoNumeroAction") && t.includes("confirmarNumeroAction") && !t.includes(".rpc(");
+    }));
+  ok("wa-oferta: o chat monta a oferta", readFileSync("src/components/ia/ChatTelaCheia.tsx", "utf8").includes("<OfertaWhatsapp />"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

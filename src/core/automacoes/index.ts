@@ -206,7 +206,7 @@ function conteudo(
     texto: textoDe(c.titulo, c.abertura, destaques, secoes, [...avisos, ...aviso], c.link),
     html: montarHtml({
       preheader: c.preheader, titulo: c.titulo, abertura: c.abertura, destaques, secoes,
-      avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx),
+      avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx), appUrl: ctx.appUrl,
     }),
     ...(() => {
       // Template de uma variável só: o texto curto, numa linha (a Meta recusa
@@ -1000,6 +1000,72 @@ export function gerarMensagens(cfg: ConfigAutomacao, ctx: ContextoAutomacao): Re
 /** A prévia: o conteúdo que SAIRIA, ignorando calendário e histórico (a tela mostra mesmo fora do dia). */
 export function previa(cfg: ConfigAutomacao, ctx: ContextoAutomacao): Conteudo | SemEnvio {
   return redigir(cfg, ctx, { previa: true });
+}
+
+/**
+ * O que o "Enviar teste para mim" manda. Com algo a dizer hoje, a prévia de
+ * verdade. Sem nada (caixa sem risco, nenhuma conta vencendo, mês já fechado),
+ * um EXEMPLO montado sobre uma empresa fictícia, para a pessoa ver como a
+ * mensagem chega antes do dia em que ela importar.
+ *
+ * ⚠️ O exemplo é MARCADO em todo lugar que chega: o nome da empresa vira
+ * "Exemplo · <nome>" (é a variável 1 dos modelos de WhatsApp e o rodapé do
+ * e-mail) e o assunto ganha "[Exemplo]". Um alerta de caixa negativo com valor
+ * fictício, sem marca, seria lido como a situação real da empresa.
+ * ⚠️ Os números do exemplo nunca saem dos dados da empresa: misturar um
+ * lançamento inventado com o caixa de verdade produziria um saldo plausível e
+ * falso.
+ */
+export const MARCA_EXEMPLO = "Exemplo";
+const SEM_ENVIO_COM_EXEMPLO: readonly string[] = ["nada_a_avisar", "faixa_ja_avisada", "mes_fechado", "sem_dados"];
+
+export function contextoDeExemplo(ctx: ContextoAutomacao): ContextoAutomacao {
+  const hoje = ctx.hoje;
+  const mesPassado = `${mesAnterior(hoje.slice(0, 7))}-10`;
+  const mv = (id: string, type: "entrada" | "saida", amount: number, due: string, category: string, party: string, pago = false): RiskMovement =>
+    ({ id: `exemplo-${id}`, type, status: pago ? "pago" : "pendente", amount, due_date: due, paid_date: pago ? due : null,
+      category, party_id: party, accountId: "exemplo-conta" }) as RiskMovement;
+  return {
+    ...ctx,
+    credor: { ...ctx.credor, nome: `${MARCA_EXEMPLO} · ${ctx.credor.nome || "sua empresa"}` },
+    input: {
+      hoje, saldoAtual: 8_000, horizonDias: 60,
+      partyNames: { "exemplo-imob": "Imobiliária Exemplo", "exemplo-net": "Internet Exemplo", "exemplo-equipe": "Folha de pagamento", "exemplo-cli": "Cliente Exemplo" },
+      movements: [
+        mv("venda", "entrada", 20_000, mesPassado, "Vendas", "exemplo-cli", true),
+        mv("custo", "saida", 9_000, mesPassado, "Fornecedores", "exemplo-imob", true),
+        mv("aluguel", "saida", 1_200, hoje, "Aluguel", "exemplo-imob"),
+        mv("internet", "saida", 350, somarDias(hoje, -2), "Internet", "exemplo-net"),
+        mv("folha", "saida", 12_000, somarDias(hoje, 3), "Folha de pagamento", "exemplo-equipe"),
+        mv("atraso", "entrada", 900, somarDias(hoje, -3), "Vendas", "exemplo-cli"),
+        mv("receber", "entrada", 15_000, somarDias(hoje, 10), "Vendas", "exemplo-cli"),
+      ],
+    },
+    contas: [{ id: "exemplo-conta", nome: "Conta de exemplo", saldo: 8_000 }],
+    contatos: { "exemplo-cli": { id: "exemplo-cli", nome: "Cliente Exemplo" } },
+    aprovacoesPendentes: 0, mesesTravados: [], envios: [], linksDePagamento: undefined, truncado: false,
+  };
+}
+
+const marcarExemplo = (c: Conteudo): Conteudo => ({
+  ...c,
+  assunto: `[${MARCA_EXEMPLO}] ${c.assunto}`,
+  texto: `${MARCA_EXEMPLO.toUpperCase()} com valores fictícios: hoje não sairia nada desta automação.\n\n${c.texto}`,
+  ...(c.finalidade && c.variaveis && !c.reserva
+    ? { variaveis: { ...c.variaveis, "1": `${MARCA_EXEMPLO}: ${c.variaveis["1"] ?? ""}`.slice(0, 900) } }
+    : {}),
+  ...(c.reserva ? { reserva: { ...c.reserva, variaveis: { ...c.reserva.variaveis, "1": `${MARCA_EXEMPLO}: ${c.reserva.variaveis["1"] ?? ""}`.slice(0, 900) } } } : {}),
+});
+
+/** `exemplo` traz o motivo de hoje não sair nada; `null` = é a mensagem de verdade. */
+export type ConteudoDoTeste = { conteudo: Conteudo; exemplo: SemEnvio | null } | { semEnvio: SemEnvio };
+
+export function conteudoDoTeste(cfg: ConfigAutomacao, ctx: ContextoAutomacao): ConteudoDoTeste {
+  const real = previa(cfg, ctx);
+  if (!ehSemEnvio(real)) return { conteudo: real, exemplo: null };
+  if (!SEM_ENVIO_COM_EXEMPLO.includes(real.codigo)) return { semEnvio: real };
+  const c = redigir(cfg, contextoDeExemplo(ctx), { previa: true });
+  return ehSemEnvio(c) ? { semEnvio: real } : { conteudo: marcarExemplo(c), exemplo: real };
 }
 
 /* ========================================================================== */

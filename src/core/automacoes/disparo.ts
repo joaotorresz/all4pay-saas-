@@ -148,6 +148,7 @@ export function mensagensDoFluxo(d: FluxoDevido, dados: DadosDoFluxo, appUrl?: s
     secoes: secoesDoTexto(r.texto),
     link: appUrl ? { rotulo: "Abrir o Quattro", url: `${appUrl}/automacoes` } : undefined,
     rodape: `Você recebe esta mensagem pelo fluxo "${d.fluxo.nome}". Para parar, desligue o fluxo em Automações.`,
+    appUrl,
   });
 
   const mensagens: MensagemAutomacao[] = [];

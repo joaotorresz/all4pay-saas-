@@ -16,7 +16,7 @@ falhou). O Itaú ganha o leitor puro e a porta de rede dele.
 | --- | --- | --- |
 | 1 | **Base para vários bancos**: `itau` cabe na conexão e na cobrança (migration `20261030120000`), uma conta recebe por vez (o conectar recusa o segundo banco), a conexão e a credencial deixam de ser fixas no Inter, e o Itaú é RECUSADO pelo servidor até emitir (`BANCOS_QUE_EMITEM`) | PR #324 |
 | 2 | `core/cobranca-banco/itau`: montar o pedido (boleto com Pix / bolecode) e ler a resposta, puro, com guarda `npm run itau-cobranca` e defeitos plantados | PR #324 (23 casos, 9 defeitos) |
-| 3 | `lib/cobranca-banco/itau-saida.ts` + `itau-api.ts`: porta única de rede (OAuth2 client_credentials com certificado mTLS, só os caminhos de cobrança), declarada no `engine-audit` | |
+| 3 | `lib/cobranca-banco/itau-saida.ts` + `itau-api.ts`: porta única de rede (OAuth2 client_credentials com certificado mTLS, só os caminhos de cobrança), declarada no `engine-audit` | PR da etapa 3 (porta, cliente e `/api/admin/itau-teste`; falta a conferência no sandbox) |
 | 4 | Conectar o Itaú em Integrações (escolha do banco no card) e emitir no modal da baixa; `itau` entra em `BANCOS_QUE_EMITEM` | |
 | 5 | Aviso do Itaú → consulta → baixa | |
 | 6 | Piloto com uma empresa, sob o interruptor `COBRANCA_BANCO` | |
@@ -50,6 +50,40 @@ falhou). O Itaú ganha o leitor puro e a porta de rede dele.
   um de outro número, dão `incerta`.
 - ⚠️ **Os nomes dos campos são os da documentação pública do Itaú** e serão
   conferidos no sandbox na etapa 3, antes de qualquer chamada de verdade.
+
+## Regras da etapa 3
+
+- ⚠️ **A terceira porta de rede do app** (`lib/cobranca-banco/itau-saida.ts`),
+  com as mesmas regras da do Inter: só as bases de `BASES_ITAU`, só os caminhos
+  de `CAMINHOS_ITAU` (conferidos ANTES de abrir a conexão), nunca repete, e o
+  certificado, a chave e o token não aparecem em erro nem em log. Bloco `itau:`
+  do `engine-audit`, com três defeitos plantados.
+- ⚠️ **Duas bases por ambiente.** O token sai do servidor de autenticação e a
+  cobrança da API. Quem chama diz qual das duas, nunca uma URL.
+- ⚠️ **Certificado obrigatório em produção, recusado dentro da porta.** O
+  sandbox do portal do desenvolvedor não pede certificado; em produção, sem
+  ele, nada sai.
+- Toda chamada à API leva `x-itau-apikey` (o Client ID) e um
+  `x-itau-correlationID` novo, como o Itaú pede.
+- Falha do token é `falhou` (a cobrança nem saiu); queda depois do envio é
+  `incerta`; 401 com o token guardado renova e repete UMA vez.
+- **O teste (`/api/admin/itau-teste`, só a plataforma)** usa as variáveis
+  `ITAU_*` e não grava nada: `?` (o token sai?), `?acao=emitir&numero=`
+  (R$ 2,50, SÓ no sandbox, com o nosso número digitado) e
+  `?acao=consultar&numero=`. É nele que os nomes dos campos são conferidos.
+
+### Para conferir no sandbox (dono)
+
+1. Criar a conta no portal do desenvolvedor do Itaú (devportal.itau.com.br)
+   e um aplicativo com a API de boleto com Pix. O portal dá o Client ID e o
+   Client Secret do sandbox.
+2. Na Vercel, em **Preview** (nunca Production nesta etapa):
+   `ITAU_AMBIENTE=sandbox`, `ITAU_CLIENT_ID`, `ITAU_CLIENT_SECRET` e a conta de
+   teste (`ITAU_AGENCIA`, `ITAU_CONTA`, `ITAU_DAC`, `ITAU_CARTEIRA`,
+   `ITAU_CHAVE_PIX`). O segredo vai só na Vercel, nunca no chat.
+3. Abrir `/api/admin/itau-teste` na prévia: `ok: true` prova o token. Depois
+   `?acao=emitir&numero=00000001` e `?acao=consultar&numero=00000001`. Campo
+   que o Itaú recusar volta nomeado na resposta e é corrigido no core.
 
 ## O que o cliente vai precisar (etapa 4)
 
