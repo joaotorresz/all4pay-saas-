@@ -22,7 +22,7 @@ import {
   Card, Button, Switch, Checkbox, Select, Input, CurrencyInput, DateField, StatusBadge, Skeleton, InfoHint, Icon,
 } from "@/components/ui";
 import {
-  CATALOGO_AUTOMACOES, previa, ehSemEnvio, filaAutomatica, HORIZONTES_ALERTA,
+  CATALOGO_AUTOMACOES, previa, conteudoDoTeste, ehSemEnvio, filaAutomatica, HORIZONTES_ALERTA,
   type ConfigAutomacao, type ContextoAutomacao, type TipoAutomacao, type CanalEnvio, type Destinatario,
   type StatusEnvio, type Pausa,
 } from "@/core/automacoes";
@@ -186,6 +186,9 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
   const fala_com_cliente = desc.fala_com === "cliente";
 
   const p = React.useMemo(() => (ctx ? previa(cfg, ctx) : null), [cfg, ctx]);
+  // Sem nada a dizer hoje, o teste manda um EXEMPLO marcado (valores fictícios).
+  const t = React.useMemo(() => (ctx ? conteudoDoTeste(cfg, ctx) : null), [cfg, ctx]);
+  const exemploDoTeste = t && "conteudo" in t ? t.exemplo : null;
 
   const setP = (patch: Partial<ConfigAutomacao["parametros"]>) => setCfg((c) => ({ ...c, parametros: { ...c.parametros, ...patch } }));
   const alternarCanal = (canal: CanalEnvio, on: boolean) =>
@@ -212,15 +215,16 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
   };
 
   const testar = async (canal: CanalEnvio) => {
-    if (!p || ehSemEnvio(p)) return;
+    if (!t || !("conteudo" in t)) return;
+    const c = t.conteudo;
     setTestando(true); setResultadoTeste(null);
     try {
       const r = await enviarTeste({
-        tipo: cfg.tipo, canal, assunto: p.assunto, texto: p.texto, html: p.html,
-        finalidade: p.finalidade, variaveis: p.variaveis, reserva: p.reserva,
+        tipo: cfg.tipo, canal, assunto: c.assunto, texto: c.texto, html: c.html,
+        finalidade: c.finalidade, variaveis: c.variaveis, reserva: c.reserva,
       });
       setResultadoTeste(
-        r.situacao === "enviado" ? `Teste enviado para ${r.destino}. O provedor aceitou a mensagem.`
+        r.situacao === "enviado" ? `${t.exemplo ? "Exemplo" : "Teste"} enviado para ${r.destino}. O provedor aceitou a mensagem.`
           : r.situacao === "simulado" ? `Teste registrado como simulado (${r.destino}): ${r.motivo ?? "nada foi enviado."}`
             : `O teste não saiu: ${r.motivo ?? "sem detalhe"}.`,
       );
@@ -321,12 +325,17 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
           {verPrevia ? "Esconder prévia" : "Ver prévia"}
         </Button>
         {desc.canaisPossiveis.map((c) => (
-          <Button key={c} size="sm" variant="ghost" disabled={testando || !p || ehSemEnvio(p)}
+          <Button key={c} size="sm" variant="ghost" disabled={testando || !t || !("conteudo" in t)}
             onClick={() => testar(c)}>
             {testando ? "Enviando…" : `Enviar teste para mim (${CANAL[c]})`}
           </Button>
         ))}
       </div>
+      {exemploDoTeste && (
+        <span className="text-caption text-muted">
+          Hoje não sairia nada ({exemploDoTeste.motivo.replace(/\.$/, "")}). O teste manda um exemplo marcado, com valores fictícios.
+        </span>
+      )}
       {erro && <span className="text-caption text-negative" role="alert">{erro}</span>}
       {resultadoTeste && <span className="text-caption text-ink" role="status">{resultadoTeste}</span>}
 
