@@ -11992,7 +11992,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // A SEGUNDA porta declarada (27/10/2026): o Banco Inter exige mTLS, que o
   // fetch do Node não faz sem undici. Ela fala SÓ com o Inter (bloco `inter:`).
   const PORTA_INTER = "src/lib/cobranca-banco/inter-saida.ts";
-  const PORTAS_REDE = [PORTA_F, PORTA_INTER];
+  const PORTA_ITAU = "src/lib/cobranca-banco/itau-saida.ts";
+  const PORTAS_REDE = [PORTA_F, PORTA_INTER, PORTA_ITAU];
   const comRede = (ler: (p: string) => string) => arqsF.filter((p) => !PORTAS_REDE.includes(p) && p.startsWith("src/") && REDE.test(semComF(ler(p))));
   ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora das duas portas", comRede(lerF).length === 0, comRede(lerF).join(", "));
   // inter: a porta do Inter não fala com a Pinbank, e o endereço do Inter só mora no core dele.
@@ -12008,6 +12009,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /BASES_INTER\[/.test(semComF(lerF(PORTA_INTER))) && /caminhoPermitidoInter\(/.test(semComF(lerF(PORTA_INTER))));
   ok("inter: (defeito plantado) um https.request num arquivo do Inter fora da porta é ACUSADO",
      comRede((p) => (p === "src/lib/cobranca-banco/inter-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/inter-api.ts"));
+  // itau: a TERCEIRA porta de rede declarada. Mesmas regras da do Inter, e o
+  // mTLS é exigido em produção dentro da própria porta.
+  const HOST_ITAU = /devportal\.itau\.com\.br|sts\.itau\.com\.br|api\.itau\b/i;
+  const CORE_ITAU = "src/core/cobranca-banco/itau.ts";
+  const comHostItau = (ler: (p: string) => string) => arqsF.filter((p) => p !== CORE_ITAU && HOST_ITAU.test(semComF(ler(p))));
+  ok("itau: o endereço do Itaú só aparece em core/cobranca-banco/itau.ts (BASES_ITAU)", comHostItau(lerF).length === 0, comHostItau(lerF).join(", "));
+  ok("itau: a varredura ainda ENXERGA o endereço no core", HOST_ITAU.test(semComF(lerF(CORE_ITAU))));
+  ok("itau: (defeito plantado) URL do Itaú no cliente é ACUSADA",
+     comHostItau((p) => (p === "src/lib/cobranca-banco/itau-api.ts" ? lerF(p) + '\nconst u = "https://secure.api.itau/x";' : lerF(p))).includes("src/lib/cobranca-banco/itau-api.ts"));
+  const portaItauOk = (t: string) => /BASES_ITAU\[/.test(t) && /caminhoPermitidoItau\(/.test(t)
+    && /opts\.ambiente === "producao" && !opts\.mtls\) throw/.test(t) && !/pinbank/i.test(t);
+  ok("itau: a porta só usa BASES_ITAU, confere o caminho, exige o certificado em produção e não cita a Pinbank", portaItauOk(semComF(lerF(PORTA_ITAU))));
+  ok("itau: (defeito plantado) a porta sem a exigência do certificado em produção é REPROVADA",
+     !portaItauOk(semComF(lerF(PORTA_ITAU)).replace('opts.ambiente === "producao" && !opts.mtls) throw', 'false) throw')));
+  ok("itau: (defeito plantado) um https.request no cliente do Itaú fora da porta é ACUSADO",
+     comRede((p) => (p === "src/lib/cobranca-banco/itau-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/itau-api.ts"));
   // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
   // ambiente escaparia da varredura do endereço.
   const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/(saida-fixa|pinbank-extrato))\//.test(p) && p !== PORTA_F);
