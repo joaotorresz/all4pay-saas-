@@ -25,6 +25,7 @@ import { useChatIA } from "./useChatIA";
 import { useFala } from "./useFala";
 import { OndaDeVoz, TempoDeGravacao } from "./OndaDeVoz";
 import { ConfirmarNoChat } from "./ConfirmarNoChat";
+import { OfertaWhatsapp } from "./OfertaWhatsapp";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
 /** O que vem depois de um texto que surge entra quando ele termina de surgir. */
@@ -404,6 +405,10 @@ export function ChatTelaCheia({
                 )}
               </div>
             )}
+            {/* Levar a conversa ao WhatsApp (30/10/2026, pedido do dono): no
+                alto, antes da primeira pergunta; some sozinha para quem já
+                confirmou, não pode cadastrar ou disse "Agora não". */}
+            <OfertaWhatsapp />
             {chat.turnos.map((t) => (
               <React.Fragment key={t.id}>
                 <Pergunta texto={t.q} />

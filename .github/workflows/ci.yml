@@ -281,6 +281,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/aprovacao-whatsapp.sql
+      # ⚠️ IA no WhatsApp, etapa 1: o celular só vale CONFIRMADO pelo código
+      # que chega ao próprio número. Onze casos — a sessão não gera código,
+      # 5 erros esgotam, vencido não vale, telefone de outra pessoa, SAIR,
+      # teto por hora (pessoa e telefone), sem papel, e trocar sem perder.
+      - name: Guarda do celular da Quattro AI (código só pelo servidor, uso limitado)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/whatsapp-numero.sql
       # ⚠️ O checklist de fechamento é regra de BANCO (gatilhos em close_tasks e
       # accounting_periods). O engine-audit prova a cópia da tela; esta prova a
       # fechadura, inclusive as portas que a tela não usa (update direto,
