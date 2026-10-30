@@ -1,6 +1,9 @@
 import * as React from "react";
-import { BRL, StatusBadge } from "@/components/ui";
+import { BRL, StatusBadge, classesDoBotao } from "@/components/ui";
 import { CopiarTexto } from "@/components/checkout/CopiarTexto";
+import { BoletoImpresso } from "@/components/checkout/BoletoImpresso";
+import { FormasDePagamento } from "@/components/checkout/FormasDePagamento";
+
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { dataBR } from "@/lib/format";
 import { linhaDigitavelLegivel } from "@/core/pinbank/cobranca";
@@ -50,7 +53,7 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   );
 }
 
-export function FaturaView({ r, hoje }: { r: LeituraFatura; hoje: string }) {
+export function FaturaView({ r, hoje, token }: { r: LeituraFatura; hoje: string; token: string }) {
   const c = credorDoCadastro(r.empresa, r.credor ?? null);
   const doc = documentoLegivel(c.documento);
   const sit = situacaoDaFatura(r.situacao, r.vencimento, hoje);
@@ -102,24 +105,46 @@ export function FaturaView({ r, hoje }: { r: LeituraFatura; hoje: string }) {
         </section>
       )}
 
-      {pix?.textoQrCode && (
-        <section data-card="1" className="rounded-card bg-white p-6 flex flex-col gap-3" aria-label="Pagar com Pix">
-          <h2 className="text-h3 text-ink">Pagar com Pix</h2>
-          {svg && <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />}
-          <span className="text-caption text-muted">Ou copie o código e cole no app do seu banco, em Pix copia e cola.</span>
-          <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink">{pix.textoQrCode}</code>
-          <CopiarTexto texto={pix.textoQrCode} rotulo="Copiar código Pix" />
-        </section>
-      )}
-
-      {boleto?.linhaDigitavel && (
-        <section data-card="1" className="rounded-card bg-white p-6 flex flex-col gap-3" aria-label="Pagar com boleto">
-          <h2 className="text-h3 text-ink">Pagar com boleto</h2>
-          <span className="text-caption text-muted">Copie a linha digitável e pague no app do seu banco.</span>
-          <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink tabular-nums">{linhaDigitavelLegivel(boleto.linhaDigitavel)}</code>
-          <CopiarTexto texto={boleto.linhaDigitavel} rotulo="Copiar linha do boleto" />
-        </section>
-      )}
+      <FormasDePagamento
+        boleto={boleto?.linhaDigitavel ? (
+          <div className="flex flex-col gap-3">
+            {/* A miniatura do boleto (como a Asaas): clicar abre o boleto inteiro. */}
+            <a
+              href={`/pagar/boleto?t=${token}`}
+              target="_blank"
+              rel="noopener"
+              aria-label="Visualizar o boleto"
+              className="block h-[200px] overflow-hidden rounded-md bg-surface-1 p-3"
+            >
+              <div aria-hidden className="pointer-events-none origin-top-left scale-[0.6] w-[166%]">
+                <BoletoImpresso
+                  credor={c}
+                  pagador={r.comprador?.nome ?? null}
+                  valor={boleto.valor}
+                  vencimento={boleto.vencimento}
+                  linhaDigitavel={boleto.linhaDigitavel}
+                  descricao={r.descricao}
+                />
+              </div>
+            </a>
+            <div className="flex flex-wrap justify-center gap-2">
+              <a href={`/pagar/boleto?t=${token}`} target="_blank" rel="noopener" className={classesDoBotao("primary")}>Visualizar</a>
+              <a href={`/pagar/boleto?t=${token}&imprimir=1`} target="_blank" rel="noopener" className={classesDoBotao("secondary")}>Imprimir</a>
+            </div>
+            <span className="text-caption text-muted">Ou copie a linha digitável e pague no app do seu banco.</span>
+            <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink tabular-nums">{linhaDigitavelLegivel(boleto.linhaDigitavel)}</code>
+            <CopiarTexto texto={boleto.linhaDigitavel} rotulo="Copiar linha do boleto" />
+          </div>
+        ) : undefined}
+        pix={pix?.textoQrCode ? (
+          <div className="flex flex-col gap-3">
+            {svg && <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />}
+            <span className="text-caption text-muted">Ou copie o código e cole no app do seu banco, em Pix copia e cola.</span>
+            <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink">{pix.textoQrCode}</code>
+            <CopiarTexto texto={pix.textoQrCode} rotulo="Copiar código Pix" />
+          </div>
+        ) : undefined}
+      />
 
       <p className="text-caption text-muted leading-[1.5] px-2">
         Fatura emitida por {c.razaoSocial || c.nome} pela plataforma Quattro. O dinheiro vai direto para a conta da empresa; a Quattro só mostra a cobrança.

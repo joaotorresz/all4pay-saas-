@@ -9726,16 +9726,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const c = `${dir}/${e.name}`;
     if (e.isDirectory()) return semPagar(c);
     if (!/\.(tsx?|mts)$/.test(e.name)) return [];
-    return /(?<![\w-])\/pagar\//.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
+    return /(?<![\w-])\/pagar\/(?!boleto\b)/.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
   });
   const comPagar = semPagar("src");
   // ⚠️ A página `/pagar` passou a existir em 22/10/2026 (decisão do dono: o
   // checkout Pix/boleto da conta Pinbank), mas só pelo TOKEN do link
   // (`?t=`), lendo `pinbank_checkout_ler`. O link de VENDA continua entregando
-  // o PIX estático: nenhum endereço `/pagar/<id>` existe.
+  // o PIX estático: nenhum endereço `/pagar/<id>` existe. (`/pagar/boleto`,
+  // de 30/10/2026, é o boleto do MESMO link, também pelo token.)
   const paginaPagar = fsV.existsSync("src/app/pagar/page.tsx") ? semComentario(fsV.readFileSync("src/app/pagar/page.tsx", "utf8")) : "";
   ok("vender/links: nenhum href/URL para /pagar/<id>; a página /pagar só abre pelo token do checkout",
-     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /pinbank_checkout_ler/.test(paginaPagar)), comPagar.join(" "));
+     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /lerLinkDePagamento\(/.test(paginaPagar)), comPagar.join(" "));
   ok("vender/links: o QR e o botão copiam o PIX (pixDoLink), não uma URL",
      /qrParaSVG\(gerarQR\(pix\)/.test(outras) && /writeText\(pix\)/.test(outras) && !/urlDoLink|window\.location\.origin/.test(outras));
   const formLink = fnDe(outras, "function FormLink(");
@@ -12326,6 +12327,20 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const bol205 = CB.pedidoBoleto({ ...res, valor: 2.05, tipo: "boleto" } as never, 1919) as { Valor?: number; DataVencimento?: string };
     ok("cobranca-pinbank: o valor do boleto vai em CENTAVOS (R$ 2,05 → 205, arredondado e não truncado)", bol205.Valor === 205, String(bol205.Valor));
     ok("cobranca-pinbank: o vencimento do boleto vai AAAAMMDD (com hífen a Pinbank recusou)", bol205.DataVencimento === "20261029", String(bol205.DataVencimento));
+    const bolJoao = CB.pedidoBoleto({ ...res, devedor: { ...res.devedor, nome: "João Conceição" }, tipo: "boleto" } as never, 1919) as { DadosSacado?: { Nome?: string; Cidade?: string } };
+    ok("cobranca-pinbank: o nome do boleto vai SEM acento (\"João\" saía \"Jo o\" no app de quem paga)",
+       bolJoao.DadosSacado?.Nome === "Joao Conceicao" && bolJoao.DadosSacado?.Cidade === "Sao Paulo", JSON.stringify(bolJoao.DadosSacado));
+    ok("cobranca-pinbank: o texto do boleto troca o que não é ASCII por espaço, sem espaço dobrado", CB.textoDoBoleto("A  \u2014 B") === "A B", CB.textoDoBoleto("A  \u2014 B"));
+    // O código de barras da página do boleto (ITF, FEBRABAN). Decodificado por
+    // leitor de verdade (zxing) em 30/10/2026; aqui fica a forma: início
+    // 4 estreitos, 5 elementos por dígito com 2 largos (3×), fim largo-estreito-estreito.
+    const ITF = await import("@/lib/itf");
+    const elItf = ITF.elementosITF("0123456789");
+    ok("boleto-itf: início, fim e 2 largos por dígito",
+       elItf.slice(0, 4).join() === "1,1,1,1" && elItf.slice(-3).join() === "3,1,1" && elItf.length === 4 + 50 + 3 && elItf.filter((w) => w === 3).length === 2 * 10 + 1, elItf.join());
+    let itfImpar = false;
+    try { ITF.elementosITF("123"); } catch { itfImpar = true; }
+    ok("boleto-itf: número ÍMPAR de dígitos é recusado (o ITF intercala em pares)", itfImpar);
   }
   /* ── mensalidade-pinbank: a mensalidade do ERP pela conta da QUATTRO ─── */
   {
@@ -12375,21 +12390,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "", PINBANK_COBRANCA: "ligado" }).liberada);
   }
   /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
-  const PG_PAGAR = "src/app/pagar/page.tsx";
+  // A leitura mora em `lib/checkout-leitura` (30/10/2026): a fatura e o
+  // boleto para imprimir leem o MESMO link pela MESMA função.
+  const PG_PAGAR = "src/lib/checkout-leitura.ts";
   const pagPagar = lerF(PG_PAGAR);
+  const usaLeitura = (p: string) => /lerLinkDePagamento\(tokenDoLink\(|lerLinkDePagamento\(t\)/.test(semComF(lerF(p))) && /export const dynamic = "force-dynamic"/.test(lerF(p));
+  ok("checkout-pinbank: /pagar e /pagar/boleto leem pela leitura única, sem cache", usaLeitura("src/app/pagar/page.tsx") && usaLeitura("src/app/pagar/boleto/page.tsx"));
   // A leitura pública só pela chave de serviço, DEPOIS do interruptor e do token conferido.
   const leituraPublica = (t: string) => {
     const x = semComF(t);
     const iTok = x.indexOf("TOKEN.test(token)");
     const iLib = x.indexOf("cobrancaPinbankLiberada()");
     const iRpc = x.indexOf('admin.rpc("pinbank_checkout_ler"');
-    return iTok > 0 && iLib > iTok && iRpc > iLib && /export const dynamic = "force-dynamic"/.test(t);
+    return iTok > 0 && iLib > iTok && iRpc > iLib;
   };
   ok("checkout-pinbank: a página confere token → interruptor → só então lê pela chave de serviço", leituraPublica(pagPagar));
   ok("checkout-pinbank: (defeito plantado) ler antes do interruptor é REPROVADO",
      !leituraPublica(pagPagar.replace("  if (!cobrancaPinbankLiberada().liberada) return \"fora_do_ar\";\n", "")));
   const leFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== PG_PAGAR && /pinbank_checkout_ler/.test(semComF(ler(p))));
-  ok("checkout-pinbank: só a página pública chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
+  ok("checkout-pinbank: só a leitura do link público chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
   ok("checkout-pinbank: (defeito plantado) o modal chamando a leitura pública é ACUSADO",
      leFora((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\nfetch("pinbank_checkout_ler");' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
   const ROTA_LINK = "src/app/api/pinbank/checkout/route.ts";
@@ -12399,7 +12418,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("checkout-pinbank: (defeito plantado) criar o link pela chave de serviço é ACUSADO",
      !linkComoPessoa(rotaLink.replace('s.rpc("pinbank_checkout_link_criar"', 'admin.rpc("pinbank_checkout_link_criar"')));
   const mw = lerF("src/middleware.ts");
-  ok("checkout-pinbank: /pagar é pública no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)));
+  ok("checkout-pinbank: /pagar e /pagar/boleto são públicas no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)) && /pathname === "\/pagar\/boleto"/.test(semComF(mw)));
   /* ── checkout-email: o link de pagamento por e-mail, no modelo da Asaas ── */
   {
     const AU = await import("@/core/automacoes");

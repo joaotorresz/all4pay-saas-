@@ -182,6 +182,21 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = 
   };
 }
 
+/**
+ * O texto do boleto SEM acento. ⚠️ O registro do boleto no banco é ASCII: o
+ * "ã" de "João" chegou ao app de quem paga como "Jo o" (30/10/2026). Tira o
+ * acento ("João" → "Joao", "ç" → "c") e troca o que sobrar fora do ASCII
+ * imprimível por espaço, sem deixar espaço dobrado.
+ */
+export function textoDoBoleto(s: string | null | undefined): string {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7e]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** O `Data` do `CashIn/GerarBoleto`. */
 export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknown> {
   const d = r.devedor;
@@ -196,17 +211,17 @@ export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknow
     ...(d?.email ? { Email: d.email } : {}),
     DadosSacado: {
       CpfCnpj: digitos(d?.documento ?? null),
-      Nome: d?.nome ?? "",
-      Endereco: endereco,
-      Bairro: d?.bairro ?? "",
-      Cidade: d?.cidade ?? "",
+      Nome: textoDoBoleto(d?.nome),
+      Endereco: textoDoBoleto(endereco),
+      Bairro: textoDoBoleto(d?.bairro),
+      Cidade: textoDoBoleto(d?.cidade),
       Cep: Number(digitos(d?.cep ?? null)),
       Uf: (d?.uf ?? "").toUpperCase(),
     },
     // O NSU da reserva identifica a cobrança na volta (o webhook da baixa).
     IdentificadorCliente: String(r.nsuOrigem),
     RetornarBase64: false,
-    ...(r.descricao ? { Instrucoes: r.descricao.slice(0, 200) } : {}),
+    ...(r.descricao ? { Instrucoes: textoDoBoleto(r.descricao).slice(0, 200) } : {}),
     // A documentação traz os dois blocos no pedido; sem eles a Pinbank devolveu
     // "Bad request" (26/10/2026). Zerados: o sistema não cobra juros nem multa
     // pelo boleto (a mora é calculada na baixa).
