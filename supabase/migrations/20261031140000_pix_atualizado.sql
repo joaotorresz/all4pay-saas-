@@ -103,8 +103,8 @@ begin
 
   -- Já existe uma viva deste tipo?
   select * into c from public.pinbank_cobrancas
-   where movement_id = m.id and tipo = p_tipo and situacao in ('reservada','emitida','incerta','a_cancelar')
-     and dia_referencia is null
+   where movement_id = m.id and tipo = p_tipo and dia_referencia is null
+     and situacao in ('reservada','emitida','incerta','a_cancelar')
    limit 1;
   if found then
     if c.situacao = 'emitida' then
