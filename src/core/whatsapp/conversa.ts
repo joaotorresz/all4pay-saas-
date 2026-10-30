@@ -10,7 +10,7 @@
  * a lista, decidir qual empresa vale, escrever as recusas e passar a resposta
  * do chat para o formato do WhatsApp. ⚠️ Nada aqui autoriza: quem decide de
  * quem é o número, quais empresas ele lê e o teto por hora é o banco
- * (migration 20261031120000), a cada mensagem.
+ * (migration 20261031130000), a cada mensagem.
  */
 export const VERSAO_CONVERSA_WHATSAPP = "whatsapp-conversa/1.0.0";
 

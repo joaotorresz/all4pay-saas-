@@ -237,7 +237,7 @@
         "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapa 1)"
       },
       {
-        "nome": "20261031120000_whatsapp_ia_conversa",
+        "nome": "20261031130000_whatsapp_ia_conversa",
         "motivo": "IA no WhatsApp, etapas 2 a 4: o webhook reconhece o número confirmado, lista as empresas que a pessoa lê, guarda a escolhida e reserva cada pergunta (teto de 20 por hora e trilha). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
           "coluna whatsapp_numeros_usuario.org_escolhida",

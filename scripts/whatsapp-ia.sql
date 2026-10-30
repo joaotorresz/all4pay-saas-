@@ -3,7 +3,7 @@
 --
 --   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/whatsapp-ia.sql
 --
--- O que ela prova contra o Postgres de verdade (migration 20261031120000):
+-- O que ela prova contra o Postgres de verdade (migration 20261031130000):
 --   a. número só PENDENTE (sem código conferido) não é ninguém;
 --   b. caminho feliz: o número confirmado lista a empresa dele, a pergunta
 --      passa e vai para a TRILHA da empresa;

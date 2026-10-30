@@ -41,7 +41,7 @@ declare
     -- WhatsApp (sem o texto). Cada pergunta já entra na trilha da empresa pela
     -- própria `whatsapp_ia_reservar` (`whatsapp_ia.pergunta`), na mesma
     -- instrução; o gatilho genérico a contaria duas vezes. Declarado em
-    -- 20261031120000.
+    -- 20261031130000.
     'whatsapp_ia_perguntas'
   ];
   faltando text[];

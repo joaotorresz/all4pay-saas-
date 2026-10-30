@@ -1151,7 +1151,7 @@ conversa" do `npm run ia-eval`.
 Nasce DESLIGADA (`WHATSAPP_IA=ligado`). Etapa 1: o celular é da PESSOA e só
 vale confirmado por código enviado ao próprio número (`whatsapp_numeros_usuario`,
 Segurança da conta, oferta no fim do cadastro e no alto do chat). Etapas 2 a 4
-(`lib/whatsapp-ia`, migration `20261031120000`): no webhook, DEPOIS do SAIR e
+(`lib/whatsapp-ia`, migration `20261031130000`): no webhook, DEPOIS do SAIR e
 da aprovação, o número confirmado conversa com o MESMO cérebro do chat (base
 de conhecimento → motor nativo → leitura executiva) sobre a empresa que a
 pessoa LÊ agora — o papel é lido a cada mensagem; com várias, ela escolhe por
