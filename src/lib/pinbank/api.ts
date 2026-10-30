@@ -222,6 +222,16 @@ export function boletoComEncargosLiberado(env: Ambiente = process.env): boolean 
 }
 
 /**
+ * O PIX ATUALIZADO do link: depois do vencimento, a página pública pede à
+ * Pinbank um Pix com o valor do dia (`PINBANK_PIX_ATUALIZADO=ligado`, nasce
+ * DESLIGADO). ⚠️ É a única chamada à Pinbank que um VISITANTE dispara; o teto
+ * de tentativas por título e por dia é do banco (`pinbank_checkout_pix_reservar`).
+ */
+export function pixAtualizadoLiberado(env: Ambiente = process.env): boolean {
+  return env.PINBANK_PIX_ATUALIZADO === "ligado" && cobrancaPinbankLiberada(env).liberada;
+}
+
+/**
  * A MENSALIDADE do ERP pode ser cobrada pela conta Pinbank DA QUATTRO? As três
  * perguntas da cobrança, com interruptor próprio (`MENSALIDADE_PINBANK=ligado`,
  * nasce DESLIGADA), mais o código da conta que RECEBE
