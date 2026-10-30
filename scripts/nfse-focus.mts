@@ -83,7 +83,7 @@ function casosDoMotor(m: Motor): Caso[] {
     ["emitente: sem inscrição municipal NÃO entra", !emitentes["org-sem-im"] && problemas.some((p) => p.includes("org-sem-im"))],
     ["emitente: CNPJ com 13 dígitos NÃO entra", !emitentes["org-cnpj-curto"]],
     ["emitente: configuração ilegível não lança e não habilita ninguém", Object.keys(m.lerEmitentes("{x").emitentes).length === 0],
-    ["pedido: o prestador é o do vínculo da plataforma", ok?.prestador.cnpj === "54579688000135" && ok?.prestador.inscricao_municipal === "1234567" && ok?.prestador.codigo_municipio === "3550308"],
+    ["pedido: o prestador é o do vínculo da plataforma, sem a IM no leiaute da reforma (vem do CNC)", ok?.prestador.cnpj === "54579688000135" && !("inscricao_municipal" in (ok?.prestador ?? {})) && ok?.prestador.codigo_municipio === "3550308"],
     ["pedido: tomador PJ vai por CNPJ, em dígitos", ok?.tomador.cnpj === "12345678000195" && !("cpf" in (ok?.tomador ?? {}))],
     ["pedido: tomador PF vai por CPF", !!pf && pf.ok && pf.pedido.tomador.cpf === "52998224725"],
     ["pedido: sem CPF/CNPJ válido é recusado ANTES de sair", !!semDoc && !semDoc.ok],
@@ -182,6 +182,7 @@ await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigo
 await plantarMotor("Regime Normal sem IBS/CBS sai assim mesmo", "if (faltaIbs.length) problemas.push", "if (false) problemas.push", "pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta");
 await plantarMotor("grupo do IBS/CBS esquecido", "const ibsCbs = !emitente.optanteSimples ||", "const ibsCbs = false &&", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
 await plantarMotor("endereço sem IBGE vai assim mesmo", "else return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "else if (false) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair");
+await plantarMotor("IM de volta no municipal da reforma", "...(ibsCbs ? {} : { inscricao_municipal: emitente.inscricaoMunicipal })", "inscricao_municipal: emitente.inscricaoMunicipal", "pedido: o prestador é o do vínculo da plataforma, sem a IM no leiaute da reforma (vem do CNC)");
 await plantarMotor("CST esquecido", "ibs_cbs_situacao_tributaria: cst,", "", "pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado");
 await plantarMotor("código municipal de 5 dígitos no leiaute novo", "(!ibsCbs || /^\\d{3}$/.test(tribMun))", "true", "pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");

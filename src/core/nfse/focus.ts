@@ -184,7 +184,7 @@ export interface PedidoFocus {
   finalidade_emissao?: 0;
   consumidor_final?: 0 | 1;
   indicador_destinatario?: 0;
-  prestador: { cnpj: string; inscricao_municipal: string; codigo_municipio: string };
+  prestador: { cnpj: string; inscricao_municipal?: string; codigo_municipio: string };
   tomador: Record<string, unknown>;
   servico: Record<string, unknown>;
 }
@@ -268,7 +268,10 @@ export function montarPedido(
       optante_simples_nacional: emitente.optanteSimples,
       ...(emitente.regimeEspecial ? { regime_especial_tributacao: emitente.regimeEspecial } : {}),
       ...(ibsCbs ? { exigibilidade_suspensa: 0 as const, finalidade_emissao: 0 as const, consumidor_final: doc.length === 11 ? 1 as const : 0 as const, indicador_destinatario: 0 as const } : {}),
-      prestador: { cnpj: emitente.cnpj, inscricao_municipal: emitente.inscricaoMunicipal, codigo_municipio: emitente.codigoMunicipio },
+      // ⚠️ No leiaute da reforma (XML nacional) a IM do prestador NÃO vai: o
+      // ambiente nacional a lê do CNC do município e recusa a DPS que a informa
+      // quando São Paulo não a registrou lá (recusa de 30/10/2026).
+      prestador: { cnpj: emitente.cnpj, ...(ibsCbs ? {} : { inscricao_municipal: emitente.inscricaoMunicipal }), codigo_municipio: emitente.codigoMunicipio },
       tomador: tomadorPedido,
       servico: {
         // ⚠️ Nunca a alíquota da TELA nem o valor do ISS: um número que a
