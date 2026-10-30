@@ -1,11 +1,14 @@
 import * as React from "react";
-import { BRL, StatusBadge } from "@/components/ui";
+import { BRL, StatusBadge, classesDoBotao } from "@/components/ui";
 import { CopiarTexto } from "@/components/checkout/CopiarTexto";
+import { BoletoImpresso } from "@/components/checkout/BoletoImpresso";
+import { FormasDePagamento } from "@/components/checkout/FormasDePagamento";
+
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { dataBR } from "@/lib/format";
 import { linhaDigitavelLegivel } from "@/core/pinbank/cobranca";
 import { credorDoCadastro, documentoLegivel } from "@/core/cobranca";
-import { situacaoDaFatura } from "@/core/cobranca/fatura";
+import { encargosDaFatura, lerRegraEncargos, situacaoDaFatura } from "@/core/cobranca/fatura";
 
 /**
  * A FATURA PÚBLICA no modelo da Asaas (decisão do dono, 28/10/2026): o
@@ -20,6 +23,8 @@ export type CobrancaLink = {
   vencimento: string;
   textoQrCode: string | null;
   linhaDigitavel: string | null;
+  /** A multa e os juros que o BANCO registrou neste boleto (null = sem encargo). */
+  encargos?: unknown;
 };
 export type LeituraFatura = {
   situacao: "aberto" | "pago" | "indisponivel";
@@ -41,6 +46,19 @@ function qrSvg(texto: string): string {
   }
 }
 
+/** Um card de valor, como os da Asaas: rótulo pequeno em cima, número embaixo. */
+function CardValor({ rotulo, children, destaque = false }: { rotulo: string; children: React.ReactNode; destaque?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-md bg-surface-1 p-4 min-w-0">
+      <span className="text-caption text-muted">{rotulo}</span>
+      <span className={destaque ? "text-h2 text-ink tabular-nums" : "text-h3 text-ink tabular-nums"}>{children}</span>
+    </div>
+  );
+}
+
+const maiuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+const pctBR = (n: number) => `${String(n).replace(".", ",")}%`;
+
 function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
@@ -50,12 +68,20 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   );
 }
 
-export function FaturaView({ r, hoje }: { r: LeituraFatura; hoje: string }) {
+export function FaturaView({ r, hoje, token }: { r: LeituraFatura; hoje: string; token: string }) {
   const c = credorDoCadastro(r.empresa, r.credor ?? null);
   const doc = documentoLegivel(c.documento);
   const sit = situacaoDaFatura(r.situacao, r.vencimento, hoje);
-  const pix = r.situacao === "aberto" ? r.cobrancas.find((x) => x.tipo === "pix" && x.textoQrCode) : undefined;
-  const boleto = r.situacao === "aberto" ? r.cobrancas.find((x) => x.tipo === "boleto" && x.linhaDigitavel) : undefined;
+  const boletoEmitido = r.situacao === "aberto" ? r.cobrancas.find((x) => x.tipo === "boleto" && x.linhaDigitavel) : undefined;
+  // ⚠️ A regra é a REGISTRADA no boleto, nunca a configuração de hoje da empresa.
+  const regra = boletoEmitido ? lerRegraEncargos(boletoEmitido.encargos) : null;
+  const enc = encargosDaFatura(r.valor, r.vencimento, hoje, regra);
+  const comEncargo = enc.total > r.valor;
+  // Passou do prazo que a empresa aceita: o banco recusa o boleto, e a página não o oferece.
+  const encerrada = r.situacao === "aberto" && enc.expirada;
+  // O Pix tem valor fixo (o original): com multa e juros correndo, ele pagaria menos do que é devido.
+  const pix = r.situacao === "aberto" && !encerrada && !comEncargo ? r.cobrancas.find((x) => x.tipo === "pix" && x.textoQrCode) : undefined;
+  const boleto = encerrada ? undefined : boletoEmitido;
   const svg = pix?.textoQrCode ? qrSvg(pix.textoQrCode) : "";
   const contato = [c.email, c.telefone].filter(Boolean).join(" · ");
 
@@ -75,17 +101,36 @@ export function FaturaView({ r, hoje }: { r: LeituraFatura; hoje: string }) {
           <h2 className="text-h3 text-ink">Dados da fatura</h2>
           <StatusBadge tone={sit.tom}>{sit.rotulo}</StatusBadge>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-caption text-muted">Valor</span>
-          <span className="text-h1 text-ink tabular-nums"><BRL value={r.valor} /></span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {r.vencimento && (
-            <Dado rotulo="Vencimento">
-              <span className="tabular-nums">{dataBR(r.vencimento)}</span>
-              {sit.prazo && <span className="text-muted"> · {sit.prazo}</span>}
-            </Dado>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {comEncargo ? (
+            <>
+              <CardValor rotulo="Valor atualizado" destaque><BRL value={enc.total} /></CardValor>
+              <CardValor rotulo="Valor original"><BRL value={r.valor} /></CardValor>
+              <CardValor rotulo={`Multa (${pctBR(regra!.multaPct)})`}><BRL value={enc.multa} /></CardValor>
+              <CardValor rotulo={`Juros (${pctBR(regra!.jurosMesPct)} ao mês)`}><BRL value={enc.juros} /></CardValor>
+            </>
+          ) : (
+            <>
+              <CardValor rotulo="Valor" destaque><BRL value={r.valor} /></CardValor>
+              {r.vencimento && <CardValor rotulo="Vencimento">{dataBR(r.vencimento)}</CardValor>}
+              <CardValor rotulo="Situação"><span className="text-body">{maiuscula(sit.prazo ?? sit.rotulo)}</span></CardValor>
+              <CardValor rotulo="Multa e juros">
+                <span className="text-body">
+                  {regra && (regra.multaPct > 0 || regra.jurosMesPct > 0)
+                    ? `${pctBR(regra.multaPct)} + ${pctBR(regra.jurosMesPct)} ao mês${regra.carenciaDias > 0 ? `, após ${regra.carenciaDias} ${regra.carenciaDias === 1 ? "dia" : "dias"}` : ""}`
+                    : "Não cobrados"}
+                </span>
+              </CardValor>
+            </>
           )}
+        </div>
+        {comEncargo && (
+          <span className="text-caption text-muted leading-[1.5]">
+            Vencida em {dataBR(r.vencimento!)}{sit.prazo ? ` (${sit.prazo})` : ""}. A multa e os juros são cobrados pelo banco no pagamento do boleto
+            {enc.aceitaAte ? `, que pode ser pago até ${dataBR(enc.aceitaAte)}` : ""}.
+          </span>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {r.comprador?.nome && <Dado rotulo="Cliente">{r.comprador.nome}</Dado>}
         </div>
         {r.descricao && <Dado rotulo="Descrição">{r.descricao}</Dado>}
@@ -96,30 +141,59 @@ export function FaturaView({ r, hoje }: { r: LeituraFatura; hoje: string }) {
           <p className="text-body text-ink leading-[1.5]">{c.nome} já registrou o recebimento deste valor. Não é preciso pagar de novo.</p>
         </section>
       )}
+      {encerrada && (
+        <section data-card="1" className="rounded-card bg-white p-6">
+          <p className="text-body text-ink leading-[1.5]">
+            O prazo para pagar esta cobrança terminou em {dataBR(enc.aceitaAte!)}. Fale com {c.nome} para receber uma nova cobrança.
+          </p>
+        </section>
+      )}
       {r.situacao === "indisponivel" && (
         <section data-card="1" className="rounded-card bg-white p-6">
           <p className="text-body text-ink leading-[1.5]">Esta cobrança mudou ou foi cancelada. Fale com {c.nome} para receber o link atualizado.</p>
         </section>
       )}
 
-      {pix?.textoQrCode && (
-        <section data-card="1" className="rounded-card bg-white p-6 flex flex-col gap-3" aria-label="Pagar com Pix">
-          <h2 className="text-h3 text-ink">Pagar com Pix</h2>
-          {svg && <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />}
-          <span className="text-caption text-muted">Ou copie o código e cole no app do seu banco, em Pix copia e cola.</span>
-          <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink">{pix.textoQrCode}</code>
-          <CopiarTexto texto={pix.textoQrCode} rotulo="Copiar código Pix" />
-        </section>
-      )}
-
-      {boleto?.linhaDigitavel && (
-        <section data-card="1" className="rounded-card bg-white p-6 flex flex-col gap-3" aria-label="Pagar com boleto">
-          <h2 className="text-h3 text-ink">Pagar com boleto</h2>
-          <span className="text-caption text-muted">Copie a linha digitável e pague no app do seu banco.</span>
-          <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink tabular-nums">{linhaDigitavelLegivel(boleto.linhaDigitavel)}</code>
-          <CopiarTexto texto={boleto.linhaDigitavel} rotulo="Copiar linha do boleto" />
-        </section>
-      )}
+      <FormasDePagamento
+        boleto={boleto?.linhaDigitavel ? (
+          <div className="flex flex-col gap-3">
+            {/* A miniatura do boleto (como a Asaas): clicar abre o boleto inteiro. */}
+            <a
+              href={`/pagar/boleto?t=${token}`}
+              target="_blank"
+              rel="noopener"
+              aria-label="Visualizar o boleto"
+              className="block h-[200px] overflow-hidden rounded-md bg-surface-1 p-3"
+            >
+              <div aria-hidden className="pointer-events-none origin-top-left scale-[0.6] w-[166%]">
+                <BoletoImpresso
+                  credor={c}
+                  pagador={r.comprador?.nome ?? null}
+                  valor={boleto.valor}
+                  vencimento={boleto.vencimento}
+                  linhaDigitavel={boleto.linhaDigitavel}
+                  descricao={r.descricao}
+                />
+              </div>
+            </a>
+            <div className="flex flex-wrap justify-center gap-2">
+              <a href={`/pagar/boleto?t=${token}`} target="_blank" rel="noopener" className={classesDoBotao("primary")}>Visualizar</a>
+              <a href={`/pagar/boleto?t=${token}&imprimir=1`} target="_blank" rel="noopener" className={classesDoBotao("secondary")}>Imprimir</a>
+            </div>
+            <span className="text-caption text-muted">Ou copie a linha digitável e pague no app do seu banco.</span>
+            <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink tabular-nums">{linhaDigitavelLegivel(boleto.linhaDigitavel)}</code>
+            <CopiarTexto texto={boleto.linhaDigitavel} rotulo="Copiar linha do boleto" />
+          </div>
+        ) : undefined}
+        pix={pix?.textoQrCode ? (
+          <div className="flex flex-col gap-3">
+            {svg && <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />}
+            <span className="text-caption text-muted">Ou copie o código e cole no app do seu banco, em Pix copia e cola.</span>
+            <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink">{pix.textoQrCode}</code>
+            <CopiarTexto texto={pix.textoQrCode} rotulo="Copiar código Pix" />
+          </div>
+        ) : undefined}
+      />
 
       <p className="text-caption text-muted leading-[1.5] px-2">
         Fatura emitida por {c.razaoSocial || c.nome} pela plataforma Quattro. O dinheiro vai direto para a conta da empresa; a Quattro só mostra a cobrança.

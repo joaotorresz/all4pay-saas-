@@ -1146,6 +1146,21 @@ botão aparece sempre e, sem reconhecimento no navegador, EXPLICA em vez de
 sumir. A primeira versão parava na primeira pausa e não dava sinal nenhum. Guarda: bloco "lançamento pela
 conversa" do `npm run ia-eval`.
 
+## ⚠️ A QUATTRO AI NO WHATSAPP (30/10/2026, etapas 1 a 4 de 5)
+
+Nasce DESLIGADA (`WHATSAPP_IA=ligado`). Etapa 1: o celular é da PESSOA e só
+vale confirmado por código enviado ao próprio número (`whatsapp_numeros_usuario`,
+Segurança da conta, oferta no fim do cadastro e no alto do chat). Etapas 2 a 4
+(`lib/whatsapp-ia`, migration `20261031130000`): no webhook, DEPOIS do SAIR e
+da aprovação, o número confirmado conversa com o MESMO cérebro do chat (base
+de conhecimento → motor nativo → leitura executiva) sobre a empresa que a
+pessoa LÊ agora — o papel é lido a cada mensagem; com várias, ela escolhe por
+mensagem ("EMPRESAS", "2"). Teto de 20 perguntas por hora e cada pergunta na
+trilha da empresa (`whatsapp_ia_reservar`, ANTES de ler qualquer dado). ⚠️ SÓ
+LEITURA: lançar pela conversa é a etapa 5, com o "Confirmar". Guardas
+`scripts/whatsapp-numero.sql`, `scripts/whatsapp-ia.sql` e os blocos
+`wa-numero:`/`wa-oferta:`/`wa-conversa:` do `engine-audit`.
+
 ## ⚠️ RODADA 9 — IA COM NÚMERO CLICÁVEL (02/10/2026, detalhe em `docs/rodada-9/`)
 
 - **A origem do número é DITA por quem calcula** (`core/assistant/numero`):

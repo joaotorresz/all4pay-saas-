@@ -291,7 +291,7 @@ begin
   end if;
   for c in select jsonb_array_elements(r->'cobrancas') loop
     for k in select jsonb_object_keys(c) loop
-      if k not in ('tipo','valor','vencimento','textoQrCode','linhaDigitavel') then
+      if k not in ('tipo','valor','vencimento','textoQrCode','linhaDigitavel','encargos') then
         raise exception 'CASO 4 FALHOU: o link público EXPÕE o campo "%" da cobrança.', k;
       end if;
     end loop;
