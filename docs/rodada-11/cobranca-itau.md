@@ -14,8 +14,8 @@ falhou). O Itaú ganha o leitor puro e a porta de rede dele.
 
 | # | O quê | Situação |
 | --- | --- | --- |
-| 1 | **Base para vários bancos**: `itau` cabe na conexão e na cobrança (migration `20261030120000`), uma conta recebe por vez (o conectar recusa o segundo banco), a conexão e a credencial deixam de ser fixas no Inter, e o Itaú é RECUSADO pelo servidor até emitir (`BANCOS_QUE_EMITEM`) | esta PR |
-| 2 | `core/cobranca-banco/itau`: montar o pedido (boleto com Pix / bolecode) e ler a resposta, puro, com guarda `npm run itau-cobranca` e defeitos plantados | próxima |
+| 1 | **Base para vários bancos**: `itau` cabe na conexão e na cobrança (migration `20261030120000`), uma conta recebe por vez (o conectar recusa o segundo banco), a conexão e a credencial deixam de ser fixas no Inter, e o Itaú é RECUSADO pelo servidor até emitir (`BANCOS_QUE_EMITEM`) | PR #324 |
+| 2 | `core/cobranca-banco/itau`: montar o pedido (boleto com Pix / bolecode) e ler a resposta, puro, com guarda `npm run itau-cobranca` e defeitos plantados | PR #324 (23 casos, 9 defeitos) |
 | 3 | `lib/cobranca-banco/itau-saida.ts` + `itau-api.ts`: porta única de rede (OAuth2 client_credentials com certificado mTLS, só os caminhos de cobrança), declarada no `engine-audit` | |
 | 4 | Conectar o Itaú em Integrações (escolha do banco no card) e emitir no modal da baixa; `itau` entra em `BANCOS_QUE_EMITEM` | |
 | 5 | Aviso do Itaú → consulta → baixa | |
@@ -36,9 +36,25 @@ falhou). O Itaú ganha o leitor puro e a porta de rede dele.
 - O banco de dados confere o provedor pelo nome ("banco desconhecido"), e não
   só pelo CHECK, porque o conectar pode ser chamado por quem administra.
 
+## Regras da etapa 2
+
+- ⚠️ **A emissão do Itaú é síncrona.** Uma resposta 2xx já traz a linha e o
+  Pix. A 2xx sem eles, ou com outro nosso número, é `incerta` (no Inter seria
+  `processando`), e só a consulta resolve.
+- ⚠️ **O nosso número (8 dígitos) é da empresa.** O core recebe o número de
+  quem reserva e recusa o que não tiver 8 dígitos. Quem dá o número sem
+  repetir é a reserva da etapa 4.
+- ⚠️ **O valor vai em centavos, como texto de 17 dígitos.** Em reais, o banco
+  cobraria cem vezes menos.
+- ⚠️ **A consulta só aceita UM título com o nosso número.** Dois títulos, ou
+  um de outro número, dão `incerta`.
+- ⚠️ **Os nomes dos campos são os da documentação pública do Itaú** e serão
+  conferidos no sandbox na etapa 3, antes de qualquer chamada de verdade.
+
 ## O que o cliente vai precisar (etapa 4)
 
 As credenciais de cobrança do Itaú são pedidas pelo portal de desenvolvedor
 do Itaú ou pelo gerente: Client ID, Client Secret e o certificado digital da
-integração. O formulário é o mesmo do Inter, e o segredo é cifrado do mesmo
+integração, além da agência, da conta com o dígito, da carteira de cobrança
+(ex.: 109) e da chave Pix da conta. O formulário é o mesmo do Inter, e o segredo é cifrado do mesmo
 jeito.
