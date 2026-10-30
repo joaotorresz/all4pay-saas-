@@ -196,7 +196,7 @@ declare r jsonb;
 begin
   r := pg_temp.reservar(current_setting('guarda.ua')::uuid, p_mov, 'boleto');
   perform pg_temp.registrar((r->>'id')::uuid, jsonb_build_object('situacao', 'emitida',
-    'linhaDigitavel', '34191790010104351004791020150008291070026000', 'pinbankId', 'guarda-boleto',
+    'linhaDigitavel', '34191790010104351004791020150008291070026000123', 'pinbankId', 'guarda-boleto',
     'encargos', jsonb_build_object('multaPct', 2, 'jurosMesPct', 1, 'carenciaDias', 0, 'aceitarAteDias', 30)));
   return (r->>'id')::uuid;
 end $$;
