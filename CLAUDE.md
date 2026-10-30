@@ -6409,6 +6409,13 @@ com dados sintéticos. Aplicado ao remoto.
   into labels ("Agendar 2 Pagamentos").
 - **Numbers are copy.** Always tabular, with the grey currency prefix.
 - **No emoji, ever.** Iconography carries meaning instead.
+  ⚠️ **Uma exceção declarada (decisão do dono, 29/10/2026): os MODELOS de
+  WhatsApp cadastrados na Twilio** (o resumo, o lembrete de contas, o alerta,
+  o fechamento e a cobrança — `docs`/textos em
+  `automacoes-whatsapp/modelos-organizados.md`). O WhatsApp não tem ícone;
+  ali o emoji faz o papel dele. A cobrança formal fica sem emoji. Telas e
+  e-mail seguem sem emoji. O layout mora no TEXTO do modelo: a Meta recusa
+  quebra de linha dentro de variável (guarda `aut-wa:` no `engine-audit`).
 - The product UI is pt-BR; money is **BRL (`R$`, "," decimal separator)**.
 
 ---

@@ -55,6 +55,7 @@ import {
   type TipoAutomacao, type TipoEnvio, type CanalEnvio, type ConfigAutomacao, type ContextoAutomacao,
   type Conteudo, type SemEnvio, type MensagemAutomacao, type ResultadoAutomacao,
   type EnvioHistorico, type FinalidadeTemplate, type ParametrosAutomacao, type StatusEnvio,
+  type ModeloReserva,
 } from "./tipos";
 
 export * from "./tipos";
@@ -191,6 +192,8 @@ function conteudo(
     chaveBase: string; assunto: string; titulo: string; preheader: string; abertura?: string;
     destaques?: LinhaEmail[]; secoes?: SecaoEmail[]; avisos?: string[];
     link?: { rotulo: string; url: string }; finalidade: FinalidadeTemplate; resumoCurto: string;
+    /** Um modelo próprio, organizado; o de uma linha vira a reserva. */
+    modelo?: ModeloReserva;
   },
 ): Conteudo {
   const destaques = c.destaques ?? [];
@@ -205,16 +208,24 @@ function conteudo(
       preheader: c.preheader, titulo: c.titulo, abertura: c.abertura, destaques, secoes,
       avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx),
     }),
-    finalidade: c.finalidade,
-    // Template de uma variável só: o texto curto, numa linha (a Meta recusa
-    // quebra de linha dentro de variável).
-    variaveis: { "1": c.resumoCurto.replace(/\s+/g, " ").slice(0, 900) },
+    ...(() => {
+      // Template de uma variável só: o texto curto, numa linha (a Meta recusa
+      // quebra de linha dentro de variável).
+      const deUmaLinha = { finalidade: c.finalidade, variaveis: { "1": c.resumoCurto.replace(/\s+/g, " ").slice(0, 900) } };
+      return c.modelo
+        ? { finalidade: c.modelo.finalidade, variaveis: c.modelo.variaveis, reserva: deUmaLinha }
+        : deUmaLinha;
+    })(),
   };
 }
 
 /* ========================================================================== */
 /* (a) RESUMO DO CAIXA — diário e semanal                                      */
 /* ========================================================================== */
+
+const DIAS_DA_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+/** Variável de modelo: uma linha, sem espaço repetido, com teto. */
+const umaLinha = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 120);
 
 const vencidosAReceber = (input: RiskInput) =>
   input.movements.filter((m) => ehContaAReceber(m) && previsto(m) && (m.due_date?.slice(0, 10) ?? "") < input.hoje.slice(0, 10));
@@ -266,7 +277,25 @@ export function redigirResumoDiario(ctx: ContextoAutomacao, opts: { ignorarCalen
     avisos.push(`No ritmo agendado, o caixa ficaria negativo em ${dataBRcurta(d)}${liq.rupturaDia === 0 ? " (hoje)" : ` (daqui a ${plural(liq.rupturaDia, "dia", "dias")})`}.`);
   }
   const resumoCurto = `Saldo ${comSinal(s.valor, BRL(s.valor))}. Hoje: recebe ${entra.procedencia.lancamentos ? BRL(entra.valor) : "nada"}, paga ${sai.procedencia.lancamentos ? BRL(sai.valor) : "nada"}. Vencidos: ${vr.length ? BRL(vrTotal) : "nenhum"} a receber, ${vp.procedencia.lancamentos ? BRL(vp.valor) : "nenhum"} a pagar.${avisos[0] ? ` ${avisos[0]}` : ""}`;
+  // O modelo ORGANIZADO (`resumo_caixa_dia`): uma variável por linha. Cada uma
+  // é um trecho curto e sem quebra — a Meta recusa variável vazia, então o que
+  // não existe vira frase ("nada vence hoje", "nenhum"), nunca "".
+  const comDetalhe = (l: LinhaEmail) => (l.detalhe ? `${l.valor} (${l.detalhe})` : l.valor);
+  const modelo: ModeloReserva = {
+    finalidade: "resumo_caixa_dia",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": `${DIAS_DA_SEMANA[diaDaSemana(ctx.hoje)]}, ${diaMes(ctx.hoje)}`,
+      "3": comSinal(s.valor, BRL(s.valor)),
+      "4": comDetalhe(linhasHoje[0]),
+      "5": comDetalhe(linhasHoje[1]),
+      "6": comDetalhe(linhasVencidos[0]),
+      "7": comDetalhe(linhasVencidos[1]),
+      "8": avisos[0] ? `🚨 ${avisos[0]}` : "✅ No ritmo agendado, o caixa não fica negativo nos próximos 30 dias.",
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `dia:${ctx.hoje}`,
     assunto: `Caixa de ${dataBRcurta(ctx.hoje)}: saldo ${comSinal(s.valor, BRL(s.valor))}`,
     titulo: `Caixa de ${diaMes(ctx.hoje)}`,
@@ -396,7 +425,20 @@ export function redigirLembretePagar(ctx: ContextoAutomacao, opts: { ignorarCale
   });
   const total = soma(aVencer);
   const resumoCurto = `${aVencer.length ? `A pagar até ${diaMes(ate)}: ${BRL(total)} (${plural(aVencer.length, "conta", "contas")})` : "Nada a pagar nos próximos dias"}${vencidas.length ? `; em atraso: ${BRL(soma(vencidas))} (${plural(vencidas.length, "conta", "contas")})` : ""}.`;
+  const proxima = [...aVencer].sort((a, b) => a.data.localeCompare(b.data) || b.valor - a.valor)[0];
+  const modelo: ModeloReserva = {
+    finalidade: "lembrete_pagar_dia",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": dataBRcurta(ate),
+      "3": aVencer.length ? `${BRL(total)} (${plural(aVencer.length, "conta", "contas")})` : "nada vence",
+      "4": vencidas.length ? `${BRL(soma(vencidas))} (${plural(vencidas.length, "conta", "contas")})` : "nenhuma",
+      "5": proxima ? umaLinha(`${proxima.contraparte} · ${BRL(proxima.valor)} · ${proxima.data === ctx.hoje ? "hoje" : diaMes(proxima.data)}`) : "nenhuma",
+      "6": avisos[0] ? umaLinha(`⚠️ ${avisos[0]}`) : "✅ Os saldos das contas cobrem os pagamentos da lista.",
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `dia:${ctx.hoje}`,
     assunto: aVencer.length
       ? `Contas a pagar até ${diaMes(ate)}: ${BRL(total)}`
@@ -487,7 +529,21 @@ export function redigirAlertaCaixa(ctx: ContextoAutomacao, p: ParametrosAutomaca
       : [{ rotulo: "Nenhum recebimento agendado depois da data", valor: "—" }],
       nota: `Sem descontar o risco de atraso dos recebimentos, o saldo nesse dia seria de ${comSinal(nominal, BRL(nominal))}.` },
   ];
+  const linhaDe = (m: RiskMovement | undefined, vazio: string) =>
+    m ? umaLinha(`${nome(m)} · ${BRL(magnitude(m))} · ${diaMes(m.due_date)}`) : vazio;
+  const modelo: ModeloReserva = {
+    finalidade: "alerta_caixa_dia",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": tipo === "negativo" ? "ficaria negativo" : umaLinha(`ficaria abaixo do mínimo de ${BRL(minimo)}`),
+      "3": dia === 0 ? "hoje" : `${dataBRcurta(data)} (daqui a ${plural(dia, "dia", "dias")})`,
+      "4": comSinal(projetado, BRL(projetado)),
+      "5": linhaDe(saidas[0], "nenhuma saída agendada até lá"),
+      "6": linhaDe(entradas[0], "nenhum recebimento agendado depois da data"),
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `faixa:${chaveFaixa}:${ctx.hoje}`,
     assunto: tipo === "negativo"
       ? `Alerta de caixa: negativo ${dia === 0 ? "hoje" : `em ${diaMes(data)}`}, no ritmo agendado`
@@ -537,7 +593,19 @@ export function redigirFechamento(ctx: ContextoAutomacao, p: ParametrosAutomacao
     ] },
   ];
   const resumoCurto = `${nomeDoMes(mes)} ainda não foi fechado: ${pctPronto} pronto, ${plural(pendentes.length, "tarefa pendente", "tarefas pendentes")}.`;
+  const modelo: ModeloReserva = {
+    finalidade: "fechamento_mes",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": nomeDoMes(mes),
+      "3": pctPronto,
+      "4": pendentes.length ? plural(pendentes.length, "tarefa", "tarefas") : "nenhuma",
+      "5": semCategoria === 0 ? "nenhum" : String(semCategoria),
+      "6": f.sugestoes.length ? BRL(provisao) : "nenhuma",
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `mes:${mes}:du${n ?? 0}`,
     assunto: `Fechamento de ${nomeDoMes(mes)} pendente (${pctPronto} pronto)`,
     titulo: `Fechamento de ${nomeDoMes(mes)}`,
@@ -854,6 +922,7 @@ function envelope(tipo: TipoAutomacao, c: Conteudo, canal: CanalEnvio, destino: 
     // A cobrança pelo WhatsApp sempre diz como parar de receber.
     texto: tipo === "regua_cobranca" && canal === "whatsapp" ? `${c.texto}\n\n${RODAPE_SAIR}` : c.texto,
     html: c.html, finalidade: c.finalidade, variaveis: c.variaveis,
+    ...(c.reserva ? { reserva: c.reserva } : {}),
     chavesExtras: c.chavesExtras,
     ...(c.remetente && canal === "email" ? { remetente: c.remetente } : {}),
   };

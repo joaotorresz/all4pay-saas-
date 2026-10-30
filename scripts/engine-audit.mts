@@ -6,7 +6,7 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
-import { enderecoWhatsapp } from "@/core/financial-os/notifications.server";
+import { enderecoWhatsapp, modeloDoEnvio } from "@/core/financial-os/notifications.server";
 import { telefoneE164 } from "@/lib/telefone";
 import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
@@ -7568,6 +7568,48 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: o resumo do dia RECEBEU valor (saldo, hoje, vencidos, aprovações)",
      !A.ehSemEnvio(rdc) && rdc.texto.includes(formatBRL(10_000)) && rdc.texto.includes(formatBRL(1_500)) && rdc.texto.includes(formatBRL(300)) && rdc.texto.includes("Aprovações pendentes"),
      A.ehSemEnvio(rdc) ? rdc.motivo : rdc.texto);
+  // ---- 3b) RESUMO ORGANIZADO NO WHATSAPP (pedido do dono, 29/10/2026) ----
+  // A Meta recusa quebra de linha DENTRO de variável: o resumo organizado é um
+  // modelo próprio (8 variáveis) e o de uma linha fica como RESERVA.
+  if (!A.ehSemEnvio(rdc)) {
+    const v = rdc.variaveis;
+    ok("aut-wa: o resumo do dia usa o modelo organizado, com 8 variáveis cheias e sem quebra de linha",
+       rdc.finalidade === "resumo_caixa_dia" && Object.keys(v).length === 8
+       && Object.values(v).every((x) => x.trim() !== "" && !/[\n\t]/.test(x) && !/ {4}/.test(x)), JSON.stringify(v));
+    ok("aut-wa: o modelo organizado RECEBEU valor (empresa, saldo, hoje, vencidos)",
+       v["1"] === credor.nome && v["3"] === formatBRL(10_000) && v["5"].includes(formatBRL(1_500)) && v["7"].includes(formatBRL(300)), JSON.stringify(v));
+    ok("aut-wa: a reserva é o modelo de UMA linha, com uma variável",
+       rdc.reserva?.finalidade === "resumo_diario" && Object.keys(rdc.reserva.variaveis).length === 1
+       && !/\n/.test(rdc.reserva.variaveis["1"]), JSON.stringify(rdc.reserva));
+    const vazioHoje = A.redigirResumoDiario(semHoje);
+    ok("aut-wa: sem nada vencendo hoje, as variáveis dizem 'nada vence hoje' (variável vazia a Meta recusa)",
+       !A.ehSemEnvio(vazioHoje) && vazioHoje.variaveis["4"] === "nada vence hoje" && vazioHoje.variaveis["5"] === "nada vence hoje");
+    // O envio escolhe o modelo e leva AS VARIÁVEIS DELE.
+    const env = process.env;
+    const antes = { dia: env.TWILIO_TEMPLATE_RESUMO_DIA_SID, linha: env.TWILIO_TEMPLATE_RESUMO_SID };
+    try {
+      env.TWILIO_TEMPLATE_RESUMO_SID = "HXlinha"; delete env.TWILIO_TEMPLATE_RESUMO_DIA_SID;
+      const r1 = modeloDoEnvio(rdc);
+      ok("aut-wa: sem o organizado cadastrado, sai pelo de uma linha COM a variável única dele",
+         r1?.contentSid === "HXlinha" && Object.keys(r1.contentVariables).length === 1, JSON.stringify(r1));
+      // Defeito plantado: mandar as 8 variáveis ao modelo de uma linha.
+      const plantado = { contentSid: "HXlinha", contentVariables: rdc.variaveis };
+      ok("aut-wa: (defeito plantado) as 8 variáveis no modelo de uma linha seriam detectadas",
+         Object.keys(plantado.contentVariables).length !== Object.keys(r1?.contentVariables ?? {}).length);
+      env.TWILIO_TEMPLATE_RESUMO_DIA_SID = "HXdia";
+      const r2 = modeloDoEnvio(rdc);
+      ok("aut-wa: com o organizado cadastrado, ele vence e leva as 8 variáveis",
+         r2?.contentSid === "HXdia" && Object.keys(r2.contentVariables).length === 8, JSON.stringify(r2));
+      delete env.TWILIO_TEMPLATE_RESUMO_SID; delete env.TWILIO_TEMPLATE_RESUMO_DIA_SID;
+      ok("aut-wa: sem nenhum dos dois, nada de modelo (texto livre)", modeloDoEnvio(rdc) === undefined);
+    } finally {
+      if (antes.dia === undefined) delete env.TWILIO_TEMPLATE_RESUMO_DIA_SID; else env.TWILIO_TEMPLATE_RESUMO_DIA_SID = antes.dia;
+      if (antes.linha === undefined) delete env.TWILIO_TEMPLATE_RESUMO_SID; else env.TWILIO_TEMPLATE_RESUMO_SID = antes.linha;
+    }
+    const msgs = A.gerarMensagens({ ...cfg("resumo_diario") }, ctx);
+    ok("aut-wa: a mensagem montada carrega a reserva até o envio",
+       msgs.mensagens.length > 0 && msgs.mensagens.every((m) => m.reserva?.finalidade === "resumo_diario"), `${msgs.mensagens.length} mensagens · ${msgs.semEnvio?.codigo ?? ""}`);
+  }
   ok("aut: resumo não sai no fim de semana (mas a prévia mostra)",
      A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" })) && !A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" }, { ignorarCalendario: true })));
 
@@ -7791,6 +7833,43 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: no 3º dia útil, com setembro aberto, o aviso sai", fech.mensagens.length === 1 && fech.mensagens[0].assunto.includes("setembro de 2026"), fech.semEnvio?.motivo ?? "");
   ok("aut: setembro travado não gera aviso", A.gerarMensagens(cfg("fechamento_pendente"), { ...out5, mesesTravados: ["2026-09"] }).semEnvio?.codigo === "mes_fechado");
   ok("aut: fora do 3º/8º dia útil não sai", A.gerarMensagens(cfg("fechamento_pendente"), { ...ctx, hoje: "2026-10-06" }).semEnvio?.codigo === "fora_do_dia");
+
+  // ---- 8b) OS OUTROS MODELOS ORGANIZADOS (pedido do dono, 29/10/2026) ----
+  // Lembrete, alerta e fechamento: 6 variáveis cheias, sem quebra de linha, e
+  // o modelo de uma linha de cada um como reserva.
+  {
+    const casos = [
+      { nome: "lembrete", m: lembrete.mensagens[0], fin: "lembrete_pagar_dia", res: "lembrete_pagar", env: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_DIA_SID", resEnv: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID", tem: formatBRL(1_500) },
+      { nome: "alerta", m: al.mensagens[0], fin: "alerta_caixa_dia", res: "alerta_caixa", env: "TWILIO_TEMPLATE_ALERTA_DIA_SID", resEnv: "TWILIO_TEMPLATE_ALERTA_SID", tem: formatBRL(3_000) },
+      { nome: "fechamento", m: fech.mensagens[0], fin: "fechamento_mes", res: "fechamento_pendente", env: "TWILIO_TEMPLATE_FECHAMENTO_MES_SID", resEnv: "TWILIO_TEMPLATE_FECHAMENTO_SID", tem: "setembro" },
+    ] as const;
+    const env = process.env;
+    for (const c of casos) {
+      const v = c.m?.variaveis ?? {};
+      ok(`aut-wa: o ${c.nome} usa o modelo organizado, com 6 variáveis cheias e sem quebra de linha`,
+         c.m?.finalidade === c.fin && Object.keys(v).length === 6
+         && Object.values(v).every((x) => x.trim() !== "" && !/[\n\t]/.test(x) && !/ {4}/.test(x)), JSON.stringify(v));
+      ok(`aut-wa: o ${c.nome} organizado RECEBEU valor (empresa e o número do aviso)`,
+         v["1"] === credor.nome && Object.values(v).some((x) => x.includes(c.tem)), JSON.stringify(v));
+      ok(`aut-wa: a reserva do ${c.nome} é o modelo de uma linha dele`,
+         c.m?.reserva?.finalidade === c.res && Object.keys(c.m.reserva.variaveis).every((k) => !/\n/.test(c.m!.reserva!.variaveis[k])), JSON.stringify(c.m?.reserva));
+      const antes = { a: env[c.env], b: env[c.resEnv] };
+      try {
+        env[c.resEnv] = "HXlinha"; delete env[c.env];
+        const r1 = c.m ? modeloDoEnvio(c.m) : undefined;
+        ok(`aut-wa: sem o ${c.nome} organizado, sai pelo de uma linha com as variáveis DELE`,
+           r1?.contentSid === "HXlinha" && JSON.stringify(r1.contentVariables) === JSON.stringify(c.m?.reserva?.variaveis), JSON.stringify(r1));
+        ok(`aut-wa: (defeito plantado) as 6 variáveis do ${c.nome} no modelo de uma linha seriam detectadas`,
+           JSON.stringify(v) !== JSON.stringify(r1?.contentVariables));
+        env[c.env] = "HXdia";
+        const r2 = c.m ? modeloDoEnvio(c.m) : undefined;
+        ok(`aut-wa: com o ${c.nome} organizado cadastrado, ele vence`, r2?.contentSid === "HXdia" && Object.keys(r2.contentVariables).length === 6, JSON.stringify(r2));
+      } finally {
+        if (antes.a === undefined) delete env[c.env]; else env[c.env] = antes.a;
+        if (antes.b === undefined) delete env[c.resEnv]; else env[c.resEnv] = antes.b;
+      }
+    }
+  }
 
   // ---- 9) destinatário: só titular/admin ATUAL recebe ----
   const saiu = A.gerarMensagens(cfg("resumo_diario", { destinatarios: [{ userId: "ex-socio", email_ativo: true }] }), ctx);
