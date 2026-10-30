@@ -120,6 +120,7 @@ function casosDasRotas(t: Texto): Caso[] {
     ["rota: a nota é marcada processando, com condição, ANTES de ir à Focus", antes(t.transmitir, '.eq("status", nota.status)', "emitirNaFocus(")],
     ["rota: permissão conferida na empresa DA NOTA antes da Focus", antes(t.transmitir, "podeLancar(s, nota.org_id)", "emitirNaFocus(") && antes(t.cancelar, "podeLancar(s, nota.org_id)", "cancelarNaFocus(")],
     ["rota: a DPS sai com a data de emissão nacional, nunca o UTC cru", t.transmitir.includes("dataEmissaoNacional(agora.getTime())") && !/montarPedidoNacional\([^)]*toISOString/.test(t.transmitir)],
+    ["rota: a nota municipal (XML nacional em SP) sai com a mesma data, nunca o UTC cru", /: montarPedido\(dadosNota, nota\.tomador, emitente, dataEmissaoNacional\(agora\.getTime\(\)\)\)/.test(t.transmitir) && !/montarPedido\([^)]*toISOString/.test(t.transmitir)],
     ["rota: o desfecho só é gravado sobre nota ainda processando", t.consultar.includes('.eq("status", "processando")')],
     ["rota: falha de rede no envio NÃO vira recusa (o pedido pode ter chegado)", /r\.http === 0[^\n]*processando|processando[^\n]*r\.http === 0/.test(t.transmitir) || antes(t.transmitir, "r.http === 0", 'estado: "processando"')],
     ["cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA", (t.cliente.match(/\$\{caminhoDaRef\(ref\)\}/g) ?? []).length === 3 && !t.cliente.includes('"/v2/nfse')],
@@ -190,6 +191,7 @@ await plantarMotor("justificativa curta aceita", "if (t.length < 15)", "if (t.le
 
 plantarRota("emitente do pedido", "transmitir", "emitenteDaOrg(nota.org_id)", "emitenteDaOrg(String(req.headers.get(\"x-org\")))", "rota: o emitente sai do vínculo da plataforma (org da nota), nunca do pedido");
 plantarRota("emissão em UTC", "transmitir", "dataEmissaoNacional(agora.getTime())", "agora.toISOString()", "rota: a DPS sai com a data de emissão nacional, nunca o UTC cru");
+plantarRota("municipal em UTC", "transmitir", "emitente, dataEmissaoNacional(agora.getTime()));", "emitente, agora.toISOString());", "rota: a nota municipal (XML nacional em SP) sai com a mesma data, nunca o UTC cru");
 plantarRota("marca sem condição", "transmitir", '.eq("id", nota.id).eq("status", nota.status)', '.eq("id", nota.id)', "rota: a nota é marcada processando, com condição, ANTES de ir à Focus");
 plantarRota("desfecho sem condição", "consultar", '.eq("id", nota.id).eq("status", "processando")', '.eq("id", nota.id)', "rota: o desfecho só é gravado sobre nota ainda processando");
 plantarRota("consulta presa à prefeitura", "cliente", "chamar(\"GET\", `${caminhoDaRef(ref)}/", "chamar(\"GET\", `/v2/nfse/", "cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA");
