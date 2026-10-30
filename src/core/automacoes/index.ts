@@ -206,7 +206,7 @@ function conteudo(
     texto: textoDe(c.titulo, c.abertura, destaques, secoes, [...avisos, ...aviso], c.link),
     html: montarHtml({
       preheader: c.preheader, titulo: c.titulo, abertura: c.abertura, destaques, secoes,
-      avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx),
+      avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx), appUrl: ctx.appUrl,
     }),
     ...(() => {
       // Template de uma variável só: o texto curto, numa linha (a Meta recusa
