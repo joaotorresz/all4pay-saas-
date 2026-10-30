@@ -75,6 +75,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE, CATEGORIAS_CNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
+import { empresaDaConversa, lerComandoEmpresa, lerQuem, paraWhatsapp, TAMANHO_MAXIMO } from "@/core/whatsapp/conversa";
 import { DIAS_PAUSA_OFERTA, celularCanonico, celularLegivel, deveOferecerWhatsapp, iaWhatsappLigada, mensagemDoCodigo, semPrefixoNumero } from "@/core/whatsapp/numero";
 import { execSync as execSyncIcone } from "node:child_process";
 import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
@@ -13719,6 +13720,44 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       return t.includes("pedirCodigoNumeroAction") && t.includes("confirmarNumeroAction") && !t.includes(".rpc(");
     }));
   ok("wa-oferta: o chat monta a oferta", readFileSync("src/components/ia/ChatTelaCheia.tsx", "utf8").includes("<OfertaWhatsapp />"));
+}
+
+// ═══ wa-conversa: a Quattro AI no WhatsApp só lê, e só a empresa de quem pergunta ═══
+{
+  ok("wa-conversa: EMPRESAS e 'trocar de empresa' listam", lerComandoEmpresa("EMPRESAS")?.tipo === "listar" && lerComandoEmpresa("Trocar de empresa.")?.tipo === "listar");
+  const dois = lerComandoEmpresa("2");
+  ok("wa-conversa: '2' escolhe a SEGUNDA da lista", dois?.tipo === "escolher" && dois.indice === 1);
+  ok("wa-conversa: pergunta que cita 'empresa' é pergunta, não troca",
+    lerComandoEmpresa("quanto a empresa vendeu?") === null && lerComandoEmpresa("0") === null);
+  const a = { id: "a", nome: "A" }, b = { id: "b", nome: "B" };
+  ok("wa-conversa: uma empresa só vale sem perguntar", empresaDaConversa({ orgs: [a], escolhida: null, saiu: false })?.id === "a");
+  ok("wa-conversa: com duas e nenhuma escolhida, PERGUNTA (nunca escolhe a primeira)",
+    empresaDaConversa({ orgs: [a, b], escolhida: null, saiu: false }) === null);
+  ok("wa-conversa: escolhida que saiu da lista (acesso perdido) não vale",
+    empresaDaConversa({ orgs: [a, b], escolhida: "zzz", saiu: false }) === null);
+  ok("wa-conversa: número não confirmado (nulo do banco) não é ninguém", lerQuem(null) === null);
+  ok("wa-conversa: empresa sem id do banco é descartada", lerQuem({ orgs: [{ nome: "x" }, { id: "a", nome: "A" }] })?.orgs.length === 1);
+  ok("wa-conversa: **negrito** vira *negrito* e o link vira texto",
+    paraWhatsapp("**R$ 10** em [Contas a pagar](/contas-a-pagar)") === "*R$ 10* em Contas a pagar");
+  ok("wa-conversa: resposta longa cabe no WhatsApp, rodapé incluído",
+    paraWhatsapp("linha\n".repeat(600), "rodapé").length <= TAMANHO_MAXIMO);
+
+  const entrada = readFileSync("src/lib/whatsapp-entrada.ts", "utf8");
+  const pos = (t: string) => entrada.indexOf(t);
+  ok("wa-conversa: no webhook a IA vem DEPOIS do SAIR e da aprovação e ANTES da resposta padrão",
+    pos("whatsapp_registrar_saida") > 0 && pos("whatsapp_registrar_saida") < pos("responder_aprovacao_whatsapp")
+    && pos("responder_aprovacao_whatsapp") < pos("responderIaWhatsapp(admin")
+    && pos("responderIaWhatsapp(admin") < entrada.lastIndexOf("twiml(RESPOSTA_PADRAO)"));
+  ok("wa-conversa: o webhook só chama a IA com o interruptor ligado",
+    /if \(iaWhatsappLigada\(\) && admin && telefone\)/.test(entrada));
+  const ia = readFileSync("src/lib/whatsapp-ia.ts", "utf8");
+  ok("wa-conversa: a reserva (número, papel, teto, trilha) vem ANTES de ler a empresa",
+    ia.indexOf('"whatsapp_ia_reservar"') > 0 && ia.indexOf('"whatsapp_ia_reservar"') < ia.indexOf('"automacao_contexto"'));
+  ok("wa-conversa: SÓ LEITURA — nenhuma escrita direta e nenhum lançamento pela conversa",
+    !/\.(insert|update|upsert|delete)\(/.test(ia) && !/confirmarDocumento|interpretarLancamento/.test(ia));
+  const fora = execSyncIcone(`grep -rlE 'rpc\\("whatsapp_ia_' src || true`, { encoding: "utf8" })
+    .split("\n").filter((f) => f && f !== "src/lib/whatsapp-ia.ts");
+  ok(`wa-conversa: as RPCs da conversa têm porta única (fora dela: ${fora.join(", ") || "nenhuma"})`, fora.length === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

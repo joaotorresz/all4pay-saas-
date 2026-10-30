@@ -36,7 +36,13 @@ declare
     -- papel de raw_events), e a jornada sem conta não tem empresa — a trilha
     -- exige uma. Ninguém do cliente lê nem escreve nela. Declarado em
     -- 20261027130000.
-    'cadastro_jornadas'
+    'cadastro_jornadas',
+    -- whatsapp_ia_perguntas é só o CONTADOR do teto por hora da Quattro AI no
+    -- WhatsApp (sem o texto). Cada pergunta já entra na trilha da empresa pela
+    -- própria `whatsapp_ia_reservar` (`whatsapp_ia.pergunta`), na mesma
+    -- instrução; o gatilho genérico a contaria duas vezes. Declarado em
+    -- 20261031120000.
+    'whatsapp_ia_perguntas'
   ];
   faltando text[];
   n_ok int;

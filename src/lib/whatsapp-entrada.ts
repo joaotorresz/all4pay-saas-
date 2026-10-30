@@ -12,7 +12,9 @@
  *   3. SAIR / VOLTAR — SEMPRE, mesmo com a aprovação desligada: parar de
  *      receber não pode depender de uma funcionalidade estar ligada;
  *   4. a aprovação por WhatsApp, só com `WHATSAPP_APROVACAO=ligado`;
- *   5. o resto ganha a resposta padrão (que ensina o SAIR).
+ *   5. a Quattro AI, só com `WHATSAPP_IA=ligado` e só para o número
+ *      CONFIRMADO de alguém (`lib/whatsapp-ia`) — só leitura;
+ *   6. o resto ganha a resposta padrão (que ensina o SAIR).
  *
  * ⚠️ Quem decide é o banco (`whatsapp_registrar_saida`,
  * `responder_aprovacao_whatsapp`), com a chave de serviço, a única que as
@@ -23,6 +25,9 @@ import { createAdmin } from "@/lib/supabase/admin";
 import { assinaturaTwilioValida } from "@/lib/twilio-assinatura";
 import { AJUDA_FORMATO, lerResposta, telefoneDoRemetente } from "@/core/aprovacao-whatsapp";
 import { lerPedidoDeSaida, RESPOSTA_PADRAO, RESPOSTA_SAIR, RESPOSTA_VOLTAR } from "@/core/whatsapp/saida";
+import { iaWhatsappLigada } from "@/core/whatsapp/numero";
+import { RESPOSTA_FALHA } from "@/core/whatsapp/conversa";
+import { responderIaWhatsapp } from "@/lib/whatsapp-ia";
 
 const escaparXML = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -96,6 +101,19 @@ export async function receberWhatsapp(req: Request): Promise<Response> {
     if (/^\s*(sim|n[aã]o)\b/i.test(corpo)) return twiml(AJUDA_FORMATO);
   }
 
-  // 5. O resto.
+  // 5. A Quattro AI, só para o número confirmado de alguém.
+  if (iaWhatsappLigada() && admin && telefone) {
+    try {
+      const resposta = await responderIaWhatsapp(admin, telefone, corpo);
+      if (resposta) return twiml(resposta);
+    } catch (e) {
+      // ⚠️ A falha NÃO vira resposta padrão: quem tem o número confirmado
+      // leria "não é atendido por pessoas" e concluiria que a IA não existe.
+      console.error("whatsapp-ia", e instanceof Error ? e.message : e);
+      return twiml(RESPOSTA_FALHA);
+    }
+  }
+
+  // 6. O resto.
   return twiml(RESPOSTA_PADRAO);
 }
