@@ -71,6 +71,13 @@ export interface EmitenteFocus {
    */
   codigoIndicadorOperacao?: string;
   classificacaoTributariaIbsCbs?: string;
+  /**
+   * CST do IBS/CBS (3 dígitos). O leiaute de SP (o XML nacional) exige o CST
+   * ANTES do cClassTrib — recusa de 30/10/2026: "cClassTrib not expected,
+   * expected CST". Ausente, sai dos 3 primeiros dígitos da classificação, que
+   * é como a tabela do cClassTrib é numerada (000001 → CST 000).
+   */
+  situacaoTributariaIbsCbs?: string;
   /** Série da DPS (1–49999), padrão "1". */
   serieDps?: string;
   /**
@@ -125,6 +132,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(so(e.codigoNbs).length === 9 ? { codigoNbs: so(e.codigoNbs) } : {}),
       ...(so(e.codigoIndicadorOperacao).length === 6 ? { codigoIndicadorOperacao: so(e.codigoIndicadorOperacao) } : {}),
       ...(so(e.classificacaoTributariaIbsCbs).length === 6 ? { classificacaoTributariaIbsCbs: so(e.classificacaoTributariaIbsCbs) } : {}),
+      ...(so(e.situacaoTributariaIbsCbs).length === 3 ? { situacaoTributariaIbsCbs: so(e.situacaoTributariaIbsCbs) } : {}),
       ...(/^\d{1,5}$/.test(so(e.serieDps)) && Number(so(e.serieDps)) >= 1 && Number(so(e.serieDps)) <= 49999 ? { serieDps: String(Number(so(e.serieDps))) } : {}),
     };
     if (e.padrao === "nacional" && so(e.codigoTributacaoNacional).length !== 6) problemas.push(`emitente da organização ${org}: padrão nacional sem código de tributação nacional de 6 dígitos`);
@@ -163,6 +171,8 @@ export interface TomadorParaEmitir {
   complemento?: string | null;
   bairro?: string | null;
   uf?: string | null;
+  /** Código IBGE (7 dígitos) da cidade do tomador; o cadastro de contatos ainda não o guarda. */
+  codigoMunicipio?: string | null;
 }
 
 export interface PedidoFocus {
@@ -224,6 +234,20 @@ export function montarPedido(
   const add = (k: string, v: unknown, digitos = false) => { const x = digitos ? so(v) : texto(v); if (x) endereco[k] = x; };
   add("logradouro", tomador.rua); add("numero", tomador.numero); add("complemento", tomador.complemento);
   add("bairro", tomador.bairro); add("uf", tomador.uf?.toUpperCase()); add("cep", tomador.cep, true);
+  // ⚠️ No leiaute da reforma (o XML nacional) o endereço EXIGE o código IBGE
+  // da cidade antes do CEP (recusa de 30/10/2026: "CEP not expected, expected
+  // cMun"). Sem o código, o endereço não vai — ele é opcional; mandá-lo
+  // incompleto é recusa certa.
+  const munTomador = so(tomador.codigoMunicipio);
+  if (ibsCbs) {
+    if (munTomador.length === 7) endereco.codigo_municipio = munTomador;
+    else for (const k of Object.keys(endereco)) delete endereco[k];
+  }
+  // ⚠️ O cTribMun do leiaute novo tem 3 dígitos; o código de 5 de SP ali é
+  // recusa ("03158 not accepted by pattern [0-9]{3}").
+  const tribMun = emitente.codigoTributarioMunicipio;
+  const mandaTribMun = !!tribMun && (!ibsCbs || /^\d{3}$/.test(tribMun));
+  const cst = emitente.situacaoTributariaIbsCbs ?? emitente.classificacaoTributariaIbsCbs?.slice(0, 3);
 
   const tomadorPedido: Record<string, unknown> = {
     [doc.length === 14 ? "cnpj" : "cpf"]: doc,
@@ -253,7 +277,7 @@ export function montarPedido(
         item_lista_servico: item,
         discriminacao: texto(nota.descricao),
         codigo_municipio: emitente.codigoMunicipio,
-        ...(emitente.codigoTributarioMunicipio ? { codigo_tributario_municipio: emitente.codigoTributarioMunicipio } : {}),
+        ...(mandaTribMun ? { codigo_tributario_municipio: tribMun } : {}),
         ...(emitente.codigoCnae ? { codigo_cnae: emitente.codigoCnae } : {}),
         ...(emitente.aliquota !== undefined ? { aliquota: emitente.aliquota } : {}),
         ...(ibsCbs ? {
@@ -261,6 +285,7 @@ export function montarPedido(
           valor_ipi: 0,
           codigo_nbs: emitente.codigoNbs,
           codigo_indicador_operacao: emitente.codigoIndicadorOperacao,
+          ibs_cbs_situacao_tributaria: cst,
           ibs_cbs_classificacao_tributaria: emitente.classificacaoTributariaIbsCbs,
         } : {}),
       },
