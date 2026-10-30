@@ -223,6 +223,27 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
   ok("porta: caminho fora da lista (Pix de saída) é recusado ANTES de sair", erro instanceof ErroPortaItau && erro.fase === "antes_do_envio");
 }
 
+{
+  // O caminho do token: `jwt` só no sandbox; produção é sempre o STS.
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === "/api/oauth/jwt" ? tokenOk : { status: 404, corpo: null }));
+  const r = await API.testarCredencialItau({ ...CFG, caminhoToken: "jwt" }, t.fn);
+  ok("token: ?token=jwt no sandbox usa /api/oauth/jwt", r.ok === true && t.chamadas[0]?.caminho === "/api/oauth/jwt", JSON.stringify(r));
+  API.esquecerTokensItau();
+  const tp = transporte(() => tokenOk);
+  await API.testarCredencialItau({ ...CFG, ambiente: "producao", caminhoToken: "jwt" }, tp.fn);
+  ok("token: em produção o jwt é ignorado (sempre /api/oauth/token)", tp.chamadas[0]?.caminho === TOKEN);
+  // A recusa diz o que o Itaú disse — JSON ou página — e nunca o segredo.
+  API.esquecerTokensItau();
+  const tj = transporte(() => ({ status: 403, corpo: { error: "invalid_client", error_description: "Client not authorized" } }));
+  const rj = await API.testarCredencialItau(CFG, tj.fn);
+  ok("token: a recusa leva o error_description do Itaú", !rj.ok && rj.motivo.includes("(403): Client not authorized") && !rj.motivo.includes("segredo-xyz"), JSON.stringify(rj));
+  API.esquecerTokensItau();
+  const th = transporte(() => ({ status: 403, corpo: null, bruto: "<html><body><h1>Access   Denied</h1></body></html>" }));
+  const rh = await API.testarCredencialItau(CFG, th.fn);
+  ok("token: recusa em página (não JSON) leva o texto da página", !rh.ok && rh.motivo.includes("Access Denied"), JSON.stringify(rh));
+}
+
 /* ── 3. Defeitos plantados ── */
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "itau-mutante-"));

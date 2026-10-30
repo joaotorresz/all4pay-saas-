@@ -85,6 +85,14 @@ falhou). O Itaú ganha o leitor puro e a porta de rede dele.
    `?acao=emitir&numero=00000001` e `?acao=consultar&numero=00000001`. Campo
    que o Itaú recusar volta nomeado na resposta e é corrigido no core.
 
+**30/10/2026 — primeiro teste:** o token voltou **403 em 29 ms** no sandbox
+(Production com `ITAU_AMBIENTE=sandbox`, na plataforma). A resposta não dizia
+o porquê. Agora a recusa traz o que o Itaú disse (`error_description` do JSON
+ou o texto da página de bloqueio, `motivoDoItau`), e `&token=jwt` no link
+testa o caminho `/api/oauth/jwt` no lugar de `/api/oauth/token` — SÓ no
+sandbox; a produção é sempre o STS. O caminho do token do sandbox do portal
+não está confirmado em documentação pública.
+
 ## O que o cliente vai precisar (etapa 4)
 
 As credenciais de cobrança do Itaú são pedidas pelo portal de desenvolvedor

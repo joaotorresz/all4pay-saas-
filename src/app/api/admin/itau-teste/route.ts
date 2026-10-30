@@ -11,6 +11,7 @@ import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, testar
  *   GET /api/admin/itau-teste                          → o token sai? (não cria nada)
  *   GET /api/admin/itau-teste?acao=emitir&numero=      → boleto com Pix de R$ 2,50 (SÓ no sandbox)
  *   GET /api/admin/itau-teste?acao=consultar&numero=   → a situação de um título pelo nosso número
+ *   &token=jwt (só sandbox)                            → o token por `/api/oauth/jwt` (hipótese do caminho)
  *
  * É a prova de que a credencial das variáveis `ITAU_*` funciona DENTRO da
  * função da Vercel, e o lugar onde os NOMES dos campos do core são conferidos
@@ -73,7 +74,9 @@ export async function GET(req: Request) {
 
   const cfg = configItauDoAmbiente();
   if ("faltam" in cfg) return resposta(200, { ok: false, motivo: `Falta configurar: ${cfg.faltam.join(" · ")}` });
-  const base = { provedor: NOME_DO_PROVEDOR.itau, ambiente: cfg.config.ambiente, comCertificado: !!cfg.config.mtls };
+  // ⚠️ A hipótese do caminho do token vale SÓ no sandbox (a produção é o STS).
+  if (cfg.config.ambiente === "sandbox" && q.get("token") === "jwt") cfg.config.caminhoToken = "jwt";
+  const base = { provedor: NOME_DO_PROVEDOR.itau, ambiente: cfg.config.ambiente, comCertificado: !!cfg.config.mtls, caminhoToken: cfg.config.caminhoToken ?? "token" };
   const inicio = Date.now();
   // O dia em Brasília (UTC−3), fatiado da string.
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
