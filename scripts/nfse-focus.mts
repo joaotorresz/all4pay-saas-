@@ -29,7 +29,8 @@ const ROTAS = {
 };
 
 const EMITENTE = JSON.stringify({
-  "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800" },
+  "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "1.1506.10.00", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "000001" },
+  "org-normal-sem-ibs": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "115061000" },
   "org-com-aliquota": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: true, aliquota: "2,9" },
   "org-aliquota-absurda": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", aliquota: 15 },
   "org-nacional": { cnpj: "54579688000135", inscricaoMunicipal: "13017047", codigoMunicipio: "3550308", optanteSimples: true, aliquota: 2, padrao: "nacional", codigoTributacaoNacional: "17.01.01", percentualTributosSimples: "6,5" },
@@ -52,6 +53,8 @@ function casosDoMotor(m: Motor): Caso[] {
   const comAliq = ea ? m.montarPedido({ ...NOTA, codigoServico: "1.07" }, TOMADOR, ea, "x") : null;
   const semDoc = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "123" }, e, "x") : null;
   const pf = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "529.982.247-25" }, e, "x") : null;
+  const enor = emitentes["org-normal-sem-ibs"];
+  const semIbs = enor ? m.montarPedido(NOTA, TOMADOR, enor, "x") : null;
   const base = "https://homologacao.focusnfe.com.br";
   const aut = m.interpretarConsulta({ status: "autorizado", numero: 87, codigo_verificacao: "AB12", url_danfse: "https://x/pdf", caminho_xml_nota_fiscal: "/arquivos/n.xml" }, base);
   const err = m.interpretarConsulta({ status: "erro_autorizacao", erros: [{ codigo: "E1", mensagem: "Inscrição municipal inválida", correcao: "Confira o CCM" }] }, base);
@@ -84,6 +87,9 @@ function casosDoMotor(m: Motor): Caso[] {
     ["pedido: SEM alíquota da tela nem valor do ISS", !!ok && !("aliquota" in ok.servico) && !("valor_iss" in ok.servico)],
     ["pedido: a alíquota declarada pela plataforma vai no pedido (2,9 → 2.9)", !!comAliq && comAliq.ok && comAliq.pedido.servico.aliquota === 2.9],
     ["emitente: alíquota acima de 5% é ignorada e avisada", emitentes["org-aliquota-absurda"]?.aliquota === undefined && problemas.some((p) => p.includes("org-aliquota-absurda"))],
+    ["pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)", ok?.servico.codigo_indicador_operacao === "100301" && ok?.servico.ibs_cbs_classificacao_tributaria === "000001" && ok?.servico.codigo_nbs === "115061000" && ok?.servico.valor_final_cobrado === 1500.56 && ok?.servico.valor_ipi === 0 && ok?.consumidor_final === 0 && ok?.indicador_destinatario === 0 && ok?.finalidade_emissao === 0 && ok?.exigibilidade_suspensa === 0],
+    ["pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta", !!semIbs && !semIbs.ok && semIbs.problemas.some((p) => p.includes("indicador de operação") && p.includes("classificação tributária"))],
+    ["pedido: optante sem os códigos NÃO leva o grupo do IBS/CBS", !!comAliq && comAliq.ok && !("codigo_indicador_operacao" in comAliq.pedido.servico) && !("consumidor_final" in comAliq.pedido)],
     ["pedido: o código do serviço da plataforma vence o da nota", ok?.servico.item_lista_servico === "02800"],
     ["pedido: endereço com UF em caixa alta e CEP em dígitos", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100"],
     ["item da lista: 1.07 → 0107 e 17.01 → 1701", m.itemDaLista("1.07 — Suporte") === "0107" && m.itemDaLista("17.01 — x") === "1701"],
@@ -164,6 +170,8 @@ await plantarMotor("optante sem percentual sai assim mesmo", "if (emitente.optan
 await plantarMotor("IM de volta na DPS", "    codigo_municipio_emissora: emitente.codigoMunicipio,\n", "    codigo_municipio_emissora: emitente.codigoMunicipio,\n    inscricao_municipal_prestador: emitente.inscricaoMunicipal,\n", "nacional: DPS com prestador do vínculo (sem a IM, que vem do CNC), Simples ME/EPP e código nacional");
 await plantarMotor("emissão no relógio exato", "agoraMs - 60_000 - 3 * 3600_000", "agoraMs - 3 * 3600_000", "nacional: emissão na hora de São Paulo, com fuso, um minuto antes de agora");
 await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigoTributacaoNacional) problemas.push', "if (false) problemas.push", "nacional: sem código de tributação o pedido é recusado ANTES de sair");
+await plantarMotor("Regime Normal sem IBS/CBS sai assim mesmo", "if (faltaIbs.length) problemas.push", "if (false) problemas.push", "pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta");
+await plantarMotor("grupo do IBS/CBS esquecido", "const ibsCbs = !emitente.optanteSimples ||", "const ibsCbs = false &&", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");
 await plantarMotor("status desconhecido autoriza", 'return { estado: "processando" };\n}', 'return { estado: "autorizada" };\n}', "consulta: status desconhecido é PROCESSANDO, nunca autorizada");
 await plantarMotor("referência fixa por nota", "return m ? Number(m[1]) + 1 : 1;", "return 1;", "referência: a tentativa seguinte nunca repete a anterior");
