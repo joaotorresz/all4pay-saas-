@@ -198,7 +198,20 @@ export function textoDoBoleto(s: string | null | undefined): string {
 }
 
 /** O `Data` do `CashIn/GerarBoleto`. */
-export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknown> {
+/**
+ * A multa e os juros no formato do `GerarBoleto` (30/10/2026). ⚠️ A UNIDADE é
+ * HIPÓTESE até a Pinbank confirmar: centésimos de ponto percentual, como o
+ * valor vai em centavos (2% → 200; a integração da kmee manda assim). Só sai
+ * com o interruptor `PINBANK_BOLETO_ENCARGOS` (lido em `lib/pinbank/api`).
+ */
+export function encargosDoBoleto(e: { multaPct: number; jurosMesPct: number } | null | undefined) {
+  return {
+    Juros: { Valor: e ? Math.round(e.jurosMesPct * 100) : 0 },
+    Multa: { Valor: e ? Math.round(e.multaPct * 100) : 0 },
+  };
+}
+
+export function pedidoBoleto(r: Reservada, canal: number, encargos?: { multaPct: number; jurosMesPct: number } | null): Record<string, unknown> {
   const d = r.devedor;
   const endereco = [d?.logradouro, d?.numero, d?.complemento].filter(Boolean).join(", ");
   return {
@@ -223,17 +236,18 @@ export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknow
     RetornarBase64: false,
     ...(r.descricao ? { Instrucoes: textoDoBoleto(r.descricao).slice(0, 200) } : {}),
     // A documentação traz os dois blocos no pedido; sem eles a Pinbank devolveu
-    // "Bad request" (26/10/2026). Zerados: o sistema não cobra juros nem multa
-    // pelo boleto (a mora é calculada na baixa).
-    Juros: { Valor: 0 },
-    Multa: { Valor: 0 },
+    // "Bad request" (26/10/2026). Zerados sem a regra da empresa (ou com o
+    // interruptor desligado): o boleto sai sem multa e sem juros.
+    ...encargosDoBoleto(encargos),
   };
 }
 
 /** O que vai para `pinbank_cobranca_registrar` (o banco confere de novo). */
 export type ResultadoCobranca =
   | { situacao: "emitida"; pinbankId?: string | null; txid?: string | null; textoQrCode?: string | null;
-      qrCodeUrl?: string | null; linhaDigitavel?: string | null; codigoBarras?: string | null }
+      qrCodeUrl?: string | null; linhaDigitavel?: string | null; codigoBarras?: string | null;
+      /** A regra que foi NO boleto (só o boleto, só com o interruptor ligado). */
+      encargos?: { multaPct: number; jurosMesPct: number; carenciaDias: number; aceitarAteDias: number | null } | null }
   | { situacao: "falhou" | "incerta"; motivo: string };
 
 /** O código e a mensagem da Pinbank, e os erros de validação (campo + mensagem). */

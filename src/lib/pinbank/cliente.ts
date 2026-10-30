@@ -17,6 +17,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { motivoDaRecusa } from "@/lib/erros";
+import { lerRegraEncargos, problemasDaRegra, type RegraEncargos } from "@/core/cobranca/fatura";
 import {
   falhaDaConferenciaSemCorpo, planejarTitulosDemo, type PrazosPinbank, type RelatorioParaEmpresa, type TaxasPinbank,
   type TituloMaquininhaBruto, type VendaRelatorioBruta,
@@ -101,6 +102,41 @@ export async function configurarVinculo(p: {
  */
 export async function configurarCobranca(p: { id: string; ativa: boolean }): Promise<void> {
   const { error } = await createClient().rpc("pinbank_cobranca_configurar", { p_vinculo: p.id, p_ativa: p.ativa });
+  if (error) throw new Error(motivoDaRecusa(error));
+}
+
+/**
+ * MULTA E JUROS DA COBRANÇA (30/10/2026): a regra da empresa, lida pela RLS e
+ * gravada SÓ por `cobranca_encargos_definir` (quem administra). Sem linha
+ * gravada, o boleto sai sem encargo, como sempre saiu.
+ */
+let regraDemo: RegraEncargos | null = null;
+export async function lerEncargos(): Promise<RegraEncargos | null> {
+  if (isDemo) return regraDemo;
+  const { data, error } = await createClient()
+    .from("cobranca_encargos")
+    .select("multa_pct, juros_mes_pct, carencia_dias, aceitar_ate_dias")
+    .maybeSingle();
+  if (error) throw new Error(motivoDaRecusa(error));
+  if (!data) return null;
+  return lerRegraEncargos({
+    multaPct: data.multa_pct,
+    jurosMesPct: data.juros_mes_pct,
+    carenciaDias: data.carencia_dias,
+    aceitarAteDias: data.aceitar_ate_dias,
+  });
+}
+
+export async function definirEncargos(r: RegraEncargos): Promise<void> {
+  const problemas = problemasDaRegra(r);
+  if (problemas.length) throw new Error(problemas[0]);
+  if (isDemo) {
+    regraDemo = { ...r };
+    return;
+  }
+  const { error } = await createClient().rpc("cobranca_encargos_definir", {
+    p_multa: r.multaPct, p_juros: r.jurosMesPct, p_carencia: r.carenciaDias, p_aceitar_ate: r.aceitarAteDias,
+  });
   if (error) throw new Error(motivoDaRecusa(error));
 }
 

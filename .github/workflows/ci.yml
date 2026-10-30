@@ -383,6 +383,12 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-checkout.sql
+      # Multa e juros da cobrança, por empresa: só quem administra muda, pela
+      # função; a faixa é do banco; a outra empresa não lê. 4 defeitos plantados.
+      - name: Guarda — multa e juros da cobrança
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cobranca-encargos.sql
       # A cobrança pela conta bancária conectada (Inter, etapa 3): só quem
       # administra conecta, o segredo cifrado só a chave de serviço lê, uma
       # cobrança viva por título (contando a Pinbank), processando/incerta

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { semAmostra } from "@/lib/supabase/filtros";
 import { createAdmin } from "@/lib/supabase/admin";
-import { cobrancaPinbankLiberada, emitirCobrancaPinbank } from "@/lib/pinbank/api";
+import { boletoComEncargosLiberado, cobrancaPinbankLiberada, emitirCobrancaPinbank } from "@/lib/pinbank/api";
+import { lerRegraEncargos, type RegraEncargos } from "@/core/cobranca/fatura";
 import { lerReservaCobranca, problemasDoDevedor, type ReservaCobranca, type ResultadoCobranca } from "@/core/pinbank/cobranca";
 
 /**
@@ -164,7 +165,19 @@ export async function POST(req: Request) {
     return devolver(422, { codigo: "cadastro_incompleto", motivo: faltam.join(" ") });
   }
 
-  const resultado = await emitirCobrancaPinbank(reserva);
+  // A multa e os juros da empresa, lidos como a pessoa (a mesma empresa aberta
+  // da reserva). Só no boleto e só com o interruptor: no Pix o valor é fixo.
+  let encargos: RegraEncargos | null = null;
+  if (reserva.tipo === "boleto" && boletoComEncargosLiberado()) {
+    const { data: e } = await s.from("cobranca_encargos")
+      .select("multa_pct, juros_mes_pct, carencia_dias, aceitar_ate_dias").maybeSingle();
+    const lida = e ? lerRegraEncargos({
+      multaPct: e.multa_pct, jurosMesPct: e.juros_mes_pct, carenciaDias: e.carencia_dias, aceitarAteDias: e.aceitar_ate_dias,
+    }) : null;
+    encargos = lida && (lida.multaPct > 0 || lida.jurosMesPct > 0) ? lida : null;
+  }
+
+  const resultado = await emitirCobrancaPinbank(reserva, { encargos });
   const { error: eG } = await registrar(resultado);
   console.info(JSON.stringify({
     evento: "pinbank.cobranca",

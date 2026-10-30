@@ -11,6 +11,7 @@ import {
   type ResumoExtratoPos,
 } from "@/core/pinbank/extrato-pos";
 import type { MotivoConferenciaIndisponivel } from "@/core/pinbank/conferencia";
+import type { RegraEncargos } from "@/core/cobranca/fatura";
 import {
   lerRespostaCobranca,
   pedidoBoleto,
@@ -208,6 +209,19 @@ export function cobrancaPinbankLiberada(env: Ambiente = process.env):
 }
 
 /**
+ * MULTA E JUROS vão NO BOLETO? Interruptor próprio
+ * (`PINBANK_BOLETO_ENCARGOS=ligado`, nasce DESLIGADO) porque a UNIDADE que a
+ * Pinbank espera ainda não foi confirmada: no formato errado, o boleto sairia
+ * registrado com juros 100 vezes maiores. Desligado, o boleto sai sem encargo
+ * e a página do link não mostra multa nem juros (o banco não os cobraria).
+ *
+ * ⚠️ É o ÚNICO lugar que lê `PINBANK_BOLETO_ENCARGOS` (guarda no `engine-audit`).
+ */
+export function boletoComEncargosLiberado(env: Ambiente = process.env): boolean {
+  return env.PINBANK_BOLETO_ENCARGOS === "ligado";
+}
+
+/**
  * A MENSALIDADE do ERP pode ser cobrada pela conta Pinbank DA QUATTRO? As três
  * perguntas da cobrança, com interruptor próprio (`MENSALIDADE_PINBANK=ligado`,
  * nasce DESLIGADA), mais o código da conta que RECEBE
@@ -237,6 +251,8 @@ export interface OpcoesApi {
   proxies?: ProxySaida[];
   /** Só para teste: a CA da "Pinbank" local. */
   caDestino?: string | Buffer;
+  /** A multa e os juros da empresa, para o boleto (só com `boletoComEncargosLiberado`). */
+  encargos?: RegraEncargos | null;
   /** Relógio (ms), para o prazo do token. Padrão: Date.now. */
   agora?: () => number;
   /** Teto da resposta do MÉTODO. Padrão 32 MB (um mês de extrato de muitas maquininhas). */
@@ -525,7 +541,7 @@ export async function emitirCobrancaPinbank(r: Extract<ReservaCobranca, { existe
   let corpo: string;
   try {
     cred = o.credencial ?? lerCredencialPinbank();
-    const dados = r.tipo === "pix" ? pedidoQrCodeDinamico(r, cred.canal) : pedidoBoleto(r, cred.canal);
+    const dados = r.tipo === "pix" ? pedidoQrCodeDinamico(r, cred.canal) : pedidoBoleto(r, cred.canal, o.encargos ?? null);
     corpo = JSON.stringify({ Data: { Json: cifrarPinbank(JSON.stringify({ Data: dados }), cred.chave) } });
   } catch (e) {
     return { situacao: "falhou", motivo: e instanceof ErroApiPinbank ? e.message : "A credencial da Pinbank não está pronta." };
@@ -581,7 +597,8 @@ export async function emitirCobrancaPinbank(r: Extract<ReservaCobranca, { existe
     }
     try {
       const { aberto } = abrirCorpoPinbank(resp.corpo.toString("utf8"), cred.chave);
-      return lerRespostaCobranca(tipo, aberto);
+      const lido = lerRespostaCobranca(tipo, aberto);
+      return lido.situacao === "emitida" && tipo === "boleto" && o.encargos ? { ...lido, encargos: o.encargos } : lido;
     } catch (e) {
       return { situacao: "incerta", motivo: semSegredo(`A resposta da Pinbank não abriu (${(e as Error).message}).`, cred).slice(0, 500) };
     }

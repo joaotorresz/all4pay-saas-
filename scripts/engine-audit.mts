@@ -12289,7 +12289,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const iUser = x.indexOf("auth.getUser()");
     const iLib = x.indexOf("cobrancaPinbankLiberada()");
     const iRes = x.indexOf('s.rpc("pinbank_cobranca_reservar"');
-    const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+    const iRede = x.indexOf("emitirCobrancaPinbank(reserva");
     const iReg = x.indexOf("pinbank_cobranca_registrar");
     return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
   };
@@ -12331,6 +12331,38 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("cobranca-pinbank: o nome do boleto vai SEM acento (\"João\" saía \"Jo o\" no app de quem paga)",
        bolJoao.DadosSacado?.Nome === "Joao Conceicao" && bolJoao.DadosSacado?.Cidade === "Sao Paulo", JSON.stringify(bolJoao.DadosSacado));
     ok("cobranca-pinbank: o texto do boleto troca o que não é ASCII por espaço, sem espaço dobrado", CB.textoDoBoleto("A  \u2014 B") === "A B", CB.textoDoBoleto("A  \u2014 B"));
+    // MULTA E JUROS (30/10/2026): a regra da empresa, a conta da página e o boleto.
+    const F = await import("@/core/cobranca/fatura");
+    const regra = { multaPct: 2, jurosMesPct: 1, carenciaDias: 0, aceitarAteDias: null };
+    const e10 = F.encargosDaFatura(1000, "2026-10-10", "2026-10-20", regra);
+    ok("encargos: R$ 1.000 pago 10 dias depois com 2% + 1% a.m. = multa 20,00 + juros 3,33 = 1.023,33",
+       e10.multa === 20 && e10.juros === 3.33 && e10.total === 1023.33 && e10.diasAtraso === 10, JSON.stringify(e10));
+    ok("encargos: no dia do vencimento não há encargo", F.encargosDaFatura(1000, "2026-10-10", "2026-10-10", regra).total === 1000);
+    const tol = { ...regra, carenciaDias: 3 };
+    ok("encargos: dentro da tolerância (3º dia) não cobra; no 4º cobra multa + os 4 dias de juros",
+       F.encargosDaFatura(1000, "2026-10-10", "2026-10-13", tol).total === 1000
+         && F.encargosDaFatura(1000, "2026-10-10", "2026-10-14", tol).juros === 1.33);
+    const lim = F.encargosDaFatura(1000, "2026-10-10", "2026-10-21", { ...regra, aceitarAteDias: 10 });
+    ok("encargos: passou do prazo aceito = expirada, com a data-limite", lim.expirada && lim.aceitaAte === "2026-10-20", JSON.stringify(lim));
+    ok("encargos: sem regra, o valor não muda (o boleto sem encargo)", F.encargosDaFatura(1000, "2026-10-10", "2026-12-10", null).total === 1000);
+    ok("encargos: a faixa recusa multa de 11%, tolerância quebrada e prazo antes da tolerância",
+       F.problemasDaRegra({ ...regra, multaPct: 11 }).length === 1 && F.problemasDaRegra({ ...regra, carenciaDias: 1.5 }).length === 1
+         && F.problemasDaRegra({ ...regra, carenciaDias: 10, aceitarAteDias: 5 }).length === 1 && F.problemasDaRegra(regra).length === 0);
+    ok("encargos: acima de 2% de multa a tela avisa (CDC)", F.avisosDaRegra({ ...regra, multaPct: 3 }).length === 1 && F.avisosDaRegra(regra).length === 0);
+    ok("encargos: a regra gravada fora do formato é ignorada (sem encargo, nunca um número inventado)",
+       F.lerRegraEncargos({ multaPct: "x", jurosMesPct: 1, carenciaDias: 0 }) === null && F.lerRegraEncargos(null) === null
+         && F.lerRegraEncargos({ multaPct: 2, jurosMesPct: 1, carenciaDias: 0 })?.aceitarAteDias === null);
+    const bolEnc = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919, { multaPct: 2, jurosMesPct: 1 }) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
+    ok("encargos: com a regra, o boleto leva Multa 200 e Juros 100 (centésimos de %, hipótese a confirmar)", bolEnc.Multa?.Valor === 200 && bolEnc.Juros?.Valor === 100, JSON.stringify(bolEnc));
+    const fatura = semComF(lerF("src/components/checkout/FaturaView.tsx"));
+    ok("encargos: a página lê a regra REGISTRADA no boleto, nunca a configuração de hoje",
+       /lerRegraEncargos\(boletoEmitido\.encargos\)/.test(fatura) && !/cobranca_encargos/.test(fatura));
+    ok("encargos: com multa e juros correndo, a página esconde o Pix (valor fixo, pagaria menos)", /!comEncargo \? r\.cobrancas\.find\(\(x\) => x\.tipo === "pix"/.test(fatura));
+    const leEnc = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_BOLETO_ENCARGOS/.test(semComF(ler(p))));
+    ok("encargos: PINBANK_BOLETO_ENCARGOS só é lida pelo cliente da API e está no .env.example",
+       leEnc(lerF).length === 0 && /PINBANK_BOLETO_ENCARGOS/.test(semComF(lerF(P_API))) && /^#?\s*PINBANK_BOLETO_ENCARGOS=/m.test(docEnv), leEnc(lerF).join(", "));
+    ok("encargos: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
+       leEnc((p) => (p === ROTA_COB ? lerF(p) + "\nconst l = process.env.PINBANK_BOLETO_ENCARGOS;" : lerF(p))).includes(ROTA_COB));
     // O código de barras da página do boleto (ITF, FEBRABAN). Decodificado por
     // leitor de verdade (zxing) em 30/10/2026; aqui fica a forma: início
     // 4 estreitos, 5 elementos por dígito com 2 largos (3×), fim largo-estreito-estreito.
