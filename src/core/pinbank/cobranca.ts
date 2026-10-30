@@ -131,14 +131,16 @@ export function problemasDoDevedor(tipo: TipoCobranca, d: DevedorCobranca | null
 /**
  * O vencimento como a Pinbank o pede. O Pix documenta ISO com hora; o fim do
  * dia de São Paulo (23:59:59, −03:00) deixa o QR valer o dia inteiro do
- * vencimento. ⚠️ O boleto não documenta o formato: vai `AAAA-MM-DD` (pergunta
- * aberta à Pinbank — trocar aqui).
+ * vencimento. ⚠️ O boleto vai `AAAAMMDD`, sem separador e sem hora: a
+ * documentação só diz "string", e com `AAAA-MM-DD` a Pinbank devolveu "Bad
+ * request" (30/10/2026, boleto já liberado na conta). É o formato da
+ * integração Pinbank de código aberto da KMEE (Odoo, PR #727).
  */
 export function vencimentoPix(dia: string): string {
   return `${dia}T23:59:59.000-03:00`;
 }
 export function vencimentoBoleto(dia: string): string {
-  return dia;
+  return dia.slice(0, 10).replace(/-/g, "");
 }
 
 /**
@@ -188,7 +190,9 @@ export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknow
     CodigoCanal: canal,
     CodigoCliente: r.codigoCliente,
     DataVencimento: vencimentoBoleto(r.vencimento),
-    Valor: r.valor,
+    // ⚠️ EM CENTAVOS, como o Pix: em reais, o título de R$ 10,00 ia como
+    // R$ 0,10 e a Pinbank recusava ("Bad request", 30/10/2026).
+    Valor: Math.round(r.valor * 100),
     ...(d?.email ? { Email: d.email } : {}),
     DadosSacado: {
       CpfCnpj: digitos(d?.documento ?? null),

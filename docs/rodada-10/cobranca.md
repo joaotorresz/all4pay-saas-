@@ -139,8 +139,9 @@ e o bloco `checkout-pinbank:` do `engine-audit`.
    (canal 1919)?
 2. O `CodigoCliente` da conta BaaS é o mesmo código do estabelecimento (EC) da
    maquininha, ou é outro número por empresa?
-3. Qual o formato da data de vencimento do boleto (`AAAA-MM-DD`,
-   `DD/MM/AAAA`, com hora)? E o que `SegundosExpiracao` significa no Pix
+3. Qual o formato da data de vencimento do boleto? (30/10/2026: o boleto foi
+   liberado e voltou "Bad request" com `AAAA-MM-DD` e o valor em reais; passou
+   a ir `AAAAMMDD` e o valor em CENTAVOS, como o Pix.) E o que `SegundosExpiracao` significa no Pix
    dinâmico com vencimento?
 4. Qual o webhook de liquidação (Pix recebido e `Boleto.Liquidacao`): payload,
    assinatura (a mesma Ed25519 do `Compra.*`?) e o campo que devolve o nosso
