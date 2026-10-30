@@ -1064,6 +1064,15 @@ pendente é CONFERIDA no banco, nunca pedida de novo. Nasce DESLIGADA
 (`COBRANCA_BANCO=ligado`). Guardas `scripts/cobranca-banco.sql` (CI) e
 `npm run cobranca-banco-conexao`.
 
+⚠️ **O ITAÚ DIRETO (30/10/2026, decisão do dono, `docs/rodada-11/cobranca-itau.md`).**
+O Itaú entra com integração direta, como o Inter; os outros bancos seguem pelo
+agregador. Etapa 1 (migration `20261030120000`): `itau` cabe na conexão e na
+cobrança, **uma conta recebe por vez** (o conectar recusa o segundo banco), e
+o servidor RECUSA conectar o Itaú até ele estar em `BANCOS_QUE_EMITEM`
+(`core/cobranca-banco`) — a credencial de um banco nunca vira configuração do
+Inter. Guardas: caso 11 de `scripts/cobranca-banco.sql` e o bloco Itaú de
+`npm run cobranca-banco-conexao`.
+
 ## ⚠️ A PÁGINA MAQUININHA QUATTRO VENDE A MAQUININHA (26/10/2026, pedido do dono)
 
 - **Sem maquininha vinculada** a página vira a OFERTA (`maquininha/OfertaMaquininha.tsx`):
