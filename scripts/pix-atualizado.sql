@@ -283,9 +283,10 @@ begin
 
   -- 6. a página: o de hoje sim, o de ontem não
   insert into public.pinbank_cobrancas (org_id, vinculo_id, movement_id, tipo, valor, vencimento, codigo_cliente,
-                                        dia_referencia, origem_regra, situacao, texto_qrcode, emitida_em)
+                                        dia_referencia, origem_regra, situacao, texto_qrcode, emitida_em, criado_por)
   values (current_setting('guarda.oa')::uuid, v, t, 'pix', 256.15, hoje - 1, current_setting('guarda.codigo')::bigint,
-          hoje - 1, b, 'emitida', '00020126580014br.gov.bcb.pix-de-ontem', now());
+          hoje - 1, b, 'emitida', '00020126580014br.gov.bcb.pix-de-ontem', now(),
+          (select criado_por from public.pinbank_cobrancas where id = b));
   r := pg_temp.ler(tk);
   if not exists (select 1 from jsonb_array_elements(r->'cobrancas') x where x->>'textoQrCode' like '%pix-do-dia'
                    and (x->>'diaReferencia')::date = hoje) then
