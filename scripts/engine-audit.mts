@@ -75,6 +75,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE, CATEGORIAS_CNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
+import { celularCanonico, celularLegivel, iaWhatsappLigada, mensagemDoCodigo, semPrefixoNumero } from "@/core/whatsapp/numero";
 import { execSync as execSyncIcone } from "node:child_process";
 import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
@@ -13580,6 +13581,35 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     rIA.classificacoes.find((c) => c.recordId === rIA.records[0].id)!.categoria === "Alimentação");
   ok("extrato-ia: nenhuma página com linha = texto vazio (não um extrato vazio 'bem-sucedido')",
     csvDasPaginas([normalizarPaginaIA({ tipo: "extrato", linhas: [] })]) === "");
+}
+
+// ═══ wa-numero: o celular da Quattro AI só vale confirmado pelo próprio número ═══
+// (etapa 1 da IA no WhatsApp; a fechadura é do banco — scripts/whatsapp-numero.sql)
+{
+  ok("wa-numero: o interruptor nasce DESLIGADO (sem a variável, nada liga)",
+    !iaWhatsappLigada({}) && !iaWhatsappLigada({ WHATSAPP_IA: "true" }) && iaWhatsappLigada({ WHATSAPP_IA: "ligado" }));
+  ok("wa-numero: '+55 (11) 99999-7777', '11999997777' e '5511999997777' viram o MESMO canônico",
+    celularCanonico("+55 (11) 99999-7777") === "11999997777" && celularCanonico("11999997777") === "11999997777"
+      && celularCanonico("5511999997777") === "11999997777");
+  ok("wa-numero: sem DDD, curto demais ou começando por 0 é recusado ANTES de gastar um código",
+    celularCanonico("99999-7777") === null && celularCanonico("") === null && celularCanonico("011999997777") === null);
+  ok("wa-numero: o celular legível tem DDD entre parênteses", celularLegivel("11999997777") === "(11) 99999-7777");
+  ok("wa-numero: a mensagem leva o código e o prazo", /123456/.test(mensagemDoCodigo("123456")) && /10 minutos/.test(mensagemDoCodigo("1")));
+  ok("wa-numero: a recusa do banco chega sem o prefixo técnico",
+    semPrefixoNumero("A4P-WAN-OCUPADO: este celular já está confirmado") === "este celular já está confirmado");
+
+  const acoes = readFileSync("src/app/configuracoes/seguranca/acoes.ts", "utf8");
+  const corpoPedir = acoes.slice(acoes.indexOf("export async function pedirCodigoNumeroAction"));
+  ok("wa-numero: o interruptor é conferido ANTES de gerar o código",
+    corpoPedir.indexOf("iaWhatsappLigada()") > -1 && corpoPedir.indexOf("iaWhatsappLigada()") < corpoPedir.indexOf("whatsapp_numero_pedir_codigo"));
+  ok("wa-numero: sem Twilio configurada, recusa ANTES de gerar (simulado nunca é enviado)",
+    corpoPedir.indexOf("statusNotificacoes().whatsapp") > -1 && corpoPedir.indexOf("statusNotificacoes().whatsapp") < corpoPedir.indexOf("whatsapp_numero_pedir_codigo"));
+  ok("wa-numero: o código é pedido pela CHAVE DE SERVIÇO com o id da SESSÃO (nunca um id do formulário)",
+    /admin\.rpc\("whatsapp_numero_pedir_codigo", \{ p_usuario: uid,/.test(corpoPedir) && /auth\.getUser\(\)/.test(corpoPedir));
+  ok("wa-numero: o código nunca vai para log nem volta à tela",
+    !/console\.(log|info|warn|error)/.test(acoes) && !/mensagem:[^\n]*\$\{codigo\}/.test(acoes));
+  const telas = ["src/components/configuracoes/NumeroWhatsappCard.tsx"].map((f) => readFileSync(f, "utf8")).join("\n");
+  ok("wa-numero: nenhuma tela chama a geração do código direto", !telas.includes("whatsapp_numero_pedir_codigo"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

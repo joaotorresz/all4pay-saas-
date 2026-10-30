@@ -168,7 +168,9 @@ export type FinalidadeTemplate =
   | "resumo_diario" | "lembrete_pagar" | "alerta_caixa" | "fechamento_pendente"
   | "fluxo_agendado"
   /** Os modelos ORGANIZADOS (linhas, seções e emojis no próprio modelo). */
-  | "resumo_caixa_dia" | "lembrete_pagar_dia" | "alerta_caixa_dia" | "fechamento_mes";
+  | "resumo_caixa_dia" | "lembrete_pagar_dia" | "alerta_caixa_dia" | "fechamento_mes"
+  /** O código que confirma o celular da Quattro AI (modelo de AUTENTICAÇÃO, variável 1 = código). */
+  | "codigo_whatsapp";
 
 /**
  * O modelo a usar quando o da `finalidade` ainda não está configurado.
