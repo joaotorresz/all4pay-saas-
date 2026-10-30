@@ -25,6 +25,8 @@ import type { CredencialMtls } from "@/lib/cobranca-banco/inter-saida";
 export interface RespostaItau {
   status: number;
   corpo: unknown;
+  /** O começo do corpo cru (até 500), para diagnóstico quando não é JSON. */
+  bruto?: string;
 }
 
 export class ErroPortaItau extends Error {
@@ -88,7 +90,7 @@ export async function requisicaoItau(opts: {
           } catch {
             corpo = null;
           }
-          resolve({ status: res.statusCode ?? 0, corpo });
+          resolve({ status: res.statusCode ?? 0, corpo, bruto: bruto.slice(0, 500) });
         });
         res.on("error", () => reject(new ErroPortaItau("A resposta do Itaú caiu no meio.", "apos_envio")));
       },

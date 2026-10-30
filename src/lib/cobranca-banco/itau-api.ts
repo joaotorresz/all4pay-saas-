@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  CAMINHOS_TOKEN_ITAU,
   caminhoConsultaItau,
   corpoBaixaItau,
   corpoTokenItau,
@@ -8,10 +9,12 @@ import {
   lerCriacaoItau,
   lerTokenItau,
   motivoDaRecusaItau,
+  motivoDoItau,
   nossoNumeroValido,
   pedidoCobrancaItau,
   problemasDaContaItau,
   type AmbienteItau,
+  type CaminhoTokenItau,
   type ContaItau,
 } from "@/core/cobranca-banco/itau";
 import { problemasDoPedido, type PedidoCobrancaBanco, type ResultadoCobrancaBanco } from "@/core/cobranca-banco";
@@ -45,6 +48,8 @@ export interface ConfigItau {
   clientSecret: string;
   mtls: CredencialMtls | null;
   conta: ContaItau;
+  /** Só no sandbox, pelo link de teste: `jwt` troca o caminho do token. */
+  caminhoToken?: CaminhoTokenItau;
 }
 
 export type TransporteItau = typeof requisicaoItau;
@@ -104,12 +109,15 @@ async function token(cfg: ConfigItau, transporte: TransporteItau, novo = false):
       ambiente: cfg.ambiente,
       servidor: "token",
       metodo: "POST",
-      caminho: "/api/oauth/token",
+      caminho: CAMINHOS_TOKEN_ITAU[cfg.ambiente === "sandbox" ? (cfg.caminhoToken ?? "token") : "token"],
       mtls: cfg.mtls,
       cabecalhos: { "content-type": "application/x-www-form-urlencoded", "x-itau-correlationID": randomUUID() },
       corpo: corpoTokenItau(cfg.clientId, cfg.clientSecret),
     });
-    if (r.status !== 200) throw new Error(`O Itaú recusou a credencial (${r.status}). Confira o Client ID, o Secret e o certificado.`);
+    if (r.status !== 200) {
+      const disse = motivoDoItau(r.corpo, r.bruto);
+      throw new Error(`O Itaú recusou a credencial (${r.status})${disse ? `: ${disse}` : ""}. Confira o Client ID, o Secret e o certificado.`);
+    }
     t = lerTokenItau(r.corpo);
   } catch (e) {
     throw new ErroPortaItau(e instanceof Error ? e.message : "Falha ao gerar o token do Itaú.", "antes_do_envio");

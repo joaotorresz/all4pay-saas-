@@ -47,10 +47,35 @@ export const BASES_ITAU: Record<AmbienteItau, { token: string; api: string }> = 
  */
 export const CAMINHOS_ITAU: readonly RegExp[] = [
   /^\/api\/oauth\/token$/,
+  /^\/api\/oauth\/jwt$/,
   /^\/pix_recebimentos_conciliacoes\/v2\/boletos_pix$/,
   /^\/boletoscash\/v2\/boletos\?[A-Za-z0-9=&%._-]+$/,
   /^\/boletoscash\/v2\/boletos\/\d{20,30}\/baixa$/,
 ];
+
+/**
+ * O caminho do token. Produção é `/api/oauth/token` (STS). No sandbox do
+ * portal o caminho não está confirmado: `jwt` existe para testar a outra
+ * hipótese pelo link, sem deploy (`?token=jwt`), e só vale no sandbox.
+ */
+export const CAMINHOS_TOKEN_ITAU = { token: "/api/oauth/token", jwt: "/api/oauth/jwt" } as const;
+export type CaminhoTokenItau = keyof typeof CAMINHOS_TOKEN_ITAU;
+
+/**
+ * O que o Itaú disse ao recusar, para a tela de teste: `error_description`,
+ * `error`, `message`/`mensagem` do JSON ou o começo do corpo cru (página de
+ * bloqueio). Curto, uma linha. Nunca leva o que NÓS enviamos.
+ */
+export function motivoDoItau(corpo: unknown, bruto: string | null | undefined): string | null {
+  if (obj(corpo)) {
+    for (const k of ["error_description", "error", "message", "mensagem", "detail", "title"]) {
+      const t = texto(corpo[k], 200);
+      if (t) return t.replace(/\s+/g, " ");
+    }
+  }
+  const b = (bruto ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return b ? b.slice(0, 200) : null;
+}
 
 export function caminhoPermitidoItau(caminho: string): boolean {
   return CAMINHOS_ITAU.some((r) => r.test(caminho));
