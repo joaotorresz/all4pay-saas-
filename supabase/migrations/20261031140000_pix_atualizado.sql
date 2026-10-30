@@ -239,8 +239,9 @@ begin
   end if;
 
   insert into public.pinbank_cobrancas (org_id, vinculo_id, movement_id, tipo, valor, vencimento, codigo_cliente,
-                                        dia_referencia, origem_regra)
-  values (m.org_id, v.id, m.id, 'pix', round(p_valor, 2), v_hoje, b.codigo_cliente, v_hoje, b.id)
+                                        dia_referencia, origem_regra, criado_por)
+  -- A página é pública: não há auth.uid(). O autor é quem emitiu o boleto de origem.
+  values (m.org_id, v.id, m.id, 'pix', round(p_valor, 2), v_hoje, b.codigo_cliente, v_hoje, b.id, b.criado_por)
   returning * into c;
 
   return jsonb_build_object(
