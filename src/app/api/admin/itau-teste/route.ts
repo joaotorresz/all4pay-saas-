@@ -28,6 +28,8 @@ import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, testar
  * `admin_exigir_acesso` (prazo, segundo fator, registro) → só então o Itaú.
  */
 export const runtime = "nodejs";
+/** São Paulo: o sandbox do Itaú barra no CloudFront o tráfego de fora do Brasil (30/10/2026). */
+export const preferredRegion = "gru1";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

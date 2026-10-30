@@ -102,3 +102,5 @@ do Itaú ou pelo gerente: Client ID, Client Secret e o certificado digital da
 integração, além da agência, da conta com o dígito, da carteira de cobrança
 (ex.: 109) e da chave Pix da conta. O formulário é o mesmo do Inter, e o segredo é cifrado do mesmo
 jeito.
+
+**30/10/2026 (2º teste):** com jwt e token, os dois deram 403 "Request blocked" do CloudFront em 12–24 ms. No navegador do dono, o mesmo pedido passa. Não é a credencial: é de onde o pedido sai. Agora a rota de teste roda em `gru1` (São Paulo) e a porta manda `User-Agent`. Se ainda assim for barrada, o próximo passo é sair por um IP fixo no Brasil, como já é feito com a Pinbank.
