@@ -5,7 +5,7 @@ import { problemasDoDevedor, type DevedorCobranca } from "@/core/pinbank/cobranc
  * (`cobranca-banco/1.0.0`), comum a todo banco que emite boleto e Pix.
  *
  * A Pinbank foi o primeiro provedor (`core/pinbank/cobranca`); o Inter é o
- * segundo (`./inter`), e os outros bancos entram por um agregador. Todos
+ * segundo (`./inter`) e o Itaú o terceiro (`docs/rodada-11/cobranca-itau.md`). Todos
  * recebem o MESMO pedido (o que a reserva leu do título) e devolvem o MESMO
  * resultado, para a tela, a régua e a baixa não saberem qual banco cobrou.
  *
@@ -25,13 +25,37 @@ import { problemasDoDevedor, type DevedorCobranca } from "@/core/pinbank/cobranc
 export const VERSAO_COBRANCA_BANCO = "cobranca-banco/1.0.0";
 
 /** Quem emite. Novo provedor entra aqui E ganha o seu leitor puro. */
-export type ProvedorCobranca = "pinbank" | "inter";
-export const PROVEDORES_COBRANCA: readonly ProvedorCobranca[] = ["pinbank", "inter"];
+export type ProvedorCobranca = "pinbank" | "inter" | "itau";
+export const PROVEDORES_COBRANCA: readonly ProvedorCobranca[] = ["pinbank", "inter", "itau"];
 
 export const NOME_DO_PROVEDOR: Record<ProvedorCobranca, string> = {
   pinbank: "Pinbank",
   inter: "Banco Inter",
+  itau: "Itaú",
 };
+
+/**
+ * Os bancos que a EMPRESA conecta com a credencial dela (Integrações). A
+ * Pinbank fica de fora: quem liga a conta Pinbank é a plataforma. A mesma
+ * lista mora no CHECK de `cobranca_banco_conexoes.provedor`.
+ */
+export type BancoConectavel = Exclude<ProvedorCobranca, "pinbank">;
+export const BANCOS_CONECTAVEIS: readonly BancoConectavel[] = ["inter", "itau"];
+
+/**
+ * Os que JÁ emitem: conectar e cobrar só abre para estes. Um banco entra aqui
+ * na mesma PR que traz a porta de rede dele — antes disso, aceitá-lo deixaria
+ * guardar uma credencial que nada sabe usar.
+ */
+export const BANCOS_QUE_EMITEM: readonly BancoConectavel[] = ["inter"];
+
+export function lerBancoConectavel(v: unknown): BancoConectavel | null {
+  return typeof v === "string" && (BANCOS_CONECTAVEIS as readonly string[]).includes(v) ? (v as BancoConectavel) : null;
+}
+
+export function bancoEmite(b: BancoConectavel): boolean {
+  return BANCOS_QUE_EMITEM.includes(b);
+}
 
 /** O que se cobra. `boleto_pix` é o boleto com o QR do Pix impresso (o "bolepix"). */
 export type TipoCobrancaBanco = "pix" | "boleto" | "boleto_pix";

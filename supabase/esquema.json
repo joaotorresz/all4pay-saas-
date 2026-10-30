@@ -200,6 +200,18 @@
         "impacto": "Até ser aplicada, o banco recusa o pedido de conta e a tela mostra a mensagem de erro; nenhum pedido de maquininha muda.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 28/10/2026 (conta Quattro pedida na baixa)"
+      },
+      {
+        "nome": "20261030120000_cobranca_banco_itau",
+        "motivo": "Cobrança pelo Itaú direto, etapa 1: o provedor itau passa a caber na conexão e na cobrança, e o conectar recusa um segundo banco vivo (uma conta recebe por vez). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "restrição cobranca_banco_conexoes_provedor_check com itau",
+          "restrição cobrancas_banco_provedor_check com itau",
+          "função cobranca_banco_conectar com a recusa do outro banco e a conferência do provedor"
+        ],
+        "impacto": "Até ser aplicada, o conectar segue como hoje (só o Inter). O servidor já recusa o Itaú até a etapa 4, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (cobrança pelo Itaú, etapa 1)"
       }
     ],
     "objetos_sem_migration": [

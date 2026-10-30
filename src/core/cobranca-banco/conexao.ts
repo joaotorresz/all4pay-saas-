@@ -1,4 +1,4 @@
-import type { DevedorCobranca, PedidoCobrancaBanco, TipoCobrancaBanco } from "@/core/cobranca-banco";
+import { lerBancoConectavel, type BancoConectavel, type DevedorCobranca, type PedidoCobrancaBanco, type TipoCobrancaBanco } from "@/core/cobranca-banco";
 
 /**
  * A CONTA BANCÁRIA CONECTADA e a RESERVA genérica (`cobranca-banco-conexao/1.0.0`),
@@ -12,7 +12,7 @@ import type { DevedorCobranca, PedidoCobrancaBanco, TipoCobrancaBanco } from "@/
  * nome da empresa.
  */
 
-export const VERSAO_CONEXAO_BANCO = "cobranca-banco-conexao/1.0.0";
+export const VERSAO_CONEXAO_BANCO = "cobranca-banco-conexao/1.1.0";
 
 export type AmbienteConexao = "sandbox" | "producao";
 
@@ -108,7 +108,7 @@ export function lerReservaBanco(v: unknown): ReservaBanco {
 export interface CredencialGuardada {
   id: string;
   orgId: string;
-  provedor: "inter";
+  provedor: BancoConectavel;
   ambiente: AmbienteConexao;
   clientId: string;
   contaCorrente: string | null;
@@ -121,11 +121,12 @@ export function lerCredencialGuardada(v: unknown): CredencialGuardada {
   const orgId = uuid(v.orgId);
   const clientId = texto(v.clientId, 200);
   const cifrado = typeof v.cifrado === "string" && v.cifrado.startsWith("v1.") ? v.cifrado : null;
-  if (!id || !orgId || v.provedor !== "inter" || (v.ambiente !== "sandbox" && v.ambiente !== "producao") || !clientId || !cifrado) {
+  const provedor = lerBancoConectavel(v.provedor);
+  if (!id || !orgId || !provedor || (v.ambiente !== "sandbox" && v.ambiente !== "producao") || !clientId || !cifrado) {
     throw new Error("Credencial incompleta.");
   }
   const conta = typeof v.contaCorrente === "string" && /^\d{1,20}$/.test(v.contaCorrente) ? v.contaCorrente : null;
-  return { id, orgId, provedor: "inter", ambiente: v.ambiente, clientId, contaCorrente: conta, cifrado };
+  return { id, orgId, provedor, ambiente: v.ambiente, clientId, contaCorrente: conta, cifrado };
 }
 
 /** O formulário "Conectar o Banco Inter", já lido como texto. */
