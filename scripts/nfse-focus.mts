@@ -29,7 +29,8 @@ const ROTAS = {
 };
 
 const EMITENTE = JSON.stringify({
-  "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "1.1506.10.00", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "000001" },
+  "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "1.1506.10.00", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "000001", codigoTributarioMunicipio: "03158" },
+  "org-cst": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "170302", codigoNbs: "115061000", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "200001", situacaoTributariaIbsCbs: "210", codigoTributarioMunicipio: "001" },
   "org-normal-sem-ibs": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "115061000" },
   "org-com-aliquota": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: true, aliquota: "2,9" },
   "org-aliquota-absurda": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", aliquota: 15 },
@@ -40,7 +41,7 @@ const EMITENTE = JSON.stringify({
   "org-cnpj-curto": { cnpj: "5457968800013", inscricaoMunicipal: "1", codigoMunicipio: "3550308" },
 });
 const NOTA = { id: "11111111-1111-1111-1111-111111111111", descricao: "Consultoria financeira de outubro", codigoServico: "17.01 — Assessoria / consultoria", valor: 1500.555, issRetido: false };
-const TOMADOR = { nome: "Cliente Alfa Ltda", documento: "12.345.678/0001-95", email: "fin@alfa.com.br", telefone: "(11) 98888-7777", cep: "01310-100", rua: "Av. Paulista", numero: "1000", uf: "sp" };
+const TOMADOR = { nome: "Cliente Alfa Ltda", documento: "12.345.678/0001-95", email: "fin@alfa.com.br", telefone: "(11) 98888-7777", cep: "01310-100", rua: "Av. Paulista", numero: "1000", uf: "sp", codigoMunicipio: "3550308" };
 
 type Caso = [nome: string, passou: boolean];
 
@@ -55,6 +56,9 @@ function casosDoMotor(m: Motor): Caso[] {
   const pf = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "529.982.247-25" }, e, "x") : null;
   const enor = emitentes["org-normal-sem-ibs"];
   const semIbs = enor ? m.montarPedido(NOTA, TOMADOR, enor, "x") : null;
+  const semMun = e ? m.montarPedido(NOTA, { ...TOMADOR, codigoMunicipio: null }, e, "x") : null;
+  const ec = emitentes["org-cst"];
+  const cstPed = ec ? m.montarPedido(NOTA, TOMADOR, ec, "x") : null;
   const base = "https://homologacao.focusnfe.com.br";
   const aut = m.interpretarConsulta({ status: "autorizado", numero: 87, codigo_verificacao: "AB12", url_danfse: "https://x/pdf", caminho_xml_nota_fiscal: "/arquivos/n.xml" }, base);
   const err = m.interpretarConsulta({ status: "erro_autorizacao", erros: [{ codigo: "E1", mensagem: "Inscrição municipal inválida", correcao: "Confira o CCM" }] }, base);
@@ -91,7 +95,10 @@ function casosDoMotor(m: Motor): Caso[] {
     ["pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta", !!semIbs && !semIbs.ok && semIbs.problemas.some((p) => p.includes("indicador de operação") && p.includes("classificação tributária"))],
     ["pedido: optante sem os códigos NÃO leva o grupo do IBS/CBS", !!comAliq && comAliq.ok && !("codigo_indicador_operacao" in comAliq.pedido.servico) && !("consumidor_final" in comAliq.pedido)],
     ["pedido: o código do serviço da plataforma vence o da nota", ok?.servico.item_lista_servico === "02800"],
-    ["pedido: endereço com UF em caixa alta e CEP em dígitos", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100"],
+    ["pedido: endereço com UF em caixa alta, CEP em dígitos e o IBGE da cidade", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100" && (ok?.tomador.endereco as Record<string, string> | undefined)?.codigo_municipio === "3550308"],
+    ["pedido: no leiaute da reforma, endereço sem o IBGE da cidade NÃO vai", !!semMun && semMun.ok && !("endereco" in semMun.pedido.tomador)],
+    ["pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado", ok?.servico.ibs_cbs_situacao_tributaria === "000" && !!cstPed && cstPed.ok && cstPed.pedido.servico.ibs_cbs_situacao_tributaria === "210"],
+    ["pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma", !!ok && !("codigo_tributario_municipio" in ok.servico) && !!cstPed && cstPed.ok && cstPed.pedido.servico.codigo_tributario_municipio === "001"],
     ["item da lista: 1.07 → 0107 e 17.01 → 1701", m.itemDaLista("1.07 — Suporte") === "0107" && m.itemDaLista("17.01 — x") === "1701"],
     ["referência: a tentativa seguinte nunca repete a anterior", m.proximaTentativa(null) === 1 && m.proximaTentativa(m.refDaTentativa("n", 1)) === 2 && m.refDaTentativa("n", 2) !== m.refDaTentativa("n", 1)],
     ["consulta: autorizado vira autorizada com número, PDF e XML absoluto", aut.estado === "autorizada" && aut.numero === "87" && aut.urlPdf === "https://x/pdf" && aut.urlXml === `${base}/arquivos/n.xml`],
@@ -172,6 +179,9 @@ await plantarMotor("emissão no relógio exato", "agoraMs - 60_000 - 3 * 3600_00
 await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigoTributacaoNacional) problemas.push', "if (false) problemas.push", "nacional: sem código de tributação o pedido é recusado ANTES de sair");
 await plantarMotor("Regime Normal sem IBS/CBS sai assim mesmo", "if (faltaIbs.length) problemas.push", "if (false) problemas.push", "pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta");
 await plantarMotor("grupo do IBS/CBS esquecido", "const ibsCbs = !emitente.optanteSimples ||", "const ibsCbs = false &&", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
+await plantarMotor("endereço sem IBGE vai assim mesmo", "else for (const k of Object.keys(endereco)) delete endereco[k];", "", "pedido: no leiaute da reforma, endereço sem o IBGE da cidade NÃO vai");
+await plantarMotor("CST esquecido", "ibs_cbs_situacao_tributaria: cst,", "", "pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado");
+await plantarMotor("código municipal de 5 dígitos no leiaute novo", "(!ibsCbs || /^\\d{3}$/.test(tribMun))", "true", "pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");
 await plantarMotor("status desconhecido autoriza", 'return { estado: "processando" };\n}', 'return { estado: "autorizada" };\n}', "consulta: status desconhecido é PROCESSANDO, nunca autorizada");
 await plantarMotor("referência fixa por nota", "return m ? Number(m[1]) + 1 : 1;", "return 1;", "referência: a tentativa seguinte nunca repete a anterior");
