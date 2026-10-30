@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  CAMINHOS_TOKEN_ITAU,
   caminhoConsultaItau,
   corpoBaixaItau,
   corpoTokenItau,
@@ -10,11 +9,11 @@ import {
   lerTokenItau,
   motivoDaRecusaItau,
   motivoDoItau,
+  TOKEN_ITAU,
   nossoNumeroValido,
   pedidoCobrancaItau,
   problemasDaContaItau,
   type AmbienteItau,
-  type CaminhoTokenItau,
   type ContaItau,
 } from "@/core/cobranca-banco/itau";
 import { problemasDoPedido, type PedidoCobrancaBanco, type ResultadoCobrancaBanco } from "@/core/cobranca-banco";
@@ -48,8 +47,6 @@ export interface ConfigItau {
   clientSecret: string;
   mtls: CredencialMtls | null;
   conta: ContaItau;
-  /** Só no sandbox, pelo link de teste: `jwt` troca o caminho do token. */
-  caminhoToken?: CaminhoTokenItau;
 }
 
 export type TransporteItau = typeof requisicaoItau;
@@ -109,7 +106,7 @@ async function token(cfg: ConfigItau, transporte: TransporteItau, novo = false):
       ambiente: cfg.ambiente,
       servidor: "token",
       metodo: "POST",
-      caminho: CAMINHOS_TOKEN_ITAU[cfg.ambiente === "sandbox" ? (cfg.caminhoToken ?? "token") : "token"],
+      caminho: TOKEN_ITAU[cfg.ambiente],
       mtls: cfg.mtls,
       cabecalhos: { "content-type": "application/x-www-form-urlencoded", "x-itau-correlationID": randomUUID() },
       corpo: corpoTokenItau(cfg.clientId, cfg.clientSecret),

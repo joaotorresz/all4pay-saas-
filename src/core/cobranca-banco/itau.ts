@@ -54,12 +54,12 @@ export const CAMINHOS_ITAU: readonly RegExp[] = [
 ];
 
 /**
- * O caminho do token. Produção é `/api/oauth/token` (STS). No sandbox do
- * portal o caminho não está confirmado: `jwt` existe para testar a outra
- * hipótese pelo link, sem deploy (`?token=jwt`), e só vale no sandbox.
+ * O caminho do token POR AMBIENTE. Produção é o STS (`/api/oauth/token`); o
+ * sandbox do portal é `/api/oauth/jwt` — medido em 30/10/2026: `/token` deu
+ * 403 e o "gerar token" do portal faz POST em `/jwt` e recebe 200 com as
+ * mesmas credenciais.
  */
-export const CAMINHOS_TOKEN_ITAU = { token: "/api/oauth/token", jwt: "/api/oauth/jwt" } as const;
-export type CaminhoTokenItau = keyof typeof CAMINHOS_TOKEN_ITAU;
+export const TOKEN_ITAU: Record<AmbienteItau, string> = { sandbox: "/api/oauth/jwt", producao: "/api/oauth/token" };
 
 /**
  * O que o Itaú disse ao recusar, para a tela de teste: `error_description`,

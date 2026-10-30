@@ -137,7 +137,7 @@ function transporte(roteiro: (o: any, n: number) => { status: number; corpo: unk
   return { fn: fn as any, chamadas };
 }
 const CFG = { ambiente: "sandbox" as const, clientId: "cid", clientSecret: "segredo-xyz", mtls: { certificado: "CERT", chave: "KEY" }, conta: CONTA };
-const TOKEN = "/api/oauth/token";
+const TOKEN = "/api/oauth/jwt"; // o CFG é do sandbox
 const EMITIR = "/pix_recebimentos_conciliacoes/v2/boletos_pix";
 const tokenOk = { status: 200, corpo: { access_token: "tok-1", expires_in: 3600 } };
 const criado = { status: 200, corpo: { data: titulo("em aberto") } };
@@ -224,15 +224,15 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
 }
 
 {
-  // O caminho do token: `jwt` só no sandbox; produção é sempre o STS.
+  // O caminho do token por ambiente: sandbox /jwt (medido), produção o STS /token.
   API.esquecerTokensItau();
-  const t = transporte((o) => (o.caminho === "/api/oauth/jwt" ? tokenOk : { status: 404, corpo: null }));
-  const r = await API.testarCredencialItau({ ...CFG, caminhoToken: "jwt" }, t.fn);
-  ok("token: ?token=jwt no sandbox usa /api/oauth/jwt", r.ok === true && t.chamadas[0]?.caminho === "/api/oauth/jwt", JSON.stringify(r));
+  const t = transporte((o) => (o.caminho === "/api/oauth/jwt" ? tokenOk : { status: 403, corpo: null }));
+  const r = await API.testarCredencialItau(CFG, t.fn);
+  ok("token: o sandbox pede o token em /api/oauth/jwt", r.ok === true && t.chamadas[0]?.caminho === "/api/oauth/jwt", JSON.stringify(r));
   API.esquecerTokensItau();
   const tp = transporte(() => tokenOk);
-  await API.testarCredencialItau({ ...CFG, ambiente: "producao", caminhoToken: "jwt" }, tp.fn);
-  ok("token: em produção o jwt é ignorado (sempre /api/oauth/token)", tp.chamadas[0]?.caminho === TOKEN);
+  await API.testarCredencialItau({ ...CFG, ambiente: "producao" }, tp.fn);
+  ok("token: a produção pede o token em /api/oauth/token (STS)", tp.chamadas[0]?.caminho === "/api/oauth/token" && tp.chamadas[0]?.servidor === "token");
   // A recusa diz o que o Itaú disse — JSON ou página — e nunca o segredo.
   API.esquecerTokensItau();
   const tj = transporte(() => ({ status: 403, corpo: { error: "invalid_client", error_description: "Client not authorized" } }));

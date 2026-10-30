@@ -90,8 +90,10 @@ falhou). O Itaú ganha o leitor puro e a porta de rede dele.
 o porquê. Agora a recusa traz o que o Itaú disse (`error_description` do JSON
 ou o texto da página de bloqueio, `motivoDoItau`), e `&token=jwt` no link
 testa o caminho `/api/oauth/jwt` no lugar de `/api/oauth/token` — SÓ no
-sandbox; a produção é sempre o STS. O caminho do token do sandbox do portal
-não está confirmado em documentação pública.
+sandbox; a produção é sempre o STS. **Confirmado pelo dono no portal:** o
+sandbox usa `/api/oauth/jwt` (o "gerar token" do portal recebe 200 ali com as
+mesmas credenciais). Virou o padrão do sandbox (`TOKEN_ITAU`) e o `&token=jwt`
+saiu do link.
 
 ## O que o cliente vai precisar (etapa 4)
 
@@ -100,3 +102,5 @@ do Itaú ou pelo gerente: Client ID, Client Secret e o certificado digital da
 integração, além da agência, da conta com o dígito, da carteira de cobrança
 (ex.: 109) e da chave Pix da conta. O formulário é o mesmo do Inter, e o segredo é cifrado do mesmo
 jeito.
+
+**30/10/2026 (2º teste):** com jwt e token, os dois deram 403 "Request blocked" do CloudFront em 12–24 ms. No navegador do dono, o mesmo pedido passa. Não é a credencial: é de onde o pedido sai. Agora a rota de teste roda em `gru1` (São Paulo) e a porta manda `User-Agent`. Se ainda assim for barrada, o próximo passo é sair por um IP fixo no Brasil, como já é feito com a Pinbank.

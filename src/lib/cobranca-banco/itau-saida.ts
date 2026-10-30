@@ -22,6 +22,9 @@ import type { CredencialMtls } from "@/lib/cobranca-banco/inter-saida";
  * ⚠️ O certificado, a chave e o token nunca aparecem em erro nem em log.
  */
 
+/** Cabeçalho de identificação: o WAF do Itaú recusa o pedido "nu" do Node. */
+export const USER_AGENT_ITAU = "Mozilla/5.0 (compatible; Quattro/1.0; +https://app.quattro.finance)";
+
 export interface RespostaItau {
   status: number;
   corpo: unknown;
@@ -66,6 +69,9 @@ export async function requisicaoItau(opts: {
         agent: false,
         headers: {
           accept: "application/json",
+          // O CloudFront na frente do sandbox barra pedido sem User-Agent de
+          // navegador (30/10/2026: "Request blocked" em 12 ms, sem chegar ao Itaú).
+          "user-agent": USER_AGENT_ITAU,
           ...(opts.corpo != null ? { "content-length": Buffer.byteLength(opts.corpo).toString() } : {}),
           ...opts.cabecalhos,
         },
