@@ -1039,8 +1039,16 @@ nova Home". Ela foi levada ao código com a MOLDURA do app junto:
   `"<Empresa>" <cobrancas+<8 hex>@COBRANCA_EMAIL_DOMINIO>` com resposta para a
   empresa (sem a variável, o remetente de sempre), com o cabeçalho e o rodapé
   da empresa; a página mostra a empresa (lista de permitidos do cadastro) e o
-  NOME do pagador só em aberto (migration `20261029150000`). Sem juros e multa
-  na página: o valor emitido é fixo. Ver `docs/rodada-10/cobranca.md`.
+  NOME do pagador só em aberto (migration `20261029150000`). Ver
+  `docs/rodada-10/cobranca.md`.
+  ⚠️ **Pix atualizado (30/10/2026, migration `20261031140000`):** vencida a
+  fatura, a página oferece "Gerar Pix com o valor de hoje" (original + multa
+  + juros da regra REGISTRADA no boleto, `pinbank_cobrancas.encargos`), que
+  vale até 23:59 e NÃO aceita pagamento depois. O banco recalcula o valor
+  (`pinbank_checkout_pix_reservar`, só service_role): um Pix vivo por título
+  e dia, 3 tentativas por dia. O Pix original continua pagável na Pinbank.
+  Nasce DESLIGADO (`PINBANK_PIX_ATUALIZADO=ligado`, lida só em
+  `lib/pinbank/api.ts`). Guarda `scripts/pix-atualizado.sql` (6 defeitos).
 
 ## ⚠️ COBRANÇA PELA CONTA BANCÁRIA DO CLIENTE (27/10/2026, `docs/rodada-11/cobranca-bancos.md`)
 

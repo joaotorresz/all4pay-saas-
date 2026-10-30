@@ -406,6 +406,12 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cobranca-encargos.sql
+      # O Pix atualizado da fatura vencida: só o servidor reserva, o valor bate
+      # com a regra do boleto, um por dia, 3 tentativas. 6 defeitos plantados.
+      - name: Guarda — Pix atualizado do link de pagamento
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pix-atualizado.sql
       # A cobrança pela conta bancária conectada (Inter, etapa 3): só quem
       # administra conecta, o segredo cifrado só a chave de serviço lê, uma
       # cobrança viva por título (contando a Pinbank), processando/incerta

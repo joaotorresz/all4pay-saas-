@@ -247,6 +247,18 @@
         "impacto": "Até ser aplicada, o webhook com WHATSAPP_IA=ligado não reconhece ninguém e segue com a resposta padrão. O interruptor nasce desligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapas 2 a 4)"
+      },
+      {
+        "nome": "20261031140000_pix_atualizado",
+        "motivo": "Pix atualizado no link de pagamento: depois do vencimento a página pública gera um Pix com o valor do dia (multa e juros do boleto), válido até 23:59. A reserva é só do servidor e o banco confere o valor. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas pinbank_cobrancas.dia_referencia e origem_regra, e o índice pinbank_cobrancas_pix_do_dia",
+          "função pinbank_checkout_pix_reservar",
+          "pinbank_cobranca_reservar e pinbank_checkout_ler com o Pix do dia"
+        ],
+        "impacto": "Até ser aplicada, o botão do Pix do dia recusa o pedido. Ele só aparece com PINBANK_PIX_ATUALIZADO=ligado, que nasce desligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (Pix atualizado)"
       }
     ],
     "objetos_sem_migration": [
