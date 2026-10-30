@@ -31,6 +31,10 @@ alter table public.whatsapp_numeros_usuario
 
 -- As perguntas (o teto por hora). Sem o TEXTO: o texto vai para a trilha da
 -- empresa, que tem dono; esta tabela só conta.
+-- ⚠️ FORA DA TRILHA genérica, e de propósito: cada pergunta já vai à trilha
+-- pela própria `whatsapp_ia_reservar` (`whatsapp_ia.pergunta`), e o gatilho
+-- genérico a registraria duas vezes. Declarado também em
+-- `scripts/trilha-completa.sql`.
 create table if not exists public.whatsapp_ia_perguntas (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
