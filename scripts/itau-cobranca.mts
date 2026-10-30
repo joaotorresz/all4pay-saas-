@@ -1,10 +1,14 @@
 /**
  * A COBRANÇA DO ITAÚ — a guarda (`npm run itau-cobranca`).
  *
- * Duas partes:
+ * Três partes:
  *   1. As regras puras (`core/cobranca-banco/itau.ts`) sobre respostas no
  *      formato da API de boleto com Pix do Itaú: emissão, consulta, aviso.
- *   2. DEFEITOS PLANTADOS em cópias do core: cada um tem de derrubar o caso
+ *   2. O cliente (`lib/cobranca-banco/itau-api.ts`) dirigido por um
+ *      transporte de mentira: token guardado, 401 repetido UMA vez, queda
+ *      ANTES do envio vira `falhou` e DEPOIS vira `incerta`, pedido com
+ *      problema nem sai, mTLS obrigatório em produção.
+ *   3. DEFEITOS PLANTADOS em cópias do core: cada um tem de derrubar o caso
  *      que o nomeia. Guarda que nunca reprovou é decoração.
  */
 import fs from "node:fs";
@@ -118,6 +122,108 @@ for (const [nome, prova] of CASOS) {
   try { r = prova(M); } catch (e) { ok(nome, false, String(e)); continue; }
   ok(nome, r);
 }
+
+/* ── 2. O cliente, por um transporte de mentira ── */
+const API = await import("@/lib/cobranca-banco/itau-api");
+const { ErroPortaItau, requisicaoItau } = await import("@/lib/cobranca-banco/itau-saida");
+function transporte(roteiro: (o: any, n: number) => { status: number; corpo: unknown } | Error) {
+  const chamadas: any[] = [];
+  const fn = async (o: any) => {
+    chamadas.push(o);
+    const r = roteiro(o, chamadas.length);
+    if (r instanceof Error) throw r;
+    return r;
+  };
+  return { fn: fn as any, chamadas };
+}
+const CFG = { ambiente: "sandbox" as const, clientId: "cid", clientSecret: "segredo-xyz", mtls: { certificado: "CERT", chave: "KEY" }, conta: CONTA };
+const TOKEN = "/api/oauth/token";
+const EMITIR = "/pix_recebimentos_conciliacoes/v2/boletos_pix";
+const tokenOk = { status: 200, corpo: { access_token: "tok-1", expires_in: 3600 } };
+const criado = { status: 200, corpo: { data: titulo("em aberto") } };
+const HOJE = "2026-10-30";
+const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) => x.caminho === c);
+
+{
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : criado));
+  const r1 = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  const r2 = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  ok("cliente: emite e devolve emitida com a linha e o Pix", r1.situacao === "emitida" && r2.situacao === "emitida" && (r1 as any).idProvedor === ID, JSON.stringify(r1));
+  ok("cliente: o token é pedido UMA vez para duas cobranças, no servidor de token", chamadasA(t, TOKEN).length === 1 && chamadasA(t, TOKEN)[0].servidor === "token");
+  const cob = chamadasA(t, EMITIR)[0];
+  ok("cliente: a cobrança vai na API com Bearer, apikey, correlationID e mTLS", cob?.servidor === "api" && cob?.metodo === "POST"
+    && cob?.cabecalhos.authorization === "Bearer tok-1" && cob?.cabecalhos["x-itau-apikey"] === "cid"
+    && /^[0-9a-f-]{36}$/.test(cob?.cabecalhos["x-itau-correlationID"] ?? "") && cob?.mtls?.certificado === "CERT");
+  ok("cliente: o corpo enviado é o pedido do core, com o nosso número", JSON.parse(cob.corpo).dado_boleto.dados_individuais_boleto[0].numero_nosso_numero === NN);
+  ok("cliente: o segredo só vai no corpo do token, nunca na cobrança", !JSON.stringify(t.chamadas.filter((c) => c.caminho !== TOKEN)).includes("segredo-xyz"));
+}
+{
+  API.esquecerTokensItau();
+  const t = transporte(() => criado);
+  const r1 = await API.emitirCobrancaItau(CFG, { ...PEDIDO, valor: 1 }, NN, HOJE, t.fn);
+  const r2 = await API.emitirCobrancaItau(CFG, PEDIDO, "1234", HOJE, t.fn);
+  const r3 = await API.emitirCobrancaItau({ ...CFG, conta: { ...CONTA, chavePix: "" } }, PEDIDO, NN, HOJE, t.fn);
+  ok("cliente: pedido, nosso número ou conta com problema é falhou e NADA sai", [r1, r2, r3].every((r) => r.situacao === "falhou") && t.chamadas.length === 0);
+}
+{
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? { status: 401, corpo: {} } : criado));
+  const r = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  ok("cliente: credencial recusada é FALHOU (a cobrança nem saiu)", r.situacao === "falhou" && chamadasA(t, EMITIR).length === 0, JSON.stringify(r));
+}
+{
+  API.esquecerTokensItau();
+  let n = 0;
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : n++ === 0 ? { status: 401, corpo: {} } : criado));
+  const r = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  ok("cliente: 401 na cobrança renova o token e repete UMA vez", r.situacao === "emitida" && chamadasA(t, TOKEN).length === 2 && chamadasA(t, EMITIR).length === 2);
+}
+{
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : new ErroPortaItau("caiu", "apos_envio")));
+  const r = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  ok("cliente: queda DEPOIS do envio é INCERTA e não repete", r.situacao === "incerta" && chamadasA(t, EMITIR).length === 1);
+}
+{
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : new ErroPortaItau("sem conexão", "antes_do_envio")));
+  const r = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  ok("cliente: falha ANTES do envio é falhou", r.situacao === "falhou");
+}
+{
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 404, corpo: {} }));
+  const r = await API.consultarCobrancaItau(CFG, NN, t.fn);
+  const c = t.chamadas.find((x) => x.caminho !== TOKEN);
+  ok("cliente: consulta 404 é incerta, nunca cancelada, e vai por GET ao caminho do core",
+    r.situacao === "incerta" && c?.metodo === "GET" && c?.caminho === M.caminhoConsultaItau(CONTA, NN));
+}
+{
+  API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 200, corpo: {} }));
+  const r = await API.baixarCobrancaItau(CFG, NN, t.fn);
+  const c = t.chamadas.find((x) => /baixa$/.test(x.caminho));
+  ok("cliente: a baixa vai por PATCH ao título inteiro (beneficiário + carteira + nosso número)", r.ok && c?.metodo === "PATCH" && c?.caminho === `/boletoscash/v2/boletos/${ID}/baixa`);
+}
+{
+  const r = API.configItauDoAmbiente({ ITAU_AMBIENTE: "producao", ITAU_CLIENT_ID: "cid", ITAU_CLIENT_SECRET: "nao-pode-aparecer" });
+  ok("config: em produção faltam certificado, chave e conta, ditos pelo NOME, nunca pelo valor",
+    "faltam" in r && r.faltam.some((f) => f.startsWith("ITAU_CERTIFICADO")) && r.faltam.some((f) => f.startsWith("ITAU_CHAVE_PRIVADA"))
+    && r.faltam.some((f) => /agência/.test(f)) && !JSON.stringify(r).includes("nao-pode-aparecer"));
+  const sb = API.configItauDoAmbiente({ ITAU_AMBIENTE: "sandbox", ITAU_CLIENT_ID: "cid", ITAU_CLIENT_SECRET: "s", ITAU_AGENCIA: "1500", ITAU_CONTA: "56789", ITAU_DAC: "9", ITAU_CARTEIRA: "109", ITAU_CHAVE_PIX: "x@y.com" });
+  ok("config: o sandbox anda sem certificado", "config" in sb && sb.config.mtls === null);
+}
+{
+  let erro: any = null;
+  try { await requisicaoItau({ ambiente: "producao", servidor: "api", metodo: "POST", caminho: EMITIR, mtls: null }); } catch (e) { erro = e; }
+  ok("porta: produção sem certificado é recusada ANTES de sair", erro instanceof ErroPortaItau && erro.fase === "antes_do_envio");
+  erro = null;
+  try { await requisicaoItau({ ambiente: "sandbox", servidor: "api", metodo: "POST", caminho: "/pix/v2/pagamentos", mtls: null }); } catch (e) { erro = e; }
+  ok("porta: caminho fora da lista (Pix de saída) é recusado ANTES de sair", erro instanceof ErroPortaItau && erro.fase === "antes_do_envio");
+}
+
+/* ── 3. Defeitos plantados ── */
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "itau-mutante-"));
 const fonte = fs.readFileSync(ARQ, "utf8");
