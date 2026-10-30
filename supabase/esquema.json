@@ -214,6 +214,18 @@
         "origem": "sessão Claude de 30/10/2026 (cobrança pelo Itaú, etapa 1)"
       },
       {
+        "nome": "20261031120000_cobranca_encargos",
+        "motivo": "Multa e juros da cobrança: a regra por empresa (cobranca_encargos, só quem administra grava) e o encargo registrado em cada boleto, lido pela página do link. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cobranca_encargos e a função cobranca_encargos_definir",
+          "coluna pinbank_cobrancas.encargos",
+          "pinbank_cobranca_registrar e pinbank_checkout_ler com o encargo"
+        ],
+        "impacto": "Até ser aplicada, a tela de multa e juros não grava e a página do link mostra \"Não cobrados\". O boleto continua saindo sem encargo, como hoje.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (multa e juros da cobrança)"
+      },
+      {
         "nome": "20261030150000_whatsapp_numero_usuario",
         "motivo": "IA no WhatsApp, etapa 1: o celular de quem conversa com a Quattro AI, confirmado por código enviado ao próprio número. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [

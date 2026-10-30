@@ -9751,16 +9751,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const c = `${dir}/${e.name}`;
     if (e.isDirectory()) return semPagar(c);
     if (!/\.(tsx?|mts)$/.test(e.name)) return [];
-    return /(?<![\w-])\/pagar\//.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
+    return /(?<![\w-])\/pagar\/(?!boleto\b)/.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
   });
   const comPagar = semPagar("src");
   // ⚠️ A página `/pagar` passou a existir em 22/10/2026 (decisão do dono: o
   // checkout Pix/boleto da conta Pinbank), mas só pelo TOKEN do link
   // (`?t=`), lendo `pinbank_checkout_ler`. O link de VENDA continua entregando
-  // o PIX estático: nenhum endereço `/pagar/<id>` existe.
+  // o PIX estático: nenhum endereço `/pagar/<id>` existe. (`/pagar/boleto`,
+  // de 30/10/2026, é o boleto do MESMO link, também pelo token.)
   const paginaPagar = fsV.existsSync("src/app/pagar/page.tsx") ? semComentario(fsV.readFileSync("src/app/pagar/page.tsx", "utf8")) : "";
   ok("vender/links: nenhum href/URL para /pagar/<id>; a página /pagar só abre pelo token do checkout",
-     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /pinbank_checkout_ler/.test(paginaPagar)), comPagar.join(" "));
+     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /lerLinkDePagamento\(/.test(paginaPagar)), comPagar.join(" "));
   ok("vender/links: o QR e o botão copiam o PIX (pixDoLink), não uma URL",
      /qrParaSVG\(gerarQR\(pix\)/.test(outras) && /writeText\(pix\)/.test(outras) && !/urlDoLink|window\.location\.origin/.test(outras));
   const formLink = fnDe(outras, "function FormLink(");
@@ -12330,7 +12331,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const iUser = x.indexOf("auth.getUser()");
     const iLib = x.indexOf("cobrancaPinbankLiberada()");
     const iRes = x.indexOf('s.rpc("pinbank_cobranca_reservar"');
-    const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+    const iRede = x.indexOf("emitirCobrancaPinbank(reserva");
     const iReg = x.indexOf("pinbank_cobranca_registrar");
     return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
   };
@@ -12368,6 +12369,52 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const bol205 = CB.pedidoBoleto({ ...res, valor: 2.05, tipo: "boleto" } as never, 1919) as { Valor?: number; DataVencimento?: string };
     ok("cobranca-pinbank: o valor do boleto vai em CENTAVOS (R$ 2,05 → 205, arredondado e não truncado)", bol205.Valor === 205, String(bol205.Valor));
     ok("cobranca-pinbank: o vencimento do boleto vai AAAAMMDD (com hífen a Pinbank recusou)", bol205.DataVencimento === "20261029", String(bol205.DataVencimento));
+    const bolJoao = CB.pedidoBoleto({ ...res, devedor: { ...res.devedor, nome: "João Conceição" }, tipo: "boleto" } as never, 1919) as { DadosSacado?: { Nome?: string; Cidade?: string } };
+    ok("cobranca-pinbank: o nome do boleto vai SEM acento (\"João\" saía \"Jo o\" no app de quem paga)",
+       bolJoao.DadosSacado?.Nome === "Joao Conceicao" && bolJoao.DadosSacado?.Cidade === "Sao Paulo", JSON.stringify(bolJoao.DadosSacado));
+    ok("cobranca-pinbank: o texto do boleto troca o que não é ASCII por espaço, sem espaço dobrado", CB.textoDoBoleto("A  \u2014 B") === "A B", CB.textoDoBoleto("A  \u2014 B"));
+    // MULTA E JUROS (30/10/2026): a regra da empresa, a conta da página e o boleto.
+    const F = await import("@/core/cobranca/fatura");
+    const regra = { multaPct: 2, jurosMesPct: 1, carenciaDias: 0, aceitarAteDias: null };
+    const e10 = F.encargosDaFatura(1000, "2026-10-10", "2026-10-20", regra);
+    ok("encargos: R$ 1.000 pago 10 dias depois com 2% + 1% a.m. = multa 20,00 + juros 3,33 = 1.023,33",
+       e10.multa === 20 && e10.juros === 3.33 && e10.total === 1023.33 && e10.diasAtraso === 10, JSON.stringify(e10));
+    ok("encargos: no dia do vencimento não há encargo", F.encargosDaFatura(1000, "2026-10-10", "2026-10-10", regra).total === 1000);
+    const tol = { ...regra, carenciaDias: 3 };
+    ok("encargos: dentro da tolerância (3º dia) não cobra; no 4º cobra multa + os 4 dias de juros",
+       F.encargosDaFatura(1000, "2026-10-10", "2026-10-13", tol).total === 1000
+         && F.encargosDaFatura(1000, "2026-10-10", "2026-10-14", tol).juros === 1.33);
+    const lim = F.encargosDaFatura(1000, "2026-10-10", "2026-10-21", { ...regra, aceitarAteDias: 10 });
+    ok("encargos: passou do prazo aceito = expirada, com a data-limite", lim.expirada && lim.aceitaAte === "2026-10-20", JSON.stringify(lim));
+    ok("encargos: sem regra, o valor não muda (o boleto sem encargo)", F.encargosDaFatura(1000, "2026-10-10", "2026-12-10", null).total === 1000);
+    ok("encargos: a faixa recusa multa de 11%, tolerância quebrada e prazo antes da tolerância",
+       F.problemasDaRegra({ ...regra, multaPct: 11 }).length === 1 && F.problemasDaRegra({ ...regra, carenciaDias: 1.5 }).length === 1
+         && F.problemasDaRegra({ ...regra, carenciaDias: 10, aceitarAteDias: 5 }).length === 1 && F.problemasDaRegra(regra).length === 0);
+    ok("encargos: acima de 2% de multa a tela avisa (CDC)", F.avisosDaRegra({ ...regra, multaPct: 3 }).length === 1 && F.avisosDaRegra(regra).length === 0);
+    ok("encargos: a regra gravada fora do formato é ignorada (sem encargo, nunca um número inventado)",
+       F.lerRegraEncargos({ multaPct: "x", jurosMesPct: 1, carenciaDias: 0 }) === null && F.lerRegraEncargos(null) === null
+         && F.lerRegraEncargos({ multaPct: 2, jurosMesPct: 1, carenciaDias: 0 })?.aceitarAteDias === null);
+    const bolEnc = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919, { multaPct: 2, jurosMesPct: 1 }) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
+    ok("encargos: com a regra, o boleto leva Multa 200 e Juros 100 (centésimos de %, hipótese a confirmar)", bolEnc.Multa?.Valor === 200 && bolEnc.Juros?.Valor === 100, JSON.stringify(bolEnc));
+    const fatura = semComF(lerF("src/components/checkout/FaturaView.tsx"));
+    ok("encargos: a página lê a regra REGISTRADA no boleto, nunca a configuração de hoje",
+       /lerRegraEncargos\(boletoEmitido\.encargos\)/.test(fatura) && !/cobranca_encargos/.test(fatura));
+    ok("encargos: com multa e juros correndo, a página esconde o Pix (valor fixo, pagaria menos)", /!comEncargo \? r\.cobrancas\.find\(\(x\) => x\.tipo === "pix"/.test(fatura));
+    const leEnc = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_BOLETO_ENCARGOS/.test(semComF(ler(p))));
+    ok("encargos: PINBANK_BOLETO_ENCARGOS só é lida pelo cliente da API e está no .env.example",
+       leEnc(lerF).length === 0 && /PINBANK_BOLETO_ENCARGOS/.test(semComF(lerF(P_API))) && /^#?\s*PINBANK_BOLETO_ENCARGOS=/m.test(docEnv), leEnc(lerF).join(", "));
+    ok("encargos: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
+       leEnc((p) => (p === ROTA_COB ? lerF(p) + "\nconst l = process.env.PINBANK_BOLETO_ENCARGOS;" : lerF(p))).includes(ROTA_COB));
+    // O código de barras da página do boleto (ITF, FEBRABAN). Decodificado por
+    // leitor de verdade (zxing) em 30/10/2026; aqui fica a forma: início
+    // 4 estreitos, 5 elementos por dígito com 2 largos (3×), fim largo-estreito-estreito.
+    const ITF = await import("@/lib/itf");
+    const elItf = ITF.elementosITF("0123456789");
+    ok("boleto-itf: início, fim e 2 largos por dígito",
+       elItf.slice(0, 4).join() === "1,1,1,1" && elItf.slice(-3).join() === "3,1,1" && elItf.length === 4 + 50 + 3 && elItf.filter((w) => w === 3).length === 2 * 10 + 1, elItf.join());
+    let itfImpar = false;
+    try { ITF.elementosITF("123"); } catch { itfImpar = true; }
+    ok("boleto-itf: número ÍMPAR de dígitos é recusado (o ITF intercala em pares)", itfImpar);
   }
   /* ── mensalidade-pinbank: a mensalidade do ERP pela conta da QUATTRO ─── */
   {
@@ -12417,21 +12464,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "", PINBANK_COBRANCA: "ligado" }).liberada);
   }
   /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
-  const PG_PAGAR = "src/app/pagar/page.tsx";
+  // A leitura mora em `lib/checkout-leitura` (30/10/2026): a fatura e o
+  // boleto para imprimir leem o MESMO link pela MESMA função.
+  const PG_PAGAR = "src/lib/checkout-leitura.ts";
   const pagPagar = lerF(PG_PAGAR);
+  const usaLeitura = (p: string) => /lerLinkDePagamento\(tokenDoLink\(|lerLinkDePagamento\(t\)/.test(semComF(lerF(p))) && /export const dynamic = "force-dynamic"/.test(lerF(p));
+  ok("checkout-pinbank: /pagar e /pagar/boleto leem pela leitura única, sem cache", usaLeitura("src/app/pagar/page.tsx") && usaLeitura("src/app/pagar/boleto/page.tsx"));
   // A leitura pública só pela chave de serviço, DEPOIS do interruptor e do token conferido.
   const leituraPublica = (t: string) => {
     const x = semComF(t);
     const iTok = x.indexOf("TOKEN.test(token)");
     const iLib = x.indexOf("cobrancaPinbankLiberada()");
     const iRpc = x.indexOf('admin.rpc("pinbank_checkout_ler"');
-    return iTok > 0 && iLib > iTok && iRpc > iLib && /export const dynamic = "force-dynamic"/.test(t);
+    return iTok > 0 && iLib > iTok && iRpc > iLib;
   };
   ok("checkout-pinbank: a página confere token → interruptor → só então lê pela chave de serviço", leituraPublica(pagPagar));
   ok("checkout-pinbank: (defeito plantado) ler antes do interruptor é REPROVADO",
      !leituraPublica(pagPagar.replace("  if (!cobrancaPinbankLiberada().liberada) return \"fora_do_ar\";\n", "")));
   const leFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== PG_PAGAR && /pinbank_checkout_ler/.test(semComF(ler(p))));
-  ok("checkout-pinbank: só a página pública chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
+  ok("checkout-pinbank: só a leitura do link público chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
   ok("checkout-pinbank: (defeito plantado) o modal chamando a leitura pública é ACUSADO",
      leFora((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\nfetch("pinbank_checkout_ler");' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
   const ROTA_LINK = "src/app/api/pinbank/checkout/route.ts";
@@ -12441,7 +12492,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("checkout-pinbank: (defeito plantado) criar o link pela chave de serviço é ACUSADO",
      !linkComoPessoa(rotaLink.replace('s.rpc("pinbank_checkout_link_criar"', 'admin.rpc("pinbank_checkout_link_criar"')));
   const mw = lerF("src/middleware.ts");
-  ok("checkout-pinbank: /pagar é pública no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)));
+  ok("checkout-pinbank: /pagar e /pagar/boleto são públicas no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)) && /pathname === "\/pagar\/boleto"/.test(semComF(mw)));
   /* ── checkout-email: o link de pagamento por e-mail, no modelo da Asaas ── */
   {
     const AU = await import("@/core/automacoes");

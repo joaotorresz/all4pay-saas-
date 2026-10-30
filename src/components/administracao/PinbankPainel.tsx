@@ -25,10 +25,14 @@
 import * as React from "react";
 import { Card, Button, Input, CurrencyInput, Select, Switch, StatusBadge, BRL } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
+import { formatBRL } from "@/lib/format";
+import {
+  REGRA_PADRAO, avisosDaRegra, encargosDaFatura, problemasDaRegra, type RegraEncargos,
+} from "@/core/cobranca/fatura";
 import { useContasBancarias } from "@/components/registros/hooks";
 import { usePermissoes } from "@/components/app/usePermissoes";
 import {
-  lerPinbank, configurarVinculo, configurarCobranca, reprocessarPinbank, SITUACOES_PENDENTES,
+  lerPinbank, configurarVinculo, configurarCobranca, lerEncargos, definirEncargos, reprocessarPinbank, SITUACOES_PENDENTES,
   type EstadoPinbank, type VinculoTela,
 } from "@/lib/pinbank/cliente";
 import { PRAZOS_PADRAO, TARIFA_FIXA_MAXIMA, ANTECIPACAO_MENSAL_MAXIMA, type PrazosPinbank, type TaxasPinbank } from "@/core/pinbank";
@@ -346,6 +350,7 @@ function VinculoForm({
         )}
 
         <CobrancaDaConta vinculo={vinculo} administra={administra} toast={toast} onSalvo={() => onSalvo(false)} />
+        {vinculo.cobranca_ativa && <EncargosDaCobranca administra={administra} toast={toast} />}
 
         {administra && <PinbankConferencia vinculo={vinculo} />}
       </div>
@@ -394,6 +399,106 @@ function CobrancaDaConta({
         label="Cobrar títulos a receber por Pix e boleto pela conta Pinbank" />
       {!vinculo.cobranca_ativa && pendencia && (
         <span className="text-caption text-muted max-w-[80ch]">{pendencia}</span>
+      )}
+    </div>
+  );
+}
+
+/** "2,5" → 2.5; vazio → NaN (o campo obrigatório reprova; o opcional vira null). */
+function numeroDigitado(v: string): number {
+  const t = v.trim().replace(/\./g, "").replace(",", ".");
+  return t === "" ? NaN : Number(t);
+}
+const comVirgula = (n: number) => String(n).replace(".", ",");
+
+/**
+ * MULTA E JUROS DO BOLETO (30/10/2026, pedido do dono): a regra da empresa.
+ * Só quem administra muda; o banco confere a faixa de novo. O exemplo embaixo
+ * sai da MESMA conta que a página do link usa (`encargosDaFatura`).
+ */
+function EncargosDaCobranca({ administra, toast }: { administra: boolean; toast: (s: string) => void }) {
+  const [carregado, setCarregado] = React.useState(false);
+  const [gravada, setGravada] = React.useState<RegraEncargos | null>(null);
+  const [multa, setMulta] = React.useState(comVirgula(REGRA_PADRAO.multaPct));
+  const [juros, setJuros] = React.useState(comVirgula(REGRA_PADRAO.jurosMesPct));
+  const [carencia, setCarencia] = React.useState("0");
+  const [aceitarAte, setAceitarAte] = React.useState("");
+  const [salvando, setSalvando] = React.useState(false);
+
+  React.useEffect(() => {
+    let vivo = true;
+    lerEncargos()
+      .then((r) => {
+        if (!vivo) return;
+        setGravada(r);
+        if (r) {
+          setMulta(comVirgula(r.multaPct));
+          setJuros(comVirgula(r.jurosMesPct));
+          setCarencia(String(r.carenciaDias));
+          setAceitarAte(r.aceitarAteDias === null ? "" : String(r.aceitarAteDias));
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => vivo && setCarregado(true));
+    return () => { vivo = false; };
+  }, []);
+
+  const regra: RegraEncargos = {
+    multaPct: numeroDigitado(multa),
+    jurosMesPct: numeroDigitado(juros),
+    carenciaDias: numeroDigitado(carencia),
+    aceitarAteDias: aceitarAte.trim() === "" ? null : numeroDigitado(aceitarAte),
+  };
+  const problemas = problemasDaRegra(regra);
+  const avisos = problemas.length ? [] : avisosDaRegra(regra);
+  const exemplo = problemas.length ? null : encargosDaFatura(1000, "2026-01-10", "2026-01-20", regra);
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      await definirEncargos(regra);
+      setGravada(regra);
+      toast("Multa e juros salvos. Valem para os boletos emitidos daqui em diante.");
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (!carregado) return null;
+  const travado = !administra || salvando;
+  return (
+    <div className="flex flex-col gap-3" aria-label="Multa e juros do boleto">
+      <span className="a4p-label text-muted">Multa e juros do boleto</span>
+      <span className="text-caption text-muted max-w-[80ch]">
+        {gravada
+          ? "Cobrados pelo banco quando o cliente paga o boleto depois do vencimento. O Pix tem valor fixo e não leva encargo."
+          : "Ainda sem regra: o boleto sai sem multa e sem juros. Os valores abaixo são o padrão permitido para consumidor."}
+      </span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Input label="Multa" suffix="%" inputMode="decimal" value={multa} onChange={(e) => setMulta(e.target.value)} disabled={travado} />
+        <Input label="Juros ao mês" suffix="%" inputMode="decimal" value={juros} onChange={(e) => setJuros(e.target.value)} disabled={travado} />
+        <Input label="Cobrar a partir de" suffix="dias" inputMode="numeric" value={carencia} onChange={(e) => setCarencia(e.target.value)} disabled={travado} />
+        <Input label="Aceitar pagamento até" suffix="dias" inputMode="numeric" placeholder="Sem limite" value={aceitarAte} onChange={(e) => setAceitarAte(e.target.value)} disabled={travado} />
+      </div>
+      <span className="text-caption text-muted max-w-[80ch]">
+        “Cobrar a partir de” é a tolerância depois do vencimento (0 = no dia seguinte). “Aceitar pagamento até” é quantos dias depois do vencimento o boleto ainda pode ser pago.
+      </span>
+      {problemas.map((p) => <span key={p} className="text-caption text-negative">{p}</span>)}
+      {avisos.map((a) => <span key={a} className="text-caption text-warning">{a}</span>)}
+      {exemplo && (
+        <span className="text-caption text-ink max-w-[80ch]">
+          Exemplo: um boleto de {formatBRL(1000)} pago 10 dias depois do vencimento fica em{" "}
+          <span className="tabular-nums">{formatBRL(exemplo.total)}</span>
+          {exemplo.total > 1000 ? ` (multa de ${formatBRL(exemplo.multa)} e juros de ${formatBRL(exemplo.juros)})` : " (dentro da tolerância, sem encargo)"}
+          {exemplo.expirada ? ", mas já passou do prazo que a empresa aceita." : "."}
+        </span>
+      )}
+      {administra ? (
+        <div><Button variant="secondary" disabled={salvando || problemas.length > 0} onClick={salvar}>Salvar multa e juros</Button></div>
+      ) : (
+        <span className="text-caption text-muted">Só quem administra a empresa muda a multa e os juros.</span>
       )}
     </div>
   );

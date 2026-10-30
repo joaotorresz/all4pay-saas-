@@ -190,6 +190,7 @@ export const INVENTARIO: RotaInventario[] = [
   // Pública: é a página que o CLIENTE da empresa abre para pagar o título por
   // Pix ou boleto (`/pagar?t=<token>`). Ele não tem conta no sistema.
   { rota: "/pagar", nome: "Pagamento", dono: "vendas", status: "canonica", criterio: "diferencial" },
+  { rota: "/pagar/boleto", nome: "Boleto do link de pagamento", dono: "vendas", status: "canonica", criterio: "diferencial" },
   // A porta de entrada: três campos, uma tela.
   { rota: "/criar-conta", nome: "Criar conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   // O fim do "esqueci a senha": só abre com a sessão de recuperação que a
