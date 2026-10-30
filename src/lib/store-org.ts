@@ -219,7 +219,7 @@ export const CHAVES_DE_NEGOCIO: string[] = Object.values(CHAVES_ORG);
  * um esquecimento.
  */
 export const PREFERENCIAS_LOCAIS: string[] = [
-  "a4p_theme", "a4p_theme_draft", "a4p_modo", "a4p_tipo_conta",
+  "a4p_theme", "a4p_theme_draft", "a4p_modo", "a4p_tipo_conta", "a4p_app_biometria",
   "a4p_sidebar_width", "a4p_home_widgets", "a4p_home_order", "a4p_home_painel_ordem", "a4p_home_period",
   "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros",
   // O "olho" que esconde os saldos (lib/ocultar-saldos): ajuste do aparelho.

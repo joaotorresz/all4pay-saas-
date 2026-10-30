@@ -1,0 +1,34 @@
+{
+  "appId": "finance.quattro.app",
+  "appName": "Quattro",
+  "webDir": "www",
+  "appendUserAgent": "QuattroApp",
+  "server": {
+    "url": "https://app.quattro.finance",
+    "cleartext": false,
+    "allowNavigation": [
+      "app.quattro.finance",
+      "*.supabase.co",
+      "accounts.google.com"
+    ],
+    "errorPath": "sem-conexao.html"
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#F5F5F5",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#F5F5F5"
+    }
+  }
+}
