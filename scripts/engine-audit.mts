@@ -12323,6 +12323,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("cobranca-pinbank: título vencido ainda gera Pix com 1 hora de validade (nunca zero ou negativo)", pixVencido.SegundosExpiracao === 3600, String(pixVencido.SegundosExpiracao));
     const bol = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
     ok("cobranca-pinbank: o boleto leva Juros e Multa zerados", bol.Juros?.Valor === 0 && bol.Multa?.Valor === 0);
+    const bol205 = CB.pedidoBoleto({ ...res, valor: 2.05, tipo: "boleto" } as never, 1919) as { Valor?: number; DataVencimento?: string };
+    ok("cobranca-pinbank: o valor do boleto vai em CENTAVOS (R$ 2,05 → 205, arredondado e não truncado)", bol205.Valor === 205, String(bol205.Valor));
+    ok("cobranca-pinbank: o vencimento do boleto vai AAAAMMDD (com hífen a Pinbank recusou)", bol205.DataVencimento === "20261029", String(bol205.DataVencimento));
   }
   /* ── mensalidade-pinbank: a mensalidade do ERP pela conta da QUATTRO ─── */
   {
