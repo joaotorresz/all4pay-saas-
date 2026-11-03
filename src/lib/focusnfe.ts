@@ -11,6 +11,7 @@
  *                                 aliquota?, padrao?: "nacional",
  *                                 codigoTributacaoNacional?, codigoNbs?, serieDps?,
  *                                 percentualTributosSimples? } }
+ *                                 — RESERVA: a tabela `nfse_emitentes` vence (03/11/2026).
  *
  * ⚠️ O ambiente escolhe a BASE e o TOKEN juntos, nunca uma URL livre: com o
  * token de produção apontado para a homologação (ou o contrário) a Focus
@@ -20,6 +21,7 @@
  *
  * ⚠️ O token nunca sai daqui: nem na resposta da rota, nem no log.
  */
+import { createAdmin } from "@/lib/supabase/admin";
 import { BASE_FOCUS, caminhoDaRef, lerEmitentes, type AmbienteFocus, type EmitenteFocus, type PedidoFocus, type PedidoNacional } from "@/core/nfse/focus";
 
 export function ambienteFocus(): AmbienteFocus {
@@ -34,10 +36,35 @@ function token(amb: AmbienteFocus): string | null {
 /** A emissão real está ligada: há token para o ambiente escolhido. */
 export const focusConfigurada = (): boolean => !!token(ambienteFocus());
 
-/** O emitente que a PLATAFORMA vinculou à organização (nunca o que a empresa digita). */
-export function emitenteDaOrg(orgId: string): EmitenteFocus | null {
+/**
+ * O emitente que a PLATAFORMA vinculou à organização (nunca o que a empresa digita).
+ *
+ * Primeiro a tabela `nfse_emitentes` (só a chave de serviço a lê; a empresa
+ * não tem acesso), depois a variável FOCUS_NFE_EMITENTES como reserva. Os dois
+ * passam pela MESMA `lerEmitentes`: campo fora de forma é ignorado com aviso.
+ * ⚠️ A linha do banco vence a variável — é ela que a plataforma ajusta sem
+ * refazer o deploy.
+ */
+export async function emitenteDaOrg(orgId: string): Promise<EmitenteFocus | null> {
+  const doBanco = await emitenteDoBanco(orgId);
+  if (doBanco) return doBanco;
   const { emitentes, problemas } = lerEmitentes(process.env.FOCUS_NFE_EMITENTES);
   if (problemas.length) console.warn("[focusnfe] configuração dos emitentes:", problemas.join(" | "));
+  return emitentes[orgId] ?? null;
+}
+
+async function emitenteDoBanco(orgId: string): Promise<EmitenteFocus | null> {
+  const admin = createAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.from("nfse_emitentes").select("config").eq("org_id", orgId).maybeSingle();
+  if (error) {
+    // Tabela ausente (migration pendente) ou falha de leitura: vale a reserva da Vercel.
+    console.warn("[focusnfe] emitente do banco indisponível:", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const { emitentes, problemas } = lerEmitentes(JSON.stringify({ [orgId]: data.config }));
+  if (problemas.length) console.warn("[focusnfe] emitente do banco:", problemas.join(" | "));
   return emitentes[orgId] ?? null;
 }
 

@@ -26,6 +26,7 @@ const ROTAS = {
   cancelar: path.resolve("src/app/api/nfse/cancelar/route.ts"),
   cliente: path.resolve("src/lib/focusnfe.ts"),
   nfse: path.resolve("src/lib/nfse.ts"),
+  migracaoEmitentes: path.resolve("supabase/migrations/20261103120000_nfse_emitentes.sql"),
 };
 
 const EMITENTE = JSON.stringify({
@@ -125,6 +126,10 @@ function casosDasRotas(t: Texto): Caso[] {
     ["rota: o desfecho só é gravado sobre nota ainda processando", t.consultar.includes('.eq("status", "processando")')],
     ["rota: falha de rede no envio NÃO vira recusa (o pedido pode ter chegado)", /r\.http === 0[^\n]*processando|processando[^\n]*r\.http === 0/.test(t.transmitir) || antes(t.transmitir, "r.http === 0", 'estado: "processando"')],
     ["cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA", (t.cliente.match(/\$\{caminhoDaRef\(ref\)\}/g) ?? []).length === 3 && !t.cliente.includes('"/v2/nfse')],
+    ["cliente: o emitente do BANCO vem antes da variável da Vercel", antes(t.cliente, 'await emitenteDoBanco(orgId)', "lerEmitentes(process.env.FOCUS_NFE_EMITENTES)")],
+    ["cliente: o emitente do banco passa pela MESMA conferência (lerEmitentes)", /lerEmitentes\(JSON\.stringify\(\{ \[orgId\]: data\.config \}\)\)/.test(t.cliente)],
+    ["banco: a empresa não lê nem escreve o emitente (sem concessão a anon/authenticated)", /revoke all on table public\.nfse_emitentes from public, anon, authenticated;/.test(t.migracaoEmitentes) && !/grant [^;]*on table public\.nfse_emitentes to [^;]*(anon|authenticated)/.test(t.migracaoEmitentes) && !/create policy/i.test(t.migracaoEmitentes)],
+    ["banco: o emitente tem trilha e RLS ligada", t.migracaoEmitentes.includes("zz_auditar_nfse_emitentes") && t.migracaoEmitentes.includes("alter table public.nfse_emitentes enable row level security;")],
     ["cliente: o ambiente padrão é homologação", /=== "producao" \? "producao" : "homologacao"/.test(t.cliente)],
     ["cliente: o token não vai para resposta nem log", !/console\.[a-z]+\([^)]*\bt\b\)/.test(t.cliente) && !/corpo:\s*\{[^}]*token/.test(t.cliente)],
     ["tela: a prefeitura cancela ANTES de a receita sair", antes(t.nfse, '"/api/nfse/cancelar"', "excluirLogicoEmLote")],
@@ -166,6 +171,9 @@ function plantarRota(nome: string, arquivo: keyof Texto, de: string, para: strin
   console.log(`${ok ? "✓" : "✗"} defeito plantado "${nome}" derruba "${casoEsperado}"${ok ? "" : ` (caíram: ${caiu.join(" | ") || "nenhum"})`}`);
 }
 
+plantarRota("empresa lê o emitente", "migracaoEmitentes", "grant select, insert, update, delete on table public.nfse_emitentes to service_role;", "grant select on table public.nfse_emitentes to authenticated;", "banco: a empresa não lê nem escreve o emitente (sem concessão a anon/authenticated)");
+plantarRota("variável antes do banco", "cliente", "const doBanco = await emitenteDoBanco(orgId);\n  if (doBanco) return doBanco;\n", "", "cliente: o emitente do BANCO vem antes da variável da Vercel");
+plantarRota("banco sem conferência", "cliente", "lerEmitentes(JSON.stringify({ [orgId]: data.config }))", "({ emitentes: { [orgId]: data.config as EmitenteFocus }, problemas: [] as string[] })", "cliente: o emitente do banco passa pela MESMA conferência (lerEmitentes)");
 await plantarMotor("emitente sem inscrição municipal aceito", '...(im ? [] : ["inscrição municipal"]),', "", "emitente: sem inscrição municipal NÃO entra");
 await plantarMotor("CNPJ de qualquer tamanho", "cnpj.length === 14 ? []", "cnpj.length >= 13 ? []", "emitente: CNPJ com 13 dígitos NÃO entra");
 await plantarMotor("documento do tomador não conferido", 'if (doc.length !== 11 && doc.length !== 14) problemas.push', "if (false) problemas.push", "pedido: sem CPF/CNPJ válido é recusado ANTES de sair");
