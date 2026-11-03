@@ -26,6 +26,24 @@
   font-weight: 500;
   font-style: normal;
   font-display: swap;
+  ascent-override: 85.6%;
+  descent-override: 14.4%;
+  line-gap-override: 0%;
+}
+/* A Agrandir declara a caixa da linha em 750/250: a maiúscula (cap 712) fica
+   ~1/10 do corpo ACIMA do centro, e no menu o texto subia em relação ao ícone.
+   Esta face é o MESMO arquivo com a métrica centrada na maiúscula
+   (ascent − descent = cap); só o menu a usa, para os títulos de tela não
+   mudarem de posição. */
+@font-face {
+  font-family: "Quattro Agrandir Menu";
+  src: url("/fonts/quattro-agrandir.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 85.6%;
+  descent-override: 14.4%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: "Inter Display";
@@ -1575,7 +1593,7 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
    Narrow Medium. O espaço da Agrandir é estreito, então as palavras ganham o
    mesmo respiro do título de tela. */
 .a4p-menu-grupo {
-  font-family: var(--font-display);
+  font-family: "Quattro Agrandir Menu", var(--font-display);
   font-weight: 700;
   letter-spacing: 0;
   word-spacing: var(--a4p-titulo-espaco-palavra);
