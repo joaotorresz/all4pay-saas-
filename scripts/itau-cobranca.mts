@@ -172,6 +172,22 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
   ok("cliente: pedido, nosso número ou conta com problema é falhou e NADA sai", [r1, r2, r3].every((r) => r.situacao === "falhou") && t.chamadas.length === 0);
 }
 {
+  // O exemplo da documentação (CPF de dígito inválido) só passa no SANDBOX.
+  API.esquecerTokensItau();
+  const ruim = { ...PEDIDO, devedor: { ...PEDIDO.devedor!, documento: "12345678901" } };
+  const tp = transporte(() => criado);
+  const rp = await API.emitirCobrancaItau({ ...CFG, ambiente: "producao" }, ruim, NN, HOJE, tp.fn, { exemploDoSandbox: true });
+  ok("cliente: em produção o modo exemplo NÃO pula a conferência do CPF", rp.situacao === "falhou" && tp.chamadas.length === 0, JSON.stringify(rp));
+  const ts = transporte((o) => (o.caminho === TOKEN ? tokenOk : criado));
+  const rs = await API.emitirCobrancaItau(CFG, ruim, NN, HOJE, ts.fn);
+  ok("cliente: sem o modo exemplo, o CPF inválido é barrado também no sandbox", rs.situacao === "falhou" && ts.chamadas.length === 0);
+  API.esquecerTokensItau();
+  const te = transporte((o) => (o.caminho === TOKEN ? tokenOk : criado));
+  await API.emitirCobrancaItau(CFG, ruim, NN, HOJE, te.fn, { exemploDoSandbox: true });
+  ok("cliente: no sandbox, o modo exemplo envia o pedido como está", chamadasA(te, EMITIR).length === 1
+    && JSON.parse(chamadasA(te, EMITIR)[0].corpo).dado_boleto.pagador.pessoa.tipo_pessoa.numero_cadastro_pessoa_fisica === "12345678901");
+}
+{
   API.esquecerTokensItau();
   const t = transporte((o) => (o.caminho === TOKEN ? { status: 401, corpo: {} } : criado));
   const r = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);

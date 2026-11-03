@@ -188,8 +188,15 @@ export async function emitirCobrancaItau(
   nossoNumero: string,
   hoje: string,
   transporte: TransporteItau = requisicaoItau,
+  /**
+   * Só o exemplo da documentação no SANDBOX: o CPF do exemplo do Itaú tem
+   * dígito inválido e a nossa conferência o barraria antes de sair. Fora do
+   * sandbox a conferência vale sempre.
+   */
+  opcoes: { exemploDoSandbox?: boolean } = {},
 ): Promise<ResultadoCobrancaBanco> {
-  const problemas = [...problemasDoPedido(pedido), ...problemasDaContaItau(cfg.conta)];
+  const pularPedido = opcoes.exemploDoSandbox === true && cfg.ambiente === "sandbox";
+  const problemas = [...(pularPedido ? [] : problemasDoPedido(pedido)), ...problemasDaContaItau(cfg.conta)];
   if (!nossoNumeroValido(nossoNumero)) problemas.push("O nosso número do Itaú tem 8 dígitos.");
   if (problemas.length) return { situacao: "falhou", motivo: problemas.join(" ") };
   try {
