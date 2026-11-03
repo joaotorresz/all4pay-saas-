@@ -227,7 +227,7 @@ export function Sidebar() {
               const conteudo = (
                 <>
                   <Icon name={s.icon ?? "layers"} size={19} color="currentColor" className="shrink-0" />
-                  {!col && <span className="flex-1 min-w-0 text-left truncate">{s.label}</span>}
+                  {!col && <span className="a4p-menu-grupo flex-1 min-w-0 text-left truncate">{s.label}</span>}
                   {!col && s.items.length > 0 && (
                     <Icon name="chevron-right" size={14} color="var(--erp-menu-texto-2)"
                       className={cn("shrink-0 transition-transform", abertoAqui && "rotate-90")} />
@@ -420,7 +420,7 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
         const on = i === iAtivo;
         const classe = cn(
           "a4p-menu-sub flex items-center gap-2 min-h-[36px] px-3 rounded-[10px] text-[14px] transition-colors",
-          on && "font-semibold a4p-menu-afundado",
+          on && "a4p-menu-afundado",
         );
         const rotulo = (
           <>
