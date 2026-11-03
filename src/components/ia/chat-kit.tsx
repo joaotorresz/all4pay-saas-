@@ -19,6 +19,8 @@ import type { GraficoResposta } from "@/core/assistant/engine";
 import type { AcaoIA } from "@/core/assistant/acoes";
 import type { PropostaChat } from "@/lib/ia-registro";
 import { DigitandoIA, atrasoDaPalavra, duracaoRevelar } from "./conversa";
+import { WidgetDaResposta } from "./WidgetsIA";
+import type { WidgetIA } from "@/core/assistant/widgets";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -71,6 +73,8 @@ export interface Turno {
   rotaLabel?: string;
   contatoId?: string;
   grafico?: GraficoResposta;
+  /** O cartão de um motor (risco, decisão, saúde, sugestões) que a pergunta pediu. */
+  widget?: WidgetIA;
   /** O número veio do motor e o texto foi reescrito pela IA, com os mesmos números. */
   redigida?: boolean;
   /** Botões de ação da resposta (lançar no período, enviar extrato…). */
@@ -182,6 +186,11 @@ export function BolhaResposta({
         className={`flex flex-col ${aberta ? "gap-4" : "gap-2"} ${animar ? "a4p-entra" : ""}`}
         style={animar ? ({ "--a4p-atraso": `${duracaoRevelar(t.resposta ?? "") - 200}ms` } as React.CSSProperties) : undefined}
       >
+      {t.widget && (
+        <div data-ia="cartao" className={aberta ? "rounded-[20px] p-6" : "rounded-md bg-white p-3"} style={aberta ? { background: "var(--color-white)" } : undefined}>
+          <WidgetDaResposta id={t.widget} onNavegar={onNavegar} />
+        </div>
+      )}
       {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}

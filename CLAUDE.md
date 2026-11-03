@@ -122,6 +122,11 @@ no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
   `ia/ChatGlobal.tsx`). A conversa só **lança** depois do clique em
   **Confirmar**, pelo escritor único `confirmarDocumento`. Os números das
   respostas saem do motor, nunca do modelo.
+- **Os motores são cartões da conversa** (03/11/2026). Risco de caixa,
+  Decisão, Saúde financeira e Sugestões saíram do menu: a pergunta que pede o
+  motor traz o cartão dele na resposta (`core/assistant/widgets`, um catálogo
+  só). A tela completa segue no endereço dela, Pro pelo servidor, aberta pelo
+  cartão. Guarda: `npm run ia-widgets`.
 - **Quattro AI no WhatsApp:** atrás de `WHATSAPP_IA`, só leitura (a etapa 5,
   lançar, está pendente).
 - **Sem emoji**, exceto nos modelos de WhatsApp cadastrados na Twilio.
