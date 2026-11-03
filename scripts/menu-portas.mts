@@ -20,6 +20,8 @@ const PORTAS: { rota: string; porta: string }[] = [
   { rota: "/dashboard/accounting/nfe-export", porta: "src/app/exportar/page.tsx" },
   { rota: "/cronogramas", porta: "src/app/receita/page.tsx" },
   { rota: "/orcamento/realizado", porta: "src/app/orcamento/page.tsx" },
+  { rota: "/pos/venda", porta: "src/app/contas-a-receber/maquininha/page.tsx" },
+  { rota: "/pos/taxas", porta: "src/app/contas-a-receber/maquininha/page.tsx" },
   { rota: "/dashboard/reports/dfc-multi", porta: "src/app/dashboard/reports/dre-multi/page.tsx" },
 ];
 
