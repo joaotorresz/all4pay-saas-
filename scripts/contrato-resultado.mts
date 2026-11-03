@@ -266,25 +266,6 @@ const SUPERFICIES: Superficie[] = [
   },
   {
     /*
-     * ⚠️ O painel de Vendas mostra RECEITA, MARGEM DE CONTRIBUIÇÃO e EBITDA por
-     * mês. Entra pelas mesmas linhas da cascata que a tela lê — se alguém
-     * reintroduzir a soma inline, a diferença aparece aqui.
-     */
-    nome: "#10 VendasDashboardView · receita/MC/EBITDA",
-    prosa: false,
-    regimes: ["competencia"],
-    exibe: (c) => {
-      const cas = cascataDRE(c.input, { intervalo: c.intervalo, regime: "competencia" });
-      return {
-        receita_bruta: fmt(cas.linhas.receita_bruta.valor),
-        margem_contribuicao: fmt(cas.linhas.margem_contribuicao.valor),
-        ebitda: fmt(cas.linhas.ebitda.valor),
-      };
-    },
-    texto: () => "",
-  },
-  {
-    /*
      * ⚠️ O Investor Update publica RECEITA DO MÊS e MARGEM LÍQUIDA. Só
      * competência: é o que o investidor lê quando compara a empresa com outra,
      * e é o que aparece na diligência.

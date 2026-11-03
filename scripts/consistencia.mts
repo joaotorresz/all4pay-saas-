@@ -3300,10 +3300,6 @@ const AGOSTO = janelaMes(2026, 7);
   ];
   const EXCECOES_VALOR: { arquivo: string; porque: string }[] = [
     {
-      arquivo: "src/components/visao-geral/HomeQuatro.tsx",
-      porque: "As barras dos três meses e o saldo-herói. A barra de um mês sem movimento é uma barra AUSENTE, que já é a leitura certa; e o saldo-herói, que pergunta por `indisponivel` (sem conta cadastrada) antes de mostrar o valor. As três leituras do lado (entradas/saídas/resultado) passaram por ValorIndicador.",
-    },
-    {
       arquivo: "src/components/relatorios/DemonstrativoView.tsx",
       porque: "Só o saldo, que entra no cartão como indicador INTEIRO (o cartão mostra a ausência 'sem conta cadastrada'); o .valor lido é o da cascata. O runway do mesmo cartão já lê o indicador inteiro.",
     },
@@ -4116,12 +4112,12 @@ const AGOSTO = janelaMes(2026, 7);
 
     // ⚠️ A asserção que substitui a varredura larga: a resposta do onboarding
     // NÃO pode voltar ao perfil. Cobra o strip no ponto exato onde ele importa.
-    const wiz = ler("src/components/onboarding/OnboardingWizard.tsx");
+    const wiz = ler("src/components/entrada/CriarContaView.tsx");
     ok("alcada: o onboarding REMOVE limite antes de persistir o perfil",
        /limite:\s*_limite,\s*\.\.\.resto/.test(wiz) && /persistCompany\(\{[^}]*participantes:\s*semLimite/.test(wiz),
        "o strip antes de persistCompany sumiu");
     ok("alcada: o onboarding grava a alçada em central_alcada",
-       /aplicarAlcadaDoOnboarding\(alcadaDoOnboarding\(participantes\)\)/.test(wiz));
+       /aplicarAlcadaDoOnboarding\(alcadaDoOnboarding\(montado\.participantes\)\)/.test(wiz));
     const tipo = ler("src/core/onboarding/index.ts");
     ok("alcada: Participante.limite está deprecado e opcional",
        /@deprecated/.test(tipo) && /limite\?:\s*string/.test(tipo));
