@@ -17,12 +17,17 @@
  * `movimentoId` e nenhum título. A guarda do escritor morto não via, porque ela
  * só exigia a palavra `isDemo` no escopo — e o próprio `return` a continha.
  *
- * ⚠️ **E A COMPRA MORAVA SÓ NO NAVEGADOR.** `localStorage` cru, com as chaves
- * que `store-org` já declarava como dado de negócio: o pedido criado por quem
- * compra não chegava a quem aprova (outra máquina), e depois da primeira
- * sincronização a hidratação ("o servidor vence") SOBRESCREVIA a decisão local
- * com a cópia velha do servidor — uma aprovação que desaparecia sozinha.
- * Agora as três listas leem e gravam por `store-org`.
+ * ⚠️ **E A COMPRA MORAVA SÓ NO NAVEGADOR**, depois numa linha só de
+ * `org_state` com a lista inteira: quem pede e quem aprova em máquinas
+ * diferentes regravavam a lista toda, e a última gravação vencia (uma
+ * aprovação podia sumir quando outra pessoa salvava um pedido novo).
+ *
+ * Desde 03/11/2026 a compra mora em `public.compras`, UMA LINHA POR COMPRA
+ * (migration 20261103200000). O documento é `dados` (o tipo `Compra`);
+ * número, status e valor são colunas geradas dele, e o banco recusa número
+ * repetido e status fora da lista. A chave `a4p_compras` ficou CONGELADA em
+ * `store-org`: em produção ela não é lida nem gravada; na demonstração, que
+ * não tem banco, ela continua sendo a casa.
  *
  * As regras de dinheiro, escritas:
  *   · o título nasce ANTES de a compra virar "aprovada"; se o banco recusar,
@@ -36,7 +41,7 @@
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
 import { ler, gravar, CHAVES_ORG } from "@/lib/store-org";
-import { excluirLogico } from "@/lib/exclusao";
+import { excluirLogico, restaurarLogico } from "@/lib/exclusao";
 import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
 import {
@@ -61,12 +66,39 @@ export const novoId = (p: string): string =>
 
 /* --------------------------------- compras --------------------------------- */
 
-export const listarCompras = (): Compra[] => ler<Compra[]>(CHAVES_ORG.compras, []);
+/** As compras da empresa aberta, da mais nova para a mais antiga. */
+export async function listarCompras(): Promise<Compra[]> {
+  if (isDemo) return ler<Compra[]>(CHAVES_ORG.compras, []);
+  const s = await cliente();
+  const { data, error } = await s.from("compras").select("dados").limit(TETO_LINHAS);
+  if (error) throw new Error(mensagem(error));
+  return ((data ?? []) as { dados: Compra }[])
+    .map((r) => r.dados)
+    .sort((a, b) => (b.criadoEm ?? "").localeCompare(a.criadoEm ?? "") || b.numero.localeCompare(a.numero));
+}
 
-function persistir(c: Compra): Compra[] {
-  const lista = [c, ...listarCompras().filter((x) => x.id !== c.id)];
-  gravar(CHAVES_ORG.compras, lista);
-  return lista;
+async function lerCompra(id: string): Promise<Compra | null> {
+  if (isDemo) return ler<Compra[]>(CHAVES_ORG.compras, []).find((c) => c.id === id) ?? null;
+  const s = await cliente();
+  const { data, error } = await s.from("compras").select("dados").eq("id", id).maybeSingle();
+  if (error) throw new Error(mensagem(error));
+  return (data as { dados: Compra } | null)?.dados ?? null;
+}
+
+/**
+ * Grava UMA compra. Em produção é uma linha só: duas pessoas mexendo em
+ * compras diferentes não se sobrescrevem mais. A empresa vem do banco
+ * (`auth_org_id()`), nunca do navegador.
+ */
+async function persistir(c: Compra): Promise<Compra[]> {
+  if (isDemo) {
+    gravar(CHAVES_ORG.compras, [c, ...ler<Compra[]>(CHAVES_ORG.compras, []).filter((x) => x.id !== c.id)]);
+    return listarCompras();
+  }
+  const s = await cliente();
+  const { error } = await s.from("compras").upsert({ id: c.id, dados: c }, { onConflict: "org_id,id" });
+  if (error) throw new Error(mensagem(error));
+  return listarCompras();
 }
 
 /** Os títulos que ESTA compra tem hoje no caixa, e se algum já foi pago. */
@@ -167,11 +199,11 @@ export async function salvarCompra(c: Compra): Promise<Compra[]> {
       throw new Error(mensagem(e));
     }
     // ⚠️ Daqui em diante os títulos JÁ estão no caixa. Se gravar a compra
-    // falhar (cota do navegador), "a compra não foi registrada" seria meia
+    // falhar (número repetido, sem permissão), "a compra não foi registrada" seria meia
     // verdade: o dinheiro entrou. A mensagem diz as duas metades, e salvar de
     // novo no mesmo formulário não duplica (mesmo id → mesma chave do título).
     try {
-      return persistir(c);
+      return await persistir(c);
     } catch (e) {
       reportar("compras.gravar", e, "os títulos da compra paga entraram no caixa e a compra não foi gravada");
       throw new Error(`os títulos já entraram no caixa, mas a compra não foi gravada (${mensagem(e)}). Salve de novo neste formulário — não duplica.`);
@@ -181,17 +213,29 @@ export async function salvarCompra(c: Compra): Promise<Compra[]> {
 }
 
 export async function removerCompra(id: string): Promise<Compra[]> {
-  const alvo = listarCompras().find((c) => c.id === id);
+  const alvo = await lerCompra(id);
   if (alvo) await retirarTitulosDaCompra(alvo, "excluir", `compra ${alvo.numero} excluída`);
-  const out = listarCompras().filter((c) => c.id !== id);
-  gravar(CHAVES_ORG.compras, out);
-  return out;
+  if (isDemo) {
+    gravar(CHAVES_ORG.compras, ler<Compra[]>(CHAVES_ORG.compras, []).filter((c) => c.id !== id));
+    return listarCompras();
+  }
+  // Exclusão LÓGICA, como em toda tabela de negócio: a compra vai para a
+  // lixeira (com motivo e na trilha) e "Desfazer" a devolve.
+  await excluirLogico("compras", id, alvo ? `compra ${alvo.numero} excluída` : "compra excluída");
+  return listarCompras();
 }
 
 /** Devolve uma compra excluída — o desfazer da exclusão. */
 export async function restaurarCompra(c: Compra): Promise<Compra[]> {
+  if (isDemo) {
+    if (c.status === "aprovada") await criarTitulosDaCompra(c);
+    return persistir(c);
+  }
+  // A compra volta da lixeira primeiro; os títulos previstos, depois, pela
+  // mesma chave (`compra:<id>:<parcela>`), sem duplicar.
+  await restaurarLogico("compras", c.id);
   if (c.status === "aprovada") await criarTitulosDaCompra(c);
-  return persistir(c);
+  return listarCompras();
 }
 
 /**
@@ -203,7 +247,7 @@ export async function restaurarCompra(c: Compra): Promise<Compra[]> {
  * nenhuma — a promessa sem o dinheiro.
  */
 export async function decidirCompra(id: string, status: Compra["status"]): Promise<Compra[]> {
-  const alvo = listarCompras().find((c) => c.id === id);
+  const alvo = await lerCompra(id);
   if (!alvo) return listarCompras();
   const nova: Compra = { ...alvo, status, erroTitulos: null };
   if (status === "aprovada") {
@@ -215,9 +259,13 @@ export async function decidirCompra(id: string, status: Compra["status"]): Promi
   return persistir(nova);
 }
 
-/** Número sequencial legível e estável dentro do ano — o maior + 1. */
-export function proximoNumeroCompra(): string {
-  return proximoNumeroDeCompra(listarCompras().map((c) => c.numero), new Date().getFullYear());
+/**
+ * Número sequencial legível e estável dentro do ano — o maior + 1. Duas
+ * pessoas criando ao mesmo tempo podem chegar ao mesmo número: o banco recusa
+ * a segunda (`compras_numero_unico`) e a mensagem vai para o formulário.
+ */
+export async function proximoNumeroCompra(): Promise<string> {
+  return proximoNumeroDeCompra((await listarCompras()).map((c) => c.numero), new Date().getFullYear());
 }
 
 /* ---------------------------- boletos recebidos ---------------------------- */

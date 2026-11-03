@@ -361,6 +361,13 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/papel-dinheiro.sql
+      # A compra mora em `public.compras` desde 20261103200000: o leitor lê e não
+      # grava, a empresa B não lê a de A, número e status são do banco (colunas
+      # geradas do documento) e a cópia de org_state não duplica ao reaplicar.
+      - name: Guarda das compras (papel, isolamento, documento único, cópia idempotente)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/compras.sql
       - name: Guarda do vínculo lançamento → categoria (só quando é seguro)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
