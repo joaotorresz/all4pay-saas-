@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   caminhoConsultaItau,
+  ROTAS_ITAU,
   corpoBaixaItau,
   corpoTokenItau,
   idProvedorItau,
@@ -192,7 +193,7 @@ export async function emitirCobrancaItau(
   if (!nossoNumeroValido(nossoNumero)) problemas.push("O nosso número do Itaú tem 8 dígitos.");
   if (problemas.length) return { situacao: "falhou", motivo: problemas.join(" ") };
   try {
-    const r = await chamar(cfg, transporte, "POST", "/pix_recebimentos_conciliacoes/v2/boletos_pix", pedidoCobrancaItau(pedido, cfg.conta, nossoNumero, hoje));
+    const r = await chamar(cfg, transporte, "POST", ROTAS_ITAU[cfg.ambiente].emitir, pedidoCobrancaItau(pedido, cfg.conta, nossoNumero, hoje));
     return comODitoDoItau(lerCriacaoItau(r.status, r.corpo, cfg.conta, nossoNumero), r);
   } catch (e) {
     if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
@@ -205,7 +206,7 @@ export async function emitirCobrancaItau(
 export async function consultarCobrancaItau(cfg: ConfigItau, nossoNumero: string, transporte: TransporteItau = requisicaoItau): Promise<ResultadoCobrancaBanco> {
   if (!nossoNumeroValido(nossoNumero)) return { situacao: "incerta", motivo: "Nosso número inválido." };
   try {
-    const r = await chamar(cfg, transporte, "GET", caminhoConsultaItau(cfg.conta, nossoNumero));
+    const r = await chamar(cfg, transporte, "GET", caminhoConsultaItau(cfg.ambiente, cfg.conta, nossoNumero));
     if (r.status === 404) return { situacao: "incerta", motivo: "O Itaú não achou este título." };
     if (r.status !== 200) return comODitoDoItau({ situacao: "incerta", motivo: motivoDaRecusaItau(r.status, r.corpo) }, r);
     return lerConsultaItau(r.corpo, cfg.conta, nossoNumero);
@@ -221,6 +222,6 @@ export async function baixarCobrancaItau(
   transporte: TransporteItau = requisicaoItau,
 ): Promise<{ ok: true } | { ok: false; motivo: string }> {
   if (!nossoNumeroValido(nossoNumero)) return { ok: false, motivo: "Nosso número inválido." };
-  const r = await chamar(cfg, transporte, "PATCH", `/boletoscash/v2/boletos/${idProvedorItau(cfg.conta, nossoNumero)}/baixa`, corpoBaixaItau());
+  const r = await chamar(cfg, transporte, "PATCH", `${ROTAS_ITAU[cfg.ambiente].boletos}/${idProvedorItau(cfg.conta, nossoNumero)}/baixa`, corpoBaixaItau());
   return r.status >= 200 && r.status < 300 ? { ok: true } : { ok: false, motivo: motivoDaRecusaItau(r.status, r.corpo) };
 }

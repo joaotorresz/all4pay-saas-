@@ -101,8 +101,13 @@ const CASOS: Caso[] = [
   ["consulta: dois títulos com o mesmo número é INCERTA", (m) => m.lerConsultaItau({ data: [titulo("Paga"), titulo("Paga")] }, CONTA, NN).situacao === "incerta"],
   ["consulta: título de outro número não conta", (m) => m.lerConsultaItau({ data: [{ ...titulo("Paga"), dado_boleto: { dados_individuais_boleto: [{ numero_nosso_numero: "00009999", situacao_geral_boleto: "Paga" }] } }] }, CONTA, NN).situacao === "incerta"],
   ["consulta: caminho com beneficiário, carteira e nosso número", (m) =>
-    m.caminhoConsultaItau(CONTA, NN) === "/boletoscash/v2/boletos?id_beneficiario=150000056789&codigo_carteira=109&nosso_numero=00001234"
-    && m.caminhoPermitidoItau(m.caminhoConsultaItau(CONTA, NN))],
+    m.caminhoConsultaItau("producao", CONTA, NN) === "/boletoscash/v2/boletos?id_beneficiario=150000056789&codigo_carteira=109&nosso_numero=00001234"
+    && m.caminhoPermitidoItau(m.caminhoConsultaItau("producao", CONTA, NN))],
+  ["consulta: no sandbox, o caminho leva o prefixo do gateway", (m) =>
+    m.caminhoConsultaItau("sandbox", CONTA, NN) === "/itau-ep9-gtw-boletoscash-boletoscash-v2-ext-aws/v1/boletos?id_beneficiario=150000056789&codigo_carteira=109&nosso_numero=00001234"
+    && m.caminhoPermitidoItau(m.caminhoConsultaItau("sandbox", CONTA, NN))],
+  ["texto: sem acento nem caractere especial (o Itaú recusa)", (m) =>
+    m.textoItau("  José da Conceição & Cia — Ação!  ", 50) === "Jose da Conceicao Cia Acao"],
   ["aviso: só os nossos números, sem repetir, ignorando a situação", (m) => {
     const r = m.lerAvisoItau([{ numero_nosso_numero: NN, situacao: "PAGO" }, { numero_nosso_numero: NN }, { numero_nosso_numero: "abc" }]);
     return r.length === 1 && r[0] === NN;
@@ -138,7 +143,7 @@ function transporte(roteiro: (o: any, n: number) => { status: number; corpo: unk
 }
 const CFG = { ambiente: "sandbox" as const, clientId: "cid", clientSecret: "segredo-xyz", mtls: { certificado: "CERT", chave: "KEY" }, conta: CONTA };
 const TOKEN = "/api/oauth/jwt"; // o CFG é do sandbox
-const EMITIR = "/pix_recebimentos_conciliacoes/v2/boletos_pix";
+const EMITIR = "/itau-ep9-api-recebimentos-v1-externo/v1/boletos-pix"; // a emissão do sandbox
 const tokenOk = { status: 200, corpo: { access_token: "tok-1", expires_in: 3600 } };
 const criado = { status: 200, corpo: { data: titulo("em aberto") } };
 const HOJE = "2026-10-30";
@@ -208,14 +213,14 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
   const r = await API.consultarCobrancaItau(CFG, NN, t.fn);
   const c = t.chamadas.find((x) => x.caminho !== TOKEN);
   ok("cliente: consulta 404 é incerta, nunca cancelada, e vai por GET ao caminho do core",
-    r.situacao === "incerta" && c?.metodo === "GET" && c?.caminho === M.caminhoConsultaItau(CONTA, NN));
+    r.situacao === "incerta" && c?.metodo === "GET" && c?.caminho === M.caminhoConsultaItau("sandbox", CONTA, NN));
 }
 {
   API.esquecerTokensItau();
   const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 200, corpo: {} }));
   const r = await API.baixarCobrancaItau(CFG, NN, t.fn);
   const c = t.chamadas.find((x) => /baixa$/.test(x.caminho));
-  ok("cliente: a baixa vai por PATCH ao título inteiro (beneficiário + carteira + nosso número)", r.ok && c?.metodo === "PATCH" && c?.caminho === `/boletoscash/v2/boletos/${ID}/baixa`);
+  ok("cliente: a baixa vai por PATCH ao título inteiro (beneficiário + carteira + nosso número)", r.ok && c?.metodo === "PATCH" && c?.caminho === `/itau-ep9-gtw-boletoscash-boletoscash-v2-ext-aws/v1/boletos/${ID}/baixa`);
 }
 {
   const r = API.configItauDoAmbiente({ ITAU_AMBIENTE: "producao", ITAU_CLIENT_ID: "cid", ITAU_CLIENT_SECRET: "nao-pode-aparecer" });
