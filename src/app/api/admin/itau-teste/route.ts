@@ -130,7 +130,7 @@ export async function GET(req: Request) {
     if (cfg.config.ambiente !== "sandbox") return resposta(400, { ...base, ok: false, motivo: "Emitir de teste só no sandbox." });
     if (!nossoNumeroValido(numero)) return resposta(400, { ...base, ok: false, motivo: "Informe numero= com 8 dígitos (o nosso número do teste)." });
     const pedido = exemplo ? pedidoDoExemplo() : pedidoDeTeste(hoje);
-    const r = await emitirCobrancaItau(cfg.config, pedido, numero, hoje);
+    const r = await emitirCobrancaItau(cfg.config, pedido, numero, hoje, undefined, { exemploDoSandbox: exemplo });
     return resposta(200, { ...base, exemplo, ok: r.situacao === "emitida", nossoNumero: numero, vencimento: pedido.vencimento, resultado: r, ms: Date.now() - inicio });
   }
   if (acao === "consultar") {
