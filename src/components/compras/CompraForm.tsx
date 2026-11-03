@@ -77,9 +77,12 @@ export function CompraForm() {
   // duplicaria no caixa os títulos que a tentativa anterior já tinha gravado.
   const [idCompra] = React.useState(() => novoId("compra"));
 
-  const rascunho = (): Compra => ({
+  // O número sai na hora de gravar (`salvar`), lido do banco: a prévia não
+  // precisa dele, e um número reservado ao abrir o formulário envelheceria
+  // enquanto outra pessoa cria a compra seguinte.
+  const rascunho = (numero = ""): Compra => ({
     id: idCompra,
-    numero: proximoNumeroCompra(),
+    numero,
     fornecedorId,
     fornecedor: fornecedores.data?.find((f) => f.id === fornecedorId)?.name ?? "",
     contaId,
@@ -118,7 +121,16 @@ export function CompraForm() {
   );
 
   async function salvar() {
-    const c = rascunho();
+    let numero: string;
+    try {
+      numero = await proximoNumeroCompra();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErroGravar(msg);
+      toast(`A compra não foi registrada: ${msg}`);
+      return;
+    }
+    const c = rascunho(numero);
     const e = validarCompra(c);
     setErros(e);
     if (Object.keys(e).length > 0) {

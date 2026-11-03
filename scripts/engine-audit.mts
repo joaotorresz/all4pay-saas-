@@ -7369,14 +7369,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      varreCru('localStorage.setItem(CHAVES_ORG.company, "{}");').length === 1
      && varreCru('import { K_EMPRESA } from "@/lib/x";\nwindow.localStorage.setItem(K_EMPRESA, "{}");', plantaGlobal).length === 1);
   ok("CAD-2: [negativo] a varredura acusa a LEITURA crua de chave viva e o helper por parâmetro",
-     varreCru('const K = "a4p_compras";\nconst x = localStorage.getItem(K);').length === 1
-     && varreCru('const K = "a4p_compras";\nfunction load(key) { return localStorage.getItem(key); }\nload(K);').length === 1
-     && varreCru('const K = "a4p_compras";\nconst x = localStorage[K];').length === 1);
+     varreCru('const K = "a4p_transferencias";\nconst x = localStorage.getItem(K);').length === 1
+     && varreCru('const K = "a4p_transferencias";\nfunction load(key) { return localStorage.getItem(key); }\nload(K);').length === 1
+     && varreCru('const K = "a4p_transferencias";\nconst x = localStorage[K];').length === 1);
   ok("CAD-2: ler cru o RASTRO de chave congelada é permitido (escrevê-lo, não)",
      varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage.getItem(K);').length === 0
      && varreCru('const K = "a4p_vendas_docs";\nlocalStorage.setItem(K, "[]");').length === 1);
   ok("CAD-2: [negativo] a varredura acusa o APELIDO do armazenamento e a escrita por COLCHETE (inclusive de chave congelada)",
-     varreCru('const K = "a4p_compras";\nconst ls = window.localStorage;\nls.setItem(K, "[]");').length === 1
+     varreCru('const K = "a4p_transferencias";\nconst ls = window.localStorage;\nls.setItem(K, "[]");').length === 1
      && varreCru('const K = "a4p_vendas_docs";\nlocalStorage[K] = "[]";').some((a) => a.op === "setItem")
      && varreCru('const K = "a4p_vendas_docs";\ndelete window.localStorage[K];').some((a) => a.op === "removeItem")
      && varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage[K] === "[]";').length === 0);
@@ -10364,8 +10364,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("pagar-rev: o id da compra nasce uma vez por formulário (um id por clique duplicava os títulos na nova tentativa)",
      /React\.useState\(\(\) => novoId\("compra"\)\)/.test(compraForm) && /id: idCompra,/.test(compraForm)
      && !/id: novoId\("compra"\)/.test(compraForm));
+  // ⚠️ `return await`: desde 03/11/2026 a compra grava no banco (`persistir` é
+  // assíncrono), e um `return persistir(c)` sem await deixaria a recusa
+  // escapar do catch, sem a frase de que o dinheiro já entrou.
   ok("pagar-rev: se gravar a compra falha DEPOIS dos títulos, a mensagem diz que o dinheiro entrou",
-     /await criarTitulosDaCompra\(c\);[\s\S]*?try \{\s*return persistir\(c\);\s*\} catch[\s\S]*?já entraram no caixa/.test(storeR));
+     /await criarTitulosDaCompra\(c\);[\s\S]*?try \{\s*return await persistir\(c\);\s*\} catch[\s\S]*?já entraram no caixa/.test(storeR));
 }
 /* ── CONTABILIDADE · RODADA 3 (reservados, 01/10/2026) ──────────────────────
  *

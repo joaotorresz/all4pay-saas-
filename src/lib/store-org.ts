@@ -185,6 +185,9 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   "a4p_regua_envios",
   "a4p_automacoes",
   "a4p_automacao_envios",
+  // A compra mora em `compras`, uma linha por pedido, desde 03/11/2026
+  // (migration 20261103200000, que copiou o que havia aqui; lib/compras-store).
+  "a4p_compras",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
