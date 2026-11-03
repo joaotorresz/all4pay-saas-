@@ -259,6 +259,16 @@
         "impacto": "Até ser aplicada, o botão do Pix do dia recusa o pedido. Ele só aparece com PINBANK_PIX_ATUALIZADO=ligado, que nasce desligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 30/10/2026 (Pix atualizado)"
+      },
+      {
+        "nome": "20261103120000_nfse_emitentes",
+        "motivo": "O cadastro fiscal do emitente da NFS-e (item de serviço, NBS, classificação do IBS/CBS…) passa a morar no banco, numa tabela que só o servidor lê; a variável FOCUS_NFE_EMITENTES da Vercel vira reserva. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela nfse_emitentes (com o gatilho zz_auditar_nfse_emitentes)"
+        ],
+        "impacto": "Até ser aplicada, a leitura do emitente no banco falha com aviso no log e vale a variável da Vercel, como hoje. Nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (emitente da NFS-e no banco)"
       }
     ],
     "objetos_sem_migration": [

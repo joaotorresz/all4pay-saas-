@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   if (!focusConfigurada()) {
     return resposta(503, { ok: false, codigo: "nao_configurada", motivo: "A emissão de notas ainda não foi ligada na Quattro. Fale com o suporte." });
   }
-  const emitente = emitenteDaOrg(nota.org_id);
+  const emitente = await emitenteDaOrg(nota.org_id);
   if (!emitente) {
     return resposta(409, { ok: false, codigo: "sem_emitente", motivo: "Esta empresa ainda não está habilitada a emitir notas (cadastro fiscal e certificado). Fale com o suporte da Quattro." });
   }
