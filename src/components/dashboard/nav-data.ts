@@ -228,14 +228,12 @@ export const SECTIONS: Section[] = [
     // ⚠️ A linha "Quattro AI" NÃO navega: ela abre o chat em tela cheia por
     // cima da tela atual (evento `a4p:open-ia`). Desde 14/10/2026 o botão
     // flutuante saiu e a conversa mora num lugar só; esta linha, o ⌘K e a
-    // caixa da Home são portas para o MESMO chat. Os quatro motores são
-    // páginas próprias desde 27/10/2026 (fim das abas internas), todas Pro.
+    // caixa da Home são portas para o MESMO chat. Os quatro motores (Risco,
+    // Decisão, Saúde, Sugestões) saíram do menu em 03/11/2026: são cartões da
+    // conversa (`core/assistant/widgets`), e a tela completa de cada um segue
+    // no endereço dela, Pro pelo servidor, aberta pelo cartão.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
       { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles", event: "a4p:open-ia" },
-      { label: "Risco de caixa", desc: "Runway, ruptura e stress de caixa", href: "/risco", icon: "triangle-alert", pro: true },
-      { label: "Decisão", desc: "Monte Carlo e recomendações com impacto", href: "/decisao", icon: "target", pro: true },
-      { label: "Saúde financeira", desc: "Score de saúde, radar e cenários", href: "/inteligencia", icon: "gauge", pro: true },
-      { label: "Sugestões da IA", desc: "O que o motor recomenda fazer agora", href: "/autonomo", icon: "sparkles", pro: true },
       { label: "Posso comprar?", desc: "O que a compra faz com o seu caixa", href: "/simuladores", icon: "target" },
       { label: "Plano de contratações", desc: "O custo de cada contratação no caixa", href: "/contratacoes", icon: "users", pro: true },
       { label: "Automações", desc: "Mensagens no WhatsApp e alertas do sistema", href: "/automacoes", icon: "workflow" },

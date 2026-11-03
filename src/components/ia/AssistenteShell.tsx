@@ -1,29 +1,23 @@
 "use client";
 
 /**
- * O ASSISTENTE ÚNICO — a conversa e os painéis dos motores, num destino só.
+ * O ASSISTENTE ÚNICO — a conversa e os motores, num destino só.
  *
- * ⚠️ Os quatro motores (Risco, Decisão, Saúde, Sugestões) eram abas daqui e
- * viraram PÁGINAS de Inteligência em 27/10/2026 (`/risco`, `/decisao`,
- * `/inteligencia`, `/autonomo`), Pro pelo servidor. Os `?aba=` antigos desta
- * rota respondem 308 para elas (`ALIASES_DE_ABA`).
+ * ⚠️ Os quatro motores (Risco, Decisão, Saúde, Sugestões) foram abas daqui,
+ * depois páginas soltas no menu (27/10/2026), e desde 03/11/2026 são CARTÕES
+ * da conversa (`core/assistant/widgets`): a pergunta que pede o motor traz o
+ * cartão na resposta. A tela completa de cada um segue no endereço dela, Pro
+ * pelo servidor, e o cartão leva até lá.
  *
- * Esta página ABRE o chat (com a pergunta de `?q=`, uma vez, limpando o
- * endereço) e, atrás dele, mostra o botão que o reabre e as portas dos motores.
+ * Esta página ABRE o chat (com a pergunta de `?q=`, ou a do motor de
+ * `?widget=`, uma vez, limpando o endereço) e, atrás dele, mostra o botão que
+ * o reabre e os atalhos dos motores, que perguntam por quem clica.
  */
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { ChatTelaCheia } from "./ChatTelaCheia";
-import Link from "next/link";
 import { Icon } from "@/components/ui";
-
-// Os motores que eram abas daqui: quem chega procurando por eles acha a porta.
-const MOTORES = [
-  { href: "/risco", rotulo: "Risco de caixa" },
-  { href: "/decisao", rotulo: "Decisão" },
-  { href: "/inteligencia", rotulo: "Saúde financeira" },
-  { href: "/autonomo", rotulo: "Sugestões da IA" },
-];
+import { WIDGETS_IA, widgetValido, widgetDoCatalogo } from "@/core/assistant/widgets";
 
 export function AssistenteShell() {
   const sp = useSearchParams();
@@ -32,9 +26,12 @@ export function AssistenteShell() {
   // Toda chegada abre o chat — inclusive `/copiloto` e a antiga
   // `aba=conversa`, que caem aqui.
   React.useEffect(() => {
-    const q = sp.get("q")?.trim() || undefined;
+    const w = widgetValido(sp.get("widget"));
+    const q = sp.get("q")?.trim() || (w ? widgetDoCatalogo(w).pergunta : undefined);
     if (q) window.history.replaceState(null, "", window.location.pathname);
-    setChat((c) => ({ q, n: (c?.n ?? 0) + 1 }));
+    // Limpar o endereço muda os parâmetros e roda este efeito de novo, já sem
+    // a pergunta: com o chat aberto, essa segunda volta não o reabre vazio.
+    setChat((c) => (!q && c ? c : { q, n: (c?.n ?? 0) + 1 }));
   }, [sp]);
 
   return (
@@ -52,11 +49,13 @@ export function AssistenteShell() {
           <Icon name="sparkles" size={16} strokeWidth={1.5} />
           Abrir conversa
         </button>
-        <nav aria-label="Motores da Quattro AI" className="flex flex-wrap gap-x-4 gap-y-2 pt-2 text-label">
-          {MOTORES.map((m) => (
-            <Link key={m.href} href={m.href} className="text-muted hover:text-ink">
-              {m.rotulo} ↗
-            </Link>
+        <nav aria-label="Motores da Quattro AI" className="flex flex-wrap gap-2 pt-2">
+          {WIDGETS_IA.map((m) => (
+            <button key={m.id} type="button" data-widget={m.id}
+              onClick={() => setChat((c) => ({ q: m.pergunta, n: (c?.n ?? 0) + 1 }))}
+              className="text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 rounded-pill px-3 py-[6px] transition-colors">
+              {m.titulo}
+            </button>
           ))}
         </nav>
       </div>

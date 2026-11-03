@@ -16,6 +16,7 @@ import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { responderLocal, graficoDoCatalogo } from "@/core/assistant/engine";
+import { widgetDaPergunta } from "@/core/assistant/widgets";
 import { numerosInventados } from "@/core/assistant/redacao";
 import { explicarTermos } from "@/core/assistant/termos";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
@@ -198,8 +199,14 @@ export function useChatIA({ inicial = [], onMudou }: {
     const anterior = [...turnos].reverse().find((t) => t.fonte === "motor");
     const consulta = perguntaComPeriodoNovo(anterior?.consulta ?? anterior?.q, q) ?? perguntaComAssuntoNovo(anterior?.consulta ?? anterior?.q, q);
 
+    // A pergunta que pede um MOTOR (risco, decisão, saúde, sugestões) leva o
+    // cartão dele na resposta, venha o texto do motor nativo ou da IA. Ela não
+    // vai para a base de conhecimento: "qual meu risco de caixa?" pede o
+    // número da empresa, não a definição.
+    const widget = widgetDaPergunta(consulta ?? q);
+
     // 1) Conceitual → base de conhecimento (sem chave)
-    const kb = consulta ? null : buscarKB(q);
+    const kb = consulta || widget ? null : buscarKB(q);
     if (kb) {
       const turno: Turno = { id, q, resposta: kb.texto, fontes: [`Base: ${kb.titulo}`], fonte: "kb", rota: kb.rota, rotaLabel: kb.titulo };
       await analisar(null);
@@ -232,7 +239,7 @@ export function useChatIA({ inicial = [], onMudou }: {
       const fiel = j?.ok && typeof j.resposta === "string" && j.resposta.trim()
         && numerosInventados(j.resposta, [local.resposta, ...local.numeros.map((n) => `${n.label} ${n.valor}`)]).length === 0;
       setPergunta(null);
-      registrar({ id, q, resposta: fiel ? j.resposta : explicarTermos(local.resposta), redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico, acoes: local.acoes, ...(viaConsulta && consulta ? { consulta } : {}) });
+      registrar({ id, q, resposta: fiel ? j.resposta : explicarTermos(local.resposta), redigida: !!fiel, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId, grafico: local.grafico, acoes: local.acoes, ...(widget ? { widget } : {}), ...(viaConsulta && consulta ? { consulta } : {}) });
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: local.resposta, status: "lida" });
       force();
       return;
@@ -263,12 +270,13 @@ export function useChatIA({ inicial = [], onMudou }: {
         // Sem dado nenhum para responder: o caminho para ter dado, nunca só "reformule".
         turno = { id, q, resposta: "Ainda não há lançamentos suficientes para responder. Envie um extrato ou conecte o banco e a resposta sai dos seus números.", fonte: "motor", acoes: acoesDasTelas(["enviar", "conectar"]) };
       }
+      if (widget) turno = { ...turno, widget };
       registrar(turno);
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: turno.resposta ?? "", status: "lida" });
       force();
     } catch {
       setPergunta(null);
-      if (ctx) { const exec = copilotoFinanceiro(q, ctx); registrar({ id, q, resposta: explicarTermos(exec.resposta), numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor" }); }
+      if (ctx) { const exec = copilotoFinanceiro(q, ctx); registrar({ id, q, resposta: explicarTermos(exec.resposta), numeros: completarPorRotulo(exec.numeros), fontes: exec.fontes, fonte: "motor", ...(widget ? { widget } : {}) }); }
       else { registrar({ id, q, resposta: "Não foi possível processar a consulta. Tente novamente.", fonte: "motor" }); }
     } finally { setPensando(false); setPergunta(null); }
   }, [pensando, input, ctx, anomalias, insights, turnos, analisar, registrar]);
