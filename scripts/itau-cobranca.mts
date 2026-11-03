@@ -232,6 +232,19 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
     r.situacao === "incerta" && c?.metodo === "GET" && c?.caminho === M.caminhoConsultaItau("sandbox", CONTA, NN));
 }
 {
+  // O simulador do sandbox devolve títulos fixos: o motivo diz quais números vieram.
+  const outro = { status: 200, corpo: { data: [{ dado_boleto: { dados_individuais_boleto: [{ numero_nosso_numero: "87654321" }] } }] } };
+  API.esquecerTokensItau();
+  const ts = transporte((o) => (o.caminho === TOKEN ? tokenOk : outro));
+  const rs = await API.consultarCobrancaItau(CFG, NN, ts.fn);
+  API.esquecerTokensItau();
+  const tp = transporte((o) => (o.caminho === "/api/oauth/token" ? tokenOk : outro)); // o token de produção
+  const rp = await API.consultarCobrancaItau({ ...CFG, ambiente: "producao" }, NN, tp.fn);
+  ok("cliente: no sandbox, a consulta sem o nosso número diz quais números o simulador devolveu (em produção, não)",
+    rs.situacao === "incerta" && /devolveu 1 título\(s\) com nosso número 87654321/.test((rs as any).motivo)
+    && rp.situacao === "incerta" && /não achou o título/.test((rp as any).motivo) && !/87654321/.test((rp as any).motivo), JSON.stringify([rs, rp]));
+}
+{
   API.esquecerTokensItau();
   const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 200, corpo: {} }));
   const r = await API.baixarCobrancaItau(CFG, NN, t.fn);

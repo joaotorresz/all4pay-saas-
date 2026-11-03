@@ -168,6 +168,26 @@ function comODitoDoItau(r: ResultadoCobrancaBanco, resp: RespostaItau): Resultad
   return { ...r, motivo: `${r.motivo} O Itaú disse: ${disse}`.slice(0, 600) };
 }
 
+/**
+ * Só no SANDBOX: quando a consulta volta 200 sem o nosso número, diz quais
+ * nossos números o simulador devolveu (03/11/2026: ele responde com títulos
+ * fixos). Em produção a resposta fica como está: lá são títulos de clientes.
+ */
+function comOsNumerosDoSandbox(r: ResultadoCobrancaBanco, cfg: ConfigItau, corpo: unknown): ResultadoCobrancaBanco {
+  if (cfg.ambiente !== "sandbox" || r.situacao !== "incerta") return r;
+  const dados = corpo && typeof corpo === "object" && Array.isArray((corpo as { data?: unknown }).data) ? ((corpo as { data: unknown[] }).data) : [];
+  const vistos = dados
+    .slice(0, 10)
+    .map((t) => {
+      const dado = t && typeof t === "object" ? (t as { dado_boleto?: { dados_individuais_boleto?: Array<{ numero_nosso_numero?: unknown }> } }).dado_boleto : undefined;
+      const n = dado?.dados_individuais_boleto?.[0]?.numero_nosso_numero;
+      return typeof n === "string" ? n.replace(/\D/g, "").slice(0, 20) : "";
+    })
+    .filter(Boolean);
+  const disse = `O sandbox devolveu ${dados.length} título(s)${vistos.length ? ` com nosso número ${vistos.join(", ")}` : ""}.`;
+  return { ...r, motivo: `${r.motivo} ${disse}`.slice(0, 600) };
+}
+
 /** Só prova que a credencial gera token (o teste do administrador). */
 export async function testarCredencialItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<{ ok: true } | { ok: false; motivo: string }> {
   try {
@@ -216,7 +236,7 @@ export async function consultarCobrancaItau(cfg: ConfigItau, nossoNumero: string
     const r = await chamar(cfg, transporte, "GET", caminhoConsultaItau(cfg.ambiente, cfg.conta, nossoNumero));
     if (r.status === 404) return { situacao: "incerta", motivo: "O Itaú não achou este título." };
     if (r.status !== 200) return comODitoDoItau({ situacao: "incerta", motivo: motivoDaRecusaItau(r.status, r.corpo) }, r);
-    return lerConsultaItau(r.corpo, cfg.conta, nossoNumero);
+    return comOsNumerosDoSandbox(lerConsultaItau(r.corpo, cfg.conta, nossoNumero), cfg, r.corpo);
   } catch (e) {
     return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
   }
