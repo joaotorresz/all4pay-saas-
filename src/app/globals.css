@@ -17,6 +17,16 @@
   font-style: normal;
   font-display: swap;
 }
+/* TESTE DO MENU (03/11/2026, pedido do dono): Agrandir Narrow Medium nos
+   itens de submenu do menu lateral. Só o menu a usa; o título do grupo segue
+   na Quattro Agrandir (Bold). */
+@font-face {
+  font-family: "Agrandir Narrow";
+  src: url("/fonts/agrandir-narrow-medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 @font-face {
   font-family: "Inter Display";
   src: url("/fonts/inter-display-latin.woff2") format("woff2-variations");
@@ -1561,6 +1571,21 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
 .a4p-menu-item { color: var(--erp-menu-texto); }
 .a4p-menu-item:hover { background: var(--erp-menu-hover); }
 .a4p-menu-sub { color: var(--erp-menu-texto-2); }
+/* Menu em Agrandir (teste do dono, 03/11/2026): grupo em Bold, submenu em
+   Narrow Medium. O espaço da Agrandir é estreito, então as palavras ganham o
+   mesmo respiro do título de tela. */
+.a4p-menu-grupo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+  word-spacing: var(--a4p-titulo-espaco-palavra);
+}
+.a4p-menu-sub {
+  font-family: "Agrandir Narrow", var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0;
+  word-spacing: var(--a4p-titulo-espaco-palavra);
+}
 .a4p-menu-sub:hover { background: var(--erp-menu-hover); color: var(--erp-menu-texto); }
 .a4p-menu-sub[aria-current="page"] { color: var(--erp-menu-texto); }
 .a4p-menu-afundado { background: var(--erp-menu-afundado); }
