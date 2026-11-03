@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   caminhoConsultaItau,
+  CONTA_DO_EXEMPLO_ITAU,
+  EXEMPLO_DA_DOC_ITAU,
+  NOSSO_NUMERO_DO_EXEMPLO_ITAU,
   ROTAS_ITAU,
   corpoBaixaItau,
   corpoTokenItau,
@@ -208,15 +211,8 @@ export async function emitirCobrancaItau(
   nossoNumero: string,
   hoje: string,
   transporte: TransporteItau = requisicaoItau,
-  /**
-   * Só o exemplo da documentação no SANDBOX: o CPF do exemplo do Itaú tem
-   * dígito inválido e a nossa conferência o barraria antes de sair. Fora do
-   * sandbox a conferência vale sempre.
-   */
-  opcoes: { exemploDoSandbox?: boolean } = {},
 ): Promise<ResultadoCobrancaBanco> {
-  const pularPedido = opcoes.exemploDoSandbox === true && cfg.ambiente === "sandbox";
-  const problemas = [...(pularPedido ? [] : problemasDoPedido(pedido)), ...problemasDaContaItau(cfg.conta)];
+  const problemas = [...problemasDoPedido(pedido), ...problemasDaContaItau(cfg.conta)];
   if (!nossoNumeroValido(nossoNumero)) problemas.push("O nosso número do Itaú tem 8 dígitos.");
   if (problemas.length) return { situacao: "falhou", motivo: problemas.join(" ") };
   try {
@@ -225,6 +221,25 @@ export async function emitirCobrancaItau(
   } catch (e) {
     if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
     // Saiu e não voltou: pode ter registrado.
+    return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
+  }
+}
+
+/**
+ * SÓ NO SANDBOX: envia o JSON de exemplo da documentação do Itaú LITERAL, sem
+ * passar pelo nosso montador. O sandbox é um simulador e só responde ao corpo
+ * idêntico ao exemplo (03/11/2026: o nosso montador mandava valor em 17
+ * dígitos, chave Pix e data de emissão, e voltava "cenário não mapeado").
+ * Fora do sandbox não sai nada.
+ */
+export async function emitirExemploDoSandboxItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<ResultadoCobrancaBanco> {
+  if (cfg.ambiente !== "sandbox") return { situacao: "falhou", motivo: "O exemplo da documentação só vale no sandbox." };
+  const conta = { ...cfg.conta, ...CONTA_DO_EXEMPLO_ITAU };
+  try {
+    const r = await chamar(cfg, transporte, "POST", ROTAS_ITAU.sandbox.emitir, EXEMPLO_DA_DOC_ITAU);
+    return comODitoDoItau(lerCriacaoItau(r.status, r.corpo, conta, NOSSO_NUMERO_DO_EXEMPLO_ITAU), r);
+  } catch (e) {
+    if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
     return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
   }
 }
