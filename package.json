@@ -74,7 +74,8 @@
     "tokens": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/tokens.mts",
     "nfse-focus": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/nfse-focus.mts",
     "cobranca-banco-conexao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/cobranca-banco-conexao.mts",
-    "mobile-largura": "node scripts/mobile-largura.mjs"
+    "mobile-largura": "node scripts/mobile-largura.mjs",
+    "css-equivalencia": "node scripts/css-equivalencia.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",

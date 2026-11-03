@@ -72,6 +72,13 @@ Onde as seções de identidade do histórico discordarem dele, vale o de 27/10.
     `GraficosModelos.tsx`), com o nome do modelo do canvas. Toda dica nasce de
     `DicaGrafico`/`DicaRecharts`. As barras usam `RAIO_CHEIO`.
 
+O `globals.css` foi enxugado em 03/11/2026 (de 2.217 para cerca de 1.500
+linhas) sem mudar um pixel: `npm run css-equivalencia` grava o estilo
+computado de todo elemento de toda tela antes e depois, e a comparação deu
+zero diferença. A folha anterior, com o histórico nos comentários, está em
+`docs/historico/globals-css-ate-2026-11-03.css`. Antes de mexer na folha,
+grave e compare do mesmo jeito: a ordem das seções é a cascata.
+
 O editor `/admin/design-system` edita um RASCUNHO com prévia ao vivo. "Salvar
 no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
 
@@ -217,6 +224,7 @@ npm run coerencia    # combinações de números que não podem ser verdade junt
 npm run audit        # regressão dos defeitos de auditoria (engine-audit)
 npm run paleta       # nenhuma cor fora do DS
 npm run tokens       # gera o bloco de tokens do globals.css a partir do tokens.json
+npm run css-equivalencia -- gravar antes.jsonl   # estilo computado de cada tela (exige o app servido)
 npm run ia-eval      # o comportamento das respostas da IA
 npm run mobile       # medição no telefone (exige `npx next start -p 3100`)
 npm run fluxos       # os quatro fluxos essenciais no telefone

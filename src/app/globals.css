@@ -2,14 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* DESIGN SYSTEM 27/10/2026 — o do site (paguequattro.com/teste2), decisão do
-   dono. DUAS famílias, dois papéis:
-   · "Quattro Agrandir" (700) — TÍTULO e VALOR-HERÓI. O arquivo é o MESMO que
-     o site embute no componente QFonte (woff2 de 18 KB, 100–900).
-   · "Inter Display" — TEXTO e números de tabela. É a Inter variável com o eixo
-     óptico (`opsz`), no tamanho de display: a mesma família do site, com
-     `font-variation-settings: "opsz" 32` aplicado no corpo (fim do arquivo).
-   Roobert, Gellix, Knocky, Obviously e Deacon saíram (arquivos e @font-face). */
+/* ═══════════════════════════════════════════════════════════════════════════
+   QUATTRO — folha global. O design system vigente é o de 27/10/2026
+   (paguequattro.com/teste2); as regras estão no CLAUDE.md, seção 1.
+
+   · Os VALORES (cor, raio, sombra, fonte) moram em `src/design/tokens.json`
+     e chegam aqui pelo bloco gerado logo abaixo. Nenhum valor solto.
+   · A ordem das seções É a cascata: muitas regras vencem só por virem
+     depois. Mudar uma de lugar muda a tela.
+   · Antes e depois de mexer, rode `node scripts/css-equivalencia.mjs`: ele
+     grava o estilo computado de cada elemento de cada tela e acusa qualquer
+     diferença.
+   · A folha anterior, com o histórico de cada decisão nos comentários, está
+     inteira em `docs/historico/globals-css-ate-2026-11-03.css`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Fontes ──────────────────────────────────────────────────────────────────
+   Duas famílias: Quattro Agrandir (título e todo número) e Inter Display (o
+   resto, com o eixo óptico `opsz` 32 aplicado no corpo). */
 @font-face {
   font-family: "Quattro Agrandir";
   src: url("/fonts/quattro-agrandir.woff2") format("woff2");
@@ -17,9 +27,8 @@
   font-style: normal;
   font-display: swap;
 }
-/* TESTE DO MENU (03/11/2026, pedido do dono): Agrandir Narrow Medium nos
-   itens de submenu do menu lateral. Só o menu a usa; o título do grupo segue
-   na Quattro Agrandir (Bold). */
+/* Agrandir Narrow Medium: só nos itens de submenu do menu lateral (teste do
+   dono, 03/11/2026). */
 @font-face {
   font-family: "Agrandir Narrow";
   src: url("/fonts/agrandir-narrow-medium.woff2") format("woff2");
@@ -30,11 +39,8 @@
   descent-override: 14.4%;
   line-gap-override: 0%;
 }
-/* A Agrandir declara a caixa da linha em 750/250: a maiúscula (cap 712) fica
-   ~1/10 do corpo ACIMA do centro, e no menu o texto subia em relação ao ícone.
-   Esta face é o MESMO arquivo com a métrica centrada na maiúscula
-   (ascent − descent = cap); só o menu a usa, para os títulos de tela não
-   mudarem de posição. */
+/* O mesmo arquivo da Agrandir com a métrica centrada na maiúscula, para o
+   texto do menu não subir em relação ao ícone. Só o menu a usa. */
 @font-face {
   font-family: "Quattro Agrandir Menu";
   src: url("/fonts/quattro-agrandir.woff2") format("woff2");
@@ -62,29 +68,10 @@
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
 
-/* ============================================================
-   Quattro Design System — runtime CSS variables
-   ------------------------------------------------------------
-   These MIRROR the canonical tokens defined in tailwind.config.ts.
-   They exist only for the places Tailwind utilities can't reach:
-   SVG fills/strokes, gradients, and a handful of inline styles.
-   Keep them in sync with the config — never add a value here that
-   isn't also a token. See CLAUDE.md.
-   ============================================================ */
-/* ============================================================
-   PALETA QUATTRO — a identidade vigente (30/09/2026).
-
-   Lime #ECFD52 (ação) · Verde-base #3B4332 (texto e fundo escuro) ·
-   Areia #B5B594 (borda de campo) · Cinza médio #D6D8CA (borda de card) ·
-   Cinza claro #F3F1EE (fundo de página) · Branco #FFFFFF (card e campo) ·
-   Texto #2B3125 · Texto secundário #6B7060 · Placeholder #A9AD9E ·
-   Erro #B3261E (o único vermelho).
-
-   ⚠️ Lime nunca leva texto branco. Fundo escuro é verde-base, nunca preto.
-   Sem roxo, azul ou degradê colorido: os tokens `--gradient-marca*` viraram
-   lime chapado para não quebrar quem os consome.
-   A guarda `npm run paleta` reprova hex fora desta lista.
-   ============================================================ */
+/* ── Tokens ──────────────────────────────────────────────────────────────────
+   Paleta: lime #ECFD52 só na ação (nunca com texto branco), texto #3B4332,
+   fio #E8E7E0, página #F5F5F5, cartão #FFFFFF. A guarda `npm run paleta`
+   reprova hex fora da lista. */
 /* <tokens-gerados> */
 /* ⚠️ GERADO — NÃO EDITE À MÃO. A fonte é src/design/tokens.json; depois de
    mudá-lo, rode `npm run tokens`. Uma edição aqui some na próxima geração e
@@ -439,14 +426,8 @@ html:not(.dark) .ds-visor {
 }
 /* </tokens-gerados> */
 
-/* ============================================================
-   Dark mode — mesma linguagem do DS, invertida. Cores extraídas
-   da referência (near-black + lime acento + texto near-white).
-   `html.dark` é aplicado pelo ThemeToggle / script anti-flash.
-   Só as NEUTRAS invertem; lime/on-lime e o número-herói seguem
-   mandando. Status levemente clareados para legibilidade no escuro.
-   ============================================================ */
-
+/* ── Base ────────────────────────────────────────────────────────────────────
+   `html.dark` vem do ThemeToggle e do script anti-flash do layout. */
 @layer base {
   html,
   body {
@@ -460,19 +441,17 @@ html:not(.dark) .ds-visor {
     color-scheme: dark;
   }
 
+  /* Prosa em numerais proporcionais; o alinhamento tabular é dos contextos
+     `.tabular-nums`/`.a4p-num`. */
   body {
     @apply bg-surface-1 text-ink font-sans;
     -webkit-font-smoothing: antialiased;
-    /* Prosa em numerais PROPORCIONAIS (o tnum da Schibsted alarga ponto/vírgula).
-       Alinhamento tabular é responsabilidade dos contextos .tabular-nums/.a4p-num,
-       que entram em Geist Mono (DS Ledger). */
-    /* Roc Grotesk Regular: peso 400, espaçamento -0.01em, line-height base 22px */
     font-weight: 400;
     letter-spacing: -0.01em;
     line-height: 22px;
   }
 
-  /* Onest com múltiplos pesos; sem faux-bold. Tracking base -0.01em vem do body. */
+  /* Sem negrito falso: só os pesos que o arquivo tem. */
   * {
     font-synthesis-weight: none;
   }
@@ -481,13 +460,13 @@ html:not(.dark) .ds-visor {
     box-sizing: border-box;
   }
 
-  /* Gráficos (Recharts/SVG) herdam a fonte do sistema (Onest). */
+  /* O texto dos gráficos (SVG) herda a fonte do sistema. */
   svg text,
   svg tspan {
     font-family: inherit;
   }
 
-  /* Quiet, soft scrollbar — matches the restrained product feel. */
+  /* Barra de rolagem discreta. */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -503,20 +482,16 @@ html:not(.dark) .ds-visor {
   }
 }
 
-/* ============================================================
-   Animação de entrada (clean) — os cards "sobem" suavemente ao carregar
-   a página. Respeita prefers-reduced-motion. Stagger leve por posição.
-   ============================================================ */
+/* ── Movimento: entrada dos cartões e retorno do clique ─────────────────────
+   Os cartões sobem ao carregar, com atraso leve por posição. `backwards`, e
+   não `both`, para não fixar o transform no fim. */
 @keyframes a4pRise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
 }
 .ds-visor [data-card="1"] {
-  /* `backwards` (não `both`): mantém o estado inicial durante o delay, mas NÃO
-     fixa o transform no fim — assim o hover-lift abaixo volta a funcionar. */
   animation: a4pRise 0.5s cubic-bezier(0.22, 0.7, 0.25, 1) backwards;
 }
-/* stagger leve nos primeiros cards de cada grade */
 .ds-visor [data-card="1"]:nth-child(1) { animation-delay: 0.02s; }
 .ds-visor [data-card="1"]:nth-child(2) { animation-delay: 0.07s; }
 .ds-visor [data-card="1"]:nth-child(3) { animation-delay: 0.12s; }
@@ -527,11 +502,7 @@ html:not(.dark) .ds-visor {
   .ds-visor [data-card="1"] { animation: none; }
 }
 
-/* ============================================================
-   Feedback de CLIQUE (tátil & suave) — além de button/a, qualquer
-   item clicável (linhas de tabela, cards-botão com .cursor-pointer)
-   responde ao toque; botões sólidos ganham um leve brilho no press.
-   ============================================================ */
+/* Todo item clicável responde ao toque. */
 .cursor-pointer { transition: transform 0.26s var(--ease-press, cubic-bezier(0.34,1.26,0.64,1)), background-color 0.18s ease, opacity 0.18s ease; }
 .cursor-pointer:active { transform: scale(0.985); }
 button:active:not(:disabled) { filter: brightness(0.98); }
@@ -542,30 +513,22 @@ html { scroll-behavior: smooth; }
   .cursor-pointer:active, button:active:not(:disabled) { transform: none !important; filter: none !important; }
 }
 
-/* ============================================================
-   Micro-interações (clean & suave) — easing consistente, press
-   com retorno macio no clique, realce sutil dos ícones, elevação
-   dos cards e foco visível discreto. O clique é o herói.
-   ============================================================ */
-button, a, [role="button"], summary, label[for], .a4p-hoverable {
+/* Micro-interações: o clique encolhe e volta macio; o ícone realça no hover. */
+button, a, [role="button"], summary, label[for] {
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease,
     box-shadow 0.24s var(--ease-smooth), transform 0.26s var(--ease-press), opacity 0.18s ease;
 }
-/* clique → press macio (escala) com retorno levemente elástico */
 button:active, a:active, [role="button"]:active, summary:active { transform: scale(0.955); }
 
-/* Ícones (Phosphor) — realce sutil no hover do clicável; encolhe no clique */
 .a4p-icon { transition: transform 0.26s var(--ease-press); transform-origin: center; will-change: transform; }
 button:hover .a4p-icon,
 a:hover .a4p-icon,
 [role="button"]:hover .a4p-icon,
-.group:hover .a4p-icon,
-.a4p-hoverable:hover .a4p-icon { transform: scale(1.12); }
+.group:hover .a4p-icon { transform: scale(1.12); }
 button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
 
-/* Cards — PARADOS no hover e no clique (pedido do dono, 16/10/2026): o card
-   não sobe, não desce e não encolhe. Card que é link (Home) também não ganha o
-   "press" de escala dos botões: o retorno do clique é a navegação. */
+/* Cartões ficam PARADOS no hover e no clique (dono, 16/10/2026); o cartão que
+   é link na Home também não ganha o encolher dos botões. */
 .ds-visor [data-card="1"],
 .ds-visor [data-card="1"]:hover,
 .ds-visor [data-card="1"]:active,
@@ -575,16 +538,14 @@ button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
   transform: none;
 }
 
-/* Foco visível — anel discreto que respeita o raio do elemento (acessível) */
+/* Foco visível pelo teclado. */
 :where(button, a, [role="button"], input, select, textarea):focus-visible {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
-/* A caixa da Quattro AI na Home: o campo some dentro da barra branca, e o
-   anel escuro de foco desenhava uma segunda caixa por dentro dela (dono,
-   14/10/2026). O foco continua visível — o cursor piscando na barra. */
+/* O campo da Quattro AI na Home some dentro da barra branca: o anel de foco
+   desenharia uma segunda caixa por dentro dela. */
 .a4p-ia-campo:focus, .a4p-ia-campo:focus-visible { outline: none; box-shadow: none; }
-/* Campos — transição suave no foco */
 input, select, textarea { transition: border-color 0.18s ease, box-shadow 0.2s var(--ease-smooth), background-color 0.18s ease; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -595,323 +556,122 @@ input, select, textarea { transition: border-color 0.18s ease, box-shadow 0.2s v
   .ds-visor [data-card="1"]:hover, button:hover .a4p-icon, a:hover .a4p-icon { transform: none !important; }
 }
 
-/* ============================================================
-   DS v2 (Onest) — padrões promovidos do teste da Home para TODO o sistema.
-   Unlayered de propósito: vencem as utilities do Tailwind.
-   ============================================================ */
-/* títulos em SemiBold (h1/h2/h3 + escala text-h*) */
+/* ── Tipografia ──────────────────────────────────────────────────────────────
+   Fora do app (login, cadastro): títulos em 600. */
 h1, h2, h3,
 .text-display, .text-h1, .text-h2, .text-h3 {
   font-weight: 600;
 }
-/* Números tabulares (sans): alinhados, espaçamento normal. Os VALORES
-   monetários (Money/BRL) e os eixos de gráfico é que entram em mono —
-   frases com número no meio continuam na grotesca. */
 .tabular-nums {
   letter-spacing: 0 !important;
   font-variant-numeric: tabular-nums;
 }
-/* Gráficos no MESMO padrão: rótulos de eixo em mono 11px, discretos. */
 .recharts-cartesian-axis-tick-value {
-  font-family: var(--font-mono);
-  font-weight: 400;
-  font-size: 11px;
   fill: var(--color-text-tertiary);
 }
 
-/* ============================================================
-   DS "LEDGER" — a identidade vigente (escopo .ds-visor, todo o app).
-   Editorial-terminal: Schibsted Grotesk (neo-grotesca) na UI, Geist
-   Mono em TODOS os números, cards sólidos com hairline 1px + micro
-   sombra (o vidro fica só nos overlays/sidebar), raio 16px, lime como
-   único acento. Referências: Vaulto (Awwwards), Mercury/Ramp.
-   ============================================================ */
+/* Dentro do app (`.ds-visor`): Inter Display 500 por omissão. As regras de
+   título e de número mais abaixo vencem esta. */
 .ds-visor {
-  /* ========================================================================= */
-
-  font-family: var(--font-sans);
-  letter-spacing: -0.01em;
-  /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
   background: transparent;
 }
-/* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
-/* ============================================================
-   TRÊS FAMÍLIAS, TRÊS PAPÉIS — e nenhum deles se sobrepõe.
-
-   ⚠️ IDENTIDADE QUATTRO (30/09/2026): a display passou a ser a CENTRA NO.2
-   BLACK, em CAIXA ALTA nos títulos (h1 e herói). "Gellix" abaixo é histórico:
-   o PAPEL é o mesmo, a família mudou.
-
-   · DISPLAY — Centra No.2 Black. Afirmação de marca e NÚMERO que precisa
-     impressionar: o valor monetário principal da tela, o título de uma tela
-     de destaque, a porcentagem grande do donut. Sempre número ou palavra
-     curta, nunca parágrafo.
-   · TEXTO — Roobert 500. Tudo que se lê com conforto: parágrafos, nomes de
-     transação, rótulos de campo, itens de menu, texto de botão.
-   · RÓTULO — a classe `.a4p-label` (11px · 500 · 0,44px · CAIXA ALTA · 1,35).
-     Eyebrow de seção, tag de estado, numeração de etapa, timestamp, unidade,
-     seletor de período.
-
-   Regra de ouro: se é número, é Gellix; se é conteúdo, é Roobert; se é
-   rótulo ou estado, é a classe de rótulo em caixa alta.
-   ============================================================ */
 .ds-visor,
 .ds-visor * {
   font-family: var(--font-sans);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
-/* Títulos de seção e de card: TEXTO (Roobert), não display — 8.3 restringe a
-   Gellix ao número e ao título de tela de destaque. */
 .ds-visor h2, .ds-visor h3,
 .ds-visor .text-h2, .ds-visor .text-h3 {
   font-weight: 500;
-  color: var(--color-ink);
   letter-spacing: -0.01em;
 }
-/* ⚠️ O `h1` de página NÃO é display, e isto é a regra 8.3 sendo obedecida ao
-   pé da letra: a Gellix aparece em TRÊS situações e só nelas — o valor
-   monetário principal, o título de uma tela de DESTAQUE, e a porcentagem
-   grande do donut. "Fluxo de caixa" no alto de um relatório é navegação, não
-   afirmação de marca; pôr a display ali gastaria o recurso em toda tela e ele
-   deixaria de destacar coisa nenhuma.
-   Tela de destaque pede a classe explícita `.a4p-heroi`. */
-.ds-visor h1,
-.ds-visor .text-h1 {
-  /* ⚠️ QUATTRO: título de seção/tela é Centra No.2 Black em CAIXA ALTA
-     (guia: "caixa alta nos títulos de seção e hero", tracking −0.02em,
-     entrelinha 1,03–1,1). Substitui a regra anterior de h1 em Roobert. */
-  font-family: var(--font-display);
-  font-weight: 900;
-  text-transform: none;
-  line-height: 1.05;
-  color: var(--color-ink);
-  letter-spacing: -0.02em;
-}
-.ds-visor .text-display,
-.ds-visor .a4p-heroi {
-  font-family: var(--font-display);
-  font-weight: 900;
-  text-transform: none;
-  color: var(--color-ink);
-  letter-spacing: -0.02em;
-}
-/* Tamanho do herói — 33px (escolha do Laboratório, promovida).
-   ⚠️ Ele mora AQUI, na regra de papel, e não mais no `text-[30px]` do
-   componente: com o tamanho preso à classe utilitária, o ajuste do
-   Laboratório só sobrevivia enquanto ele injetava `!important`, e a promoção
-   para o código nascia inerte. É o mesmo defeito dos blocos posicionais. */
+/* O valor-herói (`.a4p-heroi`): 33px. */
 .ds-visor .a4p-heroi {
   font-size: 33px;
 }
-/* ⚠️ OS VALORES SÃO GELLIX — e isto só é possível porque o arquivo TEM `tnum`
-   (medido com fontTools). Sem numeral tabular cada linha de uma coluna de
-   dinheiro começaria num ponto diferente, que é o defeito que o `tabular-nums`
-   do sistema existe para impedir; foi por faltar `tnum` que Knocky, Obviously
-   e Deacon ficaram fora dos valores. O `font-feature-settings` é explícito
-   porque a classe utilitária sozinha não alcança o SVG dos gráficos. */
+/* `tnum` explícito porque a classe utilitária sozinha não alcança o SVG. */
 .ds-visor .a4p-num,
 .ds-visor .a4p-num *,
 .ds-visor .tabular-nums,
 .ds-visor .text-value-lg {
-  font-family: var(--font-display);
-  font-weight: 900;
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-/*
- * VALOR EM LINHA — o número de uma agenda ou de uma lista não é o valor-herói
- * da tela: ele acompanha um nome e uma categoria em Roobert, e em Gellix Bold
- * ficava com mais peso que a informação que qualifica. Segue com
- * `tabular-nums`, que é o que mantém a coluna alinhada — a largura fixa vem
- * da feature, não da família.
- *
- * ⚠️ Precisa de DUAS classes no mesmo seletor para vencer a regra do valor —
- * `.ds-visor .a4p-num` e `.ds-visor .tabular-nums` são mais específicas que
- * uma classe sozinha. E precisa cobrir as DUAS âncoras: o `.a4p-num` do
- * componente `BRL` e o `.tabular-nums` de uma célula de tabela com texto
- * cru. Faltando a segunda, a data da tabela continuava em Gellix 700 — medido.
- */
-.ds-visor .tabular-nums.a4p-valor-texto,
-.ds-visor .a4p-num.a4p-valor-texto,
-.ds-visor .a4p-valor-texto .a4p-num,
-.ds-visor .a4p-valor-texto .a4p-num * {
-  font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: -0.01em;
 }
 
-/*
- * DIA DE UM SELETOR DE DATA — o número grande da cápsula do calendário.
- * É um papel próprio, e precisa existir por três razões medidas no navegador:
- *
- * 1. Não é TÍTULO DE CARD. `text-h3` parece só "18px", mas dentro de um card
- *    ele É o papel título (`.ds-visor [data-card="1"] .text-h3` → 15px/500/
- *    taupe, mais específico que o utilitário): usá-lo mantinha o número em
- *    15px e ainda o pintava de cinza SOBRE o preto da cápsula selecionada.
- * 2. Não é VALOR. `tabular-nums`/`a4p-num` trazem a display (Gellix Bold), e
- *    alinhamento tabular não compra nada aqui — cada dia é centrado na própria
- *    caixa de 56px, não empilhado numa coluna. Data fala Roobert.
- * 3. O peso não é alavanca neste sistema. `.ds-visor *` fixa 500 e EMPATA em
- *    especificidade com `.font-semibold` (0,1,0 nos dois), vencendo por ordem
- *    de origem — então `font-semibold` no componente não sobe nada. Daí as
- *    duas classes no seletor (0,2,0), a mesma técnica do valor em linha acima.
- *
- * Com o peso travado, a hierarquia vem do TAMANHO — que é a mesma decisão já
- * tomada para o dinheiro (o centavo encolhe, não clareia). 18px contra os 13px
- * do dia da semana é o que faz o número mandar na cápsula.
- *
- * Tem NOME de propósito: um ajuste no Laboratório precisa alcançar o papel, e
- * foi coordenada de DOM (`nth-of-type`) que fez os blocos promovidos vencerem
- * a regra de papel. Não trocar por posição.
- */
+/* O dia de um seletor de data: papel próprio, com nome (nunca por posição). */
 .ds-visor .a4p-dia-num {
-  font-family: var(--font-sans);
   font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
   line-height: 1;
 }
 
-/* Eixo de gráfico é UNIDADE, não valor-herói: papel de rótulo. Em Gellix Bold
-   a 11px o eixo competiria com a série que ele mede. */
+/* Eixo de gráfico é unidade, não valor: papel de rótulo. */
 .ds-visor .recharts-cartesian-axis-tick-value {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.44px;
 }
-/* ============================================================
-   A CLASSE DE RÓTULO — a única caixa-alta sancionada do sistema.
-   11px · 500 · 0,44px · uppercase · 1,35. Usada por eyebrow de seção, tag de
-   estado (PENDENTE, PAGO), seletor de período (1S/1M/6M/1A/TUDO), numeração
-   de etapa, timestamp e unidade.
-   ============================================================ */
+/* Rótulo (`.a4p-label`): 11px, tracking aberto. Sem caixa alta, como todo
+   texto do produto. */
 .a4p-label {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.44px;
-  /* ⚠️ SEM CAIXA ALTA. A classe continua sendo o papel de RÓTULO (11px,
-     tracking aberto, mono) — o que saiu foi o `text-transform: uppercase`.
-     A decisão anterior tratava a caixa-alta como "a única sancionada"; a
-     vigente é que NENHUM texto do produto sobe de caixa. O rótulo continua se
-     distinguindo pelo corpo, pelo tracking e pela família, que é o que ele
-     precisa para não competir com o conteúdo que nomeia. */
-  text-transform: none;
   line-height: 1.35;
 }
 
-/* O degradê da marca como superfície — SÓ destaque (ícone, celebração, capa,
-   CTA final). Quem escreve por cima usa `text-on-lime`: o degradê termina no
-   lima claro e texto branco sumiria ali. */
-.a4p-gradiente-marca {
-  background-image: var(--gradient-marca);
-}
-/* rounded-card (36px fixo) → raio do painel */
-.ds-visor .rounded-card {
-  border-radius: var(--a4p-box-radius);
-}
-/* Cards SÓLIDOS, CLEAN: sem borda e sem sombra (spec do site).
-   A superfície vem do TOKEN (`--color-white`), nunca de hex literal — era
-   `#ffffff` cravado, o que deixava o card branco também no tema escuro e
-   ignorava qualquer troca de superfície. `border-width: 0` (em vez do
-   shorthand `border: 0`) preserva a cor de borda do tema para quem quiser
-   ligar uma borda depois. */
+/* ── Cartão ──────────────────────────────────────────────────────────────────
+   Sólido, sem borda e sem sombra: o que o separa do fundo é o contraste das
+   duas superfícies. A cor vem do token, nunca de hex. */
 .ds-visor [data-card="1"] {
   background: var(--color-white);
-  /* ⚠️ CARD SEM BORDA. O que separa o card do fundo é o CONTRASTE das duas
-     superfícies (branco sobre a área clara), não um fio. Com a área do app
-     numa cor própria, o hairline virava uma terceira linha competindo com a
-     que o próprio recorte já desenha — e um contorno que quase não se vê é
-     pior que nenhum: some em telas fracas e aparece nas boas, então o card
-     muda de peso conforme o monitor.
-     `border-width: 0` em vez do shorthand `border: 0` preserva a cor de borda
-     do tema para quem quiser ligar uma borda pontual depois. */
-  /* ⚠️ QUATTRO (30/09/2026): o card VOLTA A TER BORDA — 1px Cinza médio,
-     raio 26px, padding 28px (guia da marca). O parágrafo acima descreve a
-     decisão anterior; a vigente é a do guia. */
-  border: 1px solid var(--a4p-box-border);
-  box-shadow: none;
+  border-color: var(--a4p-box-border);
 }
-/* padding 45px (default do Card) → 24px do painel */
 .ds-visor [data-card="1"].p-\[45px\] {
   padding: var(--a4p-box-padding);
 }
 .ds-visor .p-6 {
   padding: var(--a4p-box-padding);
 }
-/* Cards — regra POR TIPO do Laboratório: o conteúdo dos boxes fala em Roobert
-   Variable, peso 400. Aplicada ao CARD (não a `*`), então é só o padrão: quem
-   tem peso explícito dentro (títulos, heróis) continua vencendo por herança. */
+/* O conteúdo do cartão fala em peso 400; quem tem peso próprio vence. */
 .ds-visor [data-card="1"] {
-  font-family: var(--font-sans);
   font-weight: 400;
 }
 
-/* Subtítulos (H2) — regra POR TIPO do Laboratório: Roobert Variable 17/500,
-   tracking −0.02em, na cor ink. Precisa vir DEPOIS do bloco que põe 600 nos
-   títulos, senão o peso 600 vence pela ordem.
-   ⚠️ 15/10/2026, decisão do dono: os títulos de seção subiram UM peso
-   (regular → medium aqui; medium → semibold em `.a4p-titulo-secao`). */
 .ds-visor h2,
 .ds-visor .text-h2 {
-  font-family: var(--font-sans);
   font-size: 17px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
 }
 
-/* ============================================================
-   TÍTULO DE CARD — Roobert Trial 15/500, tracking −0.5px, cinza.
-   ------------------------------------------------------------
-   Regra por PAPEL (título dentro de um card), não por posição: o
-   `WidgetHeader` renderiza `<h2 class="text-h3">`, e outros cards usam
-   `.text-h2`/`h3` direto. Alcançar os quatro casos com um seletor de
-   descendência é o que faz a mudança valer nos ~94 widgets sem editar
-   nenhum deles — e é o oposto das regras `nth-of-type` do Laboratório,
-   que quebram quando alguém reordena a tela.
-
-   ⚠️ Precisa vir DEPOIS dos blocos acima (que põem 600/17px/ink nos
-   títulos), senão eles vencem pela ordem do cascade — foi exatamente o
-   que já aconteceu com o H2 e está documentado no comentário dele.
-
-   O tracking pedido é −0.5px (absoluto), não em `em`: em 15px daria
-   −0.033em, e escrever em px é o que mantém o valor igual ao pedido se
-   alguém mudar o tamanho depois. */
+/* Título de card: regra por PAPEL (título dentro de um cartão), que alcança
+   os widgets sem editar nenhum. */
 .ds-visor [data-card="1"] h2,
 .ds-visor [data-card="1"] h3,
 .ds-visor [data-card="1"] .text-h2,
 .ds-visor [data-card="1"] .text-h3 {
-  font-family: var(--font-sans);
   font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.5px;
   color: var(--color-text-secondary);
 }
 
-/* títulos de card calmos (~18px) */
 .ds-visor .text-h3 {
   font-size: 18px;
 }
-/* números-herói: mono em peso 600 (700 no mono fica pesado demais) */
 .ds-visor .text-display,
 .ds-visor .text-h1,
 .ds-visor .text-value-lg {
   font-weight: 600 !important;
 }
-/* esconde os títulos de bloco na Home (mantém o layout calmo) */
+/* Os títulos de bloco da Home ficam escondidos. */
 .ds-visor [data-block-header] {
   display: none;
 }
 
-/* ============================================================
-   Onda do degradê da marca — a faixa larga desliza da esquerda
-   para a direita e volta, então as cores ondulam entre si. Só o
-   `background-position` anima (composited, sem repintar layout).
-   Respeita `prefers-reduced-motion`.
-   ============================================================ */
+/* ── Animações nomeadas ──────────────────────────────────────────────────────
+   Só `background-position`, `opacity` e `transform` animam; todas param em
+   `prefers-reduced-motion`. */
+
+/* A onda do degradê da marca. */
 .a4p-onda {
   background-size: 320% 100%;
   background-position: 0% 50%;
@@ -925,12 +685,7 @@ h1, h2, h3,
   .a4p-onda { animation: none; }
 }
 
-/* ============================================================
-   CAIXA DA QUATTRO AI NA HOME (canvas "Home · proposta snapshot",
-   14/10/2026) — o lime e o verde-base da marca em camadas que
-   ondulam devagar atrás da barra de pergunta. Só tokens; só o
-   `background-position` anima. Para em `prefers-reduced-motion`.
-   ============================================================ */
+/* A caixa da Quattro AI na Home: lime e verde-base em camadas que ondulam. */
 .a4p-ondas-ia {
   background-color: var(--color-lime);
   background-image:
@@ -949,13 +704,8 @@ h1, h2, h3,
   .a4p-ondas-ia { animation: none; }
 }
 
-/* ============================================================
-   "PERGUNTE À QUATTRO AI" NO RODAPÉ (`ia/PergunteNaTela`, 19/10/2026): a
-   barra da Home em miniatura, e a VARREDURA da tela no clique — uma linha de
-   luz lime desce pela área de trabalho (1,4s, o `VARREDURA_MS` do
-   componente) com um véu que some atrás dela. Só tokens; para em
-   `prefers-reduced-motion` (o componente nem a monta).
-   ============================================================ */
+/* "Pergunte à Quattro AI" no rodapé (`ia/PergunteNaTela`) e a varredura da
+   tela no clique: 1,4s, o `VARREDURA_MS` do componente. */
 .a4p-pergunte-tela { box-shadow: var(--shadow-popover); transition: transform 160ms ease-out; }
 .a4p-pergunte-tela:hover { transform: translateY(-2px); }
 .a4p-pergunte-tela:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; }
@@ -975,12 +725,8 @@ h1, h2, h3,
   .a4p-varredura, .a4p-varredura-feixe, .a4p-pergunte-tela { animation: none; transition: none; }
 }
 
-/* ============================================================
-   CHAT EM TELA CHEIA da Quattro AI (`ia/ChatTelaCheia`): a conversa sobe da caixa
-   — aparece, sobe 24px e desfoca de volta ao nítido; sai no sentido inverso
-   (260ms, o `SAIDA_MS` do componente). Para em `prefers-reduced-motion`.
-   ============================================================ */
-/* Abertura mais lenta (pedido do dono, 19/10/2026): era 420ms. */
+/* O chat em tela cheia (`ia/ChatTelaCheia`) sobe da caixa e sai ao contrário
+   (260ms, o `SAIDA_MS` do componente). */
 .a4p-chat-tela { animation: a4p-chat-entra 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .a4p-chat-tela[data-saindo] { animation: a4p-chat-sai 260ms ease-in both; }
 @keyframes a4p-chat-entra {
@@ -995,14 +741,7 @@ h1, h2, h3,
   .a4p-chat-tela, .a4p-chat-tela[data-saindo] { animation: none; }
 }
 
-/* ============================================================
-   QUATTRO AI — movimento do chat (`ia/ChatTelaCheia`, `ia/chat-kit`).
-   O botão flutuante (`.a4p-ia-fab`) e o painel lateral (`.a4p-ia`) SAÍRAM
-   em 14/10/2026: a IA mora só no chat em tela cheia (`.a4p-chat-tela`).
-   ============================================================ */
-
-/* Entrada dos itens: sobem e revelam. O atraso é dado inline
-   (`--a4p-atraso`) para escalonar a lista. */
+/* Itens que entram em sequência; o atraso vem inline (`--a4p-atraso`). */
 .a4p-entra {
   animation: a4p-entra 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--a4p-atraso, 0ms);
@@ -1012,13 +751,7 @@ h1, h2, h3,
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Título de seção que não é `h2` (as colunas da Home): Roobert SemiBold.
-   ⚠️ Precisa do `.ds-visor` na frente: `.ds-visor *` fixa 500 e empataria
-   com um `.font-semibold` solto, vencendo pela ordem. */
-.ds-visor .a4p-titulo-secao { font-weight: 600; }
-
-/* Três pontos da IA "digitando": pulam em sequência até a resposta chegar.
-   Só tokens; para em `prefers-reduced-motion` (os pontos ficam parados). */
+/* Os três pontos da IA "digitando". */
 .a4p-digitando span {
   animation: a4p-digitando 1.6s ease-in-out infinite;
 }
@@ -1029,27 +762,8 @@ h1, h2, h3,
   30% { transform: translateY(-5px); opacity: 1; }
 }
 
-/* Pulso das etapas de análise: o passo corrente respira. */
-.a4p-pulso { animation: a4p-pulso 1.5s ease-in-out infinite; }
-@keyframes a4p-pulso {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-
-/* Brilho que varre a barra de progresso da análise. */
-.a4p-varre {
-  background-size: 200% 100%;
-  animation: a4p-varre 1.4s linear infinite;
-}
-@keyframes a4p-varre {
-  from { background-position: 200% 50%; }
-  to { background-position: -200% 50%; }
-}
-
-/* A resposta da IA SURGE palavra por palavra, saindo do desfoque, como nas IAs
-   que escrevem ao vivo (`ia/conversa` `TextoRevelado`). O atraso de cada palavra
-   vem inline (`--a4p-atraso`). `inline-block` porque `transform` não age em
-   elemento inline; os espaços ficam FORA das palavras, então a linha quebra igual. */
+/* A resposta da IA surge palavra por palavra (`ia/conversa`, `TextoRevelado`).
+   `inline-block` porque `transform` não age em elemento inline. */
 .a4p-palavra {
   display: inline-block;
   animation: a4p-palavra 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1060,7 +774,7 @@ h1, h2, h3,
   to { opacity: 1; filter: none; transform: none; }
 }
 
-/* "Pensando": um brilho passa pelo rótulo, da cor de meta à da tinta. */
+/* "Pensando": um brilho passa pelo rótulo. */
 .a4p-brilho-texto {
   background-image: linear-gradient(90deg, var(--color-text-tertiary) 0%, var(--color-text-tertiary) 35%, var(--color-ink) 50%, var(--color-text-tertiary) 65%, var(--color-text-tertiary) 100%);
   background-size: 250% 100%;
@@ -1076,53 +790,29 @@ h1, h2, h3,
 
 @media (prefers-reduced-motion: reduce) {
   .a4p-entra, .a4p-palavra { animation: none; }
-  .a4p-pulso, .a4p-varre, .a4p-digitando span, .a4p-brilho-texto { animation: none; }
+  .a4p-digitando span, .a4p-brilho-texto { animation: none; }
   .a4p-brilho-texto { color: var(--color-text-secondary); background-image: none; }
 }
 
-/* ============================================================
-   CANVAS do app e as superfícies que flutuam por cima dele.
-   As flutuantes (popovers/menus/paleta via .shadow-popover, a
-   Sidebar via .a4p-sidebar e gaveta/guia com .a4p-sobreposto)
-   são SÓLIDAS, no branco do cartão: o vidro saiu em 16/10/2026.
-   Unlayered de propósito (vence as utilities bg-white).
-   ============================================================ */
+/* ── Moldura do app ──────────────────────────────────────────────────────────
+   A raiz do AppShell é a moldura; o conteúdo vive no cartão `.a4p-app-card`
+   por cima dela. Tudo o que flutua é SÓLIDO: sem vidro (dono, 16/10/2026;
+   guarda `vidro:` na consistência). */
 .a4p-canvas {
-  /* ⚠️ A raiz do AppShell é a MOLDURA, não mais o canvas do conteúdo. O canvas
-     claro mudou de lugar: vive no `.a4p-app-card`, que flutua por cima daqui.
-     Ver o bloco "MOLDURA ESCURA" no topo do arquivo. */
   background: var(--a4p-chrome);
 }
 
-/* Segunda linha da moldura: as abas dos grupos. Fica sobre o mesmo fundo
-   escuro, então herda a cor de lá e não pinta nada por conta própria. */
-.a4p-nav-h {
-  color: var(--a4p-chrome-mut);
-}
-
-/* A faixa de abas rola na horizontal quando não cabe. A barra de rolagem é
-   escondida de propósito: ela apareceria SOBRE o sublinhado lima do item ativo
-   e leria como um segundo marcador. O conteúdo continua alcançável por arrasto,
-   roda e teclado (a região tem `tabIndex`). */
+/* A faixa de abas rola na horizontal sem barra de rolagem (ela apareceria
+   sobre o sublinhado do item ativo). */
 .a4p-nav-scroll {
   scrollbar-width: none;
-  /* Rolagem por toque com encaixe suave — sem isto o arrasto no telefone
-     "escorrega" e passa direto pelo grupo que a pessoa queria. */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
 }
-/* ⚠️ O INDICADOR de que há mais coisa à direita.
-   Uma barra que rola sem dizer que rola é indistinguível de uma barra cortada:
-   quem olha conclui que o menu acaba ali e não tenta arrastar. A máscara
-   esmaece a borda enquanto houver conteúdo fora, e some no fim da rolagem
-   (`animation-timeline: scroll()` onde houver suporte; onde não houver, o
-   esmaecimento fica fixo, que ainda comunica "tem mais"). */
+/* No telefone, a borda direita esmaece para dizer que há mais abas. A cor da
+   máscara é um token porque só o alfa importa (a paleta reprova preto puro). */
 @media (max-width: 1023px) {
   .a4p-nav-scroll {
-    /* ⚠️ O token, não `#000`: numa máscara só o canal ALFA importa, então
-       qualquer cor opaca serve — e a guarda da paleta reprova preto puro no
-       app, com razão. Usar o hex aqui abriria a exceção "é só uma máscara",
-       que é como a regra começa a ser furada. */
     -webkit-mask-image: linear-gradient(to right, var(--color-ink) 0, var(--color-ink) calc(100% - 28px), transparent 100%);
     mask-image: linear-gradient(to right, var(--color-ink) 0, var(--color-ink) calc(100% - 28px), transparent 100%);
   }
@@ -1131,18 +821,14 @@ h1, h2, h3,
   display: none;
 }
 
-/* O app inteiro dentro de UM cartão arredondado sobre a moldura escura.
-   `overflow: hidden` é o que faz o conteúdo respeitar o raio ao rolar — sem
-   ele a lista passa por cima do canto e o arredondamento vira desenho de
-   fundo. O drawer da Sidebar em < lg é `position: fixed` e não é recortado
-   por isto (só transform/filter num ancestral fariam isso). */
+/* O app inteiro num cartão arredondado. `overflow: hidden` faz o conteúdo
+   respeitar o raio ao rolar. */
 .a4p-app-card {
   background: var(--a4p-app-bg);
   border-radius: var(--a4p-app-radius);
   overflow: hidden;
 }
-/* REGRA DO SITE: NENHUMA sombra, de nenhuma maneira (design clean). O
-   !important vence box-shadows inline (cards, popovers, FABs, toggles). */
+/* Nenhuma sombra dentro do app. O `!important` vence sombra inline. */
 .ds-visor *,
 .ds-visor *::before,
 .ds-visor *::after {
@@ -1153,73 +839,32 @@ html.dark .a4p-canvas {
     radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.05), transparent 62%),
     var(--color-surface-1);
 }
-/* ⚠️ SEM VIDRO (dono, 16/10/2026). Popover, menu, paleta, gaveta e guia são
-   SÓLIDOS, no branco do cartão: translúcido + desfoque deixava o conteúdo
-   passar por baixo e lia como uma segunda linguagem por cima do design
-   system. Nenhum desfoque de fundo no app (guarda `vidro:` na consistência). */
+/* Popover, menu, paleta, gaveta e guia: brancos e sólidos. O aviso flutuante
+   (`bg-ink`) fica de fora: é escuro de propósito, com texto claro. */
 .a4p-sobreposto,
 .shadow-popover:not(.bg-ink) {
   background: var(--color-white);
 }
-/* ⚠️ O aviso flutuante (toast) é ESCURO de propósito: `bg-ink` + texto claro.
-   Sem o `:not(.bg-ink)` a regra acima o pintava de branco e o texto, também
-   claro, sumia (26/10/2026: o erro da emissão de nota saiu ilegível). */
-/* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
-   outro faz a moldura do app parecer duas peças de sistemas diferentes.
-   E esse material é o do CARTÃO da Home — branco sólido + o mesmo hairline.
-
-   ⚠️ SÓLIDO, não vidro. Translúcido + blur deixava o conteúdo passar por baixo
-   ao rolar: a página deslizava visível dentro da barra de cima, como se ela
-   tivesse um fundo próprio atrás. Chrome que mostra o que está por baixo dele
-   não separa nada — e separar é a função dele. */
+/* A cor do menu lateral mora na seção do menu escuro, mais abaixo. */
 .a4p-sidebar {
-  background: var(--color-white);
-  /* Sem borda (dono, 14/10/2026): o contraste com a moldura já recorta. */
   border: 0;
 }
-/* ⚠️ A TopBar SAIU do material do cartão. Ela era branca com o mesmo hairline
-   dos boxes; agora é a moldura escura, e por isso não herda mais nada daqui —
-   as cores dela vêm dos tokens `--a4p-chrome-*`, que não invertem com o tema.
-   Quem for reunificar as duas peças um dia: elas deixaram de ser o mesmo
-   material de propósito, e o motivo é a referência Sphere UI. */
+/* A barra de cima tem a cor da própria página (03/11/2026): só os botões
+   aparecem, e o que rola some sob ela. */
 .a4p-topbar {
-  /* PROPOSTA "Quattro · Home" (out/2026): a barra de cima VOLTOU a ser cartão
-     branco com a borda dos cards — logo Quattro à esquerda, ações à direita,
-     sobre a moldura verde-base. */
-  /* MENU ESCURO (03/11/2026, dono): sem o cartão branco — a barra tem a cor
-     da própria página, então só os botões aparecem, e o que rola por baixo
-     some sob ela em vez de aparecer atrás dos ícones. */
   background: var(--a4p-app-bg);
   border: 0;
   color: var(--color-ink);
 }
-/* O topo da tela que GRUDA ao rolar (avisos + título, `AppShell`).
-   ⚠️ Sem retângulo sólido (dono, 15/10/2026): um bloco branco com borda reta
-   descia junto com a página. O fundo é a cor da área até o fim do título e se
-   dissolve nos 18px de baixo — o título fica legível e o conteúdo some sob ele
-   em vez de bater num corte. Só tokens: a cor é a da própria área. */
+/* O topo da tela que gruda ao rolar (avisos e título, `AppShell`): a cor da
+   área que se dissolve nos 18px de baixo, sem bloco de borda reta. */
 .a4p-topo-tela {
   background: linear-gradient(to bottom, var(--a4p-app-bg) calc(100% - 18px), transparent);
 }
 
-/* ============================================================
-   Sidebar lateral — segue o tema (sólida nos dois). Texto/itens ink, ícones monocromáticos. O lime fica só
-   nos acentos pontuais (marca, "Nova transação", etc.).
-   ============================================================ */
-
-/* ============================================================
-   CABEÇALHO DE TABELA FIXO AO ROLAR.
-
-   ⚠️ Regra GLOBAL, não 29 edições. O produto tem 29 tabelas e só 4 tinham
-   cabeçalho fixo; corrigir uma a uma deixaria a trigésima de fora no dia em que
-   ela fosse escrita. Numa tabela de títulos com centenas de linhas, rolar até o
-   meio sem cabeçalho significa não saber mais qual coluna é vencimento e qual é
-   pagamento — e é exatamente aí que se confere dinheiro.
-
-   O fundo BRANCO é obrigatório: sem ele as linhas passam por baixo do
-   cabeçalho e o texto se sobrepõe. A borda inferior desenha o limite quando o
-   cabeçalho está "flutuando" sobre o conteúdo.
-   ============================================================ */
+/* ── Tabela ──────────────────────────────────────────────────────────────────
+   O cabeçalho fica fixo ao rolar em TODA tabela (regra global, não por tela).
+   O fundo branco impede as linhas de passarem por baixo dele. */
 .ds-visor thead {
   position: sticky;
   top: 0;
@@ -1228,94 +873,19 @@ html.dark .a4p-canvas {
 }
 .ds-visor thead th {
   background: var(--color-white);
-  box-shadow: inset 0 -1px 0 var(--a4p-hairline);
 }
-/* Tabela dentro de um cartão herda o raio do cartão no topo. */
-.ds-visor [data-card="1"] thead th:first-child { border-top-left-radius: inherit; }
-.ds-visor [data-card="1"] thead th:last-child { border-top-right-radius: inherit; }
 
-/* ============================================================
-   Sem centavos — telas que exibem valores arredondados (a Home).
-   O `<BRL>` marca os decimais com `data-cents`; a tela decide se
-   mostra, aplicando `a4p-sem-centavos` no seu escopo.
-   ============================================================ */
+/* A tela que mostra valores sem centavos (a Home) põe `a4p-sem-centavos` no
+   seu escopo; o `<BRL>` marca os decimais com `data-cents`. */
 .a4p-sem-centavos [data-cents] {
   display: none;
 }
 
-/* ============================================================
-   Modo "selecionar item na tela" (Laboratório de Design).
-   Muitos enfeites são `pointer-events:none` (o centro do donut,
-   overlays de gráfico) — sem isto o clique os atravessa e eles
-   nunca poderiam ser editados. Vale só enquanto se seleciona.
-   ============================================================ */
-.a4p-picking .ds-visor *,
-.a4p-picking .a4p-sidebar * {
-  pointer-events: auto !important;
-}
-
-/* ============================================================
-   Herói "Você gastou" — o Laboratório pediu o prefixo R$ do MESMO
-   tamanho/cor do inteiro (o padrão do <BRL> é menor e faint). Fica
-   escopado ao herói: o tratamento assinatura segue no resto do app.
-   ============================================================ */
-/* Prefixo R$ do herói: Roobert Semi Mono 30/500 em ink (o padrão do <BRL> é
-   menor e faint). O inteiro fica em Roobert Variable 35, definido no
-   componente — por isso o prefixo carrega tamanho PRÓPRIO em px, não 1em. */
-.ds-visor .a4p-heroi .a4p-num > span:first-child {
-  font-family: var(--font-display);
-  /* ⚠️ 1em — o prefixo tem o MESMO corpo do número. Ele ficou em `0.72em`
-     depois de `Money`/`BRL` já terem sido corrigidos, e essa regra, por ser
-     mais específica, continuava encolhendo o R$ só no herói: o componente
-     dizia uma coisa e a folha, outra. */
-  font-size: 1em;
-  font-weight: 700;
-  color: var(--color-ink);
-  /* ⚠️ SEM respiro — `R$333,00`, uma peça só. Esta regra já tinha vencido o
-     componente uma vez (mantinha o prefixo em 0.72em depois de `Money`/`BRL`
-     terem sido corrigidos) e venceu de novo pela margem: 0.1em sobre o herói
-     de 33px dá os 3,3px que apareceram na medição. Ao mexer no prefixo, mexa
-     AQUI TAMBÉM — no herói, quem manda é esta folha, não o componente. */
-}
-/* Centavos do herói — relativos ao herói (`em`), não em px fixo: com px, um
-   ajuste no tamanho do herói deixava prefixo e centavos para trás e a
-   composição se desmontava a cada mudança. */
-.ds-visor .a4p-heroi .a4p-num > span:last-child {
-  font-size: 0.66em;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ONDA 12 — ALVO DE TOQUE: 44px onde o dedo é o ponteiro
-   ═══════════════════════════════════════════════════════════════════════════
-
-   ⚠️ A medição num telefone de 390px encontrou **97 alvos abaixo de 44×44 numa
-   única tela** (Títulos a receber), 90 no DRE e 76 na Home. O padrão dominante
-   é sempre o mesmo: botão de texto dentro de linha de tabela ("Dar baixa", o
-   drill-down do DRE) e item de navegação — controles que num monitor têm a
-   precisão do ponteiro e num telefone têm a do polegar.
-
-   A correção NÃO muda o tamanho visual. Ela estende a ÁREA SENSÍVEL com um
-   pseudo-elemento: o botão continua com a mesma tipografia e o mesmo respiro,
-   e o toque passa a valer 44px. Aumentar o desenho resolveria o toque e
-   destruiria a densidade — numa tabela de trinta linhas, 44px de altura por
-   linha empurra o conteúdo para fora de duas telas.
-
-   O gatilho é a LARGURA (o mesmo ponto de quebra `lg` em que o produto troca de
-   layout), somada ao ponteiro grosso. ⚠️ A primeira versão usava só
-   `pointer: coarse` — e era INVERIFICÁVEL: o navegador de automação não emula
-   ponteiro grosso, então a medição não conseguia confirmar que a regra pegou.
-   Numa onda cujo critério é "medido", uma correção que só funciona onde ninguém
-   consegue medir é indistinguível de correção nenhuma. A largura vale nos dois
-   mundos, e num monitor grande nada muda: lá a precisão do ponteiro existe e a
-   área estendida só criaria sobreposição entre vizinhos.
-
-   `position: relative` é necessário para o `::after` se ancorar; ele é aplicado
-   junto, e não antes, para não mexer no empilhamento de quem não precisa. */
+/* ── Alvo de toque: 44px onde o dedo é o ponteiro ───────────────────────────
+   O desenho não muda: um pseudo-elemento estende só a área sensível. O
+   gatilho é a largura (o mesmo `lg` da troca de layout), porque o navegador
+   de medição não emula ponteiro grosso. */
 @media (max-width: 1023px), (pointer: coarse) {
-  /* O escopo é o APLICATIVO inteiro, não só o `.ds-visor`: a primeira versão
-     listava três raízes e deixava de fora justamente o cabeçalho de página, o
-     FAB e o convite de tour — os controles que a medição continuou reprovando.
-     Enumerar raízes é uma lista que envelhece; a largura não. */
   body button,
   body a[href],
   body [role="button"],
@@ -1331,28 +901,16 @@ html.dark .a4p-canvas {
   body [role="switch"]::after {
     content: "";
     position: absolute;
-    /* Centra uma área de 44px sobre o controle, qualquer que seja o tamanho
-       dele. `max(0px, …)` impede que um controle já grande ganhe área extra e
-       passe a roubar o toque do vizinho. */
     left: 50%;
     top: 50%;
     width: max(100%, 44px);
     height: max(100%, 44px);
     transform: translate(-50%, -50%);
-    /* Não pinta nada e não intercepta seleção de texto. */
     pointer-events: auto;
   }
 
-  /* ⚠️ Exceção: dentro de uma célula de tabela, controles vizinhos ficam a
-     poucos pixels um do outro, e estender os dois faria a área do primeiro
-     cobrir o segundo — o toque acertaria o botão errado, que é pior que o alvo
-     pequeno. Ali a área cresce só na vertical, onde há espaço da linha. */
-  /* ⚠️ Dentro de célula de tabela a área cresce sobretudo na VERTICAL, onde há
-     o espaço da linha. Na horizontal ela para em 24px — que é o piso que a
-     norma exige com espaçamento (WCAG 2.2, 2.5.8, nível AA); os 44px são a
-     meta (2.5.5, AAA) e valem onde não há vizinho a poucos pixels. Estender os
-     44 na horizontal faria a área de um controle cobrir a do seguinte, e o
-     toque acertaria o botão errado — que é pior que o alvo pequeno. */
+  /* Dentro de célula de tabela, a área cresce na vertical e para em 24px na
+     horizontal (WCAG 2.5.8): estender os 44px cobriria o botão vizinho. */
   body td button::after,
   body td a[href]::after {
     width: max(100%, 24px);
@@ -1360,52 +918,11 @@ html.dark .a4p-canvas {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   OS AJUSTES POSICIONAIS DO LABORATÓRIO SAÍRAM — 09/08/2026
-   ══════════════════════════════════════════════════════════════════════════
-
-   ⚠️ Aqui viviam ~15 blocos de `nth-of-type` a partir de `.ds-visor`, com
-   `font-family`, `font-size` e `color` em `!important`, promovidos do
-   Laboratório. Eles endereçavam POSIÇÃO no DOM, não papel — e a própria nota
-   que os acompanhava já registrava, medido no dia da promoção, que dois não
-   casavam nada, um pintava o valor inteiro em vez do sinal, e os outros
-   acertavam conteúdo diferente do rotulado.
-
-   O que forçou a remoção: o `!important` deles VENCIA a regra de papel, então
-   o valor-herói continuava em Roobert 400 depois de o sistema mandar Gellix
-   Bold nos números. Medido no navegador: `.a4p-num` computava
-   `font-family: Roobert; font-weight: 400`. Um sistema em que a regra de
-   papel perde para uma coordenada de DOM não é um sistema — e a nota antiga
-   já prescrevia exatamente este conserto: "traduzir cada regra para o PAPEL
-   correspondente em vez de para a posição".
-
-   Não reintroduzir. O que se quer ajustar tem nome: `.a4p-num` (valor),
-   `h1`/`.text-h1` (título de destaque), `[data-card="1"] h2` (título de
-   card), `.a4p-label` (rótulo). ══════════════════════════════════════════ */
-
-/* ══════════════════════════════════════════════════════════════════════════
-   A FOLHA DE IMPRESSÃO — o que separa um PDF de uma fotografia da tela
-
-   ⚠️ MEDIDO: até aqui o projeto não tinha UMA regra `@media print`, e o botão
-   "Exportar PDF" chamava `window.print()` sobre um app cuja raiz é
-   `position: fixed; overflow: hidden`. Isso não imprime um documento de N
-   páginas — imprime UMA página com o que coubesse na tela. Um DRE de 12 meses
-   saía truncado, com menu lateral e moldura escura em volta, e SEM AVISO
-   NENHUM: o PDF abre, os números que aparecem estão certos, e o contador não
-   tem como saber que faltam linhas.
-
-   As quatro coisas que esta folha resolve, em ordem de gravidade:
-   1. o recorte (a raiz fixa e a área rolável viram fluxo normal);
-   2. o cabeçalho da tabela REPETIDO em toda página (`table-header-group`) —
-      sem ele, a página 3 do DRE é uma grade de números sem dizer de que mês
-      é cada coluna, que é um documento inútil para conferir;
-   3. a moldura do app fora do papel;
-   4. o corte no meio de uma linha de valor.
-   ══════════════════════════════════════════════════════════════════════════ */
+/* ── Impressão ───────────────────────────────────────────────────────────────
+   O app tem raiz fixa e área que rola; sem esta folha o "Exportar PDF"
+   imprimia UMA página cortada. A guarda `npm run impressao` confere o bloco. */
 @media print {
-  /* ── 1. O RECORTE ─────────────────────────────────────────────────────
-     `.a4p-canvas` é `fixed inset-0 overflow-hidden` e a área de conteúdo é
-     `overflow-y-auto`. Em papel, os dois juntos são uma tesoura. */
+  /* 1. O recorte: a raiz fixa e a área que rola viram fluxo normal. */
   html, body { height: auto !important; overflow: visible !important; background: none !important; }
   .a4p-canvas {
     position: static !important;
@@ -1424,13 +941,8 @@ html.dark .a4p-canvas {
     border: 0 !important;
   }
   .ds-visor, .a4p-app-card > main { display: block !important; min-height: 0 !important; }
-  /* A barra flutuante não sai no papel, então a folga que a contorna também
-     não; e o topo que gruda volta ao fluxo, sem o degradê. */
   [data-folga-barra] { display: none !important; }
   .a4p-topo-tela { position: static !important; background: none !important; }
-  /* A área que rola: sem isto ela imprime só a primeira dobra. O seletor pega
-     qualquer contêiner de rolagem dentro do cartão do app — a regra é sobre a
-     PROPRIEDADE, não sobre uma coordenada de DOM. */
   .a4p-app-card [class*="overflow-y-auto"],
   .a4p-app-card [class*="overflow-auto"],
   .a4p-app-card [class*="overflow-x-auto"] {
@@ -1439,129 +951,57 @@ html.dark .a4p-canvas {
     max-height: none !important;
   }
 
-  /* ── 2. O CABEÇALHO QUE SE REPETE ────────────────────────────────────
-     `position: sticky` resolve a tela e ATRAPALHA o papel: o navegador ou o
-     ignora ou o desenha uma vez só. `table-header-group` é o mecanismo que a
-     impressão tem para repetir o cabeçalho em cada folha. */
+  /* 2. O cabeçalho da tabela repete em cada folha. */
   .ds-visor thead { position: static !important; display: table-header-group !important; }
   .ds-visor tfoot { display: table-footer-group !important; }
-  /* A primeira coluna é `sticky left-0` para a tabela rolar na horizontal.
-     No papel não há rolagem, e a célula grudada sai deslocada. */
   .ds-visor td[class*="sticky"], .ds-visor th[class*="sticky"] { position: static !important; }
 
-  /* ── 3. A MOLDURA FORA DO PAPEL ──────────────────────────────────────
-     Cada um destes é navegação ou ação: nada aqui é conteúdo do relatório, e
-     um menu impresso ocupa um terço da folha dizendo nada. */
+  /* 3. Navegação e ação ficam fora do papel. */
   .a4p-topbar,
   nav[aria-label="Seções do sistema"],
   .a4p-sidebar,
   .a4p-chat-tela,
   [data-nao-imprime] { display: none !important; }
 
-  /* ── 4. O CORTE ──────────────────────────────────────────────────────
-     Uma linha de valor partida entre duas folhas é a linha que se soma
-     errado — metade do número numa página, metade na outra. */
+  /* 4. Nenhuma linha de valor partida entre duas folhas. */
   tr, [data-card="1"] { break-inside: avoid; page-break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
 
-  /* O cabeçalho do documento só existe no papel: na tela ele repetiria o
-     título e o período que a própria interface já mostra. */
+  /* O cabeçalho do documento só existe no papel. */
   [data-imprimir-cabecalho] { display: block !important; }
 
-  /* ── 5. O MODO DOCUMENTO (CAMP-B) ────────────────────────────────────
-     O extrato do cliente é um documento para o OUTRO lado, não um pedaço da
-     tela: com a marca no <html>, só ele vai ao papel. Sem esconder o resto do
-     <body>, o extrato sairia colado depois da tela inteira que estava atrás
-     da ficha do contato. */
+  /* 5. Modo documento: com a marca no <html>, só o documento vai ao papel. */
   html[data-imprimindo-documento] body > *:not([data-documento-impressao]) { display: none !important; }
   html[data-imprimindo-documento] [data-documento-impressao] { display: block !important; }
 
   @page { margin: 14mm 12mm; }
 }
 
-/* Fora da impressão em modo documento, o documento não aparece. */
+/* Fora da impressão, o documento e o cabeçalho de documento não aparecem. */
 [data-documento-impressao] { display: none; }
-
-/* Fora da impressão, o cabeçalho do documento não existe. */
 [data-imprimir-cabecalho] { display: none; }
 
-/* ============================================================
-   HOME DA PROPOSTA (canvas "Quattro · Home", out/2026).
-   Os valores da Home são Roobert 500 — o canvas escolheu uma família só para
-   todos os números da tela, sem o Centra Black da regra global. Escopado ao
-   contêiner da Home (`.a4p-home`) para não mudar as outras telas sem decisão.
-   Precisa de TRÊS classes para vencer `.ds-visor .a4p-num`.
-   ============================================================ */
-.ds-visor .a4p-home .a4p-num,
-.ds-visor .a4p-home .a4p-num *,
-.ds-visor .a4p-home .tabular-nums,
-.ds-visor .a4p-home .a4p-heroi {
-  font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-.ds-visor .a4p-home .a4p-heroi {
-  font-size: 36px;
-  text-transform: none;
-}
+/* ── Home ────────────────────────────────────────────────────────────────── */
 .ds-visor .a4p-home .a4p-label {
   font-family: var(--font-sans);
 }
-/* O prefixo R$ do herói segue a mesma família e peso do número na Home. */
-.ds-visor .a4p-home .a4p-heroi .a4p-num > span:first-child {
-  font-family: var(--font-sans);
-  font-weight: 500;
-}
 
-/* ============================================================
-   TEMA ERP — o design system do canvas "Quattro ERP · Protótipo"
-   (quadro Tema, 13/10/2026), aplicado ao sistema no ar.
-
-   ⚠️ Vence TODA seção de identidade acima onde discordar. Os valores de
-   cor moram nos tokens do `:root` e do `.ds-visor` (trocados na origem,
-   para o espelho da guarda continuar batendo); aqui ficam os PAPÉIS que o
-   canvas decidiu: card sem borda e sem sombra, título em Centra 500, número
-   em Roobert 500 com o número PRINCIPAL da tela em Centra, R$ do mesmo corpo
-   e cor do número, centavos à metade em cinza, menu com linha entre itens.
-   ============================================================ */
-/* Card: sem borda, sem sombra, raio 20. */
+/* ── Cartão e número (tema ERP, 13/10/2026) ─────────────────────────────────
+   Cartão sem borda, sem sombra. */
 .ds-visor [data-card="1"],
 .ds-visor [data-card="1"]:hover {
   border-width: 0;
   box-shadow: none;
 }
-.ds-visor [data-card="1"] { border-radius: var(--a4p-box-radius); }
-/* Títulos: Centra No2 500, caixa alta, espaçamento 0. */
-.ds-visor h1,
-.ds-visor .text-h1,
-.ds-visor .text-display {
-  font-weight: 500;
-  letter-spacing: 0;
-}
-/* Números: Roobert 500, espaçamento 0, na cor do número. */
-.ds-visor .a4p-num,
-.ds-visor .a4p-num *,
-.ds-visor .tabular-nums,
-.ds-visor .text-value-lg {
-  font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: 0;
-}
-html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
-/* Sobre fundo escuro ou lime o número segue a cor do texto da superfície. */
+/* Sobre fundo escuro ou lime, o número segue a cor do texto da superfície. */
 html:not(.dark) .ds-visor :is(.bg-ink, .bg-lime, .text-white, .text-on-lime, [style*="background: var(--color-ink)"], [style*="background:var(--color-ink)"]) .a4p-num {
   color: inherit;
-}
-/* Centavos: metade do corpo, cinza. Nos cards escuros, esmaecidos. */
-.ds-visor .a4p-num [data-cents] {
-  font-size: 0.5em !important;
-  color: var(--erp-centavos-cor);
 }
 html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--color-ink)"], [style*="background:var(--color-ink)"]) .a4p-num [data-cents] {
   color: inherit;
   opacity: 0.75;
 }
-/* O NÚMERO PRINCIPAL da tela (o herói): Centra No2 500, sem caixa alta. */
+/* O número principal da tela (o herói). */
 .ds-visor .a4p-heroi,
 .ds-visor .a4p-heroi .a4p-num,
 .ds-visor .a4p-heroi .a4p-num *,
@@ -1571,15 +1011,12 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   font-family: var(--font-display) !important;
   font-weight: 500 !important;
   letter-spacing: 0 !important;
-  text-transform: none;
 }
-/* ============================================================
-   MENU LATERAL ESCURO (03/11/2026, referência do dono).
-   Verde quase preto nos DOIS temas: ele não segue o tema, como a moldura.
-   Os botões "em relevo" (Criar, item ativo, cartão da conta) são um degrau
-   ACIMA do fundo com um reflexo diagonal; a conversa aberta, um degrau
-   ABAIXO. ⚠️ O elemento 3D da referência ficou de fora, a pedido do dono.
-   ============================================================ */
+
+/* ── Menu lateral escuro (03/11/2026) ───────────────────────────────────────
+   Verde quase preto nos dois temas, como a moldura. Os botões em relevo
+   (Criar, item ativo, cartão da conta) ficam um degrau acima do fundo; a
+   conversa aberta, um degrau abaixo. */
 .a4p-sidebar { background: var(--erp-menu-escuro); color: var(--erp-menu-texto); }
 .a4p-menu-relevo {
   background: var(--erp-menu-brilho), var(--erp-menu-realce);
@@ -1589,9 +1026,8 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
 .a4p-menu-item { color: var(--erp-menu-texto); }
 .a4p-menu-item:hover { background: var(--erp-menu-hover); }
 .a4p-menu-sub { color: var(--erp-menu-texto-2); }
-/* Menu em Agrandir (teste do dono, 03/11/2026): grupo em Bold, submenu em
-   Narrow Medium. O espaço da Agrandir é estreito, então as palavras ganham o
-   mesmo respiro do título de tela. */
+/* Grupo em Agrandir Bold, submenu em Agrandir Narrow Medium, com o respiro
+   entre palavras do título de tela. */
 .a4p-menu-grupo {
   font-family: "Quattro Agrandir Menu", var(--font-display);
   font-weight: 700;
@@ -1633,13 +1069,9 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
 .a4p-menu-fio-vertical { border-color: var(--erp-menu-fio); }
 .a4p-logo-mono.a4p-logo-menu { background: var(--erp-menu-texto); }
 
-/* ============================================================
-   ENTRADA NO APP (03/11/2026, vídeo de referência do dono).
-   Uma cortina verde com o logo cobre a tela, o logo aparece, e a cortina
-   ENCOLHE até virar o menu lateral; os itens do menu surgem em seguida.
-   Só na carga da página (não a cada navegação) e nunca com
-   `prefers-reduced-motion`. A cortina mede o menu de verdade no fim.
-   ============================================================ */
+/* Entrada no app (03/11/2026): uma cortina verde com o logo encolhe até virar
+   o menu lateral, e os itens do menu surgem em seguida. Só na carga da
+   página, nunca com `prefers-reduced-motion`. */
 .a4p-cortina {
   position: fixed;
   z-index: 90;
@@ -1675,13 +1107,7 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   .a4p-cortina { display: none; }
   .a4p-menu-revela [data-revela] { animation: none; }
 }
-.a4p-menu-linha {
-  display: block;
-  height: 1px;
-  margin: 0 12px;
-  background: var(--erp-menu-borda);
-}
-/* Logo em uma cor (o arquivo vira máscara, a cor sai do token). */
+/* Logo em uma cor: o arquivo vira máscara e a cor sai do token. */
 .a4p-logo-mono {
   display: inline-block;
   background: var(--erp-logo-cor);
@@ -1689,18 +1115,10 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   mask: url(/quattro-erp-logo.png) left center / contain no-repeat;
 }
 
-/* ============================================================
-   GRÁFICOS E TABELAS — o canvas "Quattro ERP · Gráficos e tabelas"
-   (14/10/2026), aplicado ao sistema no ar pelos PAPÉIS, não gráfico a
-   gráfico: a grade, a espessura da linha e a tabela são regras globais,
-   então o gráfico que nascer amanhã já nasce no padrão. Só o tema claro —
-   o canvas não desenhou o escuro.
-   Linha em verde-base com área lime a 55% · comparação em areia tracejada ·
-   grade #E2E2E2 tracejada 3/4 · barra com raio 6 (`RAIO_BARRA` em
-   `lib/grafico.ts`) · séries 1–5 = verde-base, areia, lime, cinza 2, cinza
-   médio · tabela com cabeçalho em micro-rótulo, linha #F4F4F4 e situação em
-   pílula com ponto.
-   ============================================================ */
+/* ── Gráficos e tabelas (canvas de 14/10/2026) ──────────────────────────────
+   Regras por papel, para o gráfico novo já nascer no padrão. Só o tema claro:
+   o canvas não desenhou o escuro. A espessura e o raio da barra moram em
+   `lib/grafico.ts`. */
 html:not(.dark) .ds-visor .recharts-cartesian-grid line {
   stroke: var(--erp-graf-grade);
   stroke-dasharray: none;
@@ -1715,9 +1133,9 @@ html:not(.dark) .ds-visor .recharts-active-dot circle {
 html:not(.dark) .ds-visor :is(.recharts-line-curve, .recharts-area-curve) {
   stroke-width: var(--erp-graf-linha);
 }
-/* A DICA ao passar o mouse — uma peça só (`ui/Grafico.tsx`). A dica padrão
-   do Recharts (`formatter`/`contentStyle`) ganha o mesmo desenho por aqui,
-   com !important porque `contentStyle` chega como estilo inline. */
+/* A dica ao passar o mouse é uma peça só (`ui/Grafico.tsx`). A dica padrão do
+   Recharts ganha o mesmo desenho, com `!important` porque o `contentStyle`
+   dela chega como estilo inline. */
 .a4p-dica,
 html:not(.dark) .ds-visor .recharts-default-tooltip {
   background: var(--erp-dica-fundo) !important;
@@ -1795,35 +1213,17 @@ html:not(.dark) .ds-visor .recharts-default-tooltip .recharts-tooltip-item {
 html:not(.dark) .ds-visor thead th {
   font-size: 11px;
   font-weight: 500;
-  text-transform: none;
   letter-spacing: 0;
   color: var(--color-text-secondary);
-  box-shadow: inset 0 -1px 0 var(--erp-tabela-linha);
 }
 html:not(.dark) .ds-visor tbody tr + tr { border-top-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tbody tr { border-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tbody td { border-color: var(--erp-tabela-linha); }
 html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade); }
 
-/* ============================================================
-   REFERÊNCIA JOTA (decisão do dono, 15/10/2026) — vence o TEMA ERP e toda
-   seção de identidade acima onde discordar. As cores foram MEDIDAS nos
-   pixels do print de referência (docs/design/referencia-jota/), não
-   estimadas:
-
-     fundo de página  #F2F2F2   (--color-surface-1, --a4p-app-bg, --a4p-chrome)
-     card             #FBFBFB   (--color-white) · sem borda, sem sombra
-     balão de quem pergunta  #EAEAEA (--a4p-bolha-usuario)
-     pílula           #FFFFFF   texto e ícone #1A1A1A (--a4p-pilula-*)
-     rótulo           #535353   (--color-text-secondary)
-     meta             #9A9A9A   (--color-text-tertiary)
-     número e texto   #1A1A1A   (--color-ink, --erp-num-cor)
-
-   A fonte (Roobert Trial) e os ícones (Lucide 1,75px) não mudaram. O lime
-   segue sendo o acento; o dark mode segue como estava.
-   ============================================================ */
-/* Pílula: branca, texto e ícone pretos, sem borda, raio cheio. É o chip de
-   sugestão da IA, o "Fechar chat" e as ações soltas sobre o fundo cinza. */
+/* ── Pílula e balão (referência de 15/10/2026) ──────────────────────────────
+   Pílula branca, sem borda, raio cheio: o chip de sugestão da IA, o "Fechar
+   chat" e as ações soltas sobre o fundo cinza. */
 .a4p-pilula {
   background: var(--a4p-pilula-fundo);
   color: var(--a4p-pilula-texto);
@@ -1832,52 +1232,17 @@ html:not(.dark) .ds-visor tfoot tr { border-top: 1px solid var(--erp-graf-grade)
 }
 .a4p-pilula svg { color: var(--a4p-pilula-texto); }
 .a4p-pilula:hover:not(:disabled) { background: var(--color-white); }
-/* O balão da pergunta de quem usa: o cinza um passo mais escuro que o fundo. */
+/* O balão da pergunta de quem usa. */
 .a4p-bolha-usuario {
   background: var(--a4p-bolha-usuario);
   color: var(--color-ink);
 }
 
-/* ============================================================
-   DESIGN SYSTEM 16/10/2026 (decisão do dono) — vence tudo acima.
-
-   · UMA família: Roobert. A Centra No2 saiu do sistema (`--font-display`
-     agora É Roobert, então todo papel que a pedia segue sem mudar de nome).
-   · Branco #FEFEFD (--color-white, --a4p-bg, pílula) · cinza #F5F5F5
-     (fundo de página, chips, seções).
-   · Texto #1A1A1A · cinza escuro #535353 · cinza claro #9A9A9A.
-   · NENHUM texto sobe ou desce de caixa: sempre "Aa", nunca "AA" nem "aa".
-     A regra é GLOBAL e com !important porque caixa alta voltava por classe
-     utilitária solta em tabela e rótulo — uma regra só alcança o código que
-     ainda não foi escrito.
-   · Número: Roobert SemiBold em #1A1A1A, "R$ 16.000,00", com a vírgula e os
-     centavos no MESMO corpo e cor do inteiro.
-   · Título de card em #535353.
-   ============================================================ */
+/* ── Sem caixa alta (16/10/2026) ─────────────────────────────────────────────
+   Todo texto é "Aa". Global e com `!important` porque a caixa alta voltava
+   por classe utilitária solta. */
 *, *::before, *::after { text-transform: none !important; }
 
-.ds-visor h1,
-.ds-visor .text-h1,
-.ds-visor .text-display,
-.ds-visor .a4p-heroi {
-  font-family: var(--font-sans);
-}
-
-.ds-visor .a4p-num,
-.ds-visor .a4p-num *,
-.ds-visor .tabular-nums,
-.ds-visor .text-value-lg,
-.ds-visor .a4p-home .a4p-num,
-.ds-visor .a4p-home .a4p-num *,
-.ds-visor .a4p-heroi .a4p-num,
-.ds-visor .a4p-heroi .a4p-num *,
-.ds-visor .a4p-home .a4p-heroi .a4p-num,
-.ds-visor .a4p-home .a4p-heroi .a4p-num * {
-  /* 27/10/2026: todo número em Agrandir 700 (bloco "TODO NÚMERO EM
-     AGRANDIR" no fim do arquivo). */
-  font-family: var(--font-display) !important;
-  font-weight: 700 !important;
-}
 html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
 /* Vírgula e centavos: o mesmo corpo e a mesma cor do número. */
 .ds-visor .a4p-num [data-cents],
@@ -1887,26 +1252,8 @@ html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
   opacity: 1 !important;
   margin-left: 0 !important;
 }
-/* O "R$" acompanha o número: mesmo corpo, peso e cor. */
-.ds-visor .a4p-heroi .a4p-num > span:first-child { font-family: var(--font-sans); font-weight: 600; }
-/* Valor em linha (lista, agenda): continua Roobert 500 ao lado do nome. */
-.ds-visor .tabular-nums.a4p-valor-texto,
-.ds-visor .a4p-num.a4p-valor-texto,
-.ds-visor .a4p-valor-texto .a4p-num,
-.ds-visor .a4p-valor-texto .a4p-num * {
-  font-weight: 500 !important;
-}
 
-/* Título de card em cinza escuro. */
-.ds-visor [data-card="1"] h2,
-.ds-visor [data-card="1"] h3,
-.ds-visor [data-card="1"] .text-h2,
-.ds-visor [data-card="1"] .text-h3 {
-  color: var(--color-text-secondary);
-}
-
-/* Celular: campo abaixo de 16px faz o iOS dar zoom sozinho ao focar, e a tela
-   fica ampliada depois do envio. Vale para todo campo do sistema. */
+/* Celular: campo abaixo de 16px faz o iOS dar zoom sozinho ao focar. */
 @media (max-width: 767px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   textarea,
@@ -1915,19 +1262,8 @@ html:not(.dark) .ds-visor .a4p-num { color: var(--erp-num-cor); }
   }
 }
 
-/* ============================================================
-   DESIGN SYSTEM 27/10/2026 — o do site paguequattro.com/teste2 (decisão do
-   dono). Vence tudo acima; os valores moram no `tokens.json`.
-
-   · Duas famílias: Quattro Agrandir 700 (título de tela, título de card e o
-     valor-herói) · Inter Display (todo o resto; números de linha e tabela em
-     600 com `tabular-nums`).
-   · Cor: texto e título #3B4332 · texto 2 #5F5E4E · meta #7A7A72 · fio
-     #E8E7E0 · página #F5F5F5 com cartão #FFFFFF sem borda e sem sombra.
-   · Forma: cartão 24px · item 12px · bloco 32px · pílula cheia. Botão de 50px
-     de altura, padding 0 26px, Inter Display 500 15px, sobe 1px no hover.
-   · Lime #ECFD52 continua sendo só a AÇÃO (botão primário, marca, marcador).
-   ============================================================ */
+/* ── Design system 27/10/2026: vence tudo acima ─────────────────────────────
+   Títulos em Quattro Agrandir 700, o resto em Inter Display. */
 body,
 .ds-visor {
   font-family: var(--font-sans);
@@ -1935,7 +1271,7 @@ body,
   font-optical-sizing: auto;
 }
 
-/* Título de tela e herói: Agrandir 700, tracking −0.02em, entrelinha curta. */
+/* Título de tela e herói. */
 .ds-visor h1,
 .ds-visor .text-h1,
 .ds-visor .text-display,
@@ -1947,8 +1283,7 @@ body,
   color: var(--color-ink);
 }
 
-/* Título de seção e de card: Agrandir 700, −0.01em, na tinta (no site os
-   títulos pequenos são da mesma família dos grandes). */
+/* Título de seção e de card: a mesma família, na tinta. */
 .ds-visor h2,
 .ds-visor .text-h2,
 .ds-visor .a4p-titulo-secao,
@@ -1962,9 +1297,9 @@ body,
   color: var(--color-ink);
 }
 
-/* O valor-herói (o número grande do cartão) fala a família do título, como
-   o "R$2.418,30" das telas do site. Número de linha e de tabela fica em
-   Inter Display 600 (regra de cima), porque a coluna precisa alinhar. */
+/* O valor-herói e os números dentro dele: Agrandir 700. Vence o peso 500 do
+   bloco do herói lá em cima pela ordem (mesma especificidade, os dois com
+   `!important`). */
 .ds-visor .text-value-lg,
 .ds-visor .text-value-lg .a4p-num,
 .ds-visor .text-value-lg .a4p-num *,
@@ -1977,29 +1312,15 @@ body,
   font-weight: 700 !important;
   letter-spacing: -0.02em;
 }
-.ds-visor .a4p-num,
-.ds-visor .tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
 
-/* Fio de tabela e divisória: o #E8E7E0 do site. */
+/* Fio de tabela e divisória. */
 .ds-visor table tr,
 .ds-visor hr {
   border-color: var(--color-border);
 }
 
-/* Ajuste do dono (27/10/2026): a Agrandir tem de aparecer nas OUTRAS telas,
-   não só na Home. Três regras:
-
-   1. Todo título em Agrandir ganha o espaço entre palavras do token — o
-      espaço desenhado da fonte é estreito e, nos títulos pequenos, as
-      palavras grudavam.
-   2. Todo VALOR GRANDE (18px para cima: KPI, cartão, carrossel, total) fala
-      Agrandir, como os valores das telas do site. O tamanho decide, não a
-      tela: as classes de tamanho do sistema são o que marca um número em
-      destaque.
-   3. (Revogada no mesmo dia pelo dono: o número de tabela também é
-      Agrandir — ver o bloco do fim do arquivo.) */
+/* Todo título em Agrandir ganha o espaço entre palavras do token: o da fonte
+   é estreito e as palavras grudavam. */
 .ds-visor h1,
 .ds-visor h2,
 .ds-visor .text-h1,
@@ -2012,6 +1333,7 @@ body,
   word-spacing: var(--a4p-titulo-espaco-palavra);
 }
 
+/* Valor grande (18px para cima, fora de tabela): tracking do título. */
 .ds-visor :is(.text-h1, .text-h2, .text-value-lg, .text-display,
   [class*="text-[18px]"], [class*="text-[19px]"], [class*="text-[2"],
   [class*="text-[3"], [class*="text-[4"], [class*="text-[5"], [class*="text-[6"]):is(.a4p-num, .tabular-nums):not(td *, th *),
@@ -2019,30 +1341,13 @@ body,
   [class*="text-[18px]"], [class*="text-[19px]"], [class*="text-[2"],
   [class*="text-[3"], [class*="text-[4"], [class*="text-[5"], [class*="text-[6"]):not(td, th, td *, th *) :is(.a4p-num, .a4p-num *),
 .ds-visor [data-card="1"] .text-h3:is(.a4p-num, .tabular-nums):not(td *) {
-  font-family: var(--font-display) !important;
-  font-weight: 700 !important;
   letter-spacing: -0.02em;
 }
 
-/* ============================================================
-   TODO NÚMERO EM AGRANDIR (27/10/2026, decisão do dono, depois da varredura
-   das 76 telas: ~3.000 números ainda saíam em Inter Display, a maioria em
-   tabela, DRE, DFC e fluxo de caixa). Vence as regras de cima que separavam
-   "valor-herói em Agrandir" de "número de linha e tabela em Inter".
-
-   · Vale para o valor (`.a4p-num`), para todo número marcado como tabular
-     (`.tabular-nums`, inclusive célula de tabela), para o dia do calendário,
-     e para o número solto que o `MarcaNumeros` (components/app) marca com
-     `data-num` — o texto que é SÓ número, data ou percentual e não tem
-     classe nenhuma, inclusive o eixo e o rótulo dos gráficos (SVG). O
-     marcador olha o CONTEÚDO, então o eixo de categorias ("Folha",
-     "Aluguel") continua em Inter.
-   · ⚠️ A Agrandir NÃO tem `tnum` (medido no arquivo): numa coluna, os dígitos
-     de larguras diferentes deixam de cair um embaixo do outro. As colunas de
-     dinheiro do sistema são alinhadas à DIREITA, então o fim do número (os
-     centavos) continua alinhado; o que muda é o desenho de cada algarismo.
-   · O texto (rótulo, nome, frase) segue em Inter Display.
-   ============================================================ */
+/* TODO NÚMERO EM AGRANDIR (27/10/2026): valor, número tabular (inclusive em
+   tabela), dia do calendário e o número solto que o `MarcaNumeros` marca com
+   `data-num` (inclusive eixo de gráfico). O texto segue em Inter Display.
+   A Agrandir não tem `tnum`: as colunas de dinheiro alinham pela direita. */
 .ds-visor .a4p-num,
 .ds-visor .a4p-num *,
 .ds-visor .tabular-nums,
@@ -2064,27 +1369,14 @@ body,
   letter-spacing: -0.01em;
 }
 
-/* ============================================================
-   MOVIMENTO 27/10/2026 (pedido do dono: "melhorar as animações, ainda mais
-   quando eu estou digitando e quando entro numa página").
-   Um conjunto PEQUENO e só com tokens (`--dur-rapida/media/lenta`,
-   `--ease-smooth`). Quatro momentos:
-   1. ENTRAR NA TELA — o título desce no lugar e o conteúdo esmaece de
-      entrada (os cards já sobem com `a4pRise`). O conteúdo anima SÓ a
-      opacidade: um `transform` no invólucro viraria o bloco de contenção dos
-      modais `fixed` que algumas telas ainda abrem sem portal.
-   2. DIGITAR — o campo cinza ganha a borda em tinta, o
-      rótulo acende para a tinta, o placeholder recua e o campo inválido dá UM tremor curto (avisa sem gritar).
-   3. SOBREPOSTOS — fundo de modal esmaece, a caixa sobe 8px e cresce de 98%;
-      menu, popover e aviso (`.shadow-popover`) surgem a 4px do lugar.
-      ⚠️ Pelas propriedades INDIVIDUAIS `translate`/`scale`, nunca por
-      `transform`: o aviso e vários menus se centram com `-translate-x-1/2`
-      (`transform`), e animar `transform` os jogaria de lado no meio da
-      animação. As individuais se COMPÕEM com ele.
-   4. Tudo para em `prefers-reduced-motion`.
-   ============================================================ */
+/* ── Movimento 27/10/2026 ────────────────────────────────────────────────────
+   Só tokens (`--dur-*`, `--ease-smooth`). Os sobrepostos animam pelas
+   propriedades INDIVIDUAIS `translate`/`scale`, nunca por `transform`, que
+   jogaria de lado quem se centra com `-translate-x-1/2`. */
 
-/* 1. Entrar na tela */
+/* 1. Entrar na tela: o título desce no lugar e o conteúdo esmaece. Só
+   opacidade no conteúdo: um `transform` no invólucro prenderia os modais
+   `fixed` abertos sem portal. */
 @keyframes a4p-tela-titulo {
   from { opacity: 0; translate: 0 6px; }
   to { opacity: 1; translate: 0 0; }
@@ -2101,24 +1393,16 @@ body,
   animation-delay: 40ms;
 }
 
-/* 2. Digitar
-   ⚠️ O gancho é `.a4p-campo`, NÃO `.border-campo`: o `cn()` passa pelo
-   tailwind-merge, que lê `border-campo` como COR de borda e o descarta ao
-   lado de `border-border` (medido no DOM: nenhum campo do sistema leva a
-   classe). Uma classe que ele não conhece sobrevive. */
+/* 2. Digitar. O gancho é `.a4p-campo`, não `.border-campo`: o tailwind-merge
+   do `cn()` descarta `border-campo` ao lado de `border-border`. */
 .a4p-campo {
   transition: border-color var(--dur-rapida) ease, background-color var(--dur-rapida) ease;
   caret-color: var(--color-ink);
 }
 
-/* O CAMPO É UM BLOCO CINZA (27/10/2026, decisão do dono). Em repouso: fundo
-   cinza do sistema (`--color-surface-2`) e SEM borda — o contraste do campo
-   com o cartão branco vem do preenchimento, não de um fio. Selecionado: UMA
-   borda em tinta, e só ela (o anel de foco saiu: borda + anel lia como borda
-   dupla). Sobre o fundo cinza da página, fora de cartão, o campo fica branco,
-   senão sumiria. O `border-campo` do componente nunca chegou à tela (o
-   `cn()` o descarta ao lado de `border-border`), então a largura mora aqui e
-   é fixa: o foco troca a COR da borda, não o tamanho do campo. */
+/* O campo é um bloco cinza sem borda; selecionado, ganha UMA borda em tinta
+   (sem anel). Fora de cartão, sobre o fundo cinza, fica branco. A largura da
+   borda é fixa: o foco troca a cor, não o tamanho. */
 .a4p-campo,
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo) {
   border-width: 1.5px;
@@ -2126,8 +1410,8 @@ body,
   border-color: transparent;
   background-color: var(--color-surface-2);
 }
-/* `data-fundo-cinza`: gancho de qualquer superfície cinza fora da área que
-   rola (o corpo do pop-up global de criação). */
+/* `data-fundo-cinza`: qualquer superfície cinza fora da área que rola (o
+   corpo do pop-up global de criação). */
 :is([data-area-rola], [data-fundo-cinza]) .a4p-campo:not([data-card="1"] .a4p-campo) {
   background-color: var(--color-white);
 }
@@ -2153,6 +1437,7 @@ input.a4p-campo:focus::placeholder,
 textarea.a4p-campo:focus::placeholder { opacity: 0.55; }
 label { transition: color var(--dur-rapida) ease; }
 .flex-col:focus-within > label { color: var(--color-ink); }
+/* O campo inválido dá UM tremor curto. */
 @keyframes a4p-campo-invalido {
   0%, 100% { translate: 0 0; }
   20% { translate: -3px 0; }
@@ -2165,7 +1450,8 @@ label { transition: color var(--dur-rapida) ease; }
   animation: a4p-campo-invalido 320ms var(--ease-smooth);
 }
 
-/* 3. Sobrepostos */
+/* 3. Sobrepostos: o fundo do modal esmaece, a caixa sobe 8px e cresce de 98%;
+   menu, popover e aviso surgem a 4px do lugar. */
 @keyframes a4p-fundo-entra {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -2188,6 +1474,7 @@ label { transition: color var(--dur-rapida) ease; }
   animation: a4p-pop-entra var(--dur-rapida) var(--ease-smooth) backwards;
 }
 
+/* 4. Tudo para em `prefers-reduced-motion`. */
 @media (prefers-reduced-motion: reduce) {
   .a4p-topo-tela h1,
   [data-area-rola] > *,
@@ -2199,15 +1486,11 @@ label { transition: color var(--dur-rapida) ease; }
   .a4p-campo, .a4p-campo input::placeholder, label { transition: none; }
 }
 
-/* ============================================================
-   NAVEGAÇÃO NO CELULAR (28/10/2026, pedido do João)
-   A barra de baixo (`app/NavegacaoCelular`) só existe abaixo de `lg`, a mesma
-   fronteira em que a lateral vira gaveta. `--a4p-barra-baixo` é a altura que
-   ela ocupa (com a faixa do gesto do iPhone): tudo o que é fixo embaixo soma
-   esta altura, e no computador ela vale zero pelo fallback de cada uso.
-   Mora fora do bloco gerado de propósito: não é cor nem forma do tema, é a
-   geometria de uma peça, e só existe dentro desta consulta de largura.
-   ============================================================ */
+/* ── Navegação no celular (28/10/2026) ──────────────────────────────────────
+   A barra de baixo (`app/NavegacaoCelular`) só existe abaixo de `lg`.
+   `--a4p-barra-baixo` é a altura dela, com a faixa do gesto do iPhone; no
+   computador vale zero pelo fallback de cada uso. É geometria de uma peça,
+   não tema, por isso mora fora do bloco gerado. */
 @media (max-width: 1023.98px) {
   :root { --a4p-barra-baixo: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
