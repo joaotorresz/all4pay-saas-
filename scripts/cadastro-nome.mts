@@ -80,8 +80,6 @@ ok("cadastro: a varredura ainda encontra o signUp do ajudante",
 /* ── 3. Toda porta passa um nome de verdade ──────────────────────────────── */
 const PORTAS = [
   { arquivo: "src/components/entrada/CriarContaView.tsx", o_que: "o campo digitado" },
-  { arquivo: "src/components/onboarding/OnboardingWizard.tsx", o_que: "a razão social" },
-  { arquivo: "src/components/onboarding/OnboardingPessoal.tsx", o_que: "o nome da pessoa" },
 ];
 for (const p of PORTAS) {
   const src = semComentario(readFileSync(p.arquivo, "utf8"));

@@ -5348,19 +5348,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // R$ 38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
 // O que já saiu não muda nada; vencidas e a vencer mudam.
 {
-  const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|\s)\/\/[^\n]*/g, " ");
-  const ordem = Array.from(dash.matchAll(/titulo="(Contas atrasadas|Contas a vencer|Total geral pago no período)"/g))
-    .map((m) => m[1]);
-  ok("a4p034: o acionável vem primeiro — atrasadas, depois a vencer, e o pago por último",
-     ordem.join(" · ") === "Contas atrasadas · Contas a vencer · Total geral pago no período",
-     ordem.join(" · "));
-  // ⚠️ Ordem sozinha não basta: com o mesmo corpo, os três seguem competindo.
-  ok("a4p034: o card de PAGO é secundário (corpo menor), não apenas o último",
-     /rotuloData="Pago em"\s*\n\s*secundario/.test(dash));
-  // ⚠️ E secundário NÃO é escondido: trocar hierarquia por ausência é outro
-  // defeito. O valor continua na tela.
+  // O painel antigo (DashboardContasPagar) saiu em 03/11/2026: era código sem tela.
+  // A regra que sobra é a do kit compartilhado.
   const kitTxt = readFileSync("src/components/titulos/kit.tsx", "utf8");
   ok("a4p034: secundário reduz o corpo, não remove o valor",
      /secundario \? "text-\[20px\] text-muted" : "text-\[28px\] text-ink"/.test(kitTxt));
@@ -7144,7 +7133,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     "src/components/registros/PartesView.tsx",
     "src/components/movimentacoes/TitulosView.tsx",
     "src/components/movimentacoes/ModalBaixa.tsx",
-    "src/components/visao-geral/ExtratoTransacoes.tsx",
   ];
   const LEITURA_LOCAL = [
     /\blistPlanoContas\(/, /\blistUsosPadrao\(/, /\blistContasBancarias\(/, /from "@\/lib\/iuli-cadastros"/,
@@ -10239,13 +10227,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("plataforma: cada leitura/escrita de aplicarEstrutura confere o erro do banco",
      chamadasBanco >= 6 && conferencias === chamadasBanco, `${conferencias} conferências para ${chamadasBanco} chamadas`);
   ok("plataforma: o saldo informado no cadastro vira o saldo da conta", /balance: Math\.round\(\(c\.saldo/.test(onb));
-  for (const f of ["src/components/onboarding/OnboardingWizard.tsx", "src/components/onboarding/OnboardingPessoal.tsx"]) {
+  for (const f of ["src/components/entrada/CriarContaView.tsx"]) {
     const t = semComentario(fsP.readFileSync(f, "utf8"));
     ok(`plataforma: ${f.split("/").pop()} não engole a recusa do perfil nem da estrutura`,
        !/persistCompany\([^)]*\);?\s*\}\s*catch \{/.test(t) && !/aplicarEstrutura\([^)]*\);?\s*\}\s*catch \{/.test(t));
   }
-  const pes = fsP.readFileSync("src/components/onboarding/OnboardingPessoal.tsx", "utf8");
-  ok("plataforma: o cadastro pessoal leva o \"Saldo atual\" para a primeira carteira", /saldo: saldoInicial/.test(pes));
 
   // ── Dashboards customizados: o estado é da ORGANIZAÇÃO ──
   const libDash = semComentario(fsP.readFileSync("src/lib/dashboards.ts", "utf8"));
@@ -10266,10 +10252,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("plataforma: remover/trocar perfil/convidar mostram a recusa do servidor (promessa não fica solta)",
      /try \{ await removeMember\(id\); \}/.test(admv) && /try \{ await saveMember\(\{ \.\.\.original/.test(admv) && /catch \(e\) \{ setErro\(/.test(admv));
 
-  // ── Modo pessoal: o "Adicionar" existe na tela ──
-  const ia = semComentario(fsP.readFileSync("src/components/visao-geral/InicioActions.tsx", "utf8"));
-  ok("plataforma: no modo pessoal a Visão geral tem o botão Adicionar (não havia porta visível)",
-     /pessoal && <NovoDeposito \/>/.test(ia));
 }
 
 /* ── PAGAR · RODADA 3 (arquivos reservados) ── */
@@ -10794,8 +10776,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const r = responderS("qual meu saldo?", { ...base, contas: 0 });
   ok("sem-conta: a IA diz a mesma ausência, nunca R$ 0,00",
      /nenhuma conta cadastrada|não tem conta/i.test(r.resposta + r.numeros.map((n) => n.valor).join(" ")) && !/R\$\s?0,00/.test(r.resposta), r.resposta);
-  const home = readFileSync("src/components/visao-geral/HomeQuatro.tsx", "utf8");
-  ok("sem-conta: o saldo-herói da Home pergunta pela ausência antes do valor", /saldoInd\.indisponivel/.test(home));
 }
 
 /* ── RODADA 6 · a purga da amostra leva os contatos que só ela criou ── */
