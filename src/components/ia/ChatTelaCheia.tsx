@@ -105,8 +105,10 @@ function usePrimeiroNome(): string | null {
 }
 
 export function ChatTelaCheia({
-  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela,
+  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa,
 }: {
+  /** Abre esta conversa do histórico (o menu lateral lista as recentes). */
+  conversa?: string;
   /** Aberto pelo botão do rodapé: a conversa começa no assunto da tela. */
   tela?: TelaChat;
   /** Abre no modo ajuste da Home em vez da conversa sobre os números. */
@@ -202,6 +204,16 @@ export function ChatTelaCheia({
     carregar(getConversa(c.id)?.turnos ?? []);
     setHistorico(false);
   };
+  // Aberta pela lista do menu lateral: a conversa entra carregada, uma vez.
+  const conversaInicial = React.useRef(conversa);
+  React.useEffect(() => {
+    const id = conversaInicial.current;
+    if (!id) return;
+    conversaInicial.current = undefined;
+    const c = getConversa(id);
+    if (c) abrirConversa(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const novaConversa = () => {
     conversaRef.current = null; setAtiva(null);
     carregar([]);

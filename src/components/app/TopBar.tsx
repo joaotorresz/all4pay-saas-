@@ -74,7 +74,7 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    <header className="shrink-0 flex items-center gap-2 sm:gap-3 h-[60px] px-3 sm:px-5 mx-3 mt-3 a4p-topbar bg-white rounded-[20px]">
+    <header className="shrink-0 flex items-center gap-2 sm:gap-3 h-[60px] px-3 sm:px-5 a4p-topbar bg-white rounded-[20px]">
       {/* ⚠️ Só existe quando HÁ gaveta. O grupo ativo pode não ter itens (o
           Início é folha) e aí a lateral não é renderizada — um hambúrguer ali
           seria um botão que abre o nada, que é pior que botão nenhum. */}
@@ -90,7 +90,9 @@ export function TopBar() {
         </button>
       )}
 
-      <Link href="/" aria-label="Início" data-topbar="marca" className="flex items-center gap-3 shrink-0">
+      {/* No computador o logo mora no topo do menu lateral escuro (03/11/2026);
+          a barra o mostra só onde o menu é gaveta. */}
+      <Link href="/" aria-label="Início" data-topbar="marca" className="flex lg:hidden items-center gap-3 shrink-0">
         {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
             versão escura sumiria no claro — o inverso do que fazia antes. */}
         {/* Logo em UMA cor (canvas): o arquivo vira máscara, a cor é o token. */}

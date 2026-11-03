@@ -48,7 +48,8 @@ export default async function menuNavega(navegador) {
       setTimeout(() => { o.disconnect(); ok(c); }, 1500);
     }));
     if (mudancas > 500) travadas.push(`${h} (${mudancas})`);
-    await u.page.locator('[data-topbar="marca"]').click();
+    // O logo mora no menu lateral no computador e na barra no telefone.
+    await u.page.locator('[data-topbar="marca"]:visible').first().click();
     try { await u.page.waitForURL(`${BASE}/`, { timeout: 8000 }); } catch { logoMorta.push(h); }
   }
   v.ok(semMenu.length === 0, "toda tela do menu mostra o menu lateral", semMenu.join(", "));
