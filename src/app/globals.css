@@ -271,6 +271,19 @@
   --erp-menu-fundo: var(--color-white);
   --erp-menu-borda: #e8e7e0;
   --erp-menu-ativo: #ecfd52;
+  /* MENU LATERAL ESCURO (03/11/2026, referência do dono): verde quase preto, nos dois temas */
+  --erp-menu-escuro: #1e251a;
+  /* a conversa aberta: um degrau ABAIXO do fundo do menu */
+  --erp-menu-afundado: #141a11;
+  /* Criar, item ativo e cartão da conta: um degrau ACIMA do fundo */
+  --erp-menu-realce: color-mix(in srgb, var(--erp-menu-texto) 11%, var(--erp-menu-escuro));
+  --erp-menu-hover: color-mix(in srgb, var(--erp-menu-texto) 6%, var(--erp-menu-escuro));
+  --erp-menu-fio: color-mix(in srgb, var(--erp-menu-texto) 14%, var(--erp-menu-escuro));
+  --erp-menu-texto: #f3f4ec;
+  --erp-menu-texto-2: color-mix(in srgb, var(--erp-menu-texto) 64%, var(--erp-menu-escuro));
+  /* o reflexo do botão em relevo da referência (sem o elemento 3D) */
+  --erp-menu-brilho: linear-gradient(115deg, color-mix(in srgb, var(--erp-menu-texto) 16%, transparent) 0%, transparent 38%, transparent 62%, color-mix(in srgb, var(--erp-menu-texto) 7%, transparent) 100%);
+  --erp-menu-sombra: 0 10px 22px -12px rgba(8, 12, 6, 0.7), inset 0 1px 0 color-mix(in srgb, var(--erp-menu-texto) 9%, transparent);
   --erp-logo-cor: #3b4332;
   --erp-graf-grade: var(--color-border);
   --erp-graf-linha: 1px;
@@ -1145,7 +1158,10 @@ html.dark .a4p-canvas {
   /* PROPOSTA "Quattro · Home" (out/2026): a barra de cima VOLTOU a ser cartão
      branco com a borda dos cards — logo Quattro à esquerda, ações à direita,
      sobre a moldura verde-base. */
-  background: var(--color-white);
+  /* MENU ESCURO (03/11/2026, dono): sem o cartão branco — a barra tem a cor
+     da própria página, então só os botões aparecem, e o que rola por baixo
+     some sob ela em vez de aparecer atrás dos ícones. */
+  background: var(--a4p-app-bg);
   border: 0;
   color: var(--color-ink);
 }
@@ -1529,8 +1545,93 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   letter-spacing: 0 !important;
   text-transform: none;
 }
-/* Menu lateral: fundo e linha do canvas. */
-.a4p-sidebar { background: var(--erp-menu-fundo); }
+/* ============================================================
+   MENU LATERAL ESCURO (03/11/2026, referência do dono).
+   Verde quase preto nos DOIS temas: ele não segue o tema, como a moldura.
+   Os botões "em relevo" (Criar, item ativo, cartão da conta) são um degrau
+   ACIMA do fundo com um reflexo diagonal; a conversa aberta, um degrau
+   ABAIXO. ⚠️ O elemento 3D da referência ficou de fora, a pedido do dono.
+   ============================================================ */
+.a4p-sidebar { background: var(--erp-menu-escuro); color: var(--erp-menu-texto); }
+.a4p-menu-relevo {
+  background: var(--erp-menu-brilho), var(--erp-menu-realce);
+  box-shadow: var(--erp-menu-sombra);
+  color: var(--erp-menu-texto);
+}
+.a4p-menu-item { color: var(--erp-menu-texto); }
+.a4p-menu-item:hover { background: var(--erp-menu-hover); }
+.a4p-menu-sub { color: var(--erp-menu-texto-2); }
+.a4p-menu-sub:hover { background: var(--erp-menu-hover); color: var(--erp-menu-texto); }
+.a4p-menu-sub[aria-current="page"] { color: var(--erp-menu-texto); }
+.a4p-menu-afundado { background: var(--erp-menu-afundado); }
+.a4p-menu-quadrado {
+  background: var(--erp-menu-hover);
+  border: 1px solid var(--erp-menu-fio);
+  color: var(--erp-menu-texto);
+}
+.a4p-menu-quadrado:hover { background: var(--erp-menu-realce); }
+.a4p-menu-busca {
+  background: transparent;
+  border: 1px solid var(--erp-menu-fio);
+  color: var(--erp-menu-texto);
+}
+.a4p-menu-busca::placeholder { color: var(--erp-menu-texto-2); }
+.a4p-menu-busca:focus { outline: none; border-color: var(--erp-menu-texto-2); }
+.a4p-menu-meta { color: var(--erp-menu-texto-2); }
+.a4p-menu-ponto { background: var(--color-lime); }
+/* O fio curto que se dissolve, entre o menu e as conversas. */
+.a4p-menu-divisor {
+  display: block;
+  height: 1px;
+  width: 46%;
+  margin: 10px 12px;
+  background: linear-gradient(to right, var(--erp-menu-fio), transparent);
+}
+.a4p-menu-fio-vertical { border-color: var(--erp-menu-fio); }
+.a4p-logo-mono.a4p-logo-menu { background: var(--erp-menu-texto); }
+
+/* ============================================================
+   ENTRADA NO APP (03/11/2026, vídeo de referência do dono).
+   Uma cortina verde com o logo cobre a tela, o logo aparece, e a cortina
+   ENCOLHE até virar o menu lateral; os itens do menu surgem em seguida.
+   Só na carga da página (não a cada navegação) e nunca com
+   `prefers-reduced-motion`. A cortina mede o menu de verdade no fim.
+   ============================================================ */
+.a4p-cortina {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  background: var(--erp-menu-escuro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+.a4p-cortina-logo {
+  width: 188px;
+  height: 36px;
+  background: var(--erp-menu-texto);
+  -webkit-mask: url(/quattro-erp-logo.png) center / contain no-repeat;
+  mask: url(/quattro-erp-logo.png) center / contain no-repeat;
+  animation: a4p-cortina-logo 520ms cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes a4p-cortina-logo {
+  from { opacity: 0; transform: translateY(10px) scale(.96); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.a4p-menu-revela [data-revela] {
+  animation: a4p-menu-revela 460ms cubic-bezier(.2,.7,.2,1) both;
+  animation-delay: calc(var(--a4p-i, 0) * 45ms);
+}
+@keyframes a4p-menu-revela {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a4p-cortina { display: none; }
+  .a4p-menu-revela [data-revela] { animation: none; }
+}
 .a4p-menu-linha {
   display: block;
   height: 1px;

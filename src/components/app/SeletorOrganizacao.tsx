@@ -30,8 +30,11 @@ import { cn } from "@/lib/utils";
 export function SeletorOrganizacao({
   collapsed = false,
   variante = "rodape",
-}: { collapsed?: boolean; variante?: "rodape" | "chrome" }) {
+}: { collapsed?: boolean; variante?: "rodape" | "chrome" | "menu" }) {
   const noChrome = variante === "chrome";
+  // `menu` — o rodapé do menu lateral ESCURO (03/11/2026): o mesmo formato do
+  // `rodape`, com as cores do menu. O painel abre para cima.
+  const noMenu = variante === "menu";
   const [orgs, setOrgs] = React.useState<OrganizacaoDoUsuario[] | null>(null);
   const [aberto, setAberto] = React.useState(false);
   const [trocando, setTrocando] = React.useState<string | null>(null);
@@ -81,12 +84,14 @@ export function SeletorOrganizacao({
           "flex items-center transition-colors",
           noChrome
             ? "h-8 gap-2 px-3 rounded-pill"
-            : "w-full rounded-md py-2 hover:bg-surface-1",
+            : noMenu
+              ? "w-full rounded-[12px] py-2 a4p-menu-item"
+              : "w-full rounded-md py-2 hover:bg-surface-1",
           !noChrome && (collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]"),
         )}
         style={noChrome ? { background: "var(--a4p-chrome-field)", color: "var(--a4p-chrome-ink)" } : undefined}
       >
-        <Icon name="building" size={noChrome ? 15 : 18} color={noChrome ? "currentColor" : "var(--color-text-secondary)"} />
+        <Icon name="building" size={noChrome ? 15 : 18} color={noChrome || noMenu ? "currentColor" : "var(--color-text-secondary)"} />
         {noChrome ? (
           <>
             <span className="text-[13px] font-medium truncate max-w-[160px]">{ativa.nome}</span>
@@ -96,10 +101,10 @@ export function SeletorOrganizacao({
           !collapsed && (
             <>
               <span className="min-w-0 flex flex-col items-start">
-                <span className="text-[15px] font-medium text-ink truncate max-w-[150px]">{ativa.nome}</span>
-                <span className="text-[11px] text-faint">{nomeDoPapel(ativa.papel)}</span>
+                <span className={cn("text-[15px] font-medium truncate max-w-[150px]", !noMenu && "text-ink")}>{ativa.nome}</span>
+                <span className={cn("text-[11px]", noMenu ? "a4p-menu-meta" : "text-faint")}>{nomeDoPapel(ativa.papel)}</span>
               </span>
-              <Icon name="chevrons-up-down" size={14} color="var(--color-text-tertiary)" className="ml-auto shrink-0" />
+              <Icon name="chevrons-up-down" size={14} color={noMenu ? "var(--erp-menu-texto-2)" : "var(--color-text-tertiary)"} className="ml-auto shrink-0" />
             </>
           )
         )}

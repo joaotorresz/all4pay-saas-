@@ -31,6 +31,8 @@ export interface AbrirChat {
   ajuste?: AjusteChat;
   /** "Pergunte à Quattro AI" do rodapé: a conversa abre no assunto da tela. */
   tela?: TelaChat;
+  /** Uma conversa do histórico (a lista do menu lateral): abre já carregada. */
+  conversa?: string;
 }
 
 let ouvindo = false;
@@ -63,6 +65,7 @@ export function ChatGlobal() {
       aoClicarSugestao={aberto.aoClicarSugestao}
       ajuste={aberto.ajuste}
       tela={aberto.tela}
+      conversa={aberto.conversa}
       aoFechar={() => setAberto(null)}
     />
   );
