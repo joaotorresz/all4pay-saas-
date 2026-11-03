@@ -113,3 +113,23 @@ export const consultarNaFocus = (ref: string) =>
 
 export const cancelarNaFocus = (ref: string, justificativa: string) =>
   chamar("DELETE", `${caminhoDaRef(ref)}/${encodeURIComponent(ref)}`, { justificativa });
+
+/**
+ * As tabelas de serviço do MUNICÍPIO na Focus (só leitura): os itens da lista
+ * de serviço e os códigos tributários que a prefeitura aceita. Existe porque a
+ * recusa E0312 ("código não administrado pelo município") só se resolve sabendo
+ * o que o município administra. Caminho FIXO: o tipo vem de uma lista fechada
+ * e o município e os filtros só levam dígitos/texto codificado.
+ */
+export type TabelaMunicipioFocus = "itens_lista_servico" | "codigos_tributarios_municipio";
+export function consultarTabelaDoMunicipio(
+  municipio: string, tabela: TabelaMunicipioFocus, filtros: { codigo?: string; descricao?: string; offset?: number },
+) {
+  const mun = municipio.replace(/\D/g, "").slice(0, 7);
+  const q = new URLSearchParams();
+  if (filtros.codigo) q.set("codigo", filtros.codigo.replace(/[^\d.]/g, "").slice(0, 10));
+  if (filtros.descricao) q.set("descricao", filtros.descricao.slice(0, 60));
+  if (filtros.offset && filtros.offset > 0) q.set("offset", String(Math.floor(filtros.offset)));
+  q.set("limit", "100");
+  return chamar("GET", `/v2/municipios/${mun}/${tabela}?${q.toString()}`);
+}
