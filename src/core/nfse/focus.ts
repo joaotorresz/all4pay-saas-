@@ -271,6 +271,7 @@ export function montarPedido(
     ...(Object.keys(endereco).length ? { endereco } : {}),
   };
 
+  const leiauteReforma = ibsCbs || emitente.grupoIbsCbs === false;
   return {
     ok: true,
     pedido: {
@@ -281,8 +282,10 @@ export function montarPedido(
       ...(ibsCbs ? { exigibilidade_suspensa: 0 as const, finalidade_emissao: 0 as const, consumidor_final: doc.length === 11 ? 1 as const : 0 as const, indicador_destinatario: 0 as const } : {}),
       // ⚠️ No leiaute da reforma (XML nacional) a IM do prestador NÃO vai: o
       // ambiente nacional a lê do CNC do município e recusa a DPS que a informa
-      // quando São Paulo não a registrou lá (recusa de 30/10/2026).
-      prestador: { cnpj: emitente.cnpj, ...(ibsCbs ? {} : { inscricao_municipal: emitente.inscricaoMunicipal }), codigo_municipio: emitente.codigoMunicipio },
+      // quando São Paulo não a registrou lá (recusa de 30/10/2026). Vale também
+      // SEM o grupo do IBS/CBS (grupoIbsCbs false): São Paulo gera o XML
+      // nacional do mesmo jeito (recusa de 03/11/2026).
+      prestador: { cnpj: emitente.cnpj, ...(leiauteReforma ? {} : { inscricao_municipal: emitente.inscricaoMunicipal }), codigo_municipio: emitente.codigoMunicipio },
       tomador: tomadorPedido,
       servico: {
         // ⚠️ Nunca a alíquota da TELA nem o valor do ISS: um número que a
