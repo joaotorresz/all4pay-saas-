@@ -154,6 +154,19 @@ async function chamar(
   return r.status === 401 ? vai(true) : r;
 }
 
+/**
+ * Acrescenta ao motivo o que o Itaú DISSE quando a resposta não é 2xx e o
+ * motivo ainda não traz a mensagem dele (o 500 do sandbox vinha sem nada,
+ * 03/11/2026). Uma linha, curta; só chega à tela de teste do administrador.
+ */
+function comODitoDoItau(r: ResultadoCobrancaBanco, resp: RespostaItau): ResultadoCobrancaBanco {
+  if (resp.status >= 200 && resp.status < 300) return r;
+  if (r.situacao !== "incerta" && r.situacao !== "falhou") return r;
+  const disse = motivoDoItau(resp.corpo, resp.bruto);
+  if (!disse || r.motivo.includes(disse)) return r;
+  return { ...r, motivo: `${r.motivo} O Itaú disse: ${disse}`.slice(0, 600) };
+}
+
 /** Só prova que a credencial gera token (o teste do administrador). */
 export async function testarCredencialItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<{ ok: true } | { ok: false; motivo: string }> {
   try {
@@ -180,7 +193,7 @@ export async function emitirCobrancaItau(
   if (problemas.length) return { situacao: "falhou", motivo: problemas.join(" ") };
   try {
     const r = await chamar(cfg, transporte, "POST", "/pix_recebimentos_conciliacoes/v2/boletos_pix", pedidoCobrancaItau(pedido, cfg.conta, nossoNumero, hoje));
-    return lerCriacaoItau(r.status, r.corpo, cfg.conta, nossoNumero);
+    return comODitoDoItau(lerCriacaoItau(r.status, r.corpo, cfg.conta, nossoNumero), r);
   } catch (e) {
     if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
     // Saiu e não voltou: pode ter registrado.
@@ -194,7 +207,7 @@ export async function consultarCobrancaItau(cfg: ConfigItau, nossoNumero: string
   try {
     const r = await chamar(cfg, transporte, "GET", caminhoConsultaItau(cfg.conta, nossoNumero));
     if (r.status === 404) return { situacao: "incerta", motivo: "O Itaú não achou este título." };
-    if (r.status !== 200) return { situacao: "incerta", motivo: motivoDaRecusaItau(r.status, r.corpo) };
+    if (r.status !== 200) return comODitoDoItau({ situacao: "incerta", motivo: motivoDaRecusaItau(r.status, r.corpo) }, r);
     return lerConsultaItau(r.corpo, cfg.conta, nossoNumero);
   } catch (e) {
     return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
