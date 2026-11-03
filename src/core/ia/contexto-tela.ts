@@ -195,7 +195,7 @@ const MOLDES: Molde[] = [
 ];
 
 /** Telas onde o botão não aparece: a Home já tem a caixa, e a IA é a própria conversa. */
-const SEM_BOTAO = ["/quattro-ai", "/login", "/criar-conta", "/comecar", "/redefinir-senha", "/segundo-fator", "/admin"];
+const SEM_BOTAO = ["/quattro-ai", "/login", "/criar-conta", "/redefinir-senha", "/segundo-fator", "/admin"];
 
 /** O botão aparece nesta rota? A Home ("/") já tem a caixa da IA no alto. */
 export function botaoNaTela(pathname: string): boolean {
