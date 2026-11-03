@@ -12344,8 +12344,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cobranca-pinbank: a reserva roda com a sessão da pessoa, nunca com a chave de serviço", reservaComoPessoa(rotaCob));
   ok("cobranca-pinbank: (defeito plantado) reservar pela chave de serviço é ACUSADO",
      !reservaComoPessoa(rotaCob.replace('s.rpc("pinbank_cobranca_reservar"', 'admin.rpc("pinbank_cobranca_reservar"')));
-  const regFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== ROTA_COB && /pinbank_cobranca_registrar/.test(semComF(ler(p))));
-  ok("cobranca-pinbank: só a rota grava o resultado (pinbank_cobranca_registrar)", regFora(lerF).length === 0, regFora(lerF).join(", "));
+  // Duas rotas gravam: a da empresa e a do Pix atualizado da página pública (30/10/2026).
+  const ROTAS_REG = [ROTA_COB, "src/app/api/pinbank/checkout/pix/route.ts"];
+  const regFora = (ler: (p: string) => string) => arqsF.filter((p) => !ROTAS_REG.includes(p) && /pinbank_cobranca_registrar/.test(semComF(ler(p))));
+  ok("cobranca-pinbank: só as rotas de cobrança gravam o resultado (pinbank_cobranca_registrar)", regFora(lerF).length === 0, regFora(lerF).join(", "));
   // O interruptor mora numa casa só.
   const leInterruptor = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_COBRANCA\b/.test(semComF(ler(p))));
   ok("cobranca-pinbank: PINBANK_COBRANCA só é lida pelo cliente da API", leInterruptor(lerF).length === 0 && /PINBANK_COBRANCA\b/.test(semComF(lerF(P_API))), leInterruptor(lerF).join(", "));
@@ -12400,7 +12402,56 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const fatura = semComF(lerF("src/components/checkout/FaturaView.tsx"));
     ok("encargos: a página lê a regra REGISTRADA no boleto, nunca a configuração de hoje",
        /lerRegraEncargos\(boletoEmitido\.encargos\)/.test(fatura) && !/cobranca_encargos/.test(fatura));
-    ok("encargos: com multa e juros correndo, a página esconde o Pix (valor fixo, pagaria menos)", /!comEncargo \? r\.cobrancas\.find\(\(x\) => x\.tipo === "pix"/.test(fatura));
+    // PIX ATUALIZADO (30/10/2026): vencida, só o Pix DO DIA com o valor de hoje.
+    ok("pix-atualizado: a página escolhe o Pix só por pixDaFatura (nunca procura o Pix por conta própria)",
+       /pixDaFatura\(r\.cobrancas/.test(fatura) && !/x\.tipo === "pix"/.test(fatura));
+    const cobs = [
+      { tipo: "pix" as const, valor: 1000, textoQrCode: "orig", diaReferencia: null },
+      { tipo: "pix" as const, valor: 1023.0, textoQrCode: "ontem", diaReferencia: "2026-10-19" },
+    ];
+    const base = { aberto: true, encerrada: false, comEncargo: true, totalHoje: 1023.33, hoje: "2026-10-20", pixAtualizadoLigado: true };
+    const semDia = F.pixDaFatura(cobs, base);
+    ok("pix-atualizado: com multa e juros, o Pix original e o de ONTEM somem; ligado, oferece gerar",
+       !semDia.pix && semDia.podeGerar && !F.pixDaFatura(cobs, { ...base, pixAtualizadoLigado: false }).podeGerar, JSON.stringify(semDia));
+    const comDia = F.pixDaFatura([...cobs, { tipo: "pix" as const, valor: 1023.33, textoQrCode: "hoje", diaReferencia: "2026-10-20" }], base);
+    ok("pix-atualizado: o Pix de hoje com o valor de hoje aparece, sem botão", comDia.pix?.textoQrCode === "hoje" && comDia.doDia && !comDia.podeGerar);
+    ok("pix-atualizado: Pix de hoje com OUTRO valor não aparece (a regra mudou no meio do dia)",
+       !F.pixDaFatura([{ tipo: "pix" as const, valor: 1010, textoQrCode: "hoje", diaReferencia: "2026-10-20" }], base).pix);
+    ok("pix-atualizado: sem encargo vale o Pix original; encerrada ou paga, nada",
+       F.pixDaFatura(cobs, { ...base, comEncargo: false }).pix?.textoQrCode === "orig"
+         && !F.pixDaFatura(cobs, { ...base, encerrada: true }).podeGerar && !F.pixDaFatura(cobs, { ...base, aberto: false }).podeGerar);
+    const pixDia = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix", diaReferencia: "2026-10-30" } as never, 1919, new Date("2026-10-30T22:00:00-03:00"));
+    ok("pix-atualizado: o Pix do dia expira às 23:59:59 e NÃO aceita pagamento depois (amanhã o valor é outro)",
+       pixDia.SegundosExpiracao === 7199 && pixDia.PermitirPagamentoAposExpiracao === false, JSON.stringify([pixDia.SegundosExpiracao, pixDia.PermitirPagamentoAposExpiracao]));
+    ok("pix-atualizado: o Pix comum continua aceitando pagamento depois do vencimento", pix.PermitirPagamentoAposExpiracao === true);
+    ok("pix-atualizado: gerado no último minuto, ainda vale 60 segundos (nunca zero)",
+       CB.segundosAteFimDoDia("2026-10-30", new Date("2026-10-30T23:59:58-03:00")) === 60);
+    const ROTA_PIXD = "src/app/api/pinbank/checkout/pix/route.ts";
+    const ordemPixD = (t: string) => {
+      const x = semComF(t).slice(semComF(t).indexOf("export async function POST"));
+      const iLib = x.indexOf("pixAtualizadoLiberado()");
+      const iLer = x.indexOf("lerLinkDePagamento(token)");
+      const iEnc = x.indexOf("encargosDaFatura(");
+      const iRes = x.indexOf('admin.rpc("pinbank_checkout_pix_reservar"');
+      const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+      const iReg = x.indexOf("await registrar(resultado)");
+      return iLib >= 0 && iLer > iLib && iEnc > iLer && iRes > iEnc && iRede > iRes && iReg > iRede;
+    };
+    ok("pix-atualizado: a rota pública confere interruptor → link → valor de hoje → reserva no banco → só então a Pinbank", ordemPixD(lerF(ROTA_PIXD)));
+    ok("pix-atualizado: (defeito plantado) chamar a Pinbank antes da reserva é REPROVADO",
+       !ordemPixD(lerF(ROTA_PIXD).replace("export async function POST(req: Request) {", "export async function POST(req: Request) {\n  await emitirCobrancaPinbank(reserva);")));
+    ok("pix-atualizado: o valor sai da conta da página, nunca do pedido", !/pedido as Record<string, unknown>\)\.(valor|total)/.test(semComF(lerF(ROTA_PIXD))));
+    const lePixD = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_PIX_ATUALIZADO/.test(semComF(ler(p))));
+    ok("pix-atualizado: PINBANK_PIX_ATUALIZADO só é lida pelo cliente da API e está no .env.example",
+       lePixD(lerF).length === 0 && /^#?\s*PINBANK_PIX_ATUALIZADO=/m.test(docEnv), lePixD(lerF).join(", "));
+    ok("pix-atualizado: (defeito plantado) a página lendo o interruptor direto é ACUSADA",
+       lePixD((p) => (p === "src/app/pagar/page.tsx" ? lerF(p) + "\nconst l = process.env.PINBANK_PIX_ATUALIZADO;" : lerF(p))).includes("src/app/pagar/page.tsx"));
+    const APIp = await import("@/lib/pinbank/api");
+    const credP = Object.fromEntries(APIp.variaveisFaltando({}).map((n) => [n, "x"]));
+    const envP = { ...credP, PINBANK_API_AMBIENTE: "producao", PINBANK_COBRANCA: "ligado", PINBANK_PIX_ATUALIZADO: "ligado" } as Record<string, string>;
+    ok("pix-atualizado: nasce DESLIGADO e depende da cobrança ligada",
+       APIp.pixAtualizadoLiberado(envP) && !APIp.pixAtualizadoLiberado({ ...envP, PINBANK_PIX_ATUALIZADO: "" })
+         && !APIp.pixAtualizadoLiberado({ ...envP, PINBANK_COBRANCA: "" }));
     const leEnc = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_BOLETO_ENCARGOS/.test(semComF(ler(p))));
     ok("encargos: PINBANK_BOLETO_ENCARGOS só é lida pelo cliente da API e está no .env.example",
        leEnc(lerF).length === 0 && /PINBANK_BOLETO_ENCARGOS/.test(semComF(lerF(P_API))) && /^#?\s*PINBANK_BOLETO_ENCARGOS=/m.test(docEnv), leEnc(lerF).join(", "));

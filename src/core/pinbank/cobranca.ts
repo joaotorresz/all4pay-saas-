@@ -52,6 +52,8 @@ export type ReservaCobranca =
       vencimento: string;
       descricao: string | null;
       devedor: DevedorCobranca | null;
+      /** O Pix ATUALIZADO do link (valor do dia, vale só até 23:59 dele); ausente nas cobranças comuns. */
+      diaReferencia?: string | null;
     };
 
 const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -86,6 +88,7 @@ export function lerReservaCobranca(v: unknown): ReservaCobranca {
     valor: Math.round(valor * 100) / 100,
     vencimento,
     descricao: texto(v.descricao, 140),
+    diaReferencia: tipo === "pix" && typeof v.diaReferencia === "string" && DATA.test(v.diaReferencia) ? v.diaReferencia : null,
     devedor: d
       ? {
           nome: texto(d.nome, 100),
@@ -156,6 +159,16 @@ export function segundosAteVencimento(dia: string, agora: Date): number {
   return Number.isFinite(s) ? Math.max(3600, s) : 3600;
 }
 
+/**
+ * O Pix do dia (Pix atualizado do link) vale até 23:59:59 de São Paulo, sem o
+ * piso de 1 hora: às 23:30 ele vale 29 minutos, nunca até a 00:29 de amanhã,
+ * quando o valor já é outro. Piso de 60 s só para não nascer vencido.
+ */
+export function segundosAteFimDoDia(dia: string, agora: Date): number {
+  const s = Math.floor((Date.parse(vencimentoPix(dia)) - agora.getTime()) / 1000);
+  return Number.isFinite(s) ? Math.max(60, s) : 60;
+}
+
 type Reservada = Extract<ReservaCobranca, { existente: false }>;
 
 /** O `Data` do `Pix/SolicitarDynamicQrCode`. */
@@ -169,10 +182,11 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = 
     ValorQrCode: Math.round(r.valor * 100),
     NsuOrigem: r.nsuOrigem,
     DataVencimento: vencimentoPix(r.vencimento),
-    SegundosExpiracao: segundosAteVencimento(r.vencimento, agora),
+    SegundosExpiracao: r.diaReferencia ? segundosAteFimDoDia(r.diaReferencia, agora) : segundosAteVencimento(r.vencimento, agora),
     // Pago depois do vencimento ainda é pago: recusar só empurraria o cliente
-    // para outro meio, e o título continuaria em aberto.
-    PermitirPagamentoAposExpiracao: true,
+    // para outro meio, e o título continuaria em aberto. ⚠️ EXCETO o Pix do
+    // dia: amanhã a multa e os juros são outros, e o QR de hoje pagaria menos.
+    PermitirPagamentoAposExpiracao: !r.diaReferencia,
     // O valor é o do título; o pagador não escolhe quanto paga.
     PermitirAlterarValorPagamento: false,
     // A Pinbank (28/10/2026) pediu o campo: sem ele o QR dinâmico volta "Erro de Sistema".

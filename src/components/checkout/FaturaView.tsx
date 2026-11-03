@@ -3,12 +3,13 @@ import { BRL, StatusBadge, classesDoBotao } from "@/components/ui";
 import { CopiarTexto } from "@/components/checkout/CopiarTexto";
 import { BoletoImpresso } from "@/components/checkout/BoletoImpresso";
 import { FormasDePagamento } from "@/components/checkout/FormasDePagamento";
+import { GerarPixDoDia } from "@/components/checkout/GerarPixDoDia";
 
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { dataBR } from "@/lib/format";
 import { linhaDigitavelLegivel } from "@/core/pinbank/cobranca";
 import { credorDoCadastro, documentoLegivel } from "@/core/cobranca";
-import { encargosDaFatura, lerRegraEncargos, situacaoDaFatura } from "@/core/cobranca/fatura";
+import { encargosDaFatura, lerRegraEncargos, pixDaFatura, situacaoDaFatura } from "@/core/cobranca/fatura";
 
 /**
  * A FATURA PÚBLICA no modelo da Asaas (decisão do dono, 28/10/2026): o
@@ -25,6 +26,8 @@ export type CobrancaLink = {
   linhaDigitavel: string | null;
   /** A multa e os juros que o BANCO registrou neste boleto (null = sem encargo). */
   encargos?: unknown;
+  /** Só no Pix atualizado: o dia cujo valor ele cobra (vale até 23:59 desse dia). */
+  diaReferencia?: string | null;
 };
 export type LeituraFatura = {
   situacao: "aberto" | "pago" | "indisponivel";
@@ -68,7 +71,7 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   );
 }
 
-export function FaturaView({ r, hoje, token }: { r: LeituraFatura; hoje: string; token: string }) {
+export function FaturaView({ r, hoje, token, pixAtualizado = false }: { r: LeituraFatura; hoje: string; token: string; pixAtualizado?: boolean }) {
   const c = credorDoCadastro(r.empresa, r.credor ?? null);
   const doc = documentoLegivel(c.documento);
   const sit = situacaoDaFatura(r.situacao, r.vencimento, hoje);
@@ -79,8 +82,11 @@ export function FaturaView({ r, hoje, token }: { r: LeituraFatura; hoje: string;
   const comEncargo = enc.total > r.valor;
   // Passou do prazo que a empresa aceita: o banco recusa o boleto, e a página não o oferece.
   const encerrada = r.situacao === "aberto" && enc.expirada;
-  // O Pix tem valor fixo (o original): com multa e juros correndo, ele pagaria menos do que é devido.
-  const pix = r.situacao === "aberto" && !encerrada && !comEncargo ? r.cobrancas.find((x) => x.tipo === "pix" && x.textoQrCode) : undefined;
+  // O Pix original tem valor fixo: com multa e juros correndo, ele pagaria menos do que é devido.
+  // Vencida, vale só o Pix DO DIA com o valor de hoje (ou o botão que o gera).
+  const { pix, doDia, podeGerar } = pixDaFatura(r.cobrancas, {
+    aberto: r.situacao === "aberto", encerrada, comEncargo, totalHoje: enc.total, hoje, pixAtualizadoLigado: pixAtualizado,
+  });
   const boleto = encerrada ? undefined : boletoEmitido;
   const svg = pix?.textoQrCode ? qrSvg(pix.textoQrCode) : "";
   const contato = [c.email, c.telefone].filter(Boolean).join(" · ");
@@ -187,12 +193,13 @@ export function FaturaView({ r, hoje, token }: { r: LeituraFatura; hoje: string;
         ) : undefined}
         pix={pix?.textoQrCode ? (
           <div className="flex flex-col gap-3">
+            {doDia && <span className="text-caption text-muted">Pix com o valor de hoje, já com a multa e os juros. Vale até 23:59.</span>}
             {svg && <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />}
             <span className="text-caption text-muted">Ou copie o código e cole no app do seu banco, em Pix copia e cola.</span>
             <code className="block break-all rounded-md bg-surface-1 p-3 text-caption text-ink">{pix.textoQrCode}</code>
             <CopiarTexto texto={pix.textoQrCode} rotulo="Copiar código Pix" />
           </div>
-        ) : undefined}
+        ) : podeGerar ? <GerarPixDoDia token={token} /> : undefined}
       />
 
       <p className="text-caption text-muted leading-[1.5] px-2">

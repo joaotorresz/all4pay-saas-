@@ -139,3 +139,30 @@ export function encargosDaFatura(valor: number, vencimento: string | null, hoje:
   const juros = r2(valor * (regra.jurosMesPct / 100) * (d / 30));
   return { ...base, multa, juros, total: r2(valor + multa + juros) };
 }
+
+/**
+ * QUAL PIX A PÁGINA MOSTRA (Pix atualizado, decisão do dono, 30/10/2026).
+ *
+ *   · sem multa e juros correndo → o Pix ORIGINAL (o comum, sem dia);
+ *   · com multa e juros → só o Pix DO DIA (o de hoje; o de ontem pagaria
+ *     menos). Sem ele, `podeGerar` diz se a página oferece o botão;
+ *   · prazo encerrado ou cobrança fechada → nenhum.
+ *
+ * ⚠️ O Pix do dia precisa valer o total de hoje (a 1 centavo): um Pix de
+ * outro valor não é oferecido como se pagasse a dívida.
+ */
+export function pixDaFatura<C extends { tipo: "pix" | "boleto"; valor: number; textoQrCode: string | null; diaReferencia?: string | null }>(
+  cobrancas: readonly C[],
+  o: { aberto: boolean; encerrada: boolean; comEncargo: boolean; totalHoje: number; hoje: string; pixAtualizadoLigado: boolean },
+): { pix: C | undefined; doDia: boolean; podeGerar: boolean } {
+  const nada = { pix: undefined, doDia: false, podeGerar: false };
+  if (!o.aberto || o.encerrada) return nada;
+  if (!o.comEncargo) {
+    return { pix: cobrancas.find((x) => x.tipo === "pix" && !!x.textoQrCode && !x.diaReferencia), doDia: false, podeGerar: false };
+  }
+  const hoje = o.hoje.slice(0, 10);
+  const doDia = cobrancas.find((x) => x.tipo === "pix" && !!x.textoQrCode && x.diaReferencia === hoje
+    && Math.abs(x.valor - o.totalHoje) <= 0.01);
+  if (doDia) return { pix: doDia, doDia: true, podeGerar: false };
+  return { pix: undefined, doDia: false, podeGerar: o.pixAtualizadoLigado };
+}
