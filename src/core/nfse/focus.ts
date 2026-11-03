@@ -78,6 +78,14 @@ export interface EmitenteFocus {
    * é como a tabela do cClassTrib é numerada (000001 → CST 000).
    */
   situacaoTributariaIbsCbs?: string;
+  /**
+   * `false` = a nota sai SEM o grupo do IBS/CBS (o leiaute 1 de São Paulo, só
+   * ISS, com o código de serviço da PREFEITURA de 5 dígitos). Em 2026 o grupo
+   * é OPCIONAL em SP (FAQ da Prefeitura, NT 04 v2.0); informado, SP aplica a
+   * validação da lista NACIONAL e recusa com E0312 todo cTribNac que não
+   * administra (03/11/2026: 170302, 170301, 150101 e 150103 recusados).
+   */
+  grupoIbsCbs?: false;
   /** Série da DPS (1–49999), padrão "1". */
   serieDps?: string;
   /**
@@ -133,6 +141,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(so(e.codigoIndicadorOperacao).length === 6 ? { codigoIndicadorOperacao: so(e.codigoIndicadorOperacao) } : {}),
       ...(so(e.classificacaoTributariaIbsCbs).length === 6 ? { classificacaoTributariaIbsCbs: so(e.classificacaoTributariaIbsCbs) } : {}),
       ...(so(e.situacaoTributariaIbsCbs).length === 3 ? { situacaoTributariaIbsCbs: so(e.situacaoTributariaIbsCbs) } : {}),
+      ...(e.grupoIbsCbs === false ? { grupoIbsCbs: false as const } : {}),
       ...(/^\d{1,5}$/.test(so(e.serieDps)) && Number(so(e.serieDps)) >= 1 && Number(so(e.serieDps)) <= 49999 ? { serieDps: String(Number(so(e.serieDps))) } : {}),
     };
     if (e.padrao === "nacional" && so(e.codigoTributacaoNacional).length !== 6) problemas.push(`emitente da organização ${org}: padrão nacional sem código de tributação nacional de 6 dígitos`);
@@ -218,7 +227,8 @@ export function montarPedido(
   // ⚠️ Regime Normal leva o grupo do IBS/CBS (a prefeitura recusa sem ele).
   // Faltando um código, a nota para AQUI, nomeando o que falta — não minutos
   // depois, com a recusa genérica da prefeitura.
-  const ibsCbs = !emitente.optanteSimples || !!(emitente.codigoIndicadorOperacao || emitente.classificacaoTributariaIbsCbs);
+  const ibsCbs = emitente.grupoIbsCbs !== false
+    && (!emitente.optanteSimples || !!(emitente.codigoIndicadorOperacao || emitente.classificacaoTributariaIbsCbs));
   if (ibsCbs) {
     const faltaIbs = [
       ...(emitente.codigoIndicadorOperacao ? [] : ["código indicador de operação"]),
