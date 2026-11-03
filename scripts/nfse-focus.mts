@@ -63,6 +63,7 @@ function casosDoMotor(m: Motor): Caso[] {
   const cstPed = ec ? m.montarPedido(NOTA, TOMADOR, ec, "x") : null;
   const esg = emitentes["org-sem-grupo"];
   const semGrupo = esg ? m.montarPedido(NOTA, { ...TOMADOR, codigoMunicipio: null }, esg, "x") : null;
+  const semGrupoComMun = esg ? m.montarPedido(NOTA, TOMADOR, esg, "x") : null;
   const base = "https://homologacao.focusnfe.com.br";
   const aut = m.interpretarConsulta({ status: "autorizado", numero: 87, codigo_verificacao: "AB12", url_danfse: "https://x/pdf", caminho_xml_nota_fiscal: "/arquivos/n.xml" }, base);
   const err = m.interpretarConsulta({ status: "erro_autorizacao", erros: [{ codigo: "E1", mensagem: "Inscrição municipal inválida", correcao: "Confira o CCM" }] }, base);
@@ -99,6 +100,7 @@ function casosDoMotor(m: Motor): Caso[] {
     ["pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta", !!semIbs && !semIbs.ok && semIbs.problemas.some((p) => p.includes("indicador de operação") && p.includes("classificação tributária"))],
     ["pedido: optante sem os códigos NÃO leva o grupo do IBS/CBS", !!comAliq && comAliq.ok && !("codigo_indicador_operacao" in comAliq.pedido.servico) && !("consumidor_final" in comAliq.pedido)],
     ["pedido: com grupoIbsCbs false, Regime Normal sai SEM o grupo do IBS/CBS, com a IM e o código de SP", !!semGrupo && semGrupo.ok && !("codigo_indicador_operacao" in semGrupo.pedido.servico) && !("ibs_cbs_classificacao_tributaria" in semGrupo.pedido.servico) && !("consumidor_final" in semGrupo.pedido) && semGrupo.pedido.prestador.inscricao_municipal === "13017047" && semGrupo.pedido.servico.item_lista_servico === "05820"],
+    ["pedido: sem o grupo, o endereço do cliente leva o IBGE da cidade; sem IBGE, o endereço não vai (nunca CEP sem cMun)", (semGrupoComMun?.ok && (semGrupoComMun.pedido.tomador.endereco as Record<string, string> | undefined)?.codigo_municipio === "3550308") === true && !!semGrupo && semGrupo.ok && !("endereco" in semGrupo.pedido.tomador)],
     ["pedido: o código do serviço da plataforma vence o da nota", ok?.servico.item_lista_servico === "02800"],
     ["pedido: endereço com UF em caixa alta, CEP em dígitos e o IBGE da cidade", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100" && (ok?.tomador.endereco as Record<string, string> | undefined)?.codigo_municipio === "3550308"],
     ["pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair", !!semMun && !semMun.ok && semMun.problemas.some((p) => /CEP/.test(p))],
@@ -192,9 +194,10 @@ await plantarMotor("IM de volta na DPS", "    codigo_municipio_emissora: emitent
 await plantarMotor("emissão no relógio exato", "agoraMs - 60_000 - 3 * 3600_000", "agoraMs - 3 * 3600_000", "nacional: emissão na hora de São Paulo, com fuso, um minuto antes de agora");
 await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigoTributacaoNacional) problemas.push', "if (false) problemas.push", "nacional: sem código de tributação o pedido é recusado ANTES de sair");
 await plantarMotor("Regime Normal sem IBS/CBS sai assim mesmo", "if (faltaIbs.length) problemas.push", "if (false) problemas.push", "pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta");
+await plantarMotor("IBGE só com o grupo", "if (munTomador.length === 7) endereco.codigo_municipio = munTomador;", "if (ibsCbs && munTomador.length === 7) endereco.codigo_municipio = munTomador;", "pedido: sem o grupo, o endereço do cliente leva o IBGE da cidade; sem IBGE, o endereço não vai (nunca CEP sem cMun)");
 await plantarMotor("interruptor do grupo ignorado", "const ibsCbs = emitente.grupoIbsCbs !== false\n    &&", "const ibsCbs = true\n    &&", "pedido: com grupoIbsCbs false, Regime Normal sai SEM o grupo do IBS/CBS, com a IM e o código de SP");
 await plantarMotor("grupo do IBS/CBS esquecido", "&& (!emitente.optanteSimples ||", "&& false && (!emitente.optanteSimples ||", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
-await plantarMotor("endereço sem IBGE vai assim mesmo", "else return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "else if (false) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair");
+await plantarMotor("endereço sem IBGE vai assim mesmo", "else if (ibsCbs) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "else if (false) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair");
 await plantarMotor("IM de volta no municipal da reforma", "...(ibsCbs ? {} : { inscricao_municipal: emitente.inscricaoMunicipal })", "inscricao_municipal: emitente.inscricaoMunicipal", "pedido: o prestador é o do vínculo da plataforma, sem a IM no leiaute da reforma (vem do CNC)");
 await plantarMotor("CST esquecido", "ibs_cbs_situacao_tributaria: cst,", "", "pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado");
 await plantarMotor("código municipal de 5 dígitos no leiaute novo", "(!ibsCbs || /^\\d{3}$/.test(tribMun))", "true", "pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma");
