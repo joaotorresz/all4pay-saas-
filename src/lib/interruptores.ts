@@ -12,6 +12,7 @@ import {
 import { cobrancaBancoLigada } from "@/core/cobranca-banco/conexao";
 import { iaWhatsappLigada } from "@/core/whatsapp/numero";
 import { lembretesLigados } from "@/lib/cadastro-lembretes";
+import { agentesLigados } from "@/core/agentes/ligado";
 import {
   montarInterruptores, type EstadoInterruptor, type LinhaInterruptor, type MotivoDesligado,
 } from "@/core/interruptores";
@@ -37,5 +38,6 @@ export function estadoDosInterruptores(env: Record<string, string | undefined> =
     whatsapp_ia: sim(iaWhatsappLigada(env)),
     caixa_email: sim(env.CAIXA_EMAIL === "ligado"),
     cadastro_lembretes: sim(lembretesLigados()),
+    agentes: sim(agentesLigados(env)),
   });
 }

@@ -269,6 +269,18 @@
         "impacto": "Até ser aplicada, a leitura do emitente no banco falha com aviso no log e vale a variável da Vercel, como hoje. Nada muda para quem usa.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 03/11/2026 (emitente da NFS-e no banco)"
+      },
+      {
+        "nome": "20261104120000_agentes",
+        "motivo": "A moldura dos agentes da Quattro AI (plano AI first, 03/11/2026): a configuração por empresa (nível e limite) e a fila Para você aprovar, com a máquina de estados e a decisão no banco. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabelas agentes e agente_propostas (com os gatilhos zz_auditar_*)",
+          "funções agente_decidir, agentes_padrao, agentes_inicial, agente_propostas_transicao e agente_propostas_nasce_pendente",
+          "gatilho organizations_agentes"
+        ],
+        "impacto": "Até ser aplicada, a seção Agentes de Automações mostra o erro do banco no lugar dos cartões. Nenhum agente trabalha ainda (todos em construção e atrás de AGENTES=ligado), então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 1)"
       }
     ],
     "objetos_sem_migration": [

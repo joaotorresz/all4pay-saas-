@@ -12661,8 +12661,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const INT = await import("@/lib/interruptores");
     const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
     const vazio = INT.estadoDosInterruptores({});
-    ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
-       vazio.length === 11 && vazio.every((l) => !l.estado.ligado));
+    ok("interruptores: sem nenhuma variável (12, com os agentes desde 04/11), todos desligados (falha fechada) e todos no catálogo",
+       vazio.length === 12 && vazio.every((l) => !l.estado.ligado));
     const so = est({ PINBANK_COBRANCA: "ligado" }) as Record<string, { ligado: boolean; motivo?: string }>;
     ok("interruptores: cobrança Pinbank ligada sem credencial diz 'falta configuração', nunca 'ligado'",
        so.pinbank_cobranca.ligado === false && so.pinbank_cobranca.motivo === "sem_configuracao");

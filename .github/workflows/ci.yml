@@ -298,6 +298,13 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/whatsapp-ia.sql
+      # ⚠️ Os agentes da Quattro AI: o banco recusa o nível acima do teto de
+      # cada agente, a sessão não cria proposta, só quem aprova NA empresa da
+      # proposta decide, e estado terminal não ressuscita.
+      - name: Guarda dos agentes (o agente propõe, a pessoa decide)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/agentes.sql
       # ⚠️ O checklist de fechamento é regra de BANCO (gatilhos em close_tasks e
       # accounting_periods). O engine-audit prova a cópia da tela; esta prova a
       # fechadura, inclusive as portas que a tela não usa (update direto,
