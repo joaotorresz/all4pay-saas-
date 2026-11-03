@@ -51,7 +51,27 @@ export const CAMINHOS_ITAU: readonly RegExp[] = [
   /^\/pix_recebimentos_conciliacoes\/v2\/boletos_pix$/,
   /^\/boletoscash\/v2\/boletos\?[A-Za-z0-9=&%._-]+$/,
   /^\/boletoscash\/v2\/boletos\/\d{20,30}\/baixa$/,
+  // Sandbox do portal: o gateway exige o prefixo de cada API (medido em 03/11/2026).
+  /^\/itau-ep9-api-recebimentos-v1-externo\/v1\/boletos-pix$/,
+  /^\/itau-ep9-gtw-boletoscash-boletoscash-v2-ext-aws\/v1\/boletos\?[A-Za-z0-9=&%._-]+$/,
+  /^\/itau-ep9-gtw-boletoscash-boletoscash-v2-ext-aws\/v1\/boletos\/\d{20,30}\/baixa$/,
 ];
+
+/**
+ * Os caminhos da cobrança POR AMBIENTE. No sandbox do portal cada API mora
+ * atrás do prefixo do gateway — sem ele o Itaú responde 500 "path inválido"
+ * (medido em 03/11/2026). A emissão do sandbox é a API nova "Boleto com Pix"
+ * (`recebimentos v1`, `boletos-pix`), com o MESMO corpo; a consulta e a baixa
+ * ficam no cash management. Produção segue nos caminhos da documentação até a
+ * etapa 6 conferir a API nova lá também.
+ */
+export const ROTAS_ITAU: Record<AmbienteItau, { emitir: string; boletos: string }> = {
+  sandbox: {
+    emitir: "/itau-ep9-api-recebimentos-v1-externo/v1/boletos-pix",
+    boletos: "/itau-ep9-gtw-boletoscash-boletoscash-v2-ext-aws/v1/boletos",
+  },
+  producao: { emitir: "/pix_recebimentos_conciliacoes/v2/boletos_pix", boletos: "/boletoscash/v2/boletos" },
+};
 
 /**
  * O caminho do token POR AMBIENTE. Produção é o STS (`/api/oauth/token`); o
@@ -86,6 +106,19 @@ const texto = (v: unknown, max = 500): string | null =>
   typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
 const digitos = (v: string | null | undefined): string => (v ?? "").replace(/\D/g, "");
 const corta = (s: string | null | undefined, n: number) => (s ?? "").trim().slice(0, n);
+/**
+ * Texto livre para o Itaú: sem acento e sem caractere especial (o Itaú recusa
+ * — "José Ação" vira "Jose Acao"). Fica letra, número, espaço e `.,-/`.
+ */
+export const textoItau = (s: string | null | undefined, n: number) =>
+  corta(
+    (s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z0-9 .,\-/]/g, " ")
+      .replace(/\s+/g, " "),
+    n,
+  );
 const lista = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.filter(obj) : []);
 
 /** O corpo do token (form-urlencoded). O segredo só existe aqui e na rede. */
@@ -173,15 +206,15 @@ export function pedidoCobrancaItau(
       data_emissao: hoje,
       pagador: {
         pessoa: {
-          nome_pessoa: corta(d?.nome, 50),
+          nome_pessoa: textoItau(d?.nome, 50),
           tipo_pessoa: pj
             ? { codigo_tipo_pessoa: "J", numero_cadastro_nacional_pessoa_juridica: doc }
             : { codigo_tipo_pessoa: "F", numero_cadastro_pessoa_fisica: doc },
         },
         endereco: {
-          nome_logradouro: corta([d?.logradouro, d?.numero].filter(Boolean).join(", "), 45),
-          nome_bairro: corta(d?.bairro, 15),
-          nome_cidade: corta(d?.cidade, 20),
+          nome_logradouro: textoItau([d?.logradouro, d?.numero].filter(Boolean).join(", "), 45),
+          nome_bairro: textoItau(d?.bairro, 15),
+          nome_cidade: textoItau(d?.cidade, 20),
           sigla_UF: corta(d?.uf, 2).toUpperCase(),
           numero_CEP: digitos(d?.cep),
         },
@@ -196,7 +229,7 @@ export function pedidoCobrancaItau(
           data_limite_pagamento: somaDias(p.vencimento, 60),
         },
       ],
-      ...(p.descricao ? { lista_mensagem_cobranca: [{ mensagem: corta(p.descricao, 80) }] } : {}),
+      ...(p.descricao ? { lista_mensagem_cobranca: [{ mensagem: textoItau(p.descricao, 80) }] } : {}),
     },
     dados_qrcode: { chave: corta(conta.chavePix, 77), tipo_cobranca: "cob" },
   };
@@ -268,14 +301,14 @@ export function lerCriacaoItau(status: number, corpo: unknown, conta: ContaItau,
 }
 
 /** A consulta pelo nosso número (resolve a `incerta` e confere o aviso). */
-export function caminhoConsultaItau(conta: ContaItau, nossoNumero: string): string {
+export function caminhoConsultaItau(ambiente: AmbienteItau, conta: ContaItau, nossoNumero: string): string {
   if (!nossoNumeroValido(nossoNumero)) throw new Error("Consulta inválida.");
   const q = new URLSearchParams({
     id_beneficiario: idBeneficiarioItau(conta),
     codigo_carteira: digitos(conta.carteira),
     nosso_numero: nossoNumero,
   });
-  return `/boletoscash/v2/boletos?${q.toString()}`;
+  return `${ROTAS_ITAU[ambiente].boletos}?${q.toString()}`;
 }
 
 /**
