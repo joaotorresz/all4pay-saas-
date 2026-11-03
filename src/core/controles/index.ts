@@ -69,8 +69,8 @@ export const CONTROLES: Controle[] = [
     // passou a ser só a lista de telas do grupo) e a porta virou a paleta.
     // O id ficou como registro de que o controle é o mesmo — o que a guarda
     // cobra é que ele TENHA efeito e feche por Esc, não onde ele mora.
-    id: "palette.criar", tela: "Início", rotulo: "Criar novo registro", tipo: "acao",
-    efeito: "abre o painel Criar novo, com todas as ações em <Link>", fechaPorEsc: true,
+    id: "palette.criar", tela: "Início", rotulo: "Adicionar novo registro", tipo: "acao",
+    efeito: "abre o painel Adicionar novo, com todas as ações em <Link>", fechaPorEsc: true,
   },
   {
     // ⚠️ O controle que a auditoria pegou: vinha sem `role`, sem `aria-checked`
@@ -158,7 +158,7 @@ export const CONTROLES: Controle[] = [
 
   /* -------------------------------- modais ------------------------------- */
   { id: "modal.baixa", tela: "Títulos a receber", rotulo: "Confirmar recebimento", tipo: "acao", efeito: "liquida o título e credita a conta", fechaPorEsc: true },
-  { id: "modal.criar", tela: "Início", rotulo: "Criar novo", tipo: "acao", efeito: "painel de criação", fechaPorEsc: true },
+  { id: "modal.criar", tela: "Início", rotulo: "Adicionar novo", tipo: "acao", efeito: "painel de criação", fechaPorEsc: true },
 ];
 
 /* ========================================================================== */

@@ -97,7 +97,7 @@ async function nova() {
    */
   const hamburguer = page.getByRole("button", { name: /Abrir menu/i }).first();
   if (await hamburguer.count() > 0) { await hamburguer.tap(); toques++; await page.waitForTimeout(700); }
-  const criar = page.getByRole("button", { name: /Criar novo registro|^Criar$/i }).first();
+  const criar = page.getByRole("button", { name: /Adicionar novo registro|^Adicionar$/i }).first();
   let abriu = false;
   if (await criar.count() > 0) {
     await criar.tap(); toques++;

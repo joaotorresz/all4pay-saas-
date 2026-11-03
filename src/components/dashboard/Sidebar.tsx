@@ -197,24 +197,24 @@ export function Sidebar() {
             title={!isDesktop ? "Fechar menu" : col ? "Expandir menu" : "Recolher menu"}
             className="a4p-menu-quadrado w-10 h-10 shrink-0 rounded-[12px] inline-flex items-center justify-center transition-colors"
           >
-            <Icon name={isDesktop ? "menu" : "x"} size={18} color="currentColor" />
+            <Icon name={!isDesktop ? "x" : col ? "chevron-right" : "chevron-left"} size={18} color="currentColor" />
           </button>
         </div>
 
-        {/* Criar, em relevo — o mesmo painel do evento `a4p:criar`. */}
+        {/* Adicionar (era "Criar", trocado pelo dono em 03/11/2026), em relevo — o mesmo painel do evento `a4p:criar`. */}
         <button
           {...entra()}
           type="button"
           onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
-          aria-label="Criar novo registro"
-          title="Criar novo registro"
+          aria-label="Adicionar novo registro"
+          title="Adicionar novo registro"
           className={cn(
             "a4p-menu-relevo h-[52px] rounded-[16px] text-[16px] font-semibold inline-flex items-center gap-[14px] mb-3 shrink-0",
             col ? "w-[52px] justify-center self-center" : "w-full px-4",
           )}
         >
-          <Icon name="edit" size={19} color="currentColor" className="shrink-0" />
-          {!col && <span className="flex-1 text-left">Criar</span>}
+          <Icon name="plus" size={19} color="currentColor" className="shrink-0" />
+          {!col && <span className="flex-1 text-left">Adicionar</span>}
           {!col && <span aria-hidden className="a4p-menu-ponto w-[6px] h-[6px] rounded-pill shrink-0" />}
         </button>
 

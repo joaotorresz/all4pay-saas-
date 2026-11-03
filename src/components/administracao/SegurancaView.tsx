@@ -96,7 +96,7 @@ export function SegurancaView() {
   }
 
   return (
-    <div className="flex flex-col gap-5 pb-6 max-w-[980px]">
+    <div className="flex flex-col gap-5 pb-6">
       {/* ------------------------- teste de isolamento ------------------------ */}
       <Card className="flex flex-col gap-4"
         info={{

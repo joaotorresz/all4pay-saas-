@@ -133,7 +133,7 @@ export function SegurancaContaView() {
   }
 
   return (
-    <div className="flex flex-col gap-4 max-w-[860px]">
+    <div className="flex flex-col gap-4">
       <Card
         className="flex flex-col gap-4"
         info={{

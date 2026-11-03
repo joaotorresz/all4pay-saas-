@@ -122,7 +122,7 @@ export function ArmazenamentoView() {
   const bytesCache = est.caches.reduce((s, c) => s + c.bytes, 0);
 
   return (
-    <div className="flex flex-col gap-5 pb-6 max-w-[860px]">
+    <div className="flex flex-col gap-5 pb-6">
       <Card className="flex flex-col gap-4"
         info={{
           titulo: "Armazenamento",

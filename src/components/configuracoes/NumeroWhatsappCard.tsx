@@ -75,7 +75,7 @@ export function NumeroWhatsappCard() {
 
   return (
     <Card
-      className="flex flex-col gap-4 max-w-[860px]"
+      className="flex flex-col gap-4"
       info={{
         titulo: `${MARCA_IA} no WhatsApp`,
         oQue: `Com o celular confirmado, você pergunta à ${MARCA_IA} pelo WhatsApp ("quanto tenho a pagar essa semana?") e ela responde com os números da sua empresa. Só leitura: nada é lançado pela conversa.`,

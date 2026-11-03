@@ -73,7 +73,7 @@ export function AutomacoesView() {
   const whatsAtivo = !isDemo && !!prov?.whatsapp;
 
   return (
-    <div className="flex flex-col gap-5 pb-4 max-w-4xl" data-tela="automacoes">
+    <div className="flex flex-col gap-5 pb-4" data-tela="automacoes">
       <Card className="flex flex-col gap-3">
         <div className="text-label font-medium text-muted inline-flex items-center gap-1">
           Como as mensagens saem
