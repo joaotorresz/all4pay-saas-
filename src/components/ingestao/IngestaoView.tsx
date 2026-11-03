@@ -15,6 +15,7 @@ import { ConectarBanco } from "@/components/contas/ConectarBanco";
 import { UploadView } from "@/components/upload/UploadView";
 import { UploadWizard } from "@/components/upload/UploadWizard";
 import { FilaRevisaoView } from "@/components/revisao/FilaRevisaoView";
+import { ImportacaoView } from "@/components/movimentacoes/ImportacaoView";
 
 export function IngestaoView() {
   return (
@@ -22,6 +23,10 @@ export function IngestaoView() {
       <Secoes
         secoes={[
           { id: "enviar", titulo: "Enviar extrato", desc: "Extratos (CSV/OFX/PDF) e documentos (OCR)", conteudo: <UploadView /> },
+          // ⚠️ O extrato traz o que JÁ aconteceu; a planilha de contas traz o
+          // que VAI vencer (títulos previstos e transferências), pelo modelo
+          // fixo. Sem esta seção a tela ficou sem porta desde 03/11/2026.
+          { id: "planilha", titulo: "Planilha de contas", desc: "Contas a receber, a pagar e transferências em lote, pelo modelo (.xlsx)", conteudo: <ImportacaoView /> },
           {
             id: "conectar", titulo: "Conectar banco", desc: "Open Finance — bancos e posição por conta",
             conteudo: (
