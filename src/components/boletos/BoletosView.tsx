@@ -13,6 +13,7 @@ import { isoDay } from "@/lib/aggregations";
 import type { Movement, Party, FinancialAccount, BoletoStatus } from "@/lib/types";
 import { previstoNaJanela, janela, janelaDoMesDe } from "@/core/indicadores";
 import type { RiskInput } from "@/core/risk-engine/types";
+import { SEGMENTO_LABEL } from "@/core/risk/types";
 
 const ST: Record<BoletoStatus, { label: string; cor: string }> = {
   gerado: { label: "Gerado", cor: "var(--color-muted)" },
@@ -95,7 +96,7 @@ export function BoletosView() {
             {inad.data.clientes.slice(0, 6).map((c) => (
               <div key={c.clienteId} className="flex items-center justify-between text-caption">
                 <span className="text-ink truncate max-w-[50%]">{c.nome}</span>
-                <span className="text-muted">score {Math.round(c.score)} · {c.segmento}</span>
+                <span className="text-muted">score {Math.round(c.score)} · {SEGMENTO_LABEL[c.segmento] ?? c.segmento}</span>
                 <span className="text-ink tabular-nums"><BRL value={c.features.volumeAberto} /></span>
               </div>
             ))}
@@ -131,7 +132,7 @@ export function BoletosView() {
                   ) : <span className="text-faint">sem boleto</span>}
                 </span>
                 <span className="flex items-center justify-end gap-1 flex-wrap">
-                  {!st && <button disabled={busy === m.id} onClick={() => setEmitindo(m)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px]">Emitir boleto</button>}
+                  {!st && <button disabled={busy === m.id} onClick={() => setEmitindo(m)} className="text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 rounded-pill px-3 py-[4px] disabled:opacity-50">Emitir boleto</button>}
                   {(st === "emitido" || st === "vencido") && <>
                     <button disabled={busy === m.id} onClick={() => pagar(m)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-2 py-[4px]">Marcar pago</button>
                     {m.boleto?.pix_copia_cola && <button onClick={() => copiarPix(m)} title="Copiar PIX copia e cola (BR Code)" className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">PIX</button>}
