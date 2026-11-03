@@ -7,6 +7,9 @@ import { Icon } from "@/components/ui";
 import { useModo } from "@/components/app/useModo";
 import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
 import { useUsuario, sairDaConta, SAIR_DISPONIVEL } from "@/components/app/useUsuario";
+import { useTheme } from "@/components/app/ThemeToggle";
+import { listarAnuncios } from "@/lib/ajuda-store";
+import { ROTA_SEGURANCA_CONTA } from "@/core/segundo-fator";
 import { abrirChat } from "@/components/ia/ChatGlobal";
 import { grupoDaRota, indiceItemAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
 import { apagarConversa, inscreverConversas, listarConversas, type Conversa } from "@/lib/ia-conversas";
@@ -276,39 +279,11 @@ export function Sidebar() {
           )}
           <SeletorOrganizacao collapsed={col} variante="menu" />
 
-          {/* Sua conta: o cartão em relevo da referência. */}
-          <Link
-            href="/configuracoes"
-            title="Sua conta"
-            className={cn(
-              "a4p-menu-relevo flex items-center gap-3 rounded-[18px] mt-1.5",
-              col ? "w-[52px] h-[52px] justify-center" : "px-3 py-3",
-            )}
-          >
-            <span className="a4p-menu-quadrado w-10 h-10 rounded-[12px] inline-flex items-center justify-center shrink-0">
-              <Icon name="user" size={18} color="currentColor" />
-            </span>
-            {!col && (
-              <>
-                <span className="flex-1 min-w-0 flex flex-col">
-                  <span className="text-[15px] font-semibold leading-tight truncate">Sua conta</span>
-                  <span className="a4p-menu-meta text-[13px] leading-tight truncate">{usuario.nome}</span>
-                </span>
-                <Icon name="chevron-right" size={16} color="currentColor" className="shrink-0" />
-              </>
-            )}
-          </Link>
-          {SAIR_DISPONIVEL && (
-            <button
-              type="button"
-              onClick={() => void sairDaConta(router)}
-              title="Sair da conta"
-              className={cn("a4p-menu-sub flex items-center gap-3 min-h-[36px] rounded-[10px] text-[14px] transition-colors", col ? "justify-center w-11" : "px-3")}
-            >
-              <Icon name="log-out" size={16} color="currentColor" className="shrink-0" />
-              {!col && <span>Sair da conta</span>}
-            </button>
-          )}
+          {/* Sua conta: o cartão em relevo da referência. Abre, para CIMA, o
+              que morava na barra de cima (03/11/2026, dono: "tire os itens
+              também, vamos ganhar esse espaço"): empresa, perfil, segurança,
+              anúncios, ajuda, tema e sair. */}
+          <MenuDaConta col={col} nome={usuario.nome} email={usuario.email} />
         </div>
       </aside>
     </>
@@ -470,6 +445,106 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
           : undefined;
         return <Link key={it.href} href={it.href} onClick={porEvento} title={it.desc ?? it.label} aria-current={on ? "page" : undefined} className={classe}>{rotulo}</Link>;
       })}
+    </div>
+  );
+}
+
+/**
+ * O cartão "Sua conta" e o menu dele. ⚠️ Mesmo material do popover das
+ * conversas (branco sólido, sombra de popover) e abre para CIMA, porque o
+ * cartão mora no pé do menu. Fecha por Esc e por clique fora.
+ */
+function MenuDaConta({ col, nome, email }: { col: boolean; nome: string; email: string }) {
+  const router = useRouter();
+  const { dark, toggle } = useTheme();
+  const [aberto, setAberto] = React.useState(false);
+  const [naoLidos, setNaoLidos] = React.useState(0);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    // localStorage só depois de montar (hidratação).
+    try { setNaoLidos(listarAnuncios().filter((a) => !a.lido).length); } catch { /* sem anúncios */ }
+  }, []);
+
+  React.useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAberto(false); };
+    document.addEventListener("mousedown", fora);
+    window.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fora); window.removeEventListener("keydown", esc); };
+  }, [aberto]);
+
+  const ir = (href: string) => { setAberto(false); router.push(href); };
+  const itens: { icone: string; rotulo: string; acao: () => void; ponto?: boolean; perigo?: boolean }[] = [
+    { icone: "building", rotulo: "Configurações da empresa", acao: () => ir("/dashboard/administration/company-data") },
+    { icone: "user", rotulo: "Meu perfil", acao: () => ir("/configuracoes") },
+    { icone: "shield-check", rotulo: "Segurança da conta", acao: () => ir(ROTA_SEGURANCA_CONTA) },
+    { icone: "bell", rotulo: naoLidos > 0 ? `Anúncios (${naoLidos} não lidos)` : "Anúncios", acao: () => ir("/dashboard/help?aba=anuncios"), ponto: naoLidos > 0 },
+    { icone: "help-circle", rotulo: "Central de ajuda", acao: () => ir("/dashboard/help") },
+    { icone: dark ? "sun" : "moon", rotulo: dark ? "Tema claro" : "Tema escuro", acao: () => { setAberto(false); toggle(); } },
+  ];
+  if (SAIR_DISPONIVEL) itens.push({ icone: "log-out", rotulo: "Sair da conta", acao: () => { setAberto(false); void sairDaConta(router); }, perigo: true });
+
+  return (
+    <div ref={ref} className="relative mt-1.5">
+      <button
+        type="button"
+        onClick={() => setAberto((a) => !a)}
+        title="Sua conta"
+        aria-label={naoLidos > 0 ? "Sua conta (há anúncios não lidos)" : "Sua conta"}
+        aria-expanded={aberto}
+        data-menu="conta"
+        className={cn(
+          "a4p-menu-relevo flex items-center gap-3 rounded-[18px] w-full text-left",
+          col ? "w-[52px] h-[52px] justify-center" : "px-3 py-3",
+        )}
+      >
+        <span className="relative a4p-menu-quadrado w-10 h-10 rounded-[12px] inline-flex items-center justify-center shrink-0">
+          <Icon name="user" size={18} color="currentColor" />
+          {naoLidos > 0 && <span aria-hidden className="a4p-menu-ponto absolute top-1.5 right-1.5 w-2 h-2 rounded-full" />}
+        </span>
+        {!col && (
+          <>
+            <span className="flex-1 min-w-0 flex flex-col">
+              <span className="text-[15px] font-semibold leading-tight truncate">Sua conta</span>
+              <span className="a4p-menu-meta text-[13px] leading-tight truncate">{nome}</span>
+            </span>
+            <Icon name={aberto ? "chevron-down" : "chevron-up"} size={16} color="currentColor" className="shrink-0" />
+          </>
+        )}
+      </button>
+
+      {aberto && (
+        <div
+          role="menu"
+          className={cn(
+            "absolute bottom-full mb-2 z-[70] w-[248px] rounded-card bg-white shadow-popover overflow-hidden text-ink",
+            col ? "left-0" : "left-0 right-0 w-auto",
+          )}
+        >
+          <div className="px-4 py-3 border-b border-border-soft min-w-0">
+            <div className="text-label font-medium truncate">{nome}</div>
+            {email && <div className="text-caption text-faint truncate">{email}</div>}
+          </div>
+          {itens.map((it) => (
+            <button
+              key={it.rotulo}
+              role="menuitem"
+              type="button"
+              onClick={it.acao}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-left hover:bg-surface-2 transition-colors"
+              style={it.perigo ? { color: "var(--color-negative)" } : undefined}
+            >
+              <span className="relative inline-flex shrink-0">
+                <Icon name={it.icone} size={16} color="currentColor" />
+                {it.ponto && <span aria-hidden className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-warning)" }} />}
+              </span>
+              <span className="truncate">{it.rotulo}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

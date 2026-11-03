@@ -114,7 +114,7 @@ export function AppShell({
           área de trabalho, que sobe até o topo dela e rola por baixo. O
           invólucro não recebe clique (só a barra), senão a faixa das margens
           viraria uma parede invisível sobre o conteúdo. */}
-      <div className="absolute inset-x-0 top-0 z-30 pointer-events-none [&>*]:pointer-events-auto">
+      <div className="lg:hidden absolute inset-x-0 top-0 z-30 pointer-events-none [&>*]:pointer-events-auto">
         <TopBar />
       </div>
       <main className={`a4p-app-card flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`} style={{ background: "var(--a4p-app-bg)" }}>
@@ -146,13 +146,13 @@ export function AppShell({
             a tela INTEIRA. Tabela larga rola dentro do próprio cartão; a
             página não. A guarda `npm run mobile-largura` mede as telas. */}
         <div data-area-rola className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 pb-[calc(96px+var(--a4p-barra-baixo,0px))]">
-          <div data-folga-barra aria-hidden className="h-[72px]" />
+          <div data-folga-barra aria-hidden className="h-[72px] lg:h-4" />
           {/* O bloco que GRUDA logo abaixo da barra: avisos da conta e o título
               da tela. ⚠️ Sem retângulo branco (dono, 15/10/2026): o fundo é um
               DEGRADÊ da cor da área para transparente — o título continua
               legível sobre o que passa por baixo, e o conteúdo some suavemente
               em vez de bater numa borda reta. */}
-          <div className="a4p-topo-tela sticky top-[60px] z-20 -mx-4 sm:-mx-6 lg:-mx-8">
+          <div className="a4p-topo-tela sticky top-[60px] lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8">
             {/* ⚠️ ACIMA do cabeçalho e GRUDADO no topo: o aviso de dado de
                 demonstração precisa valer para toda tela e não pode sair de vista
                 quando a pessoa rola o DRE — que é exatamente onde a contaminação
