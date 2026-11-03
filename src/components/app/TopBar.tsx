@@ -74,7 +74,7 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    <header className="shrink-0 flex items-center gap-2 sm:gap-3 h-[60px] px-3 sm:px-5 a4p-topbar bg-white rounded-[20px]">
+    <header className="shrink-0 flex items-center gap-2 sm:gap-3 h-[60px] px-3 sm:px-5 a4p-topbar rounded-[20px]">
       {/* ⚠️ Só existe quando HÁ gaveta. O grupo ativo pode não ter itens (o
           Início é folha) e aí a lateral não é renderizada — um hambúrguer ali
           seria um botão que abre o nada, que é pior que botão nenhum. */}

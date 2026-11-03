@@ -1158,7 +1158,10 @@ html.dark .a4p-canvas {
   /* PROPOSTA "Quattro · Home" (out/2026): a barra de cima VOLTOU a ser cartão
      branco com a borda dos cards — logo Quattro à esquerda, ações à direita,
      sobre a moldura verde-base. */
-  background: var(--color-white);
+  /* MENU ESCURO (03/11/2026, dono): sem o cartão branco — a barra tem a cor
+     da própria página, então só os botões aparecem, e o que rola por baixo
+     some sob ela em vez de aparecer atrás dos ícones. */
+  background: var(--a4p-app-bg);
   border: 0;
   color: var(--color-ink);
 }
