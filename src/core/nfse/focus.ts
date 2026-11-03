@@ -46,6 +46,12 @@ export interface EmitenteFocus {
    */
   itemListaServico?: string;
   codigoTributarioMunicipio?: string;
+  /**
+   * O código de tributação municipal do ISS no campo que a Focus indicou para a
+   * recusa E0312 ("código de tributação nacional não administrado pelo
+   * município"). Vai como veio; só a plataforma o declara.
+   */
+  codigoTributacaoMunicipalIss?: string;
   codigoCnae?: string;
   /**
    * A alíquota do ISS em PERCENTUAL (5 = 5%), declarada pela PLATAFORMA junto
@@ -132,6 +138,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(/^[1-6]$/.test(regime) ? { regimeEspecial: regime } : {}),
       ...(so(e.itemListaServico) ? { itemListaServico: so(e.itemListaServico) } : {}),
       ...(texto(e.codigoTributarioMunicipio) ? { codigoTributarioMunicipio: texto(e.codigoTributarioMunicipio) } : {}),
+      ...(/^\d{1,10}$/.test(so(e.codigoTributacaoMunicipalIss)) ? { codigoTributacaoMunicipalIss: so(e.codigoTributacaoMunicipalIss) } : {}),
       ...(so(e.codigoCnae) ? { codigoCnae: so(e.codigoCnae) } : {}),
       ...(aliquotaValida(e.aliquota) ? { aliquota: numeroDaAliquota(e.aliquota) } : {}),
       ...(e.padrao === "nacional" ? { padrao: "nacional" as const } : {}),
@@ -298,6 +305,7 @@ export function montarPedido(
         discriminacao: texto(nota.descricao),
         codigo_municipio: emitente.codigoMunicipio,
         ...(mandaTribMun ? { codigo_tributario_municipio: tribMun } : {}),
+        ...(emitente.codigoTributacaoMunicipalIss ? { codigo_tributacao_municipal_iss: emitente.codigoTributacaoMunicipalIss } : {}),
         ...(emitente.codigoCnae ? { codigo_cnae: emitente.codigoCnae } : {}),
         ...(emitente.aliquota !== undefined ? { aliquota: emitente.aliquota } : {}),
         ...(ibsCbs ? {
