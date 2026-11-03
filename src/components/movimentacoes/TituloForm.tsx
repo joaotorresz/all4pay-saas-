@@ -365,7 +365,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         // ⚠️ O cadastro só é gravado DEPOIS de os títulos entrarem. Gravá-lo
         // antes deixaria, numa recusa do banco, um colaborador na folha sem
         // nenhuma obrigação no caixa — e a próxima tentativa o duplicaria.
-        saveColaborador(colab);
+        try {
+          await saveColaborador(colab);
+        } catch (e) {
+          // Os títulos JÁ entraram: a mensagem diz as duas metades.
+          qc.invalidateQueries();
+          throw new Error(`os ${titulos.length} títulos da folha entraram em Títulos a pagar, mas o cadastro de ${colab.nome} não foi gravado (${e instanceof Error ? e.message : String(e)})`);
+        }
         qc.invalidateQueries();
         const msg = `${colab.nome} cadastrado · ${titulos.length} títulos agendados.`;
         if (!saida.naJanela) show(msg);

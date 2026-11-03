@@ -280,6 +280,28 @@
         "impacto": "Até ser aplicada, a tela de Compras em produção mostra 'Não foi possível ler as compras' e não grava pedido novo. Hoje não há nenhuma compra gravada em produção (conferido em 03/11/2026), então nada se perde.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 03/11/2026 (Fase 3: compras em tabela própria)"
+      },
+      {
+        "nome": "20261103210000_contratos_morada_unica",
+        "motivo": "O contrato sai da lista inteira em org_state (a4p_contratos), onde a última gravação vencia, para a tabela contratos, uma linha por contrato. Quem pode escrever não muda (tem_permissao('lancar')). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela contratos (com os gatilhos contratos_carimbo e zz_auditar_contratos)",
+          "função contratos_carimbo"
+        ],
+        "impacto": "Até ser aplicada, a tela de Contratos em produção mostra 'Não foi possível ler os contratos' e não grava contrato novo. Hoje não há contrato gravado em produção (conferido em 03/11/2026).",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (Fase 3: contratos em tabela própria)"
+      },
+      {
+        "nome": "20261103220000_colaboradores_morada_unica",
+        "motivo": "A equipe da folha sai da lista inteira em org_state (a4p_colaboradores), onde a última gravação vencia, para a tabela colaboradores, uma linha por pessoa. Quem pode ler e escrever não muda (tem_permissao('lancar')). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela colaboradores (com os gatilhos colaboradores_carimbo e zz_auditar_colaboradores)",
+          "função colaboradores_carimbo"
+        ],
+        "impacto": "Até ser aplicada, a Folha salarial em produção mostra 'Não foi possível ler a equipe da folha'. Os 2 colaboradores que existem hoje (uma empresa) são copiados pela própria migration.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (Fase 3: equipe da folha em tabela própria)"
       }
     ],
     "objetos_sem_migration": [
