@@ -596,7 +596,10 @@ jobs:
         # aplicada (dois galhos abertos ao mesmo tempo) seria PULADA em silêncio
         # sem ele — e pular em silêncio é a família de defeito que este
         # repositório já registrou duas vezes.
-        run: supabase db push --db-url "$SUPABASE_DB_URL" --include-all
+        # ⚠️ `--yes` porque a CLI nova pede confirmação e, sem terminal, sai com
+        # erro SEM aplicar nada (medido em 03/11/2026: o Pix atualizado ficou
+        # fora do banco por isso).
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
       - name: Conferir que o banco alcançou o repositório
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
