@@ -695,16 +695,22 @@ interface Pendencias {
 function usePendencias(): Pendencias {
   const { data: naoConciliadas } = useUnreconciled();
   const { data: vendas } = useVendas();
-  const [locais, setLocais] = React.useState<{ compras: number; boletos: number; aprovacoes: number } | null>(null);
+  const [locais, setLocais] = React.useState<{ compras: number | null; boletos: number; aprovacoes: number } | null>(null);
   React.useEffect(() => {
     let vivo = true;
+    // As compras moram no banco (`compras`); boletos e aprovações seguem
+    // síncronos. Sem a leitura das compras, o card mostra "—", não zero.
+    let compras: number | null = null;
     const contar = () => ({
-      compras: listarCompras().filter((c) => c.status === "aguardando").length,
+      compras,
       boletos: listarBoletos().filter((b) => !b.pago).length,
       aprovacoes: listSolicitacoes().filter((s) => s.statusFinal === "em_analise").length,
     });
     setLocais(contar());
     hydrateAprovacoes().then(() => { if (vivo) setLocais(contar()); }).catch(() => {});
+    listarCompras()
+      .then((l) => { compras = l.filter((c) => c.status === "aguardando").length; if (vivo) setLocais(contar()); })
+      .catch(() => {});
     return () => { vivo = false; };
   }, []);
   const notas = vendas ? painelStatusNF(vendas).find((c) => c.id === "a_emitir")?.quantidade ?? 0 : null;

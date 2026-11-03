@@ -269,6 +269,17 @@
         "impacto": "Até ser aplicada, a leitura do emitente no banco falha com aviso no log e vale a variável da Vercel, como hoje. Nada muda para quem usa.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 03/11/2026 (emitente da NFS-e no banco)"
+      },
+      {
+        "nome": "20261103200000_compras_morada_unica",
+        "motivo": "A compra sai da lista inteira em org_state (a4p_compras), onde a última gravação vencia, para a tabela compras, uma linha por pedido. Quem pode escrever não muda (tem_permissao('lancar'), como em org_state). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela compras (com os gatilhos compras_carimbo e zz_auditar_compras)",
+          "função compras_carimbo"
+        ],
+        "impacto": "Até ser aplicada, a tela de Compras em produção mostra 'Não foi possível ler as compras' e não grava pedido novo. Hoje não há nenhuma compra gravada em produção (conferido em 03/11/2026), então nada se perde.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (Fase 3: compras em tabela própria)"
       }
     ],
     "objetos_sem_migration": [

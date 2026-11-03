@@ -57,12 +57,18 @@ export function ComprasView() {
   const [busca, setBusca] = React.useState("");
   const [aberta, setAberta] = React.useState<string | null>(null);
 
+  const [erroLeitura, setErroLeitura] = React.useState<string | null>(null);
   React.useEffect(() => {
-    setCompras(listarCompras());
-    setCarregando(false);
-    // A lista mora em `store-org`: quando o servidor hidrata (ou uma gravação
-    // assíncrona volta com a recusa do banco), a tela relê.
-    return inscrever(CHAVES_ORG.compras, () => setCompras(listarCompras()));
+    let vivo = true;
+    const reler = () => listarCompras()
+      .then((l) => { if (vivo) { setCompras(l); setErroLeitura(null); } })
+      .catch((e) => { if (vivo) setErroLeitura(erroDe(e)); })
+      .finally(() => { if (vivo) setCarregando(false); });
+    reler();
+    // Em produção a lista mora em `compras` (uma linha por pedido); na
+    // demonstração, em `store-org`, e a tela relê quando ele muda.
+    const sair = inscrever(CHAVES_ORG.compras, reler);
+    return () => { vivo = false; sair(); };
   }, []);
 
   const autores = React.useMemo(
@@ -203,6 +209,8 @@ export function ComprasView() {
 
       {carregando ? (
         <Card><p className="m-0 text-label text-muted">Carregando compras…</p></Card>
+      ) : erroLeitura ? (
+        <Card><p className="m-0 text-label text-negative">Não foi possível ler as compras: {erroLeitura}</p></Card>
       ) : lista.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
