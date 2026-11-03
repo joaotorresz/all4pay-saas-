@@ -203,7 +203,7 @@ export const INVENTARIO: RotaInventario[] = [
   // O segundo fator é da PESSOA: mora em "Meu perfil", não na administração
   // (que recusa justamente quem ainda não o cadastrou).
   { rota: "/configuracoes/seguranca", nome: "Segurança da conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
-  { rota: "/exportar", nome: "Razão e DRE para o contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
+  { rota: "/exportar", nome: "Enviar ao contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/dominio-export", nome: "TXT Domínio", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/nfe-export", nome: "Envio das NFs", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/upload", nome: "Entrada de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },
