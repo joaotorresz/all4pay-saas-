@@ -193,6 +193,17 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
 }
 {
   API.esquecerTokensItau();
+  const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 500, corpo: null, bruto: '{"mensagem":"Erro interno no gateway"}' }));
+  const r = await API.emitirCobrancaItau(CFG, PEDIDO, NN, HOJE, t.fn);
+  const t2 = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 500, corpo: { mensagem: "Servico indisponivel" } }));
+  API.esquecerTokensItau();
+  const c = await API.consultarCobrancaItau(CFG, NN, t2.fn);
+  ok("cliente: o 500 continua INCERTA e o motivo traz o que o Itaú disse (emitir e consultar)",
+    r.situacao === "incerta" && /O Itaú disse: .*Erro interno no gateway/.test((r as any).motivo)
+    && c.situacao === "incerta" && /Servico indisponivel/.test((c as any).motivo), JSON.stringify([r, c]));
+}
+{
+  API.esquecerTokensItau();
   const t = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 404, corpo: {} }));
   const r = await API.consultarCobrancaItau(CFG, NN, t.fn);
   const c = t.chamadas.find((x) => x.caminho !== TOKEN);
