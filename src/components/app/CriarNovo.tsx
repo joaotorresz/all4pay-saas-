@@ -74,7 +74,7 @@ export function CriarNovo() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-3 border-b border-border-soft flex items-center justify-between gap-3">
-              <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Criar novo</span>
+              <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Adicionar novo</span>
               <button
                 onClick={() => setAberto(false)}
                 aria-label="Fechar"

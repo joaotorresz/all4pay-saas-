@@ -79,7 +79,7 @@ export function NavegacaoCelular() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
-            aria-label="Criar novo registro"
+            aria-label="Adicionar novo registro"
             data-nav-celular="criar"
             className="inline-flex items-center justify-center w-12 h-12 rounded-pill bg-lime text-on-lime"
           >

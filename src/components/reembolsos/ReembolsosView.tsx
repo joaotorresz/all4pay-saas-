@@ -98,7 +98,7 @@ export function ReembolsosView() {
   const filtradas = lista.filter((r) => passa(r, aba));
 
   const formulario = (
-      <Card className="flex flex-col gap-3 max-w-[720px]" info={{ titulo: "Solicitar reembolso", oQue: "O colaborador lança as despesas a reembolsar; o comprovante pode ser lido por OCR.", comoCalcula: "Cada item soma no total; ao solicitar, o pedido é roteado para aprovação conforme a alçada." }}>
+      <Card className="flex flex-col gap-3" info={{ titulo: "Solicitar reembolso", oQue: "O colaborador lança as despesas a reembolsar; o comprovante pode ser lido por OCR.", comoCalcula: "Cada item soma no total; ao solicitar, o pedido é roteado para aprovação conforme a alçada." }}>
         <Input value={colaborador} onChange={(e) => setColaborador(e.target.value)} placeholder="Colaborador" />
         <Input value={chavePix} onChange={(e) => setChavePix(e.target.value)} placeholder="Chave Pix do colaborador" />
 
