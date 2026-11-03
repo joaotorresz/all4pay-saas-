@@ -12655,6 +12655,23 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // o cartão mora numa seção SÓ — sem isto, ele volta a ser empilhado onde
   // sobrar espaço.
   const maq = d(H, "/maquininhas");
+  {
+    // Interruptores (03/11/2026): a tela diz o que a ROTA faz — o estado vem das
+    // mesmas funções, nunca de uma releitura da variável — e nunca o valor dela.
+    const INT = await import("@/lib/interruptores");
+    const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
+    const vazio = INT.estadoDosInterruptores({});
+    ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
+       vazio.length === 11 && vazio.every((l) => !l.estado.ligado));
+    const so = est({ PINBANK_COBRANCA: "ligado" }) as Record<string, { ligado: boolean; motivo?: string }>;
+    ok("interruptores: cobrança Pinbank ligada sem credencial diz 'falta configuração', nunca 'ligado'",
+       so.pinbank_cobranca.ligado === false && so.pinbank_cobranca.motivo === "sem_configuracao");
+    ok("interruptores: 'true' não liga (só 'ligado', como nas rotas)",
+       !(est({ WHATSAPP_APROVACAO: "true", CAIXA_EMAIL: "1", PINBANK_WEBHOOK: "sim" }) as Record<string, { ligado: boolean }>).whatsapp_aprovacao.ligado);
+    const tela = readFileSync("src/components/admin/InterruptoresView.tsx", "utf8") + readFileSync("src/core/interruptores/index.ts", "utf8");
+    ok("interruptores: nem a tela nem o catálogo leem process.env", !/process\.env/.test(tela));
+    ok("interruptores: é item do menu da plataforma", SECOES_ADMIN.some((s) => s.href === "/admin/interruptores"));
+  }
   ok("area-admin: Maquininhas é item do menu, com endereço limpo na plataforma",
      SECOES_ADMIN.some((s) => s.id === "maquininhas" && s.href === "/admin/maquininhas")
      && secaoAtiva("/maquininhas").id === "maquininhas" && secaoAtiva("/admin/maquininhas").id === "maquininhas"

@@ -179,6 +179,9 @@ export const SECOES_ADMIN: readonly SecaoAdmin[] = [
   // DS numa página só, nos dois temas. Mora aqui porque editar o visual do
   // produto inteiro é tarefa do dono, atrás do segundo fator obrigatório.
   { id: "design-system", rotulo: "Design system", href: "/admin/design-system", icone: "palette", resumo: "Cada cor, medida, card, gráfico e tabela do sistema numa página só, nos dois temas." },
+  // O estado de cada interruptor `=ligado` da Vercel, só leitura (03/11/2026):
+  // saber o que está ligado exigia abrir o painel da Vercel variável a variável.
+  { id: "interruptores", rotulo: "Interruptores", href: "/admin/interruptores", icone: "sliders-horizontal", resumo: "O que está ligado na plataforma: cobrança, maquininha, WhatsApp e e-mail." },
   { id: "suporte", rotulo: "Suporte", href: "/admin/suporte", icone: "help-circle", resumo: "Ver e entrar como o cliente, e ferramentas internas." },
 ];
 
