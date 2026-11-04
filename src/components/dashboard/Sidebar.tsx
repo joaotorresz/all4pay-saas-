@@ -329,7 +329,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           (pedido do dono, 04/11/2026). */}
       <div className="mt-2 rounded-[20px] bg-white text-ink p-2 flex flex-col" data-menu-conversas>
       <div {...entra()} className="flex items-center justify-between pl-3 mt-1 mb-2">
-        <span className="text-[15px] font-semibold">Conversas</span>
+        <span className="a4p-menu-grupo text-[15px]">Conversas</span>
         <button
           type="button"
           onClick={() => abrirChat()}
@@ -351,11 +351,11 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
           placeholder="Buscar conversa"
-          className="bg-surface-1 text-ink placeholder:text-placeholder outline-none w-full h-11 rounded-[14px] pl-11 pr-3 text-[14px]"
+          className="bg-surface-1 text-ink placeholder:text-placeholder outline-none a4p-menu-narrow w-full h-11 rounded-[14px] pl-11 pr-3 text-[14px]"
         />
       </label>
       {visiveis.length === 0 ? (
-        <p {...entra()} className="text-muted m-0 px-4 py-2 text-[13px]">
+        <p {...entra()} className="a4p-menu-narrow text-muted m-0 px-4 py-2 text-[13px]">
           {q ? "Nenhuma conversa com esse nome." : "Suas conversas com a Quattro AI aparecem aqui."}
         </p>
       ) : (
@@ -369,7 +369,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
                     type="button"
                     onClick={() => abrirChat({ conversa: c.id })}
                     title={c.titulo}
-                    className="flex-1 min-w-0 flex items-center gap-3 min-h-[44px] pl-4 text-left text-[14px] font-medium"
+                    className="a4p-menu-narrow flex-1 min-w-0 flex items-center gap-3 min-h-[44px] pl-4 text-left text-[14px]"
                   >
                     <Icon name="layers" size={16} color="var(--color-text-tertiary)" className="shrink-0" />
                     <span className="truncate">{c.titulo}</span>
@@ -446,8 +446,8 @@ function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style:
               className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "bg-surface-1 text-ink" : "text-ink hover:bg-surface-1")}>
               <AvatarAgente agente={it.id} tamanho={30} />
               <span className="flex-1 min-w-0">
-                <span className="block truncate text-[14px] font-medium">{it.nome}</span>
-                <span className="block truncate text-[12px] text-muted">{it.sub}</span>
+                <span className="a4p-menu-grupo block truncate text-[14px]">{it.nome}</span>
+                <span className="a4p-menu-narrow block truncate text-[12px] text-muted">{it.sub}</span>
               </span>
               {it.n > 0 && (
                 <span className="shrink-0 min-w-[20px] h-[20px] px-[6px] rounded-pill bg-ink text-white text-[12px] flex items-center justify-center tabular-nums"
