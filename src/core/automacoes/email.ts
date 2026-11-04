@@ -167,20 +167,25 @@ export interface CorpoCobranca {
   aviso: string;
   /** A linha da plataforma no pé ("enviado pela plataforma Quattro"). */
   plataforma: string;
+  /** O endereço do app, de onde sai a fonte Agrandir. Sem ele, cai na Inter. */
+  appUrl?: string;
 }
 
 /**
- * O e-mail que o CLIENTE da empresa recebe: cabeçalho com a empresa que cobra
- * (nome, razão social e documento), a frase, o valor e o vencimento, o botão
- * que abre a página de pagamento, o endereço escrito por extenso (há leitor de
- * e-mail que esconde botão) e o rodapé com os dados da empresa e da plataforma.
+ * O e-mail que o CLIENTE da empresa recebe, no MESMO desenho dos e-mails do
+ * app (decisão do dono, 04/11/2026): o nome da empresa que cobra fora do
+ * cartão, no lugar do logo; cartão branco sem borda sobre o cinza; título e
+ * valor na Agrandir; o valor e o vencimento num bloco cinza; o botão lime; o
+ * endereço escrito por extenso (há leitor de e-mail que esconde botão); e os
+ * dados da empresa e da plataforma no pé, fora do cartão.
  *
- * ⚠️ O cabeçalho é a faixa ESCURA da marca (verde-base) com o texto no branco
- * do card — nunca o vermelho do modelo: a paleta não tem vermelho de marca, e o
- * único vermelho do sistema é o de ERRO. O lime fica só no botão da ação.
+ * ⚠️ Quem cobra é a EMPRESA: o logo da Quattro não entra no topo — o cliente
+ * não conhece a Quattro, e uma marca estranha no alto de uma cobrança lê como
+ * golpe. A plataforma aparece só na linha do pé.
  */
 export function montarHtmlCobranca(c: CorpoCobranca): string {
   const emp = c.empresa;
+  const base = c.appUrl ? semBarra(c.appUrl) : "";
   const linhaDoc = [emp.razaoSocial && emp.razaoSocial !== emp.nome ? emp.razaoSocial : "", emp.documento ?? ""].filter(Boolean).join(" · ");
   const contato = [emp.email ?? "", emp.telefone ?? ""].filter(Boolean);
   const rodapeEmpresa = [
@@ -189,44 +194,64 @@ export function montarHtmlCobranca(c: CorpoCobranca): string {
     ...contato,
     ...(emp.endereco ?? []),
   ].filter(Boolean).map((l) => `<div>${esc(l)}</div>`).join("");
+  const fonte = `<style>${base ? `@font-face{font-family:'Quattro Agrandir';font-weight:700;src:url('${esc(base)}/fonts/quattro-agrandir.woff2') format('woff2');}` : ""}`
+    + "@media (max-width:480px){.q-pad{padding-left:20px!important;padding-right:20px!important}}</style>";
+
+  // Um título só: o valor é o herói, num bloco cinza. Vários: a lista com o total.
+  const unico = c.linhas.length === 1 && !c.total ? c.linhas[0] : null;
+  const valores = unico
+    ? `<tr><td class="q-pad" style="padding:24px 36px 0 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${E.fundo};border-radius:16px;"><tr><td style="padding:20px;">
+          <div style="font:400 13px/18px ${FONTE};color:${E.meta};">${esc(unico.rotulo)}</div>
+          <div style="font:700 30px/36px ${DISPLAY};letter-spacing:-0.02em;color:${E.ink};padding-top:6px;white-space:nowrap;">${esc(unico.valor)}</div>
+          ${unico.detalhe ? `<div style="font:400 12px/18px ${FONTE};color:${E.meta};padding-top:4px;">${esc(unico.detalhe)}</div>` : ""}
+        </td></tr></table>
+      </td></tr>`
+    : c.linhas.length
+      ? `<tr><td class="q-pad" style="padding:24px 36px 0 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${c.linhas.map(linha).join("")}${c.total ? linha(c.total) : ""}</table>
+      </td></tr>`
+      : "";
+
   const extras = (c.extras ?? []).map((s) => `
-      <tr><td style="padding:20px 32px 0 32px;">
-        <div style="font:500 13px/18px ${FONTE};color:${E.secundario};padding-bottom:4px;">${esc(s.titulo)}</div>
+      <tr><td class="q-pad" style="padding:28px 36px 0 36px;">
+        <div style="font:700 17px/22px ${DISPLAY};letter-spacing:-0.01em;color:${E.ink};padding-bottom:10px;">${esc(s.titulo)}</div>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${s.linhas.map(linhaQuebrando).join("")}</table>
       </td></tr>`).join("");
 
   return `<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(c.titulo)}</title></head>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(c.titulo)}</title>${fonte}</head>
 <body style="margin:0;padding:0;background:${E.fundo};">
 <div style="display:none;max-height:0;overflow:hidden;">${esc(c.preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${E.fundo};">
-  <tr><td align="center" style="padding:24px 12px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:${E.cardBg};border-radius:24px;overflow:hidden;">
-      <tr><td align="center" style="background:${E.ink};padding:28px 32px;">
-        <div style="font:700 20px/26px ${FONTE};letter-spacing:-0.01em;color:${E.cardBg};">${esc(emp.nome)}</div>
-        ${linhaDoc ? `<div style="font:400 13px/18px ${FONTE};color:${E.cardBg};padding-top:4px;">${esc(linhaDoc)}</div>` : ""}
+  <tr><td align="center" style="padding:32px 12px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+      <tr><td style="padding:0 8px 20px 8px;">
+        <div style="font:700 22px/28px ${DISPLAY};letter-spacing:-0.02em;color:${E.ink};">${esc(emp.nome)}</div>
+        ${linhaDoc ? `<div style="font:400 13px/18px ${FONTE};color:${E.meta};padding-top:2px;">${esc(linhaDoc)}</div>` : ""}
       </td></tr>
-      <tr><td style="padding:32px 32px 0 32px;">
-        <h1 style="margin:0;font:700 22px/28px ${FONTE};letter-spacing:-0.02em;color:${E.ink};">${esc(c.titulo)}</h1>
-        <p style="margin:16px 0 0 0;font:500 15px/22px ${FONTE};color:${E.ink};">${esc(c.saudacao)}</p>
-        ${c.paragrafos.map((p) => `<p style="margin:12px 0 0 0;font:400 15px/22px ${FONTE};color:${E.ink};">${esc(p)}</p>`).join("")}
+      <tr><td style="background:${E.cardBg};border-radius:24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="q-pad" style="padding:36px 36px 0 36px;">
+            <h1 style="margin:0;font:700 28px/34px ${DISPLAY};letter-spacing:-0.02em;color:${E.ink};">${esc(c.titulo)}</h1>
+            <p style="margin:16px 0 0 0;font:500 15px/22px ${FONTE};color:${E.ink};">${esc(c.saudacao)}</p>
+            ${c.paragrafos.map((p) => `<p style="margin:10px 0 0 0;font:400 15px/22px ${FONTE};color:${E.secundario};">${esc(p)}</p>`).join("")}
+          </td></tr>
+          ${valores}
+          ${c.link ? `<tr><td class="q-pad" style="padding:28px 36px 0 36px;">
+            <a href="${esc(c.link.url)}" style="display:inline-block;background:${E.lime};color:${E.ink};font:500 15px/20px ${FONTE};text-decoration:none;padding:15px 26px;border-radius:999px;">${esc(c.link.rotulo)}</a>
+            <div style="font:400 13px/18px ${FONTE};color:${E.meta};padding-top:14px;">Ou acesse <a href="${esc(c.link.url)}" style="color:${E.ink};word-break:break-all;">${esc(c.link.url)}</a></div>
+          </td></tr>` : ""}
+          ${extras}
+          <tr><td class="q-pad" style="padding:24px 36px 0 36px;">
+            <div style="background:${E.fundo};border-radius:12px;padding:14px 16px;font:400 14px/20px ${FONTE};color:${E.ink};">${esc(c.aviso)}</div>
+          </td></tr>
+          <tr><td style="padding:36px 0 0 0;"></td></tr>
+        </table>
       </td></tr>
-      <tr><td style="padding:20px 32px 0 32px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${c.linhas.map(linha).join("")}${c.total ? linha(c.total) : ""}</table>
-      </td></tr>
-      ${c.link ? `<tr><td align="center" style="padding:28px 32px 0 32px;">
-        <a href="${esc(c.link.url)}" style="display:inline-block;background:${E.lime};color:${E.ink};font:500 15px/20px ${FONTE};text-decoration:none;padding:15px 32px;border-radius:999px;">${esc(c.link.rotulo)}</a>
-        <div style="font:400 13px/18px ${FONTE};color:${E.secundario};padding-top:14px;">Ou acesse <a href="${esc(c.link.url)}" style="color:${E.ink};word-break:break-all;">${esc(c.link.url)}</a></div>
-      </td></tr>` : ""}
-      ${extras}
-      <tr><td style="padding:24px 32px 0 32px;">
-        <div style="background:${E.fundo};border-radius:12px;padding:14px 16px;font:400 14px/20px ${FONTE};color:${E.ink};">${esc(c.aviso)}</div>
-      </td></tr>
-      <tr><td style="padding:28px 32px 28px 32px;">
-        <div style="border-top:1px solid ${E.borda};padding-top:20px;font:400 12px/18px ${FONTE};color:${E.secundario};">
-          ${rodapeEmpresa}
-          <div style="padding-top:12px;">${esc(c.plataforma)}</div>
-        </div>
+      <tr><td style="padding:20px 8px 0 8px;font:400 12px/18px ${FONTE};color:${E.meta};">
+        ${rodapeEmpresa}
+        <div style="padding-top:12px;">${esc(c.plataforma)}</div>
       </td></tr>
     </table>
   </td></tr>
