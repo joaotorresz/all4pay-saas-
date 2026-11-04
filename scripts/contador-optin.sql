@@ -10,7 +10,8 @@
 --   2. o membro NÃO lê o token (privilégio por coluna);
 --   3. o membro NÃO grava (nem cria pedido, nem marca confirmado);
 --   4. a outra empresa não vê a linha;
---   5. e-mail inválido é recusado; token repetido é recusado.
+--   5. e-mail inválido é recusado; token repetido é recusado;
+--   6. o pedido entra na trilha (audit_log) SEM o token.
 --
 -- Cada recusa tem de NOMEAR o motivo. Termina em ROLLBACK.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -54,6 +55,19 @@ begin
   perform set_config('guarda.org', o::text, true);
 end $$;
 
+-- 6. a trilha registra o pedido e não guarda o token
+do $$
+declare n int; vaz int;
+begin
+  select count(*), count(*) filter (where coalesce(antes::text, '') || coalesce(depois::text, '') like '%' || c.token::text || '%')
+    into n, vaz
+    from public.audit_log a
+    join public.contador_confirmacoes c on c.org_id = a.org_id
+   where a.entidade = 'contador_confirmacoes';
+  if n < 1 then raise exception 'CASO 6 FALHOU: o pedido não entrou na trilha.'; end if;
+  if vaz > 0 then raise exception 'CASO 6 FALHOU: a trilha guarda o token do link.'; end if;
+end $$;
+
 -- 5. o banco recusa
 savepoint c5a;
 select pg_temp.recusa(format($q$insert into public.contador_confirmacoes (org_id, dest_id, email) values (%L, 'dest_x', 'sem-arroba')$q$, current_setting('guarda.org')),
@@ -93,7 +107,7 @@ begin
   if (select count(*) from public.contador_confirmacoes) <> 0 then
     raise exception 'CASO 4 FALHOU: a empresa B vê o pedido da empresa A.';
   end if;
-  raise notice '✓ contador-optin: 5 casos (lê a situação, não lê o token, não grava, isolado, banco recusa e-mail e token repetidos)';
+  raise notice '✓ contador-optin: 6 casos (lê a situação, não lê o token, não grava, isolado, banco recusa e-mail e token repetidos, trilha sem o token)';
 end $$;
 reset role;
 

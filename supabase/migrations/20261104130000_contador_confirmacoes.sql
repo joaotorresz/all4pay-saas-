@@ -41,3 +41,38 @@ drop policy if exists contador_confirmacoes_leitura on public.contador_confirmac
 create policy contador_confirmacoes_leitura on public.contador_confirmacoes
   for select to authenticated
   using (org_id = public.auth_org_id());
+
+-- ─── A trilha, sem o token ─────────────────────────────────────────────────
+-- ⚠️ Toda tabela de negócio leva um gatilho `zz_auditar_*` (guarda
+-- `scripts/trilha-completa.sql`). O genérico (`auditar_escrita`) grava a linha
+-- inteira em `audit_log`, e a trilha é lida por quem administra a empresa:
+-- o token iria junto, e quem cadastrou o e-mail poderia se confirmar sozinho.
+-- Este gatilho grava o mesmo evento, com o token removido dos dois lados.
+create or replace function public.auditar_contador_confirmacao()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_antes  jsonb := case when tg_op = 'INSERT' then null else to_jsonb(old) - 'token' end;
+  v_depois jsonb := case when tg_op = 'DELETE' then null else to_jsonb(new) - 'token' end;
+  v_linha  jsonb := coalesce(to_jsonb(new), to_jsonb(old));
+begin
+  -- Trocar só o token (pedir o link de novo) também é evento: o pedido mudou.
+  insert into public.audit_log (org_id, usuario, acao, antes, depois, entidade, entidade_id, origem)
+  values (
+    (v_linha ->> 'org_id')::uuid,
+    coalesce(auth.uid()::text, 'sistema'),
+    tg_table_name || case tg_op when 'INSERT' then '.criar' when 'DELETE' then '.excluir' else '.alterar' end,
+    v_antes, v_depois, tg_table_name, v_linha ->> 'dest_id', 'servidor'
+  );
+  return coalesce(new, old);
+end;
+$$;
+revoke all on function public.auditar_contador_confirmacao() from public, anon, authenticated;
+
+drop trigger if exists zz_auditar_contador_confirmacoes on public.contador_confirmacoes;
+create trigger zz_auditar_contador_confirmacoes
+  after insert or update or delete on public.contador_confirmacoes
+  for each row execute function public.auditar_contador_confirmacao();
