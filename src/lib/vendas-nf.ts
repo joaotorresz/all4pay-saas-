@@ -78,3 +78,30 @@ export async function refletirNotaNaVenda(nf: Nfse): Promise<string | null> {
   await gravarNotaDaVendaDoc(vendaId, statusNF, numeroNF);
   return vendaId;
 }
+
+/**
+ * A venda de origem de cada nota (id da nota → número da venda), para a lista
+ * de notas fiscais. A nota aponta para o título; o título, para a venda. A
+ * nota avulsa ou de assinatura fica fora do mapa.
+ */
+export async function vendasDasNotas(notas: Nfse[], vendas: Venda[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const tituloDe = (nf: Nfse) => nf.movimentoReceita ?? nf.movimentos[0];
+  const comTitulo = notas.filter((nf) => tituloDe(nf));
+  if (!comTitulo.length) return out;
+  const numeroDaVenda = new Map(vendas.map((v) => [v.id, v.numero]));
+  if (isDemo) {
+    const vendaDoTitulo = new Map(vendas.map((v) => [idRecebivel(v.id), v.numero]));
+    for (const nf of comTitulo) { const n = vendaDoTitulo.get(tituloDe(nf)!); if (n) out.set(nf.id, n); }
+    return out;
+  }
+  const { createClient } = await import("@/lib/supabase/client");
+  const { semAmostra, TETO_LINHAS } = await import("@/lib/supabase/consulta");
+  const ids = Array.from(new Set(comTitulo.map((nf) => tituloDe(nf)!)));
+  const { data, error } = await semAmostra(createClient().from("movements").select("id,sale_doc_id")).in("id", ids).limit(TETO_LINHAS);
+  if (error) throw new Error(error.message);
+  const vendaDoTitulo = new Map(((data ?? []) as { id: string; sale_doc_id: string | null }[])
+    .filter((r) => r.sale_doc_id).map((r) => [r.id, numeroDaVenda.get(r.sale_doc_id!) ?? ""]));
+  for (const nf of comTitulo) { const n = vendaDoTitulo.get(tituloDe(nf)!); if (n) out.set(nf.id, n); }
+  return out;
+}
