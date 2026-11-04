@@ -13,7 +13,7 @@
  */
 import * as React from "react";
 import { dataBR } from "@/lib/format";
-import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL } from "@/components/ui";
+import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { rotuloColuna, mesesDoIntervalo, type Intervalo } from "@/core/relatorios";
@@ -370,77 +370,60 @@ function Alocacao({
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse text-label">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint sticky left-0 bg-white min-w-[220px]">
-                    Categoria
-                  </th>
-                  {meses.map((m) => (
-                    <th key={m} className="px-3 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint min-w-[120px]">
-                      {rotuloColuna(m)}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Total</th>
-                  <th className="px-3 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {o.alocacoes.map((a, i) => (
-                  <tr key={i} className="border-b border-border-soft last:border-0">
-                    <td className="px-4 py-2 sticky left-0 bg-white min-w-[220px]">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-[3px] self-stretch min-h-[22px] rounded-pill shrink-0"
-                          // Entrada × saída não é verde × vermelho (decisão de 30/09/2026):
-                          // entrada em tinta, saída em areia.
-                          style={{ background: a.tipo === "entrada" ? "var(--color-ink)" : "var(--color-areia)" }}
-                        />
-                        <Select
-                          value={a.categoria}
-                          onChange={(v) => setLinhas((l) => l.map((x, k) => (k === i ? { ...x, categoria: v } : x)))}
-                          placeholder="Selecione a categoria"
-                          options={opcoesCategoria(a.tipo, a.categoria)}
-                          className="flex-1 min-w-0"
-                        />
-                      </div>
-                    </td>
-                    {a.valores.map((v, k) => (
-                      <td key={k} className="px-2 py-2">
-                        <CurrencyInput
-                          value={v}
-                          onValueChange={(nv) => setLinhas((l) => l.map((x, j) =>
-                            (j === i ? { ...x, valores: x.valores.map((y, q) => (q === k ? nv : y)) } : x)))}
-                          containerClassName="w-[118px]"
-                        />
-                      </td>
-                    ))}
-                    <td className="px-4 py-2 text-right tabular-nums font-medium text-ink">
-                      <BRL value={totalLinha(a)} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        {/* Distribuir: digita-se o ano inteiro numa célula e a
-                            linha se espalha. O resto vai no último mês, senão o
-                            total fecharia com centavos a menos. */}
-                        <AcaoLinha
-                          label="Distribuir o total igualmente pelos meses"
-                          icone="arrow-left-right"
-                          onClick={() => setLinhas((l) => l.map((x, j) =>
-                            (j === i ? { ...x, valores: distribuir(totalAlocacao(x), meses.length) } : x)))}
-                        />
-                        <AcaoLinha
-                          label="Remover linha" icone="trash-2" perigo
-                          onClick={() => setLinhas((l) => l.filter((_, j) => j !== i))}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={o.alocacoes.map((a, i) => ({ a, i }))}
+            chave={({ i }) => String(i)}
+            emCartao={false}
+            rotulo="Alocações do orçamento"
+            colunas={[
+              { chave: "categoria", rotulo: "Categoria", principal: true, classe: "min-w-[220px]", render: ({ a, i }) => (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-[3px] self-stretch min-h-[22px] rounded-pill shrink-0"
+                    // Entrada × saída não é verde × vermelho (decisão de 30/09/2026):
+                    // entrada em tinta, saída em areia.
+                    style={{ background: a.tipo === "entrada" ? "var(--color-ink)" : "var(--color-areia)" }}
+                  />
+                  <Select
+                    value={a.categoria}
+                    onChange={(v) => setLinhas((l) => l.map((x, k) => (k === i ? { ...x, categoria: v } : x)))}
+                    placeholder="Selecione a categoria"
+                    options={opcoesCategoria(a.tipo, a.categoria)}
+                    className="flex-1 min-w-0"
+                  />
+                </div>
+              ) },
+              ...meses.map((m, k) => ({
+                chave: String(m), rotulo: rotuloColuna(m), alinhar: "direita" as const, classe: "!px-2",
+                render: ({ a, i }: { a: (typeof o.alocacoes)[number]; i: number }) => (
+                  <CurrencyInput
+                    value={a.valores[k] ?? 0}
+                    onValueChange={(nv) => setLinhas((l) => l.map((x, j) =>
+                      (j === i ? { ...x, valores: x.valores.map((y, q) => (q === k ? nv : y)) } : x)))}
+                    containerClassName="w-[118px] ml-auto"
+                  />
+                ),
+              })),
+              { chave: "total", rotulo: "Total", alinhar: "direita", render: ({ a }) => <span className="font-medium"><BRL value={totalLinha(a)} /></span> },
+            ]}
+            acoes={({ i }) => (
+              <>
+                {/* Distribuir: digita-se o ano inteiro numa célula e a
+                    linha se espalha. O resto vai no último mês, senão o
+                    total fecharia com centavos a menos. */}
+                <AcaoLinha
+                  label="Distribuir o total igualmente pelos meses"
+                  icone="arrow-left-right"
+                  onClick={() => setLinhas((l) => l.map((x, j) =>
+                    (j === i ? { ...x, valores: distribuir(totalAlocacao(x), meses.length) } : x)))}
+                />
+                <AcaoLinha
+                  label="Remover linha" icone="trash-2" perigo
+                  onClick={() => setLinhas((l) => l.filter((_, j) => j !== i))}
+                />
+              </>
+            )}
+          />
         </Card>
       )}
 

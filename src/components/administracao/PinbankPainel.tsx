@@ -23,7 +23,7 @@
  * crédito. As duas foram medidas no extrato de produção em 14/10/2026.
  */
 import * as React from "react";
-import { Card, Button, Input, CurrencyInput, Select, Switch, StatusBadge, BRL } from "@/components/ui";
+import { Card, Button, Input, CurrencyInput, Select, Switch, StatusBadge, BRL, Tabela } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { formatBRL } from "@/lib/format";
 import {
@@ -162,36 +162,23 @@ export function PinbankPainel({ toast }: { toast: (s: string) => void }) {
             {estado.eventos.length === 0 ? (
               <span className="text-label text-muted">Nenhum evento recebido ainda.</span>
             ) : (
-              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Eventos da maquininha">
-                <table className="w-full text-label">
-                  <thead>
-                    <tr className="text-left">
-                      {["Recebido", "Evento", "NSU", "Valor", "Situação", "Motivo"].map((h) => (
-                        <th key={h} className="py-2 pr-4 text-[11px] font-medium text-faint">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {estado.eventos.map((e) => {
-                      const s = SITUACAO[e.situacao] ?? { rotulo: e.situacao, tom: "neutral" as const };
-                      return (
-                        <tr key={e.event_id} className="border-t border-border-soft align-top">
-                          <td className="py-2 pr-4 tabular-nums whitespace-nowrap">{dataHora(e.recebido_em)}</td>
-                          <td className="py-2 pr-4 whitespace-nowrap">{NOME_EVENTO[e.event_type] ?? e.event_type}</td>
-                          <td className="py-2 pr-4 tabular-nums">{e.nsu ?? "—"}</td>
-                          <td className="py-2 pr-4 text-right whitespace-nowrap">
-                            {typeof e.valor_centavos === "number" ? <BRL value={e.valor_centavos / 100} /> : "—"}
-                          </td>
-                          <td className="py-2 pr-4 whitespace-nowrap">
-                            <StatusBadge tone={SITUACOES_PENDENTES.includes(e.situacao) || e.situacao === "sem_vinculo" ? "warning" : s.tom}>{s.rotulo}</StatusBadge>
-                          </td>
-                          <td className="py-2 pr-4 text-muted max-w-[48ch]">{e.motivo ?? ""}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <Tabela
+                linhas={estado.eventos}
+                chave={(e) => e.event_id}
+                emCartao={false}
+                rotulo="Eventos da maquininha"
+                colunas={[
+                  { chave: "recebido", rotulo: "Recebido", classe: "whitespace-nowrap", render: (e) => <span className="tabular-nums">{dataHora(e.recebido_em)}</span> },
+                  { chave: "evento", rotulo: "Evento", principal: true, classe: "whitespace-nowrap", render: (e) => NOME_EVENTO[e.event_type] ?? e.event_type },
+                  { chave: "nsu", rotulo: "NSU", render: (e) => <span className="tabular-nums">{e.nsu ?? "—"}</span> },
+                  { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (e) => (typeof e.valor_centavos === "number" ? <BRL value={e.valor_centavos / 100} /> : "—") },
+                  { chave: "situacao", rotulo: "Situação", classe: "whitespace-nowrap", render: (e) => {
+                    const s = SITUACAO[e.situacao] ?? { rotulo: e.situacao, tom: "neutral" as const };
+                    return <StatusBadge tone={SITUACOES_PENDENTES.includes(e.situacao) || e.situacao === "sem_vinculo" ? "warning" : s.tom}>{s.rotulo}</StatusBadge>;
+                  } },
+                  { chave: "motivo", rotulo: "Motivo", classe: "max-w-[48ch]", render: (e) => <span className="text-muted">{e.motivo ?? ""}</span> },
+                ]}
+              />
             )}
           </div>
         </Card>

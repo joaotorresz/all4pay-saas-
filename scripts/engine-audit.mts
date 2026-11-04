@@ -5327,7 +5327,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("a4p045: o id sai inteiro, pelo componente compartilhado",
      /<IdCopiavel id=\{m\.id\}/.test(tv));
   ok("a4p045: a tabela tem coluna Situação, com a palavra",
-     /<Th>Situação<\/Th>/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
+     /rotulo: "Situação"/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
   // A planilha do contador tem de dizer a MESMA palavra da tela.
   ok("a4p045: a exportação usa o mesmo rótulo da tela",
      /rotuloSituacao\(statusDoTitulo\(m, input\.hoje\), direcao\)/.test(tv));
@@ -10279,7 +10279,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   /* ---- a lista de títulos mostra a descrição e não pinta data/valor pelo sinal ---- */
   const titulosV = lerR("src/components/movimentacoes/TitulosView.tsx");
-  ok("pagar-r3: a lista de títulos tem a coluna Descrição", /<Th>Descrição<\/Th>/.test(titulosV) && /m\.descricao/.test(titulosV));
+  ok("pagar-r3: a lista de títulos tem a coluna Descrição", /rotulo: "Descrição"/.test(titulosV) && /m\.descricao/.test(titulosV));
   ok("pagar-r3: a lista de títulos não pinta data nem valor de verde/vermelho", !/text-(positive|negative)/.test(titulosV));
   const dataTs = lerR("src/lib/data.ts");
   ok("pagar-r3: a descrição viaja no RiskInput da demonstração (como em produção)", /descricao: m\.description \?\? null/.test(dataTs));
@@ -12913,7 +12913,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       "<Relatorio key={resultado.consultadoEm} ", "<Relatorio "],
     ["a coluna do resumo diz que o bruto do extrato é ESTIMADO (nunca \"Bruto no extrato\")",
       (x) => /"Bruto estimado no extrato"/.test(x) && !/["'>]\s*Bruto no extrato\s*["'<]/.test(x),
-      '["Situação", "Parcelas", "Bruto estimado no extrato",', '["Situação", "Parcelas", "Bruto no extrato",'],
+      'rotulo: "Bruto estimado no extrato"', 'rotulo: "Bruto no extrato"'],
     ["o resumo tem o \"i\" ao lado do título, com o cálculo ancorado no motor (tolerância lida de TOLERANCIA_TAXA_BP)",
       (x) => /Resumo por situação<\/span>\s*<InfoHint[\s\S]{0,400}?comoCalcula=\{COMO_CALCULA_RESUMO\}/.test(x)
         && /const TOLERANCIA_TEXTO = `\$\{decimalBR\(TOLERANCIA_TAXA_BP \/ 100, 2\)\}/.test(x)
@@ -12927,7 +12927,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     // "numeração não confirmada" e "extrato sem vendas" do relatório inteiro nunca chegam a ela):
     // é nele que a regra mora — fala de numeração das vendas e do código do estabelecimento, nunca de "chave".
     ["o bloco só de contagens fala de numeração das vendas e do código do estabelecimento (EC), não de \"chave\" (palavra de implementação)",
-      (x) => /numeração das vendas confere/.test(x) && /código do estabelecimento \(EC\)/.test(x) && !/\b[Cc]haves?\b/.test(x),
+      // `chave` como nome de propriedade da peça Tabela (`chave: "nsu"`, `chave={…}`) é código, não texto de tela.
+      (x) => /numeração das vendas confere/.test(x) && /código do estabelecimento \(EC\)/.test(x) && !/(?<![.\w])[Cc]haves?\b(?!\s*[:=])/.test(x),
       "a numeração das vendas confere", "a chave das vendas confere"],
     ["o bloco só de contagens tem o \"i\", com o que cada lado conta (linhas do extrato × parcelas válidas do sistema)",
       (x) => /Só as quantidades<\/StatusBadge>\s*<InfoHint[\s\S]{0,200}?comoCalcula=\{COMO_CALCULA_CONTAGENS\}/.test(x)

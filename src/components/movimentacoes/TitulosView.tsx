@@ -13,7 +13,7 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
@@ -566,103 +566,83 @@ export function TitulosView({ direcao, painel }: { direcao: Direcao; painel?: Re
             <Button variant="primary" onClick={() => router.push(rotaNovo)}>Nova conta a {direcao}</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table data-tabela="titulos" className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th className="w-[46px]">
-                    <Checkbox
-                      checked={visiveis.every((m) => marcados.has(m.id)) && visiveis.length > 0}
-                      onChange={(e) => setMarcados(e.target.checked
-                        ? new Set([...Array.from(marcados), ...visiveis.map((m) => m.id)])
-                        : new Set())}
-                    />
-                  </Th>
-                  <Th>Descrição</Th>
-                  <Th>Situação</Th>
-                  <Th>Vencimento / {liquidado.toLowerCase()}</Th>
-                  <Th direita>Valor</Th>
-                  <Th direita>{liquidado}</Th>
-                  <Th>{parte}</Th>
-                  <Th>Categoria</Th>
-                  <Th>Conta</Th>
-                  <Th>ID</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiveis.map((m) => {
-                  const st = input ? statusDoTitulo(m, input.hoje) : "aberto";
-                  return (
-                    <tr key={m.id} onClick={() => setBaixa(m)} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors cursor-pointer">
-                      <td className="px-4 py-3">
-                        <span onClick={(e) => e.stopPropagation()}><Checkbox checked={marcados.has(m.id)} onChange={() => alternar(m.id)} /></span>
-                      </td>
-                      {/* A DESCRIÇÃO é o que a pessoa digitou ao lançar ("Aluguel
-                          de outubro", "Salário · Ana · 09/2026") — sem ela, duas
-                          contas da mesma categoria e do mesmo fornecedor eram
-                          indistinguíveis na lista. */}
-                      <td className="px-4 py-3 text-label text-ink max-w-[260px] truncate" title={m.descricao ?? undefined}>
-                        {m.descricao?.trim() ? m.descricao : <span className="text-muted">—</span>}
-                      </td>
-                      {/* ⚠️ A situação em PALAVRA, não só na cor. O ponto fica como
-                          reforço; quem não distingue as cores lê o rótulo, e ele
-                          muda com a direção (Pago × Recebido) porque é a palavra
-                          que a pessoa usa ao falar com o outro lado. */}
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                          <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: COR_STATUS[st] }} aria-hidden />
-                          <span className="text-label text-ink">{rotuloSituacao(st, direcao)}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-label text-ink tabular-nums">{fmtDia(m.due_date)}</span>
-                          {/* Data não tem cor por sinal: tinta do texto, e o rótulo da
-                              coluna diz qual das duas é. */}
-                          {m.paid_date && <span className="text-caption text-ink tabular-nums">{fmtDia(m.paid_date)}</span>}
-                        </div>
-                      </td>
-                      {/* ⚠️ Valor e baixa logo depois do vencimento: com a ordem antiga
-                          (ID inteiro primeiro, valor no fim), numa tela de notebook
-                          (1440px) a coluna Valor ficava fora da área visível — a
-                          lista de títulos sem o valor dos títulos. O ID continua
-                          INTEIRO (A4P-045), agora na última coluna. */}
-                      <td className="px-4 py-3 text-right text-label text-ink tabular-nums"><BRL value={Math.abs(m.amount)} /></td>
-                      <td className="px-4 py-3 text-right text-label tabular-nums">
-                        {m.status === "pago"
-                          ? <span className="text-ink"><BRL value={Math.abs(m.amount)} /></span>
-                          : <span className="text-faint">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {m.party_id ? (
-                          <button
-                            // ⚠️ CAMP-B: sem parar a propagação, o clique no nome
-                            // também subia para a LINHA e abria o modal de baixa por
-                            // cima da ficha — a pessoa pedia o contato e recebia
-                            // "Confirmar pagamento". Achado dirigindo a jornada.
-                            onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: m.party_id } })); }}
-                            className="text-label text-ink hover:underline decoration-dotted underline-offset-4"
-                          >
-                            {nomes[m.party_id] ?? m.party_id}
-                          </button>
-                        ) : <span className="text-muted">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-label text-muted">{m.category ?? "—"}</td>
-                      <td className="px-4 py-3 text-label text-muted">{nomeConta(m.accountId)}</td>
-                      {/* ⚠️ A4P-045 — o id sai INTEIRO e copiável. `m.id.slice(0, 10)`
-                          mostrava "16ab4f3c-4": dez caracteres de um UUID, que não
-                          identificam nada para quem lê nem servem para procurar o
-                          título no suporte. `IdCopiavel` é o mesmo componente das
-                          outras tabelas do produto — uma leitura só. */}
-                      <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <IdCopiavel id={m.id} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            id="titulos"
+            linhas={visiveis}
+            chave={(m) => m.id}
+            emCartao={false}
+            rotulo="Títulos"
+            onLinha={(m) => setBaixa(m)}
+            colunas={[
+              { chave: "marcar", ocultarNoCelular: true, classe: "w-[46px]",
+                rotulo: (
+                  <Checkbox
+                    checked={visiveis.every((m) => marcados.has(m.id)) && visiveis.length > 0}
+                    onChange={(e) => setMarcados(e.target.checked
+                      ? new Set([...Array.from(marcados), ...visiveis.map((m) => m.id)])
+                      : new Set())}
+                  />
+                ),
+                render: (m) => <span onClick={(e) => e.stopPropagation()}><Checkbox checked={marcados.has(m.id)} onChange={() => alternar(m.id)} /></span> },
+              /* A DESCRIÇÃO é o que a pessoa digitou ao lançar ("Aluguel de
+                 outubro", "Salário · Ana · 09/2026") — sem ela, duas contas da
+                 mesma categoria e do mesmo fornecedor eram indistinguíveis na
+                 lista. */
+              { chave: "descricao", rotulo: "Descrição", principal: true, classe: "max-w-[260px] truncate",
+                render: (m) => <span title={m.descricao ?? undefined}>{m.descricao?.trim() ? m.descricao : <span className="text-muted">—</span>}</span> },
+              /* ⚠️ A situação em PALAVRA, não só na cor. O ponto fica como
+                 reforço; quem não distingue as cores lê o rótulo, e ele muda
+                 com a direção (Pago × Recebido) porque é a palavra que a
+                 pessoa usa ao falar com o outro lado. */
+              { chave: "situacao", rotulo: "Situação", render: (m) => {
+                const st = input ? statusDoTitulo(m, input.hoje) : "aberto";
+                return (
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                    <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: COR_STATUS[st] }} aria-hidden />
+                    <span className="text-label text-ink">{rotuloSituacao(st, direcao)}</span>
+                  </span>
+                );
+              } },
+              { chave: "datas", rotulo: `Vencimento / ${liquidado.toLowerCase()}`, render: (m) => (
+                <div className="flex flex-col">
+                  <span className="tabular-nums">{fmtDia(m.due_date)}</span>
+                  {/* Data não tem cor por sinal: tinta do texto, e o rótulo da
+                      coluna diz qual das duas é. */}
+                  {m.paid_date && <span className="text-caption text-ink tabular-nums">{fmtDia(m.paid_date)}</span>}
+                </div>
+              ) },
+              /* ⚠️ Valor e baixa logo depois do vencimento: com a ordem antiga
+                 (ID inteiro primeiro, valor no fim), numa tela de notebook
+                 (1440px) a coluna Valor ficava fora da área visível — a lista
+                 de títulos sem o valor dos títulos. O ID continua INTEIRO
+                 (A4P-045), agora na última coluna. */
+              { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (m) => <BRL value={Math.abs(m.amount)} /> },
+              { chave: "liquidado", rotulo: liquidado, alinhar: "direita", render: (m) => (m.status === "pago"
+                ? <BRL value={Math.abs(m.amount)} />
+                : <span className="text-faint">—</span>) },
+              { chave: "parte", rotulo: parte, render: (m) => (m.party_id ? (
+                <button
+                  // ⚠️ CAMP-B: sem parar a propagação, o clique no nome
+                  // também subia para a LINHA e abria o modal de baixa por
+                  // cima da ficha — a pessoa pedia o contato e recebia
+                  // "Confirmar pagamento". Achado dirigindo a jornada.
+                  onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: m.party_id } })); }}
+                  className="text-label text-ink hover:underline decoration-dotted underline-offset-4"
+                >
+                  {nomes[m.party_id] ?? m.party_id}
+                </button>
+              ) : <span className="text-muted">—</span>) },
+              { chave: "categoria", rotulo: "Categoria", render: (m) => <span className="text-muted">{m.category ?? "—"}</span> },
+              { chave: "conta", rotulo: "Conta", render: (m) => <span className="text-muted">{nomeConta(m.accountId)}</span> },
+              /* ⚠️ A4P-045 — o id sai INTEIRO e copiável. `m.id.slice(0, 10)`
+                 mostrava "16ab4f3c-4": dez caracteres de um UUID, que não
+                 identificam nada para quem lê nem servem para procurar o
+                 título no suporte. `IdCopiavel` é o mesmo componente das
+                 outras tabelas do produto — uma leitura só. */
+              { chave: "id", rotulo: "ID", classe: "whitespace-nowrap",
+                render: (m) => <span onClick={(e) => e.stopPropagation()}><IdCopiavel id={m.id} /></span> },
+            ]}
+          />
         )}
       </Card>
       </>)}
@@ -856,13 +836,6 @@ function CardsDoPainel({
   );
 }
 
-function Th({ children, direita, className }: { children?: React.ReactNode; direita?: boolean; className?: string }) {
-  return (
-    <th className={`px-4 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"} ${className ?? ""}`}>
-      {children}
-    </th>
-  );
-}
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

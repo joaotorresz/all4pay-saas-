@@ -12,7 +12,7 @@ import * as React from "react";
 import { usePermissoes } from "@/components/app/usePermissoes";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, BRL } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, BRL, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { MensalidadeCard } from "@/components/administracao/MensalidadeCard";
 import { baixarXLSX } from "@/lib/xlsx";
@@ -422,39 +422,27 @@ export function UsuariosView() {
         <Card><p className="m-0 py-10 text-center text-label text-muted">Nenhum usuário encontrado.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Nome</Th><Th>E-mail</Th><Th>Perfil</Th><Th direita>Ações</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((u) => (
-                  <tr key={u.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                    <td className="px-6 py-3 text-label text-ink">
-                      {u.nome}
-                      {u.dono && <span className="ml-2 text-caption text-faint">dono</span>}
-                    </td>
-                    <td className="px-6 py-3 text-label text-muted">{u.email}</td>
-                    <td className="px-6 py-3">
-                      <Select
-                        value={u.perfil}
-                        onChange={(v) => trocarPerfil(u, v as PerfilUsuario)}
-                        options={PERFIS.map((p) => ({ value: p.id, label: p.label }))}
-                        containerClassName="max-w-[190px]"
-                      />
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-end">
-                        <Button variant="ghost" onClick={() => remover(u.id)}>Remover</Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={lista}
+            chave={(u) => u.id}
+            emCartao={false}
+            rotulo="Usuários"
+            colunas={[
+              { chave: "nome", rotulo: "Nome", principal: true, render: (u) => (
+                <>{u.nome}{u.dono && <span className="ml-2 text-caption text-faint">dono</span>}</>
+              ) },
+              { chave: "email", rotulo: "E-mail", render: (u) => <span className="text-muted">{u.email}</span> },
+              { chave: "perfil", rotulo: "Perfil", render: (u) => (
+                <Select
+                  value={u.perfil}
+                  onChange={(v) => trocarPerfil(u, v as PerfilUsuario)}
+                  options={PERFIS.map((p) => ({ value: p.id, label: p.label }))}
+                  containerClassName="max-w-[190px]"
+                />
+              ) },
+            ]}
+            acoes={(u) => <Button variant="ghost" onClick={() => remover(u.id)}>Remover</Button>}
+          />
         </Card>
       )}
 
@@ -625,26 +613,19 @@ export function LogsView() {
         <Card><p className="m-0 py-10 text-center text-label text-muted">Nenhum log encontrado no período.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Data/hora</Th><Th>Ação</Th><Th>Usuário</Th><Th>Origem</Th><Th>Resumo</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((l) => (
-                  <tr key={l.id} className="border-b border-border-soft last:border-0">
-                    <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtHora(l.quando)}</td>
-                    <td className="px-6 py-3 text-label text-ink">{ACOES_LOG.find((a) => a.id === l.acao)?.label}</td>
-                    <td className="px-6 py-3 text-label text-muted">{l.usuario}</td>
-                    <td className="px-6 py-3 text-label text-muted">{l.origem}</td>
-                    <td className="px-6 py-3 text-label text-ink">{l.resumo}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={lista}
+            chave={(l) => l.id}
+            emCartao={false}
+            rotulo="Registro de atividades"
+            colunas={[
+              { chave: "quando", rotulo: "Data/hora", render: (l) => <span className="text-muted tabular-nums">{fmtHora(l.quando)}</span> },
+              { chave: "acao", rotulo: "Ação", principal: true, render: (l) => ACOES_LOG.find((a) => a.id === l.acao)?.label },
+              { chave: "usuario", rotulo: "Usuário", render: (l) => <span className="text-muted">{l.usuario}</span> },
+              { chave: "origem", rotulo: "Origem", render: (l) => <span className="text-muted">{l.origem}</span> },
+              { chave: "resumo", rotulo: "Resumo", render: (l) => l.resumo },
+            ]}
+          />
         </Card>
       )}
     </div>
@@ -704,65 +685,60 @@ export function RelatoriosExportadosView() {
         <Card><p className="m-0 py-10 text-center text-label text-muted">Nenhuma exportação no período.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Exportado em</Th><Th>Relatório</Th><Th>Nome do arquivo</Th>
-                  <Th>Formato</Th><Th>Status</Th><Th>Expira em</Th><Th direita>Ações</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrada.map((e) => {
-                  const st = statusExportacao(e, hoje);
-                  const restam = diasEntre(hoje, expiraEm(e.exportadoEm));
-                  return (
-                    <tr key={e.id} className="border-b border-border-soft last:border-0">
-                      <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(e.exportadoEm)}</td>
-                      <td className="px-6 py-3 text-label text-ink">{e.relatorio}</td>
-                      <td className="px-6 py-3 text-caption text-faint">{e.nomeArquivo}</td>
-                      <td className="px-6 py-3 text-label text-muted">{e.formato}</td>
-                      <td className="px-6 py-3">
-                        <span className="inline-flex items-center gap-[6px] text-caption text-muted">
-                          <span className="w-[7px] h-[7px] rounded-pill" style={{
-                            background: st === "pronto" ? "var(--color-positive)"
-                              : st === "processando" ? "var(--color-warning)"
-                              : st === "erro" ? "var(--color-negative)" : "var(--color-placeholder)",
-                          }} />
-                          {st === "pronto" ? "Pronto" : st === "processando" ? "Processando" : st === "erro" ? "Erro" : "Expirado"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-label text-muted tabular-nums">
-                        {fmtDia(expiraEm(e.exportadoEm))}
-                        {st === "pronto" && restam <= 3 && (
-                          <span className="ml-2 text-caption text-warning">{restam}d</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* ⚠️ Esta lista guarda o REGISTRO da exportação, não o arquivo: não há
-                              bytes guardados para baixar daqui. Um "Baixar" que só mostrava um aviso
-                              fazia a pessoa esperar por um download que nunca vinha. */}
-                          {st === "pronto" && (
-                            <span className="text-caption text-faint" title="O arquivo não fica guardado nesta lista; gere de novo na tela de origem.">
-                              Gere de novo na tela de origem
-                            </span>
-                          )}
-                          <button
-                            onClick={() => { setLista(removerExportacao(e.id)); toast("Registro removido."); }}
-                            aria-label="Remover" title="Remover"
-                            className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2 transition-colors"
-                          >
-                            <Icon name="trash-2" size={15} color="currentColor" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={filtrada}
+            chave={(e) => e.id}
+            emCartao={false}
+            rotulo="Exportações"
+            colunas={[
+              { chave: "em", rotulo: "Exportado em", render: (e) => <span className="text-muted tabular-nums">{fmtDia(e.exportadoEm)}</span> },
+              { chave: "relatorio", rotulo: "Relatório", principal: true, render: (e) => e.relatorio },
+              { chave: "arquivo", rotulo: "Nome do arquivo", render: (e) => <span className="text-caption text-faint">{e.nomeArquivo}</span> },
+              { chave: "formato", rotulo: "Formato", render: (e) => <span className="text-muted">{e.formato}</span> },
+              { chave: "status", rotulo: "Status", render: (e) => {
+                const st = statusExportacao(e, hoje);
+                return (
+                  <span className="inline-flex items-center gap-[6px] text-caption text-muted">
+                    <span className="w-[7px] h-[7px] rounded-pill" style={{
+                      background: st === "pronto" ? "var(--color-positive)"
+                        : st === "processando" ? "var(--color-warning)"
+                        : st === "erro" ? "var(--color-negative)" : "var(--color-placeholder)",
+                    }} />
+                    {st === "pronto" ? "Pronto" : st === "processando" ? "Processando" : st === "erro" ? "Erro" : "Expirado"}
+                  </span>
+                );
+              } },
+              { chave: "expira", rotulo: "Expira em", render: (e) => {
+                const st = statusExportacao(e, hoje);
+                const restam = diasEntre(hoje, expiraEm(e.exportadoEm));
+                return (
+                  <span className="text-muted tabular-nums">
+                    {fmtDia(expiraEm(e.exportadoEm))}
+                    {st === "pronto" && restam <= 3 && <span className="ml-2 text-caption text-warning">{restam}d</span>}
+                  </span>
+                );
+              } },
+            ]}
+            acoes={(e) => (
+              <>
+                {/* ⚠️ Esta lista guarda o REGISTRO da exportação, não o arquivo: não há
+                    bytes guardados para baixar daqui. Um "Baixar" que só mostrava um aviso
+                    fazia a pessoa esperar por um download que nunca vinha. */}
+                {statusExportacao(e, hoje) === "pronto" && (
+                  <span className="text-caption text-faint" title="O arquivo não fica guardado nesta lista; gere de novo na tela de origem.">
+                    Gere de novo na tela de origem
+                  </span>
+                )}
+                <button
+                  onClick={() => { setLista(removerExportacao(e.id)); toast("Registro removido."); }}
+                  aria-label="Remover" title="Remover"
+                  className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2 transition-colors"
+                >
+                  <Icon name="trash-2" size={15} color="currentColor" />
+                </button>
+              </>
+            )}
+          />
         </Card>
       )}
       {node}
@@ -815,10 +791,3 @@ function LinhaIntegracao({
   );
 }
 
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
-  );
-}
