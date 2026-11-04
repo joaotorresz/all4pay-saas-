@@ -11,14 +11,14 @@
  * plataforma. No endereço da plataforma esses links levariam a 404, e o dono
  * operaria a cobrança de terceiros ao lado do lançamento da própria empresa.
  *
- * O MATERIAL é o mesmo (DS Quattro): moldura verde-base (`.a4p-canvas`),
- * barra e menu em cartões brancos, área de trabalho branca, título em Quattro Agrandir
- * Black 23px. O que muda é o conteúdo: seis seções (`SECOES_ADMIN`) e a
+ * O MATERIAL é o mesmo do sistema (DS Quattro, 04/11/2026): fundo claro
+ * (`.a4p-canvas`), menu lateral escuro do topo ao pé com o logo dentro, item
+ * ativo em relevo, área de trabalho clara e título de tela em Quattro
+ * Agrandir 34/700. O que muda é o conteúdo: seis seções (`SECOES_ADMIN`) e a
  * etiqueta "Administração" ao lado da marca, para nunca restar dúvida de onde
  * se está.
  */
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
@@ -44,68 +44,93 @@ export function AdminShell({ actions, children }: { actions?: React.ReactNode; c
     setSaindo(false);
   };
 
+  // O mesmo desenho do menu do sistema (`dashboard/Sidebar.tsx`): item em
+  // Agrandir 15/600 com 46px, o ativo em relevo (`a4p-menu-relevo`), o resto
+  // na tinta clara do menu (`a4p-menu-item`). Antes o menu do admin herdava o
+  // fundo escuro de `.a4p-sidebar` com o texto na tinta escura (`text-ink`) e
+  // os itens ficavam ilegíveis (dono, 04/11/2026).
+  const item = (on: boolean) =>
+    `flex items-center gap-[14px] min-h-[46px] rounded-[14px] px-4 text-[15px] font-semibold whitespace-nowrap transition-colors ${on ? "a4p-menu-relevo" : "a4p-menu-item"}`;
+  const itemPe = "a4p-menu-item flex items-center gap-[12px] min-h-[40px] rounded-[12px] px-3 text-[14px] font-medium transition-colors text-left disabled:opacity-60";
+
   return (
     <div className="a4p-canvas fixed inset-0 flex flex-col overflow-hidden">
-      <header className="shrink-0 flex items-center gap-3 h-[60px] px-5 mx-3 mt-3 a4p-topbar bg-white rounded-[20px]">
-        <Link href="/admin" className="flex items-center gap-3 min-w-0" aria-label="Administração da plataforma">
-          <Image src="/quattro-logo.webp" alt="Quattro" width={120} height={33} className="h-[24px] w-auto" priority />
-          <span className="a4p-label text-muted whitespace-nowrap">Administração</span>
-        </Link>
-        <div className="flex-1" />
-        {erroSair && <span className="text-caption text-negative hidden sm:inline">{erroSair}</span>}
-        <Link
-          href={ROTA_SEGURANCA_CONTA}
-          title="Segurança da conta"
-          className="inline-flex items-center justify-center w-9 h-9 rounded-pill hover:bg-surface-2 transition-colors"
-        >
-          <Icon name="shield-check" size={18} color="var(--color-text-secondary)" />
-        </Link>
-        {SUPA_CONFIGURED && (
-          <button
-            type="button"
-            onClick={sair}
-            disabled={saindo}
-            className="inline-flex items-center gap-2 rounded-pill border border-border px-4 h-9 text-[14px] text-ink hover:bg-surface-2 transition-colors disabled:opacity-60"
-          >
-            {saindo ? "Saindo…" : "Sair"}
-          </button>
-        )}
-      </header>
-
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 gap-3 p-3">
-        <nav
-          aria-label="Seções da administração"
-          className="a4p-sidebar shrink-0 bg-white rounded-[20px] p-2 lg:p-4 lg:w-[232px] flex lg:flex-col gap-1 overflow-x-auto"
-        >
-          {SECOES_ADMIN.map((s) => {
-            const on = s.id === ativa.id;
-            return (
-              <Link
-                key={s.id}
-                href={s.href}
-                title={s.resumo}
-                aria-current={on ? "page" : undefined}
-                className={`flex items-center gap-[10px] min-h-[44px] rounded-[12px] px-3 text-[14px] text-ink whitespace-nowrap transition-colors ${on ? "bg-surface-1 font-medium" : "hover:bg-surface-2/60"}`}
-              >
-                <Icon name={s.icone} size={18} color="var(--color-text-secondary)" />
-                <span>{s.rotulo}</span>
+        <aside className="a4p-sidebar shrink-0 flex flex-col rounded-[24px] lg:rounded-[28px] p-3 lg:p-4 lg:w-[260px] min-h-0">
+          <div className="flex items-center gap-3 lg:mb-5 lg:mt-1 pl-2">
+            <Link href="/admin" className="flex flex-col gap-1 min-w-0 flex-1" aria-label="Administração da plataforma">
+              <span
+                role="img"
+                aria-label="Quattro"
+                className="block w-[112px] h-[28px]"
+                style={{
+                  background: "var(--erp-menu-texto)",
+                  WebkitMask: "url(/quattro-logo.webp) left center / contain no-repeat",
+                  mask: "url(/quattro-logo.webp) left center / contain no-repeat",
+                }}
+              />
+              <span className="a4p-menu-meta text-[13px] whitespace-nowrap">Administração</span>
+            </Link>
+            {/* No telefone o pé do menu some: segurança e sair ficam aqui. */}
+            <div className="flex items-center gap-2 lg:hidden">
+              <Link href={ROTA_SEGURANCA_CONTA} title="Segurança da conta" aria-label="Segurança da conta"
+                className="a4p-menu-quadrado w-10 h-10 rounded-[12px] inline-flex items-center justify-center transition-colors">
+                <Icon name="shield-check" size={18} color="currentColor" />
               </Link>
-            );
-          })}
-        </nav>
+              {SUPA_CONFIGURED && (
+                <button type="button" onClick={sair} disabled={saindo} title="Sair" aria-label="Sair"
+                  className="a4p-menu-quadrado w-10 h-10 rounded-[12px] inline-flex items-center justify-center transition-colors disabled:opacity-60">
+                  <Icon name="log-out" size={18} color="currentColor" />
+                </button>
+              )}
+            </div>
+          </div>
 
-        <main className="a4p-app-card ds-visor flex-1 flex flex-col min-w-0 min-h-0" style={{ background: "var(--color-white)" }}>
+          <nav
+            aria-label="Seções da administração"
+            className="flex lg:flex-col gap-1 mt-3 lg:mt-0 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto lg:flex-1 min-h-0 -mx-1 px-1"
+          >
+            {SECOES_ADMIN.map((s) => {
+              const on = s.id === ativa.id;
+              return (
+                <Link key={s.id} href={s.href} title={s.resumo} aria-current={on ? "page" : undefined} className={item(on)}>
+                  <Icon name={s.icone} size={19} color="currentColor" className="shrink-0" />
+                  <span className="a4p-menu-grupo">{s.rotulo}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="hidden lg:flex flex-col gap-1.5 mt-3 pt-3 shrink-0">
+            <span aria-hidden className="a4p-menu-divisor" />
+            {erroSair && <span className="text-caption text-negative px-3">{erroSair}</span>}
+            <Link href={ROTA_SEGURANCA_CONTA} className={itemPe}>
+              <Icon name="shield-check" size={17} color="currentColor" className="shrink-0" />
+              <span className="flex-1">Segurança da conta</span>
+            </Link>
+            {SUPA_CONFIGURED && (
+              <button type="button" onClick={sair} disabled={saindo} className={itemPe}>
+                <Icon name="log-out" size={17} color="currentColor" className="shrink-0" />
+                <span className="flex-1">{saindo ? "Saindo…" : "Sair"}</span>
+              </button>
+            )}
+          </div>
+        </aside>
+
+        <main className="a4p-app-card ds-visor flex-1 flex flex-col min-w-0 min-h-0" style={{ background: "var(--a4p-app-bg)" }}>
           <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
             <div className="min-w-0">
+              {/* Título de tela igual ao do sistema (AppShell): Agrandir 34/700. */}
               <h1
-                className="m-0 text-[23px] text-ink truncate"
-                style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1, paddingBlock: "0.2em", marginBlock: "-0.2em" }}
+                className="m-0 text-[34px] text-ink truncate"
+                style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1, paddingBlock: "0.2em", marginBlock: "-0.2em" }}
               >
                 {ativa.rotulo}
               </h1>
             </div>
             {actions && <div className="flex items-center gap-[10px] flex-wrap justify-end">{actions}</div>}
           </header>
+          {erroSair && <p className="lg:hidden text-caption text-negative px-4 m-0">{erroSair}</p>}
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">{children}</div>
         </main>
       </div>

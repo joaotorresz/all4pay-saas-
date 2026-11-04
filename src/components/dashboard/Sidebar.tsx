@@ -7,7 +7,6 @@ import { Icon } from "@/components/ui";
 import { useModo } from "@/components/app/useModo";
 import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
 import { useUsuario, sairDaConta, SAIR_DISPONIVEL } from "@/components/app/useUsuario";
-import { useTheme } from "@/components/app/ThemeToggle";
 import { listarAnuncios } from "@/lib/ajuda-store";
 import { ROTA_SEGURANCA_CONTA } from "@/core/segundo-fator";
 import { abrirChat } from "@/components/ia/ChatGlobal";
@@ -505,7 +504,6 @@ function ItensDoGrupo({ itens, pathname, busca }: { itens: Item[]; pathname: str
  */
 function MenuDaConta({ col, nome, email }: { col: boolean; nome: string; email: string }) {
   const router = useRouter();
-  const { dark, toggle } = useTheme();
   const [aberto, setAberto] = React.useState(false);
   const [naoLidos, setNaoLidos] = React.useState(0);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -531,7 +529,6 @@ function MenuDaConta({ col, nome, email }: { col: boolean; nome: string; email: 
     { icone: "shield-check", rotulo: "Segurança da conta", acao: () => ir(ROTA_SEGURANCA_CONTA) },
     { icone: "bell", rotulo: naoLidos > 0 ? `Anúncios (${naoLidos} não lidos)` : "Anúncios", acao: () => ir("/dashboard/help?aba=anuncios"), ponto: naoLidos > 0 },
     { icone: "help-circle", rotulo: "Central de ajuda", acao: () => ir("/dashboard/help") },
-    { icone: dark ? "sun" : "moon", rotulo: dark ? "Tema claro" : "Tema escuro", acao: () => { setAberto(false); toggle(); } },
   ];
   if (SAIR_DISPONIVEL) itens.push({ icone: "log-out", rotulo: "Sair da conta", acao: () => { setAberto(false); void sairDaConta(router); }, perigo: true });
 

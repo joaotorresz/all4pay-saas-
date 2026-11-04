@@ -26,7 +26,6 @@
 import * as React from "react";
 import tokensJson from "@/design/tokens.json";
 import { Secoes, type Secao } from "@/components/app/Secoes";
-import { useTheme } from "@/components/app/ThemeToggle";
 import {
   Button, Card, Badge, Pill, Input, Select, CurrencyInput, Switch, Checkbox, Textarea,
   Money, BRL, StatusBadge, PontoStatus, Skeleton, Icon, InfoHint,
@@ -439,16 +438,9 @@ const SECOES: Secao[] = [
 ];
 
 export function VitrineDesign() {
-  const { dark, apply } = useTheme();
   return (
     <EditorProvider>
       <div className="ds-previa flex flex-col gap-4">
-        <div className="flex items-center justify-end gap-3 flex-wrap">
-          <div className="flex items-center gap-2" role="group" aria-label="Tema da vitrine">
-            <Pill variant={dark ? "ghost" : "surface"} aria-pressed={!dark} onClick={() => apply(false)}>Claro</Pill>
-            <Pill variant={dark ? "surface" : "ghost"} aria-pressed={dark} onClick={() => apply(true)}>Escuro</Pill>
-          </div>
-        </div>
         <Card><BarraEditor /></Card>
         <Secoes secoes={SECOES} />
       </div>

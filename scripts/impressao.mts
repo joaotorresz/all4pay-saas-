@@ -101,16 +101,13 @@ for (const f of arquivos("src", [".ts", ".tsx"])) {
 }
 ok("impressao: nenhuma tela chama window.print() por fora do ajudante",
    cruas.length === 0,
-   cruas.length ? `${cruas.join(", ")} — use \`imprimirRelatorio\` (lib/imprimir): a chamada crua imprime a folha EM BRANCO para quem está no tema escuro` : "");
+   cruas.length ? `${cruas.join(", ")} — use \`imprimirRelatorio\` (lib/imprimir): a chamada crua imprime a tela inteira, com menu e barras` : "");
 
 /* ⚠️ E o ajudante tem de continuar fazendo as duas coisas pelas quais existe.
    Sem estas, alguém "simplifica" o arquivo para um `window.print()` de uma
-   linha, a guarda acima continua verde, e o defeito do tema escuro volta. */
+   linha, a guarda acima continua verde, e a tela inteira vai para o papel. */
 const aj = readFileSync(AJUDANTE, "utf8");
-ok("impressao: o ajudante desliga o tema escuro (senão a folha sai em branco)",
-   /classList\.remove\(["']dark["']\)/.test(aj),
-   "a impressão descarta FUNDO e mantém a COR DO TEXTO: texto quase branco sobre folha branca");
-ok("impressao: o ajudante devolve o tema no afterprint, não na linha seguinte",
+ok("impressao: o ajudante tira as marcas no afterprint, não na linha seguinte",
    /addEventListener\(\s*["']afterprint["']/.test(aj),
    "`window.print()` retorna antes de a pessoa decidir: restaurar na linha seguinte escurece a pré-visualização");
 

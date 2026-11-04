@@ -76,7 +76,7 @@
 /* ⚠️ GERADO — NÃO EDITE À MÃO. A fonte é src/design/tokens.json; depois de
    mudá-lo, rode `npm run tokens`. Uma edição aqui some na próxima geração e
    reprova a guarda `npm run tokens -- --conferir` (dentro do `npm test`). */
-/* tema claro (fora e dentro do app) */
+/* tema claro (o único tema do sistema) */
 :root {
   /* marketing only — nunca no app */
   --color-black-pure: #000000;
@@ -353,51 +353,7 @@
   --a4p-pilula-fundo: #ffffff;
   --a4p-pilula-texto: var(--color-ink);
 }
-/* tema escuro */
-html.dark {
-  /* Neutrals invertidas — SEM sair da paleta quente. O escuro do sistema é o
-     Black #28211B e o Dark Grey #37332A da tabela; os cinzas neutros
-     anteriores (#161616, #0e0e0e, #2a2a2a) eram frios e brigavam com o
-     branco quente que continua sendo o texto.
-     Cinza claro vira o texto */
-  --color-ink: #f3f1ee;
-  --color-ink-soft: #d6d8ca;
-  /* Verde-base — superfície de card */
-  --color-white: #3b4332;
-  /* fundo da página */
-  --color-surface-1: #2b3125;
-  --color-surface-2: #2b3125;
-  --color-surface-3: #6b7060;
-  --color-border: #6b7060;
-  --color-border-soft: color-mix(in srgb, #6b7060 55%, #3b4332);
-  --a4p-hairline: #6b7060;
-  /* Moldura no tema escuro: o chrome fica MAIS escuro que o cartão do app, para
-     o cartão continuar lendo como a peça de cima. Sem isso os dois viram o
-     mesmo preto e a moldura desaparece — que é o oposto da referência.
-     verde-base rebaixado — a moldura fica abaixo do cartão */
-  --a4p-chrome: #1f2419;
-  --a4p-chrome-field: #3b4332;
-  --a4p-chrome-field-hover: #6b7060;
-  --a4p-app-bg: #2b3125;
-  --color-text-secondary: #d6d8ca;
-  --color-text-tertiary: #d6d8ca;
-  --color-text-quaternary: #a9ad9e;
-  /* Accent — o mesmo #C8D930 manda igual; o wash vira um olival escuro */
-  --color-lime-tint: color-mix(in srgb, #ecfd52 18%, #3b4332);
-  /* on-lime continua Black quente (texto escuro sobre o acento) */
-  --color-chart-line: #ecfd52;
-  /* Status — clareados ~1 passo para contraste no escuro */
-  --color-warning: #f0962e;
-  --color-positive: #57a877;
-  --color-negative: #d8584c;
-  --shadow-card: 0 1px 2px rgba(27, 31, 23, 0.34),
-    0 8px 24px -18px rgba(27, 31, 23, 0.55);
-  --shadow-popover: 0 24px 64px -16px rgba(27, 31, 23, 0.68);
-  --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
-  --a4p-bolha-usuario: var(--color-surface-2);
-  --a4p-pilula-fundo: var(--color-white);
-}
-/* dentro do app, nos dois temas */
+/* dentro do app */
 .ds-visor {
   --radius-card: var(--a4p-box-radius);
   /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. ==
@@ -412,7 +368,7 @@ html.dark {
   /* card com borda 1px Cinza médio */
   --a4p-box-border: var(--color-border);
 }
-/* dentro do app, tema claro */
+/* dentro do app (o :not(.dark) só mantém a especificidade de sempre) */
 html:not(.dark) .ds-visor {
   --color-ink: #3b4332;
   --color-ink-soft: #5f5e4e;
@@ -437,7 +393,9 @@ html:not(.dark) .ds-visor {
 /* </tokens-gerados> */
 
 /* ── Base ────────────────────────────────────────────────────────────────────
-   `html.dark` vem do ThemeToggle e do script anti-flash do layout. */
+   O sistema tem um tema só, o claro (04/11/2026, decisão do dono). O tema
+   escuro saiu; `html:not(.dark)` continua nos seletores do app só para manter
+   a especificidade que eles sempre tiveram. Guarda: `npm run tema-unico`. */
 @layer base {
   html,
   body {
@@ -446,9 +404,6 @@ html:not(.dark) .ds-visor {
   html {
     background: var(--color-surface-1);
     color-scheme: light;
-  }
-  html.dark {
-    color-scheme: dark;
   }
 
   /* Prosa em numerais proporcionais; o alinhamento tabular é dos contextos
@@ -486,9 +441,6 @@ html:not(.dark) .ds-visor {
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
-  }
-  html.dark ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
   }
 }
 
@@ -843,11 +795,6 @@ h1, h2, h3,
 .ds-visor *::before,
 .ds-visor *::after {
   box-shadow: none !important;
-}
-html.dark .a4p-canvas {
-  background:
-    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.05), transparent 62%),
-    var(--color-surface-1);
 }
 /* Popover, menu, paleta, gaveta e guia: brancos e sólidos. O aviso flutuante
    (`bg-ink`) fica de fora: é escuro de propósito, com texto claro. */
