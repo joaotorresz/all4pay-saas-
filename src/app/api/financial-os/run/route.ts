@@ -11,6 +11,10 @@ import { registroSupabase } from "@/lib/automacoes-registro";
 import { saidasPara } from "@/lib/whatsapp-saidas";
 import { rodarLembretesReais } from "@/lib/cadastro-lembretes-servidor";
 import { linksDaRegua } from "@/lib/regua-links";
+import { registrarExecucaoCron } from "@/lib/cron-execucao";
+import { agentesLigados } from "@/core/agentes/ligado";
+import type { ConfigAgente } from "@/core/agentes";
+import { empresasComCobranca, reguaDaEmpresaServidor, rodarAgenteCobranca, type RelatorioAgente } from "@/lib/agentes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,11 +60,15 @@ export async function GET(req: Request) {
 
   const hoje = hojeEm(new Date());
   const appUrl = url.origin;
+  const iniciadoEm = new Date().toISOString();
 
   const { data: linhas, error } = await admin
     .from("automacoes").select("org_id,tipo,ativo,canais,destinatarios,parametros")
     .eq("ativo", true).limit(TETO_LINHAS);
-  if (error) return NextResponse.json({ ok: false, motivo: error.message }, { status: 500 });
+  if (error) {
+    if (!dryRun) await registrarExecucaoCron(admin, "automacoes", iniciadoEm, false, { erro: error.message });
+    return NextResponse.json({ ok: false, motivo: error.message }, { status: 500 });
+  }
 
   const porOrg = new Map<string, ConfigAutomacao[]>();
   for (const r of (linhas ?? []) as { org_id: string; tipo: string; ativo: boolean; canais: string[]; destinatarios: unknown; parametros: unknown }[]) {
@@ -69,29 +77,56 @@ export async function GET(req: Request) {
     porOrg.set(r.org_id, [...(porOrg.get(r.org_id) ?? []), cfg]);
   }
 
+  // O agente de cobrança (Etapa 2 do plano "AI first"). ⚠️ Com ele ligado, a
+  // régua automática da empresa NÃO envia sozinha: cada cobrança passa pelo
+  // agente (proposta → aprovação ou limite). Uma porta só para a mesma cobrança.
+  let comAgente = new Map<string, ConfigAgente>();
+  let erroAgentes: string | undefined;
+  if (agentesLigados(process.env)) {
+    try { comAgente = await empresasComCobranca(admin); }
+    catch (e) { erroAgentes = e instanceof Error ? e.message : "falha ao ler os agentes"; }
+  }
+  for (const orgId of Array.from(comAgente.keys())) if (!porOrg.has(orgId)) porOrg.set(orgId, []);
+
   const provedor = provedorReal();
   const registro = registroSupabase(admin);
   const rel = relatorioVazio();
   const empresas: {
     orgId: string; erro?: string;
     automacoes: { tipo: string; mensagens: { canal: string; destino: string }[]; semEnvio?: string; pulados: number }[];
+    agenteCobranca?: RelatorioAgente;
   }[] = [];
 
-  for (const [orgId, cfgs] of Array.from(porOrg)) {
+  for (const [orgId, todas] of Array.from(porOrg)) {
+    const agente = comAgente.get(orgId);
+    // ⚠️ Sem saber quem ligou o agente (leitura falhou), a régua de NINGUÉM sai
+    // sozinha hoje: quem ligou o agente espera aprovar antes (falha fechada).
+    const cfgs = agente || erroAgentes ? todas.filter((c) => c.tipo !== "regua_cobranca") : todas;
+    let regua = agente ? todas.find((c) => c.tipo === "regua_cobranca") : undefined;
+    if (agente && !regua) {
+      try { regua = await reguaDaEmpresaServidor(admin, orgId); }
+      catch (e) { empresas.push({ orgId, erro: e instanceof Error ? e.message : "régua", automacoes: [] }); continue; }
+    }
+    const reguaDoAgente = regua ? { ...regua, ativo: true } : undefined;
     const { data: bruto, error: e } = await admin.rpc("automacao_contexto", { p_org: orgId });
     if (e) { empresas.push({ orgId, erro: e.message, automacoes: [] }); continue; }
     const ctx = contextoDaRpc(orgId, (bruto ?? {}) as ContextoBruto, hoje, appUrl);
     // O link de pagamento que cada título da régua já tem (vazio sem cobrança liberada).
-    const { links, aviso: avisoLinks } = await linksDaRegua(admin, ctx, cfgs);
+    const { links, aviso: avisoLinks } = await linksDaRegua(admin, ctx, reguaDoAgente ? [...cfgs, reguaDoAgente] : cfgs);
     ctx.linksDePagamento = links;
     const antes = { ...rel };
     const resultados = mensagensDoDia(cfgs, ctx);
     // Quem respondeu SAIR não recebe WhatsApp de nenhuma automação.
     const saidas = await saidasPara(admin, resultados.flatMap((r) => r.mensagens));
     for (const r of resultados) await despachar(orgId, r.mensagens, { registro, provedor, dryRun, saidas }, rel);
+    const agenteCobranca = agente && reguaDoAgente
+      ? await rodarAgenteCobranca(admin, orgId, agente, ctx, reguaDoAgente, { registro, provedor, dryRun })
+        .catch((e: unknown): RelatorioAgente => ({ agente: "cobranca", ativo: true, propostas: 0, paraAprovar: 0, feitasSozinho: 0, executadasAprovadas: 0, falhas: 0, expiradas: 0, soAviso: 0, pulados: 0, erro: e instanceof Error ? e.message : "falha no agente" }))
+      : undefined;
     empresas.push({
       orgId,
       ...(avisoLinks ? { erro: avisoLinks } : {}),
+      ...(agenteCobranca ? { agenteCobranca } : {}),
       automacoes: resultados.map((r) => ({
         tipo: r.tipo,
         mensagens: r.mensagens.map((m) => ({ canal: m.canal, destino: m.destinoMascarado })),
@@ -111,6 +146,7 @@ export async function GET(req: Request) {
           hoje, enviados: rel.enviados - antes.enviados, simulados: rel.simulados - antes.simulados,
           falhas: rel.falhas - antes.falhas, ja_registrados: rel.jaRegistrados - antes.jaRegistrados, bloqueados: rel.bloqueados - antes.bloqueados,
           automacoes: resultados.map((r) => r.tipo),
+          ...(agenteCobranca ? { agente_cobranca: agenteCobranca } : {}),
         },
       });
       // ⚠️ Falha na trilha não é engolida: vai para a resposta, que é o que o
@@ -124,11 +160,18 @@ export async function GET(req: Request) {
   const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
     .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : "falha nos lembretes do cadastro" }));
 
+  // O rastro da EXECUÇÃO (guarda `crons-no-ar`), mesmo sem empresa ligada.
+  const erroRegistro = dryRun ? null : await registrarExecucaoCron(admin, "automacoes", iniciadoEm, true, {
+    empresas: porOrg.size, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas,
+  });
+
   return NextResponse.json({
     ok: true,
     hoje,
     dryRun,
+    ...(erroRegistro ? { erroRegistro } : {}),
     lembretesCadastro,
+    ...(erroAgentes ? { erroAgentes } : {}),
     empresas: porOrg.size,
     totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },
     porEmpresa: empresas,

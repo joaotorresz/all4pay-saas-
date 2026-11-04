@@ -112,6 +112,11 @@ export const CHAVES_ORG = {
   // Os FLUXOS que o cliente monta na tela Automações (gatilho → dados → envio).
   // Moram no servidor por `org_state` porque o disparo agendado lê daqui.
   automacaoFluxos: "a4p_automacao_fluxos",
+  // Os agentes da Quattro AI e a fila do que eles propõem. Em produção moram
+  // nas tabelas `agentes`/`agente_propostas`; a chave local é a casa da
+  // DEMONSTRAÇÃO (congeladas em produção — ver CHAVES_CONGELADAS).
+  agentes: "a4p_agentes",
+  agentePropostas: "a4p_agente_propostas",
   regrasUso: "a4p_regras_uso",
   fdipMemory: "a4p_fdip_memory",
   iaMemory: "a4p_ia_memory",
@@ -185,6 +190,17 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   "a4p_regua_envios",
   "a4p_automacoes",
   "a4p_automacao_envios",
+  // A compra mora em `compras`, uma linha por pedido, desde 03/11/2026
+  // (migration 20261103200000, que copiou o que havia aqui; lib/compras-store).
+  "a4p_compras",
+  // O contrato mora em `contratos` desde 03/11/2026 (20261103210000; lib/documentos).
+  "a4p_contratos",
+  // A equipe da folha mora em `colaboradores` desde 03/11/2026 (20261103220000).
+  "a4p_colaboradores",
+  // Os agentes e a fila deles moram em `agentes` e `agente_propostas` desde
+  // 04/11/2026 (lib/agentes).
+  "a4p_agentes",
+  "a4p_agente_propostas",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
@@ -220,7 +236,7 @@ export const CHAVES_DE_NEGOCIO: string[] = Object.values(CHAVES_ORG);
  */
 export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_theme", "a4p_theme_draft", "a4p_modo", "a4p_tipo_conta", "a4p_app_biometria",
-  "a4p_sidebar_width", "a4p_home_widgets", "a4p_home_order", "a4p_home_painel_ordem", "a4p_home_period",
+  "a4p_sidebar_width", "a4p_sidebar_recolhido", "a4p_home_widgets", "a4p_home_order", "a4p_home_painel_ordem", "a4p_home_period",
   "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros",
   // O "olho" que esconde os saldos (lib/ocultar-saldos): ajuste do aparelho.
   "a4p_ocultar_saldos",
@@ -233,6 +249,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   // se dá para acompanhar o ritmo, não um orçamento da empresa (que mora em
   // Orçamento, no servidor).
   "a4p_maquininha_meta",
+  // O "Agora não" da oferta de levar a Quattro AI ao WhatsApp: um lembrete do
+  // aparelho de quando perguntar de novo, não um dado da empresa.
+  "a4p_ia_whatsapp_oferta",
   // As prioridades que a pessoa marcou na caixa da IA e quantas vezes clicou
   // em cada sugestão. São de QUEM usa, não da empresa: o sócio que cuida de
   // vendas e o que cuida do caixa veem sugestões diferentes na mesma Home.
@@ -346,6 +365,8 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_automacoes: "Automações de e-mail e WhatsApp",
   a4p_automacao_fluxos: "Fluxos de automação montados pela empresa",
   a4p_automacao_envios: "Envios das automações",
+  a4p_agentes: "Agentes da Quattro AI",
+  a4p_agente_propostas: "O que os agentes propuseram",
   a4p_regras_uso: "Uso das regras de categorização",
   a4p_fdip_memory: "Aprendizado da importação",
   a4p_ia_memory: "Memória do assistente",

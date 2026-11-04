@@ -68,7 +68,7 @@ export function PlanosView() {
 
   return (
     <AppShell title="Planos" crumb="Assinatura">
-      <div className="flex flex-col gap-5 pb-6 max-w-[840px]">
+      <div className="flex flex-col gap-5 pb-6">
         {pedido && (
           <Card className="flex flex-col gap-2">
             <div className="flex items-center gap-2">

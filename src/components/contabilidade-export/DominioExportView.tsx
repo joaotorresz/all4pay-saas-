@@ -10,7 +10,7 @@
  * libera o download.
  */
 import * as React from "react";
-import { Card, Button, Icon, Select, BRL } from "@/components/ui";
+import { Card, Button, Icon, Select, BRL, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { useContasBancarias, useCategoriasArvore, useCentrosCusto } from "@/components/registros/hooks";
@@ -207,32 +207,20 @@ export function DominioExportView() {
                 </p>
               ) : (
                 <>
-                  <div className="overflow-x-auto -mx-6">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b border-border-soft">
-                          <Th>Data</Th>
-                          <Th>Conta contábil</Th>
-                          <Th>D/C</Th>
-                          <Th>Histórico</Th>
-                          <Th>Centro de custo</Th>
-                          <Th direita>Valor</Th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {linhas.slice(0, 200).map((l) => (
-                          <tr key={l.id} className="border-b border-border-soft last:border-0">
-                            <td className="px-6 py-2 text-label text-muted tabular-nums">{fmtDia(l.data)}</td>
-                            <td className="px-6 py-2 text-label text-ink tabular-nums">{l.conta}</td>
-                            <td className="px-6 py-2 text-label text-muted">{l.natureza}</td>
-                            <td className="px-6 py-2 text-label text-ink">{campoDominio(l.historico)}</td>
-                            <td className="px-6 py-2 text-label text-muted tabular-nums">{l.centroCusto || "—"}</td>
-                            <td className="px-6 py-2 text-right text-label text-ink tabular-nums"><BRL value={l.valor} /></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Tabela
+                    linhas={linhas.slice(0, 200)}
+                    chave={(l) => l.id}
+                    emCartao={false}
+                    rotulo="Lançamentos do arquivo"
+                    colunas={[
+                      { chave: "data", rotulo: "Data", render: (l) => <span className="text-muted tabular-nums">{fmtDia(l.data)}</span> },
+                      { chave: "conta", rotulo: "Conta contábil", render: (l) => <span className="tabular-nums">{l.conta}</span> },
+                      { chave: "natureza", rotulo: "D/C", render: (l) => <span className="text-muted">{l.natureza}</span> },
+                      { chave: "historico", rotulo: "Histórico", principal: true, render: (l) => campoDominio(l.historico) },
+                      { chave: "centro", rotulo: "Centro de custo", render: (l) => <span className="text-muted tabular-nums">{l.centroCusto || "—"}</span> },
+                      { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (l) => <BRL value={l.valor} /> },
+                    ]}
+                  />
                   {linhas.length > 200 && (
                     <p className="m-0 text-caption text-faint">
                       Mostrando 200 de {linhas.length} — o arquivo sai completo.
@@ -302,10 +290,3 @@ function Aviso({
   );
 }
 
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-2 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
-  );
-}

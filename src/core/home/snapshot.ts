@@ -109,7 +109,7 @@ export function montarHomeSnapshot(input: RiskInput, pontos = 7): HomeSnapshot {
 
   const arrAgora = arr(input);
   const arrAntes = arr(input, undefined, janelaDoMesDe(d30));
-  const arrCard = num("arr", "Receita recorrente (ARR)", arrAgora, arrAntes, "brl", "/dashboard/dashboards/subscriptions");
+  const arrCard = num("arr", "Receita recorrente (ARR)", arrAgora, arrAntes, "brl", "/dashboard/sales-invoices/subscriptions");
   const curvaArr: CurvaHome = {
     pontos: meses.map((m) => {
       const a = arr(input, undefined, janelaDoMesDe(m.iso));

@@ -3,6 +3,7 @@
  * ponderando entradas pela probabilidade de recebimento. Daqui nascem
  * ruptura, runway e o ponto de quebra.
  */
+import { HORIZONTE_RUPTURA_DIAS } from "./horizonte";
 import { runwayDeFluxo, lerRunwayDeFluxo } from "@/core/indicadores";
 import type { RiskInput, LiquidezPonto, RunwayCenarios, BurnResult } from "./types";
 import { recebiveisPonderados, compromissosAbertos } from "./normalize";
@@ -23,7 +24,7 @@ export function calcularLiquidezProjetada(input: RiskInput): {
   pontos: LiquidezPonto[];
   rupturaDia: number | null;
 } {
-  const horizon = input.horizonDias ?? 60;
+  const horizon = input.horizonDias ?? HORIZONTE_RUPTURA_DIAS;
   const recs = recebiveisPonderados(input);
   const pays = compromissosAbertos(input);
 

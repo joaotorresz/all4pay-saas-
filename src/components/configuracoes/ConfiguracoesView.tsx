@@ -104,7 +104,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
   const semDados = !company || (!company.db && !company.perfil);
 
   return (
-    <div className="flex flex-col gap-5 pb-4 max-w-4xl">
+    <div className="flex flex-col gap-5 pb-4">
       {/* ⚠️ A qualidade dos dados vem PRIMEIRO, antes do cadastro da empresa.
           Ela é a única coisa nesta tela que muda número de relatório; razão
           social e endereço não. Pôr o painel no fim faria dele um rodapé que

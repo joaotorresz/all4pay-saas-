@@ -101,6 +101,8 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/admin/maquininhas", nome: "Maquininhas da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/cobranca", nome: "Cobrança da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/design-system", nome: "Design system da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/interruptores", nome: "Interruptores da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin/notas-fiscais", nome: "Notas fiscais da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/acessos", nome: "Acessos da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/admin/suporte", nome: "Suporte aos clientes", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/quattro-ai", nome: "Quattro AI", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
@@ -190,6 +192,7 @@ export const INVENTARIO: RotaInventario[] = [
   // Pública: é a página que o CLIENTE da empresa abre para pagar o título por
   // Pix ou boleto (`/pagar?t=<token>`). Ele não tem conta no sistema.
   { rota: "/pagar", nome: "Pagamento", dono: "vendas", status: "canonica", criterio: "diferencial" },
+  { rota: "/pagar/boleto", nome: "Boleto do link de pagamento", dono: "vendas", status: "canonica", criterio: "diferencial" },
   // A porta de entrada: três campos, uma tela.
   { rota: "/criar-conta", nome: "Criar conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   // O fim do "esqueci a senha": só abre com a sessão de recuperação que a
@@ -201,7 +204,7 @@ export const INVENTARIO: RotaInventario[] = [
   // O segundo fator é da PESSOA: mora em "Meu perfil", não na administração
   // (que recusa justamente quem ainda não o cadastrou).
   { rota: "/configuracoes/seguranca", nome: "Segurança da conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
-  { rota: "/exportar", nome: "Razão e DRE para o contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
+  { rota: "/exportar", nome: "Enviar ao contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/dominio-export", nome: "TXT Domínio", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/nfe-export", nome: "Envio das NFs", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/upload", nome: "Entrada de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },

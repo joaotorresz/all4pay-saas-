@@ -11,6 +11,9 @@
  *                                 aliquota?, padrao?: "nacional",
  *                                 codigoTributacaoNacional?, codigoNbs?, serieDps?,
  *                                 percentualTributosSimples? } }
+ *                                 — RESERVA: a tabela `nfse_emitentes` vence (03/11/2026).
+ *   FOCUS_NFE_EMPRESAS          = ligado → a área da plataforma cadastra empresas
+ *                                 na Focus (API de empresas, só produção).
  *
  * ⚠️ O ambiente escolhe a BASE e o TOKEN juntos, nunca uma URL livre: com o
  * token de produção apontado para a homologação (ou o contrário) a Focus
@@ -20,6 +23,7 @@
  *
  * ⚠️ O token nunca sai daqui: nem na resposta da rota, nem no log.
  */
+import { createAdmin } from "@/lib/supabase/admin";
 import { BASE_FOCUS, caminhoDaRef, lerEmitentes, type AmbienteFocus, type EmitenteFocus, type PedidoFocus, type PedidoNacional } from "@/core/nfse/focus";
 
 export function ambienteFocus(): AmbienteFocus {
@@ -34,17 +38,41 @@ function token(amb: AmbienteFocus): string | null {
 /** A emissão real está ligada: há token para o ambiente escolhido. */
 export const focusConfigurada = (): boolean => !!token(ambienteFocus());
 
-/** O emitente que a PLATAFORMA vinculou à organização (nunca o que a empresa digita). */
-export function emitenteDaOrg(orgId: string): EmitenteFocus | null {
+/**
+ * O emitente que a PLATAFORMA vinculou à organização (nunca o que a empresa digita).
+ *
+ * Primeiro a tabela `nfse_emitentes` (só a chave de serviço a lê; a empresa
+ * não tem acesso), depois a variável FOCUS_NFE_EMITENTES como reserva. Os dois
+ * passam pela MESMA `lerEmitentes`: campo fora de forma é ignorado com aviso.
+ * ⚠️ A linha do banco vence a variável — é ela que a plataforma ajusta sem
+ * refazer o deploy.
+ */
+export async function emitenteDaOrg(orgId: string): Promise<EmitenteFocus | null> {
+  const doBanco = await emitenteDoBanco(orgId);
+  if (doBanco) return doBanco;
   const { emitentes, problemas } = lerEmitentes(process.env.FOCUS_NFE_EMITENTES);
   if (problemas.length) console.warn("[focusnfe] configuração dos emitentes:", problemas.join(" | "));
   return emitentes[orgId] ?? null;
 }
 
+async function emitenteDoBanco(orgId: string): Promise<EmitenteFocus | null> {
+  const admin = createAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.from("nfse_emitentes").select("config").eq("org_id", orgId).maybeSingle();
+  if (error) {
+    // Tabela ausente (migration pendente) ou falha de leitura: vale a reserva da Vercel.
+    console.warn("[focusnfe] emitente do banco indisponível:", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const { emitentes, problemas } = lerEmitentes(JSON.stringify({ [orgId]: data.config }));
+  if (problemas.length) console.warn("[focusnfe] emitente do banco:", problemas.join(" | "));
+  return emitentes[orgId] ?? null;
+}
+
 export interface RespostaFocus { http: number; corpo: unknown }
 
-async function chamar(metodo: "GET" | "POST" | "DELETE", caminho: string, corpo?: unknown): Promise<RespostaFocus> {
-  const amb = ambienteFocus();
+async function chamar(metodo: "GET" | "POST" | "DELETE", caminho: string, corpo?: unknown, amb: AmbienteFocus = ambienteFocus()): Promise<RespostaFocus> {
   const t = token(amb);
   if (!t) return { http: 503, corpo: { mensagem: "Emissão de notas não configurada." } };
   const ctrl = new AbortController();
@@ -86,3 +114,39 @@ export const consultarNaFocus = (ref: string) =>
 
 export const cancelarNaFocus = (ref: string, justificativa: string) =>
   chamar("DELETE", `${caminhoDaRef(ref)}/${encodeURIComponent(ref)}`, { justificativa });
+
+/**
+ * As tabelas de serviço do MUNICÍPIO na Focus (só leitura): os itens da lista
+ * de serviço e os códigos tributários que a prefeitura aceita. Existe porque a
+ * recusa E0312 ("código não administrado pelo município") só se resolve sabendo
+ * o que o município administra. Caminho FIXO: o tipo vem de uma lista fechada
+ * e o município e os filtros só levam dígitos/texto codificado.
+ */
+export type TabelaMunicipioFocus = "itens_lista_servico" | "codigos_tributarios_municipio";
+export function consultarTabelaDoMunicipio(
+  municipio: string, tabela: TabelaMunicipioFocus, filtros: { codigo?: string; descricao?: string; offset?: number },
+) {
+  const mun = municipio.replace(/\D/g, "").slice(0, 7);
+  const q = new URLSearchParams();
+  if (filtros.codigo) q.set("codigo", filtros.codigo.replace(/[^\d.]/g, "").slice(0, 10));
+  if (filtros.descricao) q.set("descricao", filtros.descricao.slice(0, 60));
+  if (filtros.offset && filtros.offset > 0) q.set("offset", String(Math.floor(filtros.offset)));
+  q.set("limit", "100");
+  return chamar("GET", `/v2/municipios/${mun}/${tabela}?${q.toString()}`);
+}
+
+/**
+ * O CADASTRO DE EMPRESAS na Focus (`POST /v2/empresas`). Nasce DESLIGADO:
+ * `FOCUS_NFE_EMPRESAS=ligado` é lido SÓ aqui. A API de empresas da Focus só
+ * existe na PRODUÇÃO (não há homologação), então vai sempre à produção com o
+ * token de produção; `simular` manda `dry_run=1`, que confere sem gravar.
+ * ⚠️ O corpo leva o certificado e a senha: nunca vai a log.
+ */
+export const cadastroEmpresasLigado = (env: Record<string, string | undefined> = process.env): boolean =>
+  env.FOCUS_NFE_EMPRESAS === "ligado";
+
+export const tokenDeProducaoConfigurado = (): boolean => !!token("producao");
+
+export function cadastrarEmpresaNaFocus(corpo: Record<string, unknown>, simular: boolean) {
+  return chamar("POST", `/v2/empresas${simular ? "?dry_run=1" : ""}`, corpo, "producao");
+}

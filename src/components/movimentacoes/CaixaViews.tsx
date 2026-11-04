@@ -10,7 +10,7 @@
  * mostrar zeros sem explicação faria parecer que a empresa não movimenta.
  */
 import * as React from "react";
-import { Card, Button, Icon, Select, DateField, Switch, BRL, Skeleton, PontoStatus } from "@/components/ui";
+import { Card, Button, Icon, Select, DateField, Switch, BRL, Skeleton, PontoStatus, Tabela } from "@/components/ui";
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { listarTransferencias } from "@/lib/movimentacoes";
@@ -162,29 +162,18 @@ export function FluxoCaixaMensalView() {
         <Card><p className="m-0 py-12 text-center text-label text-muted">Nenhuma movimentação no período.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  {["Data", "Descrição", "Valor", "Saldo"].map((h, i) => (
-                    <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i > 1 ? "text-right" : "text-left"}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {fluxo.linhas.map((l, k) => (
-                  <tr key={k} className="border-b border-border-soft last:border-0">
-                    <td className="px-6 py-2 text-label text-ink tabular-nums">{fmtDia(l.data)}</td>
-                    <td className="px-6 py-2 text-label text-muted">{l.descricao}</td>
-                    <td className="px-6 py-2 text-right text-label text-ink tabular-nums">
-                      {l.tipo === "entrada" ? "+" : "−"}<BRL value={l.valor} />
-                    </td>
-                    <td className="px-6 py-2 text-right text-label text-ink tabular-nums"><BRL value={l.saldo} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={fluxo.linhas.map((l, k) => ({ ...l, k }))}
+            chave={(l) => String(l.k)}
+            emCartao={false}
+            rotulo="Fluxo de caixa diário"
+            colunas={[
+              { chave: "data", rotulo: "Data", render: (l) => <span className="tabular-nums">{fmtDia(l.data)}</span> },
+              { chave: "descricao", rotulo: "Descrição", principal: true, render: (l) => <span className="text-muted">{l.descricao}</span> },
+              { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (l) => <>{l.tipo === "entrada" ? "+" : "−"}<BRL value={l.valor} /></> },
+              { chave: "saldo", rotulo: "Saldo", alinhar: "direita", render: (l) => <BRL value={l.saldo} /> },
+            ]}
+          />
         </Card>
       )}
     </div>
@@ -257,30 +246,19 @@ export function ExtratoView() {
             {!ext || ext.linhas.length === 0 ? (
               <p className="m-0 py-12 text-center text-label text-muted">Nenhum lançamento liquidado no período.</p>
             ) : (
-              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b border-border-soft">
-                      {["Data", "Descrição", "Categoria", "Valor", "Saldo"].map((h, i) => (
-                        <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i > 2 ? "text-right" : "text-left"}`}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ext.linhas.map((l) => (
-                      <tr key={l.id} className="border-b border-border-soft last:border-0">
-                        <td className="px-6 py-2 text-label text-ink tabular-nums">{fmtDia(l.data)}</td>
-                        <td className="px-6 py-2 text-label text-muted truncate max-w-[34ch]">{l.descricao}</td>
-                        <td className="px-6 py-2 text-label text-muted">{l.categoria ?? "—"}</td>
-                        <td className="px-6 py-2 text-right text-label text-ink tabular-nums">
-                          {l.tipo === "entrada" ? "+" : "−"}<BRL value={l.valor} />
-                        </td>
-                        <td className="px-6 py-2 text-right text-label text-ink tabular-nums"><BRL value={l.saldo} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Tabela
+                linhas={ext.linhas}
+                chave={(l) => l.id}
+                emCartao={false}
+                rotulo="Extrato da conta"
+                colunas={[
+                  { chave: "data", rotulo: "Data", render: (l) => <span className="tabular-nums">{fmtDia(l.data)}</span> },
+                  { chave: "descricao", rotulo: "Descrição", principal: true, classe: "truncate max-w-[34ch]", render: (l) => <span className="text-muted">{l.descricao}</span> },
+                  { chave: "categoria", rotulo: "Categoria", render: (l) => <span className="text-muted">{l.categoria ?? "—"}</span> },
+                  { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (l) => <>{l.tipo === "entrada" ? "+" : "−"}<BRL value={l.valor} /></> },
+                  { chave: "saldo", rotulo: "Saldo", alinhar: "direita", render: (l) => <BRL value={l.saldo} /> },
+                ]}
+              />
             )}
           </Card>
         </>

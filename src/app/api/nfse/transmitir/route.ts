@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { emitenteDaOrg, emitirNaFocus, focusConfigurada, ambienteFocus } from "@/lib/focusnfe";
 import { abrirSessao, lerId, lerNota, podeLancar, registrar, resposta, UUID } from "@/lib/nfse-servidor";
+import { comMunicipioDoCep } from "@/lib/cep-servidor";
 import { dataEmissaoNacional, montarPedido, montarPedidoNacional, motivoDaRecusa, proximaTentativa, refDaTentativa } from "@/core/nfse/focus";
 
 /**
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
   if (!focusConfigurada()) {
     return resposta(503, { ok: false, codigo: "nao_configurada", motivo: "A emissão de notas ainda não foi ligada na Quattro. Fale com o suporte." });
   }
-  const emitente = emitenteDaOrg(nota.org_id);
+  const emitente = await emitenteDaOrg(nota.org_id);
   if (!emitente) {
     return resposta(409, { ok: false, codigo: "sem_emitente", motivo: "Esta empresa ainda não está habilitada a emitir notas (cadastro fiscal e certificado). Fale com o suporte da Quattro." });
   }
@@ -51,6 +52,8 @@ export async function POST(req: Request) {
     return resposta(409, { ok: false, codigo: "estado_invalido", motivo: nota.status === "processando" ? "A nota já está na prefeitura. Atualize para ver o resultado." : "Só rascunho ou nota recusada pode ser transmitida." });
   }
   if (!nota.tomador) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: "A nota não tem cliente (tomador)." });
+  // O cadastro não guarda o IBGE da cidade; o leiaute da reforma o exige no endereço do tomador.
+  if (emitente.padrao !== "nacional") nota.tomador = await comMunicipioDoCep(nota.tomador);
 
   const dadosNota = { id: nota.id, descricao: nota.description ?? "", codigoServico: nota.service_code ?? "", valor: nota.amount, issRetido: nota.iss_retained === true };
   const nacional = emitente.padrao === "nacional";
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
   const competencia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
   const montado = nacional
     ? montarPedidoNacional(dadosNota, nota.tomador, emitente, dataEmissaoNacional(agora.getTime()), competencia, agora.getTime())
-    : montarPedido(dadosNota, nota.tomador, emitente, agora.toISOString());
+    : montarPedido(dadosNota, nota.tomador, emitente, dataEmissaoNacional(agora.getTime()));
   if (!montado.ok) return resposta(422, { ok: false, codigo: "pedido_incompleto", motivo: montado.problemas.join(" ") });
 
   const ref = refDaTentativa(nota.id, proximaTentativa(nota.provedor_ref), nacional);

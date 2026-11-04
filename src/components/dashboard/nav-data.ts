@@ -178,16 +178,16 @@ export const SECTIONS: Section[] = [
   {
     // "Onde está o dinheiro AGORA", e o portão por onde ele sai. Aprovações e
     // baixas mora aqui (decisão do dono): é a última porta antes do caixa.
+    // ⚠️ 11 → 7 linhas em 03/11/2026. Faturas do cartão e Transferências
+    // abrem pelos botões de Contas bancárias; Regras de categoria e
+    // Duplicatas, pelos de Entrada de dados. As telas seguem nos endereços.
+    // Aprovações fica separada de Baixas: ela é Pro pela rota.
     id: "caixa", label: "Caixa e bancos", icon: "arrow-left-right", items: [
       { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "activity" },
       { label: "Contas bancárias", desc: "Contas e cartões cadastrados", href: "/dashboard/registrations/bank-accounts", icon: "building" },
-      { label: "Faturas do cartão", desc: "O ciclo de cada cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
-      { label: "Transferências", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/transfers", icon: "arrow-left-right" },
       { label: "Conciliação bancária", desc: "Banco × lançamentos, inclusive Open Finance", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Entrada de dados", desc: "Conectar banco e enviar extrato", href: "/upload", icon: "upload" },
-      { label: "Regras de categoria", desc: "Categorização automática na importação", href: "/upload/regras", icon: "workflow" },
-      { label: "Duplicatas", desc: "Cópias já gravadas na base", href: "/upload/duplicatas", icon: "scan-line" },
       { label: "Baixas a confirmar", desc: "O que falta confirmar e baixar", href: "/central", icon: "list-checks" },
       { label: "Aprovações", desc: "Solicitações acima da alçada", href: "/aprovacoes", icon: "shield-check", pro: true },
     ],
@@ -197,14 +197,11 @@ export const SECTIONS: Section[] = [
     // razão foram para Relatórios; o consolidado, para Multiempresas.
     id: "contabil", label: "Contabilidade", icon: "receipt", items: [
       { label: "Razão contábil", desc: "Os lançamentos em partidas dobradas", href: "/contabilidade", icon: "receipt" },
-      { label: "Reconhecimento de receita", desc: "Receita diferida reconhecida mês a mês", href: "/receita", icon: "trending-up" },
-      { label: "Cronogramas", desc: "Amortização e depreciação", href: "/cronogramas", icon: "layers" },
+      { label: "Reconhecimento de receita", desc: "Receita diferida, amortização e depreciação", href: "/receita", icon: "trending-up" },
       { label: "Dimensões", desc: "Tags e o pivot do razão", href: "/dimensoes", icon: "layers" },
       { label: "Fechamento mensal", desc: "Checklist, provisões, trava e relatório do mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
-      { label: "Razão e DRE para o contador", desc: "Planilha do razão e do DRE do período", href: "/exportar", icon: "download" },
-      { label: "TXT Domínio", desc: "O movimento no layout do Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
-      { label: "Envio das NFs", desc: "O pacote mensal de XMLs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail" },
+      { label: "Enviar ao contador", desc: "Razão e DRE em planilha, TXT do Domínio e as NFs", href: "/exportar", icon: "download" },
     ],
   },
   {
@@ -215,10 +212,8 @@ export const SECTIONS: Section[] = [
       { label: "DFC", desc: "Caixa pela data de pagamento, por período e mês a mês", href: "/dashboard/reports/dfc", icon: "trending-up" },
       { label: "Balanço patrimonial", desc: "Ativo, passivo e PL em duas datas", href: "/dashboard/reports/balance-sheet", icon: "layers" },
       { label: "Análise de variação", desc: "O que mudou no mês, e por quê", href: "/dashboard/reports/variance", icon: "activity" },
-      { label: "Orçamentos", desc: "O previsto, por categoria e mês", href: "/orcamento", icon: "target" },
-      { label: "Planejado × Realizado", desc: "O orçado contra o que aconteceu", href: "/orcamento/realizado", icon: "target" },
-      { label: "DRE multiempresas", desc: "O resultado do grupo, empresa a empresa", href: "/dashboard/reports/dre-multi", icon: "building" },
-      { label: "DFC multiempresas", desc: "O caixa do grupo, empresa a empresa", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "Orçamentos", desc: "O previsto, e o orçado contra o realizado", href: "/orcamento", icon: "target" },
+      { label: "DRE multiempresas", desc: "O resultado e o caixa do grupo, empresa a empresa", href: "/dashboard/reports/dre-multi", icon: "building" },
       { label: "Posição consolidada", desc: "Saldo e resultado do grupo, com eliminações", href: "/consolidado", icon: "building", pro: true },
       { label: "Relatório ao investidor", desc: "O relatório mensal para quem investe", href: "/investidores", icon: "mail", pro: true },
       { label: "Meus painéis", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
@@ -228,14 +223,12 @@ export const SECTIONS: Section[] = [
     // ⚠️ A linha "Quattro AI" NÃO navega: ela abre o chat em tela cheia por
     // cima da tela atual (evento `a4p:open-ia`). Desde 14/10/2026 o botão
     // flutuante saiu e a conversa mora num lugar só; esta linha, o ⌘K e a
-    // caixa da Home são portas para o MESMO chat. Os quatro motores são
-    // páginas próprias desde 27/10/2026 (fim das abas internas), todas Pro.
+    // caixa da Home são portas para o MESMO chat. Os quatro motores (Risco,
+    // Decisão, Saúde, Sugestões) saíram do menu em 03/11/2026: são cartões da
+    // conversa (`core/assistant/widgets`), e a tela completa de cada um segue
+    // no endereço dela, Pro pelo servidor, aberta pelo cartão.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
       { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles", event: "a4p:open-ia" },
-      { label: "Risco de caixa", desc: "Runway, ruptura e stress de caixa", href: "/risco", icon: "triangle-alert", pro: true },
-      { label: "Decisão", desc: "Monte Carlo e recomendações com impacto", href: "/decisao", icon: "target", pro: true },
-      { label: "Saúde financeira", desc: "Score de saúde, radar e cenários", href: "/inteligencia", icon: "gauge", pro: true },
-      { label: "Sugestões da IA", desc: "O que o motor recomenda fazer agora", href: "/autonomo", icon: "sparkles", pro: true },
       { label: "Posso comprar?", desc: "O que a compra faz com o seu caixa", href: "/simuladores", icon: "target" },
       { label: "Plano de contratações", desc: "O custo de cada contratação no caixa", href: "/contratacoes", icon: "users", pro: true },
       { label: "Automações", desc: "Mensagens no WhatsApp e alertas do sistema", href: "/automacoes", icon: "workflow" },

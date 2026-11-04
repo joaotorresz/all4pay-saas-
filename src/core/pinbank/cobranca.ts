@@ -52,6 +52,8 @@ export type ReservaCobranca =
       vencimento: string;
       descricao: string | null;
       devedor: DevedorCobranca | null;
+      /** O Pix ATUALIZADO do link (valor do dia, vale só até 23:59 dele); ausente nas cobranças comuns. */
+      diaReferencia?: string | null;
     };
 
 const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -86,6 +88,7 @@ export function lerReservaCobranca(v: unknown): ReservaCobranca {
     valor: Math.round(valor * 100) / 100,
     vencimento,
     descricao: texto(v.descricao, 140),
+    diaReferencia: tipo === "pix" && typeof v.diaReferencia === "string" && DATA.test(v.diaReferencia) ? v.diaReferencia : null,
     devedor: d
       ? {
           nome: texto(d.nome, 100),
@@ -131,14 +134,16 @@ export function problemasDoDevedor(tipo: TipoCobranca, d: DevedorCobranca | null
 /**
  * O vencimento como a Pinbank o pede. O Pix documenta ISO com hora; o fim do
  * dia de São Paulo (23:59:59, −03:00) deixa o QR valer o dia inteiro do
- * vencimento. ⚠️ O boleto não documenta o formato: vai `AAAA-MM-DD` (pergunta
- * aberta à Pinbank — trocar aqui).
+ * vencimento. ⚠️ O boleto vai `AAAAMMDD`, sem separador e sem hora: a
+ * documentação só diz "string", e com `AAAA-MM-DD` a Pinbank devolveu "Bad
+ * request" (30/10/2026, boleto já liberado na conta). É o formato da
+ * integração Pinbank de código aberto da KMEE (Odoo, PR #727).
  */
 export function vencimentoPix(dia: string): string {
   return `${dia}T23:59:59.000-03:00`;
 }
 export function vencimentoBoleto(dia: string): string {
-  return dia;
+  return dia.slice(0, 10).replace(/-/g, "");
 }
 
 /**
@@ -154,6 +159,16 @@ export function segundosAteVencimento(dia: string, agora: Date): number {
   return Number.isFinite(s) ? Math.max(3600, s) : 3600;
 }
 
+/**
+ * O Pix do dia (Pix atualizado do link) vale até 23:59:59 de São Paulo, sem o
+ * piso de 1 hora: às 23:30 ele vale 29 minutos, nunca até a 00:29 de amanhã,
+ * quando o valor já é outro. Piso de 60 s só para não nascer vencido.
+ */
+export function segundosAteFimDoDia(dia: string, agora: Date): number {
+  const s = Math.floor((Date.parse(vencimentoPix(dia)) - agora.getTime()) / 1000);
+  return Number.isFinite(s) ? Math.max(60, s) : 60;
+}
+
 type Reservada = Extract<ReservaCobranca, { existente: false }>;
 
 /** O `Data` do `Pix/SolicitarDynamicQrCode`. */
@@ -167,10 +182,11 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = 
     ValorQrCode: Math.round(r.valor * 100),
     NsuOrigem: r.nsuOrigem,
     DataVencimento: vencimentoPix(r.vencimento),
-    SegundosExpiracao: segundosAteVencimento(r.vencimento, agora),
+    SegundosExpiracao: r.diaReferencia ? segundosAteFimDoDia(r.diaReferencia, agora) : segundosAteVencimento(r.vencimento, agora),
     // Pago depois do vencimento ainda é pago: recusar só empurraria o cliente
-    // para outro meio, e o título continuaria em aberto.
-    PermitirPagamentoAposExpiracao: true,
+    // para outro meio, e o título continuaria em aberto. ⚠️ EXCETO o Pix do
+    // dia: amanhã a multa e os juros são outros, e o QR de hoje pagaria menos.
+    PermitirPagamentoAposExpiracao: !r.diaReferencia,
     // O valor é o do título; o pagador não escolhe quanto paga.
     PermitirAlterarValorPagamento: false,
     // A Pinbank (28/10/2026) pediu o campo: sem ele o QR dinâmico volta "Erro de Sistema".
@@ -180,41 +196,72 @@ export function pedidoQrCodeDinamico(r: Reservada, canal: number, agora: Date = 
   };
 }
 
+/**
+ * O texto do boleto SEM acento. ⚠️ O registro do boleto no banco é ASCII: o
+ * "ã" de "João" chegou ao app de quem paga como "Jo o" (30/10/2026). Tira o
+ * acento ("João" → "Joao", "ç" → "c") e troca o que sobrar fora do ASCII
+ * imprimível por espaço, sem deixar espaço dobrado.
+ */
+export function textoDoBoleto(s: string | null | undefined): string {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7e]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** O `Data` do `CashIn/GerarBoleto`. */
-export function pedidoBoleto(r: Reservada, canal: number): Record<string, unknown> {
+/**
+ * A multa e os juros no formato do `GerarBoleto` (30/10/2026). ⚠️ A UNIDADE é
+ * HIPÓTESE até a Pinbank confirmar: centésimos de ponto percentual, como o
+ * valor vai em centavos (2% → 200; a integração da kmee manda assim). Só sai
+ * com o interruptor `PINBANK_BOLETO_ENCARGOS` (lido em `lib/pinbank/api`).
+ */
+export function encargosDoBoleto(e: { multaPct: number; jurosMesPct: number } | null | undefined) {
+  return {
+    Juros: { Valor: e ? Math.round(e.jurosMesPct * 100) : 0 },
+    Multa: { Valor: e ? Math.round(e.multaPct * 100) : 0 },
+  };
+}
+
+export function pedidoBoleto(r: Reservada, canal: number, encargos?: { multaPct: number; jurosMesPct: number } | null): Record<string, unknown> {
   const d = r.devedor;
   const endereco = [d?.logradouro, d?.numero, d?.complemento].filter(Boolean).join(", ");
   return {
     CodigoCanal: canal,
     CodigoCliente: r.codigoCliente,
     DataVencimento: vencimentoBoleto(r.vencimento),
-    Valor: r.valor,
+    // ⚠️ EM CENTAVOS, como o Pix: em reais, o título de R$ 10,00 ia como
+    // R$ 0,10 e a Pinbank recusava ("Bad request", 30/10/2026).
+    Valor: Math.round(r.valor * 100),
     ...(d?.email ? { Email: d.email } : {}),
     DadosSacado: {
       CpfCnpj: digitos(d?.documento ?? null),
-      Nome: d?.nome ?? "",
-      Endereco: endereco,
-      Bairro: d?.bairro ?? "",
-      Cidade: d?.cidade ?? "",
+      Nome: textoDoBoleto(d?.nome),
+      Endereco: textoDoBoleto(endereco),
+      Bairro: textoDoBoleto(d?.bairro),
+      Cidade: textoDoBoleto(d?.cidade),
       Cep: Number(digitos(d?.cep ?? null)),
       Uf: (d?.uf ?? "").toUpperCase(),
     },
     // O NSU da reserva identifica a cobrança na volta (o webhook da baixa).
     IdentificadorCliente: String(r.nsuOrigem),
     RetornarBase64: false,
-    ...(r.descricao ? { Instrucoes: r.descricao.slice(0, 200) } : {}),
+    ...(r.descricao ? { Instrucoes: textoDoBoleto(r.descricao).slice(0, 200) } : {}),
     // A documentação traz os dois blocos no pedido; sem eles a Pinbank devolveu
-    // "Bad request" (26/10/2026). Zerados: o sistema não cobra juros nem multa
-    // pelo boleto (a mora é calculada na baixa).
-    Juros: { Valor: 0 },
-    Multa: { Valor: 0 },
+    // "Bad request" (26/10/2026). Zerados sem a regra da empresa (ou com o
+    // interruptor desligado): o boleto sai sem multa e sem juros.
+    ...encargosDoBoleto(encargos),
   };
 }
 
 /** O que vai para `pinbank_cobranca_registrar` (o banco confere de novo). */
 export type ResultadoCobranca =
   | { situacao: "emitida"; pinbankId?: string | null; txid?: string | null; textoQrCode?: string | null;
-      qrCodeUrl?: string | null; linhaDigitavel?: string | null; codigoBarras?: string | null }
+      qrCodeUrl?: string | null; linhaDigitavel?: string | null; codigoBarras?: string | null;
+      /** A regra que foi NO boleto (só o boleto, só com o interruptor ligado). */
+      encargos?: { multaPct: number; jurosMesPct: number; carenciaDias: number; aceitarAteDias: number | null } | null }
   | { situacao: "falhou" | "incerta"; motivo: string };
 
 /** O código e a mensagem da Pinbank, e os erros de validação (campo + mensagem). */
@@ -279,7 +326,7 @@ export const FRASE_DA_SITUACAO: Record<SituacaoCobranca, string> = {
   falhou: "A Pinbank recusou; corrija e gere de novo.",
   incerta: "A Pinbank não confirmou. Ela pode existir, então nada novo é gerado até a conferência.",
   a_cancelar: "O título mudou depois da emissão. Esta cobrança precisa ser cancelada antes de uma nova.",
-  paga: "Paga.",
+  paga: "O banco confirmou o pagamento e o título foi baixado como recebido.",
   cancelada: "Cancelada.",
 };
 

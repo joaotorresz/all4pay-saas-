@@ -3,6 +3,7 @@
  * <ação>) e a IA executa. Cada política avalia o contexto financeiro e
  * emite FinancialDecision[] explicáveis. Governança automatizada.
  */
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import type { FinancialDecision, TipoDecisao } from "./types";
 
 import { formatBRL } from "@/lib/format";
@@ -11,7 +12,6 @@ export interface DecisionContext {
   saldoAtual: number;
   rupturaDia: number | null;
   probRuptura: number;
-  probStress: number;
   runwayDias: number;
   inadimplencia: number;
   topBancoShare: number;
@@ -64,12 +64,12 @@ export const POLITICAS: PoliticaDef[] = [
     entao: "bloquear pagamentos não críticos e priorizar recebimentos",
     tipo: "capital",
     avaliar: (ctx) =>
-      (ctx.rupturaDia != null && ctx.rupturaDia < 14) || ctx.probStress > 0.5
+      (ctx.rupturaDia != null && ctx.rupturaDia < 14) || ctx.probRuptura > 0.5
         ? [
             {
               tipo: "capital",
               titulo: "Bloquear pagamentos não críticos",
-              recomendacao: `${ctx.rupturaDia != null ? `Ruptura em ${ctx.rupturaDia} dias` : `Stress ${Math.round(ctx.probStress * 100)}%`} — segurar pagamentos não essenciais e priorizar recebimentos.`,
+              recomendacao: `${ctx.rupturaDia != null ? `Ruptura em ${ctx.rupturaDia} dias` : `Chance de ruptura de ${Math.round(ctx.probRuptura * 100)}% em ${ROTULO_HORIZONTE_RUPTURA}`} — segurar pagamentos não essenciais e priorizar recebimentos.`,
               impactoEsperado: 0,
               confianca: 0.82,
               fatores: [ctx.rupturaDia != null ? `ruptura em ${ctx.rupturaDia}d` : "stress elevado", `prob. ruptura ${Math.round(ctx.probRuptura * 100)}%`],

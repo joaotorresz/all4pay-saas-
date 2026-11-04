@@ -1,18 +1,20 @@
 "use client";
 
 /**
- * Persistência dos cadastros que AINDA moram no estado da empresa (contratos,
- * extras de contato e de produto) — e a leitura, SÓ leitura, das moradas
+ * Persistência dos cadastros que AINDA moram no estado da empresa (extras de
+ * contato e de produto), os contratos (agora na tabela `contratos`) — e a leitura, SÓ leitura, das moradas
  * antigas de contas bancárias e plano de contas.
  *
  * ⚠️ Contas bancárias, centros, projetos e plano de contas passaram a morar nas
  * TABELAS (`lib/cadastros-hierarquia`, migration `20260930180000`). O que ficou
  * deles aqui é o leitor do cadastro antigo deste navegador.
  *
- * Síncrono de propósito — os formulários precisam do dado na hora.
+ * Os extras são síncronos (os formulários precisam do dado na hora); os
+ * contratos leem e gravam no banco, e por isso são assíncronos.
  */
 import { chaveCategoria } from "@/core/categorias/chave";
 import type { ContaBancaria, CategoriaPlano, Contrato } from "@/core/registros";
+import { documentos } from "@/lib/documentos";
 
 /* --------------------------------- base --------------------------------- */
 
@@ -76,19 +78,28 @@ export const listUsosPadrao = (): Record<string, string> => ler<Record<string, s
 
 /* -------------------------------- contratos -------------------------------- */
 
-const K_CONTRATOS = "a4p_contratos";
+/**
+ * ⚠️ O contrato mora em `contratos`, UMA LINHA POR CONTRATO, desde 03/11/2026
+ * (migration 20261103210000; `lib/documentos`). Antes era a lista inteira em
+ * `org_state`, e a última gravação vencia. A chave `a4p_contratos` ficou
+ * congelada: só a demonstração a usa.
+ */
+const contratos = documentos<Contrato>("contratos", "a4p_contratos");
 
-export const listContratos = (): Contrato[] => ler<Contrato[]>(K_CONTRATOS, []);
-export function salvarContrato(c: Contrato): Contrato[] {
-  const atual = listContratos().filter((x) => x.id !== c.id);
-  const out = [{ ...c, id: c.id || novoIdRegistro() }, ...atual];
-  gravar(K_CONTRATOS, out);
-  return out;
+export async function listContratos(): Promise<Contrato[]> {
+  return (await contratos.listar())
+    .sort((a, b) => (b.criadoEm ?? "").localeCompare(a.criadoEm ?? "") || b.id.localeCompare(a.id));
 }
-export function removerContrato(id: string): Contrato[] {
-  const out = listContratos().filter((c) => c.id !== id);
-  gravar(K_CONTRATOS, out);
-  return out;
+
+/** Grava o contrato (dando o id ao novo) e devolve o contrato GRAVADO. */
+export async function salvarContrato(c: Contrato): Promise<Contrato> {
+  const salvo = { ...c, id: c.id || novoIdRegistro() };
+  await contratos.gravar(salvo);
+  return salvo;
+}
+
+export async function removerContrato(c: Contrato): Promise<void> {
+  await contratos.excluir(c.id, `contrato "${c.objeto || c.id}" excluído`);
 }
 
 /* ------------------------- extras de party / produto ------------------------- */

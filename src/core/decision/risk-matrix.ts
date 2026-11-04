@@ -11,7 +11,6 @@ import { decimalBR } from "@/lib/format";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 const norm = (v: number, min: number, max: number) => (max <= min ? 0 : clamp01((v - min) / (max - min)));
-const logistica = (x: number, k = 6, x0 = 0.5) => 1 / (1 + Math.exp(-k * (x - x0)));
 
 function nivel(p: number): RiscoNivel {
   if (p <= 0.2) return "baixo";
@@ -100,12 +99,15 @@ export function calcularRiskMatrix(f: FinancialFeatures): RiskMatrix {
     nivel: nivel(d.probabilidade),
   }));
 
-  const media = dims.reduce((s, d) => s + d.probabilidade * d.peso, 0);
-  const probabilidadeStress = logistica(media);
+  // ⚠️ Fase 3.3: a matriz não produz mais uma "probabilidade de stress" própria
+  // (era a segunda chance do produto, em 90 dias). A chance é a de ruptura do
+  // risk-engine, que já chega em `f.probRuptura`; as dimensões explicam de onde
+  // vem o risco, não viram outro número.
+  const probabilidadeRuptura = clamp01(f.probRuptura);
   const fatoresCriticos = dims
     .filter((d) => d.nivel === "alto" || d.nivel === "critico")
     .sort((a, b) => b.probabilidade - a.probabilidade)
     .map((d) => d.fator);
 
-  return { dimensoes: dims, probabilidadeStress, nivelGeral: nivel(probabilidadeStress), fatoresCriticos };
+  return { dimensoes: dims, probabilidadeRuptura, nivelGeral: nivel(probabilidadeRuptura), fatoresCriticos };
 }

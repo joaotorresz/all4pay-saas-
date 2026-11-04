@@ -6,10 +6,11 @@
  * aprovação. Autonomous Finance com controle.
  */
 import type { FinancialFeatures, RiskMatrix, PlanoAutonomo, AcaoAutonoma } from "./types";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 
 export function planoAutonomo(risco: RiskMatrix, f: FinancialFeatures): PlanoAutonomo {
   const critico = risco.nivelGeral === "critico" || (f.rupturaDia != null && f.rupturaDia < 14);
-  const ativo = risco.probabilidadeStress >= 0.5 || critico || (f.rupturaDia != null && f.rupturaDia < 21);
+  const ativo = risco.probabilidadeRuptura >= 0.5 || critico || (f.rupturaDia != null && f.rupturaDia < 21);
 
   if (!ativo) {
     return {
@@ -26,7 +27,7 @@ export function planoAutonomo(risco: RiskMatrix, f: FinancialFeatures): PlanoAut
     {
       ordem: 1,
       acao: "Alertar diretoria e tesouraria",
-      gatilho: `probabilidade de stress ${Math.round(risco.probabilidadeStress * 100)}%`,
+      gatilho: `chance de ruptura de ${Math.round(risco.probabilidadeRuptura * 100)}% em ${ROTULO_HORIZONTE_RUPTURA}`,
       modo: "automatico",
       impacto: "ciência imediata da liderança",
     },
@@ -66,7 +67,7 @@ export function planoAutonomo(risco: RiskMatrix, f: FinancialFeatures): PlanoAut
   return {
     ativo: true,
     severidade: risco.nivelGeral,
-    resumo: `Stress ${risco.nivelGeral} (${Math.round(risco.probabilidadeStress * 100)}%) — plano de resposta acionado.`,
+    resumo: `Risco ${risco.nivelGeral} (chance de ruptura de ${Math.round(risco.probabilidadeRuptura * 100)}% em ${ROTULO_HORIZONTE_RUPTURA}) — plano de resposta acionado.`,
     acoes,
   };
 }

@@ -9,7 +9,7 @@
  * arrastar a regra para cima. Sem pesos, o usuário entende por que uma ganhou.
  */
 import * as React from "react";
-import { Card, Button, Icon, Input, Textarea, Select, Checkbox, BRL, Skeleton } from "@/components/ui";
+import { Card, Button, Icon, Input, Textarea, Select, Checkbox, BRL, Skeleton, Tabela } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
@@ -177,45 +177,28 @@ function Conferencia() {
         <Card><Skeleton className="h-[240px]" /></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  {["Data", "Contraparte", "Categoria", "Situação", "Valor"].map((h, i) => (
-                    <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((m) => {
-                  const st = input ? statusDoTitulo(m, input.hoje) : "aberto";
-                  return (
-                    <tr key={m.id} className="border-b border-border-soft last:border-0">
-                      <td className="px-6 py-2 text-label text-ink tabular-nums">
-                        {(m.paid_date || m.due_date || "").slice(0, 10).split("-").reverse().join("/")}
-                      </td>
-                      <td className="px-6 py-2 text-label text-muted truncate max-w-[28ch]">
-                        {(m.party_id && nomes[m.party_id]) || "—"}
-                      </td>
-                      <td className="px-6 py-2 text-label text-muted">{m.category ?? "—"}</td>
-                      <td className="px-6 py-2">
-                        <span className={`text-caption ${st === "liquidado" ? "text-positive" : st === "atrasado" ? "text-negative" : "text-warning"}`}>
-                          {st === "liquidado" ? "Conciliado" : st === "atrasado" ? "Atrasado" : "A conciliar"}
-                        </span>
-                      </td>
-                      {/* Número não tem cor por sinal (decisão de 30/09/2026): o
-                          "+"/"−" escrito diz a direção. */}
-                      <td className="px-6 py-2 text-right text-label text-ink tabular-nums">
-                        {m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={linhas}
+            chave={(m) => m.id}
+            emCartao={false}
+            rotulo="Movimentos a conciliar"
+            colunas={[
+              { chave: "data", rotulo: "Data", render: (m) => <span className="tabular-nums">{(m.paid_date || m.due_date || "").slice(0, 10).split("-").reverse().join("/")}</span> },
+              { chave: "contraparte", rotulo: "Contraparte", principal: true, classe: "truncate max-w-[28ch]", render: (m) => (m.party_id && nomes[m.party_id]) || "—" },
+              { chave: "categoria", rotulo: "Categoria", render: (m) => <span className="text-muted">{m.category ?? "—"}</span> },
+              { chave: "situacao", rotulo: "Situação", render: (m) => {
+                const st = input ? statusDoTitulo(m, input.hoje) : "aberto";
+                return (
+                  <span className={`text-caption ${st === "liquidado" ? "text-positive" : st === "atrasado" ? "text-negative" : "text-warning"}`}>
+                    {st === "liquidado" ? "Conciliado" : st === "atrasado" ? "Atrasado" : "A conciliar"}
+                  </span>
+                );
+              } },
+              // Número não tem cor por sinal (decisão de 30/09/2026): o "+"/"−"
+              // escrito diz a direção.
+              { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (m) => <>{m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} /></> },
+            ]}
+          />
           {linhas.length === 0 && (
             <p className="m-0 py-12 text-center text-label text-muted">Nenhum lançamento nesta conta.</p>
           )}

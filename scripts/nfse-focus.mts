@@ -26,11 +26,14 @@ const ROTAS = {
   cancelar: path.resolve("src/app/api/nfse/cancelar/route.ts"),
   cliente: path.resolve("src/lib/focusnfe.ts"),
   nfse: path.resolve("src/lib/nfse.ts"),
+  migracaoEmitentes: path.resolve("supabase/migrations/20261103120000_nfse_emitentes.sql"),
 };
 
 const EMITENTE = JSON.stringify({
-  "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "1.1506.10.00", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "000001" },
+  "org-a": { cnpj: "54.579.688/0001-35", inscricaoMunicipal: "1234567", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "1.1506.10.00", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "000001", codigoTributarioMunicipio: "03158" },
+  "org-cst": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "170302", codigoNbs: "115061000", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "200001", situacaoTributariaIbsCbs: "210", codigoTributarioMunicipio: "001" },
   "org-normal-sem-ibs": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "02800", codigoNbs: "115061000" },
+  "org-sem-grupo": { cnpj: "54579688000135", inscricaoMunicipal: "13017047", codigoMunicipio: "3550308", optanteSimples: false, itemListaServico: "05820", aliquota: 2, grupoIbsCbs: false, codigoTributacaoMunicipalIss: "05820", codigoNbs: "000000000", codigoIndicadorOperacao: "100301", classificacaoTributariaIbsCbs: "000001" },
   "org-com-aliquota": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", optanteSimples: true, aliquota: "2,9" },
   "org-aliquota-absurda": { cnpj: "54579688000135", inscricaoMunicipal: "1", codigoMunicipio: "3550308", aliquota: 15 },
   "org-nacional": { cnpj: "54579688000135", inscricaoMunicipal: "13017047", codigoMunicipio: "3550308", optanteSimples: true, aliquota: 2, padrao: "nacional", codigoTributacaoNacional: "17.01.01", percentualTributosSimples: "6,5" },
@@ -40,7 +43,7 @@ const EMITENTE = JSON.stringify({
   "org-cnpj-curto": { cnpj: "5457968800013", inscricaoMunicipal: "1", codigoMunicipio: "3550308" },
 });
 const NOTA = { id: "11111111-1111-1111-1111-111111111111", descricao: "Consultoria financeira de outubro", codigoServico: "17.01 — Assessoria / consultoria", valor: 1500.555, issRetido: false };
-const TOMADOR = { nome: "Cliente Alfa Ltda", documento: "12.345.678/0001-95", email: "fin@alfa.com.br", telefone: "(11) 98888-7777", cep: "01310-100", rua: "Av. Paulista", numero: "1000", uf: "sp" };
+const TOMADOR = { nome: "Cliente Alfa Ltda", documento: "12.345.678/0001-95", email: "fin@alfa.com.br", telefone: "(11) 98888-7777", cep: "01310-100", rua: "Av. Paulista", numero: "1000", uf: "sp", codigoMunicipio: "3550308" };
 
 type Caso = [nome: string, passou: boolean];
 
@@ -55,6 +58,12 @@ function casosDoMotor(m: Motor): Caso[] {
   const pf = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "529.982.247-25" }, e, "x") : null;
   const enor = emitentes["org-normal-sem-ibs"];
   const semIbs = enor ? m.montarPedido(NOTA, TOMADOR, enor, "x") : null;
+  const semMun = e ? m.montarPedido(NOTA, { ...TOMADOR, codigoMunicipio: null }, e, "x") : null;
+  const ec = emitentes["org-cst"];
+  const cstPed = ec ? m.montarPedido(NOTA, TOMADOR, ec, "x") : null;
+  const esg = emitentes["org-sem-grupo"];
+  const semGrupo = esg ? m.montarPedido(NOTA, { ...TOMADOR, codigoMunicipio: null }, esg, "x") : null;
+  const semGrupoComMun = esg ? m.montarPedido(NOTA, TOMADOR, esg, "x") : null;
   const base = "https://homologacao.focusnfe.com.br";
   const aut = m.interpretarConsulta({ status: "autorizado", numero: 87, codigo_verificacao: "AB12", url_danfse: "https://x/pdf", caminho_xml_nota_fiscal: "/arquivos/n.xml" }, base);
   const err = m.interpretarConsulta({ status: "erro_autorizacao", erros: [{ codigo: "E1", mensagem: "Inscrição municipal inválida", correcao: "Confira o CCM" }] }, base);
@@ -79,7 +88,7 @@ function casosDoMotor(m: Motor): Caso[] {
     ["emitente: sem inscrição municipal NÃO entra", !emitentes["org-sem-im"] && problemas.some((p) => p.includes("org-sem-im"))],
     ["emitente: CNPJ com 13 dígitos NÃO entra", !emitentes["org-cnpj-curto"]],
     ["emitente: configuração ilegível não lança e não habilita ninguém", Object.keys(m.lerEmitentes("{x").emitentes).length === 0],
-    ["pedido: o prestador é o do vínculo da plataforma", ok?.prestador.cnpj === "54579688000135" && ok?.prestador.inscricao_municipal === "1234567" && ok?.prestador.codigo_municipio === "3550308"],
+    ["pedido: o prestador é o do vínculo da plataforma, sem a IM no leiaute da reforma (vem do CNC)", ok?.prestador.cnpj === "54579688000135" && !("inscricao_municipal" in (ok?.prestador ?? {})) && ok?.prestador.codigo_municipio === "3550308"],
     ["pedido: tomador PJ vai por CNPJ, em dígitos", ok?.tomador.cnpj === "12345678000195" && !("cpf" in (ok?.tomador ?? {}))],
     ["pedido: tomador PF vai por CPF", !!pf && pf.ok && pf.pedido.tomador.cpf === "52998224725"],
     ["pedido: sem CPF/CNPJ válido é recusado ANTES de sair", !!semDoc && !semDoc.ok],
@@ -90,8 +99,14 @@ function casosDoMotor(m: Motor): Caso[] {
     ["pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)", ok?.servico.codigo_indicador_operacao === "100301" && ok?.servico.ibs_cbs_classificacao_tributaria === "000001" && ok?.servico.codigo_nbs === "115061000" && ok?.servico.valor_final_cobrado === 1500.56 && ok?.servico.valor_ipi === 0 && ok?.consumidor_final === 0 && ok?.indicador_destinatario === 0 && ok?.finalidade_emissao === 0 && ok?.exigibilidade_suspensa === 0],
     ["pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta", !!semIbs && !semIbs.ok && semIbs.problemas.some((p) => p.includes("indicador de operação") && p.includes("classificação tributária"))],
     ["pedido: optante sem os códigos NÃO leva o grupo do IBS/CBS", !!comAliq && comAliq.ok && !("codigo_indicador_operacao" in comAliq.pedido.servico) && !("consumidor_final" in comAliq.pedido)],
+    ["pedido: com grupoIbsCbs false, Regime Normal sai SEM o grupo do IBS/CBS, SEM a IM (XML nacional) e com o código de SP", !!semGrupo && semGrupo.ok && !("codigo_indicador_operacao" in semGrupo.pedido.servico) && !("ibs_cbs_classificacao_tributaria" in semGrupo.pedido.servico) && !("consumidor_final" in semGrupo.pedido) && !("inscricao_municipal" in semGrupo.pedido.prestador) && semGrupo.pedido.prestador.cnpj === "54579688000135" && semGrupo.pedido.servico.item_lista_servico === "05820"],
+    ["pedido: o código de tributação municipal do ISS declarado pela plataforma vai no campo que a Focus pede; sem ele, o campo não vai", !!semGrupo && semGrupo.ok && semGrupo.pedido.servico.codigo_tributacao_municipal_iss === "05820" && !!ok && !("codigo_tributacao_municipal_iss" in ok.servico)],
+    ["pedido: sem o grupo, o endereço do cliente leva o IBGE da cidade; sem IBGE, o endereço não vai (nunca CEP sem cMun)", (semGrupoComMun?.ok && (semGrupoComMun.pedido.tomador.endereco as Record<string, string> | undefined)?.codigo_municipio === "3550308") === true && !!semGrupo && semGrupo.ok && !("endereco" in semGrupo.pedido.tomador)],
     ["pedido: o código do serviço da plataforma vence o da nota", ok?.servico.item_lista_servico === "02800"],
-    ["pedido: endereço com UF em caixa alta e CEP em dígitos", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100"],
+    ["pedido: endereço com UF em caixa alta, CEP em dígitos e o IBGE da cidade", (ok?.tomador.endereco as Record<string, string> | undefined)?.uf === "SP" && (ok?.tomador.endereco as Record<string, string> | undefined)?.cep === "01310100" && (ok?.tomador.endereco as Record<string, string> | undefined)?.codigo_municipio === "3550308"],
+    ["pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair", !!semMun && !semMun.ok && semMun.problemas.some((p) => /CEP/.test(p))],
+    ["pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado", ok?.servico.ibs_cbs_situacao_tributaria === "000" && !!cstPed && cstPed.ok && cstPed.pedido.servico.ibs_cbs_situacao_tributaria === "210"],
+    ["pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma", !!ok && !("codigo_tributario_municipio" in ok.servico) && !!cstPed && cstPed.ok && cstPed.pedido.servico.codigo_tributario_municipio === "001"],
     ["item da lista: 1.07 → 0107 e 17.01 → 1701", m.itemDaLista("1.07 — Suporte") === "0107" && m.itemDaLista("17.01 — x") === "1701"],
     ["referência: a tentativa seguinte nunca repete a anterior", m.proximaTentativa(null) === 1 && m.proximaTentativa(m.refDaTentativa("n", 1)) === 2 && m.refDaTentativa("n", 2) !== m.refDaTentativa("n", 1)],
     ["consulta: autorizado vira autorizada com número, PDF e XML absoluto", aut.estado === "autorizada" && aut.numero === "87" && aut.urlPdf === "https://x/pdf" && aut.urlXml === `${base}/arquivos/n.xml`],
@@ -113,9 +128,15 @@ function casosDasRotas(t: Texto): Caso[] {
     ["rota: a nota é marcada processando, com condição, ANTES de ir à Focus", antes(t.transmitir, '.eq("status", nota.status)', "emitirNaFocus(")],
     ["rota: permissão conferida na empresa DA NOTA antes da Focus", antes(t.transmitir, "podeLancar(s, nota.org_id)", "emitirNaFocus(") && antes(t.cancelar, "podeLancar(s, nota.org_id)", "cancelarNaFocus(")],
     ["rota: a DPS sai com a data de emissão nacional, nunca o UTC cru", t.transmitir.includes("dataEmissaoNacional(agora.getTime())") && !/montarPedidoNacional\([^)]*toISOString/.test(t.transmitir)],
+    ["rota: a nota municipal (XML nacional em SP) sai com a mesma data, nunca o UTC cru", /: montarPedido\(dadosNota, nota\.tomador, emitente, dataEmissaoNacional\(agora\.getTime\(\)\)\)/.test(t.transmitir) && !/montarPedido\([^)]*toISOString/.test(t.transmitir)],
+    ["rota: o tomador da nota municipal ganha o IBGE da cidade pelo CEP antes de montar o pedido", antes(t.transmitir, "comMunicipioDoCep(nota.tomador)", ": montarPedido(")],
     ["rota: o desfecho só é gravado sobre nota ainda processando", t.consultar.includes('.eq("status", "processando")')],
     ["rota: falha de rede no envio NÃO vira recusa (o pedido pode ter chegado)", /r\.http === 0[^\n]*processando|processando[^\n]*r\.http === 0/.test(t.transmitir) || antes(t.transmitir, "r.http === 0", 'estado: "processando"')],
     ["cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA", (t.cliente.match(/\$\{caminhoDaRef\(ref\)\}/g) ?? []).length === 3 && !t.cliente.includes('"/v2/nfse')],
+    ["cliente: o emitente do BANCO vem antes da variável da Vercel", antes(t.cliente, 'await emitenteDoBanco(orgId)', "lerEmitentes(process.env.FOCUS_NFE_EMITENTES)")],
+    ["cliente: o emitente do banco passa pela MESMA conferência (lerEmitentes)", /lerEmitentes\(JSON\.stringify\(\{ \[orgId\]: data\.config \}\)\)/.test(t.cliente)],
+    ["banco: a empresa não lê nem escreve o emitente (sem concessão a anon/authenticated)", /revoke all on table public\.nfse_emitentes from public, anon, authenticated;/.test(t.migracaoEmitentes) && !/grant [^;]*on table public\.nfse_emitentes to [^;]*(anon|authenticated)/.test(t.migracaoEmitentes) && !/create policy/i.test(t.migracaoEmitentes)],
+    ["banco: o emitente tem trilha e RLS ligada", t.migracaoEmitentes.includes("zz_auditar_nfse_emitentes") && t.migracaoEmitentes.includes("alter table public.nfse_emitentes enable row level security;")],
     ["cliente: o ambiente padrão é homologação", /=== "producao" \? "producao" : "homologacao"/.test(t.cliente)],
     ["cliente: o token não vai para resposta nem log", !/console\.[a-z]+\([^)]*\bt\b\)/.test(t.cliente) && !/corpo:\s*\{[^}]*token/.test(t.cliente)],
     ["tela: a prefeitura cancela ANTES de a receita sair", antes(t.nfse, '"/api/nfse/cancelar"', "excluirLogicoEmLote")],
@@ -157,6 +178,9 @@ function plantarRota(nome: string, arquivo: keyof Texto, de: string, para: strin
   console.log(`${ok ? "✓" : "✗"} defeito plantado "${nome}" derruba "${casoEsperado}"${ok ? "" : ` (caíram: ${caiu.join(" | ") || "nenhum"})`}`);
 }
 
+plantarRota("empresa lê o emitente", "migracaoEmitentes", "grant select, insert, update, delete on table public.nfse_emitentes to service_role;", "grant select on table public.nfse_emitentes to authenticated;", "banco: a empresa não lê nem escreve o emitente (sem concessão a anon/authenticated)");
+plantarRota("variável antes do banco", "cliente", "const doBanco = await emitenteDoBanco(orgId);\n  if (doBanco) return doBanco;\n", "", "cliente: o emitente do BANCO vem antes da variável da Vercel");
+plantarRota("banco sem conferência", "cliente", "lerEmitentes(JSON.stringify({ [orgId]: data.config }))", "({ emitentes: { [orgId]: data.config as EmitenteFocus }, problemas: [] as string[] })", "cliente: o emitente do banco passa pela MESMA conferência (lerEmitentes)");
 await plantarMotor("emitente sem inscrição municipal aceito", '...(im ? [] : ["inscrição municipal"]),', "", "emitente: sem inscrição municipal NÃO entra");
 await plantarMotor("CNPJ de qualquer tamanho", "cnpj.length === 14 ? []", "cnpj.length >= 13 ? []", "emitente: CNPJ com 13 dígitos NÃO entra");
 await plantarMotor("documento do tomador não conferido", 'if (doc.length !== 11 && doc.length !== 14) problemas.push', "if (false) problemas.push", "pedido: sem CPF/CNPJ válido é recusado ANTES de sair");
@@ -171,7 +195,15 @@ await plantarMotor("IM de volta na DPS", "    codigo_municipio_emissora: emitent
 await plantarMotor("emissão no relógio exato", "agoraMs - 60_000 - 3 * 3600_000", "agoraMs - 3 * 3600_000", "nacional: emissão na hora de São Paulo, com fuso, um minuto antes de agora");
 await plantarMotor("nacional sem código sai assim mesmo", 'if (!emitente.codigoTributacaoNacional) problemas.push', "if (false) problemas.push", "nacional: sem código de tributação o pedido é recusado ANTES de sair");
 await plantarMotor("Regime Normal sem IBS/CBS sai assim mesmo", "if (faltaIbs.length) problemas.push", "if (false) problemas.push", "pedido: Regime Normal sem os códigos do IBS/CBS é recusado ANTES de sair, nomeando o que falta");
-await plantarMotor("grupo do IBS/CBS esquecido", "const ibsCbs = !emitente.optanteSimples ||", "const ibsCbs = false &&", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
+await plantarMotor("IBGE só com o grupo", "if (munTomador.length === 7) endereco.codigo_municipio = munTomador;", "if (ibsCbs && munTomador.length === 7) endereco.codigo_municipio = munTomador;", "pedido: sem o grupo, o endereço do cliente leva o IBGE da cidade; sem IBGE, o endereço não vai (nunca CEP sem cMun)");
+await plantarMotor("interruptor do grupo ignorado", "const ibsCbs = emitente.grupoIbsCbs !== false\n    &&", "const ibsCbs = true\n    &&", "pedido: com grupoIbsCbs false, Regime Normal sai SEM o grupo do IBS/CBS, SEM a IM (XML nacional) e com o código de SP");
+await plantarMotor("grupo do IBS/CBS esquecido", "&& (!emitente.optanteSimples ||", "&& false && (!emitente.optanteSimples ||", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
+await plantarMotor("endereço sem IBGE vai assim mesmo", "else if (ibsCbs) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "else if (false) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair");
+await plantarMotor("IM de volta no municipal da reforma", "...(leiauteReforma ? {} : { inscricao_municipal: emitente.inscricaoMunicipal })", "inscricao_municipal: emitente.inscricaoMunicipal", "pedido: o prestador é o do vínculo da plataforma, sem a IM no leiaute da reforma (vem do CNC)");
+await plantarMotor("IM de volta sem o grupo", "const leiauteReforma = ibsCbs || emitente.grupoIbsCbs === false;", "const leiauteReforma = ibsCbs;", "pedido: com grupoIbsCbs false, Regime Normal sai SEM o grupo do IBS/CBS, SEM a IM (XML nacional) e com o código de SP");
+await plantarMotor("código municipal do ISS esquecido", "        ...(emitente.codigoTributacaoMunicipalIss ? { codigo_tributacao_municipal_iss: emitente.codigoTributacaoMunicipalIss } : {}),\n", "", "pedido: o código de tributação municipal do ISS declarado pela plataforma vai no campo que a Focus pede; sem ele, o campo não vai");
+await plantarMotor("CST esquecido", "ibs_cbs_situacao_tributaria: cst,", "", "pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado");
+await plantarMotor("código municipal de 5 dígitos no leiaute novo", "(!ibsCbs || /^\\d{3}$/.test(tribMun))", "true", "pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma");
 await plantarMotor("código da nota vence o da plataforma", "emitente.itemListaServico ?? itemDaLista(nota.codigoServico)", "itemDaLista(nota.codigoServico)", "pedido: o código do serviço da plataforma vence o da nota");
 await plantarMotor("status desconhecido autoriza", 'return { estado: "processando" };\n}', 'return { estado: "autorizada" };\n}', "consulta: status desconhecido é PROCESSANDO, nunca autorizada");
 await plantarMotor("referência fixa por nota", "return m ? Number(m[1]) + 1 : 1;", "return 1;", "referência: a tentativa seguinte nunca repete a anterior");
@@ -180,6 +212,8 @@ await plantarMotor("justificativa curta aceita", "if (t.length < 15)", "if (t.le
 
 plantarRota("emitente do pedido", "transmitir", "emitenteDaOrg(nota.org_id)", "emitenteDaOrg(String(req.headers.get(\"x-org\")))", "rota: o emitente sai do vínculo da plataforma (org da nota), nunca do pedido");
 plantarRota("emissão em UTC", "transmitir", "dataEmissaoNacional(agora.getTime())", "agora.toISOString()", "rota: a DPS sai com a data de emissão nacional, nunca o UTC cru");
+plantarRota("municipal em UTC", "transmitir", "emitente, dataEmissaoNacional(agora.getTime()));", "emitente, agora.toISOString());", "rota: a nota municipal (XML nacional em SP) sai com a mesma data, nunca o UTC cru");
+plantarRota("CEP sem IBGE", "transmitir", "nota.tomador = await comMunicipioDoCep(nota.tomador);", "", "rota: o tomador da nota municipal ganha o IBGE da cidade pelo CEP antes de montar o pedido");
 plantarRota("marca sem condição", "transmitir", '.eq("id", nota.id).eq("status", nota.status)', '.eq("id", nota.id)', "rota: a nota é marcada processando, com condição, ANTES de ir à Focus");
 plantarRota("desfecho sem condição", "consultar", '.eq("id", nota.id).eq("status", "processando")', '.eq("id", nota.id)', "rota: o desfecho só é gravado sobre nota ainda processando");
 plantarRota("consulta presa à prefeitura", "cliente", "chamar(\"GET\", `${caminhoDaRef(ref)}/", "chamar(\"GET\", `/v2/nfse/", "cliente: emitir, consultar e cancelar vão ao endereço DA REFERÊNCIA");

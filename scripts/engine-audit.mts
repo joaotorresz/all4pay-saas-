@@ -6,7 +6,7 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { chaveCategoria } from "@/core/categorias/chave";
-import { enderecoWhatsapp } from "@/core/financial-os/notifications.server";
+import { enderecoWhatsapp, modeloDoEnvio } from "@/core/financial-os/notifications.server";
 import { telefoneE164 } from "@/lib/telefone";
 import { ehNumero as ehNumeroTipo } from "@/core/tipografia/numero";
 import { glifoDoBanco, iniciaisDoBanco } from "@/core/bancos/logo";
@@ -76,6 +76,8 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE, CATEGORIAS_CNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync, existsSync } from "node:fs";
+import { empresaDaConversa, lerComandoEmpresa, lerQuem, paraWhatsapp, TAMANHO_MAXIMO } from "@/core/whatsapp/conversa";
+import { DIAS_PAUSA_OFERTA, celularCanonico, celularLegivel, deveOferecerWhatsapp, iaWhatsappLigada, mensagemDoCodigo, semPrefixoNumero } from "@/core/whatsapp/numero";
 import { execSync as execSyncIcone } from "node:child_process";
 import { iconeExiste as iconeExisteLucide } from "@/components/ui/lucide-icons";
 import { lerResposta, telefoneDoRemetente, telefoneParaPedido, mensagemDoPedido } from "@/core/aprovacao-whatsapp";
@@ -5326,7 +5328,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("a4p045: o id sai inteiro, pelo componente compartilhado",
      /<IdCopiavel id=\{m\.id\}/.test(tv));
   ok("a4p045: a tabela tem coluna Situação, com a palavra",
-     /<Th>Situação<\/Th>/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
+     /rotulo: "Situação"/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
   // A planilha do contador tem de dizer a MESMA palavra da tela.
   ok("a4p045: a exportação usa o mesmo rótulo da tela",
      /rotuloSituacao\(statusDoTitulo\(m, input\.hoje\), direcao\)/.test(tv));
@@ -5347,19 +5349,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 // R$ 38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
 // O que já saiu não muda nada; vencidas e a vencer mudam.
 {
-  const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|\s)\/\/[^\n]*/g, " ");
-  const ordem = Array.from(dash.matchAll(/titulo="(Contas atrasadas|Contas a vencer|Total geral pago no período)"/g))
-    .map((m) => m[1]);
-  ok("a4p034: o acionável vem primeiro — atrasadas, depois a vencer, e o pago por último",
-     ordem.join(" · ") === "Contas atrasadas · Contas a vencer · Total geral pago no período",
-     ordem.join(" · "));
-  // ⚠️ Ordem sozinha não basta: com o mesmo corpo, os três seguem competindo.
-  ok("a4p034: o card de PAGO é secundário (corpo menor), não apenas o último",
-     /rotuloData="Pago em"\s*\n\s*secundario/.test(dash));
-  // ⚠️ E secundário NÃO é escondido: trocar hierarquia por ausência é outro
-  // defeito. O valor continua na tela.
+  // O painel antigo (DashboardContasPagar) saiu em 03/11/2026: era código sem tela.
+  // A regra que sobra é a do kit compartilhado.
   const kitTxt = readFileSync("src/components/titulos/kit.tsx", "utf8");
   ok("a4p034: secundário reduz o corpo, não remove o valor",
      /secundario \? "text-\[20px\] text-muted" : "text-\[28px\] text-ink"/.test(kitTxt));
@@ -5497,9 +5488,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
    * rótulos quase idênticos; declarar só uma faria a página de metodologia
    * explicar um número e legitimar o outro por tabela.
    */
-  ok("metodologia: as duas probabilidades de ruptura estão declaradas, com horizontes distintos",
-     !!metodologiaDe("chance-ruptura") && !!metodologiaDe("chance-ruptura-90d")
-     && metodologiaDe("chance-ruptura")!.janela !== metodologiaDe("chance-ruptura-90d")!.janela);
+  // ⚠️ Fase 3.3 (03/11/2026): a segunda probabilidade (quant, 90 dias) SAIU.
+  // A guarda que exigia as duas declaradas virou a que exige UMA: a declaração
+  // de 90 dias não pode voltar, e a que fica diz o horizonte único.
+  ok("metodologia: a chance de ruptura é UMA, declarada no horizonte único (a de 90 dias não volta)",
+     !!metodologiaDe("chance-ruptura") && !metodologiaDe("chance-ruptura-90d")
+     && metodologiaDe("chance-ruptura")!.janela.includes("60 dias"));
 
   /*
    * ⚠️ Metodologia é INSTRUMENTAÇÃO, e instrumentação sem consumidor não conta
@@ -7143,7 +7137,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     "src/components/registros/PartesView.tsx",
     "src/components/movimentacoes/TitulosView.tsx",
     "src/components/movimentacoes/ModalBaixa.tsx",
-    "src/components/visao-geral/ExtratoTransacoes.tsx",
   ];
   const LEITURA_LOCAL = [
     /\blistPlanoContas\(/, /\blistUsosPadrao\(/, /\blistContasBancarias\(/, /from "@\/lib\/iuli-cadastros"/,
@@ -7380,14 +7373,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      varreCru('localStorage.setItem(CHAVES_ORG.company, "{}");').length === 1
      && varreCru('import { K_EMPRESA } from "@/lib/x";\nwindow.localStorage.setItem(K_EMPRESA, "{}");', plantaGlobal).length === 1);
   ok("CAD-2: [negativo] a varredura acusa a LEITURA crua de chave viva e o helper por parâmetro",
-     varreCru('const K = "a4p_compras";\nconst x = localStorage.getItem(K);').length === 1
-     && varreCru('const K = "a4p_compras";\nfunction load(key) { return localStorage.getItem(key); }\nload(K);').length === 1
-     && varreCru('const K = "a4p_compras";\nconst x = localStorage[K];').length === 1);
+     varreCru('const K = "a4p_transferencias";\nconst x = localStorage.getItem(K);').length === 1
+     && varreCru('const K = "a4p_transferencias";\nfunction load(key) { return localStorage.getItem(key); }\nload(K);').length === 1
+     && varreCru('const K = "a4p_transferencias";\nconst x = localStorage[K];').length === 1);
   ok("CAD-2: ler cru o RASTRO de chave congelada é permitido (escrevê-lo, não)",
      varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage.getItem(K);').length === 0
      && varreCru('const K = "a4p_vendas_docs";\nlocalStorage.setItem(K, "[]");').length === 1);
   ok("CAD-2: [negativo] a varredura acusa o APELIDO do armazenamento e a escrita por COLCHETE (inclusive de chave congelada)",
-     varreCru('const K = "a4p_compras";\nconst ls = window.localStorage;\nls.setItem(K, "[]");').length === 1
+     varreCru('const K = "a4p_transferencias";\nconst ls = window.localStorage;\nls.setItem(K, "[]");').length === 1
      && varreCru('const K = "a4p_vendas_docs";\nlocalStorage[K] = "[]";').some((a) => a.op === "setItem")
      && varreCru('const K = "a4p_vendas_docs";\ndelete window.localStorage[K];').some((a) => a.op === "removeItem")
      && varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage[K] === "[]";').length === 0);
@@ -7473,6 +7466,30 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // ---- 0) o dia é o de BRASÍLIA, não o do servidor em UTC ----
   ok("aut: hoje é o dia de Brasília (01:30 UTC de 01/10 ainda é 30/09)", A.hojeEm(new Date("2026-10-01T01:30:00Z")) === "2026-09-30");
   ok("aut: e às 03:30 UTC já virou", A.hojeEm(new Date("2026-10-01T03:30:00Z")) === "2026-10-01");
+
+  // ---- 0b) O TESTE COM EXEMPLO (30/10/2026): sem nada a avisar hoje, o botão
+  // de teste manda um exemplo MARCADO, sobre números que não são os da empresa.
+  {
+    const tranquilo = ctxBase({ input: { ...ctxBase().input, saldoAtual: 1_000_000 } });
+    const real = A.conteudoDoTeste(cfg("lembrete_pagar"), ctxBase());
+    ok("aut-exemplo: com algo a dizer hoje, o teste é a mensagem DE VERDADE",
+       "conteudo" in real && real.exemplo === null && !real.conteudo.assunto.startsWith("[Exemplo]"));
+    const ex = A.conteudoDoTeste(cfg("alerta_caixa"), tranquilo);
+    ok("aut-exemplo: o caixa sem risco hoje ainda tem o que testar (o exemplo RECEBEU valor)",
+       "conteudo" in ex && ex.exemplo?.codigo === "nada_a_avisar" && ex.conteudo.texto.includes(formatBRL(12_000)),
+       "semEnvio" in ex ? ex.semEnvio.motivo : "");
+    if ("conteudo" in ex) {
+      const c = ex.conteudo;
+      ok("aut-exemplo: MARCADO no assunto, no texto e na variável 1 do modelo do WhatsApp",
+         c.assunto.startsWith("[Exemplo]") && c.texto.startsWith("EXEMPLO") && c.variaveis["1"].startsWith("Exemplo")
+         && (c.reserva?.variaveis["1"] ?? "Exemplo").startsWith("Exemplo"), JSON.stringify(c.variaveis));
+      ok("aut-exemplo: nenhum número nem nome da empresa de verdade entra no exemplo",
+         !["Imobiliária Sol", "Luz SA", "Cliente Um", formatBRL(1_000_000)].some((x) => c.texto.includes(x)));
+    }
+    const desligadoDeVerdade = A.conteudoDoTeste(cfg("resumo_diario"), ctxBase({ input: { ...ctxBase().input, movements: [] } }));
+    ok("aut-exemplo: empresa sem lançamento também testa, pelo exemplo",
+       "conteudo" in desligadoDeVerdade && desligadoDeVerdade.exemplo?.codigo === "sem_dados");
+  }
 
   // ---- 1) REEXECUTAR NÃO ENVIA DE NOVO (índice único + grava-antes-de-enviar) ----
   const log: string[] = [];
@@ -7569,6 +7586,48 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: o resumo do dia RECEBEU valor (saldo, hoje, vencidos, aprovações)",
      !A.ehSemEnvio(rdc) && rdc.texto.includes(formatBRL(10_000)) && rdc.texto.includes(formatBRL(1_500)) && rdc.texto.includes(formatBRL(300)) && rdc.texto.includes("Aprovações pendentes"),
      A.ehSemEnvio(rdc) ? rdc.motivo : rdc.texto);
+  // ---- 3b) RESUMO ORGANIZADO NO WHATSAPP (pedido do dono, 29/10/2026) ----
+  // A Meta recusa quebra de linha DENTRO de variável: o resumo organizado é um
+  // modelo próprio (8 variáveis) e o de uma linha fica como RESERVA.
+  if (!A.ehSemEnvio(rdc)) {
+    const v = rdc.variaveis;
+    ok("aut-wa: o resumo do dia usa o modelo organizado, com 8 variáveis cheias e sem quebra de linha",
+       rdc.finalidade === "resumo_caixa_dia" && Object.keys(v).length === 8
+       && Object.values(v).every((x) => x.trim() !== "" && !/[\n\t]/.test(x) && !/ {4}/.test(x)), JSON.stringify(v));
+    ok("aut-wa: o modelo organizado RECEBEU valor (empresa, saldo, hoje, vencidos)",
+       v["1"] === credor.nome && v["3"] === formatBRL(10_000) && v["5"].includes(formatBRL(1_500)) && v["7"].includes(formatBRL(300)), JSON.stringify(v));
+    ok("aut-wa: a reserva é o modelo de UMA linha, com uma variável",
+       rdc.reserva?.finalidade === "resumo_diario" && Object.keys(rdc.reserva.variaveis).length === 1
+       && !/\n/.test(rdc.reserva.variaveis["1"]), JSON.stringify(rdc.reserva));
+    const vazioHoje = A.redigirResumoDiario(semHoje);
+    ok("aut-wa: sem nada vencendo hoje, as variáveis dizem 'nada vence hoje' (variável vazia a Meta recusa)",
+       !A.ehSemEnvio(vazioHoje) && vazioHoje.variaveis["4"] === "nada vence hoje" && vazioHoje.variaveis["5"] === "nada vence hoje");
+    // O envio escolhe o modelo e leva AS VARIÁVEIS DELE.
+    const env = process.env;
+    const antes = { dia: env.TWILIO_TEMPLATE_RESUMO_DIA_SID, linha: env.TWILIO_TEMPLATE_RESUMO_SID };
+    try {
+      env.TWILIO_TEMPLATE_RESUMO_SID = "HXlinha"; delete env.TWILIO_TEMPLATE_RESUMO_DIA_SID;
+      const r1 = modeloDoEnvio(rdc);
+      ok("aut-wa: sem o organizado cadastrado, sai pelo de uma linha COM a variável única dele",
+         r1?.contentSid === "HXlinha" && Object.keys(r1.contentVariables).length === 1, JSON.stringify(r1));
+      // Defeito plantado: mandar as 8 variáveis ao modelo de uma linha.
+      const plantado = { contentSid: "HXlinha", contentVariables: rdc.variaveis };
+      ok("aut-wa: (defeito plantado) as 8 variáveis no modelo de uma linha seriam detectadas",
+         Object.keys(plantado.contentVariables).length !== Object.keys(r1?.contentVariables ?? {}).length);
+      env.TWILIO_TEMPLATE_RESUMO_DIA_SID = "HXdia";
+      const r2 = modeloDoEnvio(rdc);
+      ok("aut-wa: com o organizado cadastrado, ele vence e leva as 8 variáveis",
+         r2?.contentSid === "HXdia" && Object.keys(r2.contentVariables).length === 8, JSON.stringify(r2));
+      delete env.TWILIO_TEMPLATE_RESUMO_SID; delete env.TWILIO_TEMPLATE_RESUMO_DIA_SID;
+      ok("aut-wa: sem nenhum dos dois, nada de modelo (texto livre)", modeloDoEnvio(rdc) === undefined);
+    } finally {
+      if (antes.dia === undefined) delete env.TWILIO_TEMPLATE_RESUMO_DIA_SID; else env.TWILIO_TEMPLATE_RESUMO_DIA_SID = antes.dia;
+      if (antes.linha === undefined) delete env.TWILIO_TEMPLATE_RESUMO_SID; else env.TWILIO_TEMPLATE_RESUMO_SID = antes.linha;
+    }
+    const msgs = A.gerarMensagens({ ...cfg("resumo_diario") }, ctx);
+    ok("aut-wa: a mensagem montada carrega a reserva até o envio",
+       msgs.mensagens.length > 0 && msgs.mensagens.every((m) => m.reserva?.finalidade === "resumo_diario"), `${msgs.mensagens.length} mensagens · ${msgs.semEnvio?.codigo ?? ""}`);
+  }
   ok("aut: resumo não sai no fim de semana (mas a prévia mostra)",
      A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" })) && !A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" }, { ignorarCalendario: true })));
 
@@ -7695,7 +7754,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        situacaoDaFatura("aberto", "2026-10-15", "2026-10-28").prazo === "vencida há 13 dias"
        && situacaoDaFatura("aberto", "2026-10-28", "2026-10-28").rotulo === "Vence hoje"
        && situacaoDaFatura("aberto", "2026-11-02", "2026-10-28").prazo === "vence em 5 dias"
-       && situacaoDaFatura("pago", "2026-10-15", "2026-10-28").rotulo === "Pagamento recebido");
+       && situacaoDaFatura("pago", "2026-10-15", "2026-10-28").rotulo === "Pago");
   }
 
   // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
@@ -7792,6 +7851,43 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("aut: no 3º dia útil, com setembro aberto, o aviso sai", fech.mensagens.length === 1 && fech.mensagens[0].assunto.includes("setembro de 2026"), fech.semEnvio?.motivo ?? "");
   ok("aut: setembro travado não gera aviso", A.gerarMensagens(cfg("fechamento_pendente"), { ...out5, mesesTravados: ["2026-09"] }).semEnvio?.codigo === "mes_fechado");
   ok("aut: fora do 3º/8º dia útil não sai", A.gerarMensagens(cfg("fechamento_pendente"), { ...ctx, hoje: "2026-10-06" }).semEnvio?.codigo === "fora_do_dia");
+
+  // ---- 8b) OS OUTROS MODELOS ORGANIZADOS (pedido do dono, 29/10/2026) ----
+  // Lembrete, alerta e fechamento: 6 variáveis cheias, sem quebra de linha, e
+  // o modelo de uma linha de cada um como reserva.
+  {
+    const casos = [
+      { nome: "lembrete", m: lembrete.mensagens[0], fin: "lembrete_pagar_dia", res: "lembrete_pagar", env: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_DIA_SID", resEnv: "TWILIO_TEMPLATE_LEMBRETE_PAGAR_SID", tem: formatBRL(1_500) },
+      { nome: "alerta", m: al.mensagens[0], fin: "alerta_caixa_dia", res: "alerta_caixa", env: "TWILIO_TEMPLATE_ALERTA_DIA_SID", resEnv: "TWILIO_TEMPLATE_ALERTA_SID", tem: formatBRL(3_000) },
+      { nome: "fechamento", m: fech.mensagens[0], fin: "fechamento_mes", res: "fechamento_pendente", env: "TWILIO_TEMPLATE_FECHAMENTO_MES_SID", resEnv: "TWILIO_TEMPLATE_FECHAMENTO_SID", tem: "setembro" },
+    ] as const;
+    const env = process.env;
+    for (const c of casos) {
+      const v = c.m?.variaveis ?? {};
+      ok(`aut-wa: o ${c.nome} usa o modelo organizado, com 6 variáveis cheias e sem quebra de linha`,
+         c.m?.finalidade === c.fin && Object.keys(v).length === 6
+         && Object.values(v).every((x) => x.trim() !== "" && !/[\n\t]/.test(x) && !/ {4}/.test(x)), JSON.stringify(v));
+      ok(`aut-wa: o ${c.nome} organizado RECEBEU valor (empresa e o número do aviso)`,
+         v["1"] === credor.nome && Object.values(v).some((x) => x.includes(c.tem)), JSON.stringify(v));
+      ok(`aut-wa: a reserva do ${c.nome} é o modelo de uma linha dele`,
+         c.m?.reserva?.finalidade === c.res && Object.keys(c.m.reserva.variaveis).every((k) => !/\n/.test(c.m!.reserva!.variaveis[k])), JSON.stringify(c.m?.reserva));
+      const antes = { a: env[c.env], b: env[c.resEnv] };
+      try {
+        env[c.resEnv] = "HXlinha"; delete env[c.env];
+        const r1 = c.m ? modeloDoEnvio(c.m) : undefined;
+        ok(`aut-wa: sem o ${c.nome} organizado, sai pelo de uma linha com as variáveis DELE`,
+           r1?.contentSid === "HXlinha" && JSON.stringify(r1.contentVariables) === JSON.stringify(c.m?.reserva?.variaveis), JSON.stringify(r1));
+        ok(`aut-wa: (defeito plantado) as 6 variáveis do ${c.nome} no modelo de uma linha seriam detectadas`,
+           JSON.stringify(v) !== JSON.stringify(r1?.contentVariables));
+        env[c.env] = "HXdia";
+        const r2 = c.m ? modeloDoEnvio(c.m) : undefined;
+        ok(`aut-wa: com o ${c.nome} organizado cadastrado, ele vence`, r2?.contentSid === "HXdia" && Object.keys(r2.contentVariables).length === 6, JSON.stringify(r2));
+      } finally {
+        if (antes.a === undefined) delete env[c.env]; else env[c.env] = antes.a;
+        if (antes.b === undefined) delete env[c.resEnv]; else env[c.resEnv] = antes.b;
+      }
+    }
+  }
 
   // ---- 9) destinatário: só titular/admin ATUAL recebe ----
   const saiu = A.gerarMensagens(cfg("resumo_diario", { destinatarios: [{ userId: "ex-socio", email_ativo: true }] }), ctx);
@@ -9648,16 +9744,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const c = `${dir}/${e.name}`;
     if (e.isDirectory()) return semPagar(c);
     if (!/\.(tsx?|mts)$/.test(e.name)) return [];
-    return /(?<![\w-])\/pagar\//.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
+    return /(?<![\w-])\/pagar\/(?!boleto\b)/.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
   });
   const comPagar = semPagar("src");
   // ⚠️ A página `/pagar` passou a existir em 22/10/2026 (decisão do dono: o
   // checkout Pix/boleto da conta Pinbank), mas só pelo TOKEN do link
   // (`?t=`), lendo `pinbank_checkout_ler`. O link de VENDA continua entregando
-  // o PIX estático: nenhum endereço `/pagar/<id>` existe.
+  // o PIX estático: nenhum endereço `/pagar/<id>` existe. (`/pagar/boleto`,
+  // de 30/10/2026, é o boleto do MESMO link, também pelo token.)
   const paginaPagar = fsV.existsSync("src/app/pagar/page.tsx") ? semComentario(fsV.readFileSync("src/app/pagar/page.tsx", "utf8")) : "";
   ok("vender/links: nenhum href/URL para /pagar/<id>; a página /pagar só abre pelo token do checkout",
-     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /pinbank_checkout_ler/.test(paginaPagar)), comPagar.join(" "));
+     comPagar.length === 0 && (!fsV.existsSync("src/app/pagar") || /lerLinkDePagamento\(/.test(paginaPagar)), comPagar.join(" "));
   ok("vender/links: o QR e o botão copiam o PIX (pixDoLink), não uma URL",
      /qrParaSVG\(gerarQR\(pix\)/.test(outras) && /writeText\(pix\)/.test(outras) && !/urlDoLink|window\.location\.origin/.test(outras));
   const formLink = fnDe(outras, "function FormLink(");
@@ -10134,13 +10231,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("plataforma: cada leitura/escrita de aplicarEstrutura confere o erro do banco",
      chamadasBanco >= 6 && conferencias === chamadasBanco, `${conferencias} conferências para ${chamadasBanco} chamadas`);
   ok("plataforma: o saldo informado no cadastro vira o saldo da conta", /balance: Math\.round\(\(c\.saldo/.test(onb));
-  for (const f of ["src/components/onboarding/OnboardingWizard.tsx", "src/components/onboarding/OnboardingPessoal.tsx"]) {
+  for (const f of ["src/components/entrada/CriarContaView.tsx"]) {
     const t = semComentario(fsP.readFileSync(f, "utf8"));
     ok(`plataforma: ${f.split("/").pop()} não engole a recusa do perfil nem da estrutura`,
        !/persistCompany\([^)]*\);?\s*\}\s*catch \{/.test(t) && !/aplicarEstrutura\([^)]*\);?\s*\}\s*catch \{/.test(t));
   }
-  const pes = fsP.readFileSync("src/components/onboarding/OnboardingPessoal.tsx", "utf8");
-  ok("plataforma: o cadastro pessoal leva o \"Saldo atual\" para a primeira carteira", /saldo: saldoInicial/.test(pes));
 
   // ── Dashboards customizados: o estado é da ORGANIZAÇÃO ──
   const libDash = semComentario(fsP.readFileSync("src/lib/dashboards.ts", "utf8"));
@@ -10161,10 +10256,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("plataforma: remover/trocar perfil/convidar mostram a recusa do servidor (promessa não fica solta)",
      /try \{ await removeMember\(id\); \}/.test(admv) && /try \{ await saveMember\(\{ \.\.\.original/.test(admv) && /catch \(e\) \{ setErro\(/.test(admv));
 
-  // ── Modo pessoal: o "Adicionar" existe na tela ──
-  const ia = semComentario(fsP.readFileSync("src/components/visao-geral/InicioActions.tsx", "utf8"));
-  ok("plataforma: no modo pessoal a Visão geral tem o botão Adicionar (não havia porta visível)",
-     /pessoal && <NovoDeposito \/>/.test(ia));
 }
 
 /* ── PAGAR · RODADA 3 (arquivos reservados) ── */
@@ -10192,7 +10283,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   /* ---- a lista de títulos mostra a descrição e não pinta data/valor pelo sinal ---- */
   const titulosV = lerR("src/components/movimentacoes/TitulosView.tsx");
-  ok("pagar-r3: a lista de títulos tem a coluna Descrição", /<Th>Descrição<\/Th>/.test(titulosV) && /m\.descricao/.test(titulosV));
+  ok("pagar-r3: a lista de títulos tem a coluna Descrição", /rotulo: "Descrição"/.test(titulosV) && /m\.descricao/.test(titulosV));
   ok("pagar-r3: a lista de títulos não pinta data nem valor de verde/vermelho", !/text-(positive|negative)/.test(titulosV));
   const dataTs = lerR("src/lib/data.ts");
   ok("pagar-r3: a descrição viaja no RiskInput da demonstração (como em produção)", /descricao: m\.description \?\? null/.test(dataTs));
@@ -10277,8 +10368,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("pagar-rev: o id da compra nasce uma vez por formulário (um id por clique duplicava os títulos na nova tentativa)",
      /React\.useState\(\(\) => novoId\("compra"\)\)/.test(compraForm) && /id: idCompra,/.test(compraForm)
      && !/id: novoId\("compra"\)/.test(compraForm));
+  // ⚠️ `return await`: desde 03/11/2026 a compra grava no banco (`persistir` é
+  // assíncrono), e um `return persistir(c)` sem await deixaria a recusa
+  // escapar do catch, sem a frase de que o dinheiro já entrou.
   ok("pagar-rev: se gravar a compra falha DEPOIS dos títulos, a mensagem diz que o dinheiro entrou",
-     /await criarTitulosDaCompra\(c\);[\s\S]*?try \{\s*return persistir\(c\);\s*\} catch[\s\S]*?já entraram no caixa/.test(storeR));
+     /await criarTitulosDaCompra\(c\);[\s\S]*?try \{\s*return await persistir\(c\);\s*\} catch[\s\S]*?já entraram no caixa/.test(storeR));
 }
 /* ── CONTABILIDADE · RODADA 3 (reservados, 01/10/2026) ──────────────────────
  *
@@ -10381,12 +10475,15 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("contabil r3: na demonstração, getRiscoInputPorOrg entrega a empresa atual por getRiscoInput (o mesmo da tela vizinha)",
      /if \(isDemo\) return demoInputsPorOrg\(de, ate, await getRiscoInput\(\)\);/.test(libCons));
 
-  // (revisão) Fora da demonstração nenhum destinatário aparece "Verificado":
-  // não há link de confirmação, e o verificado gravado antes veio do simulador.
-  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção o destinatário aparece como cadastrado",
+  // (revisão) Fora da demonstração o "verificado" gravado (que veio do
+  // simulador) não vale. Desde 04/11/2026 (Fase 3.4) produção mostra
+  // "Confirmado pelo contador" só pelo clique no link (`mesclarConfirmacoes`,
+  // guarda `contador-optin`); o "Verificado em" fica no ramo simulado.
+  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção a confirmação vem do link do contador",
      (env.match(/Verificado em/g) ?? []).length === 1
-     && /!ENVIO_SIMULADO\s*\?\s*`Cadastrado em/.test(env)
-     && env.indexOf("!ENVIO_SIMULADO") < env.indexOf("Verificado em"));
+     && /!ENVIO_SIMULADO\s*\?\s*d\.verificado\s*\?\s*`Confirmado pelo contador/.test(env)
+     && /: mesclarConfirmacoes\(cadastrados, confirmacoes\)/.test(env)
+     && env.indexOf("!ENVIO_SIMULADO\n") < env.indexOf("Verificado em"));
 
   // ── 4) DRE projetado: margem sobre a LÍQUIDA multiplica a receita LÍQUIDA ──
   const movP: RiskMovement[] = [];
@@ -10689,8 +10786,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const r = responderS("qual meu saldo?", { ...base, contas: 0 });
   ok("sem-conta: a IA diz a mesma ausência, nunca R$ 0,00",
      /nenhuma conta cadastrada|não tem conta/i.test(r.resposta + r.numeros.map((n) => n.valor).join(" ")) && !/R\$\s?0,00/.test(r.resposta), r.resposta);
-  const home = readFileSync("src/components/visao-geral/HomeQuatro.tsx", "utf8");
-  ok("sem-conta: o saldo-herói da Home pergunta pela ausência antes do valor", /saldoInd\.indisponivel/.test(home));
 }
 
 /* ── RODADA 6 · a purga da amostra leva os contatos que só ela criou ── */
@@ -11914,7 +12009,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // A SEGUNDA porta declarada (27/10/2026): o Banco Inter exige mTLS, que o
   // fetch do Node não faz sem undici. Ela fala SÓ com o Inter (bloco `inter:`).
   const PORTA_INTER = "src/lib/cobranca-banco/inter-saida.ts";
-  const PORTAS_REDE = [PORTA_F, PORTA_INTER];
+  const PORTA_ITAU = "src/lib/cobranca-banco/itau-saida.ts";
+  const PORTAS_REDE = [PORTA_F, PORTA_INTER, PORTA_ITAU];
   const comRede = (ler: (p: string) => string) => arqsF.filter((p) => !PORTAS_REDE.includes(p) && p.startsWith("src/") && REDE.test(semComF(ler(p))));
   ok("saida-fixa: nenhum socket próprio (net/tls/https/undici) no app fora das duas portas", comRede(lerF).length === 0, comRede(lerF).join(", "));
   // inter: a porta do Inter não fala com a Pinbank, e o endereço do Inter só mora no core dele.
@@ -11930,6 +12026,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /BASES_INTER\[/.test(semComF(lerF(PORTA_INTER))) && /caminhoPermitidoInter\(/.test(semComF(lerF(PORTA_INTER))));
   ok("inter: (defeito plantado) um https.request num arquivo do Inter fora da porta é ACUSADO",
      comRede((p) => (p === "src/lib/cobranca-banco/inter-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/inter-api.ts"));
+  // itau: a TERCEIRA porta de rede declarada. Mesmas regras da do Inter, e o
+  // mTLS é exigido em produção dentro da própria porta.
+  const HOST_ITAU = /devportal\.itau\.com\.br|sts\.itau\.com\.br|api\.itau\b/i;
+  const CORE_ITAU = "src/core/cobranca-banco/itau.ts";
+  const comHostItau = (ler: (p: string) => string) => arqsF.filter((p) => p !== CORE_ITAU && HOST_ITAU.test(semComF(ler(p))));
+  ok("itau: o endereço do Itaú só aparece em core/cobranca-banco/itau.ts (BASES_ITAU)", comHostItau(lerF).length === 0, comHostItau(lerF).join(", "));
+  ok("itau: a varredura ainda ENXERGA o endereço no core", HOST_ITAU.test(semComF(lerF(CORE_ITAU))));
+  ok("itau: (defeito plantado) URL do Itaú no cliente é ACUSADA",
+     comHostItau((p) => (p === "src/lib/cobranca-banco/itau-api.ts" ? lerF(p) + '\nconst u = "https://secure.api.itau/x";' : lerF(p))).includes("src/lib/cobranca-banco/itau-api.ts"));
+  const portaItauOk = (t: string) => /BASES_ITAU\[/.test(t) && /caminhoPermitidoItau\(/.test(t)
+    && /opts\.ambiente === "producao" && !opts\.mtls\) throw/.test(t) && !/pinbank/i.test(t);
+  ok("itau: a porta só usa BASES_ITAU, confere o caminho, exige o certificado em produção e não cita a Pinbank", portaItauOk(semComF(lerF(PORTA_ITAU))));
+  ok("itau: (defeito plantado) a porta sem a exigência do certificado em produção é REPROVADA",
+     !portaItauOk(semComF(lerF(PORTA_ITAU)).replace('opts.ambiente === "producao" && !opts.mtls) throw', 'false) throw')));
+  ok("itau: (defeito plantado) um https.request no cliente do Itaú fora da porta é ACUSADO",
+     comRede((p) => (p === "src/lib/cobranca-banco/itau-api.ts" ? 'import https from "node:https";\n' + lerF(p) : lerF(p))).includes("src/lib/cobranca-banco/itau-api.ts"));
   // Nas pastas da Pinbank, nem o fetch global: uma URL vinda de variável de
   // ambiente escaparia da varredura do endereço.
   const pastaPB = arqsF.filter((p) => /^src\/(lib\/pinbank|app\/api\/pinbank|app\/api\/admin\/(saida-fixa|pinbank-extrato))\//.test(p) && p !== PORTA_F);
@@ -12210,7 +12322,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const iUser = x.indexOf("auth.getUser()");
     const iLib = x.indexOf("cobrancaPinbankLiberada()");
     const iRes = x.indexOf('s.rpc("pinbank_cobranca_reservar"');
-    const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+    const iRede = x.indexOf("emitirCobrancaPinbank(reserva");
     const iReg = x.indexOf("pinbank_cobranca_registrar");
     return iDemo > 0 && iUser > iDemo && iLib > iUser && iRes > iLib && iRede > iRes && iReg > iRes && /export const runtime = "nodejs"/.test(t);
   };
@@ -12222,8 +12334,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cobranca-pinbank: a reserva roda com a sessão da pessoa, nunca com a chave de serviço", reservaComoPessoa(rotaCob));
   ok("cobranca-pinbank: (defeito plantado) reservar pela chave de serviço é ACUSADO",
      !reservaComoPessoa(rotaCob.replace('s.rpc("pinbank_cobranca_reservar"', 'admin.rpc("pinbank_cobranca_reservar"')));
-  const regFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== ROTA_COB && /pinbank_cobranca_registrar/.test(semComF(ler(p))));
-  ok("cobranca-pinbank: só a rota grava o resultado (pinbank_cobranca_registrar)", regFora(lerF).length === 0, regFora(lerF).join(", "));
+  // Duas rotas gravam: a da empresa e a do Pix atualizado da página pública (30/10/2026).
+  const ROTAS_REG = [ROTA_COB, "src/app/api/pinbank/checkout/pix/route.ts"];
+  const regFora = (ler: (p: string) => string) => arqsF.filter((p) => !ROTAS_REG.includes(p) && /pinbank_cobranca_registrar/.test(semComF(ler(p))));
+  ok("cobranca-pinbank: só as rotas de cobrança gravam o resultado (pinbank_cobranca_registrar)", regFora(lerF).length === 0, regFora(lerF).join(", "));
   // O interruptor mora numa casa só.
   const leInterruptor = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_COBRANCA\b/.test(semComF(ler(p))));
   ok("cobranca-pinbank: PINBANK_COBRANCA só é lida pelo cliente da API", leInterruptor(lerF).length === 0 && /PINBANK_COBRANCA\b/.test(semComF(lerF(P_API))), leInterruptor(lerF).join(", "));
@@ -12245,6 +12359,104 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("cobranca-pinbank: título vencido ainda gera Pix com 1 hora de validade (nunca zero ou negativo)", pixVencido.SegundosExpiracao === 3600, String(pixVencido.SegundosExpiracao));
     const bol = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
     ok("cobranca-pinbank: o boleto leva Juros e Multa zerados", bol.Juros?.Valor === 0 && bol.Multa?.Valor === 0);
+    const bol205 = CB.pedidoBoleto({ ...res, valor: 2.05, tipo: "boleto" } as never, 1919) as { Valor?: number; DataVencimento?: string };
+    ok("cobranca-pinbank: o valor do boleto vai em CENTAVOS (R$ 2,05 → 205, arredondado e não truncado)", bol205.Valor === 205, String(bol205.Valor));
+    ok("cobranca-pinbank: o vencimento do boleto vai AAAAMMDD (com hífen a Pinbank recusou)", bol205.DataVencimento === "20261029", String(bol205.DataVencimento));
+    const bolJoao = CB.pedidoBoleto({ ...res, devedor: { ...res.devedor, nome: "João Conceição" }, tipo: "boleto" } as never, 1919) as { DadosSacado?: { Nome?: string; Cidade?: string } };
+    ok("cobranca-pinbank: o nome do boleto vai SEM acento (\"João\" saía \"Jo o\" no app de quem paga)",
+       bolJoao.DadosSacado?.Nome === "Joao Conceicao" && bolJoao.DadosSacado?.Cidade === "Sao Paulo", JSON.stringify(bolJoao.DadosSacado));
+    ok("cobranca-pinbank: o texto do boleto troca o que não é ASCII por espaço, sem espaço dobrado", CB.textoDoBoleto("A  \u2014 B") === "A B", CB.textoDoBoleto("A  \u2014 B"));
+    // MULTA E JUROS (30/10/2026): a regra da empresa, a conta da página e o boleto.
+    const F = await import("@/core/cobranca/fatura");
+    const regra = { multaPct: 2, jurosMesPct: 1, carenciaDias: 0, aceitarAteDias: null };
+    const e10 = F.encargosDaFatura(1000, "2026-10-10", "2026-10-20", regra);
+    ok("encargos: R$ 1.000 pago 10 dias depois com 2% + 1% a.m. = multa 20,00 + juros 3,33 = 1.023,33",
+       e10.multa === 20 && e10.juros === 3.33 && e10.total === 1023.33 && e10.diasAtraso === 10, JSON.stringify(e10));
+    ok("encargos: no dia do vencimento não há encargo", F.encargosDaFatura(1000, "2026-10-10", "2026-10-10", regra).total === 1000);
+    const tol = { ...regra, carenciaDias: 3 };
+    ok("encargos: dentro da tolerância (3º dia) não cobra; no 4º cobra multa + os 4 dias de juros",
+       F.encargosDaFatura(1000, "2026-10-10", "2026-10-13", tol).total === 1000
+         && F.encargosDaFatura(1000, "2026-10-10", "2026-10-14", tol).juros === 1.33);
+    const lim = F.encargosDaFatura(1000, "2026-10-10", "2026-10-21", { ...regra, aceitarAteDias: 10 });
+    ok("encargos: passou do prazo aceito = expirada, com a data-limite", lim.expirada && lim.aceitaAte === "2026-10-20", JSON.stringify(lim));
+    ok("encargos: sem regra, o valor não muda (o boleto sem encargo)", F.encargosDaFatura(1000, "2026-10-10", "2026-12-10", null).total === 1000);
+    ok("encargos: a faixa recusa multa de 11%, tolerância quebrada e prazo antes da tolerância",
+       F.problemasDaRegra({ ...regra, multaPct: 11 }).length === 1 && F.problemasDaRegra({ ...regra, carenciaDias: 1.5 }).length === 1
+         && F.problemasDaRegra({ ...regra, carenciaDias: 10, aceitarAteDias: 5 }).length === 1 && F.problemasDaRegra(regra).length === 0);
+    ok("encargos: acima de 2% de multa a tela avisa (CDC)", F.avisosDaRegra({ ...regra, multaPct: 3 }).length === 1 && F.avisosDaRegra(regra).length === 0);
+    ok("encargos: a regra gravada fora do formato é ignorada (sem encargo, nunca um número inventado)",
+       F.lerRegraEncargos({ multaPct: "x", jurosMesPct: 1, carenciaDias: 0 }) === null && F.lerRegraEncargos(null) === null
+         && F.lerRegraEncargos({ multaPct: 2, jurosMesPct: 1, carenciaDias: 0 })?.aceitarAteDias === null);
+    const bolEnc = CB.pedidoBoleto({ ...res, tipo: "boleto" } as never, 1919, { multaPct: 2, jurosMesPct: 1 }) as { Juros?: { Valor: number }; Multa?: { Valor: number } };
+    ok("encargos: com a regra, o boleto leva Multa 200 e Juros 100 (centésimos de %, hipótese a confirmar)", bolEnc.Multa?.Valor === 200 && bolEnc.Juros?.Valor === 100, JSON.stringify(bolEnc));
+    const fatura = semComF(lerF("src/components/checkout/FaturaView.tsx"));
+    ok("encargos: a página lê a regra REGISTRADA no boleto, nunca a configuração de hoje",
+       /lerRegraEncargos\(boletoEmitido\.encargos\)/.test(fatura) && !/cobranca_encargos/.test(fatura));
+    // PIX ATUALIZADO (30/10/2026): vencida, só o Pix DO DIA com o valor de hoje.
+    ok("pix-atualizado: a página escolhe o Pix só por pixDaFatura (nunca procura o Pix por conta própria)",
+       /pixDaFatura\(r\.cobrancas/.test(fatura) && !/x\.tipo === "pix"/.test(fatura));
+    const cobs = [
+      { tipo: "pix" as const, valor: 1000, textoQrCode: "orig", diaReferencia: null },
+      { tipo: "pix" as const, valor: 1023.0, textoQrCode: "ontem", diaReferencia: "2026-10-19" },
+    ];
+    const base = { aberto: true, encerrada: false, comEncargo: true, totalHoje: 1023.33, hoje: "2026-10-20", pixAtualizadoLigado: true };
+    const semDia = F.pixDaFatura(cobs, base);
+    ok("pix-atualizado: com multa e juros, o Pix original e o de ONTEM somem; ligado, oferece gerar",
+       !semDia.pix && semDia.podeGerar && !F.pixDaFatura(cobs, { ...base, pixAtualizadoLigado: false }).podeGerar, JSON.stringify(semDia));
+    const comDia = F.pixDaFatura([...cobs, { tipo: "pix" as const, valor: 1023.33, textoQrCode: "hoje", diaReferencia: "2026-10-20" }], base);
+    ok("pix-atualizado: o Pix de hoje com o valor de hoje aparece, sem botão", comDia.pix?.textoQrCode === "hoje" && comDia.doDia && !comDia.podeGerar);
+    ok("pix-atualizado: Pix de hoje com OUTRO valor não aparece (a regra mudou no meio do dia)",
+       !F.pixDaFatura([{ tipo: "pix" as const, valor: 1010, textoQrCode: "hoje", diaReferencia: "2026-10-20" }], base).pix);
+    ok("pix-atualizado: sem encargo vale o Pix original; encerrada ou paga, nada",
+       F.pixDaFatura(cobs, { ...base, comEncargo: false }).pix?.textoQrCode === "orig"
+         && !F.pixDaFatura(cobs, { ...base, encerrada: true }).podeGerar && !F.pixDaFatura(cobs, { ...base, aberto: false }).podeGerar);
+    const pixDia = CB.pedidoQrCodeDinamico({ ...res, tipo: "pix", diaReferencia: "2026-10-30" } as never, 1919, new Date("2026-10-30T22:00:00-03:00"));
+    ok("pix-atualizado: o Pix do dia expira às 23:59:59 e NÃO aceita pagamento depois (amanhã o valor é outro)",
+       pixDia.SegundosExpiracao === 7199 && pixDia.PermitirPagamentoAposExpiracao === false, JSON.stringify([pixDia.SegundosExpiracao, pixDia.PermitirPagamentoAposExpiracao]));
+    ok("pix-atualizado: o Pix comum continua aceitando pagamento depois do vencimento", pix.PermitirPagamentoAposExpiracao === true);
+    ok("pix-atualizado: gerado no último minuto, ainda vale 60 segundos (nunca zero)",
+       CB.segundosAteFimDoDia("2026-10-30", new Date("2026-10-30T23:59:58-03:00")) === 60);
+    const ROTA_PIXD = "src/app/api/pinbank/checkout/pix/route.ts";
+    const ordemPixD = (t: string) => {
+      const x = semComF(t).slice(semComF(t).indexOf("export async function POST"));
+      const iLib = x.indexOf("pixAtualizadoLiberado()");
+      const iLer = x.indexOf("lerLinkDePagamento(token)");
+      const iEnc = x.indexOf("encargosDaFatura(");
+      const iRes = x.indexOf('admin.rpc("pinbank_checkout_pix_reservar"');
+      const iRede = x.indexOf("emitirCobrancaPinbank(reserva)");
+      const iReg = x.indexOf("await registrar(resultado)");
+      return iLib >= 0 && iLer > iLib && iEnc > iLer && iRes > iEnc && iRede > iRes && iReg > iRede;
+    };
+    ok("pix-atualizado: a rota pública confere interruptor → link → valor de hoje → reserva no banco → só então a Pinbank", ordemPixD(lerF(ROTA_PIXD)));
+    ok("pix-atualizado: (defeito plantado) chamar a Pinbank antes da reserva é REPROVADO",
+       !ordemPixD(lerF(ROTA_PIXD).replace("export async function POST(req: Request) {", "export async function POST(req: Request) {\n  await emitirCobrancaPinbank(reserva);")));
+    ok("pix-atualizado: o valor sai da conta da página, nunca do pedido", !/pedido as Record<string, unknown>\)\.(valor|total)/.test(semComF(lerF(ROTA_PIXD))));
+    const lePixD = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_PIX_ATUALIZADO/.test(semComF(ler(p))));
+    ok("pix-atualizado: PINBANK_PIX_ATUALIZADO só é lida pelo cliente da API e está no .env.example",
+       lePixD(lerF).length === 0 && /^#?\s*PINBANK_PIX_ATUALIZADO=/m.test(docEnv), lePixD(lerF).join(", "));
+    ok("pix-atualizado: (defeito plantado) a página lendo o interruptor direto é ACUSADA",
+       lePixD((p) => (p === "src/app/pagar/page.tsx" ? lerF(p) + "\nconst l = process.env.PINBANK_PIX_ATUALIZADO;" : lerF(p))).includes("src/app/pagar/page.tsx"));
+    const APIp = await import("@/lib/pinbank/api");
+    const credP = Object.fromEntries(APIp.variaveisFaltando({}).map((n) => [n, "x"]));
+    const envP = { ...credP, PINBANK_API_AMBIENTE: "producao", PINBANK_COBRANCA: "ligado", PINBANK_PIX_ATUALIZADO: "ligado" } as Record<string, string>;
+    ok("pix-atualizado: nasce DESLIGADO e depende da cobrança ligada",
+       APIp.pixAtualizadoLiberado(envP) && !APIp.pixAtualizadoLiberado({ ...envP, PINBANK_PIX_ATUALIZADO: "" })
+         && !APIp.pixAtualizadoLiberado({ ...envP, PINBANK_COBRANCA: "" }));
+    const leEnc = (ler: (p: string) => string) => arqsF.filter((p) => p !== P_API && /PINBANK_BOLETO_ENCARGOS/.test(semComF(ler(p))));
+    ok("encargos: PINBANK_BOLETO_ENCARGOS só é lida pelo cliente da API e está no .env.example",
+       leEnc(lerF).length === 0 && /PINBANK_BOLETO_ENCARGOS/.test(semComF(lerF(P_API))) && /^#?\s*PINBANK_BOLETO_ENCARGOS=/m.test(docEnv), leEnc(lerF).join(", "));
+    ok("encargos: (defeito plantado) a rota lendo o interruptor direto é ACUSADA",
+       leEnc((p) => (p === ROTA_COB ? lerF(p) + "\nconst l = process.env.PINBANK_BOLETO_ENCARGOS;" : lerF(p))).includes(ROTA_COB));
+    // O código de barras da página do boleto (ITF, FEBRABAN). Decodificado por
+    // leitor de verdade (zxing) em 30/10/2026; aqui fica a forma: início
+    // 4 estreitos, 5 elementos por dígito com 2 largos (3×), fim largo-estreito-estreito.
+    const ITF = await import("@/lib/itf");
+    const elItf = ITF.elementosITF("0123456789");
+    ok("boleto-itf: início, fim e 2 largos por dígito",
+       elItf.slice(0, 4).join() === "1,1,1,1" && elItf.slice(-3).join() === "3,1,1" && elItf.length === 4 + 50 + 3 && elItf.filter((w) => w === 3).length === 2 * 10 + 1, elItf.join());
+    let itfImpar = false;
+    try { ITF.elementosITF("123"); } catch { itfImpar = true; }
+    ok("boleto-itf: número ÍMPAR de dígitos é recusado (o ITF intercala em pares)", itfImpar);
   }
   /* ── mensalidade-pinbank: a mensalidade do ERP pela conta da QUATTRO ─── */
   {
@@ -12294,21 +12506,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        !API.mensalidadePinbankLiberada({ ...env, MENSALIDADE_PINBANK: "", PINBANK_COBRANCA: "ligado" }).liberada);
   }
   /* ── checkout-pinbank: o link público de pagamento (etapa 4, MVP) ─────── */
-  const PG_PAGAR = "src/app/pagar/page.tsx";
+  // A leitura mora em `lib/checkout-leitura` (30/10/2026): a fatura e o
+  // boleto para imprimir leem o MESMO link pela MESMA função.
+  const PG_PAGAR = "src/lib/checkout-leitura.ts";
   const pagPagar = lerF(PG_PAGAR);
+  const usaLeitura = (p: string) => /lerLinkDePagamento\(tokenDoLink\(|lerLinkDePagamento\(t\)/.test(semComF(lerF(p))) && /export const dynamic = "force-dynamic"/.test(lerF(p));
+  ok("checkout-pinbank: /pagar e /pagar/boleto leem pela leitura única, sem cache", usaLeitura("src/app/pagar/page.tsx") && usaLeitura("src/app/pagar/boleto/page.tsx"));
   // A leitura pública só pela chave de serviço, DEPOIS do interruptor e do token conferido.
   const leituraPublica = (t: string) => {
     const x = semComF(t);
     const iTok = x.indexOf("TOKEN.test(token)");
     const iLib = x.indexOf("cobrancaPinbankLiberada()");
     const iRpc = x.indexOf('admin.rpc("pinbank_checkout_ler"');
-    return iTok > 0 && iLib > iTok && iRpc > iLib && /export const dynamic = "force-dynamic"/.test(t);
+    return iTok > 0 && iLib > iTok && iRpc > iLib;
   };
   ok("checkout-pinbank: a página confere token → interruptor → só então lê pela chave de serviço", leituraPublica(pagPagar));
   ok("checkout-pinbank: (defeito plantado) ler antes do interruptor é REPROVADO",
      !leituraPublica(pagPagar.replace("  if (!cobrancaPinbankLiberada().liberada) return \"fora_do_ar\";\n", "")));
   const leFora = (ler: (p: string) => string) => arqsF.filter((p) => p !== PG_PAGAR && /pinbank_checkout_ler/.test(semComF(ler(p))));
-  ok("checkout-pinbank: só a página pública chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
+  ok("checkout-pinbank: só a leitura do link público chama pinbank_checkout_ler", leFora(lerF).length === 0, leFora(lerF).join(", "));
   ok("checkout-pinbank: (defeito plantado) o modal chamando a leitura pública é ACUSADO",
      leFora((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\nfetch("pinbank_checkout_ler");' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
   const ROTA_LINK = "src/app/api/pinbank/checkout/route.ts";
@@ -12318,7 +12534,64 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("checkout-pinbank: (defeito plantado) criar o link pela chave de serviço é ACUSADO",
      !linkComoPessoa(rotaLink.replace('s.rpc("pinbank_checkout_link_criar"', 'admin.rpc("pinbank_checkout_link_criar"')));
   const mw = lerF("src/middleware.ts");
-  ok("checkout-pinbank: /pagar é pública no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)));
+  ok("checkout-pinbank: /pagar e /pagar/boleto são públicas no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)) && /pathname === "\/pagar\/boleto"/.test(semComF(mw)));
+  /* ── liquidacao: pago o Pix ou o boleto, a página do link vira "pago" (04/11/2026) ── */
+  {
+    const AC = await import("@/core/cobranca/acompanhar");
+    const ROTA_SIT = "src/app/api/pinbank/checkout/situacao/route.ts";
+    const rotaSit = lerF(ROTA_SIT);
+    // A consulta da página lê pela MESMA leitura e devolve SÓ a situação.
+    const soSituacao = (t: string) => {
+      const x = semComF(t);
+      const respostas = [...x.matchAll(/resposta\(\d+, (\{[^}]*\})\)/g)].map((m) => m[1]);
+      return /lerLinkDePagamento\(t\)/.test(x) && !/createAdmin|\.rpc\(/.test(x) && respostas.length >= 3
+        && respostas.every((r) => /^\{ situacao: [^,]+ \}$/.test(r));
+    };
+    ok("liquidacao: a consulta da página lê pela leitura única e devolve SÓ a situação", soSituacao(rotaSit));
+    ok("liquidacao: (defeito plantado) a consulta devolvendo a fatura inteira é ACUSADA",
+       !soSituacao(rotaSit.replace("{ situacao: r.situacao }", "{ situacao: r.situacao, ...r }")));
+    ok("liquidacao: (defeito plantado) a consulta lendo direto pela chave de serviço é ACUSADA",
+       !soSituacao(rotaSit.replace("lerLinkDePagamento(t)", 'createAdmin()!.rpc("pinbank_checkout_ler", { p_token: t })')));
+    const esperas = Array.from({ length: 40 }, (_, n) => AC.esperaDaConsulta(n, n * 30_000));
+    ok("liquidacao: a página pergunta a cada 5 s no primeiro meio minuto (o Pix cai em segundos)",
+       [0, 1, 2, 3, 4, 5].every((n) => AC.esperaDaConsulta(n, 0) === 5_000), JSON.stringify(esperas.slice(0, 8)));
+    ok("liquidacao: a espera cresce e nunca passa de 30 s nem fica abaixo de 5 s",
+       esperas.filter((e): e is number => e !== null).every((e, i, a) => e >= 5_000 && e <= 30_000 && (i === 0 || e >= a[i - 1]))
+       && AC.esperaDaConsulta(20, 0) === 30_000, JSON.stringify(esperas));
+    ok("liquidacao: depois de 1 hora a página para de perguntar",
+       AC.esperaDaConsulta(3, 60 * 60_000) === null && AC.esperaDaConsulta(3, 60 * 60_000 - 1) !== null && AC.esperaDaConsulta(-1, 0) === null);
+    ok("liquidacao: só o link ABERTO que virou pago ou indisponível redesenha a página",
+       AC.pedeRedesenhar("aberto", "pago") && AC.pedeRedesenhar("aberto", "indisponivel")
+       && !AC.pedeRedesenhar("aberto", "aberto") && !AC.pedeRedesenhar("pago", "pago") && !AC.pedeRedesenhar("aberto", "fora_do_ar") && !AC.pedeRedesenhar("aberto", undefined));
+    const fatura = semComF(lerF("src/components/checkout/FaturaView.tsx"));
+    ok("liquidacao: a fatura acompanha o pagamento com o token e a situação lidos pelo servidor",
+       /<AcompanharPagamento token=\{token\} situacao=\{r\.situacao\} \/>/.test(fatura));
+    ok("liquidacao: a fatura paga diz \"Pagamento confirmado\"", /r\.situacao === "pago" &&[\s\S]{0,200}Pagamento confirmado/.test(fatura));
+    const acomp = semComF(lerF("src/components/checkout/AcompanharPagamento.tsx"));
+    ok("liquidacao: a página consulta a rota de situação, sem cache, e redesenha pelo servidor (router.refresh)",
+       /fetch\(`\/api\/pinbank\/checkout\/situacao\?t=\$\{encodeURIComponent\(token\)\}`, \{ cache: "no-store" \}\)/.test(acomp) && /router\.refresh\(\)/.test(acomp)
+       && /esperaDaConsulta\(/.test(acomp) && /visibilityState/.test(acomp));
+    // O escritor único: quem liquidar (o aviso do banco, a consulta) chama a
+    // função do banco pela chave de serviço, num arquivo de servidor — nunca
+    // um update de `situacao: "paga"` à parte.
+    const chamaLiquidar = arqsF.filter((p) => /pinbank_cobranca_liquidar/.test(semComF(lerF(p))));
+    const liquidaErrado = (ler: (p: string) => string) => arqsF.filter((p) => {
+      const x = semComF(ler(p));
+      if (/from\("pinbank_cobrancas"\)[\s\S]{0,200}\.(update|upsert|insert)\(/.test(x)) return true;
+      return /pinbank_cobranca_liquidar/.test(x) && (/^\s*["']use client["']/.test(ler(p)) || !/admin\.rpc\("pinbank_cobranca_liquidar"/.test(x));
+    });
+    ok("liquidacao: ninguém grava a cobrança à parte; liquidar só pela função, pela chave de serviço",
+       liquidaErrado(lerF).length === 0, `${liquidaErrado(lerF).join(", ")} (chamam hoje: ${chamaLiquidar.length})`);
+    ok("liquidacao: (defeito plantado) a tela marcando a cobrança como paga direto é ACUSADA",
+       liquidaErrado((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\ns.from("pinbank_cobrancas").update({ situacao: "paga" });' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
+    const mig = lerF("supabase/migrations/20261104140000_cobranca_paga_baixa_titulo.sql");
+    ok("liquidacao: a função de liquidar executa SÓ como o servidor",
+       /revoke all on function public\.pinbank_cobranca_liquidar\(uuid, numeric, timestamptz, text, text\) from public, anon, authenticated, service_role;/.test(mig)
+       && /grant execute on function public\.pinbank_cobranca_liquidar\(uuid, numeric, timestamptz, text, text\) to service_role;/.test(mig)
+       && !/grant execute on function public\.pinbank_cobranca_liquidar[^;]*(authenticated|anon)/.test(mig));
+    const ci = lerF(".github/workflows/ci.yml");
+    ok("liquidacao: a guarda do banco (scripts/pinbank-liquidacao.sql) roda no CI", /-f scripts\/pinbank-liquidacao\.sql/.test(ci));
+  }
   /* ── checkout-email: o link de pagamento por e-mail, no modelo da Asaas ── */
   {
     const AU = await import("@/core/automacoes");
@@ -12449,6 +12722,23 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // o cartão mora numa seção SÓ — sem isto, ele volta a ser empilhado onde
   // sobrar espaço.
   const maq = d(H, "/maquininhas");
+  {
+    // Interruptores (03/11/2026): a tela diz o que a ROTA faz — o estado vem das
+    // mesmas funções, nunca de uma releitura da variável — e nunca o valor dela.
+    const INT = await import("@/lib/interruptores");
+    const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
+    const vazio = INT.estadoDosInterruptores({});
+    ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
+       vazio.length === 14 && vazio.every((l) => !l.estado.ligado)); // 14: + os agentes e a confirmação do e-mail do contador (04/11/2026)
+    const so = est({ PINBANK_COBRANCA: "ligado" }) as Record<string, { ligado: boolean; motivo?: string }>;
+    ok("interruptores: cobrança Pinbank ligada sem credencial diz 'falta configuração', nunca 'ligado'",
+       so.pinbank_cobranca.ligado === false && so.pinbank_cobranca.motivo === "sem_configuracao");
+    ok("interruptores: 'true' não liga (só 'ligado', como nas rotas)",
+       !(est({ WHATSAPP_APROVACAO: "true", CAIXA_EMAIL: "1", PINBANK_WEBHOOK: "sim" }) as Record<string, { ligado: boolean }>).whatsapp_aprovacao.ligado);
+    const tela = readFileSync("src/components/admin/InterruptoresView.tsx", "utf8") + readFileSync("src/core/interruptores/index.ts", "utf8");
+    ok("interruptores: nem a tela nem o catálogo leem process.env", !/process\.env/.test(tela));
+    ok("interruptores: é item do menu da plataforma", SECOES_ADMIN.some((s) => s.href === "/admin/interruptores"));
+  }
   ok("area-admin: Maquininhas é item do menu, com endereço limpo na plataforma",
      SECOES_ADMIN.some((s) => s.id === "maquininhas" && s.href === "/admin/maquininhas")
      && secaoAtiva("/maquininhas").id === "maquininhas" && secaoAtiva("/admin/maquininhas").id === "maquininhas"
@@ -12687,7 +12977,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       "<Relatorio key={resultado.consultadoEm} ", "<Relatorio "],
     ["a coluna do resumo diz que o bruto do extrato é ESTIMADO (nunca \"Bruto no extrato\")",
       (x) => /"Bruto estimado no extrato"/.test(x) && !/["'>]\s*Bruto no extrato\s*["'<]/.test(x),
-      '["Situação", "Parcelas", "Bruto estimado no extrato",', '["Situação", "Parcelas", "Bruto no extrato",'],
+      'rotulo: "Bruto estimado no extrato"', 'rotulo: "Bruto no extrato"'],
     ["o resumo tem o \"i\" ao lado do título, com o cálculo ancorado no motor (tolerância lida de TOLERANCIA_TAXA_BP)",
       (x) => /Resumo por situação<\/span>\s*<InfoHint[\s\S]{0,400}?comoCalcula=\{COMO_CALCULA_RESUMO\}/.test(x)
         && /const TOLERANCIA_TEXTO = `\$\{decimalBR\(TOLERANCIA_TAXA_BP \/ 100, 2\)\}/.test(x)
@@ -12701,7 +12991,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     // "numeração não confirmada" e "extrato sem vendas" do relatório inteiro nunca chegam a ela):
     // é nele que a regra mora — fala de numeração das vendas e do código do estabelecimento, nunca de "chave".
     ["o bloco só de contagens fala de numeração das vendas e do código do estabelecimento (EC), não de \"chave\" (palavra de implementação)",
-      (x) => /numeração das vendas confere/.test(x) && /código do estabelecimento \(EC\)/.test(x) && !/\b[Cc]haves?\b/.test(x),
+      // `chave` como nome de propriedade da peça Tabela (`chave: "nsu"`, `chave={…}`) é código, não texto de tela.
+      (x) => /numeração das vendas confere/.test(x) && /código do estabelecimento \(EC\)/.test(x) && !/(?<![.\w])[Cc]haves?\b(?!\s*[:=])/.test(x),
       "a numeração das vendas confere", "a chave das vendas confere"],
     ["o bloco só de contagens tem o \"i\", com o que cada lado conta (linhas do extrato × parcelas válidas do sistema)",
       (x) => /Só as quantidades<\/StatusBadge>\s*<InfoHint[\s\S]{0,200}?comoCalcula=\{COMO_CALCULA_CONTAGENS\}/.test(x)
@@ -13515,6 +13806,93 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("conta: sem a palavra de confirmação nada acontece", !r3.ok && r3.codigo === "confirmacao");
   const r4 = decidirExclusao({ ...base, administradorDaPlataforma: true, vinculos: [] });
   ok("conta: administrador da plataforma não se exclui por aqui", !r4.ok && r4.codigo === "administrador_da_plataforma");
+}
+
+// ═══ wa-numero: o celular da Quattro AI só vale confirmado pelo próprio número ═══
+// (etapa 1 da IA no WhatsApp; a fechadura é do banco — scripts/whatsapp-numero.sql)
+{
+  ok("wa-numero: o interruptor nasce DESLIGADO (sem a variável, nada liga)",
+    !iaWhatsappLigada({}) && !iaWhatsappLigada({ WHATSAPP_IA: "true" }) && iaWhatsappLigada({ WHATSAPP_IA: "ligado" }));
+  ok("wa-numero: '+55 (11) 99999-7777', '11999997777' e '5511999997777' viram o MESMO canônico",
+    celularCanonico("+55 (11) 99999-7777") === "11999997777" && celularCanonico("11999997777") === "11999997777"
+      && celularCanonico("5511999997777") === "11999997777");
+  ok("wa-numero: sem DDD, curto demais ou começando por 0 é recusado ANTES de gastar um código",
+    celularCanonico("99999-7777") === null && celularCanonico("") === null && celularCanonico("011999997777") === null);
+  ok("wa-numero: o celular legível tem DDD entre parênteses", celularLegivel("11999997777") === "(11) 99999-7777");
+  ok("wa-numero: a mensagem leva o código e o prazo", /123456/.test(mensagemDoCodigo("123456")) && /10 minutos/.test(mensagemDoCodigo("1")));
+  ok("wa-numero: a recusa do banco chega sem o prefixo técnico",
+    semPrefixoNumero("A4P-WAN-OCUPADO: este celular já está confirmado") === "este celular já está confirmado");
+
+  const acoes = readFileSync("src/app/configuracoes/seguranca/acoes.ts", "utf8");
+  const corpoPedir = acoes.slice(acoes.indexOf("export async function pedirCodigoNumeroAction"));
+  ok("wa-numero: o interruptor é conferido ANTES de gerar o código",
+    corpoPedir.indexOf("iaWhatsappLigada()") > -1 && corpoPedir.indexOf("iaWhatsappLigada()") < corpoPedir.indexOf("whatsapp_numero_pedir_codigo"));
+  ok("wa-numero: sem Twilio configurada, recusa ANTES de gerar (simulado nunca é enviado)",
+    corpoPedir.indexOf("statusNotificacoes().whatsapp") > -1 && corpoPedir.indexOf("statusNotificacoes().whatsapp") < corpoPedir.indexOf("whatsapp_numero_pedir_codigo"));
+  ok("wa-numero: o código é pedido pela CHAVE DE SERVIÇO com o id da SESSÃO (nunca um id do formulário)",
+    /admin\.rpc\("whatsapp_numero_pedir_codigo", \{ p_usuario: uid,/.test(corpoPedir) && /auth\.getUser\(\)/.test(corpoPedir));
+  ok("wa-numero: o código nunca vai para log nem volta à tela",
+    !/console\.(log|info|warn|error)/.test(acoes) && !/mensagem:[^\n]*\$\{codigo\}/.test(acoes));
+  const PORTAS = ["src/components/configuracoes/NumeroWhatsappCard.tsx", "src/components/ia/OfertaWhatsapp.tsx", "src/components/entrada/CriarContaView.tsx"];
+  const telas = PORTAS.map((f) => readFileSync(f, "utf8")).join("\n");
+  ok("wa-numero: nenhuma tela chama a geração do código direto", !telas.includes("whatsapp_numero_pedir_codigo"));
+
+  // A oferta do vínculo (fim do cadastro e primeira abertura do chat, 30/10/2026).
+  const base = { ligado: true, podeCadastrar: true, confirmado: false, dispensadaEm: null, hoje: "2026-10-30" };
+  ok("wa-oferta: oferece a quem pode e ainda não confirmou", deveOferecerWhatsapp(base));
+  ok("wa-oferta: desligado não oferece", !deveOferecerWhatsapp({ ...base, ligado: false }));
+  ok("wa-oferta: quem não pode cadastrar não vê", !deveOferecerWhatsapp({ ...base, podeCadastrar: false }));
+  ok("wa-oferta: celular já confirmado não vê de novo", !deveOferecerWhatsapp({ ...base, confirmado: true }));
+  ok("wa-oferta: 'Agora não' segura a oferta durante a pausa",
+    !deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-30" }) && !deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-17" }));
+  ok(`wa-oferta: depois de ${DIAS_PAUSA_OFERTA} dias ela volta`, deveOferecerWhatsapp({ ...base, dispensadaEm: "2026-10-16" }));
+  ok("wa-oferta: as duas portas novas usam as MESMAS ações de Segurança da conta (nenhuma confirmação própria)",
+    PORTAS.slice(1).every((f) => {
+      const t = readFileSync(f, "utf8");
+      return t.includes("pedirCodigoNumeroAction") && t.includes("confirmarNumeroAction") && !t.includes(".rpc(");
+    }));
+  ok("wa-oferta: o chat monta a oferta", readFileSync("src/components/ia/ChatTelaCheia.tsx", "utf8").includes("<OfertaWhatsapp />"));
+}
+
+// ═══ wa-conversa: a Quattro AI no WhatsApp só lê, e só a empresa de quem pergunta ═══
+{
+  ok("wa-conversa: EMPRESAS e 'trocar de empresa' listam", lerComandoEmpresa("EMPRESAS")?.tipo === "listar" && lerComandoEmpresa("Trocar de empresa.")?.tipo === "listar");
+  const dois = lerComandoEmpresa("2");
+  ok("wa-conversa: '2' escolhe a SEGUNDA da lista", dois?.tipo === "escolher" && dois.indice === 1);
+  ok("wa-conversa: pergunta que cita 'empresa' é pergunta, não troca",
+    lerComandoEmpresa("quanto a empresa vendeu?") === null && lerComandoEmpresa("0") === null);
+  const a = { id: "a", nome: "A" }, b = { id: "b", nome: "B" };
+  ok("wa-conversa: uma empresa só vale sem perguntar", empresaDaConversa({ orgs: [a], escolhida: null, saiu: false })?.id === "a");
+  ok("wa-conversa: com duas e nenhuma escolhida, PERGUNTA (nunca escolhe a primeira)",
+    empresaDaConversa({ orgs: [a, b], escolhida: null, saiu: false }) === null);
+  ok("wa-conversa: escolhida que saiu da lista (acesso perdido) não vale",
+    empresaDaConversa({ orgs: [a, b], escolhida: "zzz", saiu: false }) === null);
+  ok("wa-conversa: número não confirmado (nulo do banco) não é ninguém", lerQuem(null) === null);
+  ok("wa-conversa: empresa sem id do banco é descartada", lerQuem({ orgs: [{ nome: "x" }, { id: "a", nome: "A" }] })?.orgs.length === 1);
+  ok("wa-conversa: **negrito** vira *negrito* e o link vira texto",
+    paraWhatsapp("**R$ 10** em [Contas a pagar](/contas-a-pagar)") === "*R$ 10* em Contas a pagar");
+  ok("wa-conversa: resposta longa cabe no WhatsApp, rodapé incluído",
+    paraWhatsapp("linha\n".repeat(600), "rodapé").length <= TAMANHO_MAXIMO);
+
+  const entrada = readFileSync("src/lib/whatsapp-entrada.ts", "utf8");
+  const pos = (t: string) => entrada.indexOf(t);
+  ok("wa-conversa: no webhook a IA vem DEPOIS do SAIR e da aprovação e ANTES da resposta padrão",
+    pos("whatsapp_registrar_saida") > 0 && pos("whatsapp_registrar_saida") < pos("responder_aprovacao_whatsapp")
+    && pos("responder_aprovacao_whatsapp") < pos("responderIaWhatsapp(admin")
+    && pos("responderIaWhatsapp(admin") < entrada.lastIndexOf("twiml(RESPOSTA_PADRAO)"));
+  ok("wa-conversa: o webhook só chama a IA com o interruptor ligado",
+    /if \(iaWhatsappLigada\(\) && admin && telefone\)/.test(entrada));
+  const ia = readFileSync("src/lib/whatsapp-ia.ts", "utf8");
+  ok("wa-conversa: a reserva (número, papel, teto, trilha) vem ANTES de ler a empresa",
+    ia.indexOf('"whatsapp_ia_reservar"') > 0 && ia.indexOf('"whatsapp_ia_reservar"') < ia.indexOf('"automacao_contexto"'));
+  // Etapa 5 (04/11/2026): o lançamento dito volta como PROPOSTA com link, e o
+  // "Confirmar" é no app. Interpretar a frase pode; gravar, nunca.
+  ok("wa-conversa: SÓ LEITURA — nenhuma escrita direta e nenhum lançamento pela conversa",
+    !/\.(insert|update|upsert|delete)\(/.test(ia) && !/confirmarDocumento/.test(ia)
+    && (!/interpretarLancamento/.test(ia) || /linkDoLancamento\(appUrl, pergunta, empresa\.id\)/.test(ia)));
+  const fora = execSyncIcone(`grep -rlE 'rpc\\("whatsapp_ia_' src || true`, { encoding: "utf8" })
+    .split("\n").filter((f) => f && f !== "src/lib/whatsapp-ia.ts");
+  ok(`wa-conversa: as RPCs da conversa têm porta única (fora dela: ${fora.join(", ") || "nenhuma"})`, fora.length === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

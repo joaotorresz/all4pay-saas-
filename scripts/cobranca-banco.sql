@@ -3,7 +3,7 @@
 --
 --   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cobranca-banco.sql
 --
--- Prova a migration 20261028120000:
+-- Prova as migrations 20261028120000 e 20261030120000:
 --
 --   1. só quem ADMINISTRA conecta a conta que recebe; o texto puro não entra
 --      no lugar do cifrado; NINGUÉM do cliente lê o segredo; o servidor lê; e
@@ -20,7 +20,10 @@
 --   8. o título mudou depois de emitida → `a_cancelar`, e nova emissão recusada;
 --   9. a cobrança viva da PINBANK do mesmo título também segura;
 --  10. a empresa B não vê nem reserva nada da A; ninguém escreve direto;
---      desconectar apaga o segredo e o servidor deixa de ler a credencial.
+--      desconectar apaga o segredo e o servidor deixa de ler a credencial;
+--  11. (20261030120000) banco fora da lista é recusado pelo nome, uma conta
+--      recebe por vez (o Itaú não conecta com o Inter vivo), e depois de
+--      desconectar o Inter o Itaú conecta e a credencial sai como `itau`.
 --
 -- E os DEFEITOS PLANTADOS no fim, no arreio de `pinbank-cobranca.sql`:
 -- cada um reescreve uma função num savepoint e exige que a prova REPROVE pelo
@@ -371,6 +374,18 @@ begin
   if exists (select 1 from public.audit_log where depois::text like '%v1.%' and entidade like 'cobranca_banco%') then
     raise exception 'CASO 10 FALHOU: o texto cifrado do segredo foi parar na trilha.';
   end if;
+  -- 11. o banco é conferido e uma conta recebe por vez (migration 20261030120000)
+  msg := pg_temp.erro_como(ua, format(
+    'select public.cobranca_banco_conectar(gen_random_uuid(), ''bradesco'', ''sandbox'', ''x'', null, null, %L)', pg_temp.cifrado()));
+  if msg is null or msg not like '%banco desconhecido%' then
+    raise exception 'CASO 11 FALHOU: um banco fora da lista foi aceito (veio: %).', coalesce(msg, 'aceito');
+  end if;
+  msg := pg_temp.erro_como(ua, format(
+    'select public.cobranca_banco_conectar(gen_random_uuid(), ''itau'', ''sandbox'', ''x'', null, null, %L)', pg_temp.cifrado()));
+  if msg is null or msg not like '%já recebe pelo Banco Inter%' then
+    raise exception 'CASO 11 FALHOU: o Itaú foi conectado com o Inter vivo — duas contas recebendo (veio: %).', coalesce(msg, 'aceito');
+  end if;
+
   msg := pg_temp.erro_como(un, 'select public.cobranca_banco_desconectar(''inter'')');
   if msg is null or msg not like '%só quem administra%' then
     raise exception 'CASO 10 FALHOU: o LANÇADOR desconectou a conta (veio: %).', coalesce(msg, 'aceito');
@@ -382,6 +397,21 @@ begin
   msg := pg_temp.erro_servidor(format('select public.cobranca_banco_credencial(%L)', cx));
   if msg is null or msg not like '%desconectada%' or exists (select 1 from public.cobranca_banco_segredos where conexao_id = cx) then
     raise exception 'CASO 10 FALHOU: depois de desconectar, a credencial continuou legível (veio: %).', coalesce(msg, 'aceito');
+  end if;
+
+  cx2 := gen_random_uuid();
+  -- 11. com o Inter desconectado, o Itaú conecta e a credencial sai com o banco certo
+  msg := pg_temp.erro_como(ua, format(
+    'select public.cobranca_banco_conectar(%L, ''itau'', ''sandbox'', ''client-itau'', null, null, %L)', cx2, pg_temp.cifrado()));
+  if msg is not null then
+    raise exception 'CASO 11 FALHOU: o Itaú não conectou com nenhuma outra conta viva (veio: %).', msg;
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  set local role service_role;
+  r := public.cobranca_banco_credencial(cx2);
+  reset role;
+  if r ->> 'provedor' is distinct from 'itau' then
+    raise exception 'CASO 11 FALHOU: a credencial do Itaú saiu como %.', coalesce(r ->> 'provedor', 'nada');
   end if;
 end $$;
 grant execute on all functions in schema pg_temp to authenticated, service_role;
@@ -561,6 +591,24 @@ do $d$ begin
 end $d$;
 rollback to savepoint caso;
 
-do $fim$ begin raise notice 'cobranca-banco: 10 casos · 15 defeitos plantados pegos · a fechadura confere'; end $fim$;
+-- d16 · conectar um segundo banco com o primeiro vivo
+savepoint caso;
+do $d$ begin
+  perform pg_temp.plantar('public.cobranca_banco_conectar(uuid,text,text,text,text,date,text)'::regprocedure,
+    'if v_outro is not null then', 'if false then');
+  perform pg_temp.reprova('%CASO 11 FALHOU%duas contas recebendo%', 'duas contas da empresa recebendo ao mesmo tempo');
+end $d$;
+rollback to savepoint caso;
+
+-- d17 · aceitar banco fora da lista (o CHECK recusaria, mas sem a frase)
+savepoint caso;
+do $d$ begin
+  perform pg_temp.plantar('public.cobranca_banco_conectar(uuid,text,text,text,text,date,text)'::regprocedure,
+    'if p_provedor is null or p_provedor not in (''inter'', ''itau'') then', 'if false then');
+  perform pg_temp.reprova('%CASO 11 FALHOU%fora da lista%', 'o banco desconhecido sem recusa nomeada');
+end $d$;
+rollback to savepoint caso;
+
+do $fim$ begin raise notice 'cobranca-banco: 11 casos · 17 defeitos plantados pegos · a fechadura confere'; end $fim$;
 
 rollback;

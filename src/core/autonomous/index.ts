@@ -64,7 +64,6 @@ export function operacaoAutonoma(input: RiskInput, accounts: FinancialAccount[])
     saldoAtual: dec.features.atual.saldo,
     rupturaDia: dec.features.atual.rupturaDia,
     probRuptura: dec.features.atual.probRuptura,
-    probStress: dec.risco.probabilidadeStress,
     runwayDias: dec.features.atual.runwayDias,
     inadimplencia: dec.features.atual.inadimplencia,
     topBancoShare: treasury.topBancoShare,

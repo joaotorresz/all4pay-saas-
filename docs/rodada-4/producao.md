@@ -23,7 +23,8 @@ Em produção: 0 execuções dos dois na trilha até hoje.
    lixeira: reativar devolvia 23505 em cada data pausada e a fatura nunca
    voltava. Migration `20261001130000` (índice só entre vivas). Provada: reativar
    recria; segunda viva na mesma data continua recusada. Guarda `rec-lixeira`.
-4. **Depreciação em dobro — DIAGNÓSTICO, sem conserto.** Estrutural: a compra
+4. **Depreciação em dobro — CONSERTADA em 04/11/2026 (Fase 3.4):** o cronograma aponta a compra (`schedules.movement_id`) e o razão leva a compra ao ativo (1.2.01 imobilizado, 1.1.05 despesa antecipada). Guardas `depreciacao-unica` e `cronograma-compra.sql`. O diagnóstico original segue abaixo.
+   **Diagnóstico original:** Estrutural: a compra
    do bem entra no razão como despesa operacional cheia e o cronograma lança a
    depreciação por cima. **Medido: 0 casos em produção** (o único cronograma,
    R$ 3.000, não tem a compra lançada). O conserto certo — a compra ligada ao

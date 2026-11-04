@@ -137,6 +137,10 @@ function casosConexao(X: ModConexao): string[] {
   })());
   caso("credencial: sem o texto cifrado LANÇA",
     lanca(() => X.lerCredencialGuardada({ id: ID_A, orgId: ID_B, provedor: "inter", ambiente: "sandbox", clientId: "c", cifrado: "aberto" })));
+  caso("credencial: a do Itaú sai como itau",
+    (() => { try { return X.lerCredencialGuardada({ id: ID_A, orgId: ID_B, provedor: "itau", ambiente: "sandbox", clientId: "c", cifrado: "v1.a.b.c" }).provedor === "itau"; } catch { return false; } })());
+  caso("credencial: banco fora da lista LANÇA",
+    lanca(() => X.lerCredencialGuardada({ id: ID_A, orgId: ID_B, provedor: "bradesco", ambiente: "sandbox", clientId: "c", cifrado: "v1.a.b.c" })));
   caso("credencial: ambiente desconhecido LANÇA",
     lanca(() => X.lerCredencialGuardada({ id: ID_A, orgId: ID_B, provedor: "inter", ambiente: "prod", clientId: "c", cifrado: "v1.a.b.c" })));
   const form = { ambiente: "producao", clientId: "id", clientSecret: "zzSEGREDOzz", certificado: SEGREDO.certificado, chave: SEGREDO.chave, contaCorrente: "" };
@@ -214,6 +218,25 @@ await defeitoConexao("nosso número sem conferir", "|| seuNumero !== esperado", 
 await defeitoConexao("processando sem id passa", 'if (situacao === "processando" && !idProvedor)', "if (false)", "processando sem o id");
 await defeitoConexao("credencial aberta passa", 'v.cifrado.startsWith("v1.")', "true", "sem o texto cifrado");
 await defeitoConexao("interruptor ligado por padrão", '=== "ligado"', '!== "desligado"', "nasce desligado");
+
+await defeitoConexao("credencial de qualquer banco passa", "const provedor = lerBancoConectavel(v.provedor);", 'const provedor = (v.provedor as "inter") || null;', "fora da lista LANÇA");
+
+// 4. O Itaú (`docs/rodada-11/cobranca-itau.md`): a lista do servidor é a do
+// banco de dados, e o banco que ainda não emite não chega ao teste nem ao Inter.
+{
+  const B = await import(pathToFileURL(path.resolve("src/core/cobranca-banco/index.ts")).href);
+  const mig = fs.readFileSync(path.resolve("supabase/migrations/20261030120000_cobranca_banco_itau.sql"), "utf8");
+  const lista = [...mig.matchAll(/check \(provedor in \(([^)]*)\)\)/g)].map((m) => m[1].replace(/['\s]/g, ""));
+  ok("itaú: o CHECK das duas tabelas é a lista BANCOS_CONECTAVEIS", lista.length === 2 && lista.every((l) => l === B.BANCOS_CONECTAVEIS.join(",")), lista.join(" | "));
+  ok("itaú: ainda não emite (a porta de rede dele não existe)", !B.bancoEmite("itau") && B.bancoEmite("inter"));
+  ok("itaú: texto desconhecido não vira banco", B.lerBancoConectavel("bradesco") === null && B.lerBancoConectavel("itau") === "itau");
+  const rota = fs.readFileSync(path.resolve("src/app/api/cobranca-banco/conexao/route.ts"), "utf8");
+  const iRecusa = rota.indexOf("if (!bancoEmite(provedor))");
+  ok("itaú: a rota recusa o banco que não emite ANTES de testar a credencial", iRecusa > 0 && iRecusa < rota.indexOf("testarCredencialInter("));
+  ok("itaú: a rota grava o banco pedido, não um fixo", rota.includes("p_provedor: provedor,") && !rota.includes('p_provedor: "inter"'));
+  const srv = fs.readFileSync(path.resolve("src/lib/cobranca-banco/conexao-servidor.ts"), "utf8");
+  ok("itaú: a credencial de outro banco nunca vira configuração do Inter", srv.indexOf('g.provedor !== "inter"') > 0 && srv.indexOf('g.provedor !== "inter"') < srv.indexOf("decifrarSegredo("));
+}
 
 for (const p of plantados) ok(`plantado: "${p.nome}" derruba "${p.espera}"`, p.pegou);
 fs.rmSync(tmp, { recursive: true, force: true });

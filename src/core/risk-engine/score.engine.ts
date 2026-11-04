@@ -3,6 +3,7 @@
  * com pesos explícitos (rastreável/auditável). Score alto = mais saudável.
  */
 import { rotuloRunwayLido } from "@/core/indicadores";
+import { HORIZONTE_RUPTURA_DIAS } from "./horizonte";
 import type {
   RiskInput,
   PilarResult,
@@ -68,7 +69,10 @@ export function calcularScore(
     sazonalidade: SazonalidadeResult;
   },
 ): ScoreParts {
-  const horizon = input.horizonDias ?? 60;
+  // ⚠️ A chance de ruptura é medida SEMPRE no mesmo horizonte (horizonte.ts),
+  // não no período que a tela projeta: senão o mesmo caixa dava uma chance no
+  // fluxo de 180 dias e outra no painel de 60.
+  const horizon = HORIZONTE_RUPTURA_DIAS;
 
   // 1. Liquidez imediata — runway + penalidade por ruptura próxima
   const runwayScore = clamp((m.runway.base / 180) * 100);

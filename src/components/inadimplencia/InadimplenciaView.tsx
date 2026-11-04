@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Skeleton, Money, Icon, InfoHint } from "@/components/ui";
+import { BRL, Card, Skeleton, Money, Icon, InfoHint, PontoStatus } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
 import { useInadimplencia } from "@/components/visao-geral/hooks";
 import {
@@ -63,12 +63,9 @@ export function InadimplenciaView() {
           hint={`${pct(r.exposicaoTotal > 0 ? r.inadimplenciaEsperada / r.exposicaoTotal : 0)} da exposição`}
         />
         <Card className="flex flex-col gap-2">
-          <span className="text-label font-medium text-muted">Score da carteira</span>
+          <span className="inline-flex items-center gap-[6px] text-label font-medium text-muted">Score da carteira<PontoStatus cor={scoreColor(r.scoreCarteira)} /></span>
           <div className="flex items-end gap-2">
-            <span
-              className="text-value-lg leading-none font-medium tabular-nums"
-              style={{ color: scoreColor(r.scoreCarteira) }}
-            >
+            <span className="text-value-lg leading-none font-medium tabular-nums text-ink">
               {r.scoreCarteira}
             </span>
             <span className="text-label text-faint mb-1">/100</span>
@@ -168,8 +165,8 @@ function Stat({
   const p = brlParts(value);
   return (
     <Card className="flex flex-col gap-2">
-      <span className="text-label font-medium text-muted">{label}</span>
-      <Money integer={p.integer} decimals={p.decimals} size="md" color={tone} />
+      <span className="inline-flex items-center gap-[6px] text-label font-medium text-muted">{label}<PontoStatus cor={tone} /></span>
+      <Money integer={p.integer} decimals={p.decimals} size="md" />
       {hint && <span className="text-caption text-faint">{hint}</span>}
     </Card>
   );
@@ -204,10 +201,7 @@ function ClienteRow({
             style={{ width: `${c.score}%`, background: COR[c.classificacao] }}
           />
         </span>
-        <span
-          className="text-label font-medium tabular-nums w-[28px] text-right"
-          style={{ color: COR[c.classificacao] }}
-        >
+        <span className="text-label font-medium tabular-nums w-[28px] text-right text-ink">
           {c.score}
         </span>
         <span className="text-caption text-faint tabular-nums w-[34px] text-right">
@@ -249,14 +243,12 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
       <div>
         <div className="text-[17px] font-medium text-ink truncate">{c.nome}</div>
         <div className="flex items-end gap-2 mt-1">
-          <span
-            className="text-value-lg leading-none font-medium tabular-nums"
-            style={{ color: COR[c.classificacao] }}
-          >
+          <span className="text-value-lg leading-none font-medium tabular-nums text-ink">
             {c.score}
           </span>
           <span className="text-label text-faint mb-1">/100 ·</span>
-          <span className="text-label mb-1" style={{ color: COR[c.classificacao] }}>
+          <span className="inline-flex items-center gap-[6px] text-label text-muted mb-1">
+            <PontoStatus cor={COR[c.classificacao]} />
             {CLASSIF_LABEL[c.classificacao]}
           </span>
         </div>
@@ -290,7 +282,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
         <div className="flex flex-col gap-1 rounded-md border border-border-soft p-3">
           <span className="inline-flex items-center gap-[6px] text-label font-medium text-warning">
             <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
-            Alerta antecipado ({c.earlyWarning.severidade})
+            Alerta antecipado · severidade {({ baixa: "baixa", media: "média", alta: "alta" } as Record<string, string>)[c.earlyWarning.severidade] ?? c.earlyWarning.severidade}
           </span>
           {c.earlyWarning.sinais.map((s, i) => (
             <span key={i} className="text-caption text-muted">· {s}</span>
@@ -304,8 +296,8 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
           Recomendação
         </span>
         <p className="m-0 text-[16px] text-ink leading-snug">{c.credito.resumo}</p>
-        <div className="grid grid-cols-3 gap-2 pt-1">
-          <Mini label="Limite" value={<BRL value={c.credito.limiteSugerido} />} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1">
+          <div className="col-span-2"><Mini label="Limite" value={<BRL value={c.credito.limiteSugerido} />} /></div>
           <Mini label="Prazo" value={`${c.credito.prazoSugeridoDias}d`} />
           <Mini label="Entrada" value={pct(c.credito.entradaSugeridaPct)} />
         </div>

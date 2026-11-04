@@ -2089,6 +2089,46 @@ const AGOSTO = janelaMes(2026, 7);
   ok("rotas: nenhum alias aparece no menu", aliasNoMenu.length === 0,
      `${aliasNoMenu.map((a) => a.de).join(", ")}`);
 
+  // ⚠️ NENHUM LINK DE TELA APONTA PARA ALIAS (03/11/2026). Medido em produção
+  // (`rota_alias_acessos`): `/dashboard/dashboards/subscriptions` era o alias
+  // MAIS usado — 187 acessos em 30 dias, mais que todos os outros juntos — e não
+  // por favorito antigo: o cartão do ARR da Home apontava para ele. A guarda do
+  // menu não via, porque o cartão não é o menu. Varre todo texto literal do
+  // código (comentários fora) igual a um endereço antigo. As exceções são as
+  // listas que NOMEIAM o endereço antigo de propósito, nunca como destino.
+  const EXCECOES_ALIAS_EM_TEXTO: Record<string, string> = {
+    "src/middleware.ts": "resolve os aliases e conhece os endereços do perímetro",
+    "src/core/planos/index.ts": "ROTAS_PRO inclui as rotas legadas, senão o desvio vira porta lateral",
+    "src/components/planos/PlanosView.tsx": "nome legível do que a pessoa pediu ao chegar por endereço antigo",
+    "src/core/platform/domains.ts": "texto descritivo de módulo, não é renderizado como link",
+  };
+  const semComentariosAlias = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1 ");
+  const origensAlias = new Set(TODOS_OS_DESVIOS.map((a) => a.de).filter((d) => !d.includes("?")));
+  const arquivosAlias: string[] = [];
+  const varrerAlias = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrerAlias(caminho); continue; }
+      if (/\.(ts|tsx)$/.test(nome)) arquivosAlias.push(caminho);
+    }
+  };
+  varrerAlias("src");
+  const linksParaAlias: string[] = [];
+  for (const f of arquivosAlias) {
+    if (f.startsWith("src/core/rotas/") || f in EXCECOES_ALIAS_EM_TEXTO) continue;
+    const t = semComentariosAlias(readFileSync(f, "utf8"));
+    // `rota:` do contexto da IA casa por PREFIXO o endereço em que a pessoa está; não é destino.
+    for (const m of t.matchAll(/(rota:\s*)?["'`](\/[^"'`?#\s]*)(?:[?#][^"'`]*)?["'`]/g)) {
+      if (m[1]) continue;
+      if (origensAlias.has(m[2])) linksParaAlias.push(`${f}: ${m[2]}`);
+    }
+  }
+  ok("rotas: nenhum link de tela aponta para um endereço antigo", linksParaAlias.length === 0,
+     linksParaAlias.join(" · "));
+  for (const f of Object.keys(EXCECOES_ALIAS_EM_TEXTO)) {
+    ok(`rotas: exceção de alias em texto existe (${f})`, existsSync(f));
+  }
+
   // Todo alias carrega o MOTIVO. Sem ele, ninguém daqui a um ano sabe se pode
   // remover — e a lista vira um cemitério que só cresce.
   const semMotivo = TODOS_OS_DESVIOS.filter((a) => !a.motivo || a.motivo.length < 10);
@@ -3300,10 +3340,6 @@ const AGOSTO = janelaMes(2026, 7);
   ];
   const EXCECOES_VALOR: { arquivo: string; porque: string }[] = [
     {
-      arquivo: "src/components/visao-geral/HomeQuatro.tsx",
-      porque: "As barras dos três meses e o saldo-herói. A barra de um mês sem movimento é uma barra AUSENTE, que já é a leitura certa; e o saldo-herói, que pergunta por `indisponivel` (sem conta cadastrada) antes de mostrar o valor. As três leituras do lado (entradas/saídas/resultado) passaram por ValorIndicador.",
-    },
-    {
       arquivo: "src/components/relatorios/DemonstrativoView.tsx",
       porque: "Só o saldo, que entra no cartão como indicador INTEIRO (o cartão mostra a ausência 'sem conta cadastrada'); o .valor lido é o da cascata. O runway do mesmo cartão já lê o indicador inteiro.",
     },
@@ -4116,12 +4152,12 @@ const AGOSTO = janelaMes(2026, 7);
 
     // ⚠️ A asserção que substitui a varredura larga: a resposta do onboarding
     // NÃO pode voltar ao perfil. Cobra o strip no ponto exato onde ele importa.
-    const wiz = ler("src/components/onboarding/OnboardingWizard.tsx");
+    const wiz = ler("src/components/entrada/CriarContaView.tsx");
     ok("alcada: o onboarding REMOVE limite antes de persistir o perfil",
        /limite:\s*_limite,\s*\.\.\.resto/.test(wiz) && /persistCompany\(\{[^}]*participantes:\s*semLimite/.test(wiz),
        "o strip antes de persistCompany sumiu");
     ok("alcada: o onboarding grava a alçada em central_alcada",
-       /aplicarAlcadaDoOnboarding\(alcadaDoOnboarding\(participantes\)\)/.test(wiz));
+       /aplicarAlcadaDoOnboarding\(alcadaDoOnboarding\(montado\.participantes\)\)/.test(wiz));
     const tipo = ler("src/core/onboarding/index.ts");
     ok("alcada: Participante.limite está deprecado e opcional",
        /@deprecated/.test(tipo) && /limite\?:\s*string/.test(tipo));

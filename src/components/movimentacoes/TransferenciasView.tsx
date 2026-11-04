@@ -12,7 +12,7 @@ import * as React from "react";
 import { abrirCriacao, useAoCriar, cadastroDe } from "@/components/app/criacao";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Card, Button, Icon, Input, Select, DateField, CurrencyInput, Checkbox, BRL, Skeleton,
+  Card, Button, Icon, Input, Select, DateField, CurrencyInput, Checkbox, BRL, Skeleton, Tabela,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
@@ -145,77 +145,63 @@ export function TransferenciasView() {
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Data</Th>
-                  <Th>Origem → Destino</Th>
-                  <Th>Descrição</Th>
-                  <Th direita>Valor</Th>
-                  <Th>Conciliação</Th>
-                  <Th direita>Ações</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiveis.map((t) => (
-                  <tr key={t.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                    <td className="px-6 py-3">
-                      <div className="flex flex-col">
-                        <span className="text-label text-ink tabular-nums">{fmtDia(t.data)}</span>
-                        {t.dataChegada && t.dataChegada !== t.data && (
-                          <span className="text-caption text-faint tabular-nums">chega {fmtDia(t.dataChegada)}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className="inline-flex items-center gap-2 text-label text-ink">
-                        {nomeConta(t.contaOrigem)}
-                        <Icon name="arrow-up-right" size={13} color="var(--color-text-tertiary)" />
-                        {nomeConta(t.contaDestino)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-label text-muted">{t.descricao || "—"}</td>
-                    <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={t.valor} /></td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={t.conciliadaOrigem}
-                          onChange={(e) => setLista(marcarConciliacaoTransferencia(t.id, "origem", e.target.checked))}
-                          label="Origem"
-                        />
-                        <Checkbox
-                          checked={t.conciliadaDestino}
-                          onChange={(e) => setLista(marcarConciliacaoTransferencia(t.id, "destino", e.target.checked))}
-                          label="Destino"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex justify-end">
-                        <button
-                          onClick={async () => {
-                            if (!window.confirm("Excluir a transferência? Os dois lançamentos que ela gerou saem junto.")) return;
-                            try {
-                              setLista(await removerTransferencia(t.id));
-                              qc.invalidateQueries();
-                              show("Transferência removida.");
-                            } catch (e) {
-                              show(e instanceof Error ? `Não foi possível remover: ${e.message}` : "Não foi possível remover.");
-                            }
-                          }}
-                          aria-label="Excluir"
-                          className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2"
-                        >
-                          <Icon name="trash-2" size={15} color="currentColor" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={visiveis}
+            chave={(t) => t.id}
+            emCartao={false}
+            rotulo="Transferências"
+            colunas={[
+              { chave: "data", rotulo: "Data", render: (t) => (
+                <div className="flex flex-col">
+                  <span className="tabular-nums">{fmtDia(t.data)}</span>
+                  {t.dataChegada && t.dataChegada !== t.data && (
+                    <span className="text-caption text-faint tabular-nums">chega {fmtDia(t.dataChegada)}</span>
+                  )}
+                </div>
+              ) },
+              { chave: "contas", rotulo: "Origem → Destino", principal: true, render: (t) => (
+                <span className="inline-flex items-center gap-2 text-label text-ink">
+                  {nomeConta(t.contaOrigem)}
+                  <Icon name="arrow-up-right" size={13} color="var(--color-text-tertiary)" />
+                  {nomeConta(t.contaDestino)}
+                </span>
+              ) },
+              { chave: "descricao", rotulo: "Descrição", render: (t) => <span className="text-muted">{t.descricao || "—"}</span> },
+              { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (t) => <BRL value={t.valor} /> },
+              { chave: "conciliacao", rotulo: "Conciliação", render: (t) => (
+                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={t.conciliadaOrigem}
+                    onChange={(e) => setLista(marcarConciliacaoTransferencia(t.id, "origem", e.target.checked))}
+                    label="Origem"
+                  />
+                  <Checkbox
+                    checked={t.conciliadaDestino}
+                    onChange={(e) => setLista(marcarConciliacaoTransferencia(t.id, "destino", e.target.checked))}
+                    label="Destino"
+                  />
+                </div>
+              ) },
+            ]}
+            acoes={(t) => (
+              <button
+                onClick={async () => {
+                  if (!window.confirm("Excluir a transferência? Os dois lançamentos que ela gerou saem junto.")) return;
+                  try {
+                    setLista(await removerTransferencia(t.id));
+                    qc.invalidateQueries();
+                    show("Transferência removida.");
+                  } catch (e) {
+                    show(e instanceof Error ? `Não foi possível remover: ${e.message}` : "Não foi possível remover.");
+                  }
+                }}
+                aria-label="Excluir"
+                className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2"
+              >
+                <Icon name="trash-2" size={15} color="currentColor" />
+              </button>
+            )}
+          />
         </Card>
       )}
       {node}
@@ -371,13 +357,6 @@ function Numero({ label, valor }: { label: string; valor: React.ReactNode }) {
   );
 }
 
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
-  );
-}
 
 function Campo({
   label, obrigatorio, erro, children,

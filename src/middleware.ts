@@ -110,6 +110,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     // O link de pagamento (`/pagar?t=<token>`) é aberto pelo CLIENTE da empresa,
     // que não tem conta. O que ele vê sai só pelo servidor, pelo token.
     pathname === "/pagar" ||
+    pathname === "/pagar/boleto" ||
     pathname.startsWith("/api");
 
   if (!user && !isPublic) {

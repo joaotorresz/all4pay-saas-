@@ -46,6 +46,12 @@ export interface EmitenteFocus {
    */
   itemListaServico?: string;
   codigoTributarioMunicipio?: string;
+  /**
+   * O código de tributação municipal do ISS no campo que a Focus indicou para a
+   * recusa E0312 ("código de tributação nacional não administrado pelo
+   * município"). Vai como veio; só a plataforma o declara.
+   */
+  codigoTributacaoMunicipalIss?: string;
   codigoCnae?: string;
   /**
    * A alíquota do ISS em PERCENTUAL (5 = 5%), declarada pela PLATAFORMA junto
@@ -71,6 +77,21 @@ export interface EmitenteFocus {
    */
   codigoIndicadorOperacao?: string;
   classificacaoTributariaIbsCbs?: string;
+  /**
+   * CST do IBS/CBS (3 dígitos). O leiaute de SP (o XML nacional) exige o CST
+   * ANTES do cClassTrib — recusa de 30/10/2026: "cClassTrib not expected,
+   * expected CST". Ausente, sai dos 3 primeiros dígitos da classificação, que
+   * é como a tabela do cClassTrib é numerada (000001 → CST 000).
+   */
+  situacaoTributariaIbsCbs?: string;
+  /**
+   * `false` = a nota sai SEM o grupo do IBS/CBS (o leiaute 1 de São Paulo, só
+   * ISS, com o código de serviço da PREFEITURA de 5 dígitos). Em 2026 o grupo
+   * é OPCIONAL em SP (FAQ da Prefeitura, NT 04 v2.0); informado, SP aplica a
+   * validação da lista NACIONAL e recusa com E0312 todo cTribNac que não
+   * administra (03/11/2026: 170302, 170301, 150101 e 150103 recusados).
+   */
+  grupoIbsCbs?: false;
   /** Série da DPS (1–49999), padrão "1". */
   serieDps?: string;
   /**
@@ -117,6 +138,7 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(/^[1-6]$/.test(regime) ? { regimeEspecial: regime } : {}),
       ...(so(e.itemListaServico) ? { itemListaServico: so(e.itemListaServico) } : {}),
       ...(texto(e.codigoTributarioMunicipio) ? { codigoTributarioMunicipio: texto(e.codigoTributarioMunicipio) } : {}),
+      ...(/^\d{1,10}$/.test(so(e.codigoTributacaoMunicipalIss)) ? { codigoTributacaoMunicipalIss: so(e.codigoTributacaoMunicipalIss) } : {}),
       ...(so(e.codigoCnae) ? { codigoCnae: so(e.codigoCnae) } : {}),
       ...(aliquotaValida(e.aliquota) ? { aliquota: numeroDaAliquota(e.aliquota) } : {}),
       ...(e.padrao === "nacional" ? { padrao: "nacional" as const } : {}),
@@ -125,6 +147,8 @@ export function lerEmitentes(bruto: string | undefined | null): { emitentes: Rec
       ...(so(e.codigoNbs).length === 9 ? { codigoNbs: so(e.codigoNbs) } : {}),
       ...(so(e.codigoIndicadorOperacao).length === 6 ? { codigoIndicadorOperacao: so(e.codigoIndicadorOperacao) } : {}),
       ...(so(e.classificacaoTributariaIbsCbs).length === 6 ? { classificacaoTributariaIbsCbs: so(e.classificacaoTributariaIbsCbs) } : {}),
+      ...(so(e.situacaoTributariaIbsCbs).length === 3 ? { situacaoTributariaIbsCbs: so(e.situacaoTributariaIbsCbs) } : {}),
+      ...(e.grupoIbsCbs === false ? { grupoIbsCbs: false as const } : {}),
       ...(/^\d{1,5}$/.test(so(e.serieDps)) && Number(so(e.serieDps)) >= 1 && Number(so(e.serieDps)) <= 49999 ? { serieDps: String(Number(so(e.serieDps))) } : {}),
     };
     if (e.padrao === "nacional" && so(e.codigoTributacaoNacional).length !== 6) problemas.push(`emitente da organização ${org}: padrão nacional sem código de tributação nacional de 6 dígitos`);
@@ -163,6 +187,8 @@ export interface TomadorParaEmitir {
   complemento?: string | null;
   bairro?: string | null;
   uf?: string | null;
+  /** Código IBGE (7 dígitos) da cidade do tomador; o cadastro de contatos ainda não o guarda. */
+  codigoMunicipio?: string | null;
 }
 
 export interface PedidoFocus {
@@ -174,7 +200,7 @@ export interface PedidoFocus {
   finalidade_emissao?: 0;
   consumidor_final?: 0 | 1;
   indicador_destinatario?: 0;
-  prestador: { cnpj: string; inscricao_municipal: string; codigo_municipio: string };
+  prestador: { cnpj: string; inscricao_municipal?: string; codigo_municipio: string };
   tomador: Record<string, unknown>;
   servico: Record<string, unknown>;
 }
@@ -208,7 +234,8 @@ export function montarPedido(
   // ⚠️ Regime Normal leva o grupo do IBS/CBS (a prefeitura recusa sem ele).
   // Faltando um código, a nota para AQUI, nomeando o que falta — não minutos
   // depois, com a recusa genérica da prefeitura.
-  const ibsCbs = !emitente.optanteSimples || !!(emitente.codigoIndicadorOperacao || emitente.classificacaoTributariaIbsCbs);
+  const ibsCbs = emitente.grupoIbsCbs !== false
+    && (!emitente.optanteSimples || !!(emitente.codigoIndicadorOperacao || emitente.classificacaoTributariaIbsCbs));
   if (ibsCbs) {
     const faltaIbs = [
       ...(emitente.codigoIndicadorOperacao ? [] : ["código indicador de operação"]),
@@ -224,6 +251,24 @@ export function montarPedido(
   const add = (k: string, v: unknown, digitos = false) => { const x = digitos ? so(v) : texto(v); if (x) endereco[k] = x; };
   add("logradouro", tomador.rua); add("numero", tomador.numero); add("complemento", tomador.complemento);
   add("bairro", tomador.bairro); add("uf", tomador.uf?.toUpperCase()); add("cep", tomador.cep, true);
+  // ⚠️ No leiaute da reforma (o XML nacional) o endereço EXIGE o código IBGE
+  // da cidade antes do CEP (recusa de 30/10/2026: "CEP not expected, expected
+  // cMun"). Sem o código, o endereço não vai — ele é opcional; mandá-lo
+  // incompleto é recusa certa.
+  // ⚠️ E, com IBS/CBS, o endereço do tomador é OBRIGATÓRIO (recusa de
+  // 30/10/2026: "o tomador deve ser identificado por CNPJ ou CPF e seu
+  // endereço nacional informado"): sem o IBGE, a nota para ANTES de sair.
+  const munTomador = so(tomador.codigoMunicipio);
+  // ⚠️ SEM o grupo também: SP gera o XML nacional nos dois leiautes (recusa de
+  // 03/11/2026, "CEP not expected, expected cMun", com o grupo desligado).
+  if (munTomador.length === 7) endereco.codigo_municipio = munTomador;
+  else if (ibsCbs) return { ok: false, problemas: ["Não foi possível achar a cidade do cliente pelo CEP. Confira o CEP no cadastro do contato."] };
+  else for (const k of Object.keys(endereco)) delete endereco[k];
+  // ⚠️ O cTribMun do leiaute novo tem 3 dígitos; o código de 5 de SP ali é
+  // recusa ("03158 not accepted by pattern [0-9]{3}").
+  const tribMun = emitente.codigoTributarioMunicipio;
+  const mandaTribMun = !!tribMun && (!ibsCbs || /^\d{3}$/.test(tribMun));
+  const cst = emitente.situacaoTributariaIbsCbs ?? emitente.classificacaoTributariaIbsCbs?.slice(0, 3);
 
   const tomadorPedido: Record<string, unknown> = {
     [doc.length === 14 ? "cnpj" : "cpf"]: doc,
@@ -233,6 +278,7 @@ export function montarPedido(
     ...(Object.keys(endereco).length ? { endereco } : {}),
   };
 
+  const leiauteReforma = ibsCbs || emitente.grupoIbsCbs === false;
   return {
     ok: true,
     pedido: {
@@ -241,7 +287,12 @@ export function montarPedido(
       optante_simples_nacional: emitente.optanteSimples,
       ...(emitente.regimeEspecial ? { regime_especial_tributacao: emitente.regimeEspecial } : {}),
       ...(ibsCbs ? { exigibilidade_suspensa: 0 as const, finalidade_emissao: 0 as const, consumidor_final: doc.length === 11 ? 1 as const : 0 as const, indicador_destinatario: 0 as const } : {}),
-      prestador: { cnpj: emitente.cnpj, inscricao_municipal: emitente.inscricaoMunicipal, codigo_municipio: emitente.codigoMunicipio },
+      // ⚠️ No leiaute da reforma (XML nacional) a IM do prestador NÃO vai: o
+      // ambiente nacional a lê do CNC do município e recusa a DPS que a informa
+      // quando São Paulo não a registrou lá (recusa de 30/10/2026). Vale também
+      // SEM o grupo do IBS/CBS (grupoIbsCbs false): São Paulo gera o XML
+      // nacional do mesmo jeito (recusa de 03/11/2026).
+      prestador: { cnpj: emitente.cnpj, ...(leiauteReforma ? {} : { inscricao_municipal: emitente.inscricaoMunicipal }), codigo_municipio: emitente.codigoMunicipio },
       tomador: tomadorPedido,
       servico: {
         // ⚠️ Nunca a alíquota da TELA nem o valor do ISS: um número que a
@@ -253,7 +304,8 @@ export function montarPedido(
         item_lista_servico: item,
         discriminacao: texto(nota.descricao),
         codigo_municipio: emitente.codigoMunicipio,
-        ...(emitente.codigoTributarioMunicipio ? { codigo_tributario_municipio: emitente.codigoTributarioMunicipio } : {}),
+        ...(mandaTribMun ? { codigo_tributario_municipio: tribMun } : {}),
+        ...(emitente.codigoTributacaoMunicipalIss ? { codigo_tributacao_municipal_iss: emitente.codigoTributacaoMunicipalIss } : {}),
         ...(emitente.codigoCnae ? { codigo_cnae: emitente.codigoCnae } : {}),
         ...(emitente.aliquota !== undefined ? { aliquota: emitente.aliquota } : {}),
         ...(ibsCbs ? {
@@ -261,6 +313,7 @@ export function montarPedido(
           valor_ipi: 0,
           codigo_nbs: emitente.codigoNbs,
           codigo_indicador_operacao: emitente.codigoIndicadorOperacao,
+          ibs_cbs_situacao_tributaria: cst,
           ibs_cbs_classificacao_tributaria: emitente.classificacaoTributariaIbsCbs,
         } : {}),
       },

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { bancoEmite, NOME_DO_PROVEDOR } from "@/core/cobranca-banco";
 import { lerCredencialGuardada } from "@/core/cobranca-banco/conexao";
 import { decifrarSegredo } from "@/lib/cobranca-banco/cofre";
 import { lerPem, type ConfigInter } from "@/lib/cobranca-banco/inter-api";
@@ -18,6 +19,11 @@ export async function configDaConexao(admin: SupabaseClient, conexaoId: string):
     throw new Error(m ? m[1].trim() : "Não foi possível ler a conta conectada.");
   }
   const g = lerCredencialGuardada(data);
+  // ⚠️ A credencial de um banco que ainda não emite nunca vira configuração do
+  // Inter: mandá-la ao Inter seria entregar a senha de um banco a outro.
+  if (g.provedor !== "inter" || !bancoEmite(g.provedor)) {
+    throw new Error(`A conta conectada é do ${NOME_DO_PROVEDOR[g.provedor]}, que ainda não emite cobrança pelo sistema.`);
+  }
   const s = decifrarSegredo(g.cifrado, g.id);
   const certificado = lerPem(s.certificado, "CERTIFICATE");
   const chave = lerPem(s.chave, "PRIVATE KEY");

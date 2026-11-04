@@ -19,10 +19,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Card, Button, Switch, Checkbox, Select, Input, CurrencyInput, DateField, StatusBadge, Skeleton, InfoHint, Icon,
+  Card, Button, Switch, Checkbox, Select, Input, CurrencyInput, DateField, StatusBadge, Skeleton, InfoHint, Icon, Tabela,
 } from "@/components/ui";
 import {
-  CATALOGO_AUTOMACOES, previa, ehSemEnvio, filaAutomatica, HORIZONTES_ALERTA,
+  CATALOGO_AUTOMACOES, previa, conteudoDoTeste, ehSemEnvio, filaAutomatica, HORIZONTES_ALERTA,
   type ConfigAutomacao, type ContextoAutomacao, type TipoAutomacao, type CanalEnvio, type Destinatario,
   type StatusEnvio, type Pausa,
 } from "@/core/automacoes";
@@ -73,7 +73,7 @@ export function AutomacoesView() {
   const whatsAtivo = !isDemo && !!prov?.whatsapp;
 
   return (
-    <div className="flex flex-col gap-5 pb-4 max-w-4xl" data-tela="automacoes">
+    <div className="flex flex-col gap-5 pb-4" data-tela="automacoes">
       <Card className="flex flex-col gap-3">
         <div className="text-label font-medium text-muted inline-flex items-center gap-1">
           Como as mensagens saem
@@ -143,29 +143,22 @@ function ListaEnvios({ envios, carregando, erro }: { envios?: EnvioVisivel[]; ca
   if (erro) return <div className="px-5 py-4 text-caption text-ink">O registro não carregou: {erro.message}</div>;
   if (!envios?.length) return <div className="px-5 py-4 text-caption text-muted">Nenhum envio registrado ainda.</div>;
   return (
-    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Últimos envios">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="text-[11px] font-medium text-faint">
-            <th className="px-5 py-2">Quando</th><th className="px-2 py-2">Automação</th><th className="px-2 py-2">Canal</th>
-            <th className="px-2 py-2">Para</th><th className="px-5 py-2">Situação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {envios.map((e, i) => (
-            <tr key={`${e.chave}-${e.canal}-${i}`} className="border-t border-border-soft text-caption text-ink" data-envio-status={e.status}>
-              <td className="px-5 py-2 tabular-nums whitespace-nowrap">{quando(e.em)}</td>
-              <td className="px-2 py-2">{nomeDo(e.tipo)}{e.chave.startsWith("teste:") ? " · teste" : ""}</td>
-              <td className="px-2 py-2">{CANAL[e.canal]}</td>
-              <td className="px-2 py-2 tabular-nums">{e.destinoMascarado}</td>
-              <td className="px-5 py-2" title={e.erro ?? undefined}>
-                <StatusBadge tone={STATUS[e.status].tom}>{STATUS[e.status].rotulo}</StatusBadge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Tabela
+      linhas={envios}
+      chave={(e) => `${e.chave}-${e.canal}-${e.em}`}
+      emCartao={false}
+      rotulo="Últimos envios"
+      dadosDaLinha={(e) => ({ "data-envio-status": e.status })}
+      colunas={[
+        { chave: "quando", rotulo: "Quando", classe: "whitespace-nowrap", render: (e) => <span className="text-caption tabular-nums">{quando(e.em)}</span> },
+        { chave: "automacao", rotulo: "Automação", principal: true, render: (e) => <>{nomeDo(e.tipo)}{e.chave.startsWith("teste:") ? " · teste" : ""}</> },
+        { chave: "canal", rotulo: "Canal", render: (e) => <span className="text-caption">{CANAL[e.canal]}</span> },
+        { chave: "para", rotulo: "Para", render: (e) => <span className="text-caption tabular-nums">{e.destinoMascarado}</span> },
+        { chave: "situacao", rotulo: "Situação", render: (e) => (
+          <span title={e.erro ?? undefined}><StatusBadge tone={STATUS[e.status].tom}>{STATUS[e.status].rotulo}</StatusBadge></span>
+        ) },
+      ]}
+    />
   );
 }
 
@@ -186,6 +179,9 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
   const fala_com_cliente = desc.fala_com === "cliente";
 
   const p = React.useMemo(() => (ctx ? previa(cfg, ctx) : null), [cfg, ctx]);
+  // Sem nada a dizer hoje, o teste manda um EXEMPLO marcado (valores fictícios).
+  const t = React.useMemo(() => (ctx ? conteudoDoTeste(cfg, ctx) : null), [cfg, ctx]);
+  const exemploDoTeste = t && "conteudo" in t ? t.exemplo : null;
 
   const setP = (patch: Partial<ConfigAutomacao["parametros"]>) => setCfg((c) => ({ ...c, parametros: { ...c.parametros, ...patch } }));
   const alternarCanal = (canal: CanalEnvio, on: boolean) =>
@@ -212,15 +208,16 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
   };
 
   const testar = async (canal: CanalEnvio) => {
-    if (!p || ehSemEnvio(p)) return;
+    if (!t || !("conteudo" in t)) return;
+    const c = t.conteudo;
     setTestando(true); setResultadoTeste(null);
     try {
       const r = await enviarTeste({
-        tipo: cfg.tipo, canal, assunto: p.assunto, texto: p.texto, html: p.html,
-        finalidade: p.finalidade, variaveis: p.variaveis,
+        tipo: cfg.tipo, canal, assunto: c.assunto, texto: c.texto, html: c.html,
+        finalidade: c.finalidade, variaveis: c.variaveis, reserva: c.reserva,
       });
       setResultadoTeste(
-        r.situacao === "enviado" ? `Teste enviado para ${r.destino}. O provedor aceitou a mensagem.`
+        r.situacao === "enviado" ? `${t.exemplo ? "Exemplo" : "Teste"} enviado para ${r.destino}. O provedor aceitou a mensagem.`
           : r.situacao === "simulado" ? `Teste registrado como simulado (${r.destino}): ${r.motivo ?? "nada foi enviado."}`
             : `O teste não saiu: ${r.motivo ?? "sem detalhe"}.`,
       );
@@ -321,12 +318,17 @@ function CartaoAutomacao({ inicial, ctx, ctxErro, canaisAtivos, onSalvo }: {
           {verPrevia ? "Esconder prévia" : "Ver prévia"}
         </Button>
         {desc.canaisPossiveis.map((c) => (
-          <Button key={c} size="sm" variant="ghost" disabled={testando || !p || ehSemEnvio(p)}
+          <Button key={c} size="sm" variant="ghost" disabled={testando || !t || !("conteudo" in t)}
             onClick={() => testar(c)}>
             {testando ? "Enviando…" : `Enviar teste para mim (${CANAL[c]})`}
           </Button>
         ))}
       </div>
+      {exemploDoTeste && (
+        <span className="text-caption text-muted">
+          Hoje não sairia nada ({exemploDoTeste.motivo.replace(/\.$/, "")}). O teste manda um exemplo marcado, com valores fictícios.
+        </span>
+      )}
       {erro && <span className="text-caption text-negative" role="alert">{erro}</span>}
       {resultadoTeste && <span className="text-caption text-ink" role="status">{resultadoTeste}</span>}
 

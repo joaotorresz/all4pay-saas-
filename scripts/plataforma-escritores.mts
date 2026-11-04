@@ -196,11 +196,13 @@ ok("pix: cadastro de pessoa física (CPF) tem chave PIX — lia só db.cnpj", pf
 const pj = dadosPixDoCadastro({ db: { cnpj: "12.345.678/0001-95", fantasia: "Loja" } });
 ok("pix: a pessoa jurídica segue com o CNPJ", pj?.chave === "12345678000195" && pj?.nome === "Loja", JSON.stringify(pj));
 
-/* ── 5. Onboarding: a recusa da alçada é reportada e mostrada, sem bloquear ── */
-const onb = semComentario(readFileSync("src/components/onboarding/OnboardingWizard.tsx", "utf8"));
+/* ── 5. Abertura de conta: a recusa da alçada é reportada, sem bloquear ── */
+// O cadastro de sete passos (OnboardingWizard) saiu em 03/11/2026: a porta é a
+// conversa de /criar-conta, e a regra passa a ser cobrada nela.
+const onb = semComentario(readFileSync("src/components/entrada/CriarContaView.tsx", "utf8"));
 ok("onboarding: a recusa da alçada não é engolida (catch mudo)",
    !/aplicarAlcadaDoOnboarding\([^;]*\);?\s*\}\s*catch\s*\{/.test(onb)
-   && /catch \(e\) \{\s*reportar\("organizacao\.alcada"/.test(onb) && /setAvisoAlcada\(/.test(onb));
+   && /catch \(e\) \{\s*reportar\("organizacao\.alcada"/.test(onb));
 
 /* ── 6. Formulário: a recusa real e o modo pessoal ── */
 const form = semComentario(readFileSync("src/components/lancamentos/ReceitaForm.tsx", "utf8"));

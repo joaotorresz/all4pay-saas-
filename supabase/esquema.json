@@ -200,6 +200,164 @@
         "impacto": "Até ser aplicada, o banco recusa o pedido de conta e a tela mostra a mensagem de erro; nenhum pedido de maquininha muda.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 28/10/2026 (conta Quattro pedida na baixa)"
+      },
+      {
+        "nome": "20261030120000_cobranca_banco_itau",
+        "motivo": "Cobrança pelo Itaú direto, etapa 1: o provedor itau passa a caber na conexão e na cobrança, e o conectar recusa um segundo banco vivo (uma conta recebe por vez). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "restrição cobranca_banco_conexoes_provedor_check com itau",
+          "restrição cobrancas_banco_provedor_check com itau",
+          "função cobranca_banco_conectar com a recusa do outro banco e a conferência do provedor"
+        ],
+        "impacto": "Até ser aplicada, o conectar segue como hoje (só o Inter). O servidor já recusa o Itaú até a etapa 4, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (cobrança pelo Itaú, etapa 1)"
+      },
+      {
+        "nome": "20261031120000_cobranca_encargos",
+        "motivo": "Multa e juros da cobrança: a regra por empresa (cobranca_encargos, só quem administra grava) e o encargo registrado em cada boleto, lido pela página do link. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cobranca_encargos e a função cobranca_encargos_definir",
+          "coluna pinbank_cobrancas.encargos",
+          "pinbank_cobranca_registrar e pinbank_checkout_ler com o encargo"
+        ],
+        "impacto": "Até ser aplicada, a tela de multa e juros não grava e a página do link mostra \"Não cobrados\". O boleto continua saindo sem encargo, como hoje.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (multa e juros da cobrança)"
+      },
+      {
+        "nome": "20261030150000_whatsapp_numero_usuario",
+        "motivo": "IA no WhatsApp, etapa 1: o celular de quem conversa com a Quattro AI, confirmado por código enviado ao próprio número. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabelas whatsapp_numeros_usuario e whatsapp_numero_envios",
+          "funções whatsapp_numero_pedir_codigo, whatsapp_numero_confirmar, whatsapp_numero_meu, whatsapp_numero_remover e whatsapp_numero_org_admin"
+        ],
+        "impacto": "Até ser aplicada, o cartão do celular em Segurança da conta recusa o pedido de código. Ele só aparece com WHATSAPP_IA=ligado, que nasce desligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapa 1)"
+      },
+      {
+        "nome": "20261031130000_whatsapp_ia_conversa",
+        "motivo": "IA no WhatsApp, etapas 2 a 4: o webhook reconhece o número confirmado, lista as empresas que a pessoa lê, guarda a escolhida e reserva cada pergunta (teto de 20 por hora e trilha). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "coluna whatsapp_numeros_usuario.org_escolhida",
+          "tabela whatsapp_ia_perguntas",
+          "funções whatsapp_ia_empresas, whatsapp_ia_quem, whatsapp_ia_escolher e whatsapp_ia_reservar"
+        ],
+        "impacto": "Até ser aplicada, o webhook com WHATSAPP_IA=ligado não reconhece ninguém e segue com a resposta padrão. O interruptor nasce desligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (IA no WhatsApp, etapas 2 a 4)"
+      },
+      {
+        "nome": "20261031140000_pix_atualizado",
+        "motivo": "Pix atualizado no link de pagamento: depois do vencimento a página pública gera um Pix com o valor do dia (multa e juros do boleto), válido até 23:59. A reserva é só do servidor e o banco confere o valor. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas pinbank_cobrancas.dia_referencia e origem_regra, e o índice pinbank_cobrancas_pix_do_dia",
+          "função pinbank_checkout_pix_reservar",
+          "pinbank_cobranca_reservar e pinbank_checkout_ler com o Pix do dia"
+        ],
+        "impacto": "Até ser aplicada, o botão do Pix do dia recusa o pedido. Ele só aparece com PINBANK_PIX_ATUALIZADO=ligado, que nasce desligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 30/10/2026 (Pix atualizado)"
+      },
+      {
+        "nome": "20261103120000_nfse_emitentes",
+        "motivo": "O cadastro fiscal do emitente da NFS-e (item de serviço, NBS, classificação do IBS/CBS…) passa a morar no banco, numa tabela que só o servidor lê; a variável FOCUS_NFE_EMITENTES da Vercel vira reserva. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela nfse_emitentes (com o gatilho zz_auditar_nfse_emitentes)"
+        ],
+        "impacto": "Até ser aplicada, a leitura do emitente no banco falha com aviso no log e vale a variável da Vercel, como hoje. Nada muda para quem usa.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (emitente da NFS-e no banco)"
+      },
+      {
+        "nome": "20261103200000_compras_morada_unica",
+        "motivo": "A compra sai da lista inteira em org_state (a4p_compras), onde a última gravação vencia, para a tabela compras, uma linha por pedido. Quem pode escrever não muda (tem_permissao('lancar'), como em org_state). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela compras (com os gatilhos compras_carimbo e zz_auditar_compras)",
+          "função compras_carimbo"
+        ],
+        "impacto": "Até ser aplicada, a tela de Compras em produção mostra 'Não foi possível ler as compras' e não grava pedido novo. Hoje não há nenhuma compra gravada em produção (conferido em 03/11/2026), então nada se perde.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (Fase 3: compras em tabela própria)"
+      },
+      {
+        "nome": "20261103210000_contratos_morada_unica",
+        "motivo": "O contrato sai da lista inteira em org_state (a4p_contratos), onde a última gravação vencia, para a tabela contratos, uma linha por contrato. Quem pode escrever não muda (tem_permissao('lancar')). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela contratos (com os gatilhos contratos_carimbo e zz_auditar_contratos)",
+          "função contratos_carimbo"
+        ],
+        "impacto": "Até ser aplicada, a tela de Contratos em produção mostra 'Não foi possível ler os contratos' e não grava contrato novo. Hoje não há contrato gravado em produção (conferido em 03/11/2026).",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (Fase 3: contratos em tabela própria)"
+      },
+      {
+        "nome": "20261103220000_colaboradores_morada_unica",
+        "motivo": "A equipe da folha sai da lista inteira em org_state (a4p_colaboradores), onde a última gravação vencia, para a tabela colaboradores, uma linha por pessoa. Quem pode ler e escrever não muda (tem_permissao('lancar')). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela colaboradores (com os gatilhos colaboradores_carimbo e zz_auditar_colaboradores)",
+          "função colaboradores_carimbo"
+        ],
+        "impacto": "Até ser aplicada, a Folha salarial em produção mostra 'Não foi possível ler a equipe da folha'. Os 2 colaboradores que existem hoje (uma empresa) são copiados pela própria migration.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 03/11/2026 (Fase 3: equipe da folha em tabela própria)"
+      },
+      {
+        "nome": "20261104100000_cronograma_compra_do_bem",
+        "motivo": "Depreciação em dobro (risco da Rodada 4): o cronograma passa a apontar a compra do bem (schedules.movement_id), e o razão leva essa compra ao ativo em vez da despesa. O banco recusa a mesma compra em dois cronogramas vivos e o vínculo com entrada ou com lançamento de outra empresa. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "coluna schedules.movement_id",
+          "índice schedules_uma_compra_por_cronograma",
+          "função e gatilho schedules_confere_compra"
+        ],
+        "impacto": "Até ser aplicada, a tela de cronogramas em produção não lê a lista (a coluna movement_id não existe) e salvar é recusado com a mensagem do banco. O único cronograma de produção (R$ 3.000, sem compra lançada) volta a aparecer, sem mudança de valor, quando o job migrar aplica a migration no merge.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: depreciação em dobro)"
+      },
+      {
+        "nome": "20261104110000_cron_execucoes",
+        "motivo": "Cada execução completa dos crons da Vercel (recorrências e automações) passa a gravar uma linha, mesmo sem trabalho, e a guarda agendada crons-no-ar reprova o cron diário parado há mais de 26 horas. Tabela da plataforma: grava a chave de serviço, lê o papel só-leitura do CI. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cron_execucoes"
+        ],
+        "impacto": "Até ser aplicada, as rotas de cron devolvem 'registro da execução' com o erro na resposta (o trabalho do cron não muda) e a guarda crons-no-ar não lê a tabela.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: prova de que o materializador roda todo dia)"
+      },
+      {
+        "nome": "20261104130000_contador_confirmacoes",
+        "motivo": "Double opt-in do envio de NFs ao contador: o link de confirmação sai pela rota do servidor (atrás de CONTADOR_OPTIN=ligado) e só o clique do contador grava a confirmação. O app lê a situação da própria empresa, nunca o token, e não grava. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela contador_confirmacoes (com a política contador_confirmacoes_leitura)"
+        ],
+        "impacto": "Até ser aplicada, a tela de envio ao contador em produção mostra os e-mails como pendentes e o pedido do link é recusado. Com o interruptor desligado (padrão), nada sai.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: opt-in do contador)"
+      },
+      {
+        "nome": "20261104120000_agentes",
+        "motivo": "A moldura dos agentes da Quattro AI (plano AI first, 03/11/2026): a configuração por empresa (nível e limite) e a fila Para você aprovar, com a máquina de estados e a decisão no banco. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabelas agentes e agente_propostas (com os gatilhos zz_auditar_*)",
+          "funções agente_decidir, agentes_padrao, agentes_inicial, agente_propostas_transicao e agente_propostas_nasce_pendente",
+          "gatilho organizations_agentes"
+        ],
+        "impacto": "Até ser aplicada, a seção Agentes de Automações mostra o erro do banco no lugar dos cartões. Nenhum agente trabalha ainda (todos em construção e atrás de AGENTES=ligado), então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 1)"
+      },
+      {
+        "nome": "20261104140000_cobranca_paga_baixa_titulo",
+        "motivo": "Pago o Pix ou o boleto do link de pagamento, a cobrança vira paga e o título a receber vai a baixado pela transição nomeada 'pago pelo banco' da máquina de estados (escritor único pinbank_cobranca_liquidar, só service_role). A leitura pública do link passa a dizer 'pago' também com a cobrança paga. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas pinbank_cobrancas.valor_recebido, pago_em, liquidada_por e liquidacao_ref (com as restrições e o índice único da referência)",
+          "função pinbank_cobranca_liquidar",
+          "versão nova de central_maquina (ramo 'pago pelo banco') e de pinbank_checkout_ler"
+        ],
+        "impacto": "Até ser aplicada, nada muda em produção: nenhum caminho chama a liquidação ainda (a entrada do aviso da Pinbank depende do formato que ela vai informar) e a página do link segue lendo a situação do título.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (link de pagamento: pago na tela e baixa no ERP)"
       }
     ],
     "objetos_sem_migration": [

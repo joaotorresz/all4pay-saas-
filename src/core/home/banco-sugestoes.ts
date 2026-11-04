@@ -157,7 +157,7 @@ export const BANCO_EMPRESA: LinhaBanco[] = [
   ["concentracao-bancos", "O caixa está concentrado em um banco só?", "risco", "Concentração bancária", "network"],
   ["clientes-risco", "Quais clientes têm maior risco de não pagar?", "risco", "Clientes em risco", "shield-check"],
   ["fatores-score", "Quais fatores mais pesam no score da empresa?", "risco", "Fatores do score", "gauge"],
-  ["chance-aperto", "Qual a chance de o caixa ficar negativo em 90 dias?", "risco", "Chance de aperto", "triangle-alert"],
+  ["chance-aperto", "Qual a chance de o caixa ficar negativo em 60 dias?", "risco", "Chance de aperto", "triangle-alert"],
   ["comparar-setor", "Como a empresa se compara ao setor?", "risco", "Comparar ao setor", "activity"],
   ["melhor-acao", "Qual a melhor ação para melhorar o caixa agora?", "risco", "Melhor ação", "sparkles"],
 

@@ -7,6 +7,7 @@
  * Determinístico hoje (intenções mapeadas); o mesmo contexto serializa
  * direto para o prompt de um LLM quando plugado.
  */
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import type { ExecutiveContext, RespostaCopiloto } from "./types";
 
 import { formatBRL } from "@/lib/format";
@@ -141,7 +142,7 @@ export function copilotoFinanceiro(
       numeros: [
         num("Runway", rotuloRunway(ctx)),
         num("Score de saúde", `${ctx.scoreFinanceiro}/100`),
-        num("Prob. ruptura", `${Math.round(ctx.probRuptura * 100)}%`),
+        num(`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`, `${Math.round(ctx.probRuptura * 100)}%`),
       ],
       confianca: 0.6,
       fontes: ["motor quantitativo", "simulador de cenários"],
@@ -152,7 +153,7 @@ export function copilotoFinanceiro(
   return {
     resposta:
       `Panorama atual: saldo de ${fmt(ctx.saldoAtual)}, ${fraseRunway(ctx)} e score de saúde ${ctx.scoreFinanceiro}/100. ` +
-      `Inadimplência em ${Math.round(ctx.inadimplencia * 100)}% e chance de ruptura de caixa em 60 dias ${
+      `Inadimplência em ${Math.round(ctx.inadimplencia * 100)}% e chance de ruptura de caixa em ${ROTULO_HORIZONTE_RUPTURA} ${
         ctx.probRuptura >= 0.5 ? "elevada" : ctx.probRuptura >= 0.25 ? "moderada" : "baixa"
       }. Pergunte sobre contratação, capacidade de investimento, clientes de risco, despesas ou expansão.`,
     numeros: [

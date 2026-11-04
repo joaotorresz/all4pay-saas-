@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation";
 import { Card, Icon, Button } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { DeclararPlanoCard, useLinhasDeclaradas } from "@/components/registros/DeclararPlanoCard";
+import { CompletarCadastroCard } from "./CompletarCadastroCard";
 import { montarJornada, rotasVistas, type Jornada, type EstagioJornada, type PassoJornada } from "@/lib/adoption";
 
 /** Recalcula a jornada do estado real + rotas vistas (localStorage, no mount). */
@@ -20,7 +22,8 @@ export function useJornada(): { jornada: Jornada | undefined; isLoading: boolean
   const { data: input, isLoading } = useRiscoInput();
   const [vistas, setVistas] = React.useState<Set<string>>(() => new Set());
   React.useEffect(() => { setVistas(rotasVistas()); }, []);
-  const jornada = React.useMemo(() => montarJornada(input, vistas), [input, vistas]);
+  const { data: declaradas } = useLinhasDeclaradas();
+  const jornada = React.useMemo(() => montarJornada(input, vistas, declaradas), [input, vistas, declaradas]);
   return { jornada, isLoading };
 }
 
@@ -86,7 +89,7 @@ export function JornadaView() {
 
   return (
     <AppShell title="Primeiros passos">
-      <div className="flex flex-col gap-5 pb-8 max-w-[900px]">
+      <div className="flex flex-col gap-5 pb-8">
         {/* Cabeçalho de progresso */}
         <Card className="flex flex-col gap-4">
           <div className="flex items-center gap-3 flex-wrap">
@@ -117,6 +120,9 @@ export function JornadaView() {
             </div>
           )}
         </Card>
+
+        <CompletarCadastroCard />
+        <DeclararPlanoCard />
 
         {/* Estágios */}
         {jornada?.estagios.map((e, i) => <EstagioBloco key={e.id} estagio={e} indice={i + 1} onGo={(h) => router.push(h)} />)}

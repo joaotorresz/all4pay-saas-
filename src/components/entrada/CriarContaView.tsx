@@ -60,11 +60,15 @@ import {
   type Cadastro, type DadosReceita, type Pergunta,
 } from "@/core/cadastro/conversa";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "@/components/ia/conversa";
+import { celularCanonico, celularLegivel, DIGITOS_CODIGO_WHATSAPP } from "@/core/whatsapp/numero";
+import { confirmarNumeroAction, pedirCodigoNumeroAction, situacaoNumeroAction } from "@/app/configuracoes/seguranca/acoes";
 
 type Etapa =
   | "tipo" | "documento" | "buscando" | "confirmar" | "pergunta" | "senha"
   | "termos" | "facial" | "docIdentidade" | "docEmpresa"
-  | "criando" | "confirme" | "erro" | "pronto";
+  | "criando" | "confirme" | "erro" | "pronto"
+  /* a oferta da Quattro AI no WhatsApp, depois da conta criada */
+  | "whatsapp" | "whatsappCodigo";
 
 type Cartao =
   | { tipo: "conta" }
@@ -120,6 +124,12 @@ function campoDe(etapa: Etapa | "senhaConfirmar", c: Cadastro, p: Pergunta | nul
   }
   if (etapa === "senha") {
     return { rotulo: "Senha", placeholder: `Senha com pelo menos ${MIN_SENHA} caracteres`, tipo: "password", modo: "text", auto: "new-password", mascara: null };
+  }
+  if (etapa === "whatsappCodigo") {
+    return {
+      rotulo: "Código do WhatsApp", placeholder: "Código de 6 números", tipo: "text", modo: "numeric", auto: "one-time-code",
+      mascara: (s) => s.replace(/\D/g, "").slice(0, DIGITOS_CODIGO_WHATSAPP),
+    };
   }
   if (etapa === "senhaConfirmar") {
     return { rotulo: "Confirmar a senha", placeholder: "Digite a senha de novo", tipo: "password", modo: "text", auto: "new-password", mascara: null };
@@ -214,6 +224,8 @@ export function CriarContaView() {
    * Sem sessão (o link aberto à toa), a conversa é a de sempre.
    */
   const googleRef = React.useRef<string | null>(null);
+  /** Para onde a pessoa vai depois da conta criada (e da oferta do WhatsApp). */
+  const destinoRef = React.useRef("/");
 
   /** A IA fala uma frase de cada vez, com o "digitando" entre elas. */
   const falar = React.useCallback(async (textos: string[], extra?: Partial<Fala>, inicio = 0) => {
@@ -642,8 +654,35 @@ export function CriarContaView() {
         }
       }
       if (!vivoRef.current) return;
+      destinoRef.current = pedido ? "/contas-a-receber/maquininha" : "/";
+      /*
+       * ⚠️ A OFERTA DO WHATSAPP (30/10/2026, pedido do dono): com a conta de pé
+       * existe sessão, e o celular já foi digitado. A confirmação é a MESMA de
+       * Segurança da conta: o código vai ao celular — o número digitado aqui
+       * não prova que ele é de quem digitou.
+       */
+      const celularDoCadastro = celularCanonico(c.repTelefone);
+      const situacao = celularDoCadastro ? await situacaoNumeroAction().catch(() => null) : null;
+      const ofertar = !!situacao && situacao.ligado && situacao.podeCadastrar && !situacao.telefone;
+      if (!vivoRef.current) return;
       setDigitando(false);
-      setEtapa("pronto");
+      setEtapa(ofertar ? "whatsapp" : "pronto");
+      if (ofertar && celularDoCadastro) {
+        await falar([
+          ...(falhaAlcada ? [`Os limites de aprovação não foram gravados (${falhaAlcada}); até alguém ajustar em Aprovações, vale o padrão.`] : []),
+          ...(pedido && falhaPedido ? [`Não consegui registrar o pedido da maquininha (${falhaPedido}). Você refaz em um clique na página Maquininha.`] : []),
+          pedido && !falhaPedido ? "Pronto! A sua conta está criada e o pedido da maquininha chegou à nossa equipe." : "Pronto! A sua conta está criada.",
+          `Antes de entrar: quer continuar falando comigo pelo **WhatsApp**? Você pergunta pelo celular ("quanto tenho a pagar essa semana?") e eu respondo com os números ${c.tipo === "pf" ? "da sua conta" : "da sua empresa"}.`,
+          `Eu mando um código para ${celularLegivel(celularDoCadastro)} para confirmar que o número é seu.`,
+        ], {
+          icone3d: "tick",
+          acoes: [
+            { rotulo: "Sim, mandar o código", icone: "smartphone", fazer: () => void pedirCodigoWhatsapp(celularDoCadastro) },
+            { rotulo: "Agora não", icone: "chevron-right", fazer: () => entrarNoSistema("Agora não") },
+          ],
+        });
+        return;
+      }
       await falar([
         ...(falhaAlcada ? [`Os limites de aprovação não foram gravados (${falhaAlcada}); até alguém ajustar em Aprovações, vale o padrão.`] : []),
         ...(pedido && falhaPedido ? [`Não consegui registrar o pedido da maquininha (${falhaPedido}). Você refaz em um clique na página Maquininha.`] : []),
@@ -653,7 +692,7 @@ export function CriarContaView() {
             : "Pronto! A sua conta está criada e o pedido de vínculo da maquininha chegou à nossa equipe. Vou te mostrar o acompanhamento."
           : "Pronto! A sua conta está criada. Já vou te levar para dentro.",
       ], { icone3d: "tick" });
-      router.push(pedido ? "/contas-a-receber/maquininha" : "/");
+      router.push(destinoRef.current);
       router.refresh();
     } catch (e) {
       // ⚠️ SEMPRE uma saída: a conta existe, e "Tentar de novo" refaz só o resto
@@ -665,6 +704,65 @@ export function CriarContaView() {
         { alerta: true, acoes: [{ rotulo: "Tentar de novo", icone: "rotate-ccw", fazer: () => void criar(c, senha) }] },
       );
     }
+  };
+
+  /* ─── 6. a oferta do WhatsApp (depois da conta criada) ───────────────── */
+  const entrarNoSistema = (eco?: string) => {
+    if (eco) voce(eco);
+    setEtapa("pronto");
+    router.push(destinoRef.current);
+    router.refresh();
+  };
+
+  const pedirCodigoWhatsapp = async (celular: string) => {
+    voce("Sim, mandar o código");
+    setEtapa("criando");
+    setDigitando(true);
+    const r = await pedirCodigoNumeroAction(celular).catch(() => ({ ok: false as const, motivo: "Não foi possível enviar agora." }));
+    if (!vivoRef.current) return;
+    setDigitando(false);
+    if (!r.ok) {
+      setEtapa("whatsapp");
+      await falar([r.motivo, "Você também conecta depois, em Configurações › Segurança da conta."], {
+        alerta: true,
+        acoes: [
+          { rotulo: "Tentar de novo", icone: "rotate-ccw", fazer: () => void pedirCodigoWhatsapp(celular) },
+          { rotulo: "Entrar no sistema", icone: "chevron-right", fazer: () => entrarNoSistema("Entrar no sistema") },
+        ],
+      });
+      return;
+    }
+    setTexto("");
+    setEtapa("whatsappCodigo");
+    await falar([`${r.mensagem}`, "Digite aqui o código que chegou no WhatsApp."], {
+      acoes: [{ rotulo: "Fazer isso depois", icone: "chevron-right", fazer: () => entrarNoSistema("Fazer isso depois") }],
+    });
+  };
+
+  const responderCodigoWhatsapp = async () => {
+    const codigo = texto.replace(/\D/g, "");
+    if (!codigo) return;
+    voce(codigo);
+    setTexto("");
+    if (codigo.length !== DIGITOS_CODIGO_WHATSAPP) {
+      await falar([`O código tem ${DIGITOS_CODIGO_WHATSAPP} números. Confere pra mim?`], { alerta: true });
+      return;
+    }
+    setDigitando(true);
+    const r = await confirmarNumeroAction(codigo).catch(() => ({ ok: false as const, motivo: "Não foi possível conferir agora. Tente de novo." }));
+    if (!vivoRef.current) return;
+    setDigitando(false);
+    if (!r.ok) {
+      await falar([r.motivo], {
+        alerta: true,
+        acoes: [{ rotulo: "Fazer isso depois", icone: "chevron-right", fazer: () => entrarNoSistema("Fazer isso depois") }],
+      });
+      return;
+    }
+    setEtapa("pronto");
+    await falar(["Celular conectado! Pode me chamar pelo WhatsApp quando quiser. Agora vou te levar para dentro."], { icone3d: "tick" });
+    router.push(destinoRef.current);
+    router.refresh();
   };
 
   /**
@@ -761,12 +859,13 @@ export function CriarContaView() {
       return;
     }
     if (etapa === "senha") { await responderSenha(); return; }
+    if (etapa === "whatsappCodigo") { await responderCodigoWhatsapp(); return; }
     if (etapa === "pergunta") await enviarTexto();
   };
 
   /** O "voltar" do cabeçalho reabre a última resposta (o mesmo "Alterar" do balão). */
   const ultimoMarco = marcos[marcos.length - 1];
-  const podeVoltar = !!ultimoMarco && !ocupadoFala && !["criando", "pronto", "confirme", "buscando"].includes(etapa);
+  const podeVoltar = !!ultimoMarco && !ocupadoFala && !["criando", "pronto", "confirme", "buscando", "whatsapp", "whatsappCodigo"].includes(etapa);
   const voltar = () => { if (podeVoltar) alterar(ultimoMarco.id); };
 
   const ocupado = etapa === "criando" || etapa === "pronto" || etapa === "confirme" || etapa === "buscando";
@@ -872,7 +971,9 @@ export function CriarContaView() {
                           {a.rotulo}
                         </Link>
                       ) : (
-                        <button key={a.rotulo} type="button" onClick={a.fazer} disabled={etapa !== "erro"}
+                        <button key={a.rotulo} type="button" onClick={a.fazer}
+                          // A oferta do WhatsApp: só os botões da ÚLTIMA fala valem.
+                          disabled={etapa === "erro" ? false : !((etapa === "whatsapp" || etapa === "whatsappCodigo") && f.id === ultimaIA?.id && !ocupadoFala)}
                           className="inline-flex items-center gap-2 h-11 px-5 rounded-pill text-[15px] a4p-pilula disabled:opacity-50">
                           {a.icone && <Icon name={a.icone} size={16} />}
                           {a.rotulo}

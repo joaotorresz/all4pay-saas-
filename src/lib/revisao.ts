@@ -14,6 +14,7 @@ import { isDemo } from "@/lib/demo";
 import { semAmostra } from "@/lib/supabase/consulta";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { hojeLocal } from "@/lib/aggregations";
 import { montarFilaRevisao, type FilaRevisao, type ItemRevisao } from "@/core/revisao";
 
 const VAZIA: FilaRevisao = { achados: [], total: 0, porMotivo: {} };
@@ -80,7 +81,7 @@ export async function getFilaRevisao(): Promise<FilaRevisao> {
     reportar("revisao.recorrencias", e, "as regras recorrentes podem não aparecer na fila", false);
   }
 
-  return montarFilaRevisao(itens);
+  return montarFilaRevisao(itens, hojeLocal());
 }
 
 /**

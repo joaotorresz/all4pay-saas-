@@ -6,6 +6,7 @@ import type { IndicadoresFinanceiros, ScoreFinanceiro, CenarioPreditivo } from "
 import { CLASSIF_SAUDE_LABEL } from "./types";
 
 import { formatBRL, decimalBR } from "@/lib/format";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import { fraseRunway } from "./score";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
@@ -70,7 +71,7 @@ export function narrativaExecutiva(
         ? "Tendência de deterioração nos últimos meses — requer ação."
         : "Saúde financeira estável no período recente.";
   partes.push(
-    `${trend} Mantido o cenário atual, a probabilidade de deterioração de caixa nos próximos 90 dias é ${
+    `${trend} Mantido o cenário atual, a chance de ruptura de caixa em ${ROTULO_HORIZONTE_RUPTURA} é ${
       s.probabilidadeRuptura >= 0.5 ? "elevada" : s.probabilidadeRuptura >= 0.25 ? "moderada" : "baixa"
     }.`,
   );

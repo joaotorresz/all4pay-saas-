@@ -26,6 +26,8 @@ export const PLANO_PADRAO: ContaPlano[] = [
   { code: "4.2.01", name: "Despesas financeiras", type: "expense" },
   { code: "4.3.01", name: "Depreciação", type: "expense" },
   { code: "4.3.02", name: "Amortização", type: "expense" },
+  { code: "1.1.05", name: "Despesas antecipadas", type: "asset" },
+  { code: "1.2.01", name: "Imobilizado", type: "asset" },
   { code: "1.2.99", name: "(-) Depreciação/amortização acumulada", type: "asset" },
   { code: "2.1.99", name: "Provisões a pagar", type: "liability" },
   { code: "2.2.01", name: "Receita diferida", type: "liability" },
@@ -61,10 +63,17 @@ export function contaDeMovimento(m: { type: "entrada" | "saida"; category?: stri
  * A data é a de CAIXA (`dataDe(m, "caixa")`), pela mesma convenção do resto do
  * sistema, e um liquidado sem data nenhuma fica de fora: um lançamento contábil
  * sem competência não tem em que mês entrar.
+ *
+ * ⚠️ **A compra ligada a um cronograma vai ao ATIVO** (`comprasDoAtivo`, de
+ * core/schedules): imobilizado ou despesa antecipada, em vez da despesa. A
+ * despesa desse bem é só a parcela mensal que o cronograma lança. Sem isso a
+ * compra entrava cheia na despesa E a depreciação vinha por cima: o mesmo bem
+ * pesava duas vezes no resultado (guarda `depreciacao-unica`).
  */
 export function lancamentosDeMovimentos(
   input: RiskInput,
   nomeDaParte?: (m: RiskMovement) => string | undefined,
+  contaDoAtivo?: ReadonlyMap<string, string>,
 ): LedgerEntryInput[] {
   const saida: LedgerEntryInput[] = [];
   for (const m of input.movements) {
@@ -77,7 +86,7 @@ export function lancamentosDeMovimentos(
         valor: magnitude(m),
         data,
         contaCaixaId: CAIXA,
-        contaResultadoId: contaDeMovimento(m),
+        contaResultadoId: (m.type === "saida" && contaDoAtivo?.get(m.id)) || contaDeMovimento(m),
         descricao: nomeDaParte?.(m) || m.category || "Lançamento",
         externalKey: `mov:${m.id}`,
         dimensions: {

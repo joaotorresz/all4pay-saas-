@@ -5,6 +5,7 @@
  */
 export { Button, classesDoBotao, type ButtonProps } from "./Button";
 export { Card, type CardProps } from "./Card";
+export { Tabela, type TabelaProps, type ColunaTabela } from "./Tabela";
 export { InfoHint, type InfoConteudo } from "./InfoHint";
 export { Badge, type BadgeProps } from "./Badge";
 export { Pill, type PillProps } from "./Pill";

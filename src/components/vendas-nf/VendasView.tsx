@@ -11,7 +11,7 @@
 import * as React from "react";
 import { abrirCriacao } from "@/components/app/criacao";
 import { useRouter } from "next/navigation";
-import { Card, Button, Icon, Input, Select, BRL, Skeleton } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, BRL, Skeleton, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { baixarXLSX } from "@/lib/xlsx";
 import {
@@ -225,111 +225,92 @@ export function VendasView() {
             <Button variant="primary" onClick={() => abrirCriacao("venda")}>Nova venda</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Data</Th>
-                  <Th>Nº</Th>
-                  <Th>Cliente</Th>
-                  <Th>Produtos</Th>
-                  {layout === "detalhada" && <><Th>Plataforma</Th><Th direita>Líquido</Th></>}
-                  <Th direita>Valor total</Th>
-                  <Th>Status</Th>
-                  <Th>NF</Th>
-                  <Th direita>Ações</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiveis.map((v) => (
-                  <tr key={v.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                    <td className="px-6 py-3 text-label text-ink tabular-nums">{fmtDia(v.competencia)}</td>
-                    <td className="px-6 py-3 text-caption text-faint tabular-nums">{v.numero}</td>
-                    <td className="px-6 py-3">
-                      <button
-                        onClick={() => v.clienteId && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: v.clienteId } }))}
-                        className="text-label text-ink hover:underline decoration-dotted underline-offset-4 text-left"
-                      >
-                        {v.clienteNome || "—"}
-                      </button>
-                    </td>
-                    <td className="px-6 py-3 text-label text-muted truncate max-w-[28ch]">
-                      {v.itens.filter((i) => i.nome).map((i) => `${i.quantidade}× ${i.nome}`).join(" · ") || "—"}
-                    </td>
-                    {layout === "detalhada" && (
-                      <>
-                        <td className="px-6 py-3 text-label text-muted">{v.plataforma || "—"}</td>
-                        <td className="px-6 py-3 text-right text-label text-muted tabular-nums"><BRL value={valorLiquido(v)} /></td>
-                      </>
-                    )}
-                    <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={v.valorTotal} /></td>
-                    <td className="px-6 py-3">
-                      <span className="text-caption text-muted">{STATUS_VENDA.find((s) => s.id === v.status)?.label}</span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className="inline-flex items-center gap-[6px] text-caption text-muted">
-                        <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_NF[v.statusNF] }} />
-                        {STATUS_NF.find((s) => s.id === v.statusNF)?.label}
-                        {/* A busca já casa pelo número da NF; sem exibi-lo, a
-                            linha achada não mostra o que fez ela ser achada. */}
-                        {v.numeroNF && <span className="tabular-nums text-faint">· nº {v.numeroNF}</span>}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {podeEmitirNota(v) && (
-                          <button
-                            disabled={emitindo !== null}
-                            onClick={async () => {
-                              setEmitindo(v.id);
-                              try {
-                                const r = await emitirNotaDaVenda(v);
-                                await qc.invalidateQueries();
-                                show(r.autorizada
-                                  ? `NF ${r.numero} emitida para a venda ${v.numero} — a receita é o título que a venda já gerou.`
-                                  : r.processando
-                                  ? `A nota da venda ${v.numero} está na prefeitura. Veja o resultado em Notas fiscais › Emitir NFS-e.`
-                                  : `A prefeitura recusou a nota da venda ${v.numero}: ${r.motivo ?? "sem motivo informado"}`);
-                              } catch (e) {
-                                await qc.invalidateQueries();
-                                show(`A nota da venda ${v.numero} não foi emitida: ${e instanceof Error ? e.message : String(e)}`);
-                              } finally {
-                                setEmitindo(null);
-                              }
-                            }}
-                            className="px-2 py-[4px] rounded-pill text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 disabled:opacity-50 whitespace-nowrap"
-                          >
-                            {emitindo === v.id ? "Emitindo…" : v.statusNF === "negada" ? "Reemitir NF" : "Emitir NF"}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => router.push(`/dashboard/sales-invoices/new?id=${v.id}`)}
-                          aria-label="Editar" className="p-[6px] rounded-md text-muted hover:text-ink hover:bg-surface-2"
-                        >
-                          <Icon name="edit" size={15} color="currentColor" />
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!window.confirm(`Excluir a venda ${v.numero}? O recebível previsto que ela gerou vai junto para a lixeira.`)) return;
-                            try {
-                              await removerVendaDoc(v);
-                              await qc.invalidateQueries();
-                              show("Venda e recebível previsto enviados para a lixeira.");
-                            } catch (e) {
-                              show((e as Error).message);
-                            }
-                          }}
-                          aria-label="Excluir" className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2"
-                        >
-                          <Icon name="trash-2" size={15} color="currentColor" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={visiveis}
+            chave={(v) => v.id}
+            emCartao={false}
+            rotulo="Vendas"
+            colunas={[
+              { chave: "data", rotulo: "Data", render: (v) => <span className="tabular-nums">{fmtDia(v.competencia)}</span> },
+              { chave: "numero", rotulo: "Nº", render: (v) => <span className="text-caption text-faint tabular-nums">{v.numero}</span> },
+              { chave: "cliente", rotulo: "Cliente", principal: true, render: (v) => (
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (v.clienteId) window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: v.clienteId } })); }}
+                  className="text-label text-ink hover:underline decoration-dotted underline-offset-4 text-left"
+                >
+                  {v.clienteNome || "—"}
+                </button>
+              ) },
+              { chave: "produtos", rotulo: "Produtos", classe: "truncate max-w-[28ch]", render: (v) => (
+                <span className="text-muted">{v.itens.filter((i) => i.nome).map((i) => `${i.quantidade}× ${i.nome}`).join(" · ") || "—"}</span>
+              ) },
+              ...(layout === "detalhada" ? [
+                { chave: "plataforma", rotulo: "Plataforma", render: (v: Venda) => <span className="text-muted">{v.plataforma || "—"}</span> },
+                { chave: "liquido", rotulo: "Líquido", alinhar: "direita" as const, render: (v: Venda) => <span className="text-muted"><BRL value={valorLiquido(v)} /></span> },
+              ] : []),
+              { chave: "valor", rotulo: "Valor total", alinhar: "direita", render: (v) => <BRL value={v.valorTotal} /> },
+              { chave: "status", rotulo: "Status", render: (v) => <span className="text-caption text-muted">{STATUS_VENDA.find((s) => s.id === v.status)?.label}</span> },
+              { chave: "nf", rotulo: "NF", render: (v) => (
+                <span className="inline-flex items-center gap-[6px] text-caption text-muted">
+                  <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_NF[v.statusNF] }} />
+                  {STATUS_NF.find((s) => s.id === v.statusNF)?.label}
+                  {/* A busca já casa pelo número da NF; sem exibi-lo, a
+                      linha achada não mostra o que fez ela ser achada. */}
+                  {v.numeroNF && <span className="tabular-nums text-faint">· nº {v.numeroNF}</span>}
+                </span>
+              ) },
+            ]}
+            acoes={(v) => (
+              <>
+                {podeEmitirNota(v) && (
+                  <button
+                    disabled={emitindo !== null}
+                    onClick={async () => {
+                      setEmitindo(v.id);
+                      try {
+                        const r = await emitirNotaDaVenda(v);
+                        await qc.invalidateQueries();
+                        show(r.autorizada
+                          ? `NF ${r.numero} emitida para a venda ${v.numero} — a receita é o título que a venda já gerou.`
+                          : r.processando
+                          ? `A nota da venda ${v.numero} está na prefeitura. Veja o resultado em Notas fiscais › Emitir NFS-e.`
+                          : `A prefeitura recusou a nota da venda ${v.numero}: ${r.motivo ?? "sem motivo informado"}`);
+                      } catch (e) {
+                        await qc.invalidateQueries();
+                        show(`A nota da venda ${v.numero} não foi emitida: ${e instanceof Error ? e.message : String(e)}`);
+                      } finally {
+                        setEmitindo(null);
+                      }
+                    }}
+                    className="px-2 py-[4px] rounded-pill text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {emitindo === v.id ? "Emitindo…" : v.statusNF === "negada" ? "Reemitir NF" : "Emitir NF"}
+                  </button>
+                )}
+                <button
+                  onClick={() => router.push(`/dashboard/sales-invoices/new?id=${v.id}`)}
+                  aria-label="Editar" className="p-[6px] rounded-md text-muted hover:text-ink hover:bg-surface-2"
+                >
+                  <Icon name="edit" size={15} color="currentColor" />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Excluir a venda ${v.numero}? O recebível previsto que ela gerou vai junto para a lixeira.`)) return;
+                    try {
+                      await removerVendaDoc(v);
+                      await qc.invalidateQueries();
+                      show("Venda e recebível previsto enviados para a lixeira.");
+                    } catch (e) {
+                      show((e as Error).message);
+                    }
+                  }}
+                  aria-label="Excluir" className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2"
+                >
+                  <Icon name="trash-2" size={15} color="currentColor" />
+                </button>
+              </>
+            )}
+          />
         )}
       </Card>
       {node}
@@ -339,13 +320,6 @@ export function VendasView() {
 
 /* --------------------------------- peças --------------------------------- */
 
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
-  );
-}
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

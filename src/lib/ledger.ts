@@ -20,6 +20,8 @@ import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from
 import { TETO_LINHAS, conferirTeto } from "@/lib/supabase/consulta";
 import { isPeriodLocked } from "@/lib/close";
 import { reportar } from "@/lib/erros";
+import { loadCronogramas } from "@/lib/schedules";
+import { comprasDoAtivo } from "@/core/schedules";
 import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
@@ -63,9 +65,10 @@ function entryToLanc(e: LedgerEntryInput, id: string, estornoDe?: string): Razao
  * títulos em aberto, que é o que descolava o balancete do extrato.
  */
 async function lancamentosDosMovimentos(): Promise<LedgerEntryInput[]> {
-  const input = await getRiscoInput();
+  const [input, cronogramas] = await Promise.all([getRiscoInput(), loadCronogramas()]);
+  // A compra ligada a um cronograma vai ao ativo, não à despesa (sem dobrar).
   return lancamentosDeMovimentos(input, (m) =>
-    (m.party_id && input.partyNames?.[m.party_id]) || undefined);
+    (m.party_id && input.partyNames?.[m.party_id]) || undefined, comprasDoAtivo(cronogramas));
 }
 
 export const PLANO = PLANO_PADRAO;

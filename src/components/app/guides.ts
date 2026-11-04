@@ -416,7 +416,7 @@ export const GUIDES: Record<string, Guide> = {
     secoes: [
       blocos([
         { nome: "Matriz de risco", desc: "8 dimensões probabilísticas + stress agregado.", match: "Matriz de risco" },
-        { nome: "Previsão Monte Carlo", desc: "Prob. de caixa negativo em 90d + bandas p10/p50/p90.", match: "Previsão de caixa" },
+        { nome: "Previsão Monte Carlo", desc: "Bandas p10/p50/p90 do caixa em 60 dias.", match: "Previsão de caixa" },
         { nome: "Recomendações", desc: "Cada ação re-roda o risco e mede o impacto real.", match: "Recomendações" },
       ]),
     ],

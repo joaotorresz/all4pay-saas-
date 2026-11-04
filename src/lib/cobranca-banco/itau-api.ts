@@ -1,0 +1,269 @@
+import { randomUUID } from "node:crypto";
+import {
+  caminhoConsultaItau,
+  CONTA_DO_EXEMPLO_ITAU,
+  EXEMPLO_DA_DOC_ITAU,
+  NOSSO_NUMERO_DO_EXEMPLO_ITAU,
+  ROTAS_ITAU,
+  corpoBaixaItau,
+  corpoTokenItau,
+  idProvedorItau,
+  lerConsultaItau,
+  lerCriacaoItau,
+  lerTokenItau,
+  motivoDaRecusaItau,
+  motivoDoItau,
+  TOKEN_ITAU,
+  nossoNumeroValido,
+  pedidoCobrancaItau,
+  problemasDaContaItau,
+  type AmbienteItau,
+  type ContaItau,
+} from "@/core/cobranca-banco/itau";
+import { problemasDoPedido, type PedidoCobrancaBanco, type ResultadoCobrancaBanco } from "@/core/cobranca-banco";
+import { lerPem } from "@/lib/cobranca-banco/inter-api";
+import type { CredencialMtls } from "@/lib/cobranca-banco/inter-saida";
+import { ErroPortaItau, requisicaoItau, type RespostaItau } from "@/lib/cobranca-banco/itau-saida";
+
+/**
+ * O CLIENTE DA API DE COBRANÇA DO ITAÚ. SERVER-ONLY. Etapa 3 de
+ * `docs/rodada-11/cobranca-itau.md`.
+ *
+ * Por ora a credencial vem das variáveis (o teste no sandbox e o piloto):
+ *
+ *   ITAU_AMBIENTE        = sandbox | producao   (escolhe a base; nunca uma URL livre)
+ *   ITAU_CLIENT_ID       = o Client ID da integração
+ *   ITAU_CLIENT_SECRET   = o Client Secret — SEGREDO
+ *   ITAU_CERTIFICADO     = o .crt da integração (PEM ou PEM em base64; obrigatório em produção)
+ *   ITAU_CHAVE_PRIVADA   = o .key da integração — SEGREDO (obrigatório em produção)
+ *   ITAU_AGENCIA, ITAU_CONTA, ITAU_DAC, ITAU_CARTEIRA, ITAU_CHAVE_PIX = a conta que recebe
+ *
+ * A etapa 4 guarda isso por EMPRESA, cifrado, pela mesma conexão do Inter; as
+ * funções já recebem a `ConfigItau` por parâmetro para isso.
+ *
+ * Toda chamada sai pela porta única (`requisicaoItau`). O `transporte` é
+ * trocável só para a guarda (`npm run itau-cobranca`).
+ */
+
+export interface ConfigItau {
+  ambiente: AmbienteItau;
+  clientId: string;
+  clientSecret: string;
+  mtls: CredencialMtls | null;
+  conta: ContaItau;
+}
+
+export type TransporteItau = typeof requisicaoItau;
+
+/** A configuração das variáveis, ou a lista do que FALTA (pelo NOME, nunca pelo valor). */
+export function configItauDoAmbiente(env: Record<string, string | undefined> = process.env): { config: ConfigItau } | { faltam: string[] } {
+  const faltam: string[] = [];
+  const amb = (env.ITAU_AMBIENTE ?? "").trim();
+  if (amb !== "sandbox" && amb !== "producao") faltam.push("ITAU_AMBIENTE (sandbox ou producao)");
+  const clientId = (env.ITAU_CLIENT_ID ?? "").trim();
+  if (!clientId) faltam.push("ITAU_CLIENT_ID");
+  const clientSecret = (env.ITAU_CLIENT_SECRET ?? "").trim();
+  if (!clientSecret) faltam.push("ITAU_CLIENT_SECRET");
+  const certificado = lerPem(env.ITAU_CERTIFICADO, "CERTIFICATE");
+  const chave = lerPem(env.ITAU_CHAVE_PRIVADA, "PRIVATE KEY");
+  if (amb === "producao") {
+    if (!certificado) faltam.push("ITAU_CERTIFICADO (PEM do .crt)");
+    if (!chave) faltam.push("ITAU_CHAVE_PRIVADA (PEM do .key)");
+  } else if (!!certificado !== !!chave) {
+    faltam.push(certificado ? "ITAU_CHAVE_PRIVADA (o certificado veio sem a chave)" : "ITAU_CERTIFICADO (a chave veio sem o certificado)");
+  }
+  const conta: ContaItau = {
+    agencia: (env.ITAU_AGENCIA ?? "").trim(),
+    conta: (env.ITAU_CONTA ?? "").trim(),
+    dac: (env.ITAU_DAC ?? "").trim(),
+    carteira: (env.ITAU_CARTEIRA ?? "").trim(),
+    chavePix: (env.ITAU_CHAVE_PIX ?? "").trim(),
+  };
+  for (const p of problemasDaContaItau(conta)) faltam.push(p);
+  if (faltam.length) return { faltam };
+  return {
+    config: {
+      ambiente: amb as AmbienteItau,
+      clientId,
+      clientSecret,
+      mtls: certificado && chave ? { certificado, chave } : null,
+      conta,
+    },
+  };
+}
+
+/** Token por credencial, renovado 60 s antes de vencer. */
+const tokens = new Map<string, { token: string; ate: number }>();
+
+export function esquecerTokensItau() {
+  tokens.clear();
+}
+
+async function token(cfg: ConfigItau, transporte: TransporteItau, novo = false): Promise<string> {
+  const chave = `${cfg.ambiente}:${cfg.clientId}`;
+  const guardado = tokens.get(chave);
+  if (!novo && guardado && guardado.ate > Date.now()) return guardado.token;
+  // ⚠️ Falha do TOKEN é "antes do envio" para a cobrança: nada de dinheiro saiu.
+  let t: { token: string; expiraEmSegundos: number };
+  try {
+    const r = await transporte({
+      ambiente: cfg.ambiente,
+      servidor: "token",
+      metodo: "POST",
+      caminho: TOKEN_ITAU[cfg.ambiente],
+      mtls: cfg.mtls,
+      cabecalhos: { "content-type": "application/x-www-form-urlencoded", "x-itau-correlationID": randomUUID() },
+      corpo: corpoTokenItau(cfg.clientId, cfg.clientSecret),
+    });
+    if (r.status !== 200) {
+      const disse = motivoDoItau(r.corpo, r.bruto);
+      throw new Error(`O Itaú recusou a credencial (${r.status})${disse ? `: ${disse}` : ""}. Confira o Client ID, o Secret e o certificado.`);
+    }
+    t = lerTokenItau(r.corpo);
+  } catch (e) {
+    throw new ErroPortaItau(e instanceof Error ? e.message : "Falha ao gerar o token do Itaú.", "antes_do_envio");
+  }
+  tokens.set(chave, { token: t.token, ate: Date.now() + Math.max(0, t.expiraEmSegundos - 60) * 1000 });
+  return t.token;
+}
+
+/**
+ * Uma chamada com o token. ⚠️ 401 com o token do cache pede um token novo e
+ * repete UMA vez: o 401 é RESPOSTA, então o pedido não registrou nada.
+ */
+async function chamar(
+  cfg: ConfigItau,
+  transporte: TransporteItau,
+  metodo: "GET" | "POST" | "PATCH",
+  caminho: string,
+  corpo?: unknown,
+): Promise<RespostaItau> {
+  const vai = async (novo: boolean) =>
+    transporte({
+      ambiente: cfg.ambiente,
+      servidor: "api",
+      metodo,
+      caminho,
+      mtls: cfg.mtls,
+      cabecalhos: {
+        authorization: `Bearer ${await token(cfg, transporte, novo)}`,
+        "x-itau-apikey": cfg.clientId,
+        "x-itau-correlationID": randomUUID(),
+        "x-itau-flowID": "1",
+        ...(corpo != null ? { "content-type": "application/json" } : {}),
+      },
+      ...(corpo != null ? { corpo: JSON.stringify(corpo) } : {}),
+    });
+  const r = await vai(false);
+  return r.status === 401 ? vai(true) : r;
+}
+
+/**
+ * Acrescenta ao motivo o que o Itaú DISSE quando a resposta não é 2xx e o
+ * motivo ainda não traz a mensagem dele (o 500 do sandbox vinha sem nada,
+ * 03/11/2026). Uma linha, curta; só chega à tela de teste do administrador.
+ */
+function comODitoDoItau(r: ResultadoCobrancaBanco, resp: RespostaItau): ResultadoCobrancaBanco {
+  if (resp.status >= 200 && resp.status < 300) return r;
+  if (r.situacao !== "incerta" && r.situacao !== "falhou") return r;
+  const disse = motivoDoItau(resp.corpo, resp.bruto);
+  if (!disse || r.motivo.includes(disse)) return r;
+  return { ...r, motivo: `${r.motivo} O Itaú disse: ${disse}`.slice(0, 600) };
+}
+
+/**
+ * Só no SANDBOX: quando a consulta volta 200 sem o nosso número, diz quais
+ * nossos números o simulador devolveu (03/11/2026: ele responde com títulos
+ * fixos). Em produção a resposta fica como está: lá são títulos de clientes.
+ */
+function comOsNumerosDoSandbox(r: ResultadoCobrancaBanco, cfg: ConfigItau, corpo: unknown): ResultadoCobrancaBanco {
+  if (cfg.ambiente !== "sandbox" || r.situacao !== "incerta") return r;
+  const dados = corpo && typeof corpo === "object" && Array.isArray((corpo as { data?: unknown }).data) ? ((corpo as { data: unknown[] }).data) : [];
+  const vistos = dados
+    .slice(0, 10)
+    .map((t) => {
+      const dado = t && typeof t === "object" ? (t as { dado_boleto?: { dados_individuais_boleto?: Array<{ numero_nosso_numero?: unknown }> } }).dado_boleto : undefined;
+      const n = dado?.dados_individuais_boleto?.[0]?.numero_nosso_numero;
+      return typeof n === "string" ? n.replace(/\D/g, "").slice(0, 20) : "";
+    })
+    .filter(Boolean);
+  const disse = `O sandbox devolveu ${dados.length} título(s)${vistos.length ? ` com nosso número ${vistos.join(", ")}` : ""}.`;
+  return { ...r, motivo: `${r.motivo} ${disse}`.slice(0, 600) };
+}
+
+/** Só prova que a credencial gera token (o teste do administrador). */
+export async function testarCredencialItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  try {
+    await token(cfg, transporte, true);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: e instanceof Error ? e.message : "Falha ao gerar o token." };
+  }
+}
+
+/**
+ * Emite o boleto com Pix. Não repete. O `nossoNumero` vem de quem reserva
+ * (etapa 4) — este cliente nunca inventa um.
+ */
+export async function emitirCobrancaItau(
+  cfg: ConfigItau,
+  pedido: PedidoCobrancaBanco,
+  nossoNumero: string,
+  hoje: string,
+  transporte: TransporteItau = requisicaoItau,
+): Promise<ResultadoCobrancaBanco> {
+  const problemas = [...problemasDoPedido(pedido), ...problemasDaContaItau(cfg.conta)];
+  if (!nossoNumeroValido(nossoNumero)) problemas.push("O nosso número do Itaú tem 8 dígitos.");
+  if (problemas.length) return { situacao: "falhou", motivo: problemas.join(" ") };
+  try {
+    const r = await chamar(cfg, transporte, "POST", ROTAS_ITAU[cfg.ambiente].emitir, pedidoCobrancaItau(pedido, cfg.conta, nossoNumero, hoje));
+    return comODitoDoItau(lerCriacaoItau(r.status, r.corpo, cfg.conta, nossoNumero), r);
+  } catch (e) {
+    if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
+    // Saiu e não voltou: pode ter registrado.
+    return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
+  }
+}
+
+/**
+ * SÓ NO SANDBOX: envia o JSON de exemplo da documentação do Itaú LITERAL, sem
+ * passar pelo nosso montador. O sandbox é um simulador e só responde ao corpo
+ * idêntico ao exemplo (03/11/2026: o nosso montador mandava valor em 17
+ * dígitos, chave Pix e data de emissão, e voltava "cenário não mapeado").
+ * Fora do sandbox não sai nada.
+ */
+export async function emitirExemploDoSandboxItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<ResultadoCobrancaBanco> {
+  if (cfg.ambiente !== "sandbox") return { situacao: "falhou", motivo: "O exemplo da documentação só vale no sandbox." };
+  const conta = { ...cfg.conta, ...CONTA_DO_EXEMPLO_ITAU };
+  try {
+    const r = await chamar(cfg, transporte, "POST", ROTAS_ITAU.sandbox.emitir, EXEMPLO_DA_DOC_ITAU);
+    return comODitoDoItau(lerCriacaoItau(r.status, r.corpo, conta, NOSSO_NUMERO_DO_EXEMPLO_ITAU), r);
+  } catch (e) {
+    if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
+    return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
+  }
+}
+
+/** A situação de verdade, pelo nosso número (resolve a `incerta` e confere o aviso). */
+export async function consultarCobrancaItau(cfg: ConfigItau, nossoNumero: string, transporte: TransporteItau = requisicaoItau): Promise<ResultadoCobrancaBanco> {
+  if (!nossoNumeroValido(nossoNumero)) return { situacao: "incerta", motivo: "Nosso número inválido." };
+  try {
+    const r = await chamar(cfg, transporte, "GET", caminhoConsultaItau(cfg.ambiente, cfg.conta, nossoNumero));
+    if (r.status === 404) return { situacao: "incerta", motivo: "O Itaú não achou este título." };
+    if (r.status !== 200) return comODitoDoItau({ situacao: "incerta", motivo: motivoDaRecusaItau(r.status, r.corpo) }, r);
+    return comOsNumerosDoSandbox(lerConsultaItau(r.corpo, cfg.conta, nossoNumero), cfg, r.corpo);
+  } catch (e) {
+    return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
+  }
+}
+
+/** Baixa (cancela) o título no Itaú — título alterado ou excluído depois de cobrado. */
+export async function baixarCobrancaItau(
+  cfg: ConfigItau,
+  nossoNumero: string,
+  transporte: TransporteItau = requisicaoItau,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  if (!nossoNumeroValido(nossoNumero)) return { ok: false, motivo: "Nosso número inválido." };
+  const r = await chamar(cfg, transporte, "PATCH", `${ROTAS_ITAU[cfg.ambiente].boletos}/${idProvedorItau(cfg.conta, nossoNumero)}/baixa`, corpoBaixaItau());
+  return r.status >= 200 && r.status < 300 ? { ok: true } : { ok: false, motivo: motivoDaRecusaItau(r.status, r.corpo) };
+}

@@ -18,7 +18,7 @@
 import * as React from "react";
 import { abrirCriacao, useAoCriar, cadastroDe } from "@/components/app/criacao";
 import type { CadastroNoCampo } from "@/components/ui";
-import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Switch } from "@/components/ui";
+import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Switch, Tabela } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { usePartiesList, useProductsList } from "@/components/lancamentos/hooks";
@@ -60,8 +60,13 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
   }, [ladoFixo]);
   const { show, node } = useToast();
 
-  React.useEffect(() => { setItens(listContratos()); }, []);
-  useAoCriar(["contrato-cliente", "contrato-fornecedor"], () => setItens(listContratos()));
+  const [erroLeitura, setErroLeitura] = React.useState<string | null>(null);
+  const reler = React.useCallback(() => {
+    listContratos().then((l) => { setItens(l); setErroLeitura(null); })
+      .catch((e) => setErroLeitura(e instanceof Error ? e.message : String(e)));
+  }, []);
+  React.useEffect(() => { reler(); }, [reler]);
+  useAoCriar(["contrato-cliente", "contrato-fornecedor"], reler);
 
   const doLado = React.useMemo(() => itens.filter((c) => c.lado === lado), [itens, lado]);
   const visiveis = React.useMemo(() => {
@@ -113,11 +118,13 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
         ] }]}
       />
 
+      {erroLeitura && <p className="m-0 text-label text-negative">Não foi possível ler os contratos: {erroLeitura}</p>}
+
       <TabelaRegistro
         itens={visiveis}
         vazio={
           <VazioRegistro
-            texto={doLado.length === 0
+            texto={erroLeitura ? "Os contratos não puderam ser lidos agora." : doLado.length === 0
               ? "Nenhum contrato cadastrado."
               : "Nenhum contrato encontrado com esses filtros."}
             acao={doLado.length === 0
@@ -153,8 +160,9 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
             <AcaoLinha label="Editar" icone="edit" onClick={() => setEditando(c)} />
             <AcaoLinha label="Excluir" icone="trash-2" perigo onClick={() => {
               if (!window.confirm(`Excluir o contrato "${c.objeto}"?`)) return;
-              setItens(removerContrato(c.id));
-              show("Contrato removido.");
+              removerContrato(c)
+                .then(() => { reler(); show("Contrato removido."); })
+                .catch((e) => show(`Não foi possível excluir: ${e instanceof Error ? e.message : String(e)}`));
             }} />
           </>
         )}
@@ -164,7 +172,7 @@ export function ContratosView({ lado: ladoFixo }: { lado?: "fornecedor" | "clien
         <FormContrato
           inicial={editando}
           onClose={() => setEditando(null)}
-          onSalvo={(c) => { setItens(salvarContrato(c)); setEditando(null); show("Contrato salvo."); }}
+          onSalvo={async (c) => { await salvarContrato(c); reler(); setEditando(null); show("Contrato salvo."); }}
         />
       )}
       {node}
@@ -193,14 +201,14 @@ export function NovoContrato({ lado, onClose, onCriado }: {
     <FormContrato
       inicial={vazio(lado)}
       onClose={onClose}
-      onSalvo={(c) => { salvarContrato(c); onCriado(c.id, "Contrato salvo."); }}
+      onSalvo={async (c) => { const salvo = await salvarContrato(c); onCriado(salvo.id, "Contrato salvo."); }}
     />
   );
 }
 
 function FormContrato({
   inicial, onClose, onSalvo,
-}: { inicial: Contrato; onClose: () => void; onSalvo: (c: Contrato) => void }) {
+}: { inicial: Contrato; onClose: () => void; onSalvo: (c: Contrato) => Promise<void> }) {
   const [c, setC] = React.useState<Contrato>({ ...inicial, id: inicial.id || novoIdRegistro() });
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [erroAnexo, setErroAnexo] = React.useState("");
@@ -220,11 +228,24 @@ function FormContrato({
 
   const set = <K extends keyof Contrato>(k: K, v: Contrato[K]) => setC((s) => ({ ...s, [k]: v }));
 
-  const salvar = () => {
+  const [salvando, setSalvando] = React.useState(false);
+  const [erroGravar, setErroGravar] = React.useState<string | null>(null);
+  // ⚠️ AGUARDA o banco: o formulário só fecha depois de o contrato estar
+  // gravado. Uma recusa (sem permissão, sem conexão) fica na tela, com a
+  // mensagem real, e o que foi digitado continua aqui.
+  const salvar = async () => {
     const e = validarContrato(c);
     setErros(e);
     if (Object.keys(e).length > 0) return;
-    onSalvo(c);
+    setSalvando(true);
+    setErroGravar(null);
+    try {
+      await onSalvo(c);
+    } catch (err) {
+      setErroGravar(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const previstas = React.useMemo(() => (c.vendas ? vendasDoContrato(c) : []), [c]);
@@ -235,7 +256,9 @@ function FormContrato({
       size="large"
       onClose={onClose}
       onSave={salvar}
+      saving={salvando}
     >
+      {erroGravar && <p className="m-0 text-label text-negative">O contrato não foi gravado: {erroGravar}</p>}
       <Campo label={c.lado === "cliente" ? "Cliente" : "Fornecedor"} obrigatorio erro={erros.parteId}>
         <Select
           value={c.parteId}
@@ -519,24 +542,17 @@ function BlocoVendas({
               </Card>
             ) : (
               <Card padded={false} className="overflow-hidden max-h-[240px] overflow-y-auto">
-                <table className="w-full border-collapse">
-                  <thead className="sticky top-0 bg-white">
-                    <tr className="border-b border-border-soft">
-                      <th className="px-4 py-2 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Competência</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Vencimento</th>
-                      <th className="px-4 py-2 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previstas.map((v, k) => (
-                      <tr key={k} className="border-b border-border-soft last:border-0">
-                        <td className="px-4 py-2 text-caption text-muted tabular-nums">{fmtDia(v.competencia)}</td>
-                        <td className="px-4 py-2 text-caption text-ink tabular-nums">{fmtDia(v.vencimento)}</td>
-                        <td className="px-4 py-2 text-right text-caption text-ink tabular-nums"><BRL value={v.valor} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <Tabela
+                  linhas={previstas.map((v, k) => ({ ...v, k }))}
+                  chave={(v) => String(v.k)}
+                  emCartao={false}
+                  rotulo="Parcelas previstas"
+                  colunas={[
+                    { chave: "competencia", rotulo: "Competência", render: (v) => <span className="text-caption text-muted tabular-nums">{fmtDia(v.competencia)}</span> },
+                    { chave: "vencimento", rotulo: "Vencimento", principal: true, render: (v) => <span className="text-caption tabular-nums">{fmtDia(v.vencimento)}</span> },
+                    { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (v) => <span className="text-caption"><BRL value={v.valor} /></span> },
+                  ]}
+                />
               </Card>
             )}
           </div>

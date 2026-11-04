@@ -173,12 +173,18 @@ export const SECOES_ADMIN: readonly SecaoAdmin[] = [
   // empresas — o dono procurou e não achou. Credenciar maquininha é tarefa
   // própria, e tarefa própria tem item no menu.
   { id: "maquininhas", rotulo: "Maquininhas", href: "/admin/maquininhas", icone: "smartphone", resumo: "Vincular o estabelecimento (EC) da maquininha à empresa, e as vendas que esperam vínculo. Os pedidos estão em Comercial." },
+  // O cadastro fiscal de cada empresa que emite NFS-e e o cadastro dela na
+  // Focus com o certificado A1 (03/11/2026): antes, SQL e painel da Focus.
+  { id: "notas-fiscais", rotulo: "Notas fiscais", href: "/admin/notas-fiscais", icone: "receipt", resumo: "O cadastro fiscal de cada empresa que emite nota, e o cadastro dela na Focus com o certificado." },
   { id: "cobranca", rotulo: "Cobrança", href: "/admin/cobranca", icone: "credit-card", resumo: "Quem paga × quem usa, e a receita mês a mês." },
   { id: "acessos", rotulo: "Acessos", href: "/admin/acessos", icone: "shield-check", resumo: "Contas da plataforma e a trilha das ações do administrador." },
   // A vitrine do design system: cada valor (tokens.json) e cada peça real do
   // DS numa página só, nos dois temas. Mora aqui porque editar o visual do
   // produto inteiro é tarefa do dono, atrás do segundo fator obrigatório.
   { id: "design-system", rotulo: "Design system", href: "/admin/design-system", icone: "palette", resumo: "Cada cor, medida, card, gráfico e tabela do sistema numa página só, nos dois temas." },
+  // O estado de cada interruptor `=ligado` da Vercel, só leitura (03/11/2026):
+  // saber o que está ligado exigia abrir o painel da Vercel variável a variável.
+  { id: "interruptores", rotulo: "Interruptores", href: "/admin/interruptores", icone: "sliders-horizontal", resumo: "O que está ligado na plataforma: cobrança, maquininha, WhatsApp e e-mail." },
   { id: "suporte", rotulo: "Suporte", href: "/admin/suporte", icone: "help-circle", resumo: "Ver e entrar como o cliente, e ferramentas internas." },
 ];
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo, LinhasSuaves, AreaComparada, MapaCalorGrade, COR_ENTRADA, COR_SAIDA, type CelulaCalor } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, Tabela, InfoHint, SemDados, ValorIndicador, type InfoConteudo, LinhasSuaves, AreaComparada, MapaCalorGrade, COR_ENTRADA, COR_SAIDA, type CelulaCalor } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros } from "./FiltrosContext";
@@ -415,39 +415,24 @@ function GrupoFluxo({ titulo, total, grupos, tom }: { titulo: string; total: num
 function PrevRealView({ linhas }: { linhas: PrevRealLinha[] }) {
   if (!linhas.length) return <Card><span className="text-caption text-faint">Nenhum título venceu neste período.</span></Card>;
   return (
-    <Card padded={false}>
-      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-        <table className="w-full border-collapse text-caption">
-          <thead>
-            <tr className="text-faint">
-              <th className="text-left font-medium py-3 px-4">Linha</th>
-              <th className="text-right font-medium py-3 px-3">Venceu</th>
-              <th className="text-right font-medium py-3 px-3">Foi pago</th>
-              <th className="text-right font-medium py-3 px-3">Diferença</th>
-              <th className="text-right font-medium py-3 px-3">%</th>
-              <th className="text-left font-medium py-3 px-4 w-[34%]">IA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((l) => (
-              <tr key={l.label} className="border-t border-border-soft align-top">
-                <td className="py-3 px-4 text-ink">{l.label}</td>
-                <td className="py-3 px-3 text-right tabular-nums text-muted"><BRL value={l.planejado} /></td>
-                <td className="py-3 px-3 text-right tabular-nums text-ink"><BRL value={l.realizado} /></td>
-                {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
-                <td className="py-3 px-3 text-right tabular-nums" style={{ color: "var(--color-ink)" }}>
-                  {l.diff < 0 ? "−" : "+"}<BRL value={Math.abs(l.diff)} />
-                </td>
-                <td className="py-3 px-3 text-right tabular-nums" style={{ color: Math.abs(l.pct) < 0.03 ? "var(--color-muted)" : "var(--color-ink)" }}>
-                  {Math.round(l.pct * 100) < 0 ? "−" : "+"}{Math.abs(Math.round(l.pct * 100))}%
-                </td>
-                <td className="py-3 px-4 text-muted leading-[1.45]">{l.ia}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <Tabela
+      linhas={linhas}
+      chave={(l) => l.label}
+      rotulo="Previsto e realizado"
+      colunas={[
+        { chave: "linha", rotulo: "Linha", principal: true, render: (l) => l.label },
+        { chave: "venceu", rotulo: "Venceu", alinhar: "direita", render: (l) => <span className="text-muted"><BRL value={l.planejado} /></span> },
+        { chave: "pago", rotulo: "Foi pago", alinhar: "direita", render: (l) => <BRL value={l.realizado} /> },
+        // Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção.
+        { chave: "diferenca", rotulo: "Diferença", alinhar: "direita", render: (l) => <>{l.diff < 0 ? "−" : "+"}<BRL value={Math.abs(l.diff)} /></> },
+        { chave: "pct", rotulo: "%", alinhar: "direita", render: (l) => (
+          <span style={{ color: Math.abs(l.pct) < 0.03 ? "var(--color-muted)" : "var(--color-ink)" }}>
+            {Math.round(l.pct * 100) < 0 ? "−" : "+"}{Math.abs(Math.round(l.pct * 100))}%
+          </span>
+        ) },
+        { chave: "ia", rotulo: "IA", classe: "w-[34%] leading-[1.45]", render: (l) => <span className="text-caption text-muted">{l.ia}</span> },
+      ]}
+    />
   );
 }
 
@@ -515,11 +500,11 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
       />
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {projecoes.map((p) => (
-          <div key={p.dias} className="flex flex-col gap-[2px] border-l-2 pl-2" style={{ borderColor: p.probNegativo > 0.2 ? "var(--color-negative)" : "var(--color-border)" }}>
+          <div key={p.dias} className="flex flex-col gap-[2px] border-l-2 border-border pl-2">
             <span className="text-caption text-faint">{p.horizonte}</span>
             <span className="text-body tabular-nums text-ink"><BRL value={p.p50} /></span>
             <span className="text-caption text-faint tabular-nums">p10 <BRL value={p.p10} /></span>
-            <span className="text-caption" style={{ color: p.probNegativo > 0.2 ? "var(--color-negative)" : "var(--color-muted)" }}>ruptura {pct(p.probNegativo)}</span>
+            {/* Sem "ruptura X%" por horizonte (Fase 3.3): a chance de ruptura é uma só, no resumo. */}
           </div>
         ))}
       </div>

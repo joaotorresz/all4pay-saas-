@@ -55,6 +55,7 @@ import {
   type TipoAutomacao, type TipoEnvio, type CanalEnvio, type ConfigAutomacao, type ContextoAutomacao,
   type Conteudo, type SemEnvio, type MensagemAutomacao, type ResultadoAutomacao,
   type EnvioHistorico, type FinalidadeTemplate, type ParametrosAutomacao, type StatusEnvio,
+  type ModeloReserva,
 } from "./tipos";
 
 export * from "./tipos";
@@ -191,6 +192,8 @@ function conteudo(
     chaveBase: string; assunto: string; titulo: string; preheader: string; abertura?: string;
     destaques?: LinhaEmail[]; secoes?: SecaoEmail[]; avisos?: string[];
     link?: { rotulo: string; url: string }; finalidade: FinalidadeTemplate; resumoCurto: string;
+    /** Um modelo próprio, organizado; o de uma linha vira a reserva. */
+    modelo?: ModeloReserva;
   },
 ): Conteudo {
   const destaques = c.destaques ?? [];
@@ -203,18 +206,26 @@ function conteudo(
     texto: textoDe(c.titulo, c.abertura, destaques, secoes, [...avisos, ...aviso], c.link),
     html: montarHtml({
       preheader: c.preheader, titulo: c.titulo, abertura: c.abertura, destaques, secoes,
-      avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx),
+      avisos: [...avisos, ...aviso], link: c.link, rodape: rodapePadrao(ctx), appUrl: ctx.appUrl,
     }),
-    finalidade: c.finalidade,
-    // Template de uma variável só: o texto curto, numa linha (a Meta recusa
-    // quebra de linha dentro de variável).
-    variaveis: { "1": c.resumoCurto.replace(/\s+/g, " ").slice(0, 900) },
+    ...(() => {
+      // Template de uma variável só: o texto curto, numa linha (a Meta recusa
+      // quebra de linha dentro de variável).
+      const deUmaLinha = { finalidade: c.finalidade, variaveis: { "1": c.resumoCurto.replace(/\s+/g, " ").slice(0, 900) } };
+      return c.modelo
+        ? { finalidade: c.modelo.finalidade, variaveis: c.modelo.variaveis, reserva: deUmaLinha }
+        : deUmaLinha;
+    })(),
   };
 }
 
 /* ========================================================================== */
 /* (a) RESUMO DO CAIXA — diário e semanal                                      */
 /* ========================================================================== */
+
+const DIAS_DA_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+/** Variável de modelo: uma linha, sem espaço repetido, com teto. */
+const umaLinha = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 120);
 
 const vencidosAReceber = (input: RiskInput) =>
   input.movements.filter((m) => ehContaAReceber(m) && previsto(m) && (m.due_date?.slice(0, 10) ?? "") < input.hoje.slice(0, 10));
@@ -266,7 +277,25 @@ export function redigirResumoDiario(ctx: ContextoAutomacao, opts: { ignorarCalen
     avisos.push(`No ritmo agendado, o caixa ficaria negativo em ${dataBRcurta(d)}${liq.rupturaDia === 0 ? " (hoje)" : ` (daqui a ${plural(liq.rupturaDia, "dia", "dias")})`}.`);
   }
   const resumoCurto = `Saldo ${comSinal(s.valor, BRL(s.valor))}. Hoje: recebe ${entra.procedencia.lancamentos ? BRL(entra.valor) : "nada"}, paga ${sai.procedencia.lancamentos ? BRL(sai.valor) : "nada"}. Vencidos: ${vr.length ? BRL(vrTotal) : "nenhum"} a receber, ${vp.procedencia.lancamentos ? BRL(vp.valor) : "nenhum"} a pagar.${avisos[0] ? ` ${avisos[0]}` : ""}`;
+  // O modelo ORGANIZADO (`resumo_caixa_dia`): uma variável por linha. Cada uma
+  // é um trecho curto e sem quebra — a Meta recusa variável vazia, então o que
+  // não existe vira frase ("nada vence hoje", "nenhum"), nunca "".
+  const comDetalhe = (l: LinhaEmail) => (l.detalhe ? `${l.valor} (${l.detalhe})` : l.valor);
+  const modelo: ModeloReserva = {
+    finalidade: "resumo_caixa_dia",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": `${DIAS_DA_SEMANA[diaDaSemana(ctx.hoje)]}, ${diaMes(ctx.hoje)}`,
+      "3": comSinal(s.valor, BRL(s.valor)),
+      "4": comDetalhe(linhasHoje[0]),
+      "5": comDetalhe(linhasHoje[1]),
+      "6": comDetalhe(linhasVencidos[0]),
+      "7": comDetalhe(linhasVencidos[1]),
+      "8": avisos[0] ? `🚨 ${avisos[0]}` : "✅ No ritmo agendado, o caixa não fica negativo nos próximos 30 dias.",
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `dia:${ctx.hoje}`,
     assunto: `Caixa de ${dataBRcurta(ctx.hoje)}: saldo ${comSinal(s.valor, BRL(s.valor))}`,
     titulo: `Caixa de ${diaMes(ctx.hoje)}`,
@@ -396,7 +425,20 @@ export function redigirLembretePagar(ctx: ContextoAutomacao, opts: { ignorarCale
   });
   const total = soma(aVencer);
   const resumoCurto = `${aVencer.length ? `A pagar até ${diaMes(ate)}: ${BRL(total)} (${plural(aVencer.length, "conta", "contas")})` : "Nada a pagar nos próximos dias"}${vencidas.length ? `; em atraso: ${BRL(soma(vencidas))} (${plural(vencidas.length, "conta", "contas")})` : ""}.`;
+  const proxima = [...aVencer].sort((a, b) => a.data.localeCompare(b.data) || b.valor - a.valor)[0];
+  const modelo: ModeloReserva = {
+    finalidade: "lembrete_pagar_dia",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": dataBRcurta(ate),
+      "3": aVencer.length ? `${BRL(total)} (${plural(aVencer.length, "conta", "contas")})` : "nada vence",
+      "4": vencidas.length ? `${BRL(soma(vencidas))} (${plural(vencidas.length, "conta", "contas")})` : "nenhuma",
+      "5": proxima ? umaLinha(`${proxima.contraparte} · ${BRL(proxima.valor)} · ${proxima.data === ctx.hoje ? "hoje" : diaMes(proxima.data)}`) : "nenhuma",
+      "6": avisos[0] ? umaLinha(`⚠️ ${avisos[0]}`) : "✅ Os saldos das contas cobrem os pagamentos da lista.",
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `dia:${ctx.hoje}`,
     assunto: aVencer.length
       ? `Contas a pagar até ${diaMes(ate)}: ${BRL(total)}`
@@ -487,7 +529,21 @@ export function redigirAlertaCaixa(ctx: ContextoAutomacao, p: ParametrosAutomaca
       : [{ rotulo: "Nenhum recebimento agendado depois da data", valor: "—" }],
       nota: `Sem descontar o risco de atraso dos recebimentos, o saldo nesse dia seria de ${comSinal(nominal, BRL(nominal))}.` },
   ];
+  const linhaDe = (m: RiskMovement | undefined, vazio: string) =>
+    m ? umaLinha(`${nome(m)} · ${BRL(magnitude(m))} · ${diaMes(m.due_date)}`) : vazio;
+  const modelo: ModeloReserva = {
+    finalidade: "alerta_caixa_dia",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": tipo === "negativo" ? "ficaria negativo" : umaLinha(`ficaria abaixo do mínimo de ${BRL(minimo)}`),
+      "3": dia === 0 ? "hoje" : `${dataBRcurta(data)} (daqui a ${plural(dia, "dia", "dias")})`,
+      "4": comSinal(projetado, BRL(projetado)),
+      "5": linhaDe(saidas[0], "nenhuma saída agendada até lá"),
+      "6": linhaDe(entradas[0], "nenhum recebimento agendado depois da data"),
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `faixa:${chaveFaixa}:${ctx.hoje}`,
     assunto: tipo === "negativo"
       ? `Alerta de caixa: negativo ${dia === 0 ? "hoje" : `em ${diaMes(data)}`}, no ritmo agendado`
@@ -537,7 +593,19 @@ export function redigirFechamento(ctx: ContextoAutomacao, p: ParametrosAutomacao
     ] },
   ];
   const resumoCurto = `${nomeDoMes(mes)} ainda não foi fechado: ${pctPronto} pronto, ${plural(pendentes.length, "tarefa pendente", "tarefas pendentes")}.`;
+  const modelo: ModeloReserva = {
+    finalidade: "fechamento_mes",
+    variaveis: {
+      "1": umaLinha(ctx.credor.nome || "sua empresa"),
+      "2": nomeDoMes(mes),
+      "3": pctPronto,
+      "4": pendentes.length ? plural(pendentes.length, "tarefa", "tarefas") : "nenhuma",
+      "5": semCategoria === 0 ? "nenhum" : String(semCategoria),
+      "6": f.sugestoes.length ? BRL(provisao) : "nenhuma",
+    },
+  };
   return conteudo(ctx, {
+    modelo,
     chaveBase: `mes:${mes}:du${n ?? 0}`,
     assunto: `Fechamento de ${nomeDoMes(mes)} pendente (${pctPronto} pronto)`,
     titulo: `Fechamento de ${nomeDoMes(mes)}`,
@@ -854,6 +922,7 @@ function envelope(tipo: TipoAutomacao, c: Conteudo, canal: CanalEnvio, destino: 
     // A cobrança pelo WhatsApp sempre diz como parar de receber.
     texto: tipo === "regua_cobranca" && canal === "whatsapp" ? `${c.texto}\n\n${RODAPE_SAIR}` : c.texto,
     html: c.html, finalidade: c.finalidade, variaveis: c.variaveis,
+    ...(c.reserva ? { reserva: c.reserva } : {}),
     chavesExtras: c.chavesExtras,
     ...(c.remetente && canal === "email" ? { remetente: c.remetente } : {}),
   };
@@ -931,6 +1000,72 @@ export function gerarMensagens(cfg: ConfigAutomacao, ctx: ContextoAutomacao): Re
 /** A prévia: o conteúdo que SAIRIA, ignorando calendário e histórico (a tela mostra mesmo fora do dia). */
 export function previa(cfg: ConfigAutomacao, ctx: ContextoAutomacao): Conteudo | SemEnvio {
   return redigir(cfg, ctx, { previa: true });
+}
+
+/**
+ * O que o "Enviar teste para mim" manda. Com algo a dizer hoje, a prévia de
+ * verdade. Sem nada (caixa sem risco, nenhuma conta vencendo, mês já fechado),
+ * um EXEMPLO montado sobre uma empresa fictícia, para a pessoa ver como a
+ * mensagem chega antes do dia em que ela importar.
+ *
+ * ⚠️ O exemplo é MARCADO em todo lugar que chega: o nome da empresa vira
+ * "Exemplo · <nome>" (é a variável 1 dos modelos de WhatsApp e o rodapé do
+ * e-mail) e o assunto ganha "[Exemplo]". Um alerta de caixa negativo com valor
+ * fictício, sem marca, seria lido como a situação real da empresa.
+ * ⚠️ Os números do exemplo nunca saem dos dados da empresa: misturar um
+ * lançamento inventado com o caixa de verdade produziria um saldo plausível e
+ * falso.
+ */
+export const MARCA_EXEMPLO = "Exemplo";
+const SEM_ENVIO_COM_EXEMPLO: readonly string[] = ["nada_a_avisar", "faixa_ja_avisada", "mes_fechado", "sem_dados"];
+
+export function contextoDeExemplo(ctx: ContextoAutomacao): ContextoAutomacao {
+  const hoje = ctx.hoje;
+  const mesPassado = `${mesAnterior(hoje.slice(0, 7))}-10`;
+  const mv = (id: string, type: "entrada" | "saida", amount: number, due: string, category: string, party: string, pago = false): RiskMovement =>
+    ({ id: `exemplo-${id}`, type, status: pago ? "pago" : "pendente", amount, due_date: due, paid_date: pago ? due : null,
+      category, party_id: party, accountId: "exemplo-conta" }) as RiskMovement;
+  return {
+    ...ctx,
+    credor: { ...ctx.credor, nome: `${MARCA_EXEMPLO} · ${ctx.credor.nome || "sua empresa"}` },
+    input: {
+      hoje, saldoAtual: 8_000, horizonDias: 60,
+      partyNames: { "exemplo-imob": "Imobiliária Exemplo", "exemplo-net": "Internet Exemplo", "exemplo-equipe": "Folha de pagamento", "exemplo-cli": "Cliente Exemplo" },
+      movements: [
+        mv("venda", "entrada", 20_000, mesPassado, "Vendas", "exemplo-cli", true),
+        mv("custo", "saida", 9_000, mesPassado, "Fornecedores", "exemplo-imob", true),
+        mv("aluguel", "saida", 1_200, hoje, "Aluguel", "exemplo-imob"),
+        mv("internet", "saida", 350, somarDias(hoje, -2), "Internet", "exemplo-net"),
+        mv("folha", "saida", 12_000, somarDias(hoje, 3), "Folha de pagamento", "exemplo-equipe"),
+        mv("atraso", "entrada", 900, somarDias(hoje, -3), "Vendas", "exemplo-cli"),
+        mv("receber", "entrada", 15_000, somarDias(hoje, 10), "Vendas", "exemplo-cli"),
+      ],
+    },
+    contas: [{ id: "exemplo-conta", nome: "Conta de exemplo", saldo: 8_000 }],
+    contatos: { "exemplo-cli": { id: "exemplo-cli", nome: "Cliente Exemplo" } },
+    aprovacoesPendentes: 0, mesesTravados: [], envios: [], linksDePagamento: undefined, truncado: false,
+  };
+}
+
+const marcarExemplo = (c: Conteudo): Conteudo => ({
+  ...c,
+  assunto: `[${MARCA_EXEMPLO}] ${c.assunto}`,
+  texto: `${MARCA_EXEMPLO.toUpperCase()} com valores fictícios: hoje não sairia nada desta automação.\n\n${c.texto}`,
+  ...(c.finalidade && c.variaveis && !c.reserva
+    ? { variaveis: { ...c.variaveis, "1": `${MARCA_EXEMPLO}: ${c.variaveis["1"] ?? ""}`.slice(0, 900) } }
+    : {}),
+  ...(c.reserva ? { reserva: { ...c.reserva, variaveis: { ...c.reserva.variaveis, "1": `${MARCA_EXEMPLO}: ${c.reserva.variaveis["1"] ?? ""}`.slice(0, 900) } } } : {}),
+});
+
+/** `exemplo` traz o motivo de hoje não sair nada; `null` = é a mensagem de verdade. */
+export type ConteudoDoTeste = { conteudo: Conteudo; exemplo: SemEnvio | null } | { semEnvio: SemEnvio };
+
+export function conteudoDoTeste(cfg: ConfigAutomacao, ctx: ContextoAutomacao): ConteudoDoTeste {
+  const real = previa(cfg, ctx);
+  if (!ehSemEnvio(real)) return { conteudo: real, exemplo: null };
+  if (!SEM_ENVIO_COM_EXEMPLO.includes(real.codigo)) return { semEnvio: real };
+  const c = redigir(cfg, contextoDeExemplo(ctx), { previa: true });
+  return ehSemEnvio(c) ? { semEnvio: real } : { conteudo: marcarExemplo(c), exemplo: real };
 }
 
 /* ========================================================================== */

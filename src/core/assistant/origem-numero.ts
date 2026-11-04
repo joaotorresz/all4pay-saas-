@@ -16,7 +16,7 @@ export interface OrigemNumero { rota: string; tela: string }
 
 const REGRAS: { re: RegExp; origem: OrigemNumero }[] = [
   { re: /^(saldo|saldo atual)$/i, origem: { rota: "/", tela: "Início" } },
-  { re: /^(runway|burn|queima\/m[eê]s|dias de caixa|ruptura|prob\. ruptura \(60d\)|caixa fica negativo|proje[cç][aã]o)$/i,
+  { re: /^(runway|burn|queima\/m[eê]s|dias de caixa|ruptura|prob\. ruptura \(60d\)|chance de ruptura \(\d+ dias\)|caixa fica negativo|proje[cç][aã]o)$/i,
     origem: { rota: "/fluxo-caixa", tela: "Fluxo de caixa" } },
   { re: /^(receita bruta|receita l[ií]quida|ebitda|margem ebitda|lucro l[ií]quido|margem (bruta|l[ií]quida)|carga tribut[aá]ria)$/i,
     origem: { rota: "/dashboard/reports/dre", tela: "DRE" } },

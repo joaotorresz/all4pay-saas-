@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
-import { FaturaView, type LeituraFatura } from "@/components/checkout/FaturaView";
-import { createAdmin } from "@/lib/supabase/admin";
-import { cobrancaPinbankLiberada } from "@/lib/pinbank/api";
+import { FaturaView } from "@/components/checkout/FaturaView";
+import { lerLinkDePagamento, tokenDoLink } from "@/lib/checkout-leitura";
+import { AvisoDoLink } from "@/components/checkout/AvisoDoLink";
 import { hojeEm } from "@/core/automacoes/tempo";
+import { pixAtualizadoLiberado } from "@/lib/pinbank/api";
 
 /**
  * O LINK DE PAGAMENTO — `/pagar?t=<token>`, aberto pelo CLIENTE da empresa,
@@ -13,11 +14,15 @@ import { hojeEm } from "@/core/automacoes/tempo";
  *
  * ⚠️ Rota PÚBLICA (liberada em `src/middleware.ts`). A leitura é SÓ do
  * servidor: `pinbank_checkout_ler` executa apenas como `service_role`, depois
- * do interruptor da cobrança. A página não cria cobrança nem mexe em título —
- * só mostra o que a empresa emitiu.
+ * do interruptor da cobrança. A página não mexe em título. Ela só cria UMA
+ * cobrança: o Pix do dia na fatura vencida (Pix atualizado, 30/10/2026,
+ * `PINBANK_PIX_ATUALIZADO`), pelo botão que chama `/api/pinbank/checkout/pix`
+ * — valor recalculado e conferido no banco, vale até 23:59.
  *
- * ⚠️ A baixa automática depende do webhook de liquidação da Pinbank (etapa 6).
- * Até lá, a empresa dá a baixa à mão quando o dinheiro cai.
+ * Pago o Pix ou o boleto, a página se redesenha sozinha como paga
+ * (`AcompanharPagamento`, 04/11/2026). Quem baixa o título é o escritor único
+ * `pinbank_cobranca_liquidar`; a entrada do aviso da Pinbank depende do formato
+ * que ela ainda vai informar (etapa 6). Até lá, a baixa à mão também vira "pago".
  */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,41 +32,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type Leitura = LeituraFatura;
-
-const TOKEN = /^[0-9a-f]{64}$/;
-
-async function ler(token: string): Promise<Leitura | "invalido" | "fora_do_ar"> {
-  if (!TOKEN.test(token)) return "invalido";
-  if (!cobrancaPinbankLiberada().liberada) return "fora_do_ar";
-  const admin = createAdmin();
-  if (!admin) return "fora_do_ar";
-  const { data, error } = await admin.rpc("pinbank_checkout_ler", { p_token: token });
-  if (error) return "fora_do_ar";
-  if (!data) return "invalido";
-  return data as Leitura;
-}
-
-function Aviso({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <div className="flex flex-col gap-2 text-center">
-      <h1 className="text-h2 text-ink">{titulo}</h1>
-      <p className="text-body text-muted leading-[1.5]">{texto}</p>
-    </div>
-  );
-}
-
 export default async function PagarPage({ searchParams }: { searchParams: { t?: string | string[] } }) {
-  const t = typeof searchParams.t === "string" ? searchParams.t.trim().toLowerCase() : "";
-  const r = await ler(t);
+  const t = tokenDoLink(searchParams.t);
+  const r = await lerLinkDePagamento(t);
 
   let conteudo: React.ReactNode;
   if (r === "invalido") {
-    conteudo = <Aviso titulo="Link inválido" texto="Este link de pagamento não existe ou foi cancelado. Peça um novo a quem o enviou." />;
+    conteudo = <AvisoDoLink titulo="Link inválido" texto="Este link de pagamento não existe ou foi cancelado. Peça um novo a quem o enviou." />;
   } else if (r === "fora_do_ar") {
-    conteudo = <Aviso titulo="Pagamento indisponível agora" texto="Não foi possível abrir este pagamento. Tente de novo em alguns minutos." />;
+    conteudo = <AvisoDoLink titulo="Pagamento indisponível agora" texto="Não foi possível abrir este pagamento. Tente de novo em alguns minutos." />;
   } else {
-    conteudo = <FaturaView r={r} hoje={hojeEm(new Date())} />;
+    conteudo = <FaturaView r={r} hoje={hojeEm(new Date())} token={t} pixAtualizado={pixAtualizadoLiberado()} />;
   }
 
   return (

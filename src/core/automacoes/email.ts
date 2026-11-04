@@ -11,17 +11,23 @@
  * sai na tinta do texto, e o sinal escrito diz a direção.
  */
 
-/** Os tokens, espelhados. */
+/** Os tokens, espelhados (design system de 27/10/2026). */
 const E = {
-  fundo: "#F3F1EE",       // --a4p-app-bg · cinza claro de página
-  cardBg: "#FFFFFF",      // --color-white · a superfície do card
-  borda: "#D6D8CA",       // --color-border · cinza médio
-  ink: "#3B4332",         // --color-ink · verde-base
-  secundario: "#6B7060",  // --color-text-secondary
-  lime: "#ECFD52",        // --color-lime · só o fio da marca, nunca fundo
+  fundo: "#F5F5F5",       // página e blocos dentro do card
+  cardBg: "#FFFFFF",      // o cartão, sem borda e sem sombra
+  borda: "#E8E7E0",       // o fio
+  ink: "#3B4332",         // texto, título e número
+  secundario: "#5F5E4E",  // texto 2
+  meta: "#7A7A72",        // rótulo e rodapé
+  lime: "#ECFD52",        // só a ação
 } as const;
 
 const FONTE = "Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
+/** Título e número na Agrandir do sistema; quem não carrega fonte cai na Inter. */
+const DISPLAY = `'Quattro Agrandir', ${FONTE}`;
+
+/** O arquivo do logo, servido pelo app (PNG: leitor de e-mail não lê WebP). */
+export const CAMINHO_LOGO_EMAIL = "/email/quattro-logo.png";
 
 /** Escapa texto para HTML — um `<` num nome de cliente não pode virar tag. */
 export function esc(s: string | number | null | undefined): string {
@@ -45,57 +51,84 @@ export interface CorpoEmail {
   avisos?: string[];
   link?: { rotulo: string; url: string };
   rodape: string;
+  /**
+   * O endereço do app (`https://app.quattro.finance`). Dele saem o logo e a
+   * fonte: e-mail só carrega imagem por URL absoluta. Sem ele, o nome escrito.
+   */
+  appUrl?: string;
 }
 
+const semBarra = (u: string) => u.replace(/\/+$/, "");
+
+/** Número na Agrandir; valor escrito ("nenhum", "nada vence hoje") segue em Inter. */
 const linha = (l: LinhaEmail) => `
   <tr>
-    <td style="padding:8px 0;border-top:1px solid ${E.borda};font:400 14px/20px ${FONTE};color:${E.ink};">
-      ${esc(l.rotulo)}${l.detalhe ? `<br><span style="font:400 12px/18px ${FONTE};color:${E.secundario};">${esc(l.detalhe)}</span>` : ""}
+    <td style="padding:12px 0;border-top:1px solid ${E.borda};font:400 14px/20px ${FONTE};color:${E.ink};">
+      ${esc(l.rotulo)}${l.detalhe ? `<div style="font:400 12px/18px ${FONTE};color:${E.meta};padding-top:2px;">${esc(l.detalhe)}</div>` : ""}
     </td>
-    <td align="right" style="padding:8px 0;border-top:1px solid ${E.borda};font:500 14px/20px ${FONTE};color:${E.ink};white-space:nowrap;font-variant-numeric:tabular-nums;">
+    <td align="right" valign="top" style="padding:12px 0 12px 16px;border-top:1px solid ${E.borda};font:${/\d/.test(l.valor) ? `700 15px/20px ${DISPLAY}` : `400 14px/20px ${FONTE}`};color:${E.ink};white-space:nowrap;">
       ${esc(l.valor)}
     </td>
   </tr>`;
 
-/** Monta o HTML completo do e-mail. Determinístico: a mesma entrada, os mesmos bytes. */
+/**
+ * Monta o HTML completo do e-mail. Determinístico: a mesma entrada, os mesmos bytes.
+ *
+ * O desenho do app: logo fora do cartão, cartão branco sem borda sobre o
+ * cinza, título e números na Agrandir, os números do topo num bloco cinza,
+ * cada seção com título próprio e fio entre as linhas, e o lime só no botão.
+ */
 export function montarHtml(c: CorpoEmail): string {
-  const destaques = (c.destaques ?? []).map((d) => `
-      <td valign="top" style="padding:0 16px 0 0;">
-        <div style="font:500 11px/15px ${FONTE};letter-spacing:0.44px;text-transform:none;color:${E.secundario};">${esc(d.rotulo)}</div>
-        <div style="font:700 22px/28px ${FONTE};color:${E.ink};font-variant-numeric:tabular-nums;">${esc(d.valor)}</div>
-        ${d.detalhe ? `<div style="font:400 12px/18px ${FONTE};color:${E.secundario};">${esc(d.detalhe)}</div>` : ""}
+  const base = c.appUrl ? semBarra(c.appUrl) : "";
+  const marca = base
+    ? `<img src="${esc(base + CAMINHO_LOGO_EMAIL)}" width="104" height="28" alt="Quattro" style="display:block;border:0;outline:none;width:104px;height:28px;">`
+    : `<div style="font:700 22px/28px ${DISPLAY};letter-spacing:-0.02em;color:${E.ink};">quattro</div>`;
+  // No telefone o cartão aperta o respiro e os números do topo empilham.
+  const fonte = `<style>${base ? `@font-face{font-family:'Quattro Agrandir';font-weight:700;src:url('${esc(base)}/fonts/quattro-agrandir.woff2') format('woff2');}` : ""}`
+    + "@media (max-width:480px){.q-pad{padding-left:20px!important;padding-right:20px!important}.q-destaque{display:block!important;width:auto!important;border-left:0!important}}</style>";
+
+  const lista = c.destaques ?? [];
+  const destaques = lista.map((d, i) => `
+      <td class="q-destaque" valign="top" width="${Math.floor(100 / lista.length)}%" style="padding:20px;${i > 0 ? `border-left:1px solid ${E.borda};` : ""}">
+        <div style="font:400 13px/18px ${FONTE};color:${E.meta};">${esc(d.rotulo)}</div>
+        <div style="font:700 26px/32px ${DISPLAY};letter-spacing:-0.02em;color:${E.ink};padding-top:6px;white-space:nowrap;">${esc(d.valor)}</div>
+        ${d.detalhe ? `<div style="font:400 12px/18px ${FONTE};color:${E.meta};padding-top:4px;">${esc(d.detalhe)}</div>` : ""}
       </td>`).join("");
 
   const secoes = (c.secoes ?? []).map((s) => `
-    <tr><td style="padding:20px 28px 0 28px;">
-      <div style="font:500 11px/15px ${FONTE};letter-spacing:0.44px;text-transform:none;color:${E.secundario};padding-bottom:4px;">${esc(s.titulo)}</div>
+    <tr><td class="q-pad" style="padding:28px 36px 0 36px;">
+      <div style="font:700 17px/22px ${DISPLAY};letter-spacing:-0.01em;color:${E.ink};padding-bottom:10px;">${esc(s.titulo)}</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${s.linhas.map(linha).join("")}</table>
-      ${s.nota ? `<div style="font:400 12px/18px ${FONTE};color:${E.secundario};padding-top:6px;">${esc(s.nota)}</div>` : ""}
+      ${s.nota ? `<div style="font:400 12px/18px ${FONTE};color:${E.meta};padding-top:8px;">${esc(s.nota)}</div>` : ""}
     </td></tr>`).join("");
 
   const avisos = (c.avisos ?? []).map((a) => `
-    <tr><td style="padding:12px 28px 0 28px;">
-      <div style="border-left:3px solid ${E.lime};padding:8px 12px;background:${E.fundo};font:400 14px/20px ${FONTE};color:${E.ink};">${esc(a)}</div>
+    <tr><td class="q-pad" style="padding:16px 36px 0 36px;">
+      <div style="background:${E.fundo};border-radius:12px;padding:14px 16px;font:400 14px/20px ${FONTE};color:${E.ink};">${esc(a)}</div>
     </td></tr>`).join("");
 
   return `<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(c.titulo)}</title></head>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(c.titulo)}</title>${fonte}</head>
 <body style="margin:0;padding:0;background:${E.fundo};">
 <div style="display:none;max-height:0;overflow:hidden;">${esc(c.preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${E.fundo};">
-  <tr><td align="center" style="padding:24px 12px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:${E.cardBg};border:1px solid ${E.borda};border-radius:26px;">
-      <tr><td style="padding:24px 28px 0 28px;">
-        <div style="width:40px;height:4px;background:${E.lime};border-radius:2px;"></div>
-        <div style="font:500 12px/18px ${FONTE};color:${E.secundario};padding-top:12px;">Quattro</div>
-        <h1 style="margin:4px 0 0 0;font:900 20px/26px ${FONTE};letter-spacing:-0.02em;text-transform:none;color:${E.ink};">${esc(c.titulo)}</h1>
-        ${c.abertura ? `<p style="margin:8px 0 0 0;font:400 14px/20px ${FONTE};color:${E.ink};">${esc(c.abertura)}</p>` : ""}
+  <tr><td align="center" style="padding:32px 12px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+      <tr><td style="padding:0 8px 20px 8px;">${marca}</td></tr>
+      <tr><td style="background:${E.cardBg};border-radius:24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="q-pad" style="padding:36px 36px 0 36px;">
+            <h1 style="margin:0;font:700 28px/34px ${DISPLAY};letter-spacing:-0.02em;color:${E.ink};">${esc(c.titulo)}</h1>
+            ${c.abertura ? `<p style="margin:12px 0 0 0;font:400 15px/22px ${FONTE};color:${E.secundario};">${esc(c.abertura)}</p>` : ""}
+          </td></tr>
+          ${destaques ? `<tr><td class="q-pad" style="padding:24px 36px 0 36px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${E.fundo};border-radius:16px;"><tr>${destaques}</tr></table></td></tr>` : ""}
+          ${avisos}
+          ${secoes}
+          ${c.link ? `<tr><td class="q-pad" style="padding:32px 36px 0 36px;"><a href="${esc(c.link.url)}" style="display:inline-block;background:${E.lime};color:${E.ink};font:500 15px/20px ${FONTE};text-decoration:none;padding:15px 26px;border-radius:999px;">${esc(c.link.rotulo)}</a></td></tr>` : ""}
+          <tr><td style="padding:36px 0 0 0;"></td></tr>
+        </table>
       </td></tr>
-      ${destaques ? `<tr><td style="padding:20px 28px 0 28px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${destaques}</tr></table></td></tr>` : ""}
-      ${avisos}
-      ${secoes}
-      ${c.link ? `<tr><td style="padding:24px 28px 0 28px;"><a href="${esc(c.link.url)}" style="display:inline-block;background:${E.lime};color:${E.ink};font:500 14px/20px ${FONTE};text-decoration:none;padding:12px 24px;border-radius:999px;">${esc(c.link.rotulo)}</a></td></tr>` : ""}
-      <tr><td style="padding:24px 28px 24px 28px;font:400 12px/18px ${FONTE};color:${E.secundario};">${esc(c.rodape)}</td></tr>
+      <tr><td style="padding:20px 8px 0 8px;font:400 12px/18px ${FONTE};color:${E.meta};">${esc(c.rodape)}</td></tr>
     </table>
   </td></tr>
 </table>

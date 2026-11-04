@@ -13,7 +13,7 @@ sozinho no título.
 | 3 | Gerar a cobrança a partir do título a receber | **feito neste PR** |
 | 4 | Página pública de pagamento (o link) | **MVP neste PR** |
 | 5 | A régua manda o link | primeira metade feita (28/10): o link que JÁ existe vai na mensagem; gerar a cobrança sozinha espera o dono |
-| 6 | Baixa automática pelo webhook de liquidação | depende da resposta da Pinbank |
+| 6 | Baixa automática pelo webhook de liquidação | escritor e página prontos (04/11); falta a entrada do aviso, que depende da resposta 4 da Pinbank |
 | 7 | Piloto com uma empresa, desligado por padrão | depois da 6 |
 
 ## O que existe (etapas 2 e 3)
@@ -132,6 +132,40 @@ e o bloco `checkout-pinbank:` do `engine-audit`.
   e os defeitos d9b/d9c de `scripts/pinbank-checkout.sql`; bloco 4c do
   `engine-audit`.
 
+## Pago o link: a página vira "pago" e o título, recebido (etapa 6, 04/11/2026)
+
+Pedido do dono: depois do pagamento do Pix ou do boleto, a tela do link
+mostra "pago" e o sistema registra o título como recebido.
+
+- **Um escritor só** (`pinbank_cobranca_liquidar`, migration
+  `20261104140000`, só `service_role`). Quem souber que o banco recebeu (o
+  aviso da Pinbank; uma consulta, depois) chama a função com a cobrança, o
+  valor, a data e a referência do aviso. Ela marca a cobrança `paga` (fato) e
+  leva o título a `baixado` com a data do PAGAMENTO em São Paulo no caixa.
+- ⚠️ **Muda quem pode baixar:** a confirmação "pago pelo banco" é a única
+  porta da máquina de estados sem pessoa — só sem sessão (`auth.uid()` nulo),
+  só título a receber, só com a marca local à transação que a função grava
+  para AQUELE título. Na trilha (`central_transicoes`) com o motivo, `por` =
+  quem emitiu a cobrança; no `audit_log` a liquidação inteira.
+- **O título NÃO baixa** (a cobrança fica paga e o motivo aparece no modal)
+  quando está cancelado/excluído, quando a cobrança paga era a do valor antigo
+  (`a_cancelar`), ou quando o valor recebido é menor. Pago o Pix E o boleto, o
+  segundo responde `ja_recebido` com `dobro`. O mesmo aviso de novo não muda
+  nada e não é recusado (o banco reenviaria sem fim).
+- A outra forma do mesmo título (o boleto, se pagou o Pix) vai a
+  `a_cancelar` com o motivo "pago por Pix".
+- **A página se atualiza sozinha:** `AcompanharPagamento` pergunta a
+  `/api/pinbank/checkout/situacao` (mesma leitura da página, devolve só a
+  situação) a cada 5 s no primeiro meio minuto, depois até 30 s, por até 1 hora
+  e só com a aba visível; quando muda, redesenha pelo servidor. A leitura diz
+  "pago" também quando a cobrança está paga e o título não pôde ser baixado.
+- ⚠️ **Falta a entrada:** o formato do aviso de liquidação da Pinbank
+  (pergunta 4). Até ela, nada chama o escritor, e a baixa à mão (que a página
+  também passa a acompanhar) continua sendo o caminho.
+
+Guardas: `scripts/pinbank-liquidacao.sql` no CI (9 casos, 12 defeitos
+plantados) e o bloco `liquidacao:` do `engine-audit`.
+
 ## Perguntas para a Pinbank (etapa 1)
 
 1. Os métodos `Pix/SolicitarDynamicQrCode` e `CashIn/GerarBoleto` seguem o
@@ -139,8 +173,9 @@ e o bloco `checkout-pinbank:` do `engine-audit`.
    (canal 1919)?
 2. O `CodigoCliente` da conta BaaS é o mesmo código do estabelecimento (EC) da
    maquininha, ou é outro número por empresa?
-3. Qual o formato da data de vencimento do boleto (`AAAA-MM-DD`,
-   `DD/MM/AAAA`, com hora)? E o que `SegundosExpiracao` significa no Pix
+3. Qual o formato da data de vencimento do boleto? (30/10/2026: o boleto foi
+   liberado e voltou "Bad request" com `AAAA-MM-DD` e o valor em reais; passou
+   a ir `AAAAMMDD` e o valor em CENTAVOS, como o Pix.) E o que `SegundosExpiracao` significa no Pix
    dinâmico com vencimento?
 4. Qual o webhook de liquidação (Pix recebido e `Boleto.Liquidacao`): payload,
    assinatura (a mesma Ed25519 do `Compra.*`?) e o campo que devolve o nosso

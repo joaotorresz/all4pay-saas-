@@ -126,7 +126,7 @@ function Editor({ inicial, ctx, ctxErro, emailAtivo, provedorCarregando, onSalvo
   };
 
   return (
-    <div className="flex flex-col gap-5 pb-4 max-w-4xl" data-tela="cobranca-automatica">
+    <div className="flex flex-col gap-5 pb-4" data-tela="cobranca-automatica">
       <Card className="flex flex-col gap-4 a4p-entra">
         <div className="flex items-start gap-3 flex-wrap">
           <div className="flex-1 min-w-[240px] flex flex-col gap-1">

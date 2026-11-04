@@ -13,6 +13,7 @@
  *
  * Determinístico, puro, demo/live idêntico (roda sobre o RiskInput).
  */
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { classificarDespesa } from "@/core/indicadores/classificacao";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
@@ -2034,8 +2035,8 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const nivel = SAUDE_NA_FRASE[classificar(ctx.scoreFinanceiro)];
     const sat = avisoDeSaturacao("chance-ruptura", ctx.probRuptura);
     return R(
-      `A saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100; ${fraseRunway(ctx)}; ${pctBR(ctx.inadimplencia)} da carteira a receber vencida. Chance de ruptura de caixa em 60 dias: ${pctBR(ctx.probRuptura)}.${sat ? ` ${sat}` : ""}`,
-      [T("Score", `${ctx.scoreFinanceiro}/100`, "quant"), { label: "Runway", valor: rotuloRunwayCtx(ctx) }, { label: "Prob. ruptura (60d)", valor: pctBR(ctx.probRuptura) }],
+      `A saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100; ${fraseRunway(ctx)}; ${pctBR(ctx.inadimplencia)} da carteira a receber vencida. Chance de ruptura de caixa em ${ROTULO_HORIZONTE_RUPTURA}: ${pctBR(ctx.probRuptura)}.${sat ? ` ${sat}` : ""}`,
+      [T("Score", `${ctx.scoreFinanceiro}/100`, "quant"), { label: "Runway", valor: rotuloRunwayCtx(ctx) }, { label: `Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`, valor: pctBR(ctx.probRuptura) }],
       ["motor quantitativo", "motor de risco"]);
   }
 
@@ -2044,8 +2045,8 @@ function responderBruto(pergunta: string, input: RiskInput, ctx?: ExecutiveConte
     const risco = ctx.probRuptura >= 0.5 ? "alta" : ctx.probRuptura >= 0.25 ? "moderada" : "baixa";
     const sat = avisoDeSaturacao("chance-ruptura", ctx.probRuptura);
     return R(
-      `A probabilidade de o caixa ficar negativo em 60 dias é ${risco} (${pctBR(ctx.probRuptura)}); ${fraseRunway(ctx)}, com saldo de ${fmt(ctx.saldoAtual)}. ${ctx.probRuptura >= 0.25 ? "Antecipar recebíveis e segurar despesas não essenciais reduz o risco." : "O caixa está sob controle no horizonte atual."}${sat ? ` ${sat}` : ""}`,
-      [{ label: "Prob. ruptura (60d)", valor: pctBR(ctx.probRuptura) }, { label: "Runway", valor: rotuloRunwayCtx(ctx) }],
+      `A chance de ruptura de caixa em ${ROTULO_HORIZONTE_RUPTURA} é ${risco} (${pctBR(ctx.probRuptura)}); ${fraseRunway(ctx)}, com saldo de ${fmt(ctx.saldoAtual)}. ${ctx.probRuptura >= 0.25 ? "Antecipar recebíveis e segurar despesas não essenciais reduz o risco." : "O caixa está sob controle no horizonte atual."}${sat ? ` ${sat}` : ""}`,
+      [{ label: `Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`, valor: pctBR(ctx.probRuptura) }, { label: "Runway", valor: rotuloRunwayCtx(ctx) }],
       ["motor de risco de caixa"]);
   }
 

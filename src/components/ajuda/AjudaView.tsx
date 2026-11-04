@@ -562,7 +562,7 @@ function Anuncios({
 function Glossario() {
   const termos = glossarioPublicado();
   return (
-    <div className="flex flex-col gap-4 max-w-[860px]">
+    <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-2">
         <span className="text-h3 text-ink">Como chamamos cada coisa</span>
       </Card>
