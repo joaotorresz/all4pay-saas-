@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { createAdmin } from "@/lib/supabase/admin";
 import { chavesPinbank, verificarAssinatura } from "@/lib/pinbank/assinatura";
 import { processarEvento } from "@/lib/pinbank/processar";
-import { ehEventoDeCompra, lerEnvelope, semDadoSensivel, transacaoDoEvento } from "@/core/pinbank";
+import { liquidarPeloAviso } from "@/lib/pinbank/liquidar-aviso";
+import {
+  ehEventoDeCompra, ehEventoDeLiquidacao, lerAvisoDeLiquidacao, lerEnvelope, liquidacaoPinbankLigada,
+  semDadoSensivel, transacaoDoEvento,
+} from "@/core/pinbank";
 
 /**
- * Webhook da MAQUININHA PINBANK — os eventos `Compra.*`.
+ * Webhook da PINBANK — as vendas da maquininha (`Compra.*`) e o aviso de pago
+ * da cobrança Pix/boleto (`Pix.CreditoRecebido`, `Boleto.Liquidacao`).
  *
  *   POST /api/pinbank/webhook
  *
@@ -28,6 +33,12 @@ import { ehEventoDeCompra, lerEnvelope, semDadoSensivel, transacaoDoEvento } fro
  *   · evento GUARDADO → 200, mesmo quando o processamento parou num motivo
  *     nomeado (sem vínculo, aguardando ativação, erro): o evento está seguro na
  *     caixa de entrada e entra pelo reprocessamento. Reenviar não mudaria nada.
+ *
+ * O AVISO DE PAGO (04/11/2026) passa pelas MESMAS portas e tem um interruptor
+ * a mais, `PINBANK_LIQUIDACAO=ligado`: desligado, o aviso recebe 503 (a
+ * Pinbank reenvia por até 24 h). Ligado, `liquidarPeloAviso` acha a cobrança e
+ * chama o escritor único `pinbank_cobranca_liquidar` — a página do link vira
+ * "pago" e o título, recebido.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,14 +100,28 @@ export async function POST(req: Request) {
   if (webhookId && webhookId.toLowerCase() !== env.valor.eventId) {
     return resposta(400, { ok: false, motivo: "Webhook-Id diferente do EventId." });
   }
-  if (!ehEventoDeCompra(env.valor.eventType)) {
+  const ehLiquidacao = ehEventoDeLiquidacao(env.valor.eventType);
+  if (!ehEventoDeCompra(env.valor.eventType) && !ehLiquidacao) {
     return resposta(200, { ok: true, ignorado: env.valor.eventType });
   }
-  const tr = transacaoDoEvento(env.valor);
+  // O aviso de pago tem o interruptor dele, e é lido ANTES do banco.
+  const aviso = ehLiquidacao ? lerAvisoDeLiquidacao(env.valor) : null;
+  if (ehLiquidacao && !liquidacaoPinbankLigada()) {
+    return resposta(503, { ok: false, motivo: "A baixa pelo aviso da Pinbank está desligada." });
+  }
+  if (aviso && !aviso.ok) {
+    console.error(`[falha·pinbank] aviso.ilegivel: ${env.valor.eventId} ${aviso.motivo}`);
+    return resposta(200, { ok: true, ignorado: aviso.motivo });
+  }
 
   // 4. Só agora o banco — e o evento é GUARDADO antes de qualquer decisão.
   const admin = createAdmin();
   if (!admin) return resposta(503, { ok: false, motivo: "O servidor está sem a chave de serviço do banco." });
+  if (aviso?.ok) {
+    const r = await liquidarPeloAviso(admin, aviso.valor);
+    return resposta(r.status, r.corpo);
+  }
+  const tr = transacaoDoEvento(env.valor);
   const t = tr.ok ? tr.valor : null;
   const { data: reg, error } = await admin.rpc("pinbank_registrar_evento", {
     p_event_id: env.valor.eventId,

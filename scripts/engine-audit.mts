@@ -12594,6 +12594,88 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const ci = lerF(".github/workflows/ci.yml");
     ok("liquidacao: a guarda do banco (scripts/pinbank-liquidacao.sql) roda no CI", /-f scripts\/pinbank-liquidacao\.sql/.test(ci));
   }
+  /* ── aviso-pago: o aviso de pago da Pinbank baixa o título (04/11/2026) ── */
+  {
+    const LQ = await import("@/core/pinbank/liquidacao");
+    const LA = await import("@/lib/pinbank/liquidar-aviso");
+    const EV = "550e8400-e29b-41d4-a716-446655440000";
+    // Os exemplos da documentação "Eventos" da Pinbank, literais.
+    const pixDoc = { eventType: "Pix.CreditoRecebido", eventVersion: "v1", eventId: EV, entityId: "987654", ocorridoEm: "2026-06-30T12:00:01.000Z",
+      data: { IdLancamentoPix: 987654, Valor: 250.50, DataLancamento: "2026-06-30T12:00:00Z", DataGravacao: "2026-06-30T12:00:01Z", Status: "PAGO",
+        IdSistemaOrigem: 4, NsuSistemaOrigem: 111222333, TxId: "TXID001", EndToEndId: "E00000000202606301200BR1234567890", IdQrcode: 5555,
+        Pagador: { PagadorNome: "João da Silva" }, Recebedor: { CodigoCliente: 123456, CodigoCanal: 79 } } };
+    const bolDoc = { eventType: "Boleto.Liquidacao", eventVersion: "v1", eventId: EV, entityId: "00012345678", ocorridoEm: "2026-07-31T23:05:42.000Z",
+      data: { NossoNumero: "00012345678", CodigoBarras: "52990000000001500000123456789012345678901234", CodigoCliente: 123456, CodigoCanal: 79,
+        ValorPago: 150.00, ValorSplit: 0.00, DataPagamento: "2026-07-31", DataVencimento: 20260815, CodigoOcorrencia: "06",
+        IspbPagador: "60701190", Banco: "PINBANK", ModalidadeBoleto: "C" } };
+    const p = LQ.lerAvisoDeLiquidacao(pixDoc);
+    ok("aviso-pago: o Pix da documentação vira R$ 250,50 (REAIS, não centavos), com NSU, TxId, IdQrcode, conta e o EventId como referência",
+       p.ok && p.valor.tipo === "pix" && p.valor.valor === 250.5 && p.valor.nsuOrigem === 111222333 && p.valor.txid === "TXID001"
+       && p.valor.pinbankId === "5555" && p.valor.codigoCliente === 123456 && p.valor.ref === EV && p.valor.pagoEm === "2026-06-30T12:00:00.000Z",
+       JSON.stringify(p));
+    const b = LQ.lerAvisoDeLiquidacao(bolDoc);
+    ok("aviso-pago: o boleto da documentação vira R$ 150,00 pago no dia 31/07 em São Paulo, pelo nosso número e código de barras",
+       b.ok && b.valor.tipo === "boleto" && b.valor.valor === 150 && b.valor.pinbankId === "00012345678"
+       && b.valor.codigoBarras === bolDoc.data.CodigoBarras && b.valor.codigoCliente === 123456
+       && new Date(b.valor.pagoEm).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }) === "2026-07-31", JSON.stringify(b));
+    const com = (base: typeof bolDoc | typeof pixDoc, data: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+      LQ.lerAvisoDeLiquidacao({ ...base, ...extra, data: { ...base.data, ...data } } as typeof base);
+    ok("aviso-pago: boleto de cartão (modalidade R, que liquida mais de uma vez) não baixa título", !com(bolDoc, { ModalidadeBoleto: "R" }).ok);
+    ok("aviso-pago: sem a conta (CodigoCliente) nada é baixado", !com(bolDoc, { CodigoCliente: null }).ok && !com(pixDoc, { Recebedor: {} }).ok);
+    ok("aviso-pago: valor zero, negativo ou ilegível não baixa", !com(pixDoc, { Valor: 0 }).ok && !com(bolDoc, { ValorPago: -1 }).ok && !com(pixDoc, { Valor: "abc" }).ok);
+    ok("aviso-pago: Pix que não está PAGO e versão desconhecida não baixam",
+       !com(pixDoc, { Status: "PENDENTE" }).ok && !com(pixDoc, {}, { eventVersion: "v2" }).ok);
+    ok("aviso-pago: data inexistente (31/02) não vira o dia seguinte", !com(bolDoc, { DataPagamento: "2026-02-31" }).ok);
+    ok("aviso-pago: só os dois eventos de pago entram por aqui",
+       LQ.ehEventoDeLiquidacao("Pix.CreditoRecebido") && LQ.ehEventoDeLiquidacao("Boleto.Liquidacao")
+       && !LQ.ehEventoDeLiquidacao("Boleto.Baixa") && !LQ.ehEventoDeLiquidacao("Pix.TransferenciaRealizada") && !LQ.ehEventoDeLiquidacao("Compra.TransacaoRealizada"));
+    ok("aviso-pago: o interruptor só liga com PINBANK_LIQUIDACAO=ligado",
+       LQ.liquidacaoPinbankLigada({ PINBANK_LIQUIDACAO: "ligado" }) && !LQ.liquidacaoPinbankLigada({ PINBANK_LIQUIDACAO: "true" }) && !LQ.liquidacaoPinbankLigada({}));
+    // O código de resposta é o contrato: 503 a Pinbank reenvia, 200 não.
+    const falso = (resp: Record<string, { data?: unknown; error?: { message: string } }>) => {
+      const chamadas: string[] = [];
+      const admin = { rpc: async (f: string) => { chamadas.push(f); return resp[f] ?? { data: null }; } };
+      return { admin: admin as unknown as Parameters<typeof LA.liquidarPeloAviso>[0], chamadas };
+    };
+    const av = (p as { valor: Parameters<typeof LA.liquidarPeloAviso>[1] }).valor;
+    const f1 = falso({ pinbank_cobranca_do_aviso: { data: { achado: "uma", cobranca: "c1" } }, pinbank_cobranca_liquidar: { data: { cobranca: "paga", titulo: "recebido" } } });
+    const r1 = await LA.liquidarPeloAviso(f1.admin, av);
+    ok("aviso-pago: achada a cobrança, o escritor único baixa e a resposta é 200",
+       r1.status === 200 && r1.corpo.titulo === "recebido" && f1.chamadas.join(">") === "pinbank_cobranca_do_aviso>pinbank_cobranca_liquidar", JSON.stringify(r1));
+    const f2 = falso({ pinbank_cobranca_do_aviso: { data: { achado: "varias" } } });
+    const r2 = await LA.liquidarPeloAviso(f2.admin, av);
+    ok("aviso-pago: chave que aponta para várias cobranças não baixa nenhuma (200, sem chamar o escritor)",
+       r2.status === 200 && !f2.chamadas.includes("pinbank_cobranca_liquidar"));
+    const r3 = await LA.liquidarPeloAviso(falso({ pinbank_cobranca_do_aviso: { error: { message: "connection refused" } } }).admin, av);
+    const r4 = await LA.liquidarPeloAviso(falso({ pinbank_cobranca_do_aviso: { data: { achado: "uma", cobranca: "c1" } }, pinbank_cobranca_liquidar: { error: { message: "timeout" } } }).admin, av);
+    ok("aviso-pago: banco fora do ar (ao achar ou ao baixar) é 503 — a Pinbank reenvia", r3.status === 503 && r4.status === 503);
+    const r5 = await LA.liquidarPeloAviso(falso({ pinbank_cobranca_do_aviso: { data: { achado: "uma", cobranca: "c1" } }, pinbank_cobranca_liquidar: { error: { message: "A4P-LIQUIDACAO: a cobrança está \"cancelada\"" } } }).admin, av);
+    ok("aviso-pago: a recusa nomeada do escritor é 200 (reenviar não muda nada)", r5.status === 200 && r5.corpo.recusado === true);
+    // A rota: o interruptor do aviso e a leitura dele vêm DEPOIS da assinatura e ANTES do banco.
+    const ordemAviso = (src: string) => {
+      const x = semComF(src);
+      const iAss = x.indexOf("resposta(401");
+      const iLer = x.indexOf("lerAvisoDeLiquidacao(env.valor)");
+      const iGate = x.indexOf("!liquidacaoPinbankLigada()");
+      const iAdmin = x.indexOf("createAdmin()");
+      const iLiq = x.indexOf("liquidarPeloAviso(admin, aviso.valor)");
+      return iAss > 0 && iLer > iAss && iGate > iAss && iAdmin > iGate && iAdmin > iLer && iLiq > iAdmin && !/process\.env\.PINBANK_LIQUIDACAO/.test(x);
+    };
+    const rotaWh = lerF("src/app/api/pinbank/webhook/route.ts");
+    ok("aviso-pago: a rota confere assinatura e interruptor do aviso antes do banco", ordemAviso(rotaWh));
+    ok("aviso-pago: (defeito plantado) a rota baixando sem conferir o interruptor é ACUSADA",
+       !ordemAviso(rotaWh.replace("if (ehLiquidacao && !liquidacaoPinbankLigada()) {", "if (false) {")));
+    const leLiq = (ler: (p: string) => string) => arqsF.filter((q) => q !== "src/core/pinbank/liquidacao.ts" && /PINBANK_LIQUIDACAO/.test(semComF(ler(q))));
+    ok("aviso-pago: PINBANK_LIQUIDACAO é lida num lugar só e está no .env.example",
+       leLiq(lerF).length === 0 && /^#?\s*PINBANK_LIQUIDACAO=/m.test(lerF(".env.example")), leLiq(lerF).join(", "));
+    ok("aviso-pago: (defeito plantado) uma segunda leitura da variável é ACUSADA",
+       leLiq((q) => (q === "src/lib/interruptores.ts" ? lerF(q) + "\nconst x = process.env.PINBANK_LIQUIDACAO;" : lerF(q))).includes("src/lib/interruptores.ts"));
+    const migA = lerF("supabase/migrations/20261104170000_pinbank_aviso_de_pago.sql");
+    ok("aviso-pago: achar a cobrança do aviso executa SÓ como o servidor",
+       /revoke all on function public\.pinbank_cobranca_do_aviso\(text, bigint, bigint, text, text, text\) from public, anon, authenticated, service_role;/.test(migA)
+       && /grant execute on function public\.pinbank_cobranca_do_aviso\(text, bigint, bigint, text, text, text\) to service_role;/.test(migA)
+       && !/grant execute on function public\.pinbank_cobranca_do_aviso[^;]*(authenticated|anon)/.test(migA));
+  }
   /* ── checkout-email: o link de pagamento por e-mail, no modelo da Asaas ── */
   {
     const AU = await import("@/core/automacoes");
@@ -12731,7 +12813,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
     const vazio = INT.estadoDosInterruptores({});
     ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
-       vazio.length === 14 && vazio.every((l) => !l.estado.ligado)); // 14: + os agentes e a confirmação do e-mail do contador (04/11/2026)
+       vazio.length === 15 && vazio.every((l) => !l.estado.ligado)); // 15: + os agentes, a confirmação do e-mail do contador e a baixa pelo aviso da Pinbank (04/11/2026)
+    const lq = (env: Record<string, string>) => (est(env) as Record<string, { ligado: boolean; motivo?: string }>).pinbank_liquidacao;
+    ok("interruptores: a baixa pelo aviso ligada sem o webhook diz 'falta configuração'; com os dois, ligada",
+       lq({ PINBANK_LIQUIDACAO: "ligado" }).motivo === "sem_configuracao" && lq({ PINBANK_LIQUIDACAO: "ligado", PINBANK_WEBHOOK: "ligado" }).ligado
+       && !lq({ PINBANK_WEBHOOK: "ligado" }).ligado);
     const so = est({ PINBANK_COBRANCA: "ligado" }) as Record<string, { ligado: boolean; motivo?: string }>;
     ok("interruptores: cobrança Pinbank ligada sem credencial diz 'falta configuração', nunca 'ligado'",
        so.pinbank_cobranca.ligado === false && so.pinbank_cobranca.motivo === "sem_configuracao");

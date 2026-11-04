@@ -13,7 +13,7 @@ sozinho no título.
 | 3 | Gerar a cobrança a partir do título a receber | **feito neste PR** |
 | 4 | Página pública de pagamento (o link) | **MVP neste PR** |
 | 5 | A régua manda o link | primeira metade feita (28/10): o link que JÁ existe vai na mensagem; gerar a cobrança sozinha espera o dono |
-| 6 | Baixa automática pelo webhook de liquidação | escritor e página prontos (04/11); falta a entrada do aviso, que depende da resposta 4 da Pinbank |
+| 6 | Baixa automática pelo webhook de liquidação | pronta e desligada (04/11): escritor, página e a entrada do aviso atrás de `PINBANK_LIQUIDACAO` |
 | 7 | Piloto com uma empresa, desligado por padrão | depois da 6 |
 
 ## O que existe (etapas 2 e 3)
@@ -159,12 +159,30 @@ mostra "pago" e o sistema registra o título como recebido.
   situação) a cada 5 s no primeiro meio minuto, depois até 30 s, por até 1 hora
   e só com a aba visível; quando muda, redesenha pelo servidor. A leitura diz
   "pago" também quando a cobrança está paga e o título não pôde ser baixado.
-- ⚠️ **Falta a entrada:** o formato do aviso de liquidação da Pinbank
-  (pergunta 4). Até ela, nada chama o escritor, e a baixa à mão (que a página
-  também passa a acompanhar) continua sendo o caminho.
+- **A entrada do aviso** (04/11/2026, doc "Eventos" da Pinbank): o mesmo
+  `/api/pinbank/webhook` recebe `Pix.CreditoRecebido` e `Boleto.Liquidacao`,
+  pelas mesmas portas (assinatura Ed25519 sobre o corpo bruto, envelope) e
+  com o interruptor `PINBANK_LIQUIDACAO=ligado` (exige `PINBANK_WEBHOOK`).
+  `lerAvisoDeLiquidacao` (`core/pinbank/liquidacao.ts`) lê o valor em REAIS
+  (o `Compra.*` vem em centavos), a data (o boleto só traz o dia: vira
+  meio-dia em São Paulo) e usa o `EventId` como referência da baixa.
+  `pinbank_cobranca_do_aviso` (migration `20261104170000`) acha a cobrança
+  na conta do aviso (`CodigoCliente`): Pix pelo `NsuSistemaOrigem` (o
+  NsuOrigem que mandamos), `TxId` ou `IdQrcode`; boleto pelo `NossoNumero`
+  (sem os zeros da frente) ou `CodigoBarras`. Chaves que apontam para duas
+  cobranças não baixam nenhuma. Boleto de modalidade `R`/`P` é ignorado.
+- **Resposta:** desligado ou banco fora → 503 (a Pinbank reenvia por 24 h);
+  aviso ilegível, nenhuma ou várias cobranças, recusa nomeada do escritor →
+  200 com o motivo no log `[falha·pinbank] aviso.*`; baixado ou repetido → 200.
+- **Para ligar:** aplicar as migrations, pedir ao suporte da Pinbank os
+  eventos `Pix.CreditoRecebido` v1 e `Boleto.Liquidacao` v1 na mesma URL do
+  webhook, e `PINBANK_LIQUIDACAO=ligado` na Vercel.
+- Ainda fora: `Boleto.Baixa` com `TipoBaixa 4` (boleto pago pelo Pix do
+  próprio boleto) e a mensalidade da Quattro (`MENSALIDADE_PINBANK`), que
+  não usa `pinbank_cobrancas`.
 
-Guardas: `scripts/pinbank-liquidacao.sql` no CI (9 casos, 12 defeitos
-plantados) e o bloco `liquidacao:` do `engine-audit`.
+Guardas: `scripts/pinbank-liquidacao.sql` no CI (10 casos, 16 defeitos
+plantados) e os blocos `liquidacao:` e `aviso-pago:` do `engine-audit`.
 
 ## Perguntas para a Pinbank (etapa 1)
 
@@ -177,9 +195,8 @@ plantados) e o bloco `liquidacao:` do `engine-audit`.
    liberado e voltou "Bad request" com `AAAA-MM-DD` e o valor em reais; passou
    a ir `AAAAMMDD` e o valor em CENTAVOS, como o Pix.) E o que `SegundosExpiracao` significa no Pix
    dinâmico com vencimento?
-4. Qual o webhook de liquidação (Pix recebido e `Boleto.Liquidacao`): payload,
-   assinatura (a mesma Ed25519 do `Compra.*`?) e o campo que devolve o nosso
-   `IdentificadorCliente`/NSU de origem.
+4. ~~Qual o webhook de liquidação~~ Respondida pela doc "Eventos" (04/11):
+   `Pix.CreditoRecebido` e `Boleto.Liquidacao`, mesma assinatura Ed25519.
 5. Existe método para CANCELAR um Pix dinâmico e baixar um boleto emitido?
 6. Tarifa por cobrança emitida e por liquidação, e prazo de crédito na conta.
 

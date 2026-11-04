@@ -235,6 +235,33 @@ begin
   return msg;
 end $$;
 
+-- Qual cobrança o aviso paga, como o SERVIDOR (só lê).
+create or replace function pg_temp.achar(p_tipo text, p_codigo bigint, p_nsu bigint, p_txid text,
+    p_pid text, p_barras text) returns jsonb language plpgsql as $$
+declare r jsonb;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role service_role;
+  r := public.pinbank_cobranca_do_aviso(p_tipo, p_codigo, p_nsu, p_txid, p_pid, p_barras);
+  reset role;
+  return r;
+end $$;
+
+-- Uma cobrança emitida com as referências que a Pinbank devolveu.
+create or replace function pg_temp.emitir_com(p_mov uuid, p_tipo text, p_txid text, p_pid text, p_barras text default null)
+    returns uuid language plpgsql as $$
+declare r jsonb;
+begin
+  r := pg_temp.reservar(current_setting('guarda.ua')::uuid, p_mov, p_tipo);
+  perform pg_temp.registrar((r->>'id')::uuid, case p_tipo
+    when 'pix' then jsonb_build_object('situacao', 'emitida', 'textoQrCode', '00020126580014br.gov.bcb.pix-aviso',
+      'txid', p_txid, 'pinbankId', p_pid)
+    else jsonb_build_object('situacao', 'emitida', 'linhaDigitavel', repeat('3', 47),
+      'codigoBarras', coalesce(p_barras, repeat('4', 44)), 'pinbankId', p_pid) end);
+  return (r->>'id')::uuid;
+end $$;
+
 -- Uma escrita como o servidor, SEM sessão de pessoa; devolve o erro (ou null).
 create or replace function pg_temp.erro_servidor(p_sql text, p_marca text default null) returns text language plpgsql as $$
 declare msg text;
@@ -260,6 +287,7 @@ declare
   ua uuid := current_setting('guarda.ua')::uuid;
   ub uuid := current_setting('guarda.ub')::uuid;
   v uuid; t uuid; pix uuid; bol uuid; tk text; r jsonb; msg text; n int; mrow public.movements%rowtype;
+  cod bigint; nsu bigint; t2 uuid; pix2 uuid;
 begin
   v := pg_temp.vincular(true);
   perform pg_temp.ligar(v);
@@ -415,6 +443,53 @@ begin
   if msg is null or msg not like '%A4P-CENTRAL-PERMISSAO%' then
     raise exception 'CASO 9 FALHOU: uma SESSÃO de leitor com a marca confirmou o título (veio: %).', coalesce(msg, 'aceito');
   end if;
+
+  -- 10. o aviso da Pinbank acha a cobrança (Pix.CreditoRecebido, Boleto.Liquidacao)
+  cod := current_setting('guarda.codigo')::bigint;
+  t := pg_temp.titulo();
+  pix := pg_temp.emitir_com(t, 'pix', 'tx-aviso-' || t, '7001');
+  bol := pg_temp.emitir_com(t, 'boleto', null, '00012345', repeat('5', 44));
+  select nsu_origem into nsu from public.pinbank_cobrancas where id = pix;
+  r := pg_temp.achar('pix', cod, nsu, null, null, null);
+  if r->>'achado' <> 'uma' or (r->>'cobranca')::uuid <> pix then
+    raise exception 'CASO 10 FALHOU: o NsuSistemaOrigem do aviso não achou o Pix (veio: %).', r;
+  end if;
+  r := pg_temp.achar('pix', cod, null, 'tx-aviso-' || t, null, null);
+  if r->>'achado' <> 'uma' or (r->>'cobranca')::uuid <> pix then
+    raise exception 'CASO 10 FALHOU: o TxId do aviso não achou o Pix (veio: %).', r;
+  end if;
+  r := pg_temp.achar('boleto', cod, null, null, '12345', null);
+  if r->>'achado' <> 'uma' or (r->>'cobranca')::uuid <> bol then
+    raise exception 'CASO 10 FALHOU: o nosso número sem os zeros da frente não achou o boleto (veio: %).', r;
+  end if;
+  r := pg_temp.achar('boleto', cod, null, null, null, repeat('5', 44));
+  if r->>'achado' <> 'uma' or (r->>'cobranca')::uuid <> bol then
+    raise exception 'CASO 10 FALHOU: o código de barras do aviso não achou o boleto (veio: %).', r;
+  end if;
+  r := pg_temp.achar('pix', cod + 1, nsu, null, null, null);
+  if r->>'achado' <> 'nenhuma' then
+    raise exception 'CASO 10 FALHOU: o aviso de OUTRA conta Pinbank achou a cobrança desta (veio: %).', r;
+  end if;
+  r := pg_temp.achar('boleto', cod, null, null, '7001', null);
+  if r->>'achado' <> 'nenhuma' then
+    raise exception 'CASO 10 FALHOU: o aviso de boleto achou um Pix (veio: %).', r;
+  end if;
+  -- O NSU de um Pix e o TxId de outro: nenhum é baixado.
+  t2 := pg_temp.titulo();
+  pix2 := pg_temp.emitir_com(t2, 'pix', 'tx-aviso-' || t2, '7002');
+  r := pg_temp.achar('pix', cod, nsu, 'tx-aviso-' || t2, null, null);
+  if r->>'achado' <> 'varias' or r ? 'cobranca' then
+    raise exception 'CASO 10 FALHOU: chaves de duas cobranças devolveram uma para baixar (veio: %).', r;
+  end if;
+  msg := pg_temp.erro_como(ua, format('select public.pinbank_cobranca_do_aviso(''pix'', %s, %s, null, null, null)', cod, nsu));
+  if msg is null then
+    raise exception 'CASO 10 FALHOU: uma SESSÃO de cliente consultou o aviso.';
+  end if;
+  -- E o caminho inteiro: achado pelo aviso, baixado pelo escritor único.
+  r := pg_temp.liquidar((pg_temp.achar('pix', cod, nsu, null, null, null)->>'cobranca')::uuid, 250.40, 'aviso-10');
+  if r->>'titulo' is distinct from 'recebido' then
+    raise exception 'CASO 10 FALHOU: o Pix achado pelo aviso não baixou o título (veio: %).', r;
+  end if;
 end $$;
 grant execute on all functions in schema pg_temp to authenticated, service_role, anon;
 
@@ -560,6 +635,45 @@ do $d12$ begin
 end $d12$;
 rollback to savepoint caso;
 
-do $fim$ begin raise notice 'pinbank-liquidacao: 9 casos · 12 defeitos plantados pegos · a liquidação confere'; end $fim$;
+create or replace function pg_temp.plantar_aviso(p_de text, p_para text) returns void language sql as $$
+  select pg_temp.plantar('public.pinbank_cobranca_do_aviso(text, bigint, bigint, text, text, text)'::regprocedure, p_de, p_para)
+$$;
+grant execute on all functions in schema pg_temp to authenticated, service_role, anon;
+
+-- d13 · o aviso de outra conta Pinbank baixando título daqui
+savepoint caso;
+do $d13$ begin
+  perform pg_temp.plantar_aviso('and c.codigo_cliente = p_codigo_cliente', '');
+  perform pg_temp.reprova('%CASO 10 FALHOU%OUTRA conta%', 'o aviso sem conferir a conta');
+end $d13$;
+rollback to savepoint caso;
+
+-- d14 · duas cobranças achadas e a primeira baixada
+savepoint caso;
+do $d14$ begin
+  perform pg_temp.plantar_aviso('if cardinality(v_ids) > 1 then', 'if false then');
+  perform pg_temp.reprova('%CASO 10 FALHOU%duas cobranças%', 'a chave ambígua escolhendo uma');
+end $d14$;
+rollback to savepoint caso;
+
+-- d15 · o nosso número com zeros comparado como texto
+savepoint caso;
+do $d15$ begin
+  perform pg_temp.plantar_aviso('(v_pid is not null and ltrim(c.pinbank_id, ''0'') = v_pid)
+          or (v_barras', '(v_pid is not null and c.pinbank_id = v_pid)
+          or (v_barras');
+  perform pg_temp.reprova('%CASO 10 FALHOU%zeros da frente%', 'o nosso número sem normalizar');
+end $d15$;
+rollback to savepoint caso;
+
+-- d16 · a sessão do cliente consultando o aviso
+savepoint caso;
+do $d16$ begin
+  grant execute on function public.pinbank_cobranca_do_aviso(text, bigint, bigint, text, text, text) to authenticated;
+  perform pg_temp.reprova('%CASO 10 FALHOU%SESSÃO de cliente consultou%', 'a empresa consultando avisos');
+end $d16$;
+rollback to savepoint caso;
+
+do $fim$ begin raise notice 'pinbank-liquidacao: 10 casos · 16 defeitos plantados pegos · a liquidação e o aviso conferem'; end $fim$;
 
 rollback;

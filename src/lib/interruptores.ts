@@ -9,6 +9,7 @@ import {
   boletoComEncargosLiberado, cobrancaPinbankLiberada, conferenciaPinbankLiberada,
   mensalidadePinbankLiberada, pixAtualizadoLiberado,
 } from "@/lib/pinbank/api";
+import { liquidacaoPinbankLigada } from "@/core/pinbank/liquidacao";
 import { cobrancaBancoLigada } from "@/core/cobranca-banco/conexao";
 import { iaWhatsappLigada } from "@/core/whatsapp/numero";
 import { lembretesLigados } from "@/lib/cadastro-lembretes";
@@ -34,6 +35,8 @@ export function estadoDosInterruptores(env: Record<string, string | undefined> =
     pinbank_cobranca: daPinbank(cobrancaPinbankLiberada(env)),
     pinbank_encargos: sim(boletoComEncargosLiberado(env)),
     pinbank_pix_atualizado: sim(pixAtualizadoLiberado(env)),
+    pinbank_liquidacao: !liquidacaoPinbankLigada(env) ? sim(false)
+      : env.PINBANK_WEBHOOK === "ligado" ? { ligado: true } : { ligado: false, motivo: "sem_configuracao" },
     mensalidade_pinbank: daPinbank(mensalidadePinbankLiberada(env)),
     cobranca_banco: sim(cobrancaBancoLigada(env)),
     whatsapp_aprovacao: sim(env.WHATSAPP_APROVACAO === "ligado"),
