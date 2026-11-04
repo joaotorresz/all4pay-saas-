@@ -150,6 +150,11 @@ no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
   o recusado não volta); sozinho só o par de confiança 85+ no nível 2+ (o
   banco confere); concilia pelo banco (`agente_conciliar` →
   `conciliar_na_empresa`, a mesma regra do botão).
+  **Tela** (04/11/2026, pedido do dono): "Quattro AI" é item do menu
+  principal (`/quattro-ai`): a IA no alto e os agentes embaixo, cada um com
+  o próprio chat (`QuattroAIHub`, `ChatAgente`), cor `--color-agente-*`. O
+  agente se apresenta e é configurado CONVERSANDO (`core/agentes/conversa`,
+  que nasce da config salva e grava por `salvarAgente`). Saiu de Automações.
 - **Quattro AI no WhatsApp:** atrás de `WHATSAPP_IA`, só leitura (a etapa 5,
   lançar, está pendente).
 - **Sem emoji**, exceto nos modelos de WhatsApp cadastrados na Twilio.

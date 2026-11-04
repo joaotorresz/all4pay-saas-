@@ -340,6 +340,16 @@
   --erp-graf-saida: var(--color-negative);
   --erp-tabela-linha: var(--erp-menu-borda);
   --a4p-bolha-usuario: #e5e5e5;
+  /* Agente de cobrança: âmbar terroso. O avatar do agente na tela da Quattro AI (04/11/2026); só no avatar, com o ícone em branco. */
+  --color-agente-cobranca: #c27a3a;
+  /* Agente de conciliação: verde musgo. O avatar do agente na tela da Quattro AI (04/11/2026); só no avatar, com o ícone em branco. */
+  --color-agente-conciliacao: #5e7f5c;
+  /* Agente de contas a pagar: terracota. O avatar do agente na tela da Quattro AI (04/11/2026); só no avatar, com o ícone em branco. */
+  --color-agente-contas-pagar: #b4583f;
+  /* Agente de caixa: azul petróleo. O avatar do agente na tela da Quattro AI (04/11/2026); só no avatar, com o ícone em branco. */
+  --color-agente-caixa: #4b6f86;
+  /* Agente de fechamento: ameixa. O avatar do agente na tela da Quattro AI (04/11/2026); só no avatar, com o ícone em branco. */
+  --color-agente-fechamento: #77658f;
   --a4p-pilula-fundo: #ffffff;
   --a4p-pilula-texto: var(--color-ink);
 }

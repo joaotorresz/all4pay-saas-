@@ -15,7 +15,7 @@
  *
  * A guarda do banco (o que ele RECUSA de verdade) é `scripts/agentes.sql`.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTES, configPadrao, rotear, type ConfigAgente, type Destino, type IdAgente } from "@/core/agentes";
 
@@ -85,10 +85,16 @@ const leitores = arquivos(join(raiz, "src")).filter((f) => /\bAGENTES\s*===|env\
 ok("interruptor: AGENTES tem um leitor só (core/agentes/ligado.ts)",
   leitores.length === 1 && leitores[0].endsWith("src/core/agentes/ligado.ts"), leitores.join(", "));
 const lib = ler("src/lib/agentes.ts");
-const tela = ler("src/components/agentes/AgentesView.tsx");
+const tela = ler("src/components/ia/ChatAgente.tsx") + ler("src/components/ia/QuattroAIHub.tsx");
 ok("tela: não cria proposta", !/agente_propostas"\)\s*\.(insert|upsert|update|delete)/.test(lib + tela));
 ok("tela: decide pela função do banco", /rpc\("agente_decidir"/.test(lib));
-ok("tela: o agente em construção não liga", /disabled=\{!desc\.pronto\}/.test(tela));
+{
+  const { abrirConversaAgente: abrir } = await import("@/core/agentes/conversa");
+  const { configPadrao: cp } = await import("@/core/agentes");
+  const ab = abrir(cp("caixa"));
+  ok("tela: o agente em construção não liga (a conversa não oferece nível)",
+    ab.estado.etapa === "em_construcao" && ab.falas.every((f) => !f.pergunta));
+}
 ok("interruptores: o dos agentes aparece na área da plataforma",
   /agentes: sim\(agentesLigados\(env\)\)/.test(ler("src/lib/interruptores.ts")));
 
@@ -492,10 +498,67 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     /v_quem := v_cfg\.atualizado_por;/.test(m4) && /v_quem := v_p\.decidida_por;/.test(m4) && /if v_quem is null then\s+raise exception/.test(m4)
     && m4.indexOf("perform set_config('request.jwt.claim.sub', v_quem::text, true);") < m4.indexOf("perform public.conciliar_na_empresa((v_p.dados")
     && /create trigger agentes_quem_mudou before update on public\.agentes/.test(m4));
-  ok("tela: aprovar a conciliação concilia na hora", /p\.agente === "conciliacao"\)\) onDecidido/.test(ler("src/components/agentes/AgentesView.tsx")));
+  ok("tela: aprovar a conciliação concilia na hora", /p\.agente === "conciliacao"\)\s*\? `\$\{p\.titulo\}\. \$\{await executarAprovada\(p\.id, p\.agente\)\}`/.test(ler("src/components/ia/ChatAgente.tsx")));
   const Wc = await import("@/core/agentes/whatsapp");
   ok("whatsapp: a conciliação feita diz que conciliou",
     Wc.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "executada", agente: "conciliacao" }).includes("conciliado com o extrato"));
+}
+
+/* ── 7. a tela da Quattro AI: cada agente é um chat, configurado conversando ── */
+{
+  const C = await import("@/core/agentes/conversa");
+  const { configPadrao: cp, IDS_AGENTE: ids } = await import("@/core/agentes");
+  const salvo = cp("cobranca");
+  const a = C.abrirConversaAgente(salvo, "João");
+  const texto = a.falas.map((f) => `${f.texto} ${(f.itens ?? []).join(" ")}`).join(" ");
+  ok("conversa: o agente se apresenta, diz o que faz e até onde vai",
+    texto.includes("Oi, João! Sou o agente de cobrança.") && a.falas.some((f) => f.texto === "O que eu faço:" && (f.itens?.length ?? 0) > 0)
+    && a.falas.some((f) => f.texto === "Até onde eu vou:" && (f.itens?.length ?? 0) > 0), texto);
+  const perg = a.falas.find((f) => f.pergunta)!.pergunta!;
+  ok("conversa: desligado, pergunta o que pode fazer sozinho, com os 4 níveis e deixar desligado",
+    perg.opcoes.map((o) => o.id).join(",") === "nivel:0,nivel:1,nivel:2,nivel:3,desligar");
+  const n1 = C.responderConversaAgente(a.estado, salvo, { opcao: "nivel:1" });
+  ok("conversa: escolher o nível 1 liga e grava, e diz o que muda ao ligar",
+    n1.salvar?.ativo === true && n1.salvar.nivel === 1 && n1.estado.etapa === "pronto"
+    && n1.falas[0].texto.includes("Pronto, estou ligado.") && n1.falas[0].texto.includes("a régua de cobrança não envia sozinha"), JSON.stringify(n1.falas));
+  const n2 = C.responderConversaAgente(a.estado, salvo, { texto: "c" });
+  ok("conversa: a letra da opção vale; o nível 2 pergunta o limite antes de gravar",
+    !n2.salvar && n2.estado.etapa === "limite_valor" && n2.estado.rascunho.nivel === 2);
+  const v = C.responderConversaAgente(n2.estado, salvo, { texto: "R$ 1.500" });
+  const d = C.responderConversaAgente(v.estado, salvo, { opcao: "dia:20" });
+  ok("conversa: limite por ação escrito e por dia clicado vão para a configuração",
+    v.estado.rascunho.limiteValor === 1500 && d.salvar?.limiteValor === 1500 && d.salvar.limiteDia === 20 && d.salvar.nivel === 2,
+    JSON.stringify(d.salvar));
+  ok("conversa: valor que não é valor pergunta de novo, sem gravar",
+    C.responderConversaAgente(n2.estado, salvo, { texto: "muito" }).estado.etapa === "limite_valor"
+    && !C.responderConversaAgente(n2.estado, salvo, { texto: "muito" }).salvar);
+  ok("conversa: lê '2 mil' e '2.000,50'", C.lerValor("2 mil") === 2000 && C.lerValor("2.000,50") === 2000.5 && C.lerValor("abc") === null);
+  const ligado = { ...salvo, ativo: true, nivel: 1 as const };
+  const al = C.abrirConversaAgente(ligado);
+  const pl = al.falas.find((f) => f.pergunta)!.pergunta!;
+  ok("conversa: ligado, oferece deixar como está e desligar",
+    pl.opcoes.some((o) => o.id === "manter") && pl.opcoes.some((o) => o.id === "desligar"));
+  const des = C.responderConversaAgente(al.estado, ligado, { texto: "desligar" });
+  ok("conversa: desligar grava desligado", des.salvar?.ativo === false);
+  const mant = C.responderConversaAgente(al.estado, ligado, { opcao: "manter" });
+  ok("conversa: deixar como está não grava nada", !mant.salvar && mant.estado.etapa === "pronto");
+  const cp2 = cp("contas_pagar");
+  ok("conversa: contas a pagar, caixa e fechamento nunca oferecem passar do nível 1 (espelho do banco)",
+    (["contas_pagar", "caixa", "fechamento"] as const).every((id) => {
+      const o = C.abrirConversaAgente({ ...cp(id) }).falas.find((f) => f.pergunta)?.pergunta?.opcoes ?? [];
+      return o.every((x) => !/^nivel:[23]$/.test(x.id));
+    }) && !C.responderConversaAgente({ etapa: "nivel", rascunho: cp2 }, cp2, { opcao: "nivel:3" }).salvar);
+  ok("conversa: cada agente tem ícone e cor do DS",
+    ids.every((id) => /^var\(--color-agente-[a-z-]+\)$/.test(C.PERFIS[id].cor) && ler("src/app/globals.css").includes(`${C.PERFIS[id].cor.slice(4, -1)}:`)));
+
+  const nav = ler("src/components/dashboard/nav-data.ts");
+  ok("menu: Quattro AI é item do menu principal e leva à tela dos agentes",
+    /\{ id: "quattro-ai", label: "Quattro AI", icon: "sparkles", href: "\/quattro-ai"/.test(nav) && !/label: "Quattro AI",[^}]*event: "a4p:open-ia"/.test(nav));
+  ok("automações: os agentes saíram dela (uma morada só, na tela da Quattro AI)",
+    !/Agentes|AgentesView/.test(ler("src/app/automacoes/page.tsx").replace(/\/\*[\s\S]*?\*\//g, "")) && !existsSync(join(raiz, "src/components/agentes/AgentesView.tsx")));
+  const chat = ler("src/components/ia/ChatAgente.tsx");
+  ok("chat do agente: grava pelo escritor de sempre e decide pela função do banco",
+    /await salvarAgente\(passo\.salvar\)/.test(chat) && /decidirProposta\(p\.id, aprovar\)/.test(chat) && !/from\("agentes"\)/.test(chat));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }
