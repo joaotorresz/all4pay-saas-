@@ -392,6 +392,17 @@
         "impacto": "Até ser aplicada, o aviso de pago recebe 503 e a Pinbank reenvia; a rota está atrás de PINBANK_LIQUIDACAO=ligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (link de pagamento: a entrada do aviso da Pinbank)"
+      },
+      {
+        "nome": "20261104180000_service_role_le_cadastros_dos_gatilhos",
+        "motivo": "Dá à chave de serviço só a LEITURA de categories e projects, que os gatilhos não-definer de movements leem quando o cron de recorrências grava. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "grant select em categories para service_role",
+          "grant select em projects para service_role"
+        ],
+        "impacto": "Até ser aplicada, toda recorrência com categoria ou projeto falha no cron (42501) e não vira conta; as sem categoria seguem sendo geradas.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (roteiro do dono: o cron de recorrências gerando as contas)"
       }
     ],
     "objetos_sem_migration": [
