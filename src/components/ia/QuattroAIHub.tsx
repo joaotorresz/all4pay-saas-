@@ -24,6 +24,7 @@ import { IDS_AGENTE, descricaoDe, type IdAgente } from "@/core/agentes";
 import { loadCompany } from "@/lib/company";
 import { AvatarAgente } from "./AvatarAgente";
 import { ChatAgente } from "./ChatAgente";
+import { ChatTelaCheia } from "./ChatTelaCheia";
 import { hrefDoHub, useAgentesDoHub, type SelecaoHub as Selecao } from "./useAgentesDoHub";
 
 function usePrimeiroNome(): string | null {
@@ -36,13 +37,16 @@ function usePrimeiroNome(): string | null {
   return nome;
 }
 
-export function QuattroAIHub({ aoPerguntar }: { aoPerguntar: (pergunta?: string) => void }) {
+export function QuattroAIHub({ chegada }: {
+  /** Pergunta que chegou pelo endereço (`?q=`/`?widget=`): abre a conversa já com ela. */
+  chegada?: { q?: string; n: number } | null;
+}) {
   const sp = useSearchParams();
   const router = useRouter();
   const nome = usePrimeiroNome();
   const { configs, propostas, pendentes, porAgente, configDe, estadoDe, resumoIA } = useAgentesDoHub();
   const pedida = sp.get("agente");
-  const selecao: Selecao | null = pedida && (IDS_AGENTE as readonly string[]).includes(pedida) ? (pedida as IdAgente) : pedida === "quattro-ai" ? "quattro-ai" : null;
+  const selecao: Selecao | null = pedida && (IDS_AGENTE as readonly string[]).includes(pedida) ? (pedida as IdAgente) : pedida === "quattro-ai" || chegada ? "quattro-ai" : null;
   const ativa: Selecao = selecao ?? "quattro-ai";
   const ir = (s: Selecao | null) => router.replace(hrefDoHub(s), { scroll: false });
 
@@ -60,9 +64,10 @@ export function QuattroAIHub({ aoPerguntar }: { aoPerguntar: (pergunta?: string)
     </nav>
   );
 
+  // A Quattro AI abre JÁ como conversa (04/11/2026): o mesmo chat de sempre,
+  // embutido na tela, sem cobrir o menu.
   const painel = ativa === "quattro-ai" ? (
-    <PainelQuattroAI nome={nome} aoPerguntar={aoPerguntar} pendentes={IDS_AGENTE.map((id) => ({ id, n: porAgente(id) })).filter((x) => x.n > 0)}
-      abrirAgente={(id) => ir(id)} aoVoltar={() => ir(null)} />
+    <ChatTelaCheia key={chegada?.n ?? 0} embutido pergunta={chegada?.q} aoFechar={() => ir(null)} />
   ) : configs.isLoading || propostas.isLoading ? (
     <div className="p-6 text-caption text-muted">Carregando…</div>
   ) : configs.error ? (
@@ -72,7 +77,7 @@ export function QuattroAIHub({ aoPerguntar }: { aoPerguntar: (pergunta?: string)
   );
 
   return (
-    <div className="grid gap-4 h-[calc(100dvh-300px)] md:h-[calc(100dvh-180px)] min-h-[480px]" data-tela="quattro-ai">
+    <div className="grid gap-4 h-[calc(100dvh-180px)] md:h-[calc(100dvh-64px)] min-h-[480px]" data-tela="quattro-ai">
       <div className={`md:hidden bg-white rounded-[24px] overflow-y-auto ${selecao ? "hidden" : ""}`}>{lista}</div>
       <div className={`bg-white rounded-[24px] min-h-0 overflow-hidden ${selecao ? "" : "hidden md:block"}`}>{painel}</div>
     </div>
@@ -96,65 +101,5 @@ function ItemLista({ ativo, onClick, avatar, titulo, sub, destaque, id }: {
         </span>
       )}
     </button>
-  );
-}
-
-function PainelQuattroAI({ nome, aoPerguntar, pendentes, abrirAgente, aoVoltar }: {
-  nome: string | null;
-  aoPerguntar: (pergunta?: string) => void;
-  pendentes: { id: IdAgente; n: number }[];
-  abrirAgente: (id: IdAgente) => void;
-  aoVoltar: () => void;
-}) {
-  const [texto, setTexto] = React.useState("");
-  return (
-    <section className="flex flex-col h-full min-h-0" aria-label="Quattro AI" data-painel="quattro-ai">
-      <header className="flex items-center gap-3 px-5 py-4 border-b border-border-soft">
-        <button type="button" onClick={aoVoltar} aria-label="Voltar à lista" className="md:hidden w-9 h-9 -ml-2 rounded-pill flex items-center justify-center text-ink">
-          <Icon name="chevron-left" size={20} />
-        </button>
-        <AvatarAgente agente="quattro-ai" tamanho={36} />
-        <div className="min-w-0">
-          <h2 className="m-0 text-label text-ink">Quattro AI</h2>
-          <p className="m-0 text-caption text-muted truncate">Responde sobre os seus números e passa cada tarefa ao agente certo</p>
-        </div>
-      </header>
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[680px] px-5 py-6 flex flex-col gap-3">
-          <div className="self-start bg-surface-2 rounded-[20px] px-5 py-3 text-[15px] text-ink max-w-[92%]">
-            Oi{nome ? `, ${nome}` : ""}! Eu respondo sobre o caixa, o resultado e os vencimentos. Cada tarefa tem um agente,
-            e cada um tem o próprio chat.
-          </div>
-          {pendentes.length > 0 ? (
-            <div className="self-start bg-white border border-border-soft rounded-[20px] px-5 py-4 flex flex-col gap-1 w-full max-w-[92%]" data-esperando>
-              <p className="m-0 mb-2 text-label text-ink font-medium">Esperando você</p>
-              {pendentes.map(({ id, n }) => (
-                <button key={id} type="button" onClick={() => abrirAgente(id)}
-                  className="flex items-center gap-3 text-left rounded-[12px] px-2 py-2 -mx-2 hover:bg-surface-2 transition-colors">
-                  <AvatarAgente agente={id} tamanho={28} />
-                  <span className="flex-1 text-[15px] text-ink">{descricaoDe(id).nome}</span>
-                  <span className="text-caption text-muted tabular-nums">{n} para aprovar</span>
-                  <Icon name="chevron-right" size={16} className="text-faint" />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="self-start bg-surface-2 rounded-[20px] px-5 py-3 text-[15px] text-ink max-w-[92%]">
-              Nada esperando a sua aprovação agora.
-            </div>
-          )}
-        </div>
-      </div>
-      <form className="px-5 pb-5 pt-2 md:pr-28" onSubmit={(e) => { e.preventDefault(); aoPerguntar(texto.trim() || undefined); setTexto(""); }}>
-        <div className="mx-auto w-full max-w-[680px] flex items-center gap-2 bg-white rounded-pill pl-5 pr-2 h-[52px] a4p-pilula">
-          <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Pergunte à Quattro AI"
-            aria-label="Pergunte à Quattro AI"
-            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-ink placeholder:text-placeholder" />
-          <button type="submit" aria-label="Perguntar" className="w-9 h-9 rounded-pill flex items-center justify-center bg-ink text-white">
-            <Icon name="arrow-up" size={18} color="currentColor" />
-          </button>
-        </div>
-      </form>
-    </section>
   );
 }

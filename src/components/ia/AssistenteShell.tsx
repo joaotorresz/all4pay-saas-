@@ -9,14 +9,13 @@
  * cartão na resposta. A tela completa de cada um segue no endereço dela, Pro
  * pelo servidor, e o cartão leva até lá.
  *
- * Esta página é a TELA DA QUATTRO AI (04/11/2026): a IA no alto e os agentes
- * embaixo, cada um com o próprio chat (`QuattroAIHub`). Perguntar à Quattro AI
- * abre o MESMO chat em tela cheia de sempre, e a chegada com `?q=` (ou o
- * motor de `?widget=`) abre o chat direto, uma vez, limpando o endereço.
+ * Esta página é a TELA DA QUATTRO AI (04/11/2026): ela abre JÁ como conversa
+ * (o mesmo chat de sempre, embutido) e cada agente tem o próprio chat
+ * (`QuattroAIHub`). A chegada com `?q=` (ou o motor de `?widget=`) entra como a
+ * primeira pergunta, uma vez, limpando o endereço.
  */
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import { ChatTelaCheia } from "./ChatTelaCheia";
 import { widgetValido, widgetDoCatalogo } from "@/core/assistant/widgets";
 import { QuattroAIHub } from "./QuattroAIHub";
 
@@ -36,9 +35,6 @@ export function AssistenteShell() {
   }, [sp]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <QuattroAIHub aoPerguntar={(q) => setChat((c) => ({ q, n: (c?.n ?? 0) + 1 }))} />
-      {chat && <ChatTelaCheia key={chat.n} pergunta={chat.q} aoFechar={() => setChat(null)} />}
-    </div>
+    <QuattroAIHub chegada={chat} />
   );
 }

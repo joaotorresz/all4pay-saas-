@@ -120,8 +120,14 @@ function usePrimeiroNome(): string | null {
 }
 
 export function ChatTelaCheia({
-  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa, completar,
+  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa, completar, embutido = false,
 }: {
+  /**
+   * Dentro da tela da Quattro AI (04/11/2026, pedido do dono: "a página abra
+   * como se já fosse um chat"): o MESMO chat, no lugar, sem cobrir o menu —
+   * sem portal, sem trava de rolagem, sem "Fechar chat" e sem Esc.
+   */
+  embutido?: boolean;
   /** "Vamos completar seu cadastro": a conversa pergunta o que a abertura deixou para depois. */
   completar?: boolean;
   /** Abre esta conversa do histórico (o menu lateral lista as recentes). */
@@ -200,12 +206,13 @@ export function ChatTelaCheia({
   React.useEffect(() => {
     setMontado(true);
     window.setTimeout(() => campoRef.current?.focus(), 50);
+    if (embutido) return;
     const antes = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const tecla = (e: KeyboardEvent) => { if (e.key === "Escape") fechar(); };
     window.addEventListener("keydown", tecla);
     return () => { document.body.style.overflow = antes; window.removeEventListener("keydown", tecla); };
-  }, [fechar]);
+  }, [fechar, embutido]);
 
   // A conversa sobe a ÚLTIMA PERGUNTA para o alto da tela, com a resposta
   // logo abaixo dela — nunca rola até o fim: com "Veja tudo o que eu faço"
@@ -329,15 +336,30 @@ export function ChatTelaCheia({
   const vazio = chat.turnos.length === 0 && !chat.pergunta && !chat.pensando;
   const perguntadas = new Set([...chat.turnos.map((t) => t.q), ...(chat.pergunta ? [chat.pergunta] : [])]);
 
-  return createPortal(
+  const tela_ = (
     <div
-      role="dialog"
-      aria-modal="true"
+      role={embutido ? "region" : "dialog"}
+      aria-modal={embutido ? undefined : true}
       aria-label="Conversa com a Quattro AI"
       data-saindo={saindo || undefined}
-      className="a4p-chat-tela fixed inset-0 z-[90] flex flex-col"
-      style={{ background: "var(--color-surface-1)" }}
+      data-chat-embutido={embutido || undefined}
+      className={embutido ? "flex flex-col h-full min-h-0" : "a4p-chat-tela fixed inset-0 z-[90] flex flex-col"}
+      style={{ background: embutido ? "var(--color-white)" : "var(--color-surface-1)" }}
     >
+      {embutido ? (
+        <header className="flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
+          <button
+            type="button"
+            onClick={() => setHistorico((h) => !h)}
+            aria-expanded={historico}
+            aria-controls="a4p-chat-conversas"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula"
+          >
+            <Icon name="menu" size={16} strokeWidth={1.5} />
+            Conversas
+          </button>
+        </header>
+      ) : (
       <header className="flex-none flex items-center justify-between gap-3 px-6 md:px-10 pt-8 pb-4">
         {/* A logo leva à Home, como a da barra de cima: o chat cobre a tela
             inteira, e sem isto a única saída era "Fechar chat". */}
@@ -365,6 +387,7 @@ export function ChatTelaCheia({
           </button>
         </div>
       </header>
+      )}
 
       {ajuste ? (
         <ConversaDeAjuste ajuste={ajuste} nome={nome} campoRef={campoRef} aoVerHome={fechar} />
@@ -594,9 +617,9 @@ export function ChatTelaCheia({
       {fala.erro && <p role="alert" className="flex-none m-0 mb-1 text-center text-[13px] text-negative">{fala.erro}</p>}
       </>)}
       <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
-    </div>,
-    document.body,
+    </div>
   );
+  return embutido ? tela_ : createPortal(tela_, document.body);
 }
 
 /** A pergunta de quem usa: balão à direita, como no modelo. */

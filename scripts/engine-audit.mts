@@ -8582,8 +8582,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /\{ id: "quattro-ai", label: "Quattro AI", icon: "sparkles", href: "\/quattro-ai"/.test(navIA)
      && /<QuattroAIHub /.test(semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"))));
   const shellIA = semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"));
+  // ⚠️ MUDOU em 04/11/2026 (pedido do dono): a página abre JÁ como conversa, o
+  // MESMO ChatTelaCheia embutido na tela (no QuattroAIHub), sem abas.
+  const hubIA = semComentIA(srcIA("src/components/ia/QuattroAIHub.tsx"));
   ok("ia: /quattro-ai abre o chat, sem abas (os motores são páginas desde 27/10/2026)",
-     !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && !/setAba|aria-current/.test(shellIA));
+     !/id: "conversa"/.test(shellIA) && /<QuattroAIHub /.test(shellIA) && /<ChatTelaCheia [^>]*embutido/.test(hubIA) && !/setAba/.test(shellIA + hubIA));
   const homeIA = semComentIA(srcIA("src/components/visao-geral/HomeSnapshot.tsx"));
   ok("ia: a caixa da Home abre o MESMO chat global (nenhum chat próprio montado nela)",
      /abrirChat\(\{/.test(homeIA) && !/<ChatTelaCheia/.test(homeIA) && !/href="\/quattro-ai"/.test(homeIA));

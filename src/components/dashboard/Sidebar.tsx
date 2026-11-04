@@ -325,14 +325,17 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
   return (
     <div ref={caixa} className="flex flex-col">
       <span {...entra()} aria-hidden className="a4p-menu-divisor" />
-      <div {...entra()} className="flex items-center justify-between pl-4 mt-2 mb-3">
+      {/* As conversas e os agentes num cartão BRANCO dentro do menu escuro
+          (pedido do dono, 04/11/2026). */}
+      <div className="mt-2 rounded-[20px] bg-white text-ink p-2 flex flex-col" data-menu-conversas>
+      <div {...entra()} className="flex items-center justify-between pl-3 mt-1 mb-2">
         <span className="text-[15px] font-semibold">Conversas</span>
         <button
           type="button"
           onClick={() => abrirChat()}
           aria-label="Nova conversa com a Quattro AI"
           title="Nova conversa"
-          className="a4p-menu-quadrado w-10 h-10 rounded-[12px] inline-flex items-center justify-center transition-colors"
+          className="bg-surface-1 text-ink hover:bg-surface-2 w-10 h-10 rounded-[12px] inline-flex items-center justify-center transition-colors"
         >
           <Icon name="plus" size={18} color="currentColor" />
         </button>
@@ -340,7 +343,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
       <AgentesDoMenu entra={entra} />
       <label {...entra()} className="relative block mb-2">
         <span className="sr-only">Buscar conversa</span>
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 a4p-menu-meta pointer-events-none">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
           <Icon name="search" size={16} color="currentColor" />
         </span>
         <input
@@ -348,11 +351,11 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
           placeholder="Buscar conversa"
-          className="a4p-menu-busca w-full h-11 rounded-[14px] pl-11 pr-3 text-[14px]"
+          className="bg-surface-1 text-ink placeholder:text-placeholder outline-none w-full h-11 rounded-[14px] pl-11 pr-3 text-[14px]"
         />
       </label>
       {visiveis.length === 0 ? (
-        <p {...entra()} className="a4p-menu-meta m-0 px-4 py-2 text-[13px]">
+        <p {...entra()} className="text-muted m-0 px-4 py-2 text-[13px]">
           {q ? "Nenhuma conversa com esse nome." : "Suas conversas com a Quattro AI aparecem aqui."}
         </p>
       ) : (
@@ -361,14 +364,14 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
             const marcada = opcoes === c.id;
             return (
               <li key={c.id} {...entra()} className="relative">
-                <div className={cn("group flex items-center rounded-[14px] transition-colors", marcada ? "a4p-menu-afundado" : "a4p-menu-item")}>
+                <div className={cn("group flex items-center rounded-[14px] transition-colors", marcada ? "bg-surface-1 text-ink" : "text-ink hover:bg-surface-1")}>
                   <button
                     type="button"
                     onClick={() => abrirChat({ conversa: c.id })}
                     title={c.titulo}
                     className="flex-1 min-w-0 flex items-center gap-3 min-h-[44px] pl-4 text-left text-[14px] font-medium"
                   >
-                    <Icon name="layers" size={16} color="var(--erp-menu-texto-2)" className="shrink-0" />
+                    <Icon name="layers" size={16} color="var(--color-text-tertiary)" className="shrink-0" />
                     <span className="truncate">{c.titulo}</span>
                   </button>
                   <button
@@ -376,7 +379,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
                     onClick={() => { setOpcoes(marcada ? null : c.id); setConfirmar(null); }}
                     aria-label={`Mais opções de ${c.titulo}`}
                     aria-expanded={marcada}
-                    className="w-10 h-10 shrink-0 inline-flex items-center justify-center a4p-menu-meta rounded-[10px]"
+                    className="w-10 h-10 shrink-0 inline-flex items-center justify-center text-muted rounded-[10px]"
                   >
                     <Icon name="more-horizontal" size={16} color="currentColor" />
                   </button>
@@ -412,6 +415,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           })}
         </ul>
       )}
+      </div>
     </div>
   );
 }
@@ -439,14 +443,14 @@ function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style:
         return (
           <li key={it.id} {...entra()}>
             <Link href={hrefDoHub(it.id)} aria-current={on ? "page" : undefined} title={it.nome} data-item={it.id}
-              className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "a4p-menu-afundado" : "a4p-menu-item")}>
+              className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "bg-surface-1 text-ink" : "text-ink hover:bg-surface-1")}>
               <AvatarAgente agente={it.id} tamanho={30} />
               <span className="flex-1 min-w-0">
                 <span className="block truncate text-[14px] font-medium">{it.nome}</span>
-                <span className="block truncate text-[12px] a4p-menu-meta">{it.sub}</span>
+                <span className="block truncate text-[12px] text-muted">{it.sub}</span>
               </span>
               {it.n > 0 && (
-                <span className="shrink-0 min-w-[20px] h-[20px] px-[6px] rounded-pill bg-white text-ink text-[12px] flex items-center justify-center tabular-nums"
+                <span className="shrink-0 min-w-[20px] h-[20px] px-[6px] rounded-pill bg-ink text-white text-[12px] flex items-center justify-center tabular-nums"
                   aria-label={`${it.n} para aprovar`}>{it.n}</span>
               )}
             </Link>
