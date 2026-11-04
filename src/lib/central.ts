@@ -24,7 +24,7 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
-import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/filtros";
 import { ordenarFila, diasParado, type Situacao } from "@/core/central";
 import { formatBRL } from "@/lib/format";
 

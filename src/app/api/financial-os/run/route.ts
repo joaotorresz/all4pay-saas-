@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { recusaDeCron } from "@/lib/cron-auth";
 import { createAdmin } from "@/lib/supabase/admin";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS } from "@/lib/supabase/filtros";
 import { provedorReal, statusNotificacoes } from "@/core/financial-os/notifications.server";
 import {
   hojeEm, mensagensDoDia, despachar, relatorioVazio, type ConfigAutomacao,
