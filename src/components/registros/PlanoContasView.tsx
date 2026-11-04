@@ -24,7 +24,7 @@
  */
 import * as React from "react";
 import { abrirCriacao } from "@/components/app/criacao";
-import { Card, Button, Input, Select, Icon } from "@/components/ui";
+import { Card, Button, Input, Select, Icon, Tabela } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { USOS_PADRAO, linhasDREdaNatureza, normalizar, type Natureza } from "@/core/registros";
@@ -224,72 +224,66 @@ function Arvore({ cats, carregando, carregado }: { cats: CategoriaCadastro[]; ca
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <th className="px-6 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">ID</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint w-[100px]">Código</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Categoria</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Linha do DRE</th>
-                  <th className="px-6 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiveis.map(({ item: cat, nivel }) => {
-                  const grupo = grupos.has(cat.id);
-                  const linha = rotuloLinha(cat.dreLinha, cat.natureza);
-                  return (
-                    <tr key={cat.id} className={`border-b border-border-soft last:border-0 ${grupo ? "bg-surface-2/60" : ""}`}>
-                      <td className="px-6 py-[10px]"><IdCopiavel id={cat.id} /></td>
-                      <td className="px-4 py-[10px] text-caption text-muted tabular-nums">{cat.codigo || "—"}</td>
-                      <td className="px-4 py-[10px]">
-                        <div className="flex items-center gap-2" style={{ paddingLeft: nivel * 20 }}>
-                          {/* O fio de cor é o sinal da natureza — não um fundo colorido. */}
-                          <span className="w-[3px] self-stretch min-h-[18px] rounded-pill shrink-0" style={{ background: COR[cat.natureza] }} />
-                          {grupo ? (
-                            <button onClick={() => alternar(cat.id)} aria-label="Recolher/expandir" className="text-muted hover:text-ink">
-                              <Icon name={recolhidos.has(cat.id) ? "chevron-right" : "chevron-down"} size={14} color="currentColor" />
-                            </button>
-                          ) : <span className="w-[14px]" />}
-                          <span className={`text-label ${grupo ? "font-semibold" : ""} ${cat.ativo ? "text-ink" : "text-faint"}`}>{cat.nome}</span>
-                          {!cat.ativo && <span className="text-caption text-faint">(inativa)</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-[10px] text-caption text-muted">
-                        {grupo ? <span className="text-faint">grupo</span> : (linha ?? <span className="text-faint">pelo nome (palpite)</span>)}
-                      </td>
-                      <td className="px-6 py-[10px]">
-                        <div className="flex items-center justify-end gap-1">
-                          {nivel === 0 && (
-                            <Button variant="ghost" onClick={() => setEditando(nova(cat.id, cat.natureza))}>
-                              <Icon name="plus" size={14} color="currentColor" />
-                              Subcategoria
-                            </Button>
-                          )}
-                          <AcaoLinha label="Editar" icone="edit" onClick={() => setEditando(cat)} />
-                          <AcaoLinha
-                            label={cat.ativo ? "Desativar" : "Reativar"}
-                            icone={cat.ativo ? "eye-off" : "eye"}
-                            onClick={() => ativar.mutate({ id: cat.id, ativo: !cat.ativo }, {
-                              onSuccess: () => show(cat.ativo ? `"${cat.nome}" desativada — sai das escolhas, o histórico fica.` : `"${cat.nome}" reativada.`),
-                              onError: (e) => show(erroTexto(e)),
-                            })}
-                          />
-                          <AcaoLinha
-                            label={excluindo === cat.id ? "Contando lançamentos…" : "Excluir"}
-                            icone="trash-2"
-                            perigo
-                            onClick={() => { if (!excluindo) void excluir(cat); }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={visiveis}
+            chave={({ item }) => item.id}
+            emCartao={false}
+            rotulo="Plano de contas"
+            classeDaLinha={({ item }) => (grupos.has(item.id) ? "bg-surface-2/60" : "")}
+            colunas={[
+              { chave: "id", rotulo: "ID", ocultarNoCelular: true, render: ({ item: cat }) => <IdCopiavel id={cat.id} /> },
+              { chave: "codigo", rotulo: "Código", classe: "w-[100px]", render: ({ item: cat }) => <span className="text-caption text-muted tabular-nums">{cat.codigo || "—"}</span> },
+              { chave: "categoria", rotulo: "Categoria", principal: true, render: ({ item: cat, nivel }) => {
+                const grupo = grupos.has(cat.id);
+                return (
+                  <div className="flex items-center gap-2" style={{ paddingLeft: nivel * 20 }}>
+                    {/* O fio de cor é o sinal da natureza — não um fundo colorido. */}
+                    <span className="w-[3px] self-stretch min-h-[18px] rounded-pill shrink-0" style={{ background: COR[cat.natureza] }} />
+                    {grupo ? (
+                      <button onClick={(e) => { e.stopPropagation(); alternar(cat.id); }} aria-label="Recolher/expandir" className="text-muted hover:text-ink">
+                        <Icon name={recolhidos.has(cat.id) ? "chevron-right" : "chevron-down"} size={14} color="currentColor" />
+                      </button>
+                    ) : <span className="w-[14px]" />}
+                    <span className={`text-label ${grupo ? "font-semibold" : ""} ${cat.ativo ? "text-ink" : "text-faint"}`}>{cat.nome}</span>
+                    {!cat.ativo && <span className="text-caption text-faint">(inativa)</span>}
+                  </div>
+                );
+              } },
+              { chave: "dre", rotulo: "Linha do DRE", render: ({ item: cat }) => {
+                const linha = rotuloLinha(cat.dreLinha, cat.natureza);
+                return (
+                  <span className="text-caption text-muted">
+                    {grupos.has(cat.id) ? <span className="text-faint">grupo</span> : (linha ?? <span className="text-faint">pelo nome (palpite)</span>)}
+                  </span>
+                );
+              } },
+            ]}
+            acoes={({ item: cat, nivel }) => (
+              <>
+                {nivel === 0 && (
+                  <Button variant="ghost" onClick={() => setEditando(nova(cat.id, cat.natureza))}>
+                    <Icon name="plus" size={14} color="currentColor" />
+                    Subcategoria
+                  </Button>
+                )}
+                <AcaoLinha label="Editar" icone="edit" onClick={() => setEditando(cat)} />
+                <AcaoLinha
+                  label={cat.ativo ? "Desativar" : "Reativar"}
+                  icone={cat.ativo ? "eye-off" : "eye"}
+                  onClick={() => ativar.mutate({ id: cat.id, ativo: !cat.ativo }, {
+                    onSuccess: () => show(cat.ativo ? `"${cat.nome}" desativada — sai das escolhas, o histórico fica.` : `"${cat.nome}" reativada.`),
+                    onError: (e) => show(erroTexto(e)),
+                  })}
+                />
+                <AcaoLinha
+                  label={excluindo === cat.id ? "Contando lançamentos…" : "Excluir"}
+                  icone="trash-2"
+                  perigo
+                  onClick={() => { if (!excluindo) void excluir(cat); }}
+                />
+              </>
+            )}
+          />
         </Card>
       )}
 

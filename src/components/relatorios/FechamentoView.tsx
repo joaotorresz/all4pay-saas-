@@ -14,7 +14,7 @@
  * fica salvo para comparar meses.
  */
 import * as React from "react";
-import { Card, Button, Select, Input, Textarea, Icon, BRL } from "@/components/ui";
+import { Card, Button, Select, Input, Textarea, Icon, BRL, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { baixarDOCX, type BlocoDocx } from "@/lib/docx";
@@ -331,34 +331,24 @@ function Relatorio({
         <div className="px-6 py-4 border-b border-border-soft">
           <span className="text-h3 font-semibold text-ink">DRE comparativa</span>
         </div>
-        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-          <table className="w-full border-collapse text-label">
-            <thead>
-              <tr className="border-b border-border-soft">
-                <th className="px-6 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Linha</th>
-                {f.relatorio.colunas.map((c) => (
-                  <th key={c} className="px-4 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">
-                    {rotuloColuna(c)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {f.relatorio.linhas.map((l) => (
-                <tr key={l.id} className={`border-b border-border-soft last:border-0 ${l.tipo === "total" ? "bg-surface-2/60" : ""}`}>
-                  <td className={`px-6 py-2 ${l.tipo === "total" ? "font-semibold text-ink" : "text-muted"}`}>
-                    <span className="text-faint text-caption mr-2">{l.sinal}</span>{l.label}
-                  </td>
-                  {l.celulas.map((c, k) => (
-                    <td key={k} className={`px-4 py-2 text-right tabular-nums ${l.tipo === "total" ? "font-semibold text-ink" : "text-ink"}`}>
-                      <BRL value={c.valor} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Tabela
+          linhas={f.relatorio.linhas}
+          chave={(l) => l.id}
+          emCartao={false}
+          rotulo="DRE comparativa"
+          classeDaLinha={(l) => (l.tipo === "total" ? "bg-surface-2/60 font-semibold" : "")}
+          colunas={[
+            { chave: "linha", rotulo: "Linha", principal: true, render: (l) => (
+              <span className={l.tipo === "total" ? "font-semibold text-ink" : "text-muted"}>
+                <span className="text-faint text-caption mr-2">{l.sinal}</span>{l.label}
+              </span>
+            ) },
+            ...f.relatorio.colunas.map((c, k) => ({
+              chave: String(c), rotulo: rotuloColuna(c), alinhar: "direita" as const,
+              render: (l: (typeof f.relatorio.linhas)[number]) => <BRL value={l.celulas[k]?.valor ?? 0} />,
+            })),
+          ]}
+        />
       </Card>
     </div>
   );

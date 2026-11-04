@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Skeleton, Icon, Input, Select, Switch, Button, InfoHint } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Input, Select, Switch, Button, InfoHint, Tabela } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useAuditTrail } from "@/components/visao-geral/hooks";
@@ -70,37 +70,21 @@ export function InstitutionalView({ semTrilha = false }: { semTrilha?: boolean }
       {/* RBAC matrix */}
       <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Permissões granulares", oQue: "Mostra quem pode fazer o quê: a matriz de papéis contra ações no sistema.", comoCalcula: "Cada papel tem um conjunto fixo de permissões; a tabela marca onde o papel tem a ação liberada." }}>
         <SectionHead icon="users" title="Permissões granulares (RBAC)" sub="papel × ação" />
-        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-          <table className="w-full border-collapse text-caption">
-            <thead>
-              <tr className="text-faint">
-                <th className="text-left font-medium py-2 pr-3">Papel</th>
-                {PERMS.map((p) => (
-                  <th key={p} className="font-medium py-2 px-2 text-center whitespace-nowrap">{PERM_LABEL[p]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {todosOsPapeis().map((role) => {
-                const perms = permissoesDe(role);
-                return (
-                  <tr key={role} className="border-t border-border-soft">
-                    <td className="py-2 pr-3 text-ink whitespace-nowrap">{ROLE_LABEL[role]}</td>
-                    {PERMS.map((p) => (
-                      <td key={p} className="py-2 px-2 text-center">
-                        {perms.includes(p) ? (
-                          <Icon name="check" size={14} color="var(--color-positive)" />
-                        ) : (
-                          <span className="text-placeholder">–</span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Tabela
+          linhas={todosOsPapeis()}
+          chave={(role) => role}
+          emCartao={false}
+          rotulo="Permissões por papel"
+          colunas={[
+            { chave: "papel", rotulo: "Papel", principal: true, classe: "whitespace-nowrap", render: (role) => ROLE_LABEL[role] },
+            ...PERMS.map((p) => ({
+              chave: p, rotulo: PERM_LABEL[p], alinhar: "centro" as const,
+              render: (role: ReturnType<typeof todosOsPapeis>[number]) => (permissoesDe(role).includes(p)
+                ? <Icon name="check" size={14} color="var(--color-positive)" />
+                : <span className="text-placeholder">–</span>),
+            })),
+          ]}
+        />
       </Card>
 
       {/* Escada de aprovação */}

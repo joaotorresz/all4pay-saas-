@@ -11,7 +11,7 @@
 import * as React from "react";
 import { abrirCriacao } from "@/components/app/criacao";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, DateField, BRL, AcaoDestrutiva } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, DateField, BRL, AcaoDestrutiva, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { Painel } from "@/components/paineis/shared";
 import { baixarXLSX } from "@/lib/xlsx";
@@ -229,106 +229,89 @@ export function ComprasView() {
           </div>
         </Card>
       ) : (
-        <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Número</Th>
-                  <Th>Fornecedor</Th>
-                  <Th>Categoria</Th>
-                  <Th>Vencimento</Th>
-                  <Th>Competência</Th>
-                  <Th>Pagamento</Th>
-                  <Th>Status</Th>
-                  <Th direita>Valor</Th>
-                  <Th direita>Ações</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((c) => {
-                  const parcelas = parcelasDaCompra(c);
-                  return (
-                    <React.Fragment key={c.id}>
-                      <tr className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                        <td className="px-6 py-3 text-label text-ink tabular-nums">{c.numero}</td>
-                        <td className="px-6 py-3 text-label text-ink">{c.fornecedor}</td>
-                        <td className="px-6 py-3 text-label text-muted">{c.categoria}</td>
-                        <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(c.vencimento)}</td>
-                        <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(c.competencia)}</td>
-                        <td className="px-6 py-3 text-label text-muted">
-                          {c.tipoPagamento === "parcelado" ? (
-                            <button
-                              onClick={() => setAberta(aberta === c.id ? null : c.id)}
-                              className="inline-flex items-center gap-[6px] text-muted hover:text-ink transition-colors"
-                            >
-                              {c.parcelas}× <Icon name={aberta === c.id ? "chevron-left" : "chevron-right"} size={12} color="currentColor" />
-                            </button>
-                          ) : "À vista"}
-                          {c.pago && <span className="ml-2 text-caption text-positive">pago</span>}
-                        </td>
-                        <td className="px-6 py-3">
-                          <span className="inline-flex items-center gap-[6px] text-caption text-muted">
-                            <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_STATUS[c.status] }} />
-                            {STATUS_COMPRA.find((s) => s.id === c.status)?.label}
-                          </span>
-                          {c.erroTitulos && (
-                            /* ⚠️ A recusa do banco, com as palavras dele: é o que
-                               diz por que uma compra PAGA ainda não está no caixa. */
-                            <span className="block mt-1 text-caption text-negative max-w-[32ch]">
-                              Os títulos não entraram no caixa: {c.erroTitulos}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={c.valor} /></td>
-                        <td className="px-6 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            {c.status === "aguardando" && (
-                              <>
-                                <Acao label="Aprovar" icone="check" onClick={() => decidir(c.id, "aprovada")} />
-                                <Acao label="Reprovar" icone="x" onClick={() => decidir(c.id, "reprovada")} perigo />
-                              </>
-                            )}
-                            {c.status === "aprovada" && (
-                              <Acao label="Cancelar compra" icone="x" onClick={() => decidir(c.id, "cancelada")} perigo />
-                            )}
-                            <AcaoDestrutiva
-                              rotulo="Excluir"
-                              titulo={`Excluir a compra ${c.numero}?`}
-                              descricao={c.status === "aprovada"
-                                ? `As ${parcelas.length === 1 ? "parcela prevista sai" : `${parcelas.length} parcelas previstas saem`} de contas a pagar. Parcela já paga não é apagada: a exclusão é recusada até o pagamento ser estornado.`
-                                : "A compra sai da lista. Ela ainda não tinha títulos no caixa."}
-                              confirmarRotulo="Excluir"
-                              onConfirmar={() => excluir(c)}
-                              className="px-2 py-[6px] rounded-md text-caption text-muted hover:text-negative hover:bg-surface-2 transition-colors"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                      {aberta === c.id && (
-                        <tr className="border-b border-border-soft bg-surface-2/40">
-                          <td colSpan={9} className="px-6 py-4">
-                            <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
-                              Parcelas geradas
-                            </span>
-                            <div className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
-                              {parcelas.map((p) => (
-                                <span key={p.numero} className="text-caption text-muted tabular-nums">
-                                  {p.numero}/{parcelas.length} · {fmtDia(p.vencimento)} · <BRL value={p.valor} />
-                                </span>
-                              ))}
-                            </div>
-
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <Tabela
+          linhas={lista}
+          chave={(c) => c.id}
+          rotulo="Tabela rolável"
+          colunas={[
+            { chave: "numero", rotulo: "Número", render: (c) => <span className="tabular-nums">{c.numero}</span> },
+            { chave: "fornecedor", rotulo: "Fornecedor", principal: true, render: (c) => c.fornecedor },
+            { chave: "categoria", rotulo: "Categoria", render: (c) => <span className="text-muted">{c.categoria}</span> },
+            { chave: "vencimento", rotulo: "Vencimento", render: (c) => <span className="text-muted tabular-nums">{fmtDia(c.vencimento)}</span> },
+            { chave: "competencia", rotulo: "Competência", render: (c) => <span className="text-muted tabular-nums">{fmtDia(c.competencia)}</span> },
+            { chave: "pagamento", rotulo: "Pagamento", render: (c) => (
+              <span className="text-muted">
+                {c.tipoPagamento === "parcelado" ? (
+                  <button
+                    onClick={() => setAberta(aberta === c.id ? null : c.id)}
+                    className="inline-flex items-center gap-[6px] text-muted hover:text-ink transition-colors"
+                  >
+                    {c.parcelas}× <Icon name={aberta === c.id ? "chevron-left" : "chevron-right"} size={12} color="currentColor" />
+                  </button>
+                ) : "À vista"}
+                {c.pago && <span className="ml-2 text-caption text-positive">pago</span>}
+              </span>
+            ) },
+            { chave: "status", rotulo: "Status", render: (c) => (
+              <>
+                <span className="inline-flex items-center gap-[6px] text-caption text-muted">
+                  <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_STATUS[c.status] }} />
+                  {STATUS_COMPRA.find((s) => s.id === c.status)?.label}
+                </span>
+                {c.erroTitulos && (
+                  /* ⚠️ A recusa do banco, com as palavras dele: é o que
+                     diz por que uma compra PAGA ainda não está no caixa. */
+                  <span className="block mt-1 text-caption text-negative max-w-[32ch]">
+                    Os títulos não entraram no caixa: {c.erroTitulos}
+                  </span>
+                )}
+              </>
+            ) },
+            { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (c) => <BRL value={c.valor} /> },
+          ]}
+          acoes={(c) => {
+            const parcelas = parcelasDaCompra(c);
+            return (
+              <>
+                {c.status === "aguardando" && (
+                  <>
+                    <Acao label="Aprovar" icone="check" onClick={() => decidir(c.id, "aprovada")} />
+                    <Acao label="Reprovar" icone="x" onClick={() => decidir(c.id, "reprovada")} perigo />
+                  </>
+                )}
+                {c.status === "aprovada" && (
+                  <Acao label="Cancelar compra" icone="x" onClick={() => decidir(c.id, "cancelada")} perigo />
+                )}
+                <AcaoDestrutiva
+                  rotulo="Excluir"
+                  titulo={`Excluir a compra ${c.numero}?`}
+                  descricao={c.status === "aprovada"
+                    ? `As ${parcelas.length === 1 ? "parcela prevista sai" : `${parcelas.length} parcelas previstas saem`} de contas a pagar. Parcela já paga não é apagada: a exclusão é recusada até o pagamento ser estornado.`
+                    : "A compra sai da lista. Ela ainda não tinha títulos no caixa."}
+                  confirmarRotulo="Excluir"
+                  onConfirmar={() => excluir(c)}
+                  className="px-2 py-[6px] rounded-md text-caption text-muted hover:text-negative hover:bg-surface-2 transition-colors"
+                />
+              </>
+            );
+          }}
+          detalhe={(c) => {
+            if (aberta !== c.id) return null;
+            const parcelas = parcelasDaCompra(c);
+            return (
+              <>
+                <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Parcelas geradas</span>
+                <div className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
+                  {parcelas.map((p) => (
+                    <span key={p.numero} className="text-caption text-muted tabular-nums">
+                      {p.numero}/{parcelas.length} · {fmtDia(p.vencimento)} · <BRL value={p.valor} />
+                    </span>
+                  ))}
+                </div>
+              </>
+            );
+          }}
+        />
       )}
       {node}
     </div>
@@ -353,14 +336,6 @@ function Faixa({
       </div>
     </div>
 
-  );
-}
-
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
   );
 }
 

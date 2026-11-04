@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Select, BRL, Skeleton } from "@/components/ui";
+import { Card, Button, Icon, Select, BRL, Skeleton, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList } from "@/components/lancamentos/hooks";
@@ -285,33 +285,24 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
                 {gravando ? "Importando…" : `Importar ${validas.length} ${validas.length === 1 ? "registro" : "registros"}`}
               </Button>
             </div>
-            <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
-              <table className="w-full border-collapse">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b border-border-soft">
-                    <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint w-[60px]">Linha</th>
-                    {modelo.colunas.map((c) => (
-                      <th key={c} className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">{c}</th>
-                    ))}
-                    <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Situação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhas.map((l) => (
-                    <tr key={l.n} className={`border-b border-border-soft last:border-0 ${l.erro ? "bg-negative/[0.04]" : ""}`}>
-                      <td className="px-4 py-2 text-caption text-faint tabular-nums">{l.n}</td>
-                      {modelo.colunas.map((_, i) => (
-                        <td key={i} className="px-4 py-2 text-label text-ink truncate max-w-[24ch]">{l.campos[i] ?? ""}</td>
-                      ))}
-                      <td className="px-4 py-2">
-                        {l.erro
-                          ? <span className="text-caption text-negative">{l.erro}</span>
-                          : <span className="text-caption text-positive">Pronta</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="max-h-[460px] overflow-y-auto">
+              <Tabela
+                linhas={linhas}
+                chave={(l) => String(l.n)}
+                emCartao={false}
+                rotulo="Prévia da importação"
+                classeDaLinha={(l) => (l.erro ? "bg-negative/[0.04]" : "")}
+                colunas={[
+                  { chave: "n", rotulo: "Linha", classe: "w-[60px]", render: (l) => <span className="text-caption text-faint tabular-nums">{l.n}</span> },
+                  ...modelo.colunas.map((c, i) => ({
+                    chave: `c${i}`, rotulo: c, principal: i === 0, classe: "truncate max-w-[24ch]",
+                    render: (l: (typeof linhas)[number]) => l.campos[i] ?? "",
+                  })),
+                  { chave: "situacao", rotulo: "Situação", render: (l) => (l.erro
+                    ? <span className="text-caption text-negative">{l.erro}</span>
+                    : <span className="text-caption text-positive">Pronta</span>) },
+                ]}
+              />
             </div>
           </Card>
 
