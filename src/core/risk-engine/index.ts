@@ -13,6 +13,7 @@ import { calcularRiscoInadimplencia } from "./inadimplencia.engine";
 import { calcularSazonalidade } from "./sazonalidade.engine";
 import { simularCenarios } from "./stress.engine";
 import { calcularScore } from "./score.engine";
+import { HORIZONTE_RUPTURA_DIAS } from "./horizonte";
 import { narrativaExecutiva } from "@/core/ai/narrativa-financeira";
 import { fatoresCriticos } from "@/core/ai/insights";
 import { gerarAlertas } from "@/core/ai/alertas";
@@ -25,10 +26,16 @@ export function scoreRiscoCaixa(input: RiskInput): ScoreDetalhado {
   const inadimplencia = calcularRiscoInadimplencia(input);
   const sazonalidade = calcularSazonalidade(input);
   const stress = simularCenarios(input, burn);
+  // A ruptura que entra no score e na chance é a do horizonte FIXO; a projeção
+  // da tela (pontos, rupturaDia) segue o período que ela pediu.
+  const rupturaNoHorizonte =
+    (input.horizonDias ?? HORIZONTE_RUPTURA_DIAS) === HORIZONTE_RUPTURA_DIAS
+      ? rupturaDia
+      : calcularLiquidezProjetada({ ...input, horizonDias: HORIZONTE_RUPTURA_DIAS }).rupturaDia;
   const sp = calcularScore(input, {
     burn,
     runway,
-    rupturaDia,
+    rupturaDia: rupturaNoHorizonte,
     concentracao,
     inadimplencia,
     sazonalidade,
@@ -63,4 +70,5 @@ export function scoreRiscoCaixa(input: RiskInput): ScoreDetalhado {
 }
 
 export type { ScoreRisco, ScoreDetalhado, RiskInput } from "./types";
+export { HORIZONTE_RUPTURA_DIAS, ROTULO_HORIZONTE_RUPTURA } from "./horizonte";
 export { scoreRiscoCaixa as default };

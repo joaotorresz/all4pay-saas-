@@ -5487,9 +5487,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
    * rótulos quase idênticos; declarar só uma faria a página de metodologia
    * explicar um número e legitimar o outro por tabela.
    */
-  ok("metodologia: as duas probabilidades de ruptura estão declaradas, com horizontes distintos",
-     !!metodologiaDe("chance-ruptura") && !!metodologiaDe("chance-ruptura-90d")
-     && metodologiaDe("chance-ruptura")!.janela !== metodologiaDe("chance-ruptura-90d")!.janela);
+  // ⚠️ Fase 3.3 (03/11/2026): a segunda probabilidade (quant, 90 dias) SAIU.
+  // A guarda que exigia as duas declaradas virou a que exige UMA: a declaração
+  // de 90 dias não pode voltar, e a que fica diz o horizonte único.
+  ok("metodologia: a chance de ruptura é UMA, declarada no horizonte único (a de 90 dias não volta)",
+     !!metodologiaDe("chance-ruptura") && !metodologiaDe("chance-ruptura-90d")
+     && metodologiaDe("chance-ruptura")!.janela.includes("60 dias"));
 
   /*
    * ⚠️ Metodologia é INSTRUMENTAÇÃO, e instrumentação sem consumidor não conta

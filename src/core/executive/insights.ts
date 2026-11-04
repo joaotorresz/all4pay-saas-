@@ -4,6 +4,7 @@
  * por impacto × urgência × probabilidade × criticidade (executivos
  * morrem afogados em informação — a IA prioriza).
  */
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import type {
   ExecutiveContext,
   ExecutiveInsight,
@@ -35,7 +36,7 @@ export function gerarInsights(
       descricao:
         ctx.rupturaDia != null
           ? `Projeção indica ruptura de caixa em ${ctx.rupturaDia} dias no cenário base.`
-          : `Chance de ruptura de caixa em 60 dias é de ${Math.round(ctx.probRuptura * 100)}%.`,
+          : `Chance de ruptura de caixa em ${ROTULO_HORIZONTE_RUPTURA} é de ${Math.round(ctx.probRuptura * 100)}%.`,
       impactoCentavos: C(ctx.burnRate),
       confianca: 0.8,
       recomendacoes: ["Antecipar recebíveis relevantes", "Revisar despesas não essenciais"],

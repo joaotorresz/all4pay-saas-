@@ -97,7 +97,7 @@ export interface ScoreFinanceiro {
   classificacao: ClassificacaoSaude;
   fatoresPositivos: string[];
   fatoresNegativos: string[];
-  probabilidadeRuptura: number; // 0..1 (90 dias)
+  probabilidadeRuptura: number; // 0..1 — a do risk-engine, no HORIZONTE_RUPTURA_DIAS
   tendencia: Tendencia;
 }
 

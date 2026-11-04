@@ -1,5 +1,6 @@
 "use client";
 
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import * as React from "react";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
 import { BRL, Card, Skeleton, Icon, InfoHint, AreaComparada, BlocosProporcao } from "@/components/ui";
@@ -82,7 +83,7 @@ export function RiscoView() {
               ruptura (90d)" do `/inteligencia` pareciam o mesmo indicador
               discordando de si mesmo — são dois motores, dois horizontes. */}
           <Metric
-            label="Prob. de ruptura (60d)"
+            label={`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`}
             value={`${pctDeInteiro((data.probabilidadeRuptura * 100))}`}
             info={infoDaMetodologia("chance-ruptura")}
             nota={avisoDeSaturacao("chance-ruptura", data.probabilidadeRuptura)}

@@ -148,7 +148,6 @@ export interface ProjecaoHorizonte {
   horizonte: string; // "7 dias"
   dias: number;
   p10: number; p50: number; p90: number;
-  probNegativo: number; // 0..1
   confianca: number; // 0..1
 }
 export interface BandaProj { dia: number; data: string; p10: number; p50: number; p90: number }
@@ -460,7 +459,7 @@ export function montarFluxoCaixa(
   const projecoes: ProjecaoHorizonte[] = horizontes.map((H) => {
     const p = preverCaixa(features, hoje, H, 300);
     const confianca = Math.max(0.55, Math.min(0.99, 1 - (H / 365) * (0.28 + vol * 0.18)));
-    return { horizonte: rotuloHorizonte(H), dias: H, p10: p.caixaFinalP10, p50: p.caixaFinalP50, p90: p.caixaFinalP90, probNegativo: p.probabilidadeNegativo, confianca };
+    return { horizonte: rotuloHorizonte(H), dias: H, p10: p.caixaFinalP10, p50: p.caixaFinalP50, p90: p.caixaFinalP90, confianca };
   });
   // Série do gráfico: horizonte mais próximo do período (mín. 90 p/ ter curva).
   const Hgraf = Math.min(365, Math.max(90, dias));

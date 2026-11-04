@@ -12,6 +12,7 @@ import {
   type AcaoAutonoma,
 } from "@/core/decision/types";
 import { rotuloRunway } from "@/core/quant/score";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 
 const NIVEL_COR: Record<RiscoNivel, string> = {
   baixo: "var(--color-positive)",
@@ -61,10 +62,10 @@ export function DecisaoView() {
         <div className="flex items-center justify-between">
           <span className="text-label font-medium text-muted inline-flex items-center gap-1">
             Matriz de risco probabilística
-            <InfoHint align="left" oQue="Mostra a chance de stress em cada frente do negócio (caixa, liquidez, inadimplência, concentração e mais)." comoCalcula="Cada dimensão vira uma probabilidade a partir dos seus dados; juntas formam uma probabilidade de stress por média ponderada." />
+            <InfoHint align="left" oQue="Mostra de onde vem o risco em cada frente do negócio (caixa, liquidez, inadimplência, concentração e mais)." comoCalcula={`Cada dimensão vira uma intensidade de 0 a 100% a partir dos seus dados. O número do topo é a chance de ruptura em ${ROTULO_HORIZONTE_RUPTURA}, a mesma do risco de caixa e da Quattro AI.`} />
           </span>
           <span className="inline-flex items-center gap-2 text-label font-medium" style={{ color: NIVEL_COR[risco.nivelGeral] }}>
-            stress {Math.round(risco.probabilidadeStress * 100)}%
+            ruptura em {ROTULO_HORIZONTE_RUPTURA}: {Math.round(risco.probabilidadeRuptura * 100)}%
             <span className="w-2 h-2 rounded-pill" style={{ background: NIVEL_COR[risco.nivelGeral] }} />
           </span>
         </div>
@@ -76,13 +77,13 @@ export function DecisaoView() {
       </Card>
 
       {/* Previsão Monte Carlo */}
-      <Card className="lg:col-span-1 flex flex-col gap-2" info={{ titulo: "Previsão de caixa", oQue: "Estima a chance de o caixa ficar negativo nos próximos 90 dias e a faixa provável do saldo final.", comoCalcula: "Simulação de Monte Carlo: milhares de trajetórias com a tendência e a volatilidade do seu caixa, resumidas em bandas p10, p50 e p90." }}>
+      <Card className="lg:col-span-1 flex flex-col gap-2" info={{ titulo: "Previsão de caixa", oQue: `Estima a faixa provável do saldo daqui a ${ROTULO_HORIZONTE_RUPTURA}.`, comoCalcula: "Simulação de Monte Carlo: milhares de trajetórias com a tendência e a volatilidade do seu caixa, resumidas em bandas p10, p50 e p90." }}>
         <span className="text-label font-medium text-muted">Previsão de caixa · Monte Carlo</span>
         <div className="flex items-end gap-2">
-          <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: previsao.probabilidadeNegativo >= 0.2 ? "var(--color-negative)" : "var(--color-positive)" }}>
-            {Math.round(previsao.probabilidadeNegativo * 100)}%
+          <span className="text-value-lg leading-none font-medium tabular-nums text-ink">
+            {formatBRLCompact(previsao.caixaFinalP50)}
           </span>
-          <span className="text-caption text-faint mb-1">de ficar negativo (90d)</span>
+          <span className="text-caption text-faint mb-1">saldo provável em {ROTULO_HORIZONTE_RUPTURA}</span>
         </div>
         <PrevisaoChart bandas={previsao.bandas} />
         <span className="text-caption text-faint">{previsao.texto}</span>
@@ -135,7 +136,7 @@ export function DecisaoView() {
           <Feat label="Crescimento" value={`${Math.round(features.atual.crescimentoMensal * 100)}%`} />
           <Feat label="Sazonalidade" value={`${Math.round(features.atual.sazonalidade * 100)}%`} />
           <Feat label="Score saúde" value={`${features.atual.scoreSaude}/100`} />
-          <Feat label="Prob. ruptura" value={`${Math.round(features.atual.probRuptura * 100)}%`} />
+          <Feat label={`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`} value={`${Math.round(features.atual.probRuptura * 100)}%`} />
         </div>
       </Card>
     </div>

@@ -12,6 +12,7 @@ import { calcularRiskMatrix } from "./risk-matrix";
 import { preverCaixa } from "./prediction";
 import { gerarRecomendacoes } from "./recommendations";
 import { planoAutonomo } from "./autonomous";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 
 import { formatBRL } from "@/lib/format";
 const fmt = (v: number) =>
@@ -44,12 +45,14 @@ function montarHeadline(
   previsao: ReturnType<typeof preverCaixa>,
   recs: ReturnType<typeof gerarRecomendacoes>,
 ): string {
+  // Uma chance só (Fase 3.3): a de ruptura do risk-engine, no horizonte único.
+  const chance = Math.round(risco.probabilidadeRuptura * 100);
   const abertura =
-    previsao.probabilidadeNegativo >= 0.2 && previsao.semanaProvavel
-      ? `Há ${Math.round(previsao.probabilidadeNegativo * 100)}% de chance do seu caixa ficar negativo na ${previsao.semanaProvavel}.`
-      : f.rupturaDia != null
-        ? `Seu caixa fica sob pressão em ${f.rupturaDia} dias.`
-        : `Caixa saudável: probabilidade de stress de ${Math.round(risco.probabilidadeStress * 100)}% nos próximos 90 dias.`;
+    f.rupturaDia != null
+      ? `Seu caixa fica sob pressão em ${f.rupturaDia} dias (chance de ruptura de ${chance}% em ${ROTULO_HORIZONTE_RUPTURA}).`
+      : chance >= 25
+        ? `Chance de ruptura de caixa de ${chance}% em ${ROTULO_HORIZONTE_RUPTURA}.`
+        : `Caixa saudável: chance de ruptura de ${chance}% em ${ROTULO_HORIZONTE_RUPTURA}.`;
 
   const causas = risco.fatoresCriticos.slice(0, 3);
   const causasTxt = causas.length ? ` Principais causas: ${causas.join("; ")}.` : "";

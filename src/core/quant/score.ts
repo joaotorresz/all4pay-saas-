@@ -17,6 +17,7 @@ import { serieMensal } from "./series";
 import { clamp01, normalizar, media } from "./stat";
 import { runwayDeFluxo, mesesDeRunway, formaCurta } from "@/core/indicadores";
 import { decimalBR } from "@/lib/format";
+import { scoreRiscoCaixa } from "@/core/risk-engine";
 
 /** Pesos do modelo (somam 1.0) — auditáveis. */
 export const PESOS = {
@@ -167,11 +168,10 @@ export function scoreSaudeFinanceira(
   const fatoresPositivos = chaves.filter((k) => h[k] >= 0.7).map((k) => POS[k]);
   const fatoresNegativos = chaves.filter((k) => h[k] <= 0.4).map((k) => NEG[k]);
 
-  let prob = 1 - score / 100;
-  // Runway curto (ou caixa já negativo) agrava; "não há queima" não agrava.
-  if ((i.runwayMeses !== null && i.runwayMeses < 6) || i.runwayMotivo?.codigo === "caixa_negativo") prob *= 1.3;
-  if (i.volatilidadeFluxo > 0.7) prob *= 1.1;
-  const probabilidadeRuptura = Math.round(clamp01(prob) * 100) / 100;
+  // ⚠️ A chance de ruptura NÃO é calculada aqui (Fase 3.3): o quant tinha a
+  // sua (1 − score/100, agravada pelo runway), dita "90 dias", ao lado da do
+  // risk-engine em 60. Agora ele LÊ a do motor de risco, no horizonte único.
+  const probabilidadeRuptura = scoreRiscoCaixa(input).probabilidadeRuptura;
 
   const temporal = scoreTemporal(input, i);
 

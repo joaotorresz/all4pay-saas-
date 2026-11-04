@@ -1,5 +1,6 @@
 "use client";
 
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import * as React from "react";
 import { infoDaMetodologia } from "@/core/metodologia";
 import { BRL, Card, Skeleton, Icon, InfoHint, RadarSeries, LinhaPontos } from "@/components/ui";
@@ -54,7 +55,7 @@ export function QuantView() {
         className="lg:col-span-1 flex flex-col gap-4"
         info={{
           titulo: "Score de saúde financeira",
-          oQue: "Uma nota de 0 a 100 para a saúde do negócio, com a tendência e a chance de ruptura em 90 dias.",
+          oQue: `Uma nota de 0 a 100 para a saúde do negócio, com a tendência e a chance de ruptura em ${ROTULO_HORIZONTE_RUPTURA}.`,
           comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento em um score único.",
         }}
       >
@@ -81,13 +82,11 @@ export function QuantView() {
             {tend.label}
           </span>
           <div className="text-right">
-            {/* ⚠️ Este é o número de 90 dias, do motor `quant` — NÃO é o da
-                tela de risco (60 dias, motor de risco). Duas telas respondiam
-                "qual a chance de o caixa quebrar" com contas diferentes e o
-                mesmo rótulo. O "i" diz qual é qual. */}
+            {/* A chance de ruptura é UMA (Fase 3.3): a do motor de risco, a
+                mesma da tela de risco e da Quattro AI. */}
             <div className="flex items-center justify-end gap-1">
-              <span className="text-caption text-faint">Prob. ruptura (90d)</span>
-              <InfoHint align="left" {...infoDaMetodologia("chance-ruptura-90d")!} />
+              <span className="text-caption text-faint">Chance de ruptura ({ROTULO_HORIZONTE_RUPTURA})</span>
+              <InfoHint align="left" {...infoDaMetodologia("chance-ruptura")!} />
             </div>
             <div className="text-h3 font-medium tabular-nums text-ink">{pct(score.probabilidadeRuptura)}</div>
           </div>

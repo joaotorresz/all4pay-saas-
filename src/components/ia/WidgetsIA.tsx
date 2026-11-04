@@ -23,7 +23,8 @@ import { useRiscoCaixa, useDecisao, useQuantitativo, useOperacaoAutonoma } from 
 import { WIDGETS_IA, type WidgetIA } from "@/core/assistant/widgets";
 import { rotuloRunwayLido } from "@/core/indicadores";
 import { CLASSIF_SAUDE_LABEL } from "@/core/quant/types";
-import { pct, pctDeInteiro } from "@/lib/format";
+import { formatBRL, pct, pctDeInteiro } from "@/lib/format";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 
 const NIVEL_RISCO: Record<string, string> = {
   baixo: "Risco baixo", medio: "Risco médio", alto: "Risco alto", critico: "Risco crítico",
@@ -133,7 +134,7 @@ function Risco() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2"><Score valor={data.score} /><Status texto={NIVEL_RISCO[data.nivel] ?? data.nivel} nivel={data.nivel} /></div>
         <div className="flex gap-6">
-          <Numero rotulo="Prob. de ruptura (60d)" valor={pctDeInteiro(data.probabilidadeRuptura * 100)} />
+          <Numero rotulo={`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`} valor={pctDeInteiro(data.probabilidadeRuptura * 100)} />
           <Numero rotulo="Runway (base)" valor={rotuloRunwayLido(data.runway.leitura.base)} />
         </div>
       </div>
@@ -159,8 +160,8 @@ function Decisao() {
     <div className="flex flex-col gap-4">
       <p className="m-0 text-body text-ink leading-[1.5]">{data.headline}</p>
       <div className="flex gap-6">
-        <Numero rotulo="Chance de ficar negativo (90d)" valor={pctDeInteiro(data.previsao.probabilidadeNegativo * 100)} />
-        <Numero rotulo="Stress geral" valor={pctDeInteiro(data.risco.probabilidadeStress * 100)} />
+        <Numero rotulo={`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`} valor={pctDeInteiro(data.risco.probabilidadeRuptura * 100)} />
+        <Numero rotulo={`Caixa em ${ROTULO_HORIZONTE_RUPTURA} (mediana)`} valor={formatBRL(data.previsao.caixaFinalP50)} />
       </div>
       <Linhas
         vazio="Sem ações de melhoria relevantes no momento."
@@ -178,7 +179,7 @@ function Saude() {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-2"><Score valor={score.score} /><Status texto={CLASSIF_SAUDE_LABEL[score.classificacao]} nivel={score.classificacao} /></div>
-      <Numero rotulo="Prob. de ruptura (90d)" valor={pct(score.probabilidadeRuptura)} />
+      <Numero rotulo={`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`} valor={pct(score.probabilidadeRuptura)} />
     </div>
   );
 }

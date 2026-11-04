@@ -16,6 +16,7 @@ import {
 } from "./hooks";
 import { useAccountsList } from "@/components/lancamentos/hooks";
 import type { RiskMovement } from "@/core/risk-engine/types";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 
 /* ===================================================================
    Cockpit modular — catálogo de widgets. Filosofia: todo card responde
@@ -241,7 +242,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard href="/inteligencia" hrefLabel="Ver saúde financeira" icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
         value={`${c.quant.score.score}/100`}
-        answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · prob. de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em 90d.`}
+        answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · chance de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em ${ROTULO_HORIZONTE_RUPTURA}.`}
         info={{ titulo: "Financial Health Score", oQue: "Resume a saúde financeira da empresa num único número de 0 a 100.", comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento." }} />
     ),
   },
@@ -250,8 +251,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.risco ? <Loading /> : (
       <MetricCard href="/risco" hrefLabel="Ver risco de caixa" icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
         value={c.risco.nivel === "baixo" ? "🟢 Saudável" : c.risco.nivel === "medio" ? "🟡 Atenção" : "🔴 Risco"}
-        answer={`Chance de ruptura de caixa em 60 dias: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
-        info={{ titulo: "Empresa em risco?", oQue: "Sinaliza, num semáforo, se o caixa corre risco no curto prazo.", comoCalcula: "Deriva do score de risco de caixa e da probabilidade de ruptura projetada em 60 dias." }} />
+        answer={`Chance de ruptura de caixa em ${ROTULO_HORIZONTE_RUPTURA}: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
+        info={{ titulo: "Empresa em risco?", oQue: "Sinaliza, num semáforo, se o caixa corre risco no curto prazo.", comoCalcula: `Deriva do score de risco de caixa e da chance de ruptura projetada em ${ROTULO_HORIZONTE_RUPTURA}.` }} />
     ),
   },
   /* ---- Caixa ---- */
@@ -391,13 +392,16 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   /* ============ Novos widgets executivos ============ */
   /* ---- Resumo executivo ---- */
   {
-    id: "prob-ruptura-90d", label: "Prob. de ruptura (90d)", categoria: "Resumo executivo",
-    render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard icon="triangle-alert" label="Prob. de ruptura (90d)"
-        tone={c.quant.score.probabilidadeRuptura > 0.3 ? NEG : c.quant.score.probabilidadeRuptura > 0.1 ? WARN : POS}
-        value={pctTxt(c.quant.score.probabilidadeRuptura)}
-        answer={`Chance de o caixa ficar negativo nos próximos 90 dias: ${pctTxt(c.quant.score.probabilidadeRuptura)}.`}
-        info={{ titulo: "Prob. de ruptura (90d)", oQue: "A probabilidade de o caixa faltar dentro de 90 dias.", comoCalcula: "Sai do score de saúde financeira, que projeta o caixa e mede o risco de ruptura em 90 dias." }} />
+    // ⚠️ A chance de ruptura é UMA (Fase 3.3): a do risk-engine, no horizonte
+    // único. Os cards "Risco de caixa negativo" (Monte Carlo) e "Prob. de
+    // stress" (matriz) eram duas outras chances e saíram.
+    id: "prob-ruptura-90d", label: "Chance de ruptura", categoria: "Resumo executivo",
+    render: (c) => !c.risco ? <Loading /> : (
+      <MetricCard href="/risco" hrefLabel="Ver risco de caixa" icon="triangle-alert" label={`Chance de ruptura (${ROTULO_HORIZONTE_RUPTURA})`}
+        tone={c.risco.probabilidadeRuptura > 0.3 ? NEG : c.risco.probabilidadeRuptura > 0.1 ? WARN : POS}
+        value={pctTxt(c.risco.probabilidadeRuptura)}
+        answer={`Chance de o caixa faltar nos próximos ${ROTULO_HORIZONTE_RUPTURA}: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
+        info={{ titulo: "Chance de ruptura", oQue: `A chance de o caixa faltar dentro de ${ROTULO_HORIZONTE_RUPTURA}. É o mesmo número em toda tela e na Quattro AI.`, comoCalcula: "Sai do motor de risco de caixa: a projeção dia a dia dos recebíveis e compromissos e, sem ruptura projetada, o score de risco." }} />
     ),
   },
   {
@@ -635,22 +639,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Caixa (Monte Carlo · decisão) ---- */
   {
-    id: "prob-caixa-negativo", label: "Risco de caixa negativo", categoria: "Caixa",
-    render: (c) => {
-      if (!c.decisao) return <Loading />;
-      const p = c.decisao.previsao.probabilidadeNegativo;
-      return (
-        <MetricCard href="/decisao" hrefLabel="Ver decisão" icon="triangle-alert" label="Risco de caixa negativo"
-          tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
-          value={pctTxt(p)}
-          answer={c.decisao.previsao.semanaProvavel
-            ? `${pctTxt(p)} de chance de o caixa ficar negativo — provável na ${c.decisao.previsao.semanaProvavel}.`
-            : `${pctTxt(p)} de chance de o caixa ficar negativo no horizonte projetado.`}
-          info={{ titulo: "Risco de caixa negativo", oQue: "A chance de o caixa cruzar o zero dentro do horizonte projetado.", comoCalcula: "Simulação de Monte Carlo do caixa diário (deriva e volatilidade) conta em quantos cenários o saldo fica negativo." }} />
-      );
-    },
-  },
-  {
     id: "caixa-projetado-p50", label: "Caixa projetado (mediana)", categoria: "Caixa",
     render: (c) => {
       if (!c.decisao) return <Loading />;
@@ -680,7 +668,9 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "data-provavel-ruptura", label: "Data provável de aperto", categoria: "Caixa",
     render: (c) => {
       if (!c.decisao) return <Loading />;
-      const dia = c.decisao.previsao.diaProvavelNegativo;
+      // O dia da ruptura é o do motor de risco (projeção dos títulos), não o de
+      // uma simulação à parte.
+      const dia = c.decisao.features.atual.rupturaDia;
       return (
         <MetricCard href="/decisao" hrefLabel="Ver decisão" icon="calendar" label="Data provável de aperto"
           tone={dia != null ? NEG : POS}
@@ -688,25 +678,11 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
           answer={dia != null
             ? `O caixa deve ficar negativo em cerca de ${dia} dias, se nada mudar.`
             : "Nenhuma data de caixa negativo prevista no horizonte."}
-          info={{ titulo: "Data provável de aperto", oQue: "Em quantos dias o caixa deve ficar negativo, se nada mudar.", comoCalcula: "Primeiro dia em que a simulação de Monte Carlo cruza o zero no cenário mais provável." }} />
+          info={{ titulo: "Data provável de aperto", oQue: "Em quantos dias o caixa deve ficar negativo, se nada mudar.", comoCalcula: "Primeiro dia em que a projeção dia a dia do caixa (saldo, recebíveis esperados e compromissos) cruza o zero." }} />
       );
     },
   },
   /* ---- Resumo executivo (matriz de risco · decisão) ---- */
-  {
-    id: "prob-stress-90d", label: "Prob. de stress (90d)", categoria: "Resumo executivo",
-    render: (c) => {
-      if (!c.decisao) return <Loading />;
-      const p = c.decisao.risco.probabilidadeStress;
-      return (
-        <MetricCard icon="gauge" label="Prob. de stress (90d)"
-          tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
-          value={pctTxt(p)}
-          answer={`Risco geral (${c.decisao.risco.nivelGeral}): ${pctTxt(p)} de chance de stress financeiro em 90 dias.`}
-          info={{ titulo: "Prob. de stress (90d)", oQue: "A probabilidade agregada de a empresa entrar em stress financeiro em 90 dias.", comoCalcula: "Combina 8 dimensões de risco (caixa, liquidez, inadimplência, concentração, fornecedor, operacional, sazonal, crescimento) numa probabilidade ponderada." }} />
-      );
-    },
-  },
   {
     id: "dimensao-risco-critica", label: "Maior risco agora", categoria: "Resumo executivo",
     render: (c) => {

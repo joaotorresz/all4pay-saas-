@@ -1,4 +1,5 @@
 /** Stress testing — simula cenários adversos sobre a projeção de caixa. */
+import { HORIZONTE_RUPTURA_DIAS } from "./horizonte";
 import type { RiskInput, StressCenario, BurnResult } from "./types";
 import { runwayDeFluxo, lerRunwayDeFluxo } from "@/core/indicadores";
 import { recebiveisPonderados, compromissosAbertos } from "./normalize";
@@ -8,7 +9,7 @@ function projetarFim(
   opts: { inflowFactor?: number; outflowFactor?: number; atrasoDias?: number },
 ): { endSaldo: number; rupturaDia: number | null } {
   const { inflowFactor = 1, outflowFactor = 1, atrasoDias = 0 } = opts;
-  const horizon = input.horizonDias ?? 60;
+  const horizon = input.horizonDias ?? HORIZONTE_RUPTURA_DIAS;
   const recs = recebiveisPonderados(input);
   const pays = compromissosAbertos(input);
 
