@@ -427,6 +427,12 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-checkout.sql
+      # Pago o Pix ou o boleto do link: a cobrança vira paga e o título, recebido,
+      # pela porta "pago pelo banco" da máquina de estados. 9 casos, 12 defeitos.
+      - name: Guarda — liquidação do link de pagamento (cobrança paga → título recebido)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-liquidacao.sql
       # Multa e juros da cobrança, por empresa: só quem administra muda, pela
       # função; a faixa é do banco; a outra empresa não lê. 4 defeitos plantados.
       - name: Guarda — multa e juros da cobrança

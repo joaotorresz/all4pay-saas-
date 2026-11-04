@@ -4,6 +4,7 @@ import { CopiarTexto } from "@/components/checkout/CopiarTexto";
 import { BoletoImpresso } from "@/components/checkout/BoletoImpresso";
 import { FormasDePagamento } from "@/components/checkout/FormasDePagamento";
 import { GerarPixDoDia } from "@/components/checkout/GerarPixDoDia";
+import { AcompanharPagamento } from "@/components/checkout/AcompanharPagamento";
 
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { dataBR } from "@/lib/format";
@@ -102,6 +103,15 @@ export function FaturaView({ r, hoje, token, pixAtualizado = false }: { r: Leitu
         {(c.endereco ?? []).map((l) => <span key={l} className="text-caption text-muted">{l}</span>)}
       </section>
 
+      {/* Pago o Pix ou o boleto, a página se redesenha sozinha (o aviso do banco baixa o título). */}
+      <AcompanharPagamento token={token} situacao={r.situacao} />
+      {r.situacao === "pago" && (
+        <section data-card="1" className="rounded-card bg-white p-6 flex flex-col gap-1" aria-label="Pagamento confirmado">
+          <h2 className="text-h3 text-ink">Pagamento confirmado</h2>
+          <p className="text-body text-ink leading-[1.5]">{c.nome} já recebeu este valor. Não é preciso pagar de novo.</p>
+        </section>
+      )}
+
       <section data-card="1" className="rounded-card bg-white p-6 flex flex-col gap-5" aria-label="Dados da fatura">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-h3 text-ink">Dados da fatura</h2>
@@ -142,11 +152,6 @@ export function FaturaView({ r, hoje, token, pixAtualizado = false }: { r: Leitu
         {r.descricao && <Dado rotulo="Descrição">{r.descricao}</Dado>}
       </section>
 
-      {r.situacao === "pago" && (
-        <section data-card="1" className="rounded-card bg-white p-6">
-          <p className="text-body text-ink leading-[1.5]">{c.nome} já registrou o recebimento deste valor. Não é preciso pagar de novo.</p>
-        </section>
-      )}
       {encerrada && (
         <section data-card="1" className="rounded-card bg-white p-6">
           <p className="text-body text-ink leading-[1.5]">

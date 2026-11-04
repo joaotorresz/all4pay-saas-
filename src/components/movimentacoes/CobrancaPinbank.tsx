@@ -75,7 +75,9 @@ function fraseDoEnvio(e: { status: string; destino_mascarado: string | null; atu
   return `Enviando para ${para}…`;
 }
 
-const VIVAS: SituacaoCobranca[] = ["reservada", "emitida", "incerta", "a_cancelar"];
+// `paga` aparece no lugar do botão: pago o Pix (ou o boleto), gerar outro cobraria de novo.
+// O motivo dela diz quando o título NÃO pôde ser baixado sozinho (cancelado, mudado, valor menor).
+const VIVAS: SituacaoCobranca[] = ["reservada", "emitida", "incerta", "a_cancelar", "paga"];
 
 export function CobrancaPinbank({ movementId, show }: { movementId: string; show: (m: string) => void }) {
   const [estado, setEstado] = React.useState<Estado | null>(null);
