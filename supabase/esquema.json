@@ -381,6 +381,17 @@
         "impacto": "Até ser aplicada, nada muda em produção: nenhum caminho chama a liquidação ainda (a entrada do aviso da Pinbank depende do formato que ela vai informar) e a página do link segue lendo a situação do título.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (link de pagamento: pago na tela e baixa no ERP)"
+      },
+      {
+        "nome": "20261104170000_pinbank_aviso_de_pago",
+        "motivo": "O aviso de pago da Pinbank (Pix.CreditoRecebido, Boleto.Liquidacao) acha a cobrança pela função pinbank_cobranca_do_aviso (só lê, só service_role): pelo NsuOrigem, TxId ou IdQrcode no Pix e pelo nosso número ou código de barras no boleto, sempre na conta Pinbank do aviso. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função pinbank_cobranca_do_aviso",
+          "índices pinbank_cobrancas_txid_idx e pinbank_cobrancas_pinbank_id_idx"
+        ],
+        "impacto": "Até ser aplicada, o aviso de pago recebe 503 e a Pinbank reenvia; a rota está atrás de PINBANK_LIQUIDACAO=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (link de pagamento: a entrada do aviso da Pinbank)"
       }
     ],
     "objetos_sem_migration": [

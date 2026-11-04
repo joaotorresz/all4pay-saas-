@@ -26,7 +26,7 @@ export const VERSAO_INTERRUPTORES = "interruptores/1.0.0";
 
 export type IdInterruptor =
   | "pinbank_webhook" | "pinbank_conferencia" | "pinbank_cobranca" | "pinbank_encargos"
-  | "pinbank_pix_atualizado" | "mensalidade_pinbank" | "cobranca_banco"
+  | "pinbank_pix_atualizado" | "pinbank_liquidacao" | "mensalidade_pinbank" | "cobranca_banco"
   | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes" | "focus_empresas" | "contador_optin" | "agentes";
 
 export type GrupoInterruptor = "Maquininha e conta Pinbank" | "Cobrança" | "WhatsApp e e-mail" | "Notas fiscais" | "Quattro AI";
@@ -57,6 +57,8 @@ export const INTERRUPTORES: readonly Interruptor[] = [
     oQueFaz: "O boleto sai registrado com a multa e os juros da régua.", exige: [] },
   { id: "pinbank_pix_atualizado", grupo: "Cobrança", nome: "Pix com o valor de hoje",
     oQueFaz: "Depois do vencimento, o link oferece um Pix com multa e juros do dia.", exige: ["cobrança pela conta Pinbank ligada"] },
+  { id: "pinbank_liquidacao", grupo: "Cobrança", nome: "Baixa automática do Pix e do boleto",
+    oQueFaz: "Pago o Pix ou o boleto, o link de pagamento vira pago e o título, recebido.", exige: ["webhook da Pinbank ligado"] },
   { id: "mensalidade_pinbank", grupo: "Cobrança", nome: "Mensalidade do ERP pela Pinbank",
     oQueFaz: "A mensalidade dos clientes é cobrada na conta Pinbank da Quattro.", exige: ["credencial da API", "código da conta da Quattro", "ambiente de produção"] },
   { id: "cobranca_banco", grupo: "Cobrança", nome: "Cobrança pela conta do cliente (Inter e Itaú)",

@@ -21,8 +21,8 @@ import { pixAtualizadoLiberado } from "@/lib/pinbank/api";
  *
  * Pago o Pix ou o boleto, a página se redesenha sozinha como paga
  * (`AcompanharPagamento`, 04/11/2026). Quem baixa o título é o escritor único
- * `pinbank_cobranca_liquidar`; a entrada do aviso da Pinbank depende do formato
- * que ela ainda vai informar (etapa 6). Até lá, a baixa à mão também vira "pago".
+ * `pinbank_cobranca_liquidar`, chamado pelo aviso de pago da Pinbank no webhook
+ * (`PINBANK_LIQUIDACAO`). A baixa à mão também vira "pago".
  */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

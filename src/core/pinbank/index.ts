@@ -21,11 +21,14 @@
  *     leituras, a leitura da reserva que o BANCO faz da espera por empresa
  *     (falha fechada), quanto o botão espera (no 429, o número do banco) e só
  *     as contagens de cada lado sem venda em comum ATESTADA pelo aviso da
- *     Pinbank.
+ *     Pinbank;
+ *   · `liquidacao.ts` — lê o aviso de pago (`Pix.CreditoRecebido`,
+ *     `Boleto.Liquidacao`) que baixa o título da cobrança emitida.
  */
 export const PINBANK_VERSION = "pinbank/1.0.0";
 
 export * from "./evento";
+export * from "./liquidacao";
 export * from "./plano";
 export * from "./extrato-pos";
 export * from "./conferencia";
