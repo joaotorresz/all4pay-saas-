@@ -488,6 +488,10 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     /v_cfg\.nivel < 2/.test(m4) && /\(v_p\.dados->>'confianca'\)::numeric, 0\) < 85/.test(m4) && P.CONFIANCA_ALTA === 85);
   ok("banco: a linha do extrato é conferida antes de cancelar o previsto",
     /A linha do extrato não foi encontrada nesta empresa/.test(m4) && m4.indexOf("Esta linha do extrato já está conciliada") < m4.indexOf("set situacao = 'cancelado'"));
+  ok("banco: o agente concilia em nome de quem aprovou ou de quem deixou fazer sozinho, nunca de ninguém",
+    /v_quem := v_cfg\.atualizado_por;/.test(m4) && /v_quem := v_p\.decidida_por;/.test(m4) && /if v_quem is null then\s+raise exception/.test(m4)
+    && m4.indexOf("perform set_config('request.jwt.claim.sub', v_quem::text, true);") < m4.indexOf("perform public.conciliar_na_empresa((v_p.dados")
+    && /create trigger agentes_quem_mudou before update on public\.agentes/.test(m4));
   ok("tela: aprovar a conciliação concilia na hora", /p\.agente === "conciliacao"\)\) onDecidido/.test(ler("src/components/agentes/AgentesView.tsx")));
   const Wc = await import("@/core/agentes/whatsapp");
   ok("whatsapp: a conciliação feita diz que conciliou",

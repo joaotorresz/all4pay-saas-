@@ -21,6 +21,17 @@
 -- concilia par de confiança alta (85 ou mais) e com o agente ligado no nível 2
 -- ou 3. O resto espera a aprovação, pela tela ou pelo WhatsApp.
 --
+-- ⚠️ EM NOME DE QUEM: a baixa passa pela trilha da Central
+-- (`central_transicoes.por`, obrigatório). O agente concilia em nome de uma
+-- pessoa da empresa, nunca de "ninguém":
+--   · a proposta aprovada, em nome de QUEM APROVOU (`decidida_por`);
+--   · a feita sozinha, em nome de quem deixou o agente fazer sozinho
+--     (`agentes.atualizado_por`). Esse campo só nascia no INSERT e a tela
+--     grava por upsert, então ele não dizia quem mudou o nível; o gatilho
+--     `agentes_quem_mudou` passa a carimbar quem mudou, a cada mudança.
+-- A identidade usa o mesmo mecanismo da etapa 3: `request.jwt.claim(s)`
+-- locais à transação, devolvidos em seguida.
+--
 -- ⚠️ MUDA QUEM PODE CHAMAR O QUÊ — declarado:
 --   · `conciliar_na_empresa`: ninguém executa direto (SECURITY DEFINER, só
 --     chamada pelas duas funções acima).
@@ -101,13 +112,31 @@ $function$;
 revoke all on function public.conciliar_movimentos(uuid, uuid) from public;
 grant execute on function public.conciliar_movimentos(uuid, uuid) to authenticated;
 
+-- Quem mudou o nível do agente, a cada mudança (a tela grava por upsert).
+create or replace function public.agentes_quem_mudou()
+returns trigger language plpgsql set search_path to 'public'
+as $function$
+begin
+  new.atualizado_por := coalesce(auth.uid(), old.atualizado_por);
+  new.atualizado_em  := now();
+  return new;
+end;
+$function$;
+
+drop trigger if exists agentes_quem_mudou on public.agentes;
+create trigger agentes_quem_mudou before update on public.agentes
+  for each row execute function public.agentes_quem_mudou();
+
 -- A porta do agente: executa UMA proposta e grava o resultado na mesma transação.
 --   p_sozinho = false: só a APROVADA (alguém com permissão já decidiu);
 --   p_sozinho = true : só a PENDENTE, confiança 85+, agente ligado no nível 2+.
 create or replace function public.agente_conciliar(p_proposta uuid, p_sozinho boolean)
 returns jsonb language plpgsql security definer set search_path to 'public'
 as $function$
-declare v_p public.agente_propostas%rowtype; v_cfg public.agentes%rowtype; v_erro text;
+declare
+  v_p public.agente_propostas%rowtype; v_cfg public.agentes%rowtype; v_erro text; v_quem uuid;
+  v_claims_antes text := current_setting('request.jwt.claims', true);
+  v_sub_antes text := current_setting('request.jwt.claim.sub', true);
 begin
   select * into v_p from public.agente_propostas where id = p_proposta for update;
   if v_p.id is null then
@@ -128,14 +157,26 @@ begin
     if coalesce((v_p.dados->>'confianca')::numeric, 0) < 85 then
       raise exception 'agente_conciliar: par sem confiança alta não é conciliado sozinho.';
     end if;
+    v_quem := v_cfg.atualizado_por;
+  else
+    v_quem := v_p.decidida_por;
+  end if;
+  if v_quem is null then
+    raise exception 'agente_conciliar: ninguém da empresa responde por esta conciliação.';
   end if;
 
   begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_quem, 'role', 'authenticated')::text, true);
+    perform set_config('request.jwt.claim.sub', v_quem::text, true);
     perform public.conciliar_na_empresa((v_p.dados->>'previsto')::uuid, (v_p.dados->>'extrato')::uuid,
                                         v_p.org_id, 'agente:conciliacao');
   exception when others then
     v_erro := left(sqlerrm, 1000);
   end;
+
+  perform set_config('request.jwt.claims', coalesce(v_claims_antes, ''), true);
+  perform set_config('request.jwt.claim.sub', coalesce(v_sub_antes, ''), true);
 
   update public.agente_propostas
      set estado      = case when v_erro is null then 'executada' else 'falhou' end,

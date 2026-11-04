@@ -425,6 +425,9 @@ begin
     if not exists (select 1 from public.agente_propostas where id = p and estado = 'executada' and executada_em is not null) then
       falhas := array_append(falhas, '(o) a proposta não terminou executada');
     end if;
+    if not exists (select 1 from public.central_transicoes where movement_id = prev and para = 'cancelado' and por = ana) then
+      falhas := array_append(falhas, '(o) a baixa não ficou em nome de quem aprovou');
+    end if;
     set local role service_role;
     j := public.agente_conciliar(p, false);
     reset role;
@@ -455,8 +458,14 @@ begin
       falhas := array_append(falhas, '(p) conciliou sozinho com o agente no nível 1');
     exception when others then reset role;
     end;
+    -- a titular liga o nível 2 pela sessão: o gatilho carimba quem mudou
+    perform set_config('request.jwt.claim.sub', ana::text, true);
     update public.agentes set ativo = true, nivel = 2, limite_valor = 500, limite_dia = 10
      where org_id = org_ana and agente = 'conciliacao';
+    perform set_config('request.jwt.claim.sub', '', true);
+    if not exists (select 1 from public.agentes where org_id = org_ana and agente = 'conciliacao' and atualizado_por = ana) then
+      falhas := array_append(falhas, '(p) a mudança de nível não carimbou quem mudou');
+    end if;
     -- confiança média: recusado mesmo no nível 2
     insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
     values (org_ana, 'conciliacao', 'par:p2', 'Conciliar Boleto', 'Mesmo valor', 99,
