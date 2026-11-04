@@ -32,14 +32,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <head>
-        {/* Anti-flash: aplica o tema salvo antes da pintura. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('a4p_theme');if(t==='dark'||(t===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
-          }}
-        />
-      </head>
       <body>
         <Providers>{children}</Providers>
         <MarcaNumeros />

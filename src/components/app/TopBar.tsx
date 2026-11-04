@@ -24,7 +24,6 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
-import { useTheme } from "@/components/app/ThemeToggle";
 import { isDemo } from "@/lib/demo";
 import { listarAnuncios } from "@/lib/ajuda-store";
 import { cn } from "@/lib/utils";
@@ -34,7 +33,6 @@ const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export function TopBar() {
   const router = useRouter();
-  const { dark, toggle } = useTheme();
   // Mesma função que a barra horizontal e a lateral usam — as três não podem
   // discordar sobre em que grupo você está.
   const [naoLidos, setNaoLidos] = React.useState(0);
@@ -158,7 +156,6 @@ export function TopBar() {
             <ItemMenu icone="settings" rotulo="Meu perfil" onClick={() => { setMenu(false); router.push("/configuracoes"); }} />
             <ItemMenu icone="shield-check" rotulo="Segurança da conta" onClick={() => { setMenu(false); router.push(ROTA_SEGURANCA_CONTA); }} />
             <ItemMenu icone="help-circle" rotulo="Central de ajuda" onClick={() => { setMenu(false); router.push("/dashboard/help"); }} />
-            <ItemMenu icone={dark ? "sun" : "moon"} rotulo={dark ? "Tema claro" : "Tema escuro"} onClick={() => { setMenu(false); toggle(); }} />
             {SUPA_CONFIGURED && (
               <ItemMenu
                 icone="arrow-up-right"

@@ -80,13 +80,11 @@ const estilos = [], indice = new Map();
 const CENARIOS = [
   { nome: "pc", viewport: { width: 1440, height: 900 }, rotas: [...ROTAS, ...ROTAS_EXTRA] },
   { nome: "tel", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, rotas: ROTAS },
-  { nome: "escuro", viewport: { width: 1440, height: 900 }, tema: "dark", rotas: ROTAS.slice(0, 25) },
   { nome: "impressao", viewport: { width: 1440, height: 900 }, midia: "print", rotas: ["/", "/dashboard/reports/dre", "/fluxo-caixa", "/dashboard/financial/statement"] },
 ];
 
 for (const c of CENARIOS) {
   const ctx = await navegador.newContext({ viewport: c.viewport, isMobile: c.isMobile, hasTouch: c.hasTouch, reducedMotion: "reduce" });
-  await ctx.addInitScript((tema) => { try { localStorage.setItem("a4p_theme", tema); } catch {} }, c.tema ?? "light");
   const page = await ctx.newPage();
   if (c.midia) await page.emulateMedia({ media: c.midia });
   for (const rota of c.rotas) {
