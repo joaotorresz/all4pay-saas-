@@ -8,6 +8,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { IDS_AGENTE, NIVEIS, descricaoDe, type IdAgente } from "@/core/agentes";
 import { listarAgentes, listarPropostas } from "@/lib/agentes";
+import { enderecoDoAgente } from "@/core/agentes/roteador";
 
 export const CHAVE_AGENTES = ["agentes", "config"] as const;
 export const CHAVE_PROPOSTAS = ["agentes", "propostas"] as const;
@@ -34,4 +35,5 @@ export function useAgentesDoHub() {
 }
 
 /** O endereço de cada item da lista. */
-export const hrefDoHub = (s: SelecaoHub | null) => (s ? `/quattro-ai?agente=${s}` : "/quattro-ai");
+export const hrefDoHub = (s: SelecaoHub | null) =>
+  s === null ? "/quattro-ai" : s === "quattro-ai" ? "/quattro-ai?agente=quattro-ai" : enderecoDoAgente(s);

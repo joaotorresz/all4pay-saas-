@@ -20,6 +20,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
+import { agenteDaPergunta, conviteNoWhatsapp } from "@/core/agentes/roteador";
 import { linkDoLancamento, respostaDoLancamento } from "@/core/whatsapp/lancar";
 import { buscarKB } from "@/lib/assistant-kb";
 import { contextoDaRpc, type ContextoBruto } from "@/lib/automacoes-contexto";
@@ -100,5 +101,8 @@ export async function responderIaWhatsapp(
   const { data: bruto, error: eCtx } = await admin.rpc("automacao_contexto", { p_org: empresa.id });
   if (eCtx) return RESPOSTA_FALHA;
   const texto = respostaDaPergunta(pergunta, (bruto ?? {}) as ContextoBruto, empresa.id, hojeSP());
-  return paraWhatsapp(texto, rodape);
+  // 4c. A pergunta sobre o trabalho de um agente leva o agente dono da tarefa,
+  // pela MESMA regra do chat (`core/agentes/roteador`), com o link da conversa.
+  const agente = agenteDaPergunta(pergunta);
+  return paraWhatsapp(agente ? `${texto}\n\n${conviteNoWhatsapp(agente, appUrl)}` : texto, rodape);
 }

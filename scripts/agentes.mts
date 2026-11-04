@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTES, configPadrao, rotear, type ConfigAgente, type Destino, type IdAgente } from "@/core/agentes";
+import { ROTAS_AGENTE, agenteDaPergunta, conviteNoWhatsapp } from "@/core/agentes/roteador";
 
 const falhas: string[] = [];
 const ok = (nome: string, cond: boolean, det = "") => {
@@ -597,6 +598,52 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
       && /\{!agente && <span className="a4p-brilho-texto/.test(conversa));
   ok("tela: no computador a lista sai da tela (fica no menu) e a fonte é uma só",
     /className=\{`md:hidden [^`]*`\}>\{lista\}/.test(hub) && /useAgentesDoHub\(\)/.test(hub) && !/useQuery\(/.test(hub));
+}
+
+/* ── 8. a pergunta vai ao agente certo (Etapa 5) ───────────────────────── */
+{
+  // Os casos com o destino escrito à mão: a frase de quem usa → o agente.
+  const ROTA: [string, IdAgente | null][] = [
+    ["cobra os clientes atrasados", "cobranca"],
+    ["Quem está me devendo?", "cobranca"],
+    ["manda a régua de cobrança hoje", "cobranca"],
+    ["concilia o extrato do Itaú", "conciliacao"],
+    ["o extrato não bate", "conciliacao"],
+    ["quais contas eu tenho que pagar essa semana?", "contas_pagar"],
+    ["quanto tenho de contas a pagar?", "contas_pagar"],
+    ["como está o fluxo de caixa da semana?", "caixa"],
+    ["vou ficar no vermelho?", "caixa"],
+    ["fecha o mês de outubro", "fechamento"],
+    ["fechar o caixa do mês", "fechamento"],
+    ["envia pro contador", "fechamento"],
+    ["quanto vendi em outubro?", null],
+    ["paguei 100 de gasolina", null],
+    ["qual minha margem?", null],
+  ];
+  const errados = ROTA.filter(([q, esp]) => agenteDaPergunta(q) !== esp).map(([q, esp]) => `"${q}" → ${agenteDaPergunta(q)} (esperado ${esp})`);
+  ok("roteador: cada frase vai ao agente dono da tarefa, e a que não é de agente fica com a Quattro AI", errados.length === 0, errados.join("; "));
+  const cobertos = new Set(ROTAS_AGENTE.map((r) => r.agente));
+  ok("roteador: os cinco agentes do catálogo têm rota", AGENTES.every((a) => cobertos.has(a.id)));
+
+  // Uma regra só: o chat e o WhatsApp leem o roteador; ninguém monta o
+  // endereço da conversa do agente por conta própria.
+  const chatIA = ler("src/components/ia/useChatIA.ts");
+  const zap = ler("src/lib/whatsapp-ia.ts");
+  const kit = ler("src/components/ia/chat-kit.tsx");
+  ok("chat: todo turno passa pelo roteador no registrar (nenhum caminho de resposta esquece o agente)",
+    /const registrar = React\.useCallback\(\(t0: Turno\) => \{[\s\S]{0,600}agenteDaPergunta\(t0\.consulta \?\? t0\.q\)/.test(chatIA));
+  ok("chat: a resposta mostra o cartão do agente roteado",
+    /\{t\.agente && <CartaoDoAgente id=\{t\.agente\}/.test(kit) && /href=\{enderecoDoAgente\(id\)\}/.test(kit));
+  // O chat embutido É a página: navegar a partir da resposta não pode "fechar"
+  // o chat, senão a tela volta para /quattro-ai depois do clique (medido).
+  ok("chat embutido: navegar pela resposta não fecha a página da Quattro AI",
+    /onNavegar=\{embutido \? undefined : fechar\}/.test(ler("src/components/ia/ChatTelaCheia.tsx")));
+  ok("WhatsApp: a resposta leva o agente pela MESMA regra, com o link da conversa",
+    /const agente = agenteDaPergunta\(pergunta\);/.test(zap) && /conviteNoWhatsapp\(agente, appUrl\)/.test(zap));
+  const montam = arquivos(join(raiz, "src")).filter((f) => !/core\/agentes\/roteador\.ts$/.test(f) && /quattro-ai\?agente=\$\{/.test(readFileSync(f, "utf8")));
+  ok("endereço da conversa do agente mora só no roteador", montam.length === 0, montam.join(", "));
+  ok("WhatsApp: o convite traz o link da conversa no app",
+    conviteNoWhatsapp("cobranca", "https://app.quattro.finance/") === "Isso é com o agente de cobrança: cobra quem vai vencer ou atrasou, no canal certo, pela régua da empresa.\nFale com ele no app: https://app.quattro.finance/quattro-ai?agente=cobranca");
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }
