@@ -21,17 +21,15 @@ export const FIM = "/* </tokens-gerados> */";
  * especificidades diferentes), mas fica fixa para o arquivo gerado ser estável.
  */
 export const CONTEXTOS = [
-  { chave: "claro", seletor: ":root", nome: "tema claro (fora e dentro do app)" },
-  { chave: "escuro", seletor: "html.dark", nome: "tema escuro" },
-  { chave: "app", seletor: ".ds-visor", nome: "dentro do app, nos dois temas" },
-  { chave: "appClaro", seletor: "html:not(.dark) .ds-visor", nome: "dentro do app, tema claro" },
+  { chave: "claro", seletor: ":root", nome: "tema claro (o único tema do sistema)" },
+  { chave: "app", seletor: ".ds-visor", nome: "dentro do app" },
+  { chave: "appClaro", seletor: "html:not(.dark) .ds-visor", nome: "dentro do app (o :not(.dark) só mantém a especificidade de sempre)" },
 ] as const;
 export type ChaveContexto = (typeof CONTEXTOS)[number]["chave"];
 
 /** Rótulo curto de cada contexto, para a tela e para o PR. */
 export const ROTULO_CONTEXTO: Record<ChaveContexto, string> = {
   claro: "Claro",
-  escuro: "Escuro",
   app: "No app",
   appClaro: "No app, claro",
 };
@@ -41,7 +39,6 @@ export interface Token {
   grupo: string;
   tipo: "cor" | "medida" | "fonte" | "sombra" | "degrade" | "movimento" | "outro";
   claro?: string;
-  escuro?: string;
   app?: string;
   appClaro?: string;
   /**

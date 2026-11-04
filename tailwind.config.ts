@@ -26,7 +26,6 @@ const { escalas } = tokens;
  */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx,js,jsx,mdx}"],
-  darkMode: "class", // tema escuro via classe `dark` no <html> (ThemeToggle)
   theme: {
     extend: {
       colors: {

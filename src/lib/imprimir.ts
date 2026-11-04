@@ -18,20 +18,15 @@
  * Comparar com o XLSX (que sempre esteve correto) é o único jeito de perceber,
  * e ninguém compara.
  *
- * ⚠️ **O MODO ESCURO É TRATADO AQUI, NÃO NO CSS, e por uma razão de tinta.**
- * A impressão do navegador descarta FUNDO por padrão ("Background graphics"
- * desligado) e mantém a COR DO TEXTO. No tema escuro o texto é quase branco:
- * o fundo preto some, a letra branca fica, e a folha sai **em branco**. Não dá
- * para consertar por `@media print` sem reescrever a paleta inteira dentro do
- * bloco — e reescrever hex no CSS é justamente o que a guarda da paleta
- * proíbe. Então o tema é forçado a CLARO durante a impressão e devolvido
- * depois, no `afterprint`.
+ * O sistema tem um tema só, o claro (04/11/2026): o ajudante não mexe mais em
+ * tema. Antes ele forçava o claro durante a impressão, porque no escuro a
+ * folha saía em branco (o navegador descarta o fundo e mantém o texto claro).
  *
- * ⚠️ **A devolução é no evento, não depois do `print()`.** `window.print()` é
+ * ⚠️ **As marcas saem no evento, não depois do `print()`.** `window.print()` é
  * síncrono em alguns navegadores e assíncrono em outros (no Safari e no Chrome
- * com a pré-visualização, ele retorna ANTES de a pessoa decidir). Restaurar na
- * linha seguinte devolveria o tema escuro no meio da pré-visualização, e a
- * pessoa veria o relatório escurecer enquanto escolhe a impressora.
+ * com a pré-visualização, ele retorna ANTES de a pessoa decidir). Tirar as
+ * marcas na linha seguinte mudaria a pré-visualização enquanto a pessoa
+ * escolhe a impressora.
  */
 
 /** Marca posta na raiz enquanto a impressão acontece — o CSS pendura nela. */
@@ -57,16 +52,13 @@ export function imprimirDocumento(): void {
 function imprimir(documento: boolean): void {
   if (typeof window === "undefined") return;
   const html = document.documentElement;
-  const eraEscuro = html.classList.contains("dark");
 
   const restaurar = () => {
-    if (eraEscuro) html.classList.add("dark");
     html.removeAttribute(ATRIBUTO);
     html.removeAttribute(ATRIBUTO_DOCUMENTO);
     window.removeEventListener("afterprint", restaurar);
   };
 
-  if (eraEscuro) html.classList.remove("dark");
   html.setAttribute(ATRIBUTO, "1");
   if (documento) html.setAttribute(ATRIBUTO_DOCUMENTO, "1");
   window.addEventListener("afterprint", restaurar);

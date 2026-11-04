@@ -85,11 +85,7 @@ const EXCECOES = new Map<string, string>([
   ["#2cd662", "semântica: positivo — a paleta de marca não tem verde de estado"],
   ["#f45900", "semântica: atenção"],
   ["#a45c15", "semântica: atenção (variante do escopo .ds-visor)"],
-  ["#57a877", "semântica: positivo no tema escuro"],
-  ["#d8584c", "semântica: negativo no tema escuro"],
-  ["#f0962e", "semântica: atenção no tema escuro"],
   ["#4be200", "verde-lima de estado do guia — marca/preenchimento, nunca texto"],
-  ["#1f2419", "moldura do tema escuro: verde-base rebaixado, para o cartão continuar lendo como a peça de cima"],
   ["#000000", "marketing: black-pure e o hero glow — proibido no app, permitido no token que o nomeia"],
   ["#4b4d3d", "marketing: hero glow"],
   /*
@@ -194,7 +190,7 @@ function valorDe(bloco: string, token: string): string | null {
   const m = bloco.match(new RegExp(`${token}\\s*:\\s*(#[0-9a-fA-F]{6})`));
   return m ? m[1].toLowerCase() : null;
 }
-const raiz = css.slice(css.indexOf("\n:root {"), css.indexOf("html.dark {"));
+const raiz = css.slice(css.indexOf("\n:root {"), css.indexOf("\n.ds-visor {"));
 const visorIni = css.indexOf("html:not(.dark) .ds-visor {");
 const visor = css.slice(visorIni, css.indexOf("}", css.indexOf("--color-negative", visorIni)));
 
