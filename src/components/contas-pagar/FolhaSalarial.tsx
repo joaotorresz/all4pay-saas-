@@ -25,7 +25,7 @@ import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
 import { conferirEncargos, encargosLancados, encargosProjetados, contaDoColaborador, type LancamentoDaFolha } from "@/core/folha";
 import {
-  listColaboradores, regimeEAnexoDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador,
+  listColaboradores, regimeEAnexoDaEmpresa, removeColaborador, restaurarColaborador, saveColaborador,
   linhaDoTituloDaFolha, retirarTitulosDaFolha,
 } from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
@@ -157,9 +157,18 @@ export function FolhaSalarial() {
     }
   }, [qc]);
 
-  // ⚠️ Lido num efeito, não no render: `store-org` toca `localStorage`, e ler
-  // durante o render quebra a hidratação (a tela remonta do zero).
-  React.useEffect(() => { setColaboradores(listColaboradores()); }, []);
+  // ⚠️ A equipe mora no banco (`colaboradores`). Sem a leitura, a folha mostra
+  // o erro: uma equipe vazia faria a folha do mês parecer zerada.
+  const [erroEquipe, setErroEquipe] = React.useState<string | null>(null);
+  const relerEquipe = React.useCallback(async () => {
+    try {
+      setColaboradores(await listColaboradores());
+      setErroEquipe(null);
+    } catch (e) {
+      setErroEquipe(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+  React.useEffect(() => { void relerEquipe(); }, [relerEquipe]);
 
   const fiscal = React.useMemo(() => regimeEAnexoDaEmpresa(), []);
   /**
@@ -197,6 +206,13 @@ export function FolhaSalarial() {
     return conferirEncargos(projetado, encargosLancados(risco?.movements ?? [], mes));
   }, [painel, risco, mes]);
 
+  if (!painel && erroEquipe) {
+    return (
+      <Card>
+        <p className="m-0 text-label text-negative">Não foi possível ler a equipe da folha: {erroEquipe}</p>
+      </Card>
+    );
+  }
   if (!painel) {
     return (
       <div className="flex flex-col gap-4">
@@ -340,10 +356,21 @@ export function FolhaSalarial() {
                   linha={l}
                   aberto={aberto === l.colaborador.id}
                   onAbrir={() => setAberto(aberto === l.colaborador.id ? null : l.colaborador.id)}
-                  onRemover={() => {
-                    const antes = removeColaborador(l.colaborador.id);
-                    setColaboradores(listColaboradores());
-                    return () => { restaurarColaboradores(antes); setColaboradores(antes); };
+                  onRemover={async () => {
+                    const c = l.colaborador;
+                    try {
+                      await removeColaborador(c);
+                    } catch (e) {
+                      show(`Não foi possível remover: ${e instanceof Error ? e.message : String(e)}`);
+                      return;
+                    }
+                    await relerEquipe();
+                    return async () => {
+                      try { await restaurarColaborador(c); } catch (e) {
+                        show(`Não foi possível desfazer: ${e instanceof Error ? e.message : String(e)}`);
+                      }
+                      await relerEquipe();
+                    };
                   }}
                   onFerias={() => setFerias(l.colaborador)}
                   onRescindir={() => setRescisao(l.colaborador)}
@@ -424,8 +451,15 @@ export function FolhaSalarial() {
              * gravar o `ate`, o mês seguinte geraria salário, FGTS e DARF de um
              * contrato que não existe mais.
              */
-            saveColaborador({ ...rescisao, ate: desligadoEm.slice(0, 7) });
-            setColaboradores(listColaboradores());
+            try {
+              await saveColaborador({ ...rescisao, ate: desligadoEm.slice(0, 7) });
+            } catch (e) {
+              // Os títulos da rescisão JÁ entraram: a mensagem diz as duas metades.
+              show(`A rescisão foi agendada, mas o fim da vigência de ${rescisao.nome} não foi gravado (${e instanceof Error ? e.message : String(e)}). Os títulos da rescisão já estão em Títulos a pagar.`);
+              setRescisao(null);
+              return;
+            }
+            await relerEquipe();
             show(`Rescisão de ${rescisao.nome} agendada para ${dataBR(titulos[0].vencimento)}.`
               + (substituidos.length > 0 && !pendencia ? ` ${substituidos.length} título(s) de folha seguintes saíram de Títulos a pagar.` : "")
               + pendencia);
@@ -464,7 +498,7 @@ function LinhaColaborador({
   linha: LinhaFolha;
   aberto: boolean;
   onAbrir: () => void;
-  onRemover: () => () => void;
+  onRemover: () => Promise<(() => Promise<void>) | void>;
   onFerias: () => void;
   onRescindir: () => void;
 }) {

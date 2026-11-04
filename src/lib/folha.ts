@@ -3,7 +3,7 @@
 /**
  * A PONTE entre o motor de folha e o resto do produto.
  *
- * Guarda os colaboradores (por organização, via `store-org`) e resolve o
+ * Guarda os colaboradores (por organização, na tabela `colaboradores`) e resolve o
  * REGIME da empresa a partir da fonte única do perfil fiscal — o mesmo
  * resolvedor que a tela de impostos usa.
  *
@@ -12,7 +12,8 @@
  * divergiria da primeira no dia em que a empresa mudasse de anexo — deixando
  * a folha calculando com um regime e o imposto com outro.
  */
-import { ler, gravar, CHAVES_ORG } from "@/lib/store-org";
+import { CHAVES_ORG } from "@/lib/store-org";
+import { documentos } from "@/lib/documentos";
 import { loadCompany } from "@/lib/company";
 import { regimeDoCadastro, type Regime, type Anexo } from "@/core/fiscal/perfil";
 import { competenciaDoTitulo, type Colaborador, type TituloFolha } from "@/core/folha";
@@ -21,26 +22,30 @@ import { isDemo } from "@/lib/demo";
 import { removerImported } from "@/lib/imported";
 import { excluirLogicoEmLote } from "@/lib/exclusao";
 
-export function listColaboradores(): Colaborador[] {
-  return ler<Colaborador[]>(CHAVES_ORG.colaboradores, []);
+/**
+ * ⚠️ A equipe mora em `colaboradores`, UMA LINHA POR PESSOA, desde 03/11/2026
+ * (migration 20261103220000; `lib/documentos`). Antes era a lista inteira em
+ * `org_state`, e a última gravação vencia: uma rescisão registrada num
+ * computador podia sumir quando outro salvava um cadastro, e a folha voltava a
+ * cobrar salário de quem saiu. A chave `a4p_colaboradores` ficou congelada.
+ */
+const equipe = documentos<Colaborador>("colaboradores", CHAVES_ORG.colaboradores);
+
+export async function listColaboradores(): Promise<Colaborador[]> {
+  return (await equipe.listar()).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-export function saveColaborador(c: Colaborador): void {
-  const todos = listColaboradores();
-  const i = todos.findIndex((x) => x.id === c.id);
-  if (i >= 0) todos[i] = c; else todos.push(c);
-  gravar(CHAVES_ORG.colaboradores, todos);
+export async function saveColaborador(c: Colaborador): Promise<void> {
+  await equipe.gravar(c);
 }
 
-export function removeColaborador(id: string): Colaborador[] {
-  const antes = listColaboradores();
-  gravar(CHAVES_ORG.colaboradores, antes.filter((c) => c.id !== id));
-  // Devolve o estado anterior para a ação destrutiva poder desfazer.
-  return antes;
+export async function removeColaborador(c: Colaborador): Promise<void> {
+  await equipe.excluir(c.id, `colaborador ${c.nome} removido da folha`);
 }
 
-export function restaurarColaboradores(lista: Colaborador[]): void {
-  gravar(CHAVES_ORG.colaboradores, lista);
+/** O desfazer da remoção: devolve o colaborador da lixeira. */
+export async function restaurarColaborador(c: Colaborador): Promise<void> {
+  await equipe.restaurar(c);
 }
 
 /**
