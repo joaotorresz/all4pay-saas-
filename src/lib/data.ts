@@ -1236,8 +1236,8 @@ export async function getRiscoInput(): Promise<RiskInput> {
       venda: m.venda_plataforma ? { metodo: null, plataforma: m.venda_plataforma } : null,
     }));
     const partyNames: Record<string, string> = {};
-    // Parties cadastradas (import) ganham o nome real…
-    for (const p of importedParties() ?? []) partyNames[p.id] = p.name;
+    // Parties cadastradas (import, ou o cadastro da demonstração) ganham o nome real…
+    for (const p of importedParties() ?? DEMO_PARTIES) partyNames[p.id] = p.name;
     // …e qualquer contraparte vinda da descrição (seed) mapeia para si mesma.
     movements.forEach((m) => {
       if (m.party_id && !partyNames[m.party_id]) partyNames[m.party_id] = m.party_id;

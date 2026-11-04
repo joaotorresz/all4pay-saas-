@@ -17,7 +17,7 @@ import {
   NIVEIS, ROTULO_ESTADO, descricaoDe, resumoDoNivel,
   type ConfigAgente, type IdAgente, type NivelAgente, type PropostaAgente,
 } from "@/core/agentes";
-import { decidirProposta, listarAgentes, listarPropostas, salvarAgente } from "@/lib/agentes";
+import { decidirProposta, executarAprovada, listarAgentes, listarPropostas, salvarAgente } from "@/lib/agentes";
 import { formatBRL } from "@/lib/format";
 
 const CHAVE_AGENTES = ["agentes", "config"] as const;
@@ -90,7 +90,8 @@ function LinhaProposta({ p, onDecidido }: { p: PropostaAgente; onDecidido: (m: s
     setOcupado(true); setErro(null);
     try {
       await decidirProposta(p.id, aprovar);
-      onDecidido(`${p.titulo}: ${(aprovar ? ROTULO_ESTADO.aprovada : ROTULO_ESTADO.recusada).toLowerCase()}.`);
+      if (aprovar && p.agente === "cobranca") onDecidido(`${p.titulo}. ${await executarAprovada(p.id)}`);
+      else onDecidido(`${p.titulo}: ${(aprovar ? ROTULO_ESTADO.aprovada : ROTULO_ESTADO.recusada).toLowerCase()}.`);
     } catch (e) {
       setErro((e as Error).message);
     } finally { setOcupado(false); }
@@ -120,6 +121,11 @@ const ICONE: Record<IdAgente, string> = {
   contas_pagar: "receipt",
   caixa: "landmark",
   fechamento: "list-checks",
+};
+
+/** O que muda na empresa quando o agente liga. */
+const AO_LIGAR: Partial<Record<IdAgente, string>> = {
+  cobranca: "Com ele ligado, a régua de cobrança não envia sozinha: cada cobrança do dia passa por ele, pela mesma régua e pelo mesmo canal.",
 };
 
 /**
@@ -205,6 +211,8 @@ function LinhaAgente({ inicial, primeira, onSalvo }: { inicial: ConfigAgente; pr
                 onChange={(e) => setCfg((c) => ({ ...c, limiteDia: Math.max(0, Math.min(1000, Math.floor(Number(e.target.value) || 0))) }))} />
             </div>
           )}
+
+          {AO_LIGAR[desc.id] && <p className="m-0 text-caption text-muted" data-ao-ligar>{AO_LIGAR[desc.id]}</p>}
 
           <p className="m-0 text-caption text-muted" data-resumo-nivel>
             {desc.nivelMaximo < 3 ? "Este agente sempre pede a sua aprovação antes de agir. " : ""}
