@@ -106,7 +106,7 @@ export function sugerirRevisao(
         motivo: proposta ? `A chave e a descrição concordam: ${it.categoriaChave}.` : `Nada contradiz a chave: ${it.categoriaChave}.` };
     case "sem_categoria":
       return proposta
-        ? { acao: "classificar", categoria: proposta, fonte, motivo: `Sugiro ${proposta}: ${porque}.` }
+        ? { acao: "classificar", categoria: proposta, fonte, motivo: `${porque.charAt(0).toUpperCase()}${porque.slice(1)}.` }
         : { acao: "conferir", fonte: "regra", motivo: "Nem o histórico nem a descrição dizem a categoria. Escolha uma em Corrigir." };
     case "regra_inconsistente":
       return proposta && !mesma(proposta, it.categoriaChave)
