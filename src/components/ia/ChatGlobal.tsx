@@ -33,6 +33,8 @@ export interface AbrirChat {
   tela?: TelaChat;
   /** Uma conversa do histórico (a lista do menu lateral): abre já carregada. */
   conversa?: string;
+  /** "Vamos completar seu cadastro" (Primeiros passos): a conversa do cadastro. */
+  completar?: boolean;
 }
 
 let ouvindo = false;
@@ -66,6 +68,7 @@ export function ChatGlobal() {
       ajuste={aberto.ajuste}
       tela={aberto.tela}
       conversa={aberto.conversa}
+      completar={aberto.completar}
       aoFechar={() => setAberto(null)}
     />
   );

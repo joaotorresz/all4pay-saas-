@@ -36,6 +36,8 @@ export interface StoredCompany {
   estrutura?: Estrutura;
   /** Preenchido só no modo Pessoa Física. */
   pessoal?: PerfilPessoal;
+  /** Os passos de "Vamos completar seu cadastro" já respondidos ou pulados (`core/cadastro/completar`). */
+  completados?: string[];
   /**
    * A ORGANIZAÇÃO dona deste perfil — o carimbo do cache. Sem ele, o cache do
    * navegador era devolvido para qualquer empresa aberta nele.

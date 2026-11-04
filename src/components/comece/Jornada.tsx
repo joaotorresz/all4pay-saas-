@@ -14,6 +14,7 @@ import { Card, Icon, Button } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { DeclararPlanoCard, useLinhasDeclaradas } from "@/components/registros/DeclararPlanoCard";
+import { CompletarCadastroCard } from "./CompletarCadastroCard";
 import { montarJornada, rotasVistas, type Jornada, type EstagioJornada, type PassoJornada } from "@/lib/adoption";
 
 /** Recalcula a jornada do estado real + rotas vistas (localStorage, no mount). */
@@ -120,6 +121,7 @@ export function JornadaView() {
           )}
         </Card>
 
+        <CompletarCadastroCard />
         <DeclararPlanoCard />
 
         {/* Estágios */}

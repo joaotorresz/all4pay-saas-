@@ -26,6 +26,8 @@ import { useFala } from "./useFala";
 import { OndaDeVoz, TempoDeGravacao } from "./OndaDeVoz";
 import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { OfertaWhatsapp } from "./OfertaWhatsapp";
+import { ConversaCompletar } from "./ConversaCompletar";
+import { pedeCompletarCadastro } from "@/core/cadastro/completar";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
 /** O que vem depois de um texto que surge entra quando ele termina de surgir. */
@@ -105,8 +107,10 @@ function usePrimeiroNome(): string | null {
 }
 
 export function ChatTelaCheia({
-  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa,
+  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa, completar,
 }: {
+  /** "Vamos completar seu cadastro": a conversa pergunta o que a abertura deixou para depois. */
+  completar?: boolean;
   /** Abre esta conversa do histórico (o menu lateral lista as recentes). */
   conversa?: string;
   /** Aberto pelo botão do rodapé: a conversa começa no assunto da tela. */
@@ -122,6 +126,11 @@ export function ChatTelaCheia({
   aoClicarSugestao?: (id: string) => void;
 }) {
   const nome = usePrimeiroNome();
+  // Pedir "completar meu cadastro" (no campo ou na primeira pergunta) abre a
+  // mesma conversa do atalho: o cadastro não é respondido por número do motor.
+  const [modoCompletar, setModoCompletar] = React.useState(
+    () => !!completar || (!!pergunta && pedeCompletarCadastro(pergunta)),
+  );
   const conversaRef = React.useRef<string | null>(null);
   const [ativa, setAtiva] = React.useState<string | null>(null);
   const [conversas, setConversas] = React.useState<Conversa[]>([]);
@@ -165,10 +174,10 @@ export function ChatTelaCheia({
   const enviada = React.useRef(false);
   const { pronto, responder, carregar } = chat;
   React.useEffect(() => {
-    if (enviada.current || !pronto || !pergunta?.trim()) return;
+    if (enviada.current || !pronto || !pergunta?.trim() || modoCompletar) return;
     enviada.current = true;
     void responder(pergunta);
-  }, [pronto, responder, pergunta]);
+  }, [pronto, responder, pergunta, modoCompletar]);
 
   const fechar = React.useCallback(() => {
     setSaindo(true);
@@ -291,6 +300,7 @@ export function ChatTelaCheia({
 
   const perguntar = (q: string, id?: string) => {
     if (!q.trim() || chat.pensando) return;
+    if (!ajuste && pedeCompletarCadastro(q)) { chat.setTexto(""); setModoCompletar(true); return; }
     if (id) {
       clicadaRef.current = id;
       // A Home soma o clique com o mesmo peso do chip dela; aberto de outro
@@ -322,7 +332,7 @@ export function ChatTelaCheia({
           <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
         </Link>
         <div className="flex items-center gap-2">
-          {!ajuste && <button
+          {!ajuste && !modoCompletar && <button
             type="button"
             onClick={() => setHistorico((h) => !h)}
             aria-expanded={historico}
@@ -345,6 +355,8 @@ export function ChatTelaCheia({
 
       {ajuste ? (
         <ConversaDeAjuste ajuste={ajuste} nome={nome} campoRef={campoRef} aoVerHome={fechar} />
+      ) : modoCompletar ? (
+        <ConversaCompletar nome={nome} campoRef={campoRef} aoFechar={fechar} />
       ) : (<>
       <div className="relative flex-1 min-h-0 flex">
         {historico && (
