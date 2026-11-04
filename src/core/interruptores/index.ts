@@ -27,9 +27,9 @@ export const VERSAO_INTERRUPTORES = "interruptores/1.0.0";
 export type IdInterruptor =
   | "pinbank_webhook" | "pinbank_conferencia" | "pinbank_cobranca" | "pinbank_encargos"
   | "pinbank_pix_atualizado" | "mensalidade_pinbank" | "cobranca_banco"
-  | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes";
+  | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes" | "focus_empresas";
 
-export type GrupoInterruptor = "Maquininha e conta Pinbank" | "Cobrança" | "WhatsApp e e-mail";
+export type GrupoInterruptor = "Maquininha e conta Pinbank" | "Cobrança" | "WhatsApp e e-mail" | "Notas fiscais";
 
 /** Por que não está ligado. `desligado` = a variável não está `ligado`. */
 export type MotivoDesligado = "desligado" | "sem_configuracao" | "ambiente_teste";
@@ -69,9 +69,11 @@ export const INTERRUPTORES: readonly Interruptor[] = [
     oQueFaz: "Boleto e nota mandados por e-mail viram item na caixa de entrada de contas a pagar.", exige: [] },
   { id: "cadastro_lembretes", grupo: "WhatsApp e e-mail", nome: "Lembretes do cadastro",
     oQueFaz: "Quem parou a abertura de conta recebe lembrete por e-mail e WhatsApp.", exige: [] },
+  { id: "focus_empresas", grupo: "Notas fiscais", nome: "Cadastrar empresas na Focus",
+    oQueFaz: "A área da plataforma cria a empresa do cliente na Focus com o certificado A1.", exige: ["token de produção da Focus"] },
 ];
 
-export const GRUPOS_INTERRUPTOR: readonly GrupoInterruptor[] = ["Maquininha e conta Pinbank", "Cobrança", "WhatsApp e e-mail"];
+export const GRUPOS_INTERRUPTOR: readonly GrupoInterruptor[] = ["Maquininha e conta Pinbank", "Cobrança", "WhatsApp e e-mail", "Notas fiscais"];
 
 export const ROTULO_MOTIVO: Record<MotivoDesligado, string> = {
   desligado: "Desligado",
