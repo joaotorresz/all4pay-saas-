@@ -326,7 +326,7 @@ export const FRASE_DA_SITUACAO: Record<SituacaoCobranca, string> = {
   falhou: "A Pinbank recusou; corrija e gere de novo.",
   incerta: "A Pinbank não confirmou. Ela pode existir, então nada novo é gerado até a conferência.",
   a_cancelar: "O título mudou depois da emissão. Esta cobrança precisa ser cancelada antes de uma nova.",
-  paga: "Paga.",
+  paga: "O banco confirmou o pagamento e o título foi baixado como recebido.",
   cancelada: "Cancelada.",
 };
 
