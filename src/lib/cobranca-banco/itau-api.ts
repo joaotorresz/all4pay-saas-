@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   caminhoConsultaItau,
+  CONTA_DO_EXEMPLO_ITAU,
+  EXEMPLO_DA_DOC_ITAU,
+  NOSSO_NUMERO_DO_EXEMPLO_ITAU,
   ROTAS_ITAU,
   corpoBaixaItau,
   corpoTokenItau,
@@ -168,6 +171,26 @@ function comODitoDoItau(r: ResultadoCobrancaBanco, resp: RespostaItau): Resultad
   return { ...r, motivo: `${r.motivo} O Itaú disse: ${disse}`.slice(0, 600) };
 }
 
+/**
+ * Só no SANDBOX: quando a consulta volta 200 sem o nosso número, diz quais
+ * nossos números o simulador devolveu (03/11/2026: ele responde com títulos
+ * fixos). Em produção a resposta fica como está: lá são títulos de clientes.
+ */
+function comOsNumerosDoSandbox(r: ResultadoCobrancaBanco, cfg: ConfigItau, corpo: unknown): ResultadoCobrancaBanco {
+  if (cfg.ambiente !== "sandbox" || r.situacao !== "incerta") return r;
+  const dados = corpo && typeof corpo === "object" && Array.isArray((corpo as { data?: unknown }).data) ? ((corpo as { data: unknown[] }).data) : [];
+  const vistos = dados
+    .slice(0, 10)
+    .map((t) => {
+      const dado = t && typeof t === "object" ? (t as { dado_boleto?: { dados_individuais_boleto?: Array<{ numero_nosso_numero?: unknown }> } }).dado_boleto : undefined;
+      const n = dado?.dados_individuais_boleto?.[0]?.numero_nosso_numero;
+      return typeof n === "string" ? n.replace(/\D/g, "").slice(0, 20) : "";
+    })
+    .filter(Boolean);
+  const disse = `O sandbox devolveu ${dados.length} título(s)${vistos.length ? ` com nosso número ${vistos.join(", ")}` : ""}.`;
+  return { ...r, motivo: `${r.motivo} ${disse}`.slice(0, 600) };
+}
+
 /** Só prova que a credencial gera token (o teste do administrador). */
 export async function testarCredencialItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<{ ok: true } | { ok: false; motivo: string }> {
   try {
@@ -188,15 +211,8 @@ export async function emitirCobrancaItau(
   nossoNumero: string,
   hoje: string,
   transporte: TransporteItau = requisicaoItau,
-  /**
-   * Só o exemplo da documentação no SANDBOX: o CPF do exemplo do Itaú tem
-   * dígito inválido e a nossa conferência o barraria antes de sair. Fora do
-   * sandbox a conferência vale sempre.
-   */
-  opcoes: { exemploDoSandbox?: boolean } = {},
 ): Promise<ResultadoCobrancaBanco> {
-  const pularPedido = opcoes.exemploDoSandbox === true && cfg.ambiente === "sandbox";
-  const problemas = [...(pularPedido ? [] : problemasDoPedido(pedido)), ...problemasDaContaItau(cfg.conta)];
+  const problemas = [...problemasDoPedido(pedido), ...problemasDaContaItau(cfg.conta)];
   if (!nossoNumeroValido(nossoNumero)) problemas.push("O nosso número do Itaú tem 8 dígitos.");
   if (problemas.length) return { situacao: "falhou", motivo: problemas.join(" ") };
   try {
@@ -209,6 +225,25 @@ export async function emitirCobrancaItau(
   }
 }
 
+/**
+ * SÓ NO SANDBOX: envia o JSON de exemplo da documentação do Itaú LITERAL, sem
+ * passar pelo nosso montador. O sandbox é um simulador e só responde ao corpo
+ * idêntico ao exemplo (03/11/2026: o nosso montador mandava valor em 17
+ * dígitos, chave Pix e data de emissão, e voltava "cenário não mapeado").
+ * Fora do sandbox não sai nada.
+ */
+export async function emitirExemploDoSandboxItau(cfg: ConfigItau, transporte: TransporteItau = requisicaoItau): Promise<ResultadoCobrancaBanco> {
+  if (cfg.ambiente !== "sandbox") return { situacao: "falhou", motivo: "O exemplo da documentação só vale no sandbox." };
+  const conta = { ...cfg.conta, ...CONTA_DO_EXEMPLO_ITAU };
+  try {
+    const r = await chamar(cfg, transporte, "POST", ROTAS_ITAU.sandbox.emitir, EXEMPLO_DA_DOC_ITAU);
+    return comODitoDoItau(lerCriacaoItau(r.status, r.corpo, conta, NOSSO_NUMERO_DO_EXEMPLO_ITAU), r);
+  } catch (e) {
+    if (e instanceof ErroPortaItau && e.fase === "antes_do_envio") return { situacao: "falhou", motivo: e.message };
+    return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
+  }
+}
+
 /** A situação de verdade, pelo nosso número (resolve a `incerta` e confere o aviso). */
 export async function consultarCobrancaItau(cfg: ConfigItau, nossoNumero: string, transporte: TransporteItau = requisicaoItau): Promise<ResultadoCobrancaBanco> {
   if (!nossoNumeroValido(nossoNumero)) return { situacao: "incerta", motivo: "Nosso número inválido." };
@@ -216,7 +251,7 @@ export async function consultarCobrancaItau(cfg: ConfigItau, nossoNumero: string
     const r = await chamar(cfg, transporte, "GET", caminhoConsultaItau(cfg.ambiente, cfg.conta, nossoNumero));
     if (r.status === 404) return { situacao: "incerta", motivo: "O Itaú não achou este título." };
     if (r.status !== 200) return comODitoDoItau({ situacao: "incerta", motivo: motivoDaRecusaItau(r.status, r.corpo) }, r);
-    return lerConsultaItau(r.corpo, cfg.conta, nossoNumero);
+    return comOsNumerosDoSandbox(lerConsultaItau(r.corpo, cfg.conta, nossoNumero), cfg, r.corpo);
   } catch (e) {
     return { situacao: "incerta", motivo: e instanceof Error ? e.message : "O Itaú não respondeu." };
   }

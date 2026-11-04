@@ -148,7 +148,10 @@ function nucleoDoObjeto(id) {
  * nenhum conhece. `xpto_lixeira_idx` continua reprovando, porque `xpto` também
  * não existe em lugar nenhum.
  */
-const FORMA_DERIVADA = /_(idx|pkey|key|unico|unica|uniq)$/;
+// `_seq`: a sequência que o Postgres batiza sozinho para `generated … as
+// identity` e `bigserial` (`cron_execucoes_id_seq`, CI de 04/11/2026). Mesma
+// família dos `_pkey`: a raiz `cron_execucoes` precisa estar numa migration.
+const FORMA_DERIVADA = /_(idx|pkey|key|unico|unica|uniq|seq)$/;
 function raizesDoNome(nucleo) {
   if (!FORMA_DERIVADA.test(nucleo)) return [];
   const partes = nucleo.split("_");

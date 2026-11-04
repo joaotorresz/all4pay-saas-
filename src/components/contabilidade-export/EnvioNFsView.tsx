@@ -10,7 +10,9 @@
  * O que ela guarda é a regra de quem recebe.
  *
  * ⚠️ EM PRODUÇÃO NÃO HÁ EXECUTOR. Nenhum cron, rota ou e-mail monta e envia o
- * pacote, e nenhum link de confirmação sai daqui. A tela dizia "envio mensal
+ * pacote. (O link de confirmação, sim: desde 04/11/2026 ele sai pela rota
+ * `/api/contador/confirmacao`, atrás de `CONTADOR_OPTIN=ligado`, e só o clique
+ * do contador marca o e-mail como confirmado.) A tela dizia "envio mensal
  * automático", "próximo envio em 01/11 às 21h" e "enviamos um link de
  * confirmação" — três promessas sobre uma engrenagem que não existe, e quem lê
  * conclui que o contador já recebe. Fora da demonstração ela diz o que existe
@@ -29,7 +31,9 @@ import {
 import {
   listarDestinatarios, salvarDestinatario, removerDestinatario,
   verificarDestinatario, arquivamentoDesde, ultimaExecucao, novoIdDest,
+  listarConfirmacoes, pedirConfirmacao,
 } from "@/lib/contabilidade-store";
+import { mesclarConfirmacoes, type ConfirmacaoContador } from "@/core/contabilidade/optin";
 import { listarNFs } from "@/lib/compras-store";
 import { useVendas } from "@/lib/vendas";
 import { isDemo } from "@/lib/demo";
@@ -46,7 +50,23 @@ const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
 export function EnvioNFsView() {
   const { show: toast, node } = useToast();
-  const [destinatarios, setDestinatarios] = React.useState<DestinatarioContador[]>([]);
+  const [cadastrados, setDestinatarios] = React.useState<DestinatarioContador[]>([]);
+  // ⚠️ Em produção o "confirmado" vem SÓ do clique do contador no link
+  // (`contador_confirmacoes`); o campo gravado na lista vale na demonstração.
+  const [confirmacoes, setConfirmacoes] = React.useState<ConfirmacaoContador[]>([]);
+  const destinatarios = React.useMemo(
+    () => (ENVIO_SIMULADO ? cadastrados.map((d) => ({ ...d, linkPedidoEm: null as string | null })) : mesclarConfirmacoes(cadastrados, confirmacoes)),
+    [cadastrados, confirmacoes]);
+  const recarregarConfirmacoes = React.useCallback(() => {
+    if (ENVIO_SIMULADO) return;
+    listarConfirmacoes().then(setConfirmacoes).catch(() => setConfirmacoes([]));
+  }, []);
+  React.useEffect(() => { recarregarConfirmacoes(); }, [recarregarConfirmacoes]);
+  async function enviarLink(d: DestinatarioContador) {
+    const r = await pedirConfirmacao(d.id, d.email);
+    toast(r.motivo);
+    recarregarConfirmacoes();
+  }
   const [entradas, setEntradas] = React.useState<NotaDoMes[]>([]);
   const [saidas, setSaidas] = React.useState<NotaDoMes[]>([]);
   const [linhasMes, setLinhasMes] = React.useState<{ entrada: (string | number)[][]; saida: (string | number)[][] }>({ entrada: [], saida: [] });
@@ -99,21 +119,23 @@ export function EnvioNFsView() {
     const e = validarDestinatario(email, destinatarios);
     setErro(e);
     if (e) return;
-    setDestinatarios(salvarDestinatario({
+    const novo: DestinatarioContador = {
       id: novoIdDest(),
       email: email.trim().toLowerCase(),
       verificado: false,
       criadoEm: hoje,
       verificadoEm: null,
-    }));
+    };
+    setDestinatarios(salvarDestinatario(novo));
     setModal(false);
     setEmail("");
+    // Em produção o link sai pelo servidor; a frase vem da resposta (enviado,
+    // desligado, limite), nunca de uma suposição da tela.
+    if (!ENVIO_SIMULADO) { void enviarLink(novo); return; }
     // ⚠️ Em produção NENHUM e-mail sai daqui ainda — não há job nem envio do
     // link. Dizer "link enviado" faria a pessoa esperar por um e-mail que não
     // existe e concluir que o contador já está recebendo.
-    toast(ENVIO_SIMULADO
-      ? "Link de confirmação enviado (demonstração). O contador precisa clicar para começar a receber."
-      : "E-mail cadastrado. O envio do link de confirmação e o pacote mensal ainda não estão ligados: nenhum XML sai daqui por enquanto.");
+    toast("Link de confirmação enviado (demonstração). O contador precisa clicar para começar a receber.");
   }
 
   /**
@@ -232,13 +254,16 @@ export function EnvioNFsView() {
                     <span className="inline-flex items-center gap-[6px] text-caption text-muted">
                       <span
                         className="w-[6px] h-[6px] rounded-pill"
-                        style={{ background: ENVIO_SIMULADO && d.verificado ? "var(--color-positive)" : "var(--color-warning)" }}
+                        style={{ background: d.verificado ? "var(--color-positive)" : "var(--color-warning)" }}
                       />
-                      {/* ⚠️ Fora da demonstração não existe link de confirmação, então
-                          nenhum "Verificado" é verdadeiro — mesmo o que ficou gravado de
-                          antes (o "Simular confirmação" chegou a aparecer em produção). */}
+                      {/* ⚠️ Fora da demonstração o "verificado" é o clique do contador
+                          no link (`mesclarConfirmacoes`), nunca o campo gravado. */}
                       {!ENVIO_SIMULADO
-                        ? `Cadastrado em ${fmtDia(d.criadoEm)} — a confirmação por e-mail ainda não está ligada`
+                        ? d.verificado
+                          ? `Confirmado pelo contador em ${fmtDia(d.verificadoEm!)}`
+                          : d.linkPedidoEm
+                            ? `Link enviado em ${fmtDia(d.linkPedidoEm)}: aguardando o clique do contador`
+                            : `Cadastrado em ${fmtDia(d.criadoEm)}: o link de confirmação ainda não foi enviado`
                         : d.verificado
                           ? `Verificado em ${fmtDia(d.verificadoEm!)}`
                           : "Aguardando confirmação — não recebe até clicar no link"}
@@ -248,6 +273,11 @@ export function EnvioNFsView() {
                     {/* ⚠️ "Simular confirmação" SÓ na demonstração: em produção ele
                         marcava o e-mail como verificado sem clique nenhum do
                         contador e mostrava um "próximo envio" que não acontece. */}
+                    {!ENVIO_SIMULADO && !d.verificado && (
+                      <Button variant="ghost" onClick={() => void enviarLink(d)}>
+                        {d.linkPedidoEm ? "Reenviar link" : "Enviar link"}
+                      </Button>
+                    )}
                     {ENVIO_SIMULADO && !d.verificado && (
                       <Button
                         variant="ghost"
@@ -297,7 +327,7 @@ export function EnvioNFsView() {
             <p className="m-0 text-label text-muted">
               {ENVIO_SIMULADO
                 ? "Enviamos um link de confirmação para esse e-mail."
-                : "Nenhum link de confirmação é enviado."}
+                : "Ao cadastrar, pedimos o link de confirmação para esse e-mail. Ele só conta como confirmado depois do clique do contador."}
 
             </p>
             <div className="flex flex-col gap-[6px]">
@@ -313,7 +343,7 @@ export function EnvioNFsView() {
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" onClick={() => setModal(false)}>Cancelar</Button>
-              <Button variant="primary" onClick={adicionar}>{ENVIO_SIMULADO ? "Enviar confirmação" : "Cadastrar e-mail"}</Button>
+              <Button variant="primary" onClick={adicionar}>Enviar confirmação</Button>
             </div>
           </div>
         </Modal>

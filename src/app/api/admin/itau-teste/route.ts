@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { NOME_DO_PROVEDOR, type PedidoCobrancaBanco } from "@/core/cobranca-banco";
-import { nossoNumeroValido } from "@/core/cobranca-banco/itau";
-import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, testarCredencialItau } from "@/lib/cobranca-banco/itau-api";
+import { CONTA_DO_EXEMPLO_ITAU, EXEMPLO_DA_DOC_ITAU, NOSSO_NUMERO_DO_EXEMPLO_ITAU, nossoNumeroValido } from "@/core/cobranca-banco/itau";
+import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, emitirExemploDoSandboxItau, testarCredencialItau } from "@/lib/cobranca-banco/itau-api";
 
 /**
  * O TESTE DA COBRANÇA DO ITAÚ — só o administrador da plataforma. Etapa 3 de
@@ -14,7 +14,8 @@ import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, testar
  *   …&exemplo=1                                        → (SÓ no sandbox) emitir/consultar com o
  *     cenário de EXEMPLO da documentação do Itaú: o sandbox é um simulador e
  *     responde 500 "cenário de teste não mapeado" a qualquer outro dado
- *     (medido em 03/11/2026). Conta, valor, vencimento e pagador do exemplo.
+ *     (medido em 03/11/2026). Emitir envia o JSON da doc LITERAL
+ *     (`EXEMPLO_DA_DOC_ITAU`); consultar usa a conta e o nosso número dele.
  *
  * É a prova de que a credencial das variáveis `ITAU_*` funciona DENTRO da
  * função da Vercel, e o lugar onde os NOMES dos campos do core são conferidos
@@ -65,38 +66,6 @@ function pedidoDeTeste(hoje: string): PedidoCobrancaBanco {
   };
 }
 
-/**
- * O cenário de exemplo da documentação do Itaú (sandbox). Beneficiário
- * 1500 · 0005206 · 1 (= 150000052061), carteira 109, nosso número 12345678,
- * R$ 1.234,56 com vencimento em 31/12/2026, pagador CPF 12345678901. A chave
- * Pix continua a das variáveis (o exemplo não traz uma).
- */
-const EXEMPLO_ITAU = { agencia: "1500", conta: "0005206", dac: "1", carteira: "109" } as const;
-const NOSSO_NUMERO_DO_EXEMPLO = "12345678";
-
-function pedidoDoExemplo(): PedidoCobrancaBanco {
-  return {
-    tipo: "boleto_pix",
-    seuNumero: "TESTE01",
-    valor: 1234.56,
-    vencimento: "2026-12-31",
-    descricao: null,
-    devedor: {
-      nome: "Pagador Teste",
-      documento: "12345678901",
-      email: null,
-      telefone: null,
-      cep: "04538132",
-      logradouro: "Avenida Brigadeiro Faria Lima",
-      numero: "3500",
-      complemento: null,
-      bairro: "Itaim Bibi",
-      cidade: "Sao Paulo",
-      uf: "SP",
-    },
-  };
-}
-
 export async function GET(req: Request) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return resposta(404, { ok: false, motivo: "Indisponível sem o banco (demonstração)." });
@@ -118,9 +87,9 @@ export async function GET(req: Request) {
   const exemplo = q.get("exemplo") === "1";
   if (exemplo) {
     if (cfg.config.ambiente !== "sandbox") return resposta(400, { ...base, ok: false, motivo: "O exemplo da documentação só vale no sandbox." });
-    cfg.config = { ...cfg.config, conta: { ...cfg.config.conta, ...EXEMPLO_ITAU } };
+    cfg.config = { ...cfg.config, conta: { ...cfg.config.conta, ...CONTA_DO_EXEMPLO_ITAU } };
   }
-  const numero = (q.get("numero") ?? (exemplo ? NOSSO_NUMERO_DO_EXEMPLO : "")).trim();
+  const numero = (q.get("numero") ?? (exemplo ? NOSSO_NUMERO_DO_EXEMPLO_ITAU : "")).trim();
 
   if (acao === "token") {
     const r = await testarCredencialItau(cfg.config);
@@ -129,8 +98,14 @@ export async function GET(req: Request) {
   if (acao === "emitir") {
     if (cfg.config.ambiente !== "sandbox") return resposta(400, { ...base, ok: false, motivo: "Emitir de teste só no sandbox." });
     if (!nossoNumeroValido(numero)) return resposta(400, { ...base, ok: false, motivo: "Informe numero= com 8 dígitos (o nosso número do teste)." });
-    const pedido = exemplo ? pedidoDoExemplo() : pedidoDeTeste(hoje);
-    const r = await emitirCobrancaItau(cfg.config, pedido, numero, hoje, undefined, { exemploDoSandbox: exemplo });
+    if (exemplo) {
+      // O JSON da documentação, literal: o simulador só responde a ele.
+      const r = await emitirExemploDoSandboxItau(cfg.config);
+      const vencimento = EXEMPLO_DA_DOC_ITAU.dado_boleto.dados_individuais_boleto[0].data_vencimento;
+      return resposta(200, { ...base, exemplo, ok: r.situacao === "emitida", nossoNumero: NOSSO_NUMERO_DO_EXEMPLO_ITAU, vencimento, resultado: r, ms: Date.now() - inicio });
+    }
+    const pedido = pedidoDeTeste(hoje);
+    const r = await emitirCobrancaItau(cfg.config, pedido, numero, hoje);
     return resposta(200, { ...base, exemplo, ok: r.situacao === "emitida", nossoNumero: numero, vencimento: pedido.vencimento, resultado: r, ms: Date.now() - inicio });
   }
   if (acao === "consultar") {
