@@ -188,6 +188,10 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   // A compra mora em `compras`, uma linha por pedido, desde 03/11/2026
   // (migration 20261103200000, que copiou o que havia aqui; lib/compras-store).
   "a4p_compras",
+  // O contrato mora em `contratos` desde 03/11/2026 (20261103210000; lib/documentos).
+  "a4p_contratos",
+  // A equipe da folha mora em `colaboradores` desde 03/11/2026 (20261103220000).
+  "a4p_colaboradores",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
