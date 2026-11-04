@@ -12,6 +12,8 @@
  *                                 codigoTributacaoNacional?, codigoNbs?, serieDps?,
  *                                 percentualTributosSimples? } }
  *                                 — RESERVA: a tabela `nfse_emitentes` vence (03/11/2026).
+ *   FOCUS_NFE_EMPRESAS          = ligado → a área da plataforma cadastra empresas
+ *                                 na Focus (API de empresas, só produção).
  *
  * ⚠️ O ambiente escolhe a BASE e o TOKEN juntos, nunca uma URL livre: com o
  * token de produção apontado para a homologação (ou o contrário) a Focus
@@ -70,8 +72,7 @@ async function emitenteDoBanco(orgId: string): Promise<EmitenteFocus | null> {
 
 export interface RespostaFocus { http: number; corpo: unknown }
 
-async function chamar(metodo: "GET" | "POST" | "DELETE", caminho: string, corpo?: unknown): Promise<RespostaFocus> {
-  const amb = ambienteFocus();
+async function chamar(metodo: "GET" | "POST" | "DELETE", caminho: string, corpo?: unknown, amb: AmbienteFocus = ambienteFocus()): Promise<RespostaFocus> {
   const t = token(amb);
   if (!t) return { http: 503, corpo: { mensagem: "Emissão de notas não configurada." } };
   const ctrl = new AbortController();
@@ -132,4 +133,20 @@ export function consultarTabelaDoMunicipio(
   if (filtros.offset && filtros.offset > 0) q.set("offset", String(Math.floor(filtros.offset)));
   q.set("limit", "100");
   return chamar("GET", `/v2/municipios/${mun}/${tabela}?${q.toString()}`);
+}
+
+/**
+ * O CADASTRO DE EMPRESAS na Focus (`POST /v2/empresas`). Nasce DESLIGADO:
+ * `FOCUS_NFE_EMPRESAS=ligado` é lido SÓ aqui. A API de empresas da Focus só
+ * existe na PRODUÇÃO (não há homologação), então vai sempre à produção com o
+ * token de produção; `simular` manda `dry_run=1`, que confere sem gravar.
+ * ⚠️ O corpo leva o certificado e a senha: nunca vai a log.
+ */
+export const cadastroEmpresasLigado = (env: Record<string, string | undefined> = process.env): boolean =>
+  env.FOCUS_NFE_EMPRESAS === "ligado";
+
+export const tokenDeProducaoConfigurado = (): boolean => !!token("producao");
+
+export function cadastrarEmpresaNaFocus(corpo: Record<string, unknown>, simular: boolean) {
+  return chamar("POST", `/v2/empresas${simular ? "?dry_run=1" : ""}`, corpo, "producao");
 }
