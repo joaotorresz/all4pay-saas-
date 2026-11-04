@@ -21,6 +21,10 @@ import type { PropostaChat } from "@/lib/ia-registro";
 import { DigitandoIA, atrasoDaPalavra, duracaoRevelar } from "./conversa";
 import { WidgetDaResposta } from "./WidgetsIA";
 import type { WidgetIA } from "@/core/assistant/widgets";
+import { descricaoDe, type IdAgente } from "@/core/agentes";
+import { PERFIS } from "@/core/agentes/conversa";
+import { conviteDoAgente, enderecoDoAgente } from "@/core/agentes/roteador";
+import { AvatarAgente } from "./AvatarAgente";
 
 /**
  * Copia um texto e diz se COPIOU.
@@ -75,6 +79,8 @@ export interface Turno {
   grafico?: GraficoResposta;
   /** O cartão de um motor (risco, decisão, saúde, sugestões) que a pergunta pediu. */
   widget?: WidgetIA;
+  /** O agente dono da tarefa da pergunta (`core/agentes/roteador`). */
+  agente?: IdAgente;
   /** O número veio do motor e o texto foi reescrito pela IA, com os mesmos números. */
   redigida?: boolean;
   /** Botões de ação da resposta (lançar no período, enviar extrato…). */
@@ -191,6 +197,7 @@ export function BolhaResposta({
           <WidgetDaResposta id={t.widget} onNavegar={onNavegar} />
         </div>
       )}
+      {t.agente && <CartaoDoAgente id={t.agente} aberta={aberta} onNavegar={onNavegar} />}
       {(t.grafico || (t.numeros && t.numeros.length > 0)) && (aberta ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {t.grafico && <div data-ia="cartao" className="rounded-[20px] p-6 md:col-span-2" style={{ background: "var(--color-white)" }}><GraficoDaResposta g={t.grafico} /></div>}
@@ -383,3 +390,26 @@ export const CURADAS = [
   "Quanto pago de Simples faturando 500 mil por ano?",
   "Quanto cobrar de um boleto de 1.000 vencido há 30 dias?",
 ];
+
+/**
+ * O agente dono da tarefa da pergunta, dentro da resposta (Etapa 5): o boneco,
+ * a frase que o apresenta e o caminho até a conversa dele. A regra de quem
+ * cuida de quê mora em `core/agentes/roteador`; aqui só se apresenta.
+ */
+export function CartaoDoAgente({ id, aberta, onNavegar }: { id: IdAgente; aberta: boolean; onNavegar?: () => void }) {
+  const d = descricaoDe(id);
+  return (
+    <div data-ia="cartao" data-agente-roteado={id}
+      className={`flex items-center gap-4 ${aberta ? "rounded-[20px] p-5" : "rounded-md bg-white p-3"}`}
+      style={aberta ? { background: "var(--color-white)" } : undefined}>
+      <AvatarAgente agente={id} tamanho={aberta ? 48 : 36} />
+      <p className="m-0 flex-1 min-w-0 text-[15px] text-ink">{conviteDoAgente(id)}</p>
+      <Link href={enderecoDoAgente(id)} onClick={onNavegar}
+        className="shrink-0 inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] font-medium text-white transition-transform hover:-translate-y-px"
+        style={{ background: PERFIS[id].cor }}>
+        {d.pronto ? "Falar com o agente" : "Ver o agente"}
+        <Icon name="chevron-right" size={16} color="currentColor" />
+      </Link>
+    </div>
+  );
+}

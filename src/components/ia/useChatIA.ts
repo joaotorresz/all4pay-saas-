@@ -17,6 +17,7 @@ import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { responderLocal, graficoDoCatalogo } from "@/core/assistant/engine";
 import { widgetDaPergunta } from "@/core/assistant/widgets";
+import { agenteDaPergunta } from "@/core/agentes/roteador";
 import { numerosInventados } from "@/core/assistant/redacao";
 import { explicarTermos } from "@/core/assistant/termos";
 import { completarPorRotulo, numerosDeFora } from "@/core/assistant/numero";
@@ -109,7 +110,13 @@ export function useChatIA({ inicial = [], onMudou }: {
 
   const mudouRef = React.useRef(onMudou);
   mudouRef.current = onMudou;
-  const registrar = React.useCallback((t: Turno) => {
+  const registrar = React.useCallback((t0: Turno) => {
+    // A pergunta sobre o trabalho de um agente traz o agente dono da tarefa
+    // (Etapa 5, `core/agentes/roteador`): todo turno passa por aqui, então
+    // nenhum caminho de resposta esquece o agente. O lançamento dito ("paguei
+    // 100 de gasolina") não roteia: ele já tem o Confirmar.
+    const agente = t0.proposta ? null : agenteDaPergunta(t0.consulta ?? t0.q);
+    const t: Turno = agente ? { ...t0, agente } : t0;
     setTurnos((arr) => { const novo = [...arr, t]; mudouRef.current?.(novo); return novo; });
   }, []);
 

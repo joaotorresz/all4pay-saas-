@@ -483,7 +483,7 @@ export function ChatTelaCheia({
                     t={t}
                     variante="aberta"
                     animar={t.id === novoId}
-                    onNavegar={fechar}
+                    onNavegar={embutido ? undefined : fechar}
                   />
                   {t.proposta && (
                     <div className="mt-4">
