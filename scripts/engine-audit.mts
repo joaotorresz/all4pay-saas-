@@ -13811,8 +13811,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const ia = readFileSync("src/lib/whatsapp-ia.ts", "utf8");
   ok("wa-conversa: a reserva (número, papel, teto, trilha) vem ANTES de ler a empresa",
     ia.indexOf('"whatsapp_ia_reservar"') > 0 && ia.indexOf('"whatsapp_ia_reservar"') < ia.indexOf('"automacao_contexto"'));
+  // Etapa 5 (04/11/2026): o lançamento dito volta como PROPOSTA com link, e o
+  // "Confirmar" é no app. Interpretar a frase pode; gravar, nunca.
   ok("wa-conversa: SÓ LEITURA — nenhuma escrita direta e nenhum lançamento pela conversa",
-    !/\.(insert|update|upsert|delete)\(/.test(ia) && !/confirmarDocumento|interpretarLancamento/.test(ia));
+    !/\.(insert|update|upsert|delete)\(/.test(ia) && !/confirmarDocumento/.test(ia)
+    && (!/interpretarLancamento/.test(ia) || /linkDoLancamento\(appUrl, pergunta, empresa\.id\)/.test(ia)));
   const fora = execSyncIcone(`grep -rlE 'rpc\\("whatsapp_ia_' src || true`, { encoding: "utf8" })
     .split("\n").filter((f) => f && f !== "src/lib/whatsapp-ia.ts");
   ok(`wa-conversa: as RPCs da conversa têm porta única (fora dela: ${fora.join(", ") || "nenhuma"})`, fora.length === 0);
