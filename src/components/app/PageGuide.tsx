@@ -89,7 +89,9 @@ export function PageGuide() {
     return () => window.removeEventListener("keydown", h);
   }, [open]);
 
-  if (!guide) return null;
+  // A tela da Quattro AI já é uma conversa: sem a pílula "Guia" por cima do
+  // chat (pedido do dono, 04/11/2026).
+  if (!guide || pathname.startsWith("/quattro-ai")) return null;
 
   return (
     <>

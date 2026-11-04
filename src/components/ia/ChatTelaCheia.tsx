@@ -27,6 +27,7 @@ import { OndaDeVoz, TempoDeGravacao } from "./OndaDeVoz";
 import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { OfertaWhatsapp } from "./OfertaWhatsapp";
 import { ConversaCompletar } from "./ConversaCompletar";
+import { AvatarAgente } from "./AvatarAgente";
 import { pedeCompletarCadastro } from "@/core/cadastro/completar";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
@@ -344,16 +345,21 @@ export function ChatTelaCheia({
       data-saindo={saindo || undefined}
       data-chat-embutido={embutido || undefined}
       className={embutido ? "flex flex-col h-full min-h-0" : "a4p-chat-tela fixed inset-0 z-[90] flex flex-col"}
-      style={{ background: embutido ? "var(--color-white)" : "var(--color-surface-1)" }}
+      style={{ background: embutido ? "var(--a4p-app-bg)" : "var(--color-surface-1)" }}
     >
       {embutido ? (
-        <header className="flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
+        <header className="relative flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
+          {/* A pílula com a Quattro AI no alto, como no chat de cada agente. */}
+          <span className="absolute left-1/2 -translate-x-1/2 inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white">
+            <AvatarAgente agente="quattro-ai" tamanho={26} />
+            <span className="a4p-menu-grupo text-[15px] text-ink">{MARCA_IA}</span>
+          </span>
           <button
             type="button"
             onClick={() => setHistorico((h) => !h)}
             aria-expanded={historico}
             aria-controls="a4p-chat-conversas"
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula a4p-menu-grupo"
           >
             <Icon name="menu" size={16} strokeWidth={1.5} />
             Conversas
@@ -616,7 +622,11 @@ export function ChatTelaCheia({
       )}
       {fala.erro && <p role="alert" className="flex-none m-0 mb-1 text-center text-[13px] text-negative">{fala.erro}</p>}
       </>)}
-      <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
+      {/* Na página Quattro AI o aviso sai (pedido do dono, 04/11/2026); no chat
+          em tela cheia ele fica. */}
+      {embutido ? <div className="flex-none h-4" aria-hidden /> : (
+        <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
+      )}
     </div>
   );
   return embutido ? tela_ : createPortal(tela_, document.body);

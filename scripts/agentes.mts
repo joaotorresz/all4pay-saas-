@@ -563,8 +563,10 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   // Conversas; a tela só a mostra no telefone. Os dois leem a mesma fonte.
   const menu = ler("src/components/dashboard/Sidebar.tsx");
   const hub = ler("src/components/ia/QuattroAIHub.tsx");
-  ok("menu: a Quattro AI e os agentes ficam na seção Conversas, antes das conversas",
-    /<AgentesDoMenu entra=\{entra\} \/>\s*<label[^>]*>\s*<span className="sr-only">Buscar conversa/.test(menu) && /useAgentesDoHub\(\)/.test(menu));
+  const conversa = ler("src/components/ia/conversa.tsx");
+  ok("menu: a Quattro AI (grande, no alto) e os agentes ficam no cartão da IA; busca e \"nova\" vêm depois dos agentes, antes das conversas",
+    /<QuattroAIDoMenu entra=\{entra\} \/>\s*<AgentesDoMenu entra=\{entra\} \/>[\s\S]*aria-label="Buscar conversa"[\s\S]*\{visiveis\.length/.test(menu) && /useAgentesDoHub\(\)/.test(menu)
+      && /<AvatarAgente agente="quattro-ai" tamanho=\{64\} \/>/.test(menu));
   // Os bonecos de cada agente (04/11/2026): um PNG por agente, RGBA (fundo
   // transparente), com pelo menos 256px (nítido em retina).
   const avatar = ler("src/components/ia/AvatarAgente.tsx");
@@ -582,8 +584,17 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   ok("tela: a Quattro AI abre como conversa (o mesmo chat, embutido), sem título nem selo",
     /<ChatTelaCheia [^>]*embutido/.test(hub) && /<AppShell [^>]*semCabecalho/.test(ler("src/app/quattro-ai/page.tsx"))
       && !/DemoBadge/.test(ler("src/app/quattro-ai/page.tsx")));
-  ok("menu: conversas e agentes num cartão branco",
-    /className="[^"]*bg-white text-ink[^"]*" data-menu-conversas/.test(menu));
+  // Teste do dono (04/11/2026): cartão cinza-claro, destaques em branco.
+  ok("menu: cartão da IA cinza-claro com os destaques em branco",
+    /className="[^"]*bg-surface-1 text-ink[^"]*" data-menu-conversas/.test(menu)
+      && /on \? "bg-white text-ink" : "text-ink hover:bg-white"/.test(menu));
+  ok("chat do agente: as falas entram uma a uma, com o agente digitando antes",
+    /const \[fila, setFila\]/.test(chat) && /<DigitandoIA /.test(chat) && /setFila\(\(f\) => \[\.\.\.f, \.\.\.passo\.falas\]\)/.test(chat)
+      && !/setLinhas\(\(ls\) => \[\.\.\.ls, \.\.\.passo\.falas/.test(chat));
+  ok("chat do agente: enquanto digita, o boneco do agente balança na frente dos pontos, sem o rótulo escrito",
+    /<DigitandoIA [^>]*agente=\{config\.agente\}/.test(chat)
+      && /\{agente && \(\s*<span className="a4p-agente-pensa/.test(conversa)
+      && /\{!agente && <span className="a4p-brilho-texto/.test(conversa));
   ok("tela: no computador a lista sai da tela (fica no menu) e a fonte é uma só",
     /className=\{`md:hidden [^`]*`\}>\{lista\}/.test(hub) && /useAgentesDoHub\(\)/.test(hub) && !/useQuery\(/.test(hub));
 }
