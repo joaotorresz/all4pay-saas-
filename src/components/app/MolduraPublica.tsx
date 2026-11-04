@@ -35,7 +35,7 @@ export function MolduraPublica({
     // `ds-visor` é o escopo do design system (o mesmo que o `AppShell` aplica):
     // sem ele as regras de papel (título em Agrandir, número, botão) não
     // alcançavam as telas públicas, e o login ficou com a identidade antiga.
-    <div className="a4p-canvas ds-visor min-h-screen flex flex-col">
+    <div className="a4p-canvas ds-visor min-h-screen flex flex-col" style={{ background: "var(--color-white)" }}>
       <header className="shrink-0 flex items-center h-[68px] px-4 lg:px-6">
         {/* A marca Quattro por máscara, na cor da tinta (a mesma da barra do
             app): o arquivo da marca antiga saiu daqui em 27/10/2026. */}
@@ -43,7 +43,12 @@ export function MolduraPublica({
           <span role="img" aria-label="Quattro" className="a4p-logo-mono block w-[125px] h-[24px]" />
         </Link>
       </header>
+      {/* ⚠️ Fundo BRANCO e campo CINZA (dono, 04/11/2026: "deixe o cinza na
+          caixa de texto e branco no background"). Antes o cartão era cinza
+          como o campo, e o campo sumia nele. Inline para vencer o fundo do
+          `.a4p-app-card`; `--color-white` vira a tinta no escuro. */}
       <div
+        style={{ background: "var(--color-white)" }}
         className={cn(
           "a4p-app-card flex-1 min-h-0 mx-4 mb-4 lg:mx-6 lg:mb-6",
           cartaoClassName ?? "overflow-y-auto",

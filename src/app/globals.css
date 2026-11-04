@@ -1365,27 +1365,43 @@ body,
   caret-color: var(--color-ink);
 }
 
-/* O campo é um bloco cinza sem borda; selecionado, ganha UMA borda em tinta
-   (sem anel). Fora de cartão, sobre o fundo cinza, fica branco. A largura da
-   borda é fixa: o foco troca a cor, não o tamanho. */
+/* O campo é um bloco cinza sem borda; fora de cartão, sobre o fundo cinza,
+   fica branco. A largura da borda é fixa: o foco troca a cor, não o tamanho.
+   `--a4p-campo-fundo` guarda o fundo para o preenchimento automático (abaixo).
+
+   ⚠️ **Selecionado: borda em tinta a 35% e um halo de 4px a 7%** (dono,
+   04/11/2026: "quando selecionado está com essa borda preta"). A tinta cheia
+   gritava mais que o botão lime ao lado. O halo é `outline`, não sombra: o
+   `.ds-visor *` zera toda sombra. */
 .a4p-campo,
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo) {
+  --a4p-campo-fundo: var(--color-surface-2);
   border-width: 1.5px;
   border-style: solid;
   border-color: transparent;
-  background-color: var(--color-surface-2);
+  background-color: var(--a4p-campo-fundo);
 }
 /* `data-fundo-cinza`: qualquer superfície cinza fora da área que rola (o
-   corpo do pop-up global de criação). */
+   corpo do pop-up global de criação e o cartão das telas de entrada). */
 :is([data-area-rola], [data-fundo-cinza]) .a4p-campo:not([data-card="1"] .a4p-campo) {
-  background-color: var(--color-white);
+  --a4p-campo-fundo: var(--color-white);
 }
 .a4p-campo:focus,
 .a4p-campo:focus-visible,
 .a4p-campo:focus-within,
 :where(input, textarea, select):where(.border-border, .border-border-soft, .border-faint):not(.a4p-campo):focus {
-  border-color: var(--color-ink);
-  outline: none;
+  border-color: color-mix(in srgb, var(--color-ink) 35%, transparent);
+  outline: 4px solid color-mix(in srgb, var(--color-ink) 7%, transparent);
+  outline-offset: 0;
+}
+/* O preenchimento automático do navegador pinta o campo de azul. A sombra
+   interna é o único jeito de cobrir; o `!important` com seletor mais forte
+   vence o zerador de sombra do `.ds-visor`. */
+.ds-visor .a4p-campo input:-webkit-autofill,
+.ds-visor input.a4p-campo:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-ink);
+  box-shadow: 0 0 0 1000px var(--a4p-campo-fundo, var(--color-white)) inset !important;
+  caret-color: var(--color-ink);
 }
 .a4p-campo :focus-visible { outline: none; }
 .a4p-campo.border-warning,
@@ -1402,6 +1418,20 @@ input.a4p-campo:focus::placeholder,
 textarea.a4p-campo:focus::placeholder { opacity: 0.55; }
 label { transition: color var(--dur-rapida) ease; }
 .flex-col:focus-within > label { color: var(--color-ink); }
+/* As seis casas do código (`ui/CampoCodigo`): a casa da vez pega o foco do
+   campo, e o cursor pisca nela enquanto está vazia. */
+.a4p-casa-codigo[data-vez] {
+  border-color: color-mix(in srgb, var(--color-ink) 35%, transparent);
+  outline: 4px solid color-mix(in srgb, var(--color-ink) 7%, transparent);
+}
+.a4p-casa-cursor {
+  display: block;
+  width: 1.5px;
+  height: 24px;
+  background: var(--color-ink);
+  animation: a4p-casa-pisca 1s steps(1) infinite;
+}
+@keyframes a4p-casa-pisca { 50% { opacity: 0; } }
 /* O campo inválido dá UM tremor curto. */
 @keyframes a4p-campo-invalido {
   0%, 100% { translate: 0 0; }
@@ -1445,6 +1475,7 @@ label { transition: color var(--dur-rapida) ease; }
   [data-area-rola] > *,
   .a4p-campo.border-warning,
   .a4p-campo[aria-invalid="true"],
+  .a4p-casa-cursor,
   .fixed.inset-0[class*="bg-black/"],
   .fixed.inset-0[class*="bg-black/"] > *,
   .shadow-popover { animation: none; }
