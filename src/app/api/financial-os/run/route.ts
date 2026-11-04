@@ -11,6 +11,7 @@ import { registroSupabase } from "@/lib/automacoes-registro";
 import { saidasPara } from "@/lib/whatsapp-saidas";
 import { rodarLembretesReais } from "@/lib/cadastro-lembretes-servidor";
 import { linksDaRegua } from "@/lib/regua-links";
+import { registrarExecucaoCron } from "@/lib/cron-execucao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,11 +57,15 @@ export async function GET(req: Request) {
 
   const hoje = hojeEm(new Date());
   const appUrl = url.origin;
+  const iniciadoEm = new Date().toISOString();
 
   const { data: linhas, error } = await admin
     .from("automacoes").select("org_id,tipo,ativo,canais,destinatarios,parametros")
     .eq("ativo", true).limit(TETO_LINHAS);
-  if (error) return NextResponse.json({ ok: false, motivo: error.message }, { status: 500 });
+  if (error) {
+    if (!dryRun) await registrarExecucaoCron(admin, "automacoes", iniciadoEm, false, { erro: error.message });
+    return NextResponse.json({ ok: false, motivo: error.message }, { status: 500 });
+  }
 
   const porOrg = new Map<string, ConfigAutomacao[]>();
   for (const r of (linhas ?? []) as { org_id: string; tipo: string; ativo: boolean; canais: string[]; destinatarios: unknown; parametros: unknown }[]) {
@@ -124,10 +129,16 @@ export async function GET(req: Request) {
   const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
     .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : "falha nos lembretes do cadastro" }));
 
+  // O rastro da EXECUÇÃO (guarda `crons-no-ar`), mesmo sem empresa ligada.
+  const erroRegistro = dryRun ? null : await registrarExecucaoCron(admin, "automacoes", iniciadoEm, true, {
+    empresas: porOrg.size, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas,
+  });
+
   return NextResponse.json({
     ok: true,
     hoje,
     dryRun,
+    ...(erroRegistro ? { erroRegistro } : {}),
     lembretesCadastro,
     empresas: porOrg.size,
     totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },

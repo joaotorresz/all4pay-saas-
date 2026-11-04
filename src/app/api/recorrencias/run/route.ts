@@ -5,6 +5,7 @@ import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { datasFaturaCron, refFatura } from "@/lib/recorrencias-sched";
 import { simularMaterializacao, type RecorrenciaParaSimular } from "@/lib/recorrencias-simulacao";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
+import { registrarExecucaoCron } from "@/lib/cron-execucao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,7 +137,10 @@ export async function GET(req: Request) {
   const geradoEm = new Date().toISOString();
 
   const { data: recs, error } = await lerRecorrenciasAtivas(admin);
-  if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+  if (error) {
+    if (!dryRun) await registrarExecucaoCron(admin, "recorrencias", geradoEm, false, { erro: error.message });
+    return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+  }
 
   if (dryRun) {
     return simular(admin, (recs ?? []) as Record<string, string | number | null>[], hojeISO);
@@ -205,8 +209,16 @@ export async function GET(req: Request) {
     });
   }
 
+  // ⚠️ O rastro da EXECUÇÃO, mesmo sem empresa nenhuma a materializar: sem
+  // ele, "não rodou" e "rodou e não havia o que fazer" eram iguais, e o
+  // materializador ficou parado meses sem ninguém ver (guarda `crons-no-ar`).
+  const erroRegistro = await registrarExecucaoCron(admin, "recorrencias", geradoEm, true, {
+    recorrencias: recs?.length ?? 0, entradas, saidas, falhas, orgs: porOrg.size,
+  });
+
   return NextResponse.json({
     ok: true, geradoEm, recorrencias: recs?.length ?? 0,
     entradasGeradas: entradas, saidasGeradas: saidas, falhas, orgs: porOrg.size,
+    ...(erroRegistro ? { erroRegistro } : {}),
   });
 }

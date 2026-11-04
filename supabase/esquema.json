@@ -314,6 +314,16 @@
         "impacto": "Até ser aplicada, a tela de cronogramas em produção não lê a lista (a coluna movement_id não existe) e salvar é recusado com a mensagem do banco. O único cronograma de produção (R$ 3.000, sem compra lançada) volta a aparecer, sem mudança de valor, quando o job migrar aplica a migration no merge.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 04/11/2026 (Fase 3.4: depreciação em dobro)"
+      },
+      {
+        "nome": "20261104110000_cron_execucoes",
+        "motivo": "Cada execução completa dos crons da Vercel (recorrências e automações) passa a gravar uma linha, mesmo sem trabalho, e a guarda agendada crons-no-ar reprova o cron diário parado há mais de 26 horas. Tabela da plataforma: grava a chave de serviço, lê o papel só-leitura do CI. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cron_execucoes"
+        ],
+        "impacto": "Até ser aplicada, as rotas de cron devolvem 'registro da execução' com o erro na resposta (o trabalho do cron não muda) e a guarda crons-no-ar não lê a tabela.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: prova de que o materializador roda todo dia)"
       }
     ],
     "objetos_sem_migration": [

@@ -691,6 +691,13 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: npm run ddl
+      # ⚠️ A prova CONTÍNUA de que os crons diários rodam (Fase 3.4): o
+      # materializador de recorrências ficou meses parado sem ninguém ver.
+      # Lê `cron_execucoes` de produção com o papel só-leitura.
+      - name: Os crons diários completaram nas últimas 26 horas?
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run crons-no-ar
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-075 — "NO AR" É ESTADO CONTÍNUO, NÃO EVENTO
