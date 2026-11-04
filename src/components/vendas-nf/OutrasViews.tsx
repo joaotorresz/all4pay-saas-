@@ -22,9 +22,9 @@ import { RegimeNaoDeclarado } from "@/components/fiscal/RegimeNaoDeclarado";
 import { loadCompany } from "@/lib/company";
 import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura } from "@/lib/recorrencias";
 import {
-  painelNotasFiscais, provisionarImpostos, contasAPagarDosImpostos, pendenciasConfig,
+  provisionarImpostos, contasAPagarDosImpostos, pendenciasConfig,
   pixDoLink, validarLink, mensagemDaProposta,
-  IMPOSTOS, ROTULO_IMPOSTO, ESFERA, ROTULO_ESFERA, FORNECEDORES_PROPOSTOS, STATUS_NF,
+  IMPOSTOS, ROTULO_IMPOSTO, ESFERA, ROTULO_ESFERA, FORNECEDORES_PROPOSTOS,
   type Venda, type ConfigImpostos, type Imposto, type Regime, type LinkPagamento, type Esfera,
 } from "@/core/vendas";
 import {
@@ -32,6 +32,10 @@ import {
   listarLinks, salvarLink, removerLink, novoId,
 } from "@/lib/vendas-store";
 import { useVendas } from "@/lib/vendas";
+import { hydrateNfse, listNfse, type Nfse } from "@/lib/nfse";
+import { vendasDasNotas } from "@/lib/vendas-nf";
+import { linhasDasNotas, painelDasNotas, notaEmitida } from "@/core/nfse/lista";
+import { reportar } from "@/lib/erros";
 import { Painel, CardAnel } from "@/components/paineis/shared";
 
 const hoje = () => new Date();
@@ -45,25 +49,29 @@ const MESES = ["01 — Jan", "02 — Fev", "03 — Mar", "04 — Abr", "05 — M
 
 export function NotasFiscaisView() {
   const { data: vendas } = useVendas();
+  // ⚠️ A lista e o resumo saem das NOTAS (`core/nfse/lista`), a mesma tabela
+  // do emissor — não do status gravado na venda, que não via a nota avulsa.
+  const [notas, setNotas] = React.useState<Nfse[] | null>(null);
+  const [vendaDaNota, setVendaDaNota] = React.useState<Map<string, string>>(new Map());
+  React.useEffect(() => { hydrateNfse(true).then(() => setNotas(listNfse())); }, []);
+  React.useEffect(() => {
+    if (!notas || !vendas) return;
+    vendasDasNotas(notas, vendas).then(setVendaDaNota).catch((e) => reportar("vendas.nfse", e, "a venda de origem não aparece na lista de notas", true));
+  }, [notas, vendas]);
   // ⚠️ "Download em lote" era uma segunda aba (27/10/2026): é uma AÇÃO sobre a
   // lista, não outra página. Virou botão que abre o bloco acima da tabela.
   const [lote, setLote] = React.useState(false);
   const [marcadas, setMarcadas] = React.useState<Set<string>>(new Set());
   const { show, node } = useToast();
 
-
-  // Só vendas com nota — as demais não têm o que listar aqui.
-  const comNF = React.useMemo(() => (vendas ?? []).filter((v) => v.statusNF !== "a_emitir" || v.numeroNF), [vendas]);
-  const cards = React.useMemo(() => painelNotasFiscais(vendas ?? []), [vendas]);
-  const emitidas = comNF.filter((v) => v.statusNF === "emitida");
+  const linhas = React.useMemo(() => linhasDasNotas(notas ?? [], vendaDaNota), [notas, vendaDaNota]);
+  const cards = React.useMemo(() => painelDasNotas(linhas), [linhas]);
+  const emitidas = linhas.filter((n) => notaEmitida(n.status));
 
   const linhasXLSX = React.useMemo(() => [
     ["Nº da NF", "Venda", "Emissão", "Cliente", "Valor", "Status"],
-    ...comNF.map((v) => [
-      v.numeroNF || "—", v.numero, v.competencia, v.clienteNome, v.valorTotal,
-      STATUS_NF.find((s) => s.id === v.statusNF)?.label ?? v.statusNF,
-    ]),
-  ], [comNF]);
+    ...linhas.map((n) => [n.numero || "—", n.venda || "Avulsa", n.competencia, n.tomadorNome, n.valorServico, n.rotuloStatus]),
+  ], [linhas]);
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -72,7 +80,7 @@ export function NotasFiscaisView() {
           <Icon name="list-checks" size={15} color="currentColor" />
           {lote ? "Fechar download em lote" : "Baixar em lote"}
         </Button>
-        <Button variant="outline" disabled={comNF.length === 0}
+        <Button variant="outline" disabled={linhas.length === 0}
           onClick={() => baixarXLSX("notas-fiscais", [{ nome: "Notas fiscais", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
           Exportar XLSX
@@ -81,7 +89,7 @@ export function NotasFiscaisView() {
 
       <Painel titulo="Resumo de notas fiscais" cards={cards} />
 
-      {lote && vendas !== null && (
+      {lote && notas !== null && (
         <Card>
           <span className="text-h3 font-semibold text-ink">Download em lote</span>
           {emitidas.length === 0 ? (
@@ -91,37 +99,37 @@ export function NotasFiscaisView() {
               <div className="flex items-center gap-2 mt-4">
                 <Checkbox
                   checked={marcadas.size === emitidas.length && emitidas.length > 0}
-                  onChange={(e) => setMarcadas(e.target.checked ? new Set(emitidas.map((v) => v.id)) : new Set())}
+                  onChange={(e) => setMarcadas(e.target.checked ? new Set(emitidas.map((n) => n.id)) : new Set())}
                   label="Selecionar todas"
                 />
                 <span className="text-caption text-faint tabular-nums ml-auto">{marcadas.size} de {emitidas.length}</span>
               </div>
               <div className="flex flex-col mt-3 max-h-[320px] overflow-y-auto">
-                {emitidas.map((v) => (
-                  <label key={v.id} className="flex items-center gap-3 py-2 border-b border-border-soft last:border-0 cursor-pointer">
+                {emitidas.map((n) => (
+                  <label key={n.id} className="flex items-center gap-3 py-2 border-b border-border-soft last:border-0 cursor-pointer">
                     <input
-                      type="checkbox" checked={marcadas.has(v.id)}
+                      type="checkbox" checked={marcadas.has(n.id)}
                       onChange={() => setMarcadas((s) => {
-                        const n = new Set(s);
-                        if (n.has(v.id)) n.delete(v.id); else n.add(v.id);
-                        return n;
+                        const m = new Set(s);
+                        if (m.has(n.id)) m.delete(n.id); else m.add(n.id);
+                        return m;
                       })}
                     />
                     <span className="text-label text-ink flex-1 truncate">
-                      NF {v.numeroNF || "—"} · {v.clienteNome}
+                      NF {n.numero || "—"} · {n.tomadorNome}
                     </span>
-                    <span className="text-label text-muted tabular-nums shrink-0"><BRL value={v.valorTotal} /></span>
+                    <span className="text-label text-muted tabular-nums shrink-0"><BRL value={n.valorServico} /></span>
                   </label>
                 ))}
               </div>
               <Button
                 variant="primary" className="mt-4" disabled={marcadas.size === 0}
                 onClick={() => {
-                  const sel = emitidas.filter((v) => marcadas.has(v.id));
+                  const sel = emitidas.filter((n) => marcadas.has(n.id));
                   baixarXLSX("notas-fiscais-selecionadas", [{
                     nome: "Notas fiscais",
                     linhas: [["Nº da NF", "Venda", "Emissão", "Cliente", "Valor"],
-                      ...sel.map((v) => [v.numeroNF, v.numero, v.competencia, v.clienteNome, v.valorTotal])],
+                      ...sel.map((n) => [n.numero || "—", n.venda || "Avulsa", n.competencia, n.tomadorNome, n.valorServico])],
                   }]);
                   show(`${sel.length} ${sel.length === 1 ? "nota exportada" : "notas exportadas"}.`);
                 }}
@@ -135,24 +143,29 @@ export function NotasFiscaisView() {
       )}
 
 
-      {vendas === null ? (
+      {notas === null ? (
         <Card><Skeleton className="h-[200px]" /></Card>
-      ) : comNF.length === 0 ? (
-          <Card><Vazio texto="Nenhuma nota fiscal encontrada para os filtros selecionados." /></Card>
+      ) : linhas.length === 0 ? (
+          <Card><Vazio texto="Nenhuma nota fiscal emitida ainda." /></Card>
         ) : (
           <Card padded={false} className="overflow-hidden">
             <Tabela
-              linhas={comNF}
-              chave={(v) => v.id}
+              linhas={linhas}
+              chave={(n) => n.id}
               emCartao={false}
-              rotulo="Notas emitidas"
+              rotulo="Notas fiscais"
               colunas={[
-                { chave: "nf", rotulo: "Nº da NF", render: (v) => <span className="tabular-nums">{v.numeroNF || "—"}</span> },
-                { chave: "venda", rotulo: "Venda", render: (v) => <span className="text-caption text-faint tabular-nums">{v.numero}</span> },
-                { chave: "emissao", rotulo: "Emissão", render: (v) => <span className="text-muted tabular-nums">{fmtDia(v.competencia)}</span> },
-                { chave: "cliente", rotulo: "Cliente", principal: true, classe: "truncate max-w-[28ch]", render: (v) => v.clienteNome },
-                { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (v) => <BRL value={v.valorTotal} /> },
-                { chave: "status", rotulo: "Status", render: (v) => <span className="text-caption text-muted">{STATUS_NF.find((s) => s.id === v.statusNF)?.label}</span> },
+                { chave: "nf", rotulo: "Nº da NF", render: (n) => <span className="tabular-nums">{n.numero || "—"}</span> },
+                { chave: "venda", rotulo: "Venda", render: (n) => <span className="text-caption text-faint tabular-nums">{n.venda || "Avulsa"}</span> },
+                { chave: "emissao", rotulo: "Emissão", render: (n) => <span className="text-muted tabular-nums">{fmtDia(n.competencia)}</span> },
+                { chave: "cliente", rotulo: "Cliente", principal: true, classe: "truncate max-w-[28ch]", render: (n) => n.tomadorNome },
+                { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (n) => <BRL value={n.valorServico} /> },
+                { chave: "status", rotulo: "Status", render: (n) => (
+                  <span className="text-caption text-muted">
+                    {n.rotuloStatus}{n.ambiente === "homologacao" ? " · teste" : ""}
+                    {n.urlPdf && notaEmitida(n.status) && <> · <a href={n.urlPdf} target="_blank" rel="noreferrer" className="underline">PDF</a></>}
+                  </span>
+                ) },
               ]}
             />
           </Card>

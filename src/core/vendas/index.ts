@@ -223,15 +223,6 @@ export const painelStatusNF = (vendas: Venda[]): CardVenda[] =>
     { id: "erro", label: "NFs com erro", casa: (v: Venda) => v.statusNF === "negada" && temFaturamento(v) },
   ], "Total de notas fiscais");
 
-/** O resumo da tela de Notas Fiscais (emitidas · processando · canceladas · negadas). */
-export const painelNotasFiscais = (vendas: Venda[]): CardVenda[] =>
-  cards(vendas, [
-    { id: "emitida", label: "NF emitidas", casa: (v: Venda) => v.statusNF === "emitida" },
-    { id: "processando", label: "NF processando", casa: (v: Venda) => v.statusNF === "processando" },
-    { id: "cancelada", label: "NF canceladas", casa: (v: Venda) => v.statusNF === "cancelada" },
-    { id: "negada", label: "NF negadas", casa: (v: Venda) => v.statusNF === "negada" },
-  ], "Total de NFs");
-
 export interface FiltroVendas {
   de?: string | null;
   ate?: string | null;

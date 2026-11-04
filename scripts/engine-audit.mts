@@ -9605,11 +9605,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      && statusNFDaNota("rejeitada") === "negada" && statusNFDaNota("processando") === "processando");
   const emitida = vendaComNota(vN, { status: "autorizada", numero: "100001" });
   const cardsNF = cv.painelStatusNF([emitida, VV({ id: "b" })]);
-  const cardsNotas = cv.painelNotasFiscais([emitida, VV({ id: "b" })]);
   ok("vender/nota: a venda com nota entra em 'NFs emitidas' no painel da lista",
      cardsNF.find((c) => c.id === "emitidas")!.quantidade === 1 && cardsNF.find((c) => c.id === "emitidas")!.valor === 1_000);
-  ok("vender/nota: e no painel da tela de notas, com o mesmo número",
-     cardsNotas.find((c) => c.id === "emitida")!.quantidade === 1 && emitida.numeroNF === "100001");
+  // A tela de notas lê as NOTAS, não a venda (04/11/2026): a guarda é `npm run nfse-lista`.
+  ok("vender/nota: o número da nota autorizada volta para a venda", emitida.numeroNF === "100001");
   ok("vender/nota: nota emitida ou venda cancelada não oferecem emitir de novo",
      !podeEmitirNota(emitida) && !podeEmitirNota(VV({ status: "cancelada" })) && podeEmitirNota(VV({ statusNF: "negada" })));
   const cardsCb = cv.painelStatusNF([VV({ id: "ok" }), VV({ id: "cb", status: "chargeback", valorTotal: 400 }), VV({ id: "cn", status: "cancelada", statusNF: "negada", valorTotal: 50 })]);
