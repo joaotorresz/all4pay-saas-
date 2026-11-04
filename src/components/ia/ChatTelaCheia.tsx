@@ -726,7 +726,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
           ref={campoRef}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Diga o que você quer ver primeiro"
+          placeholder={ajuste.objeto ? "Diga o que mudar" : "Diga o que você quer ver primeiro"}
           aria-label={ajuste.objeto ? ajuste.pergunta : "O que você quer ver na Home"}
           className="a4p-ia-campo flex-1 min-w-0 pl-3 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
         />
