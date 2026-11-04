@@ -375,6 +375,10 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/compras.sql
+      - name: Guarda do vínculo cronograma → compra (sem depreciação em dobro)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cronograma-compra.sql
       # Contratos e a equipe da folha moram em tabelas próprias (20261103210000 e
       # 20261103220000), pela mesma forma de documento: papel, isolamento, id do
       # documento, lixeira e cópia idempotente de org_state.

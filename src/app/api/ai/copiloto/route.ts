@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 import { MODELO_CLAUDE, SAIDA_CLAUDE } from "@/lib/ia/claude";
 import { GRAFICOS_DA_IA } from "@/core/assistant/engine";
 import { telasParaPrompt } from "@/core/assistant/acoes";
@@ -81,7 +82,7 @@ REGRAS DE CONTEÚDO (obrigatórias):
 - Seja específico: nomeie o cliente, a categoria, a conta ou o mês do contexto.
 - Não invente nada fora do CONTEXTO. Se faltar dado, diga qual falta e onde cadastrar.
 - Número AUSENTE não é zero: com "runwayMeses" null, não escreva "runway de 0 meses" nem estime prazo — leia "runwayMotivo" ("sem_queima" = a empresa gerou caixa; "caixa_negativo" = o caixa já acabou).
-- "probRuptura" é a chance de ruptura em 60 DIAS.
+- "probRuptura" é a chance de ruptura em ${ROTULO_HORIZONTE_RUPTURA.toUpperCase()}, a única do produto.
 - Projeção fica no condicional ("no ritmo atual, …"), nunca como fato.
 - O CONTEXTO traz "titulosAbertos" (o que está a pagar e a receber, vencido e dos próximos 30 dias, com vencimento, valor e contraparte) e "contas" (o saldo de cada conta). Pergunta sobre contas, boletos, vencimentos ou clientes se responde COM eles, listando os títulos. Nunca diga que não tem acesso a esses dados.
 

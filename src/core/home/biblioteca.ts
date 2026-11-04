@@ -67,7 +67,6 @@ export const CARDS_BIBLIOTECA: CardBiblioteca[] = [
   c("caixa-projetado-p50", "Caixa projetado", "Caixa", "o caixa mais provável no fim do horizonte da simulação", ["caixa projetado", "caixa previsto"]),
   c("caixa-pessimista-p10", "Caixa no pior cenário", "Caixa", "o caixa num cenário ruim da simulação", ["pior cenario", "caixa no pior cenario", "cenario pessimista"]),
   c("caixa-otimista-p90", "Caixa no melhor cenário", "Caixa", "o caixa num cenário bom da simulação", ["melhor cenario", "caixa no melhor cenario", "cenario otimista"]),
-  c("prob-caixa-negativo", "Risco de caixa negativo", "Caixa", "a chance de o caixa ficar negativo", ["caixa negativo", "risco de caixa negativo", "ficar negativo", "ficar no vermelho"]),
   c("data-provavel-ruptura", "Data provável de aperto", "Caixa", "quando o caixa deve apertar", ["data de aperto", "quando aperta", "aperto de caixa", "data provavel de aperto"]),
   c("semana-aperto", "Próxima semana de aperto", "Caixa", "a próxima semana em que sai mais do que entra", ["semana de aperto", "proxima semana de aperto"]),
   c("runway-pessimista", "Fôlego no pior cenário", "Caixa", "quantos meses o caixa aguenta se tudo piorar", ["folego no pior cenario", "runway pessimista"]),
@@ -127,8 +126,8 @@ export const CARDS_BIBLIOTECA: CardBiblioteca[] = [
   c("pilar-mais-fraco", "Pilar mais frágil", "Resumo executivo", "o ponto que mais puxa a nota para baixo", ["pilar mais fragil", "ponto fraco", "ponto mais fraco"]),
   c("dimensao-mais-forte", "Onde você é mais forte", "Resumo executivo", "o ponto mais forte da empresa", ["ponto forte", "pontos fortes", "onde sou mais forte"]),
   c("dimensao-a-melhorar", "O que priorizar", "Resumo executivo", "o ponto que mais vale melhorar", ["o que priorizar", "o que melhorar", "a melhorar"]),
-  c("prob-ruptura-90d", "Chance de ruptura em 90 dias", "Resumo executivo", "a chance de faltar caixa nos próximos 90 dias", ["probabilidade de ruptura", "chance de ruptura", "ruptura", "ruptura de caixa"]),
-  c("prob-stress-90d", "Chance de aperto em 90 dias", "Resumo executivo", "a chance de um período de stress financeiro", ["stress", "estresse", "chance de stress"]),
+  // Os antigos "risco de caixa negativo" e "chance de aperto/stress" eram outras duas chances (Fase 3.3): os nomes viraram sinônimos desta.
+  c("prob-ruptura-90d", "Chance de ruptura em 60 dias", "Resumo executivo", "a chance de faltar caixa nos próximos 60 dias", ["probabilidade de ruptura", "chance de ruptura", "ruptura", "ruptura de caixa", "caixa negativo", "risco de caixa negativo", "ficar negativo", "ficar no vermelho", "stress", "estresse", "chance de stress"]),
   c("eficiencia-operacional", "Eficiência operacional", "Resumo executivo", "o quanto a operação converte receita em resultado", ["eficiencia operacional", "eficiencia"]),
   c("roic-proxy", "Retorno sobre o capital", "Resumo executivo", "o retorno sobre o capital empregado (estimado)", ["roic", "retorno sobre o capital", "retorno do capital"]),
   c("exposicao-liquida", "Exposição líquida", "Resumo executivo", "se no total você tem mais a receber ou a pagar", ["exposicao liquida", "posicao liquida"]),

@@ -17,6 +17,14 @@ export interface Cronograma {
   meses: number;        // vida útil / período de amortização (em meses)
   inicio: string;       // YYYY-MM-01 (mês de início)
   categoria: string;    // linha contábil de destino
+  /**
+   * A COMPRA que este cronograma deprecia/amortiza (id do lançamento de saída).
+   * O razão leva essa compra ao ATIVO em vez da despesa — sem o vínculo, a
+   * compra entrava como despesa cheia e a depreciação vinha por cima (a
+   * despesa em dobro da Rodada 4). `null` = o bem é anterior ao sistema, não
+   * há compra no razão. `undefined` = ainda não respondido (o formulário exige).
+   */
+  movimentoId?: string | null;
 }
 
 export interface LinhaCronograma {
@@ -66,6 +74,25 @@ function indiceNoMes(c: Cronograma, mesISO: string): number {
   const [my, mm] = mesISO.slice(0, 7).split("-").map(Number);
   const diff = (my - iy) * 12 + (mm - im);
   return diff >= 0 && diff < c.meses ? diff : -1;
+}
+
+/** Conta de ATIVO que recebe a compra ligada ao cronograma. */
+export const CONTA_ATIVO: Record<TipoCronograma, string> = {
+  depreciacao: "1.2.01", // Imobilizado
+  amortizacao: "1.1.05", // Despesas antecipadas
+};
+
+/**
+ * As compras que viram ATIVO no razão: id do lançamento → conta do ativo.
+ * Uma compra só pode estar em um cronograma (o banco recusa a segunda); aqui,
+ * por defesa, a primeira vence.
+ */
+export function comprasDoAtivo(cronogramas: readonly Cronograma[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const c of cronogramas) {
+    if (c.movimentoId && !m.has(c.movimentoId)) m.set(c.movimentoId, CONTA_ATIVO[c.tipo]);
+  }
+  return m;
 }
 
 /** Parcela mensal linear (base depreciável / vida útil). */

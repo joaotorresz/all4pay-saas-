@@ -38,7 +38,7 @@ function persistLocal(list: Cronograma[]): void {
 }
 
 /* ----------------------------- live (schedules) ----------------------------- */
-type Row = { id: string; kind: string; description: string | null; total: number; residual: number; start_period: string; periods: number };
+type Row = { id: string; kind: string; description: string | null; total: number; residual: number; start_period: string; periods: number; movement_id: string | null };
 
 function rowToCronograma(r: Row): Cronograma {
   const [descricao, categoria = ""] = (r.description ?? "").split(SEP);
@@ -48,6 +48,7 @@ function rowToCronograma(r: Row): Cronograma {
     descricao, categoria,
     valorTotal: Number(r.total), residual: Number(r.residual),
     meses: Number(r.periods), inicio: String(r.start_period).slice(0, 10),
+    movimentoId: r.movement_id ?? null,
   };
 }
 function cronogramaToRow(c: Omit<Cronograma, "id">) {
@@ -56,6 +57,8 @@ function cronogramaToRow(c: Omit<Cronograma, "id">) {
     description: c.categoria ? `${c.descricao}${SEP}${c.categoria}` : c.descricao,
     total: c.valorTotal, residual: c.residual ?? 0,
     start_period: c.inicio, periods: c.meses, method: "straight_line",
+    // A compra que vira ativo no razão (nulo: bem anterior ao sistema).
+    movement_id: c.movimentoId ?? null,
   };
 }
 
@@ -64,7 +67,7 @@ export async function loadCronogramas(): Promise<Cronograma[]> {
   try {
     const { data, error } = await createClient()
       .from("schedules")
-      .select("id,kind,description,total,residual,start_period,periods")
+      .select("id,kind,description,total,residual,start_period,periods,movement_id")
       .order("created_at", { ascending: true }).limit(TETO_LINHAS);
     if (error) return [];
     return ((data ?? []) as Row[]).map(rowToCronograma);
@@ -75,13 +78,25 @@ export async function loadCronogramas(): Promise<Cronograma[]> {
 export async function salvarCronograma(c: Omit<Cronograma, "id"> & { id?: string }): Promise<Cronograma[]> {
   if (isDemo) {
     const list = loadLocal();
+    // A mesma regra do banco (índice schedules_uma_compra_por_cronograma).
+    if (c.movimentoId && list.some((x) => x.id !== c.id && x.movimentoId === c.movimentoId)) {
+      throw new Error("Esta compra já está ligada a outro cronograma: o bem seria depreciado duas vezes.");
+    }
     const next = c.id ? list.map((x) => (x.id === c.id ? ({ ...x, ...c, id: c.id } as Cronograma) : x)) : [...list, { ...c, id: uid() } as Cronograma];
     persistLocal(next); return next;
   }
   const sb = createClient();
   const row = cronogramaToRow(c);
-  if (c.id) await sb.from("schedules").update(row).eq("id", c.id);
-  else await sb.from("schedules").insert(row);
+  // ⚠️ A recusa do banco (a mesma compra em dois cronogramas, compra de outra
+  // empresa) vai para a tela com a mensagem real: antes o erro era engolido e
+  // a tela recarregava como se tivesse gravado.
+  const { error } = c.id
+    ? await sb.from("schedules").update(row).eq("id", c.id)
+    : await sb.from("schedules").insert(row);
+  if (error) {
+    if (error.code === "23505") throw new Error("Esta compra já está ligada a outro cronograma: o bem seria depreciado duas vezes.");
+    throw new Error(error.message);
+  }
   return loadCronogramas();
 }
 

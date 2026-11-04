@@ -19,6 +19,11 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
 import { hojeLocal } from "@/lib/aggregations";
 import { formatBRL } from "@/lib/format";
+import { getRiscoInput } from "@/lib/data";
+
+/** Uma saída que pode ser a compra do bem (o que o vínculo leva ao ativo). */
+interface CompraCandidata { id: string; rotulo: string }
+const SEM_COMPRA = "sem-compra";
 
 const mesLabelCurto = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
 
@@ -41,6 +46,25 @@ export function CronogramasView() {
   const [draft, setDraft] = React.useState<Draft | null>(null);
 
   React.useEffect(() => { loadCronogramas().then(setLista).catch(() => setLista([])); }, []);
+
+  // As saídas que podem ser a compra do bem. Ligar o cronograma à compra é o
+  // que tira a compra da despesa no razão (senão o bem pesa duas vezes).
+  const [compras, setCompras] = React.useState<CompraCandidata[]>([]);
+  React.useEffect(() => {
+    getRiscoInput().then((input) => {
+      setCompras(input.movements
+        .filter((m) => m.type === "saida" && m.status !== "cancelado")
+        .sort((a, b) => (b.paid_date ?? b.due_date).localeCompare(a.paid_date ?? a.due_date))
+        .slice(0, 300)
+        .map((m) => ({
+          id: m.id,
+          rotulo: `${(m.party_id && input.partyNames?.[m.party_id]) || m.category || "Saída"} · ${(m.paid_date ?? m.due_date).slice(8, 10)}/${(m.paid_date ?? m.due_date).slice(5, 7)}/${(m.paid_date ?? m.due_date).slice(0, 4)} · ${formatBRL(m.amount)}`,
+        })));
+    }).catch(() => setCompras([]));
+  }, []);
+  const rotuloCompra = (id: string | null | undefined) =>
+    id ? compras.find((x) => x.id === id)?.rotulo ?? "Compra ligada" : "Bem anterior ao sistema";
+  const [erroSalvar, setErroSalvar] = React.useState<string | null>(null);
 
   const [postando, setPostando] = React.useState(false);
   const [msgRazao, setMsgRazao] = React.useState<string | null>(null);
@@ -69,8 +93,14 @@ export function CronogramasView() {
 
   const salvar = async () => {
     if (!draft || !draft.descricao.trim() || draft.meses <= 0 || draft.valorTotal <= 0) return;
-    setLista(await salvarCronograma(draft));
-    setDraft(null);
+    // A pergunta da compra é obrigatória: sem resposta não há como saber se a
+    // compra já está na despesa (e a depreciação dobraria).
+    if (draft.movimentoId === undefined) { setErroSalvar("Diga qual lançamento pagou este bem, ou que ele é anterior ao sistema."); return; }
+    setErroSalvar(null);
+    try {
+      setLista(await salvarCronograma(draft));
+      setDraft(null);
+    } catch (e) { setErroSalvar((e as Error).message); }
   };
   const remover = async (id: string) => {
     if (!window.confirm("Remover este cronograma?")) return;
@@ -152,6 +182,7 @@ export function CronogramasView() {
                   <div className="flex-1 min-w-0">
                     <div className="text-[16px] font-medium text-ink truncate">{c.descricao}</div>
                     <div className="text-caption text-faint truncate">{tipoLabel(c.tipo)} · {c.categoria || "—"}</div>
+                    <div className="text-caption text-faint truncate" data-compra-do-bem={c.movimentoId ?? ""}>Compra: {rotuloCompra(c.movimentoId)}</div>
                   </div>
                   <div className="hidden sm:block text-right shrink-0">
                     <div className="text-caption text-faint">parcela/mês</div>
@@ -186,7 +217,18 @@ export function CronogramasView() {
               <Input label="Vida útil (meses)" type="number" value={String(draft.meses)} onChange={(e) => setDraft({ ...draft, meses: Math.max(1, Number(e.target.value) || 0) })} />
               <DateField label="Início" value={draft.inicio.slice(0, 10)} onChange={(v) => setDraft({ ...draft, inicio: v })} />
               <Input label="Categoria contábil" value={draft.categoria} onChange={(e) => setDraft({ ...draft, categoria: e.target.value })} />
+              <div className="sm:col-span-2">
+                <Select label="Compra do bem" value={draft.movimentoId === undefined ? "" : draft.movimentoId ?? SEM_COMPRA}
+                  onChange={(v) => setDraft({ ...draft, movimentoId: v === SEM_COMPRA ? null : v || undefined })}
+                  options={[
+                    { value: "", label: "Escolha o lançamento que pagou o bem" },
+                    { value: SEM_COMPRA, label: "O bem é anterior ao sistema (não há compra lançada)" },
+                    ...compras.map((x) => ({ value: x.id, label: x.rotulo })),
+                  ]} />
+                <span className="text-caption text-faint">A compra ligada vai para o ativo no razão; a despesa passa a ser só a parcela mensal.</span>
+              </div>
             </div>
+            {erroSalvar && <span className="text-caption text-negative" role="alert">{erroSalvar}</span>}
             <div className="flex items-center gap-2 justify-end">
               <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Cancelar</Button>
               <Button size="sm" onClick={salvar}>Salvar cronograma</Button>

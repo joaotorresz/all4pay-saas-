@@ -190,7 +190,7 @@ export interface RiskInput {
    * Opcional: quem monta o `RiskInput` sem ele segue só com `saldoAtual`.
    */
   contasSaldo?: { id: string; nome: string; saldo: number }[];
-  horizonDias?: number; // padrão 60
+  horizonDias?: number; // período da PROJEÇÃO (padrão: HORIZONTE_RUPTURA_DIAS); a chance de ruptura não muda com ele
 }
 
 /** Recebível com probabilidade (camada probabilística). */

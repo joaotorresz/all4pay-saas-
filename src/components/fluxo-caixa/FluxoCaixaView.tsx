@@ -500,11 +500,11 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
       />
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {projecoes.map((p) => (
-          <div key={p.dias} className="flex flex-col gap-[2px] border-l-2 pl-2" style={{ borderColor: p.probNegativo > 0.2 ? "var(--color-negative)" : "var(--color-border)" }}>
+          <div key={p.dias} className="flex flex-col gap-[2px] border-l-2 border-border pl-2">
             <span className="text-caption text-faint">{p.horizonte}</span>
             <span className="text-body tabular-nums text-ink"><BRL value={p.p50} /></span>
             <span className="text-caption text-faint tabular-nums">p10 <BRL value={p.p10} /></span>
-            <span className="text-caption" style={{ color: p.probNegativo > 0.2 ? "var(--color-negative)" : "var(--color-muted)" }}>ruptura {pct(p.probNegativo)}</span>
+            {/* Sem "ruptura X%" por horizonte (Fase 3.3): a chance de ruptura é uma só, no resumo. */}
           </div>
         ))}
       </div>

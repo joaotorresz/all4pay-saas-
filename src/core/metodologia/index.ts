@@ -27,6 +27,7 @@
  */
 
 import { pctDeInteiro } from "@/lib/format";
+import { HORIZONTE_RUPTURA_DIAS, ROTULO_HORIZONTE_RUPTURA } from "@/core/risk-engine/horizonte";
 
 export const METODOLOGIA_VERSION = "metodologia/1.0.0";
 
@@ -89,9 +90,9 @@ export const METODOLOGIAS: Metodologia[] = [
     id: "chance-ruptura",
     indicador: "Chance de ruptura",
     motor: "risk-engine/1.0.0 · calcularScore",
-    janela: "Horizonte de 60 dias (o padrão do motor de risco), sobre os títulos com data marcada.",
+    janela: `Horizonte de ${ROTULO_HORIZONTE_RUPTURA}, fixo (o mesmo em toda tela, qualquer que seja o período projetado), sobre os títulos com data marcada.`,
     escala: "0% a 97%.",
-    formula: "Quando existe um dia projetado de ruptura, o valor é 1 − (dias até a ruptura ÷ 60). Sem ruptura projetada, cai para (100 − score de risco) ÷ 250. Runway pessimista abaixo de 30 dias força o piso de 60%.",
+    formula: `Quando existe um dia projetado de ruptura, o valor é 1 − (dias até a ruptura ÷ ${HORIZONTE_RUPTURA_DIAS}). Sem ruptura projetada, cai para (100 − score de risco) ÷ 250. Runway pessimista abaixo de 30 dias força o piso de 60%.`,
     componentes: [
       { label: "Liquidez imediata", peso: 0.2, comoMede: "Runway base, penalizado quando há ruptura projetada dentro do horizonte." },
       { label: "Previsibilidade de receita", peso: 0.15, comoMede: "Coeficiente de variação da receita mensal já recebida." },
@@ -114,32 +115,12 @@ export const METODOLOGIAS: Metodologia[] = [
       "Não é a mesma conta do Financial Score: os dois vêm de motores diferentes, com pilares e pesos diferentes.",
     ],
   },
-  {
-    /*
-     * ⚠️ **EXISTE UMA TERCEIRA, e descobri montando esta lista.** A tela do
-     * `/inteligencia` mostra "Prob. ruptura (90d)" — e ela NÃO é a mesma da
-     * tela de risco (60d): sai do `quant`, por uma fórmula própria, sobre um
-     * horizonte diferente. Duas telas do mesmo produto respondiam "qual a
-     * chance de o caixa quebrar" com números que não têm por que coincidir, e
-     * nenhuma das duas dizia qual estava respondendo. É a mesma família do
-     * POSIÇÃO × FLUXO da ONDA 1: duas respostas verdadeiras a perguntas
-     * diferentes, exibidas com o mesmo rótulo.
-     */
-    id: "chance-ruptura-90d",
-    indicador: "Prob. ruptura (90 dias)",
-    motor: "quant/1.0.0 · scoreSaudeFinanceira",
-    janela: "90 dias.",
-    escala: "0% a 100%.",
-    formula: "Parte de 1 − (Financial Score ÷ 100) e agrava: multiplica por 1,3 quando o runway é menor que 6 meses e por 1,1 quando a volatilidade do fluxo passa de 0,7.",
-    componentes: [
-      { label: "Financial Score", peso: 1, comoMede: "O complemento do score de saúde é o ponto de partida — os sete pilares dele valem aqui, com os mesmos pesos." },
-    ],
-    limitacoes: [
-      "É DERIVADA do Financial Score, não uma medição independente: se o score sobe, ela cai por construção.",
-      "Não é a mesma da tela de risco, que olha 60 dias e parte dos títulos com data marcada. As duas podem discordar sem nenhuma estar errada.",
-      "Probabilidade de modelo, sem base histórica de rupturas para calibrar.",
-    ],
-  },
+  /*
+   * ⚠️ A "Prob. ruptura (90 dias)" do `quant` (1 − score ÷ 100, agravada pelo
+   * runway) SAIU em 03/11/2026 (Fase 3.3). Ela era a segunda resposta, com
+   * outra conta e outro horizonte, para "qual a chance de o caixa quebrar". O
+   * quant agora LÊ a chance do risk-engine, e a declaração é uma só.
+   */
 ];
 
 export function metodologiaDe(id: string): Metodologia | undefined {

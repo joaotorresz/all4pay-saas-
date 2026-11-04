@@ -72,7 +72,8 @@ export interface RiscoDimensao {
 
 export interface RiskMatrix {
   dimensoes: RiscoDimensao[];
-  probabilidadeStress: number; // 0..1 (agregado)
+  /** A chance de ruptura do risk-engine (HORIZONTE_RUPTURA_DIAS) — a mesma de toda tela. */
+  probabilidadeRuptura: number;
   nivelGeral: RiscoNivel;
   fatoresCriticos: string[];
 }
@@ -88,10 +89,6 @@ export interface BandaPrevisao {
 
 export interface Prediction {
   horizonteDias: number;
-  probabilidadeNegativo: number; // 0..1 de ficar negativo no horizonte
-  diaProvavelNegativo: number | null;
-  dataProvavelNegativo: string | null;
-  semanaProvavel: string | null;
   caixaFinalP10: number;
   caixaFinalP50: number;
   caixaFinalP90: number;
