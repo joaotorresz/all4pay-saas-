@@ -49,7 +49,7 @@
  * ⚠️ Nada aqui grava. O rodapé diz isso a cada conferência.
  */
 import * as React from "react";
-import { Button, DateField, InfoHint, StatusBadge, BRL, SemDados } from "@/components/ui";
+import { Button, DateField, InfoHint, StatusBadge, BRL, SemDados, Tabela, type ColunaTabela } from "@/components/ui";
 import { conferirComExtrato, type ResultadoConferencia, type VinculoTela } from "@/lib/pinbank/cliente";
 import {
   ESPERA_CONFERENCIA_MS,
@@ -167,7 +167,6 @@ const TOM_DA_ANTECIPACAO: Record<ResultadoAntecipacao, "positive" | "warning" | 
   estorno_parcial: "neutral",
 };
 
-const TH = "py-2 pr-4 text-[11px] font-medium text-faint";
 
 /** "+2 dias", "−1 dia" (o menos tipográfico), "mesmo dia" — sempre na tinta do texto. */
 const diferencaEmDias = (n: number | null) => {
@@ -361,41 +360,34 @@ function Relatorio({ r, consultadoEm }: { r: RelatorioParaEmpresa; consultadoEm:
             comoCalcula={COMO_CALCULA_RESUMO}
           />
         </div>
-        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Resumo por situação">
-          <table className="w-full text-label tabular-nums">
-            <thead>
-              <tr className="text-left">
-                {["Situação", "Parcelas", "Bruto estimado no extrato", "Bruto no sistema"].map((h) => <th key={h} className={TH}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {GRUPOS_RESUMO.map((g) => {
-                const n = r.resumo.grupos[g.id];
-                const linhas = ORDEM_STATUS.filter((s) => GRUPO_DO_STATUS[s] === g.id && ps[s].quantidade > 0);
-                return (
-                  <React.Fragment key={g.id}>
-                    <tr className="border-t border-border-soft">
-                      <th scope="colgroup" colSpan={4} className="py-2 pr-4 text-left text-label font-medium text-ink">
-                        {g.rotulo} · {n === 0 ? "Nenhuma" : n}
-                      </th>
-                    </tr>
-                    {linhas.map((s) => (
-                      <tr key={s} className="border-t border-border-soft">
-                        <td className="py-2 pr-4"><StatusBadge tone={TOM_DO_STATUS[s]}>{ROTULO_STATUS[s]}</StatusBadge></td>
-                        <td className="py-2 pr-4">{ps[s].quantidade}</td>
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          <Valor centavos={ps[s].centavosExtrato} semValor="nenhuma parcela com valor deste lado" />
-                        </td>
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          <Valor centavos={ps[s].centavosSistema} semValor="nenhuma parcela com valor deste lado" />
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-3 text-label tabular-nums" data-resumo-situacao>
+          {GRUPOS_RESUMO.map((g) => {
+            const n = r.resumo.grupos[g.id];
+            const linhas = ORDEM_STATUS.filter((s) => GRUPO_DO_STATUS[s] === g.id && ps[s].quantidade > 0);
+            return (
+              <div key={g.id} className="flex flex-col">
+                <span className="py-2 text-label font-medium text-ink border-t border-border-soft">
+                  {g.rotulo} · {n === 0 ? "Nenhuma" : n}
+                </span>
+                <Tabela
+                  linhas={linhas}
+                  chave={(s) => s}
+                  emCartao={false}
+                  rotulo={`Resumo por situação · ${g.rotulo}`}
+                  colunas={[
+                    { chave: "situacao", rotulo: "Situação", principal: true, render: (s) => <StatusBadge tone={TOM_DO_STATUS[s]}>{ROTULO_STATUS[s]}</StatusBadge> },
+                    { chave: "parcelas", rotulo: "Parcelas", render: (s) => ps[s].quantidade },
+                    { chave: "extrato", rotulo: "Bruto estimado no extrato", classe: "whitespace-nowrap", render: (s) => (
+                      <Valor centavos={ps[s].centavosExtrato} semValor="nenhuma parcela com valor deste lado" />
+                    ) },
+                    { chave: "sistema", rotulo: "Bruto no sistema", classe: "whitespace-nowrap", render: (s) => (
+                      <Valor centavos={ps[s].centavosSistema} semValor="nenhuma parcela com valor deste lado" />
+                    ) },
+                  ]}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -636,21 +628,20 @@ function Itens({ r }: { r: RelatorioCompleto }) {
       {daAba.length === 0 ? (
         <span className="text-label text-muted">Nenhuma parcela neste grupo.</span>
       ) : (
-        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Itens da conferência">
-          <table className="w-full text-label tabular-nums">
-            <thead>
-              <tr className="text-left">
-                {["NSU", "Parcela", "Venda", "Repasse no sistema", "Repasse no extrato", "Diferença", "Bruto no sistema", "Bruto estimado no extrato", "Taxa e antecipação no extrato", "Situação", ""].map((h, i) => (
-                  <th key={`${h}-${i}`} className={TH}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map((i) => (
-                <Linha key={i.id} i={i} aberto={abertos.has(i.id)} onAlternar={() => alternar(i.id)} />
-              ))}
-            </tbody>
-          </table>
+        <div className="text-label tabular-nums">
+          <Tabela
+            linhas={visiveis}
+            chave={(i) => i.id}
+            emCartao={false}
+            rotulo="Itens da conferência"
+            colunas={COLUNAS_ITENS}
+            acoes={(i) => (
+              <Button variant="ghost" size="sm" aria-expanded={abertos.has(i.id)} onClick={() => alternar(i.id)}>
+                {abertos.has(i.id) ? "Fechar" : "Detalhes"}
+              </Button>
+            )}
+            detalhe={(i) => (abertos.has(i.id) ? <DetalheItem i={i} /> : null)}
+          />
         </div>
       )}
       {daAba.length > limite && (
@@ -693,116 +684,108 @@ function TaxaDaParcela({ i }: { i: ItemConferencia }) {
   );
 }
 
-function Linha({ i, aberto, onAlternar }: { i: ItemConferencia; aberto: boolean; onAlternar: () => void }) {
-  // O total de parcelas do LADO que o item tem: a parcela só do sistema é "3/3" do sistema, nunca "3/1" do extrato.
-  const n = i.extrato ? (i.totalParcelasExtrato ?? i.totalParcelasSistema) : (i.totalParcelasSistema ?? i.totalParcelasExtrato);
+/** As colunas de uma parcela conferida (a peça `Tabela` faz a linha e o cartão). */
+const COLUNAS_ITENS: ColunaTabela<ItemConferencia>[] = [
+  { chave: "nsu", rotulo: "NSU", principal: true, classe: "whitespace-nowrap", render: (i) => i.nsu ?? "—" },
+  { chave: "parcela", rotulo: "Parcela", classe: "whitespace-nowrap", render: (i) => {
+    // O total de parcelas do LADO que o item tem: a parcela só do sistema é "3/3" do sistema, nunca "3/1" do extrato.
+    const n = i.extrato ? (i.totalParcelasExtrato ?? i.totalParcelasSistema) : (i.totalParcelasSistema ?? i.totalParcelasExtrato);
+    return i.parcela == null ? "—" : `${i.parcela}/${n ?? "—"}`;
+  } },
+  { chave: "venda", rotulo: "Venda", classe: "whitespace-nowrap", render: (i) => dataBR(i.extrato?.dataVenda ?? i.sistema?.competencia) },
+  { chave: "repasse-sistema", rotulo: "Repasse no sistema", classe: "whitespace-nowrap", render: (i) => dataBR(i.sistema?.vencimento) },
+  { chave: "repasse-extrato", rotulo: "Repasse no extrato", classe: "whitespace-nowrap", render: (i) => dataBR(i.extrato?.dataRepasse) },
+  { chave: "diferenca", rotulo: "Diferença", classe: "whitespace-nowrap", render: (i) => diferencaEmDias(i.diferencaDias) },
+  { chave: "bruto-sistema", rotulo: "Bruto no sistema", classe: "whitespace-nowrap", render: (i) => (
+    <Valor centavos={i.sistema?.valorCentavos ?? null} semValor="ausente do sistema" />
+  ) },
+  { chave: "bruto-extrato", rotulo: "Bruto estimado no extrato", classe: "whitespace-nowrap", render: (i) => (
+    <Valor centavos={i.extrato?.brutoParcelaEstimadoCentavos ?? null} semValor={semBrutoDoExtrato(i)} />
+  ) },
+  { chave: "taxa", rotulo: "Taxa e antecipação no extrato", classe: "whitespace-nowrap", render: (i) => (
+    <div className="flex flex-col gap-2">
+      <TaxaDaParcela i={i} />
+      <AntecipacaoDaParcela i={i} />
+    </div>
+  ) },
+  { chave: "situacao", rotulo: "Situação", classe: "min-w-[260px]", render: (i) => (
+    <div className="flex flex-col gap-1">
+      <StatusBadge tone={TOM_DO_STATUS[i.status]}>{ROTULO_STATUS[i.status]}</StatusBadge>
+      <span className="text-caption text-muted">{i.frase}</span>
+    </div>
+  ) },
+];
+
+/** O que abre embaixo da parcela em "Detalhes". */
+function DetalheItem({ i }: { i: ItemConferencia }) {
   const ad = i.extrato?.aguardandoDefinicao;
   const tx = i.extrato?.taxa;
   const an = i.extrato?.antecipacao;
   return (
-    <>
-      <tr className="border-t border-border-soft align-top">
-        <td className="py-2 pr-4 whitespace-nowrap">{i.nsu ?? "—"}</td>
-        <td className="py-2 pr-4 whitespace-nowrap">{i.parcela == null ? "—" : `${i.parcela}/${n ?? "—"}`}</td>
-        <td className="py-2 pr-4 whitespace-nowrap">{dataBR(i.extrato?.dataVenda ?? i.sistema?.competencia)}</td>
-        <td className="py-2 pr-4 whitespace-nowrap">{dataBR(i.sistema?.vencimento)}</td>
-        <td className="py-2 pr-4 whitespace-nowrap">{dataBR(i.extrato?.dataRepasse)}</td>
-        <td className="py-2 pr-4 whitespace-nowrap">{diferencaEmDias(i.diferencaDias)}</td>
-        <td className="py-2 pr-4 whitespace-nowrap">
-          <Valor centavos={i.sistema?.valorCentavos ?? null} semValor="ausente do sistema" />
-        </td>
-        <td className="py-2 pr-4 whitespace-nowrap">
-          <Valor centavos={i.extrato?.brutoParcelaEstimadoCentavos ?? null} semValor={semBrutoDoExtrato(i)} />
-        </td>
-        <td className="py-2 pr-4 whitespace-nowrap">
-          <div className="flex flex-col gap-2">
-            <TaxaDaParcela i={i} />
-            <AntecipacaoDaParcela i={i} />
-          </div>
-        </td>
-        <td className="py-2 pr-4 min-w-[260px]">
-          <div className="flex flex-col gap-1">
-            <StatusBadge tone={TOM_DO_STATUS[i.status]}>{ROTULO_STATUS[i.status]}</StatusBadge>
-            <span className="text-caption text-muted">{i.frase}</span>
-          </div>
-        </td>
-        <td className="py-2 pr-4">
-          <Button variant="ghost" size="sm" aria-expanded={aberto} onClick={onAlternar}>
-            {aberto ? "Fechar" : "Detalhes"}
-          </Button>
-        </td>
-      </tr>
-      {aberto && (
-        <tr className="border-t border-border-soft">
-          <td colSpan={11} className="py-3 pr-4">
-            <dl className="m-0 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-caption">
-              {i.provavel && <Par t="NSU no sistema" v={i.provavel.nsuNoSistema} />}
-              {i.extrato && <Par t="Bandeira e forma" v={[i.extrato.bandeira, i.extrato.tipoCompra].filter(Boolean).join(" · ") || "—"} />}
-              {i.extrato && <Par t="Situação no extrato" v={[i.extrato.status, i.extrato.statusPagamento].filter(Boolean).join(" · ") || "—"} />}
-              {i.extrato?.dataCancelamento && <Par t="Cancelada no extrato em" v={dataBR(i.extrato.dataCancelamento)} />}
-              {i.sistema && <Par t="Situação no sistema" v={i.sistema.situacao} />}
-              {i.sistema && (
-                <>
-                  <Par t="Taxa lançada pelo sistema (pelo contrato)"
-                    v={i.sistema.taxaCentavos == null ? "nenhum título de taxa" : <BRL value={i.sistema.taxaCentavos / 100} />} />
-                  <Par t="Tarifa fixa lançada pelo sistema"
-                    v={i.sistema.tarifaCentavos == null ? "nenhum título de tarifa" : <BRL value={i.sistema.tarifaCentavos / 100} />} />
-                  <Par t="Antecipação lançada pelo sistema"
-                    v={i.sistema.antecipacaoCentavos == null ? "nenhum título de antecipação" : <BRL value={i.sistema.antecipacaoCentavos / 100} />} />
-                </>
-              )}
-              {i.sistema?.estornoDaVendaCentavos != null && (
-                <Par t="Estornos da venda no sistema" v={<BRL value={i.sistema.estornoDaVendaCentavos / 100} />} />
-              )}
-              {i.sinais.length > 0 && <Par t="Observações" v={i.sinais.map((s) => ROTULO_SINAL[s]).join(" · ")} />}
-              {i.sinais.includes("parcelas_diferentes") && (
-                <>
-                  {/* Com a linha do extrato, o número é o DELA — que não é o da venda quando as linhas discordam (a frase diz isso). */}
-                  <Par t={i.extrato ? "Parcelas nesta linha do extrato e no sistema" : "Parcelas no extrato e no sistema"}
-                    v={`${i.totalParcelasExtrato ?? "—"} · ${i.totalParcelasSistema ?? "—"}`} />
-                  {i.extrato && <Par t="Bruto da venda no extrato" v={<Valor centavos={i.extrato.brutoVendaCentavos} semValor="não informado pela Pinbank" />} />}
-                  {i.sistema && <Par t="Bruto da venda no sistema" v={<BRL value={i.sistema.vendaCentavos / 100} />} />}
-                </>
-              )}
-              {tx && (
-                <>
-                  <Par t="Taxa cobrada no extrato" v={tx.extratoBp == null ? "não informada pela Pinbank" : taxaPct(tx.extratoBp)} />
-                  <Par t="Taxa cadastrada para o tipo de venda"
-                    v={tx.contratoBp != null ? taxaPct(tx.contratoBp)
-                      : tx.tipo == null ? "tipo de venda não identificado" : "não cadastrada"} />
-                  {tx.diferencaBp != null && <Par t="Diferença da taxa" v={pontosPercentuais(tx.diferencaBp)} />}
-                  <Par t="Comparação da taxa" v={ROTULO_RESULTADO_TAXA[tx.resultado]} />
-                </>
-              )}
-              {an && (
-                <>
-                  <Par t="Antecipação informada no extrato" v={an.extratoBp == null ? "não informada pela Pinbank" : `${taxaPct(an.extratoBp)} ao mês`} />
-                  <Par t="Antecipação esperada pelo contrato" v={ESPERADA_DA_ANTECIPACAO(an)} />
-                  {an.diferencaBp != null && <Par t="Diferença da antecipação" v={pontosPercentuais(an.diferencaBp)} />}
-                  <Par t="Comparação da antecipação" v={ROTULO_RESULTADO_ANTECIPACAO[an.resultado]} />
-                </>
-              )}
-              {i.extrato && (
-                <Par t="Líquido desta parcela no extrato (o que a Pinbank deposita)"
-                  v={<Valor centavos={i.extrato.liquidoCentavos} semValor="não informado pela Pinbank" />} />
-              )}
-              {i.liquidoDaVenda && (
-                <>
-                  <Par t="Líquido da venda depositado pela Pinbank" v={<BRL value={i.liquidoDaVenda.extratoCentavos / 100} />} />
-                  <Par t="Líquido da venda lançado no sistema" v={<BRL value={i.liquidoDaVenda.sistemaCentavos / 100} />} />
-                </>
-              )}
-              {ad && (
-                <>
-                  <Par t="Bruto da parcela informado" v={`${informado(ad.brutoParcelaCentavos)} (aguardando definição)`} />
-                  <Par t="Split informado" v={`${informado(ad.splitCentavos)} (aguardando definição)`} />
-                </>
-              )}
-            </dl>
-          </td>
-        </tr>
+    <dl className="m-0 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-caption">
+      {i.provavel && <Par t="NSU no sistema" v={i.provavel.nsuNoSistema} />}
+      {i.extrato && <Par t="Bandeira e forma" v={[i.extrato.bandeira, i.extrato.tipoCompra].filter(Boolean).join(" · ") || "—"} />}
+      {i.extrato && <Par t="Situação no extrato" v={[i.extrato.status, i.extrato.statusPagamento].filter(Boolean).join(" · ") || "—"} />}
+      {i.extrato?.dataCancelamento && <Par t="Cancelada no extrato em" v={dataBR(i.extrato.dataCancelamento)} />}
+      {i.sistema && <Par t="Situação no sistema" v={i.sistema.situacao} />}
+      {i.sistema && (
+        <>
+          <Par t="Taxa lançada pelo sistema (pelo contrato)"
+            v={i.sistema.taxaCentavos == null ? "nenhum título de taxa" : <BRL value={i.sistema.taxaCentavos / 100} />} />
+          <Par t="Tarifa fixa lançada pelo sistema"
+            v={i.sistema.tarifaCentavos == null ? "nenhum título de tarifa" : <BRL value={i.sistema.tarifaCentavos / 100} />} />
+          <Par t="Antecipação lançada pelo sistema"
+            v={i.sistema.antecipacaoCentavos == null ? "nenhum título de antecipação" : <BRL value={i.sistema.antecipacaoCentavos / 100} />} />
+        </>
       )}
-    </>
+      {i.sistema?.estornoDaVendaCentavos != null && (
+        <Par t="Estornos da venda no sistema" v={<BRL value={i.sistema.estornoDaVendaCentavos / 100} />} />
+      )}
+      {i.sinais.length > 0 && <Par t="Observações" v={i.sinais.map((s) => ROTULO_SINAL[s]).join(" · ")} />}
+      {i.sinais.includes("parcelas_diferentes") && (
+        <>
+          {/* Com a linha do extrato, o número é o DELA — que não é o da venda quando as linhas discordam (a frase diz isso). */}
+          <Par t={i.extrato ? "Parcelas nesta linha do extrato e no sistema" : "Parcelas no extrato e no sistema"}
+            v={`${i.totalParcelasExtrato ?? "—"} · ${i.totalParcelasSistema ?? "—"}`} />
+          {i.extrato && <Par t="Bruto da venda no extrato" v={<Valor centavos={i.extrato.brutoVendaCentavos} semValor="não informado pela Pinbank" />} />}
+          {i.sistema && <Par t="Bruto da venda no sistema" v={<BRL value={i.sistema.vendaCentavos / 100} />} />}
+        </>
+      )}
+      {tx && (
+        <>
+          <Par t="Taxa cobrada no extrato" v={tx.extratoBp == null ? "não informada pela Pinbank" : taxaPct(tx.extratoBp)} />
+          <Par t="Taxa cadastrada para o tipo de venda"
+            v={tx.contratoBp != null ? taxaPct(tx.contratoBp)
+              : tx.tipo == null ? "tipo de venda não identificado" : "não cadastrada"} />
+          {tx.diferencaBp != null && <Par t="Diferença da taxa" v={pontosPercentuais(tx.diferencaBp)} />}
+          <Par t="Comparação da taxa" v={ROTULO_RESULTADO_TAXA[tx.resultado]} />
+        </>
+      )}
+      {an && (
+        <>
+          <Par t="Antecipação informada no extrato" v={an.extratoBp == null ? "não informada pela Pinbank" : `${taxaPct(an.extratoBp)} ao mês`} />
+          <Par t="Antecipação esperada pelo contrato" v={ESPERADA_DA_ANTECIPACAO(an)} />
+          {an.diferencaBp != null && <Par t="Diferença da antecipação" v={pontosPercentuais(an.diferencaBp)} />}
+          <Par t="Comparação da antecipação" v={ROTULO_RESULTADO_ANTECIPACAO[an.resultado]} />
+        </>
+      )}
+      {i.extrato && (
+        <Par t="Líquido desta parcela no extrato (o que a Pinbank deposita)"
+          v={<Valor centavos={i.extrato.liquidoCentavos} semValor="não informado pela Pinbank" />} />
+      )}
+      {i.liquidoDaVenda && (
+        <>
+          <Par t="Líquido da venda depositado pela Pinbank" v={<BRL value={i.liquidoDaVenda.extratoCentavos / 100} />} />
+          <Par t="Líquido da venda lançado no sistema" v={<BRL value={i.liquidoDaVenda.sistemaCentavos / 100} />} />
+        </>
+      )}
+      {ad && (
+        <>
+          <Par t="Bruto da parcela informado" v={`${informado(ad.brutoParcelaCentavos)} (aguardando definição)`} />
+          <Par t="Split informado" v={`${informado(ad.splitCentavos)} (aguardando definição)`} />
+        </>
+      )}
+    </dl>
   );
 }
 

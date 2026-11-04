@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, Checkbox, BRL, Skeleton, CurrencyInput } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, Checkbox, BRL, Skeleton, CurrencyInput, Tabela } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { usePartiesList, useCreateParty } from "@/components/lancamentos/hooks";
@@ -141,29 +141,20 @@ export function NotasFiscaisView() {
           <Card><Vazio texto="Nenhuma nota fiscal encontrada para os filtros selecionados." /></Card>
         ) : (
           <Card padded={false} className="overflow-hidden">
-            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-border-soft">
-                    {["Nº da NF", "Venda", "Emissão", "Cliente", "Valor", "Status"].map((h, i) => (
-                      <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {comNF.map((v) => (
-                    <tr key={v.id} className="border-b border-border-soft last:border-0">
-                      <td className="px-6 py-3 text-label text-ink tabular-nums">{v.numeroNF || "—"}</td>
-                      <td className="px-6 py-3 text-caption text-faint tabular-nums">{v.numero}</td>
-                      <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(v.competencia)}</td>
-                      <td className="px-6 py-3 text-label text-ink truncate max-w-[28ch]">{v.clienteNome}</td>
-                      <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={v.valorTotal} /></td>
-                      <td className="px-6 py-3 text-caption text-muted">{STATUS_NF.find((s) => s.id === v.statusNF)?.label}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Tabela
+              linhas={comNF}
+              chave={(v) => v.id}
+              emCartao={false}
+              rotulo="Notas emitidas"
+              colunas={[
+                { chave: "nf", rotulo: "Nº da NF", render: (v) => <span className="tabular-nums">{v.numeroNF || "—"}</span> },
+                { chave: "venda", rotulo: "Venda", render: (v) => <span className="text-caption text-faint tabular-nums">{v.numero}</span> },
+                { chave: "emissao", rotulo: "Emissão", render: (v) => <span className="text-muted tabular-nums">{fmtDia(v.competencia)}</span> },
+                { chave: "cliente", rotulo: "Cliente", principal: true, classe: "truncate max-w-[28ch]", render: (v) => v.clienteNome },
+                { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (v) => <BRL value={v.valorTotal} /> },
+                { chave: "status", rotulo: "Status", render: (v) => <span className="text-caption text-muted">{STATUS_NF.find((s) => s.id === v.statusNF)?.label}</span> },
+              ]}
+            />
           </Card>
       )}
       {node}
@@ -373,50 +364,40 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
         <Card><Vazio texto="Nenhuma venda tributável no período selecionado." /></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Venda</th>
-                  <th className="px-3 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Base</th>
-                  {IMPOSTOS.map((i) => (
-                    <th key={i} className="px-3 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">
-                      {ROTULO_IMPOSTO[i]}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {provisao.linhas.map((l) => (
-                  <tr key={l.vendaId} className="border-b border-border-soft">
-                    <td className="px-4 py-2">
-                      <div className="flex flex-col">
-                        <span className="text-label text-ink">{l.cliente}</span>
-                        <span className="text-caption text-faint tabular-nums">{l.numero}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-label text-muted tabular-nums"><BRL value={l.base} /></td>
-                    {IMPOSTOS.map((i) => (
-                      <td key={i} className="px-3 py-2 text-right text-caption text-muted tabular-nums">
-                        {l.valores[i] > 0 ? <BRL value={l.valores[i]} /> : "—"}
-                      </td>
-                    ))}
-                    <td className="px-4 py-2 text-right text-label font-medium text-ink tabular-nums"><BRL value={l.total} /></td>
-                  </tr>
+          <Tabela
+            linhas={provisao.linhas}
+            chave={(l) => l.vendaId}
+            emCartao={false}
+            rotulo="Provisão de impostos por venda"
+            colunas={[
+              { chave: "venda", rotulo: "Venda", principal: true, render: (l) => (
+                <div className="flex flex-col">
+                  <span className="text-label text-ink">{l.cliente}</span>
+                  <span className="text-caption text-faint tabular-nums">{l.numero}</span>
+                </div>
+              ) },
+              { chave: "base", rotulo: "Base", alinhar: "direita", render: (l) => <span className="text-muted"><BRL value={l.base} /></span> },
+              ...IMPOSTOS.map((i) => ({
+                chave: i, rotulo: ROTULO_IMPOSTO[i], alinhar: "direita" as const,
+                render: (l: (typeof provisao.linhas)[number]) => <span className="text-caption text-muted">{l.valores[i] > 0 ? <BRL value={l.valores[i]} /> : "—"}</span>,
+              })),
+              { chave: "total", rotulo: "Total", alinhar: "direita", render: (l) => <span className="font-medium"><BRL value={l.total} /></span> },
+            ]}
+            rodape={
+              <tr className="bg-surface-2/60">
+                <td className="px-4 py-3 text-label font-semibold text-ink">Total do período</td>
+                <td className="px-4 py-3 text-right text-label font-semibold text-ink tabular-nums"><BRL value={provisao.faturamento} /></td>
+                {IMPOSTOS.map((i) => (
+                  <td key={i} className="px-4 py-3 text-right text-label font-semibold text-ink tabular-nums">
+                    {provisao.porImposto[i] > 0 ? <BRL value={provisao.porImposto[i]} /> : "—"}
+                  </td>
                 ))}
-                <tr className="bg-surface-2/60">
-                  <td className="px-4 py-3 text-label font-semibold text-ink">Total do período</td>
-                  <td className="px-3 py-3 text-right text-label font-semibold text-ink tabular-nums"><BRL value={provisao.faturamento} /></td>
-                  {IMPOSTOS.map((i) => (
-                    <td key={i} className="px-3 py-3 text-right text-label font-semibold text-ink tabular-nums">
-                      {provisao.porImposto[i] > 0 ? <BRL value={provisao.porImposto[i]} /> : "—"}
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 text-right text-label font-semibold text-ink tabular-nums"><BRL value={provisao.total} /></td>
-                </tr>
-              </tbody>
-            </table>
+                <td className="px-4 py-3 text-right text-label font-semibold text-ink tabular-nums"><BRL value={provisao.total} /></td>
+              </tr>
+            }
+          />
+          <div className="sm:hidden px-4 py-3 border-t border-border-soft flex justify-between text-label font-semibold text-ink">
+            <span>Total do período</span><span className="tabular-nums"><BRL value={provisao.total} /></span>
           </div>
         </Card>
       )}
@@ -598,31 +579,20 @@ export function AssinaturasVendasView() {
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  {["ID", "Status", "Cliente", "Ciclo", "Produto", "Valor por ciclo"].map((h, i) => (
-                    <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visiveis.map((r) => (
-                  <tr key={r.id} className="border-b border-border-soft last:border-0">
-                    <td className="px-6 py-3 text-caption text-faint tabular-nums">{r.id.slice(0, 10)}</td>
-                    <td className="px-6 py-3 text-caption text-muted">{r.status}</td>
-                    <td className="px-6 py-3 text-label text-ink truncate max-w-[24ch]">{r.clienteNome}</td>
-                    <td className="px-6 py-3 text-label text-muted">{CICLOS.find((c) => c.id === r.ciclo)?.label}</td>
-                    <td className="px-6 py-3 text-label text-muted truncate max-w-[26ch]">
-                      {r.itens.map((i) => i.nome).join(" · ")}
-                    </td>
-                    <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={totalFatura(r)} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={visiveis}
+            chave={(r) => r.id}
+            emCartao={false}
+            rotulo="Assinaturas"
+            colunas={[
+              { chave: "id", rotulo: "ID", render: (r) => <span className="text-caption text-faint tabular-nums">{r.id.slice(0, 10)}</span> },
+              { chave: "status", rotulo: "Status", render: (r) => <span className="text-caption text-muted">{r.status}</span> },
+              { chave: "cliente", rotulo: "Cliente", principal: true, classe: "truncate max-w-[24ch]", render: (r) => r.clienteNome },
+              { chave: "ciclo", rotulo: "Ciclo", render: (r) => <span className="text-muted">{CICLOS.find((c) => c.id === r.ciclo)?.label}</span> },
+              { chave: "produto", rotulo: "Produto", classe: "truncate max-w-[26ch]", render: (r) => <span className="text-muted">{r.itens.map((i) => i.nome).join(" · ")}</span> },
+              { chave: "valor", rotulo: "Valor por ciclo", alinhar: "direita", render: (r) => <BRL value={totalFatura(r)} /> },
+            ]}
+          />
         </Card>
       )}
       {node}

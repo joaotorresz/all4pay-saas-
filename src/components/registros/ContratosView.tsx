@@ -18,7 +18,7 @@
 import * as React from "react";
 import { abrirCriacao, useAoCriar, cadastroDe } from "@/components/app/criacao";
 import type { CadastroNoCampo } from "@/components/ui";
-import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Switch } from "@/components/ui";
+import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL, Switch, Tabela } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { usePartiesList, useProductsList } from "@/components/lancamentos/hooks";
@@ -542,24 +542,17 @@ function BlocoVendas({
               </Card>
             ) : (
               <Card padded={false} className="overflow-hidden max-h-[240px] overflow-y-auto">
-                <table className="w-full border-collapse">
-                  <thead className="sticky top-0 bg-white">
-                    <tr className="border-b border-border-soft">
-                      <th className="px-4 py-2 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Competência</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Vencimento</th>
-                      <th className="px-4 py-2 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previstas.map((v, k) => (
-                      <tr key={k} className="border-b border-border-soft last:border-0">
-                        <td className="px-4 py-2 text-caption text-muted tabular-nums">{fmtDia(v.competencia)}</td>
-                        <td className="px-4 py-2 text-caption text-ink tabular-nums">{fmtDia(v.vencimento)}</td>
-                        <td className="px-4 py-2 text-right text-caption text-ink tabular-nums"><BRL value={v.valor} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <Tabela
+                  linhas={previstas.map((v, k) => ({ ...v, k }))}
+                  chave={(v) => String(v.k)}
+                  emCartao={false}
+                  rotulo="Parcelas previstas"
+                  colunas={[
+                    { chave: "competencia", rotulo: "Competência", render: (v) => <span className="text-caption text-muted tabular-nums">{fmtDia(v.competencia)}</span> },
+                    { chave: "vencimento", rotulo: "Vencimento", principal: true, render: (v) => <span className="text-caption tabular-nums">{fmtDia(v.vencimento)}</span> },
+                    { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (v) => <span className="text-caption"><BRL value={v.valor} /></span> },
+                  ]}
+                />
               </Card>
             )}
           </div>

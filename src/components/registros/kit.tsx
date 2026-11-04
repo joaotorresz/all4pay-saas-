@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, Button, Icon, Input, Select, Switch } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, Switch, Tabela } from "@/components/ui";
 import { baixarXLSX, type CelulaXLSX } from "@/lib/xlsx";
 import type { FiltroStatus } from "@/core/registros";
 
@@ -119,42 +119,22 @@ export function TabelaRegistro<T extends { id: string }>({
   vazio: React.ReactNode;
   acoes?: (item: T) => React.ReactNode;
 }) {
-  if (itens.length === 0) return <Card>{vazio}</Card>;
+  // A peça única do DS (`ui/Tabela`): no celular cada cadastro vira um cartão,
+  // com a primeira coluna (o nome) como título.
   return (
-    <Card padded={false} className="overflow-hidden">
-      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-border-soft">
-              <Th>ID</Th>
-              {colunas.map((c) => <Th key={c.chave} direita={c.alinhar === "direita"}>{c.label}</Th>)}
-              {acoes && <Th direita>Ações</Th>}
-            </tr>
-          </thead>
-          <tbody>
-            {itens.map((i) => (
-              <tr key={i.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                <td className="px-6 py-3 align-middle"><IdCopiavel id={i.id} /></td>
-                {colunas.map((c) => (
-                  <td key={c.chave} className={`px-6 py-3 align-middle text-label text-ink ${c.alinhar === "direita" ? "text-right tabular-nums" : ""}`}>
-                    {c.render(i)}
-                  </td>
-                ))}
-                {acoes && <td className="px-6 py-3 align-middle"><div className="flex items-center justify-end gap-1">{acoes(i)}</div></td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  );
-}
-
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
+    <Tabela
+      linhas={itens}
+      chave={(i) => i.id}
+      vazio={vazio}
+      acoes={acoes}
+      rotulo="Tabela rolável"
+      colunas={[
+        { chave: "__id", rotulo: "ID", render: (i: T) => <IdCopiavel id={i.id} /> },
+        ...colunas.map((c, n) => ({
+          chave: c.chave, rotulo: c.label, alinhar: c.alinhar, principal: n === 0, render: c.render,
+        })),
+      ]}
+    />
   );
 }
 

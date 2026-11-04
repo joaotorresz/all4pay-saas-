@@ -17,7 +17,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Button, Icon, StatusBadge, Badge, Textarea, PontoStatus } from "@/components/ui";
+import { Card, Button, Icon, StatusBadge, Badge, Textarea, PontoStatus, Tabela } from "@/components/ui";
 import {
   rodarIsolamentoCompleto, auditoriaRLS, listarRevisaoAdmin, listarAcessosAdmin,
   revisarAdmin, adminPosso, semServidor, type AcessoAdmin,
@@ -412,45 +412,27 @@ function MatrizIsolamento({
       </button>
 
       {aberto && (
-        <div
-          className="overflow-x-auto rounded-md"
-          style={{ background: "var(--color-surface-2)" }}
-          tabIndex={0}
-          role="region"
-          aria-label="Resultado do teste de isolamento por tabela e verbo"
-        >
-          <table className="w-full text-caption" style={{ borderCollapse: "collapse", minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th className="text-left px-3 py-2 text-[11px] font-medium text-faint">
-                  Tabela
-                </th>
-                {VERBOS.map((v) => (
-                  <th key={v.id} title={v.oQue}
-                    className="text-left px-3 py-2 text-[11px] font-medium text-faint">
-                    {v.nome}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tabelas.map((t) => (
-                <tr key={t.tabela} style={{ borderTop: "1px solid var(--color-border-soft)" }}>
-                  <td className="px-3 py-[6px] text-ink whitespace-nowrap">{t.tabela}</td>
-                  {VERBOS.map((v) => {
-                    const tent = t.tentativas.find((x) => x.verbo === v.id);
-                    return (
-                      <td key={v.id} className="px-3 py-[6px] whitespace-nowrap"
-                        style={{ color: tent ? cor(tent) : "var(--color-text-quaternary)" }}
-                        title={tent?.detalhe}>
-                        {tent ? tent.resultado : "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rounded-md" style={{ background: "var(--color-surface-2)" }}>
+          <Tabela
+            linhas={tabelas}
+            chave={(t) => t.tabela}
+            emCartao={false}
+            rotulo="Resultado do teste de isolamento por tabela e verbo"
+            colunas={[
+              { chave: "tabela", rotulo: "Tabela", principal: true, classe: "whitespace-nowrap", render: (t) => t.tabela },
+              ...VERBOS.map((v) => ({
+                chave: v.id, rotulo: <span title={v.oQue}>{v.nome}</span>, classe: "whitespace-nowrap",
+                render: (t: (typeof tabelas)[number]) => {
+                  const tent = t.tentativas.find((x) => x.verbo === v.id);
+                  return (
+                    <span className="text-caption" style={{ color: tent ? cor(tent) : "var(--color-text-quaternary)" }} title={tent?.detalhe}>
+                      {tent ? tent.resultado : "—"}
+                    </span>
+                  );
+                },
+              })),
+            ]}
+          />
         </div>
       )}
     </div>

@@ -14,7 +14,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, DateField, Icon, Input, Select, Skeleton, Textarea } from "@/components/ui";
+import { Button, Card, DateField, Icon, Input, Select, Skeleton, Tabela, Textarea } from "@/components/ui";
 import { formatBRL, pct } from "@/lib/format";
 import {
   anotarLead, fichaDoLead, salvarLead, type DadosDoLead, type PedidoNaFila,
@@ -145,30 +145,23 @@ function Simulacao({ p, taxas }: { p: PedidoNaFila; taxas: TaxasPorForma | null 
       <span className="text-caption text-muted">
         {formatBRL(s.volumeMensal)} por mês{s.antecipado ? ", recebendo antecipado" : ""}.
       </span>
-      <table className="w-full text-caption">
-        <thead>
-          <tr className="text-muted">
-            <th className="text-left font-medium py-1">Forma</th>
-            <th className="text-right font-medium py-1">Mix</th>
-            <th className="text-right font-medium py-1">Hoje</th>
-            <th className="text-right font-medium py-1">Quattro</th>
-            {proposta && <th className="text-right font-medium py-1">Proposta</th>}
-          </tr>
-        </thead>
-        <tbody className="tabular-nums">
-          {FORMAS.map((f) => (
-            <tr key={f} className="border-t border-border-soft">
-              <td className="py-1 text-ink">{NOME_FORMA[f]}</td>
-              <td className="py-1 text-right text-ink">{pct(s.mix[f])}</td>
-              <td className="py-1 text-right text-ink" title={s.taxasAtuais[f].origem === "estimada" ? "Estimada pelo mercado" : "Informada pelo cliente"}>
-                {pct(s.taxasAtuais[f].taxa, 2)}{s.taxasAtuais[f].origem === "estimada" ? "*" : ""}
-              </td>
-              <td className="py-1 text-right text-ink">{s.taxasQuattro[f] == null ? "—" : pct(s.taxasQuattro[f]!, 2)}</td>
-              {proposta && <td className="py-1 text-right text-ink">{taxas?.[f] == null ? "—" : pct(taxas[f]!, 2)}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Tabela
+        linhas={FORMAS}
+        chave={(f) => f}
+        emCartao={false}
+        rotulo="Taxas por forma de pagamento"
+        colunas={[
+          { chave: "forma", rotulo: "Forma", principal: true, render: (f) => NOME_FORMA[f] },
+          { chave: "mix", rotulo: "Mix", alinhar: "direita", render: (f) => pct(s.mix[f]) },
+          { chave: "hoje", rotulo: "Hoje", alinhar: "direita", render: (f) => (
+            <span title={s.taxasAtuais[f].origem === "estimada" ? "Estimada pelo mercado" : "Informada pelo cliente"}>
+              {pct(s.taxasAtuais[f].taxa, 2)}{s.taxasAtuais[f].origem === "estimada" ? "*" : ""}
+            </span>
+          ) },
+          { chave: "quattro", rotulo: "Quattro", alinhar: "direita", render: (f) => (s.taxasQuattro[f] == null ? "—" : pct(s.taxasQuattro[f]!, 2)) },
+          ...(proposta ? [{ chave: "proposta", rotulo: "Proposta", alinhar: "direita" as const, render: (f: (typeof FORMAS)[number]) => (taxas?.[f] == null ? "—" : pct(taxas[f]!, 2)) }] : []),
+        ]}
+      />
       <span className="text-caption text-muted">* estimada pelo mercado; o cliente não informou.</span>
       <Linha rotulo="Custo hoje"><span className="tabular-nums">{formatBRL(s.custoAtualMes)}/mês</span></Linha>
       <Linha rotulo="Com a Quattro (tabela)"><span className="tabular-nums">{formatBRL(s.custoQuattroMes)}/mês</span></Linha>

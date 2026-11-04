@@ -14,7 +14,7 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { BRL, Button, Icon, Select, Switch } from "@/components/ui";
+import { BRL, Button, Icon, Select, Switch, Tabela } from "@/components/ui";
 import type { FDIPReport } from "@/core/fdip/types";
 import {
   CATEGORIAS_DESPESA, CATEGORIAS_RECEITA, aplicarDecisoes, decisaoPadrao, montarAssistente,
@@ -210,26 +210,18 @@ function PassoResumo({ a }: { a: ReturnType<typeof montarAssistente> }) {
       </div>
 
       <div className="rounded-md bg-surface-1 overflow-hidden">
-        <table className="w-full text-caption">
-          <thead>
-            <tr className="text-muted">
-              <th className="text-left font-medium px-4 py-2">Mês</th>
-              <th className="text-right font-medium px-4 py-2">Receitas</th>
-              <th className="text-right font-medium px-4 py-2">Despesas</th>
-              <th className="text-right font-medium px-4 py-2">Resultado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.porMes.map((m) => (
-              <tr key={m.mes} className="border-t border-border-soft">
-                <td className="px-4 py-2 text-ink">{rotuloMes(m.mes)}</td>
-                <td className="px-4 py-2 text-right text-ink"><BRL value={m.entradas} /></td>
-                <td className="px-4 py-2 text-right text-ink"><BRL value={m.saidas} /></td>
-                <td className="px-4 py-2 text-right text-ink"><BRL value={m.entradas - m.saidas} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Tabela
+          linhas={r.porMes}
+          chave={(m) => m.mes}
+          emCartao={false}
+          rotulo="Resultado por mês"
+          colunas={[
+            { chave: "mes", rotulo: "Mês", principal: true, render: (m) => rotuloMes(m.mes) },
+            { chave: "entradas", rotulo: "Receitas", alinhar: "direita", render: (m) => <BRL value={m.entradas} /> },
+            { chave: "saidas", rotulo: "Despesas", alinhar: "direita", render: (m) => <BRL value={m.saidas} /> },
+            { chave: "resultado", rotulo: "Resultado", alinhar: "direita", render: (m) => <BRL value={m.entradas - m.saidas} /> },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

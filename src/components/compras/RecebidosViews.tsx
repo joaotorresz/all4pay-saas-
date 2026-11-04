@@ -17,7 +17,7 @@ import * as React from "react";
 import { abrirCriacao } from "@/components/app/criacao";
 import { documentosDasFontes, camposDoFormulario, chaveBoleto } from "@/core/caixa-entrada";
 import { lerEstadoCaixa } from "@/lib/caixa-entrada";
-import { Card, Button, Icon, Input, Select, BRL, PontoStatus } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, BRL, PontoStatus, Tabela } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { baixarXLSX } from "@/lib/xlsx";
 import {
@@ -210,64 +210,49 @@ export function BoletosView() {
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Beneficiário</Th>
-                  <Th>Banco</Th>
-                  <Th>Linha digitável</Th>
-                  <Th>Vencimento</Th>
-                  <Th>Status</Th>
-                  <Th direita>Valor</Th>
-                  <Th direita>Ações</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrada.map((b) => {
-                  const st = statusBoleto(b, hoje);
-                  return (
-                    <React.Fragment key={b.id}>
-                    <tr className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                      <td className="px-6 py-3 text-label text-ink">{b.beneficiario}</td>
-                      <td className="px-6 py-3 text-label text-muted">{b.leitura.bancoNome ?? b.leitura.banco}</td>
-                      <td className="px-6 py-3 text-caption text-faint tabular-nums">{formatarLinha(b.leitura.linhaDigitavel)}</td>
-                      <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(b.leitura.vencimento)}</td>
-                      <td className="px-6 py-3">
-                        <span className="inline-flex items-center gap-[6px] text-caption text-muted">
-                          <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_BOLETO[st] }} />
-                          {ROTULO_BOLETO[st]}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={b.leitura.valor} /></td>
-                      <td className="px-6 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* Já decidido na caixa de entrada (virou conta ou foi
-                              descartado) não oferece "Lançar" de novo — seria o
-                              mesmo boleto virando duas contas. */}
-                          {!b.movimentoId && !b.pago && !decididos.has(chaveBoleto(b)) && (
-                            <Acao label="Lançar em contas a pagar" icone="arrow-up-right" onClick={() => lancar(b)} />
-                          )}
-                          {(b.movimentoId || decididos.get(chaveBoleto(b)) === "convertido") && <span className="text-caption text-muted">Lançado</span>}
-                          {!b.movimentoId && decididos.get(chaveBoleto(b)) === "descartado" && <span className="text-caption text-muted">Descartado</span>}
-                          <Acao
-                            label="Remover" icone="trash-2" perigo
-                            onClick={() => {
-                              setLista(removerBoleto(b.id));
-                              toast(b.movimentoId
-                                ? "Boleto removido da caixa de entrada. O título já lançado continua em Títulos a pagar."
-                                : "Boleto removido.");
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={filtrada}
+            chave={(b) => b.id}
+            emCartao={false}
+            rotulo="Boletos recebidos"
+            colunas={[
+              { chave: "beneficiario", rotulo: "Beneficiário", principal: true, render: (b) => b.beneficiario },
+              { chave: "banco", rotulo: "Banco", render: (b) => <span className="text-muted">{b.leitura.bancoNome ?? b.leitura.banco}</span> },
+              { chave: "linha", rotulo: "Linha digitável", render: (b) => <span className="text-caption text-faint tabular-nums">{formatarLinha(b.leitura.linhaDigitavel)}</span> },
+              { chave: "vencimento", rotulo: "Vencimento", render: (b) => <span className="text-muted tabular-nums">{fmtDia(b.leitura.vencimento)}</span> },
+              { chave: "status", rotulo: "Status", render: (b) => {
+                const st = statusBoleto(b, hoje);
+                return (
+                  <span className="inline-flex items-center gap-[6px] text-caption text-muted">
+                    <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_BOLETO[st] }} />
+                    {ROTULO_BOLETO[st]}
+                  </span>
+                );
+              } },
+              { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (b) => <BRL value={b.leitura.valor} /> },
+            ]}
+            acoes={(b) => (
+              <>
+                {/* Já decidido na caixa de entrada (virou conta ou foi
+                    descartado) não oferece "Lançar" de novo — seria o
+                    mesmo boleto virando duas contas. */}
+                {!b.movimentoId && !b.pago && !decididos.has(chaveBoleto(b)) && (
+                  <Acao label="Lançar em contas a pagar" icone="arrow-up-right" onClick={() => lancar(b)} />
+                )}
+                {(b.movimentoId || decididos.get(chaveBoleto(b)) === "convertido") && <span className="text-caption text-muted">Lançado</span>}
+                {!b.movimentoId && decididos.get(chaveBoleto(b)) === "descartado" && <span className="text-caption text-muted">Descartado</span>}
+                <Acao
+                  label="Remover" icone="trash-2" perigo
+                  onClick={() => {
+                    setLista(removerBoleto(b.id));
+                    toast(b.movimentoId
+                      ? "Boleto removido da caixa de entrada. O título já lançado continua em Títulos a pagar."
+                      : "Boleto removido.");
+                  }}
+                />
+              </>
+            )}
+          />
         </Card>
       )}
 
@@ -485,57 +470,41 @@ export function NFsRecebidasView() {
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <Th>Número</Th>
-                  <Th>Tipo</Th>
-                  <Th>Fornecedor</Th>
-                  <Th>Chave</Th>
-                  <Th>Emissão</Th>
-                  <Th>Status</Th>
-                  <Th direita>Valor</Th>
-                  <Th direita>Avaliação</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrada.map((n) => (
-                  <tr key={n.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
-                    <td className="px-6 py-3 text-label text-ink tabular-nums">{n.numero}</td>
-                    <td className="px-6 py-3 text-label text-muted">{n.tipo}</td>
-                    <td className="px-6 py-3 text-label text-ink">{n.fornecedor}</td>
-                    <td className="px-6 py-3 text-caption text-faint tabular-nums">
-                      {n.chave ? formatarChave(n.chave.chave) : "—"}
-                    </td>
-                    <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(n.emissao)}</td>
-                    <td className="px-6 py-3">
-                      <span className="inline-flex items-center gap-[6px] text-caption text-muted">
-                        <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_NF[n.status] }} />
-                        {STATUS_NF_RECEBIDA.find((s) => s.id === n.status)?.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={n.valor} /></td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {n.avaliacao === "pendente" ? (
-                          <>
-                            <Acao label="Aprovar nota" icone="check" onClick={() => avaliar(n, "aprovada")} />
-                            <Acao label="Recusar nota" icone="x" onClick={() => avaliar(n, "recusada")} perigo />
-                          </>
-                        ) : (
-                          <span className="text-caption text-muted">
-                            {AVALIACOES_NF.find((a) => a.id === n.avaliacao)?.label}
-                          </span>
-                        )}
-                        <Acao label="Remover" icone="trash-2" onClick={() => { setLista(removerNF(n.id)); toast("Nota removida."); }} perigo />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Tabela
+            linhas={filtrada}
+            chave={(n) => n.id}
+            emCartao={false}
+            rotulo="Notas recebidas"
+            colunas={[
+              { chave: "numero", rotulo: "Número", render: (n) => <span className="tabular-nums">{n.numero}</span> },
+              { chave: "tipo", rotulo: "Tipo", render: (n) => <span className="text-muted">{n.tipo}</span> },
+              { chave: "fornecedor", rotulo: "Fornecedor", principal: true, render: (n) => n.fornecedor },
+              { chave: "chave", rotulo: "Chave", render: (n) => <span className="text-caption text-faint tabular-nums">{n.chave ? formatarChave(n.chave.chave) : "—"}</span> },
+              { chave: "emissao", rotulo: "Emissão", render: (n) => <span className="text-muted tabular-nums">{fmtDia(n.emissao)}</span> },
+              { chave: "status", rotulo: "Status", render: (n) => (
+                <span className="inline-flex items-center gap-[6px] text-caption text-muted">
+                  <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_NF[n.status] }} />
+                  {STATUS_NF_RECEBIDA.find((s) => s.id === n.status)?.label}
+                </span>
+              ) },
+              { chave: "valor", rotulo: "Valor", alinhar: "direita", render: (n) => <BRL value={n.valor} /> },
+            ]}
+            acoes={(n) => (
+              <>
+                {n.avaliacao === "pendente" ? (
+                  <>
+                    <Acao label="Aprovar nota" icone="check" onClick={() => avaliar(n, "aprovada")} />
+                    <Acao label="Recusar nota" icone="x" onClick={() => avaliar(n, "recusada")} perigo />
+                  </>
+                ) : (
+                  <span className="text-caption text-muted">
+                    {AVALIACOES_NF.find((a) => a.id === n.avaliacao)?.label}
+                  </span>
+                )}
+                <Acao label="Remover" icone="trash-2" onClick={() => { setLista(removerNF(n.id)); toast("Nota removida."); }} perigo />
+              </>
+            )}
+          />
         </Card>
       )}
       {node}
@@ -574,13 +543,6 @@ function Leitura({ rotulo, valor, node, cor }: { rotulo: string; valor?: string;
   );
 }
 
-function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
-  return (
-    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
-  );
-}
 
 function Acao({ label, icone, onClick, perigo }: { label: string; icone: string; onClick: () => void; perigo?: boolean }) {
   return (

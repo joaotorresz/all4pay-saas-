@@ -19,7 +19,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Card, Button, Switch, Checkbox, Select, Input, CurrencyInput, DateField, StatusBadge, Skeleton, InfoHint, Icon,
+  Card, Button, Switch, Checkbox, Select, Input, CurrencyInput, DateField, StatusBadge, Skeleton, InfoHint, Icon, Tabela,
 } from "@/components/ui";
 import {
   CATALOGO_AUTOMACOES, previa, conteudoDoTeste, ehSemEnvio, filaAutomatica, HORIZONTES_ALERTA,
@@ -143,29 +143,22 @@ function ListaEnvios({ envios, carregando, erro }: { envios?: EnvioVisivel[]; ca
   if (erro) return <div className="px-5 py-4 text-caption text-ink">O registro não carregou: {erro.message}</div>;
   if (!envios?.length) return <div className="px-5 py-4 text-caption text-muted">Nenhum envio registrado ainda.</div>;
   return (
-    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Últimos envios">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="text-[11px] font-medium text-faint">
-            <th className="px-5 py-2">Quando</th><th className="px-2 py-2">Automação</th><th className="px-2 py-2">Canal</th>
-            <th className="px-2 py-2">Para</th><th className="px-5 py-2">Situação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {envios.map((e, i) => (
-            <tr key={`${e.chave}-${e.canal}-${i}`} className="border-t border-border-soft text-caption text-ink" data-envio-status={e.status}>
-              <td className="px-5 py-2 tabular-nums whitespace-nowrap">{quando(e.em)}</td>
-              <td className="px-2 py-2">{nomeDo(e.tipo)}{e.chave.startsWith("teste:") ? " · teste" : ""}</td>
-              <td className="px-2 py-2">{CANAL[e.canal]}</td>
-              <td className="px-2 py-2 tabular-nums">{e.destinoMascarado}</td>
-              <td className="px-5 py-2" title={e.erro ?? undefined}>
-                <StatusBadge tone={STATUS[e.status].tom}>{STATUS[e.status].rotulo}</StatusBadge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Tabela
+      linhas={envios}
+      chave={(e) => `${e.chave}-${e.canal}-${e.em}`}
+      emCartao={false}
+      rotulo="Últimos envios"
+      dadosDaLinha={(e) => ({ "data-envio-status": e.status })}
+      colunas={[
+        { chave: "quando", rotulo: "Quando", classe: "whitespace-nowrap", render: (e) => <span className="text-caption tabular-nums">{quando(e.em)}</span> },
+        { chave: "automacao", rotulo: "Automação", principal: true, render: (e) => <>{nomeDo(e.tipo)}{e.chave.startsWith("teste:") ? " · teste" : ""}</> },
+        { chave: "canal", rotulo: "Canal", render: (e) => <span className="text-caption">{CANAL[e.canal]}</span> },
+        { chave: "para", rotulo: "Para", render: (e) => <span className="text-caption tabular-nums">{e.destinoMascarado}</span> },
+        { chave: "situacao", rotulo: "Situação", render: (e) => (
+          <span title={e.erro ?? undefined}><StatusBadge tone={STATUS[e.status].tom}>{STATUS[e.status].rotulo}</StatusBadge></span>
+        ) },
+      ]}
+    />
   );
 }
 
