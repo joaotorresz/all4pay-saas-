@@ -316,6 +316,26 @@
         "origem": "sessão Claude de 04/11/2026 (Fase 3.4: depreciação em dobro)"
       },
       {
+        "nome": "20261104110000_cron_execucoes",
+        "motivo": "Cada execução completa dos crons da Vercel (recorrências e automações) passa a gravar uma linha, mesmo sem trabalho, e a guarda agendada crons-no-ar reprova o cron diário parado há mais de 26 horas. Tabela da plataforma: grava a chave de serviço, lê o papel só-leitura do CI. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela cron_execucoes"
+        ],
+        "impacto": "Até ser aplicada, as rotas de cron devolvem 'registro da execução' com o erro na resposta (o trabalho do cron não muda) e a guarda crons-no-ar não lê a tabela.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: prova de que o materializador roda todo dia)"
+      },
+      {
+        "nome": "20261104130000_contador_confirmacoes",
+        "motivo": "Double opt-in do envio de NFs ao contador: o link de confirmação sai pela rota do servidor (atrás de CONTADOR_OPTIN=ligado) e só o clique do contador grava a confirmação. O app lê a situação da própria empresa, nunca o token, e não grava. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela contador_confirmacoes (com a política contador_confirmacoes_leitura)"
+        ],
+        "impacto": "Até ser aplicada, a tela de envio ao contador em produção mostra os e-mails como pendentes e o pedido do link é recusado. Com o interruptor desligado (padrão), nada sai.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: opt-in do contador)"
+      },
+      {
         "nome": "20261104120000_agentes",
         "motivo": "A moldura dos agentes da Quattro AI (plano AI first, 03/11/2026): a configuração por empresa (nível e limite) e a fila Para você aprovar, com a máquina de estados e a decisão no banco. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
@@ -349,6 +369,18 @@
         "impacto": "Até ser aplicada, o agente de conciliação não concilia (a proposta aprovada termina com o erro do banco) e o botão da tela segue com a regra antiga. O agente está atrás de AGENTES=ligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 4)"
+      },
+      {
+        "nome": "20261104140000_cobranca_paga_baixa_titulo",
+        "motivo": "Pago o Pix ou o boleto do link de pagamento, a cobrança vira paga e o título a receber vai a baixado pela transição nomeada 'pago pelo banco' da máquina de estados (escritor único pinbank_cobranca_liquidar, só service_role). A leitura pública do link passa a dizer 'pago' também com a cobrança paga. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas pinbank_cobrancas.valor_recebido, pago_em, liquidada_por e liquidacao_ref (com as restrições e o índice único da referência)",
+          "função pinbank_cobranca_liquidar",
+          "versão nova de central_maquina (ramo 'pago pelo banco') e de pinbank_checkout_ler"
+        ],
+        "impacto": "Até ser aplicada, nada muda em produção: nenhum caminho chama a liquidação ainda (a entrada do aviso da Pinbank depende do formato que ela vai informar) e a página do link segue lendo a situação do título.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (link de pagamento: pago na tela e baixa no ERP)"
       }
     ],
     "objetos_sem_migration": [

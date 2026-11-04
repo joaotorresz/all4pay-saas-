@@ -128,7 +128,7 @@ export async function receberWhatsapp(req: Request): Promise<Response> {
   // 5. A Quattro AI, só para o número confirmado de alguém.
   if (iaWhatsappLigada() && admin && telefone) {
     try {
-      const resposta = await responderIaWhatsapp(admin, telefone, corpo);
+      const resposta = await responderIaWhatsapp(admin, telefone, corpo, new URL(urlPublica(req)).origin);
       if (resposta) return twiml(resposta);
     } catch (e) {
       // ⚠️ A falha NÃO vira resposta padrão: quem tem o número confirmado

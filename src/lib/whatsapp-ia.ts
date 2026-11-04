@@ -15,10 +15,12 @@
  * ⚠️ O CÉREBRO é o do chat do sistema, na mesma ordem (base de conhecimento →
  * motor nativo → leitura executiva), sobre o MESMO mapeador de linhas da
  * Visão geral: o número do WhatsApp é o número da tela. ⚠️ SÓ LEITURA: o
- * lançamento falado do chat ("gastei 100 de gasolina") não entra aqui — ele
- * precisa do "Confirmar", e isso é a etapa 5.
+ * lançamento falado ("paguei 100 de gasolina", etapa 5) volta como proposta
+ * com um link; o "Confirmar" é no app, pela sessão (`core/whatsapp/lancar`).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { interpretarLancamento } from "@/core/assistant/lancamento-falado";
+import { linkDoLancamento, respostaDoLancamento } from "@/core/whatsapp/lancar";
 import { buscarKB } from "@/lib/assistant-kb";
 import { contextoDaRpc, type ContextoBruto } from "@/lib/automacoes-contexto";
 import { responderLocal } from "@/core/assistant/engine";
@@ -49,7 +51,9 @@ export function respostaDaPergunta(pergunta: string, bruto: ContextoBruto, orgId
  * A resposta para a mensagem, ou `null` quando o número não é de ninguém
  * confirmado (o webhook então dá a resposta padrão).
  */
-export async function responderIaWhatsapp(admin: SupabaseClient, telefone: string, corpo: string): Promise<string | null> {
+export async function responderIaWhatsapp(
+  admin: SupabaseClient, telefone: string, corpo: string, appUrl: string,
+): Promise<string | null> {
   // 1. De quem é o número.
   const { data: brutoQuem, error: eQuem } = await admin.rpc("whatsapp_ia_quem", { p_telefone: telefone });
   // Sem saber de quem é o número, não se fala de empresa nenhuma: segue a
@@ -86,10 +90,15 @@ export async function responderIaWhatsapp(admin: SupabaseClient, telefone: strin
   const r = (reserva ?? {}) as { ok?: boolean; codigo?: string };
   if (!r.ok) return respostaRecusa(r.codigo);
 
-  // 4. O contexto da empresa e a resposta.
+  const rodape = quem.orgs.length > 1 ? `_${empresa.nome} · mande EMPRESAS para trocar_` : undefined;
+
+  // 4a. O lançamento dito (etapa 5): a proposta e o link. NADA é gravado aqui.
+  const proposta = interpretarLancamento(pergunta, hojeSP());
+  if (proposta) return paraWhatsapp(respostaDoLancamento(proposta, linkDoLancamento(appUrl, pergunta, empresa.id)), rodape);
+
+  // 4b. O contexto da empresa e a resposta.
   const { data: bruto, error: eCtx } = await admin.rpc("automacao_contexto", { p_org: empresa.id });
   if (eCtx) return RESPOSTA_FALHA;
   const texto = respostaDaPergunta(pergunta, (bruto ?? {}) as ContextoBruto, empresa.id, hojeSP());
-  const rodape = quem.orgs.length > 1 ? `_${empresa.nome} · mande EMPRESAS para trocar_` : undefined;
   return paraWhatsapp(texto, rodape);
 }

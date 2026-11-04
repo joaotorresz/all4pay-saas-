@@ -7753,7 +7753,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        situacaoDaFatura("aberto", "2026-10-15", "2026-10-28").prazo === "vencida há 13 dias"
        && situacaoDaFatura("aberto", "2026-10-28", "2026-10-28").rotulo === "Vence hoje"
        && situacaoDaFatura("aberto", "2026-11-02", "2026-10-28").prazo === "vence em 5 dias"
-       && situacaoDaFatura("pago", "2026-10-15", "2026-10-28").rotulo === "Pagamento recebido");
+       && situacaoDaFatura("pago", "2026-10-15", "2026-10-28").rotulo === "Pago");
   }
 
   // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
@@ -10477,12 +10477,15 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("contabil r3: na demonstração, getRiscoInputPorOrg entrega a empresa atual por getRiscoInput (o mesmo da tela vizinha)",
      /if \(isDemo\) return demoInputsPorOrg\(de, ate, await getRiscoInput\(\)\);/.test(libCons));
 
-  // (revisão) Fora da demonstração nenhum destinatário aparece "Verificado":
-  // não há link de confirmação, e o verificado gravado antes veio do simulador.
-  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção o destinatário aparece como cadastrado",
+  // (revisão) Fora da demonstração o "verificado" gravado (que veio do
+  // simulador) não vale. Desde 04/11/2026 (Fase 3.4) produção mostra
+  // "Confirmado pelo contador" só pelo clique no link (`mesclarConfirmacoes`,
+  // guarda `contador-optin`); o "Verificado em" fica no ramo simulado.
+  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção a confirmação vem do link do contador",
      (env.match(/Verificado em/g) ?? []).length === 1
-     && /!ENVIO_SIMULADO\s*\?\s*`Cadastrado em/.test(env)
-     && env.indexOf("!ENVIO_SIMULADO") < env.indexOf("Verificado em"));
+     && /!ENVIO_SIMULADO\s*\?\s*d\.verificado\s*\?\s*`Confirmado pelo contador/.test(env)
+     && /: mesclarConfirmacoes\(cadastrados, confirmacoes\)/.test(env)
+     && env.indexOf("!ENVIO_SIMULADO\n") < env.indexOf("Verificado em"));
 
   // ── 4) DRE projetado: margem sobre a LÍQUIDA multiplica a receita LÍQUIDA ──
   const movP: RiskMovement[] = [];
@@ -12534,6 +12537,63 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      !linkComoPessoa(rotaLink.replace('s.rpc("pinbank_checkout_link_criar"', 'admin.rpc("pinbank_checkout_link_criar"')));
   const mw = lerF("src/middleware.ts");
   ok("checkout-pinbank: /pagar e /pagar/boleto são públicas no middleware (o cliente não tem login)", /pathname === "\/pagar"/.test(semComF(mw)) && /pathname === "\/pagar\/boleto"/.test(semComF(mw)));
+  /* ── liquidacao: pago o Pix ou o boleto, a página do link vira "pago" (04/11/2026) ── */
+  {
+    const AC = await import("@/core/cobranca/acompanhar");
+    const ROTA_SIT = "src/app/api/pinbank/checkout/situacao/route.ts";
+    const rotaSit = lerF(ROTA_SIT);
+    // A consulta da página lê pela MESMA leitura e devolve SÓ a situação.
+    const soSituacao = (t: string) => {
+      const x = semComF(t);
+      const respostas = [...x.matchAll(/resposta\(\d+, (\{[^}]*\})\)/g)].map((m) => m[1]);
+      return /lerLinkDePagamento\(t\)/.test(x) && !/createAdmin|\.rpc\(/.test(x) && respostas.length >= 3
+        && respostas.every((r) => /^\{ situacao: [^,]+ \}$/.test(r));
+    };
+    ok("liquidacao: a consulta da página lê pela leitura única e devolve SÓ a situação", soSituacao(rotaSit));
+    ok("liquidacao: (defeito plantado) a consulta devolvendo a fatura inteira é ACUSADA",
+       !soSituacao(rotaSit.replace("{ situacao: r.situacao }", "{ situacao: r.situacao, ...r }")));
+    ok("liquidacao: (defeito plantado) a consulta lendo direto pela chave de serviço é ACUSADA",
+       !soSituacao(rotaSit.replace("lerLinkDePagamento(t)", 'createAdmin()!.rpc("pinbank_checkout_ler", { p_token: t })')));
+    const esperas = Array.from({ length: 40 }, (_, n) => AC.esperaDaConsulta(n, n * 30_000));
+    ok("liquidacao: a página pergunta a cada 5 s no primeiro meio minuto (o Pix cai em segundos)",
+       [0, 1, 2, 3, 4, 5].every((n) => AC.esperaDaConsulta(n, 0) === 5_000), JSON.stringify(esperas.slice(0, 8)));
+    ok("liquidacao: a espera cresce e nunca passa de 30 s nem fica abaixo de 5 s",
+       esperas.filter((e): e is number => e !== null).every((e, i, a) => e >= 5_000 && e <= 30_000 && (i === 0 || e >= a[i - 1]))
+       && AC.esperaDaConsulta(20, 0) === 30_000, JSON.stringify(esperas));
+    ok("liquidacao: depois de 1 hora a página para de perguntar",
+       AC.esperaDaConsulta(3, 60 * 60_000) === null && AC.esperaDaConsulta(3, 60 * 60_000 - 1) !== null && AC.esperaDaConsulta(-1, 0) === null);
+    ok("liquidacao: só o link ABERTO que virou pago ou indisponível redesenha a página",
+       AC.pedeRedesenhar("aberto", "pago") && AC.pedeRedesenhar("aberto", "indisponivel")
+       && !AC.pedeRedesenhar("aberto", "aberto") && !AC.pedeRedesenhar("pago", "pago") && !AC.pedeRedesenhar("aberto", "fora_do_ar") && !AC.pedeRedesenhar("aberto", undefined));
+    const fatura = semComF(lerF("src/components/checkout/FaturaView.tsx"));
+    ok("liquidacao: a fatura acompanha o pagamento com o token e a situação lidos pelo servidor",
+       /<AcompanharPagamento token=\{token\} situacao=\{r\.situacao\} \/>/.test(fatura));
+    ok("liquidacao: a fatura paga diz \"Pagamento confirmado\"", /r\.situacao === "pago" &&[\s\S]{0,200}Pagamento confirmado/.test(fatura));
+    const acomp = semComF(lerF("src/components/checkout/AcompanharPagamento.tsx"));
+    ok("liquidacao: a página consulta a rota de situação, sem cache, e redesenha pelo servidor (router.refresh)",
+       /fetch\(`\/api\/pinbank\/checkout\/situacao\?t=\$\{encodeURIComponent\(token\)\}`, \{ cache: "no-store" \}\)/.test(acomp) && /router\.refresh\(\)/.test(acomp)
+       && /esperaDaConsulta\(/.test(acomp) && /visibilityState/.test(acomp));
+    // O escritor único: quem liquidar (o aviso do banco, a consulta) chama a
+    // função do banco pela chave de serviço, num arquivo de servidor — nunca
+    // um update de `situacao: "paga"` à parte.
+    const chamaLiquidar = arqsF.filter((p) => /pinbank_cobranca_liquidar/.test(semComF(lerF(p))));
+    const liquidaErrado = (ler: (p: string) => string) => arqsF.filter((p) => {
+      const x = semComF(ler(p));
+      if (/from\("pinbank_cobrancas"\)[\s\S]{0,200}\.(update|upsert|insert)\(/.test(x)) return true;
+      return /pinbank_cobranca_liquidar/.test(x) && (/^\s*["']use client["']/.test(ler(p)) || !/admin\.rpc\("pinbank_cobranca_liquidar"/.test(x));
+    });
+    ok("liquidacao: ninguém grava a cobrança à parte; liquidar só pela função, pela chave de serviço",
+       liquidaErrado(lerF).length === 0, `${liquidaErrado(lerF).join(", ")} (chamam hoje: ${chamaLiquidar.length})`);
+    ok("liquidacao: (defeito plantado) a tela marcando a cobrança como paga direto é ACUSADA",
+       liquidaErrado((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\ns.from("pinbank_cobrancas").update({ situacao: "paga" });' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
+    const mig = lerF("supabase/migrations/20261104140000_cobranca_paga_baixa_titulo.sql");
+    ok("liquidacao: a função de liquidar executa SÓ como o servidor",
+       /revoke all on function public\.pinbank_cobranca_liquidar\(uuid, numeric, timestamptz, text, text\) from public, anon, authenticated, service_role;/.test(mig)
+       && /grant execute on function public\.pinbank_cobranca_liquidar\(uuid, numeric, timestamptz, text, text\) to service_role;/.test(mig)
+       && !/grant execute on function public\.pinbank_cobranca_liquidar[^;]*(authenticated|anon)/.test(mig));
+    const ci = lerF(".github/workflows/ci.yml");
+    ok("liquidacao: a guarda do banco (scripts/pinbank-liquidacao.sql) roda no CI", /-f scripts\/pinbank-liquidacao\.sql/.test(ci));
+  }
   /* ── checkout-email: o link de pagamento por e-mail, no modelo da Asaas ── */
   {
     const AU = await import("@/core/automacoes");
@@ -12671,7 +12731,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
     const vazio = INT.estadoDosInterruptores({});
     ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
-       vazio.length === 13 && vazio.every((l) => !l.estado.ligado)); // 13: + cadastro de empresas na Focus (03/11/2026) e os agentes (04/11/2026)
+       vazio.length === 14 && vazio.every((l) => !l.estado.ligado)); // 14: + os agentes e a confirmação do e-mail do contador (04/11/2026)
     const so = est({ PINBANK_COBRANCA: "ligado" }) as Record<string, { ligado: boolean; motivo?: string }>;
     ok("interruptores: cobrança Pinbank ligada sem credencial diz 'falta configuração', nunca 'ligado'",
        so.pinbank_cobranca.ligado === false && so.pinbank_cobranca.motivo === "sem_configuracao");
@@ -13811,8 +13871,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const ia = readFileSync("src/lib/whatsapp-ia.ts", "utf8");
   ok("wa-conversa: a reserva (número, papel, teto, trilha) vem ANTES de ler a empresa",
     ia.indexOf('"whatsapp_ia_reservar"') > 0 && ia.indexOf('"whatsapp_ia_reservar"') < ia.indexOf('"automacao_contexto"'));
+  // Etapa 5 (04/11/2026): o lançamento dito volta como PROPOSTA com link, e o
+  // "Confirmar" é no app. Interpretar a frase pode; gravar, nunca.
   ok("wa-conversa: SÓ LEITURA — nenhuma escrita direta e nenhum lançamento pela conversa",
-    !/\.(insert|update|upsert|delete)\(/.test(ia) && !/confirmarDocumento|interpretarLancamento/.test(ia));
+    !/\.(insert|update|upsert|delete)\(/.test(ia) && !/confirmarDocumento/.test(ia)
+    && (!/interpretarLancamento/.test(ia) || /linkDoLancamento\(appUrl, pergunta, empresa\.id\)/.test(ia)));
   const fora = execSyncIcone(`grep -rlE 'rpc\\("whatsapp_ia_' src || true`, { encoding: "utf8" })
     .split("\n").filter((f) => f && f !== "src/lib/whatsapp-ia.ts");
   ok(`wa-conversa: as RPCs da conversa têm porta única (fora dela: ${fora.join(", ") || "nenhuma"})`, fora.length === 0);

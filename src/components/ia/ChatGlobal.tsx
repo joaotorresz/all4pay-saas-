@@ -17,6 +17,8 @@
  */
 import * as React from "react";
 import { ChatTelaCheia, type AjusteChat, type SugestaoChat, type TelaChat } from "./ChatTelaCheia";
+import { lerLinkDeLancamento, semLinkDeLancamento } from "@/core/whatsapp/lancar";
+import { isDemo } from "@/lib/demo";
 
 export const EVENTO_CHAT = "a4p:open-ia";
 
@@ -33,6 +35,8 @@ export interface AbrirChat {
   tela?: TelaChat;
   /** Uma conversa do histórico (a lista do menu lateral): abre já carregada. */
   conversa?: string;
+  /** "Vamos completar seu cadastro" (Primeiros passos): a conversa do cadastro. */
+  completar?: boolean;
 }
 
 let ouvindo = false;
@@ -56,6 +60,32 @@ export function ChatGlobal() {
     return () => { window.removeEventListener(EVENTO_CHAT, ouvir); ouvindo = false; };
   }, []);
 
+  // O link do WhatsApp ("paguei 100 de gasolina", etapa 5): abre o chat com a
+  // proposta, que só grava pelo "Confirmar". ⚠️ Só na empresa da conversa:
+  // aberta outra, o app troca para ela antes (a troca recarrega a página com o
+  // mesmo link); sem vínculo com ela, nada abre.
+  React.useEffect(() => {
+    const link = lerLinkDeLancamento(window.location.search);
+    if (!link) return;
+    let vivo = true;
+    void (async () => {
+      const limpar = () => window.history.replaceState(null, "", semLinkDeLancamento(window.location.href));
+      if (isDemo) { limpar(); abrirChat({ pergunta: link.frase }); return; }
+      const { listarMinhasOrganizacoes, trocarOrganizacao } = await import("@/lib/seguranca");
+      const orgs = await listarMinhasOrganizacoes();
+      if (!vivo) return;
+      const alvo = orgs.find((o) => o.orgId === link.empresa);
+      if (!alvo) { limpar(); return; }
+      if (!alvo.ativa) {
+        try { await trocarOrganizacao(alvo.orgId); } catch (e) { console.error("lancar-whatsapp", e); limpar(); }
+        return;
+      }
+      limpar();
+      abrirChat({ pergunta: link.frase });
+    })();
+    return () => { vivo = false; };
+  }, []);
+
   if (!aberto) return null;
   return (
     <ChatTelaCheia
@@ -66,6 +96,7 @@ export function ChatGlobal() {
       ajuste={aberto.ajuste}
       tela={aberto.tela}
       conversa={aberto.conversa}
+      completar={aberto.completar}
       aoFechar={() => setAberto(null)}
     />
   );

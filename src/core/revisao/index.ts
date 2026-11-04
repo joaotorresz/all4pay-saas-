@@ -34,7 +34,9 @@
  * Puro, tipado, demo-safe, sem I/O e sem relógio. Versão `revisao/1.0.0`.
  */
 
-export const REVISAO_VERSION = "revisao/1.0.0";
+import { historicoPorContraparte, sugerirRevisao, type SugestaoRevisao } from "./sugestao";
+
+export const REVISAO_VERSION = "revisao/1.1.0";
 
 export type MotivoRevisao =
   /** Texto de categoria vazio, mas há chave — e a chave pode estar errada. */
@@ -71,6 +73,11 @@ export interface AchadoRevisao extends ItemRevisao {
   explicacao: string;
   /** O que o sistema NÃO vai decidir sozinho. */
   pergunta: string;
+  /**
+   * A sugestão da Quattro AI (Fase 4.3): campo PRÓPRIO, ao lado das fontes.
+   * Só vira gravação pelo clique da pessoa; a classificação continua vazia.
+   */
+  sugestao: SugestaoRevisao;
 }
 
 export interface FilaRevisao {
@@ -171,14 +178,21 @@ const FRASES: Record<MotivoRevisao, { explicacao: (it: ItemRevisao) => string; p
   },
 };
 
-/** Monta a fila. Não classifica nada — separa e explica. */
-export function montarFilaRevisao(itens: readonly ItemRevisao[]): FilaRevisao {
+/**
+ * Monta a fila. Não classifica nada — separa, explica e SUGERE ao lado.
+ * `hoje` (AAAA-MM-DD) decide o que já venceu; sem ele, nada conta como vencido.
+ */
+export function montarFilaRevisao(itens: readonly ItemRevisao[], hoje = ""): FilaRevisao {
   const achados: AchadoRevisao[] = [];
+  const historico = historicoPorContraparte(itens);
   for (const it of itens) {
     const motivo = motivoDe(it);
     if (!motivo) continue;
     const f = FRASES[motivo];
-    achados.push({ ...it, motivo, explicacao: f.explicacao(it), pergunta: f.pergunta });
+    achados.push({
+      ...it, motivo, explicacao: f.explicacao(it), pergunta: f.pergunta,
+      sugestao: sugerirRevisao(it, motivo, historico, hoje),
+    });
   }
   // O maior primeiro: a fila é trabalho humano, e trabalho humano se prioriza
   // por consequência. Empate pela data, do mais antigo — o velho é o que já

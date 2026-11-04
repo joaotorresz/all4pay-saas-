@@ -19,8 +19,10 @@ import { pixAtualizadoLiberado } from "@/lib/pinbank/api";
  * `PINBANK_PIX_ATUALIZADO`), pelo botão que chama `/api/pinbank/checkout/pix`
  * — valor recalculado e conferido no banco, vale até 23:59.
  *
- * ⚠️ A baixa automática depende do webhook de liquidação da Pinbank (etapa 6).
- * Até lá, a empresa dá a baixa à mão quando o dinheiro cai.
+ * Pago o Pix ou o boleto, a página se redesenha sozinha como paga
+ * (`AcompanharPagamento`, 04/11/2026). Quem baixa o título é o escritor único
+ * `pinbank_cobranca_liquidar`; a entrada do aviso da Pinbank depende do formato
+ * que ela ainda vai informar (etapa 6). Até lá, a baixa à mão também vira "pago".
  */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

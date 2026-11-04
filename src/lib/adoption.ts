@@ -11,6 +11,7 @@
  * dataset é rico, então a jornada aparece quase completa — um bom preview.
  */
 import type { RiskInput } from "@/core/risk-engine/types";
+import { planoParaDeclarar } from "@/core/registros/sugestao";
 
 export const VERSAO_ADOPTION = "adoption/1.0.0";
 
@@ -77,7 +78,12 @@ export interface Jornada {
 
 const CATEGORIZAVEL = (c?: string | null) => !!c && c.trim() !== "" && c.trim() !== "—";
 
-export function montarJornada(input: RiskInput | undefined, vistas: Set<string>): Jornada {
+/**
+ * @param declaradas a linha do DRE declarada de cada categoria
+ *   (`linhasDeclaradasDasCategorias`). Sem a leitura, o passo do plano de
+ *   contas fica aberto: "não sei" não é "feito".
+ */
+export function montarJornada(input: RiskInput | undefined, vistas: Set<string>, declaradas?: Record<string, string>): Jornada {
   const movs = input?.movements ?? [];
   const temDado = movs.length > 0;
   const nContatos = input?.partyNames ? Object.keys(input.partyNames).length : 0;
@@ -86,6 +92,7 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
   const temRecebivel = movs.some((m) => m.type === "entrada" && m.status === "pendente");
   const temSaldo = (input?.saldoAtual ?? 0) !== 0;
   const viu = (r: string) => vistas.has(r);
+  const planoDeclarado = temDado && declaradas !== undefined && planoParaDeclarar(input, declaradas).length === 0;
 
   const estagios: EstagioJornada[] = [
     montarEstagio("conectar", "Conectar", "Traga seus dados para dentro", [
@@ -95,6 +102,7 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
     ]),
     montarEstagio("organizar", "Organizar", "Dê sentido ao que entrou", [
       { id: "categorizar", titulo: "Categorize os lançamentos", desc: "Categoria certa = DRE e benchmark certos. A IA pré-classifica; você só confirma.", feito: temDado && pctCategorizado >= 0.6, href: "/upload", cta: "Revisar categorias" },
+      { id: "plano-de-contas", titulo: "Declare o plano de contas", desc: "A Quattro AI sugere a linha do DRE de cada categoria; você confirma. Sem isso o resultado sai por palpite.", feito: planoDeclarado, href: "/upload#plano-de-contas", cta: "Declarar o plano" },
       { id: "recorrencias", titulo: "Registre o que se repete", desc: "Assinaturas e contratos viram faturas previstas no fluxo (MRR).", feito: viu("/dashboard/sales-invoices/subscriptions"), href: "/dashboard/sales-invoices/subscriptions", cta: "Ver assinaturas e recorrência" },
     ]),
     montarEstagio("analisar", "Analisar", "Entenda o seu negócio", [

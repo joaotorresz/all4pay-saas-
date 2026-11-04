@@ -154,7 +154,11 @@ export async function criarContaEEntrar(
       s.auth.signUp({
         email: email.trim(),
         password: senha,
-        options: { data: { company: empresa.trim() } },
+        // O link de confirmação volta para a rota que troca o código pela
+        // sessão no servidor (a mesma do "esqueci a senha"): com a confirmação
+        // de e-mail ligada, sem isto o link caía na URL do site e ninguém
+        // entrava. Ela manda para a Home quando o código não é de recuperação.
+        options: { data: { company: empresa.trim() }, emailRedirectTo: `${window.location.origin}${ROTA_RETORNO}` },
       }),
       "signup",
     );

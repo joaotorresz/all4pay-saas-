@@ -26,6 +26,8 @@ import { useFala } from "./useFala";
 import { OndaDeVoz, TempoDeGravacao } from "./OndaDeVoz";
 import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { OfertaWhatsapp } from "./OfertaWhatsapp";
+import { ConversaCompletar } from "./ConversaCompletar";
+import { pedeCompletarCadastro } from "@/core/cadastro/completar";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
 /** O que vem depois de um texto que surge entra quando ele termina de surgir. */
@@ -70,7 +72,20 @@ export interface AjusteChat {
   /** Pedidos de exemplo, clicáveis. */
   exemplos: string[];
   responder: (texto: string) => Promise<RespostaChatAjuste>;
+  /**
+   * O que a conversa arruma. Sem isto, é a Home (o primeiro uso, 14/10/2026);
+   * o painel montado pela conversa (Fase 4.6) diz o dele.
+   */
+  objeto?: { saudacao: string; ajuda: string; pensando: string; ver: string; desfeito: string };
 }
+
+const AJUSTE_DA_HOME: NonNullable<AjusteChat["objeto"]> = {
+  saudacao: "Vamos deixar a Home do seu jeito.",
+  ajuda: "Pode responder do seu jeito: eu arrumo a Home enquanto a gente conversa.",
+  pensando: "Arrumando a sua Home",
+  ver: "Ver a Home",
+  desfeito: "Desfeito: a Home voltou a como estava.",
+};
 
 /**
  * O CONTEXTO DA TELA (botão "Pergunte à Quattro AI" do rodapé, 19/10/2026): a
@@ -105,8 +120,10 @@ function usePrimeiroNome(): string | null {
 }
 
 export function ChatTelaCheia({
-  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa,
+  pergunta, sugestoes, aoFechar, aoClicarSugestao, ajuste, tela, conversa, completar,
 }: {
+  /** "Vamos completar seu cadastro": a conversa pergunta o que a abertura deixou para depois. */
+  completar?: boolean;
   /** Abre esta conversa do histórico (o menu lateral lista as recentes). */
   conversa?: string;
   /** Aberto pelo botão do rodapé: a conversa começa no assunto da tela. */
@@ -122,6 +139,11 @@ export function ChatTelaCheia({
   aoClicarSugestao?: (id: string) => void;
 }) {
   const nome = usePrimeiroNome();
+  // Pedir "completar meu cadastro" (no campo ou na primeira pergunta) abre a
+  // mesma conversa do atalho: o cadastro não é respondido por número do motor.
+  const [modoCompletar, setModoCompletar] = React.useState(
+    () => !!completar || (!!pergunta && pedeCompletarCadastro(pergunta)),
+  );
   const conversaRef = React.useRef<string | null>(null);
   const [ativa, setAtiva] = React.useState<string | null>(null);
   const [conversas, setConversas] = React.useState<Conversa[]>([]);
@@ -165,10 +187,10 @@ export function ChatTelaCheia({
   const enviada = React.useRef(false);
   const { pronto, responder, carregar } = chat;
   React.useEffect(() => {
-    if (enviada.current || !pronto || !pergunta?.trim()) return;
+    if (enviada.current || !pronto || !pergunta?.trim() || modoCompletar) return;
     enviada.current = true;
     void responder(pergunta);
-  }, [pronto, responder, pergunta]);
+  }, [pronto, responder, pergunta, modoCompletar]);
 
   const fechar = React.useCallback(() => {
     setSaindo(true);
@@ -291,6 +313,7 @@ export function ChatTelaCheia({
 
   const perguntar = (q: string, id?: string) => {
     if (!q.trim() || chat.pensando) return;
+    if (!ajuste && pedeCompletarCadastro(q)) { chat.setTexto(""); setModoCompletar(true); return; }
     if (id) {
       clicadaRef.current = id;
       // A Home soma o clique com o mesmo peso do chip dela; aberto de outro
@@ -322,7 +345,7 @@ export function ChatTelaCheia({
           <span role="img" aria-label="Quattro" className="a4p-logo-mono w-[125px] h-[24px]" />
         </Link>
         <div className="flex items-center gap-2">
-          {!ajuste && <button
+          {!ajuste && !modoCompletar && <button
             type="button"
             onClick={() => setHistorico((h) => !h)}
             aria-expanded={historico}
@@ -345,6 +368,8 @@ export function ChatTelaCheia({
 
       {ajuste ? (
         <ConversaDeAjuste ajuste={ajuste} nome={nome} campoRef={campoRef} aoVerHome={fechar} />
+      ) : modoCompletar ? (
+        <ConversaCompletar nome={nome} campoRef={campoRef} aoFechar={fechar} />
       ) : (<>
       <div className="relative flex-1 min-h-0 flex">
         {historico && (
@@ -601,6 +626,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
 }) {
   const [turnos, setTurnos] = React.useState<TurnoAjuste[]>([]);
   const [texto, setTexto] = React.useState("");
+  const obj = ajuste.objeto ?? AJUSTE_DA_HOME;
   const pensando = turnos.some((t) => t.r === null);
   const fimRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turnos]);
@@ -612,7 +638,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
     const id = Date.now();
     setTurnos((ts) => [...ts, { id, q: t, r: null, desfeito: false }]);
     const r = await ajuste.responder(t).catch((): RespostaChatAjuste => ({
-      abertura: "Não consegui ajustar a Home agora.", mudancas: [], fecho: "Tente de novo daqui a pouco.",
+      abertura: "Não consegui fazer o ajuste agora.", mudancas: [], fecho: "Tente de novo daqui a pouco.",
     }));
     setTurnos((ts) => ts.map((x) => (x.id === id ? { ...x, r } : x)));
   };
@@ -627,18 +653,18 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
       <div className="relative flex-1 min-h-0 overflow-y-auto" tabIndex={-1}>
         <div className="mx-auto w-full max-w-[720px] px-5 pt-10 pb-10 flex flex-col gap-8">
           <div className="a4p-entra flex flex-col gap-2 pt-6" data-ia="saudacao" data-ajuste="saudacao">
-            <h2 className="m-0 text-[28px] text-ink">{nome ? `Oi, ${nome}! Vamos deixar a Home do seu jeito.` : "Oi! Vamos deixar a Home do seu jeito."}</h2>
+            <h2 className="m-0 text-[28px] text-ink">{nome ? `Oi, ${nome}! ${obj.saudacao}` : `Oi! ${obj.saudacao}`}</h2>
             <p className="m-0 text-[18px] text-ink">{ajuste.pergunta}</p>
-            <p className="m-0 text-[15px] text-muted">Pode responder do seu jeito: eu arrumo a Home enquanto a gente conversa.</p>
+            <p className="m-0 text-[15px] text-muted">{obj.ajuda}</p>
           </div>
           {turnos.map((t) => (
             <React.Fragment key={t.id}>
               <Pergunta texto={t.q} />
               {t.r === null ? (
-                <DigitandoIA rotulo="Arrumando a sua Home" className="self-start" />
+                <DigitandoIA rotulo={obj.pensando} className="self-start" />
               ) : (
                 <div className="a4p-entra self-start flex flex-col gap-3 max-w-[90%]" data-ajuste="resposta">
-                  <p className="m-0 text-[16px] text-ink"><TextoRevelado texto={t.desfeito ? "Desfeito: a Home voltou a como estava." : t.r.abertura} /></p>
+                  <p className="m-0 text-[16px] text-ink"><TextoRevelado texto={t.desfeito ? obj.desfeito : t.r.abertura} /></p>
                   {!t.desfeito && t.r.mudancas.length > 0 && (
                     <ul className="a4p-entra m-0 pl-5 flex flex-col gap-1 text-[15px] text-ink" style={depois(t.r.abertura)}>
                       {t.r.mudancas.map((m) => <li key={m}>{m}</li>)}
@@ -653,7 +679,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
                         className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px]"
                         style={{ background: "var(--color-ink)", color: "var(--color-surface-1)" }}
                       >
-                        Ver a Home
+                        {obj.ver}
                       </button>
                       {t.id === desfazivel && (
                         <button
@@ -700,8 +726,8 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
           ref={campoRef}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Diga o que você quer ver primeiro"
-          aria-label="O que você quer ver na Home"
+          placeholder={ajuste.objeto ? "Diga o que mudar" : "Diga o que você quer ver primeiro"}
+          aria-label={ajuste.objeto ? ajuste.pergunta : "O que você quer ver na Home"}
           className="a4p-ia-campo flex-1 min-w-0 pl-3 bg-transparent outline-none text-[15px] text-ink placeholder:text-muted"
         />
         <button

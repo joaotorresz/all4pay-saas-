@@ -14,12 +14,24 @@ import { createPortal } from "react-dom";
 import { Card, Button, Icon, Input, Textarea, Select, Switch } from "@/components/ui";
 import {
   CATALOGO, FONTES_METRICA, FONTES_SERIE, FONTES_CATEGORIA,
-  dashboardVazio, templateAcompanhamentoSemanal, widgetPadrao, sugerirWidgets, novoId, tituloAoTrocarFonte,
+  dashboardVazio, templateAcompanhamentoSemanal, widgetPadrao, novoId, tituloAoTrocarFonte,
   type DashboardCustom, type Widget, type TipoWidget, type Largura,
 } from "@/core/dashboards";
 import { listarDashboards, salvarDashboard, removerDashboard, usuarioAtualId, visiveisPara } from "@/lib/dashboards";
 import { inscrever, CHAVES_ORG } from "@/lib/store-org";
 import { WidgetRender } from "./WidgetRender";
+import { abrirChat } from "@/components/ia/ChatGlobal";
+import type { AjusteChat } from "@/components/ia/ChatTelaCheia";
+import { aplicarPedidoPainel, respostaDoPedidoPainel } from "@/core/dashboards/conversa";
+
+/** Pedidos de exemplo da conversa do painel (clicáveis no chat). */
+const EXEMPLOS_DO_PAINEL = [
+  "Como estou hoje?",
+  "Coloca o saldo em cima",
+  "Põe o vencido a receber e o a pagar",
+  "Mostra o resultado dos 12 meses",
+  "Tira o runway",
+];
 
 type Aba = "todos" | "pessoal" | "empresa";
 // Cor de capa do dashboard: a rampa categórica do sistema.
@@ -29,6 +41,8 @@ export function DashboardsCustomView() {
   const [lista, setLista] = React.useState<DashboardCustom[]>([]);
   const [aba, setAba] = React.useState<Aba>("todos");
   const [editando, setEditando] = React.useState<DashboardCustom | null>(null);
+  // "Criar com IA" (Fase 4.6): o painel nasce vazio e a conversa o monta.
+  const [conversar, setConversar] = React.useState(false);
 
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
@@ -45,11 +59,12 @@ export function DashboardsCustomView() {
     return inscrever(CHAVES_ORG.dashboardsCustom, () => setLista(listarDashboards()));
   }, []);
 
-  const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d, eu)); setEditando(null); };
+  const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d, eu)); setEditando(null); setConversar(false); };
   const abrirTemplate = () => setEditando(templateAcompanhamentoSemanal());
+  const criarConversando = () => { setConversar(true); setEditando(dashboardVazio("Meu painel")); };
 
   if (editando) {
-    return <Editor inicial={editando} onSalvar={salvar} onCancelar={() => setEditando(null)} />;
+    return <Editor inicial={editando} conversar={conversar} onSalvar={salvar} onCancelar={() => { setEditando(null); setConversar(false); }} />;
   }
 
   const meus = visiveisPara(lista, eu);
@@ -59,7 +74,7 @@ export function DashboardsCustomView() {
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-start sm:justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="ghost" onClick={abrirTemplate}>
+          <Button variant="ghost" onClick={criarConversando}>
             <Icon name="sparkles" size={15} color="currentColor" />
             Criar com IA
           </Button>
@@ -136,8 +151,8 @@ export function DashboardsCustomView() {
 /* --------------------------------- editor --------------------------------- */
 
 function Editor({
-  inicial, onSalvar, onCancelar,
-}: { inicial: DashboardCustom; onSalvar: (d: DashboardCustom) => void; onCancelar: () => void }) {
+  inicial, conversar = false, onSalvar, onCancelar,
+}: { inicial: DashboardCustom; conversar?: boolean; onSalvar: (d: DashboardCustom) => void; onCancelar: () => void }) {
   const [d, setD] = React.useState<DashboardCustom>(inicial);
   const [pagina, setPagina] = React.useState(0);
   const [catalogo, setCatalogo] = React.useState(false);
@@ -165,6 +180,37 @@ function Editor({
     });
   const atualizarWidget = (id: string, patch: Partial<Widget>) =>
     mudarPagina((ws) => ws.map((w) => (w.id === id ? ({ ...w, ...patch } as Widget) : w)));
+
+  /*
+   * A conversa do painel (Fase 4.6): o pedido escrito muda os widgets da
+   * página aberta, com desfazer. Nada é salvo pela conversa: o "Salvar" do
+   * editor continua sendo o único escritor do painel.
+   */
+  const widgetsRef = React.useRef<Widget[]>(pAtual?.widgets ?? []);
+  widgetsRef.current = pAtual?.widgets ?? [];
+  const conversaDoPainel = (): AjusteChat => ({
+    pergunta: "O que você quer ver neste painel?",
+    exemplos: EXEMPLOS_DO_PAINEL,
+    objeto: {
+      saudacao: "Vamos montar o seu painel.",
+      ajuda: "Peça do seu jeito: eu ponho, tiro e reordeno os cartões enquanto a gente conversa.",
+      pensando: "Montando o painel",
+      ver: "Ver o painel",
+      desfeito: "Desfeito: o painel voltou a como estava.",
+    },
+    responder: async (texto) => {
+      const antes = widgetsRef.current;
+      const r = aplicarPedidoPainel(texto, antes);
+      if (r.mudancas.length) mudarPagina(() => r.widgets);
+      return { ...respostaDoPedidoPainel(r), desfazer: r.mudancas.length ? () => mudarPagina(() => antes) : undefined };
+    },
+  });
+  const abrirConversa = () => abrirChat({ ajuste: conversaDoPainel() });
+  const conversouRef = React.useRef(false);
+  React.useEffect(() => {
+    if (conversar && !conversouRef.current) { conversouRef.current = true; abrirConversa(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversar]);
 
   const addPagina = () =>
     setD((s) => ({
@@ -231,9 +277,9 @@ function Editor({
 
           <div className="flex flex-col gap-2 items-stretch lg:items-end shrink-0">
             <div className="flex items-center gap-2 flex-wrap lg:justify-end">
-              <Button variant="ghost" onClick={() => mudarPagina((ws) => [...ws, ...sugerirWidgets()])}>
+              <Button variant="ghost" onClick={abrirConversa}>
                 <Icon name="sparkles" size={15} color="currentColor" />
-                Assistente IA
+                Montar pela conversa
               </Button>
               <Button variant="ghost" onClick={() => setCatalogo(true)}>
                 <Icon name="plus" size={15} color="currentColor" />
