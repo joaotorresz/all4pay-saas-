@@ -382,6 +382,13 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/compras.sql
+      # O estoque (20261104190000): o saldo é uma conta só no banco, a venda tira
+      # sozinha (editar, cancelar e a lixeira devolvem), o movimento não se
+      # edita, o leitor não lança e a empresa B não vê a A.
+      - name: Guarda do estoque (saldo, venda, papel, isolamento)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/estoque.sql
       - name: Guarda do vínculo cronograma → compra (sem depreciação em dobro)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

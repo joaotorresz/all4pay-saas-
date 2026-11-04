@@ -40,6 +40,7 @@ import { ProdutoServicoForm } from "@/components/lancamentos/ProdutoServicoForm"
 import { PartyForm } from "@/components/lancamentos/PartyForm";
 import { VendaCompraForm } from "@/components/lancamentos/VendaCompraForm";
 import { MarcaForm, UnidadeForm } from "@/components/lancamentos/MarcaUnidadeForm";
+import { MovimentoEstoqueForm } from "@/components/estoque/MovimentoEstoqueForm";
 
 interface Aberto extends PedidoCriacao { chave: number }
 
@@ -189,6 +190,7 @@ function ItemDaPilha({ pedido, topo, pessoal, fechar, avisar }: {
     case "transportadora": return <PartyForm role="carrier" {...p} />;
     case "marca": return <MarcaForm onClose={fechar} onToast={avisar} onCriado={criado} />;
     case "unidade": return <UnidadeForm onClose={fechar} onToast={avisar} onCriado={criado} />;
+    case "movimento-estoque": return <MovimentoEstoqueForm produtoInicial={pedido.parametros?.produto} onClose={fechar} onToast={avisar} onCriado={criado} />;
     default: return null;
   }
 }

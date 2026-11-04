@@ -30,15 +30,22 @@ import {
   EtiquetaStatus, Campo, OPCOES_STATUS,
 } from "./kit";
 import type { Product } from "@/lib/types";
+import { EstoqueView } from "@/components/estoque/EstoqueView";
 
 import { formatBRL } from "@/lib/format";
 const fmtBRL = (n: number) => formatBRL(n);
 const rotuloTipo = (t: TipoProduto) => TIPOS_PRODUTO.find((x) => x.id === t)?.label ?? "—";
 
-/** Produto e serviço são o MESMO cadastro para quem opera — muda o que sai na nota. */
-type Catalogo = "produtos" | "servicos";
+/**
+ * Produto e serviço são o MESMO cadastro para quem opera — muda o que sai na
+ * nota. "Estoque" é o saldo dos produtos que controlam estoque, e só aparece
+ * com o interruptor `ESTOQUE` ligado (lido no servidor, pela página).
+ */
+type Catalogo = "produtos" | "servicos" | "estoque";
+const ABAS: [Catalogo, string][] = [["produtos", "Produtos"], ["servicos", "Serviços"]];
+const ABAS_COM_ESTOQUE: [Catalogo, string][] = [...ABAS, ["estoque", "Estoque"]];
 
-export function ProdutosRegistroView() {
+export function ProdutosRegistroView({ estoque = false }: { estoque?: boolean }) {
   const [catalogo, setCatalogo] = React.useState<Catalogo>("produtos");
   const produtos = useProductsList();
   const servicos = useServicesList();
@@ -90,6 +97,37 @@ export function ProdutosRegistroView() {
     ]),
   ], [visiveis]);
 
+  // ⚠️ O segmentado é a porta dos serviços. Escondê-lo num select faria a
+  // perda apenas mudar de lugar — quem procura "Serviços" no menu não
+  // adivinha que ele virou uma opção dentro de um filtro.
+  const abas = (
+    <div className="flex items-center gap-1 p-1 rounded-pill bg-surface-2 self-start" role="tablist" aria-label="Tipo de item">
+      {(estoque ? ABAS_COM_ESTOQUE : ABAS).map(([id, rotulo]) => {
+        const on = catalogo === id;
+        return (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={on}
+            onClick={() => { setCatalogo(id); setBusca(""); setTipo(""); }}
+            className={`px-4 h-8 rounded-pill text-caption transition-colors ${on ? "bg-white text-ink font-medium" : "text-muted hover:text-ink"}`}
+          >
+            {rotulo}
+            {id !== "estoque" && (
+              <span className="ml-2 tabular-nums text-placeholder">
+                {(id === "servicos" ? servicos.data : produtos.data)?.length ?? 0}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (catalogo === "estoque") {
+    return <div className="flex flex-col gap-5 pb-4"><EstoqueView abas={abas} /></div>;
+  }
+
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
@@ -101,28 +139,7 @@ export function ProdutosRegistroView() {
         }}
       />
 
-      {/* ⚠️ O segmentado é a porta dos serviços. Escondê-lo num select faria a
-          perda apenas mudar de lugar — quem procura "Serviços" no menu não
-          adivinha que ele virou uma opção dentro de um filtro. */}
-      <div className="flex items-center gap-1 p-1 rounded-pill bg-surface-2 self-start" role="tablist" aria-label="Tipo de item">
-        {([["produtos", "Produtos"], ["servicos", "Serviços"]] as [Catalogo, string][]).map(([id, rotulo]) => {
-          const on = catalogo === id;
-          return (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={on}
-              onClick={() => { setCatalogo(id); setBusca(""); setTipo(""); }}
-              className={`px-4 h-8 rounded-pill text-caption transition-colors ${on ? "bg-white text-ink font-medium" : "text-muted hover:text-ink"}`}
-            >
-              {rotulo}
-              <span className="ml-2 tabular-nums text-placeholder">
-                {(id === "servicos" ? servicos.data : produtos.data)?.length ?? 0}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {abas}
 
       <FiltrosRegistro
         busca={busca} onBusca={setBusca} placeholder="ID, nome, SKU ou descrição…"
