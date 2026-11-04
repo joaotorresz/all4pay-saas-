@@ -440,7 +440,7 @@ function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style:
           <li key={it.id} {...entra()}>
             <Link href={hrefDoHub(it.id)} aria-current={on ? "page" : undefined} title={it.nome} data-item={it.id}
               className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "a4p-menu-afundado" : "a4p-menu-item")}>
-              <AvatarAgente agente={it.id} tamanho={30} noMenu />
+              <AvatarAgente agente={it.id} tamanho={30} />
               <span className="flex-1 min-w-0">
                 <span className="block truncate text-[14px] font-medium">{it.nome}</span>
                 <span className="block truncate text-[12px] a4p-menu-meta">{it.sub}</span>
