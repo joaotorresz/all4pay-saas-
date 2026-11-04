@@ -127,6 +127,14 @@ no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
   motor traz o cartão dele na resposta (`core/assistant/widgets`, um catálogo
   só). A tela completa segue no endereço dela, Pro pelo servidor, aberta pelo
   cartão. Guarda: `npm run ia-widgets`.
+- **Agentes da Quattro AI** (plano "AI first", 03/11/2026): um agente por
+  tarefa (cobrança, conciliação, contas a pagar, caixa, fechamento). O agente
+  PROPÕE e a pessoa aprova; o nível (0 avisa, 1 pede, 2 faz até o limite, 3 faz
+  e avisa) é da empresa, e contas a pagar, caixa e fechamento não passam do 1
+  (o banco recusa). Só o servidor cria proposta; decidir é `agente_decidir`.
+  Tudo atrás de `AGENTES=ligado`. Guardas: `npm run agentes` e
+  `scripts/agentes.sql`. Moldura em `core/agentes`, tela na seção Agentes de
+  `/automacoes`.
 - **Quattro AI no WhatsApp:** atrás de `WHATSAPP_IA`, só leitura (a etapa 5,
   lançar, está pendente).
 - **Sem emoji**, exceto nos modelos de WhatsApp cadastrados na Twilio.

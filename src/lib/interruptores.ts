@@ -12,6 +12,7 @@ import {
 import { cobrancaBancoLigada } from "@/core/cobranca-banco/conexao";
 import { iaWhatsappLigada } from "@/core/whatsapp/numero";
 import { lembretesLigados } from "@/lib/cadastro-lembretes";
+import { agentesLigados } from "@/core/agentes/ligado";
 import { cadastroEmpresasLigado, tokenDeProducaoConfigurado } from "@/lib/focusnfe";
 import {
   montarInterruptores, type EstadoInterruptor, type LinhaInterruptor, type MotivoDesligado,
@@ -38,6 +39,7 @@ export function estadoDosInterruptores(env: Record<string, string | undefined> =
     whatsapp_ia: sim(iaWhatsappLigada(env)),
     caixa_email: sim(env.CAIXA_EMAIL === "ligado"),
     cadastro_lembretes: sim(lembretesLigados()),
+    agentes: sim(agentesLigados(env)),
     focus_empresas: !cadastroEmpresasLigado(env) ? sim(false) : tokenDeProducaoConfigurado() ? { ligado: true } : { ligado: false, motivo: "sem_configuracao" },
   });
 }
