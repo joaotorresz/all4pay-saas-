@@ -125,6 +125,32 @@ function ItemFila({
 
         <p className="m-0 text-label text-ink">{a.pergunta}</p>
 
+        {/* A sugestão da Quattro AI (Fase 4.3): ao lado das fontes, nunca no
+            lugar delas. Só grava pelo clique em "Aplicar". */}
+        <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-3" data-sugestao-revisao={a.sugestao.acao}>
+          <span className="flex items-center gap-2 text-[11px] font-medium text-faint">
+            <Icon name="sparkles" size={13} color="currentColor" />
+            Sugestão da Quattro AI{a.sugestao.fonte === "historico" ? " · pelo histórico da empresa" : ""}
+          </span>
+          <span className="text-label text-ink">
+            {a.sugestao.categoria && a.sugestao.acao !== "cancelar" && <b>{a.sugestao.categoria}. </b>}
+            {a.sugestao.motivo}
+          </span>
+          {a.sugestao.acao === "classificar" && a.sugestao.categoria && a.origem === "lancamento" && (
+            <Button
+              variant="primary"
+              className="self-start"
+              disabled={ocupado}
+              onClick={() => rodar(
+                () => confirmarClassificacao(a.id, a.sugestao.categoria!),
+                `Classificado como ${a.sugestao.categoria}`,
+              )}
+            >
+              Aplicar: {a.sugestao.categoria}
+            </Button>
+          )}
+        </div>
+
         <div className="flex items-center gap-2 flex-wrap">
           {a.categoriaChave && a.origem === "lancamento" && (
             <Button
