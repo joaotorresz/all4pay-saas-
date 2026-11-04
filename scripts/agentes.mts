@@ -559,6 +559,14 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   const chat = ler("src/components/ia/ChatAgente.tsx");
   ok("chat do agente: grava pelo escritor de sempre e decide pela função do banco",
     /await salvarAgente\(passo\.salvar\)/.test(chat) && /decidirProposta\(p\.id, aprovar\)/.test(chat) && !/from\("agentes"\)/.test(chat));
+  // Pedido do dono (04/11/2026): no computador a lista mora no menu, na seção
+  // Conversas; a tela só a mostra no telefone. Os dois leem a mesma fonte.
+  const menu = ler("src/components/dashboard/Sidebar.tsx");
+  const hub = ler("src/components/ia/QuattroAIHub.tsx");
+  ok("menu: a Quattro AI e os agentes ficam na seção Conversas, antes das conversas",
+    /<AgentesDoMenu entra=\{entra\} \/>\s*<label[^>]*>\s*<span className="sr-only">Buscar conversa/.test(menu) && /useAgentesDoHub\(\)/.test(menu));
+  ok("tela: no computador a lista sai da tela (fica no menu) e a fonte é uma só",
+    /className=\{`md:hidden [^`]*`\}>\{lista\}/.test(hub) && /useAgentesDoHub\(\)/.test(hub) && !/useQuery\(/.test(hub));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }

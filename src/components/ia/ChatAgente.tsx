@@ -21,8 +21,8 @@ import { descricaoDe, type ConfigAgente, type PropostaAgente } from "@/core/agen
 import { decidirProposta, executarAprovada, salvarAgente } from "@/lib/agentes";
 import { AvatarAgente } from "./AvatarAgente";
 
-export const CHAVE_AGENTES = ["agentes", "config"] as const;
-export const CHAVE_PROPOSTAS = ["agentes", "propostas"] as const;
+import { CHAVE_AGENTES, CHAVE_PROPOSTAS } from "./useAgentesDoHub";
+export { CHAVE_AGENTES, CHAVE_PROPOSTAS };
 
 type Linha = (FalaAgente & { id: number }) | { id: number; de: "fila" };
 

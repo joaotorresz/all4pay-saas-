@@ -12,18 +12,19 @@
  *
  * ⚠️ Os agentes saíram de Automações: a configuração acontece conversando,
  * no chat de cada um (`ChatAgente`).
+ *
+ * ⚠️ No computador a lista mora no MENU LATERAL, na seção Conversas (pedido
+ * do dono, 04/11/2026): a tela fica só com o chat. No telefone o menu é uma
+ * gaveta, então a lista aparece aqui mesmo. As duas leem `useAgentesDoHub`.
  */
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/ui";
-import { IDS_AGENTE, NIVEIS, descricaoDe, type IdAgente } from "@/core/agentes";
-import { listarAgentes, listarPropostas } from "@/lib/agentes";
+import { IDS_AGENTE, descricaoDe, type IdAgente } from "@/core/agentes";
 import { loadCompany } from "@/lib/company";
 import { AvatarAgente } from "./AvatarAgente";
-import { ChatAgente, CHAVE_AGENTES, CHAVE_PROPOSTAS } from "./ChatAgente";
-
-type Selecao = IdAgente | "quattro-ai";
+import { ChatAgente } from "./ChatAgente";
+import { hrefDoHub, useAgentesDoHub, type SelecaoHub as Selecao } from "./useAgentesDoHub";
 
 function usePrimeiroNome(): string | null {
   const [nome, setNome] = React.useState<string | null>(null);
@@ -39,30 +40,17 @@ export function QuattroAIHub({ aoPerguntar }: { aoPerguntar: (pergunta?: string)
   const sp = useSearchParams();
   const router = useRouter();
   const nome = usePrimeiroNome();
-  const configs = useQuery({ queryKey: CHAVE_AGENTES, queryFn: listarAgentes });
-  const propostas = useQuery({ queryKey: CHAVE_PROPOSTAS, queryFn: listarPropostas });
+  const { configs, propostas, pendentes, porAgente, configDe, estadoDe, resumoIA } = useAgentesDoHub();
   const pedida = sp.get("agente");
   const selecao: Selecao | null = pedida && (IDS_AGENTE as readonly string[]).includes(pedida) ? (pedida as IdAgente) : pedida === "quattro-ai" ? "quattro-ai" : null;
   const ativa: Selecao = selecao ?? "quattro-ai";
-  const ir = (s: Selecao | null) => router.replace(s ? `/quattro-ai?agente=${s}` : "/quattro-ai", { scroll: false });
-
-  const pendentes = (propostas.data ?? []).filter((p) => p.estado === "pendente");
-  const porAgente = (id: IdAgente) => pendentes.filter((p) => p.agente === id).length;
-  const configDe = (id: IdAgente) => configs.data?.find((c) => c.agente === id);
-
-  const estadoDe = (id: IdAgente) => {
-    const d = descricaoDe(id);
-    const c = configDe(id);
-    if (!d.pronto) return "Em construção";
-    if (!c?.ativo) return "Desligado";
-    return NIVEIS[Math.min(c.nivel, d.nivelMaximo)].nome;
-  };
+  const ir = (s: Selecao | null) => router.replace(hrefDoHub(s), { scroll: false });
 
   const lista = (
     <nav aria-label="Quattro AI e agentes" className="flex flex-col gap-1 p-3" data-lista-agentes>
       <ItemLista ativo={ativa === "quattro-ai"} onClick={() => ir("quattro-ai")}
         avatar={<AvatarAgente agente="quattro-ai" />} titulo="Quattro AI"
-        sub={pendentes.length ? `${pendentes.length} ${pendentes.length === 1 ? "coisa espera" : "coisas esperam"} você` : "Pergunte sobre os seus números"}
+        sub={resumoIA}
         destaque={pendentes.length} id="quattro-ai" />
       <p className="m-0 mt-3 mb-1 px-3 text-caption text-faint">Agentes</p>
       {IDS_AGENTE.map((id) => (
@@ -84,8 +72,8 @@ export function QuattroAIHub({ aoPerguntar }: { aoPerguntar: (pergunta?: string)
   );
 
   return (
-    <div className="grid md:grid-cols-[300px_1fr] gap-4 h-[calc(100dvh-300px)] md:h-[calc(100dvh-180px)] min-h-[480px]" data-tela="quattro-ai">
-      <div className={`bg-white rounded-[24px] overflow-y-auto ${selecao ? "hidden md:block" : ""}`}>{lista}</div>
+    <div className="grid gap-4 h-[calc(100dvh-300px)] md:h-[calc(100dvh-180px)] min-h-[480px]" data-tela="quattro-ai">
+      <div className={`md:hidden bg-white rounded-[24px] overflow-y-auto ${selecao ? "hidden" : ""}`}>{lista}</div>
       <div className={`bg-white rounded-[24px] min-h-0 overflow-hidden ${selecao ? "" : "hidden md:block"}`}>{painel}</div>
     </div>
   );
@@ -135,7 +123,7 @@ function PainelQuattroAI({ nome, aoPerguntar, pendentes, abrirAgente, aoVoltar }
         <div className="mx-auto w-full max-w-[680px] px-5 py-6 flex flex-col gap-3">
           <div className="self-start bg-surface-2 rounded-[20px] px-5 py-3 text-[15px] text-ink max-w-[92%]">
             Oi{nome ? `, ${nome}` : ""}! Eu respondo sobre o caixa, o resultado e os vencimentos. Cada tarefa tem um agente,
-            e cada um tem o próprio chat aqui do lado.
+            e cada um tem o próprio chat.
           </div>
           {pendentes.length > 0 ? (
             <div className="self-start bg-white border border-border-soft rounded-[20px] px-5 py-4 flex flex-col gap-1 w-full max-w-[92%]" data-esperando>
