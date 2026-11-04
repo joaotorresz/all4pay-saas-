@@ -302,6 +302,18 @@
         "impacto": "Até ser aplicada, a Folha salarial em produção mostra 'Não foi possível ler a equipe da folha'. Os 2 colaboradores que existem hoje (uma empresa) são copiados pela própria migration.",
         "resolver_ate": "2026-11-15",
         "origem": "sessão Claude de 03/11/2026 (Fase 3: equipe da folha em tabela própria)"
+      },
+      {
+        "nome": "20261104100000_cronograma_compra_do_bem",
+        "motivo": "Depreciação em dobro (risco da Rodada 4): o cronograma passa a apontar a compra do bem (schedules.movement_id), e o razão leva essa compra ao ativo em vez da despesa. O banco recusa a mesma compra em dois cronogramas vivos e o vínculo com entrada ou com lançamento de outra empresa. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "coluna schedules.movement_id",
+          "índice schedules_uma_compra_por_cronograma",
+          "função e gatilho schedules_confere_compra"
+        ],
+        "impacto": "Até ser aplicada, a tela de cronogramas em produção não lê a lista (a coluna movement_id não existe) e salvar é recusado com a mensagem do banco. O único cronograma de produção (R$ 3.000, sem compra lançada) volta a aparecer, sem mudança de valor, quando o job migrar aplica a migration no merge.",
+        "resolver_ate": "2026-11-15",
+        "origem": "sessão Claude de 04/11/2026 (Fase 3.4: depreciação em dobro)"
       }
     ],
     "objetos_sem_migration": [
