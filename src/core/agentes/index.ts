@@ -80,8 +80,8 @@ export const AGENTES: readonly DescricaoAgente[] = [
     id: "caixa", nome: "Agente de caixa",
     missao: "Vigia o caixa da semana e avisa do furo antes que ele aconteça.",
     gatilho: "Todo dia de manhã.",
-    prepara: "O aviso do furo e a sugestão de antecipar ou adiar.",
-    nivelMaximo: 1, pronto: false,
+    prepara: "O aviso do furo e as contas a adiar ou antecipar que o cobrem.",
+    nivelMaximo: 1, pronto: true,
   },
   {
     id: "fechamento", nome: "Agente de fechamento",

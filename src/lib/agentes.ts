@@ -33,6 +33,7 @@ import { getConciliacaoOF } from "@/lib/conciliacao-of";
 import { propostasDeContasPagar, desfechoDoDocumento, MOTIVO_DOCUMENTO } from "@/core/agentes/contas-pagar";
 import { montarCaixaEntrada } from "@/core/caixa-entrada";
 import { documentosDaCaixa, lerEstadoCaixa } from "@/lib/caixa-entrada";
+import { propostasDeCaixa, propostaDeCaixaVale } from "@/core/agentes/caixa";
 
 const K_CONFIG = CHAVES_ORG.agentes;
 const K_PROPOSTAS = CHAVES_ORG.agentePropostas;
@@ -89,6 +90,7 @@ export async function listarPropostas(): Promise<PropostaAgente[]> {
     await simularCobrancaNaDemo().catch(() => undefined);
     await simularConciliacaoNaDemo().catch(() => undefined);
     await simularContasPagarNaDemo().catch(() => undefined);
+    await simularCaixaNaDemo().catch(() => undefined);
     return ler<PropostaAgente[]>(K_PROPOSTAS, []);
   }
   const { data, error } = await createClient()
@@ -122,14 +124,23 @@ export async function decidirProposta(id: string, aprovar: boolean, motivo?: str
  * ⚠️ Falha aqui não desfaz a aprovação: o runner diário envia o que ficou.
  */
 export async function executarAprovada(id: string, agente: IdAgente = "cobranca"): Promise<string> {
-  if (isDemo) return agente === "conciliacao" ? "Aprovada. Na demonstração nada é conciliado." : "Aprovada. Na demonstração nada é enviado.";
+  if (isDemo) {
+    if (agente === "caixa") {
+      gravar(K_PROPOSTAS, ler<PropostaAgente[]>(K_PROPOSTAS, []).map((p) => (p.id === id && p.estado === "aprovada" ? { ...p, estado: "executada" as const } : p)));
+      return "Abri a conta para você.";
+    }
+    return agente === "conciliacao" ? "Aprovada. Na demonstração nada é conciliado." : "Aprovada. Na demonstração nada é enviado.";
+  }
   try {
     const r = await fetch("/api/agentes/executar", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }),
     });
     const j = (await r.json().catch(() => ({}))) as { ok?: boolean; estado?: string; erro?: string | null; motivo?: string };
     if (!r.ok || !j.ok) return `Aprovada. O envio fica para a execução diária: ${j.motivo ?? "o servidor não respondeu"}.`;
-    if (j.estado === "executada") return j.erro ? `Feita. ${j.erro}` : (agente === "conciliacao" ? "Feita: o título foi conciliado com o extrato." : "Feita: a cobrança saiu.");
+    if (j.estado === "executada") {
+      if (agente === "caixa") return "Abri a conta para você.";
+      return j.erro ? `Feita. ${j.erro}` : (agente === "conciliacao" ? "Feita: o título foi conciliado com o extrato." : "Feita: a cobrança saiu.");
+    }
     if (j.estado === "falhou") return `Não deu certo. ${j.erro ?? ""}`.trim();
     return "Aprovada.";
   } catch {
@@ -237,6 +248,34 @@ async function simularContasPagarNaDemo(): Promise<void> {
   const agora = new Date().toISOString();
   const novas = propostasDeContasPagar(pendentes, vistas as Set<string>, agora.slice(0, 10)).map((p) => ({
     id: `demo-${p.chave}`, chave: p.chave, agente: "contas_pagar" as const, titulo: p.titulo, porque: p.porque, valor: p.valor,
+    estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null, dados: p.dados as unknown as Record<string, unknown>,
+  }));
+  if (novas.length || mudou) gravar(K_PROPOSTAS, [...novas, ...revistas]);
+}
+
+/**
+ * O "runner" da demonstração para o caixa: o MESMO núcleo do servidor
+ * (`propostasDeCaixa`) sobre os dados da demonstração.
+ */
+async function simularCaixaNaDemo(): Promise<void> {
+  if (!isDemo) return;
+  const cfg = (await listarAgentes()).find((c) => c.agente === "caixa");
+  if (!cfg?.ativo || cfg.nivel === 0) return;
+  const ctx = await contextoDaEmpresa();
+  const atuais = ler<(PropostaAgente & { chave?: string })[]>(K_PROPOSTAS, []);
+  const { furo } = propostasDeCaixa(ctx.input, ctx.hoje, new Set());
+  let mudou = false;
+  const revistas = atuais.map((p) => {
+    if (p.agente !== "caixa" || p.estado !== "pendente" || !p.chave) return p;
+    const motivo = propostaDeCaixaVale(p.chave, furo, ctx.input);
+    if (!motivo) return p;
+    mudou = true;
+    return { ...p, estado: "expirada" as const, motivo };
+  });
+  const vistas = new Set(revistas.map((p) => p.chave).filter((c): c is string => !!c));
+  const agora = new Date().toISOString();
+  const novas = propostasDeCaixa(ctx.input, ctx.hoje, vistas).propostas.map((p) => ({
+    id: `demo-${p.chave}`, chave: p.chave, agente: "caixa" as const, titulo: p.titulo, porque: p.porque, valor: p.valor,
     estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null, dados: p.dados as unknown as Record<string, unknown>,
   }));
   if (novas.length || mudou) gravar(K_PROPOSTAS, [...novas, ...revistas]);

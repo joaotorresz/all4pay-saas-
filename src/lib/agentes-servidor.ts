@@ -46,6 +46,7 @@ import {
   type DecisaoEntrada, type DocumentoOCR, type MensagemEmail,
 } from "@/core/caixa-entrada";
 import type { BoletoRecebido, NFRecebida } from "@/core/compras";
+import { propostasDeCaixa, planejarCaixa, propostaDeCaixaVale } from "@/core/agentes/caixa";
 
 export interface DepsAgente {
   registro: RegistroEnvios;
@@ -54,7 +55,7 @@ export interface DepsAgente {
 }
 
 export interface RelatorioAgente {
-  agente: "cobranca" | "conciliacao" | "contas_pagar";
+  agente: "cobranca" | "conciliacao" | "contas_pagar" | "caixa";
   ativo: boolean;
   propostas: number;
   paraAprovar: number;
@@ -237,6 +238,7 @@ export async function executarAprovada(
   if (linha.estado !== "aprovada") return { estado: linha.estado, erro: linha.erro };
   if (linha.agente === "conciliacao") return { ...(await conciliarProposta(admin, linha.id, false, deps.dryRun)), agente: "conciliacao" };
   if (linha.agente === "contas_pagar") return { ...(await concluirContaPagar(admin, linha.id)), agente: "contas_pagar" };
+  if (linha.agente === "caixa") return { ...(await concluirCaixa(admin, linha.id, deps.dryRun)), agente: "caixa" };
   if (linha.agente !== "cobranca") return { estado: linha.estado, erro: "Este agente ainda não executa." };
   const regua = await reguaDaEmpresaServidor(admin, orgId);
   const ctx = await contextoDoAgente(admin, orgId, hoje, appUrl, regua);
@@ -523,4 +525,84 @@ export async function rodarAgenteContasPagar(
     rel.paraAprovar++;
   }
   return rel;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * O AGENTE DE CAIXA (Etapa 7)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Lê o MESMO contexto das automações (`automacao_contexto`, o mapeador único
+ * de `lib/risco-linhas`) e procura o furo da semana pelo saldo canônico.
+ * Nunca muda conta nem move dinheiro: o "Aprovar" abre a conta na tela, e a
+ * proposta aprovada termina como executada ("você abriu a conta").
+ */
+async function concluirCaixa(admin: SupabaseClient, id: string, dryRun?: boolean): Promise<{ estado: string; erro?: string | null }> {
+  if (dryRun) return { estado: "aprovada", erro: null };
+  const { data, error } = await admin.from("agente_propostas")
+    .update({ estado: "executada", executada_em: new Date().toISOString() })
+    .eq("id", id).eq("agente", "caixa").eq("estado", "aprovada").select("estado").limit(1);
+  if (error) return { estado: "aprovada", erro: error.message };
+  return { estado: ((data ?? []) as { estado: string }[])[0]?.estado ?? "aprovada", erro: null };
+}
+
+export async function rodarAgenteCaixa(
+  admin: SupabaseClient, orgId: string, config: ConfigAgente, hoje: string, deps: { dryRun?: boolean } = {},
+): Promise<RelatorioAgente & { furo?: string | null }> {
+  const rel = relatorio(config.ativo, "caixa");
+  if (!config.ativo) return rel;
+
+  const { data: bruto, error: e0 } = await admin.rpc("automacao_contexto", { p_org: orgId });
+  if (e0) return { ...rel, erro: `contexto: ${e0.message}` };
+  const { input } = contextoDaRpc(orgId, (bruto ?? {}) as ContextoBruto, hoje, "");
+
+  const { data: abertas, error: e1 } = await admin
+    .from("agente_propostas").select("id,chave,estado")
+    .eq("org_id", orgId).eq("agente", "caixa").in("estado", ["pendente", "aprovada"]).limit(500);
+  if (e1) return { ...rel, erro: `propostas: ${e1.message}` };
+  const linhas = (abertas ?? []) as { id: string; chave: string; estado: string }[];
+
+  // 1. a aprovada de ontem já foi aberta pela pessoa: termina
+  for (const l of linhas.filter((x) => x.estado === "aprovada")) {
+    const r = await concluirCaixa(admin, l.id, deps.dryRun);
+    if (r.estado === "executada") rel.executadasAprovadas++;
+  }
+
+  // 2. o furo de hoje, e as propostas que ele pede
+  const jaPropostas = new Set<string>();
+  const { furo } = propostasDeCaixa(input, hoje, jaPropostas);
+  const candidatas = propostasDeCaixa(input, hoje, new Set()).propostas.map((p) => p.chave);
+  for (let i = 0; i < candidatas.length; i += 200) {
+    const { data, error } = await admin.from("agente_propostas").select("chave")
+      .eq("org_id", orgId).eq("agente", "caixa").in("chave", candidatas.slice(i, i + 200)).limit(200);
+    if (error) return { ...rel, erro: `propostas antigas: ${error.message}` };
+    for (const l of (data ?? []) as { chave: string }[]) jaPropostas.add(l.chave);
+  }
+
+  // 3. a pendente que já não resolve (furo sumiu, mudou de dia, conta mudou) expira
+  const porMotivo = new Map<string, string[]>();
+  for (const l of linhas.filter((x) => x.estado === "pendente")) {
+    const motivo = propostaDeCaixaVale(l.chave, furo, input);
+    if (motivo) porMotivo.set(motivo, [...(porMotivo.get(motivo) ?? []), l.id]);
+  }
+  for (const [motivo, ids] of Array.from(porMotivo)) {
+    rel.expiradas += ids.length;
+    if (deps.dryRun) continue;
+    const { error } = await admin.from("agente_propostas").update({ estado: "expirada", motivo })
+      .in("id", ids).eq("estado", "pendente");
+    if (error) return { ...rel, erro: `expirar: ${error.message}` };
+  }
+
+  const novas = propostasDeCaixa(input, hoje, jaPropostas).propostas;
+  const porChave = new Map(novas.map((p) => [p.chave, p]));
+  for (const { chave, destino } of planejarCaixa(novas, config)) {
+    const p = porChave.get(chave)!;
+    if (destino === "avisar") { rel.soAviso++; continue; }
+    rel.propostas++;
+    if (deps.dryRun) { rel.paraAprovar++; continue; }
+    const { data: criada, error } = await admin.from("agente_propostas").upsert({
+      org_id: orgId, agente: "caixa", chave: p.chave, titulo: p.titulo, porque: p.porque, valor: p.valor, dados: p.dados,
+    }, { onConflict: "org_id,agente,chave", ignoreDuplicates: true }).select("id").limit(1);
+    if (error) return { ...rel, erro: `criar proposta: ${error.message}` };
+    if (((criada ?? []) as { id: string }[])[0]) rel.paraAprovar++;
+  }
+  return { ...rel, furo: furo?.dia ?? null };
 }

@@ -89,6 +89,7 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
     ],
     ateOnde: [
       "Só sugere: nunca move dinheiro nem muda vencimento sozinho.",
+      "Ao aprovar, abro a conta sugerida para você negociar ou ajustar.",
     ],
   },
   fechamento: {

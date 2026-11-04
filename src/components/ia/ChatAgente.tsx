@@ -12,6 +12,7 @@
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { BRL, Button, Icon } from "@/components/ui";
 import {
   abrirConversaAgente, responderConversaAgente, PERFIS,
@@ -222,6 +223,7 @@ function CartaoOpcoes({ pergunta, ativa, onEscolher }: {
 /** Uma proposta na conversa: o que ele quer fazer, por quê, quanto, e Aprovar ou Recusar. */
 function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: string) => void }) {
   const qc = useQueryClient();
+  const router = useRouter();
   const [ocupado, setOcupado] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
   /**
@@ -249,6 +251,17 @@ function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: st
         abrirCadastro();
         aoDecidir(`${p.titulo}: aprovada. Abri o cadastro preenchido para você conferir e salvar.`);
         await qc.invalidateQueries({ queryKey: CHAVE_PROPOSTAS });
+        return;
+      }
+      // Caixa: aprovar é abrir a conta sugerida, na tela de sempre (decisão do
+      // dono). O agente não muda nada; o servidor só registra que foi aberta.
+      if (aprovar && p.agente === "caixa") {
+        const href = typeof p.dados?.href === "string" ? p.dados.href : null;
+        // Se o registro falhar, a execução diária fecha a aprovada: a conta abre igual.
+        await executarAprovada(p.id, p.agente).catch(() => undefined);
+        aoDecidir(`${p.titulo.replace(/\.$/, "")}: abri a conta para você.`);
+        await qc.invalidateQueries({ queryKey: CHAVE_PROPOSTAS });
+        if (href) router.push(href);
         return;
       }
       const m = aprovar && (p.agente === "cobranca" || p.agente === "conciliacao")
