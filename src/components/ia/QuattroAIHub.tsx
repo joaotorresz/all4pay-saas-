@@ -77,9 +77,11 @@ export function QuattroAIHub({ chegada }: {
   );
 
   return (
-    <div className="grid gap-4 h-[calc(100dvh-180px)] md:h-[calc(100dvh-64px)] min-h-[480px]" data-tela="quattro-ai">
-      <div className={`md:hidden bg-white rounded-[24px] overflow-y-auto ${selecao ? "hidden" : ""}`}>{lista}</div>
-      <div className={`bg-white rounded-[24px] min-h-0 overflow-hidden ${selecao ? "" : "hidden md:block"}`}>{painel}</div>
+    // O chat ocupa a página inteira, no cinza do sistema, sem cartão por cima
+    // (pedido do dono, 04/11/2026): só as pílulas e a caixa de texto são brancas.
+    <div className="grid -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 -mb-[calc(96px+var(--a4p-barra-baixo,0px))] h-[calc(100dvh-72px)] lg:h-[calc(100dvh-16px)] min-h-[480px]" data-tela="quattro-ai">
+      <div className={`md:hidden overflow-y-auto ${selecao ? "hidden" : ""}`}>{lista}</div>
+      <div className={`min-h-0 overflow-hidden ${selecao ? "" : "hidden md:block"}`}>{painel}</div>
     </div>
   );
 }

@@ -345,12 +345,12 @@ export function ChatTelaCheia({
       data-saindo={saindo || undefined}
       data-chat-embutido={embutido || undefined}
       className={embutido ? "flex flex-col h-full min-h-0" : "a4p-chat-tela fixed inset-0 z-[90] flex flex-col"}
-      style={{ background: embutido ? "var(--color-white)" : "var(--color-surface-1)" }}
+      style={{ background: embutido ? "var(--a4p-app-bg)" : "var(--color-surface-1)" }}
     >
       {embutido ? (
         <header className="relative flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
           {/* A pílula com a Quattro AI no alto, como no chat de cada agente. */}
-          <span className="absolute left-1/2 -translate-x-1/2 inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white border border-border-soft">
+          <span className="absolute left-1/2 -translate-x-1/2 inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white">
             <AvatarAgente agente="quattro-ai" tamanho={26} />
             <span className="text-[15px] font-medium text-ink">{MARCA_IA}</span>
           </span>

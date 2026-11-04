@@ -18,6 +18,8 @@
  */
 
 import * as React from "react";
+import type { IdAgente } from "@/core/agentes";
+import { AvatarAgente } from "./AvatarAgente";
 import { MARCA_IA } from "@/core/marca";
 
 /** Intervalo entre uma palavra e a seguinte. */
@@ -71,7 +73,13 @@ export function TextoRevelado({
   );
 }
 
-export function DigitandoIA({ rotulo = "Pensando", className = "" }: { rotulo?: string; className?: string }) {
+export function DigitandoIA({ rotulo = "Pensando", className = "", agente }: {
+  rotulo?: string;
+  className?: string;
+  /** No chat de um agente: o boneco dele, animado, na frente dos pontos e sem o
+   *  rótulo escrito (pedido do dono, 04/11/2026). */
+  agente?: IdAgente | "quattro-ai";
+}) {
   return (
     <div
       role="status"
@@ -79,12 +87,17 @@ export function DigitandoIA({ rotulo = "Pensando", className = "" }: { rotulo?: 
       data-ia="digitando"
       className={`a4p-entra inline-flex w-fit items-center gap-3 py-1 ${className}`}
     >
+      {agente && (
+        <span className="a4p-agente-pensa inline-flex" data-agente-pensa={agente}>
+          <AvatarAgente agente={agente} tamanho={40} />
+        </span>
+      )}
       <span className="a4p-digitando inline-flex items-center gap-[5px]" aria-hidden>
         <span className="block w-[6px] h-[6px] rounded-pill bg-muted" />
         <span className="block w-[6px] h-[6px] rounded-pill bg-muted" />
         <span className="block w-[6px] h-[6px] rounded-pill bg-muted" />
       </span>
-      <span className="a4p-brilho-texto text-[14px]" aria-hidden>{rotulo}</span>
+      {!agente && <span className="a4p-brilho-texto text-[14px]" aria-hidden>{rotulo}</span>}
     </div>
   );
 }

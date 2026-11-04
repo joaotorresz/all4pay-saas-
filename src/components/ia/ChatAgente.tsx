@@ -103,14 +103,14 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
             <Icon name="chevron-left" size={20} />
           </button>
         )}
-        <span className="inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white border border-border-soft" title={desc.missao}>
+        <span className="inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white" title={desc.missao}>
           <AvatarAgente agente={config.agente} tamanho={26} />
           <h2 className="m-0 text-[15px] font-medium text-ink">{desc.nome}</h2>
         </span>
       </header>
 
       <div ref={rolagem} className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[680px] px-5 py-6 flex flex-col gap-3" aria-live="polite">
+        <div className="mx-auto w-full max-w-[680px] px-5 pt-6 pb-12 flex flex-col gap-3" aria-live="polite">
           <p className="m-0 self-end text-[12px] text-muted" data-hora>
             Hoje {aberta.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </p>
@@ -127,7 +127,7 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
             return (
               <div key={l.id} className="a4p-entra self-start flex flex-col gap-3 w-full max-w-[92%]" data-fala="agente">
                 {(l.texto || l.itens) && (
-                  <div className="bg-surface-2 rounded-[20px] px-5 py-3 text-[15px] text-ink">
+                  <div className="bg-white rounded-[20px] px-5 py-3 text-[15px] text-ink">
                     {l.texto && <p className="m-0">{l.texto}</p>}
                     {l.itens && (
                       <ul className="m-0 mt-1 pl-5 flex flex-col gap-1 list-disc">
@@ -144,11 +144,11 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
             );
           })}
 
-          {digitando && <DigitandoIA rotulo="Digitando" className="self-start" />}
+          {digitando && <DigitandoIA rotulo="Digitando" agente={config.agente} className="self-start mt-3" />}
 
           {!digitando && pendentes.length > 0 && (
             <div className="self-start flex flex-col gap-3 w-full max-w-[92%]" data-fila-agente>
-              <div className="bg-surface-2 rounded-[20px] px-5 py-3 text-[15px] text-ink">
+              <div className="bg-white rounded-[20px] px-5 py-3 text-[15px] text-ink">
                 {pendentes.length === 1 ? "Tenho 1 coisa esperando a sua aprovação." : `Tenho ${pendentes.length} coisas esperando a sua aprovação.`}
               </div>
               {pendentes.map((p) => <CartaoProposta key={p.id} p={p} aoDecidir={(m) => setLinhas((ls) => [...ls, comId({ de: "agente", texto: m })])} />)}
@@ -161,7 +161,7 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
         className="px-5 pb-5 pt-2 md:pr-28"
         onSubmit={(e) => { e.preventDefault(); const t = texto.trim(); if (t) void responder({ texto: t }, t); }}
       >
-        <div className="mx-auto w-full max-w-[680px] flex items-center gap-2 bg-white rounded-pill pl-5 pr-2 h-[52px] border border-border-soft">
+        <div className="mx-auto w-full max-w-[680px] flex items-center gap-2 bg-white rounded-pill pl-5 pr-2 h-[52px]">
           <input
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
