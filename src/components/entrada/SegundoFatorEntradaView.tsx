@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button, CampoCodigo, Icon } from "@/components/ui";
+import { Button, CampoCodigo } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
@@ -74,9 +74,10 @@ export function SegundoFatorEntradaView() {
       <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <span aria-hidden className="mb-5 w-12 h-12 rounded-md bg-surface-2 flex items-center justify-center">
-              <Icon name="smartphone" size={22} color="var(--color-ink)" />
-            </span>
+            {/* O celular em 3D (3dicons, CC0, Dynamic · Color): pedido do dono,
+                04/11/2026, para esta seção. */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- PNG pequeno e local */}
+            <img src="/icones-3d/mobile.png" alt="" aria-hidden width={80} height={80} className="block mb-4 -ml-2 select-none" draggable={false} />
             <h1 className="m-0 text-h1 text-ink">Código de verificação</h1>
             <p className="m-0 mt-2 text-label text-muted">
               Abra o aplicativo autenticador no celular e digite os {DIGITOS_CODIGO} números que aparecem para a {MARCA}.
