@@ -19,6 +19,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTES, configPadrao, rotear, type ConfigAgente, type Destino, type IdAgente } from "@/core/agentes";
 import { ROTAS_AGENTE, agenteDaPergunta, conviteNoWhatsapp } from "@/core/agentes/roteador";
+import {
+  propostasDeContasPagar, planejarContasPagar, desfechoDoDocumento, pareceDuplicada, chaveDoDocumento,
+} from "@/core/agentes/contas-pagar";
+import type { DocumentoEntrada, DecisaoEntrada } from "@/core/caixa-entrada";
 
 const falhas: string[] = [];
 const ok = (nome: string, cond: boolean, det = "") => {
@@ -288,8 +292,8 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     && /linha\.estado !== "aprovada"/.test(porta) && !/agente_decidir/.test(porta) && /agentesLigados\(process\.env\)/.test(porta));
   const escritores = arquivos(join(raiz, "src")).filter((f) => /from\("agente_propostas"\)[\s\S]{0,80}\.(insert|upsert)\(/.test(readFileSync(f, "utf8")));
   ok("só o servidor dos agentes cria proposta", escritores.length === 1 && escritores[0].endsWith("src/lib/agentes-servidor.ts"), escritores.join(", "));
-  ok("catálogo: cobrança e conciliação prontos; os outros, em construção",
-    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao");
+  ok("catálogo: cobrança, conciliação e contas a pagar prontos; os outros, em construção",
+    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao,contas_pagar");
 }
 
 /* ── 5. aprovar pelo WhatsApp (Etapa 3) ───────────────────────────────────── */
@@ -644,6 +648,61 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   ok("endereço da conversa do agente mora só no roteador", montam.length === 0, montam.join(", "));
   ok("WhatsApp: o convite traz o link da conversa no app",
     conviteNoWhatsapp("cobranca", "https://app.quattro.finance/") === "Isso é com o agente de cobrança: cobra quem vai vencer ou atrasou, no canal certo, pela régua da empresa.\nFale com ele no app: https://app.quattro.finance/quattro-ai?agente=cobranca");
+}
+
+/* ── 9. o agente de contas a pagar (Etapa 6) ─────────────────────────────── */
+{
+  const doc = (o: Partial<DocumentoEntrada>): DocumentoEntrada => ({
+    chave: "dda:1", origem: "dda", refId: "1", fornecedor: "ACME Ltda", documento: null, valor: 1234.5,
+    vencimento: "2026-11-10", emissao: null, numero: "778", descricao: "Boleto", categoria: null,
+    recebidoEm: "2026-11-01", ...o,
+  });
+  const HOJE = "2026-11-04";
+  const ps = propostasDeContasPagar([doc({}), doc({ chave: "sefaz:2", origem: "sefaz", valor: 0, vencimento: null })], new Set(), HOJE);
+  ok("contas a pagar: uma proposta por documento pendente, com a chave do documento",
+    ps.length === 2 && ps[0].chave === "doc:dda:1" && ps[1].chave === "doc:sefaz:2", ps.map((p) => p.chave).join(","));
+  ok("contas a pagar: o título diz o que é e de quem", ps[0].titulo === "Agendar boleto · ACME Ltda", ps[0].titulo);
+  const sa = propostasDeContasPagar([doc({ fornecedor: "Energia Sul S.A.", numero: null })], new Set(), HOJE)[0];
+  ok("contas a pagar: nome que termina em ponto não dobra o ponto", /^Boleto \(DDA\) de Energia Sul S\.A\. Vence/.test(sa.porque), sa.porque);
+  ok("contas a pagar: o valor vem do documento, e sem valor é nulo (não zero)", ps[0].valor === 1234.5 && ps[1].valor === null);
+  ok("contas a pagar: os campos do cadastro levam o documento (entrada), o que o tira da caixa ao salvar",
+    ps[0].dados.entrada === "dda:1" && ps[0].dados.campos.entrada === "dda:1");
+  ok("contas a pagar: o porquê traz vencimento, e o que falta conferir",
+    /Vence em 10\/11\/2026\./.test(ps[0].porque) && /Não traz valor/.test(ps[1].porque) && /Não traz vencimento/.test(ps[1].porque));
+  const vencido = propostasDeContasPagar([doc({ vencimento: "2026-11-01" })], new Set(), HOJE)[0];
+  ok("contas a pagar: vencido pede para conferir se já não foi pago", /Venceu em 01\/11\/2026: confira se já não foi pago\./.test(vencido.porque), vencido.porque);
+  ok("contas a pagar: o documento que já teve proposta (até recusada) não volta",
+    propostasDeContasPagar([doc({})], new Set([chaveDoDocumento("dda:1")]), HOJE).length === 0);
+  ok("contas a pagar: conta igual (valor ao centavo e vencimento) dá o aviso",
+    pareceDuplicada(doc({}), [{ valor: 1234.5, vencimento: "2026-11-10" }])
+    && !pareceDuplicada(doc({}), [{ valor: 1234.51, vencimento: "2026-11-10" }])
+    && !pareceDuplicada(doc({}), [{ valor: 1234.5, vencimento: "2026-11-11" }])
+    && /já existe uma conta a pagar com o mesmo valor/.test(propostasDeContasPagar([doc({})], new Set(), HOJE, [{ valor: 1234.5, vencimento: "2026-11-10" }])[0].porque));
+  const plano = planejarContasPagar(ps, { agente: "contas_pagar", ativo: true, nivel: 3 as never, limiteValor: 1e9, limiteDia: 1000 });
+  ok("contas a pagar: nunca faz sozinho, mesmo com nível 3 gravado", plano.length === 2 && plano.every((x) => x.destino === "aprovar"), plano.map((x) => x.destino).join(","));
+  const dec = (acao: DecisaoEntrada["acao"]): DecisaoEntrada => ({ chave: "dda:1", acao, motivo: null, referencia: null, quando: "", quem: null });
+  ok("contas a pagar: o desfecho segue a ÚLTIMA decisão da caixa, e o documento que saiu dela é 'sumiu'",
+    desfechoDoDocumento("dda:1", new Set(["dda:1"]), []) === "pendente"
+    && desfechoDoDocumento("dda:1", new Set(), [dec("descartado"), dec("convertido")]) === "convertido"
+    && desfechoDoDocumento("dda:1", new Set(), [dec("convertido"), dec("descartado")]) === "descartado"
+    && desfechoDoDocumento("dda:1", new Set(), []) === "sumiu");
+
+  // As duas metades da decisão do dono: o Aprovar abre o cadastro pela porta
+  // única, e o agente nunca grava conta (nenhum segundo escritor).
+  const chat = ler("src/components/ia/ChatAgente.tsx");
+  ok("contas a pagar: Aprovar abre o cadastro preenchido pela porta única, e conclui só depois de salvo",
+    /abrirCriacao\("pagar", \{\s*parametros: campos,\s*aoCriar: \(\) => \{\s*void concluirContaPagar\(p\.id\)/.test(chat)
+    && /if \(aprovar && p\.agente === "contas_pagar"\) \{\s*abrirCadastro\(\);/.test(chat));
+  const servidor = ler("src/lib/agentes-servidor.ts");
+  const corpoCP = servidor.slice(servidor.indexOf("export async function rodarAgenteContasPagar"));
+  ok("contas a pagar: o agente não grava conta (nenhum insert em movements nem chamada ao escritor de título)",
+    corpoCP.length > 100 && !/from\("movements"\)\.(insert|upsert|update)/.test(corpoCP) && !/criarTitulo|createMovement|rpc\("criar_/.test(corpoCP));
+  ok("contas a pagar: a leitura da caixa é a função do banco, não org_state direto",
+    /rpc\("agente_contas_pagar_fontes"/.test(servidor) && !/from\("org_state"\)/.test(servidor) && !/from\("caixa_email_mensagens"\)/.test(servidor));
+  ok("contas a pagar: a proposta pendente não vai ao pedido do WhatsApp (aprovar é abrir o cadastro na tela)",
+    !/idsParaAprovar/.test(corpoCP));
+  ok("contas a pagar: a execução diária roda o agente atrás do interruptor",
+    /agentesLigados\(process\.env\)\) \{\s*let comCP[\s\S]{0,700}rodarAgenteContasPagar\(/.test(ler("src/app/api/financial-os/run/route.ts")));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }

@@ -18,7 +18,8 @@ import {
   type EstadoConversa, type FalaAgente,
 } from "@/core/agentes/conversa";
 import { descricaoDe, type ConfigAgente, type PropostaAgente } from "@/core/agentes";
-import { decidirProposta, executarAprovada, salvarAgente } from "@/lib/agentes";
+import { concluirContaPagar, decidirProposta, executarAprovada, salvarAgente } from "@/lib/agentes";
+import { abrirCriacao } from "@/components/app/criacao";
 import { AvatarAgente } from "./AvatarAgente";
 import { DigitandoIA } from "./conversa";
 import { useFala } from "./useFala";
@@ -66,6 +67,10 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
   const [ocupado, setOcupado] = React.useState(false);
   const rolagem = React.useRef<HTMLDivElement>(null);
   const pendentes = propostas.filter((p) => p.agente === config.agente && p.estado === "pendente");
+  // Contas a pagar: a aprovada só termina quando o cadastro é salvo. Enquanto
+  // não for, ela continua na conversa, com o botão para abrir o cadastro.
+  const semCadastro = config.agente === "contas_pagar"
+    ? propostas.filter((p) => p.agente === "contas_pagar" && p.estado === "aprovada") : [];
 
   React.useEffect(() => {
     rolagem.current?.scrollTo({ top: rolagem.current.scrollHeight, behavior: "smooth" });
@@ -146,12 +151,14 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
 
           {digitando && <DigitandoIA rotulo="Digitando" agente={config.agente} className="self-start mt-3" />}
 
-          {!digitando && pendentes.length > 0 && (
+          {!digitando && pendentes.length + semCadastro.length > 0 && (
             <div className="self-start flex flex-col gap-3 w-full max-w-[92%]" data-fila-agente>
               <div className="bg-white rounded-[20px] px-5 py-3 text-[15px] text-ink">
-                {pendentes.length === 1 ? "Tenho 1 coisa esperando a sua aprovação." : `Tenho ${pendentes.length} coisas esperando a sua aprovação.`}
+                {pendentes.length === 0
+                  ? (semCadastro.length === 1 ? "Falta salvar 1 cadastro que você aprovou." : `Faltam salvar ${semCadastro.length} cadastros que você aprovou.`)
+                  : pendentes.length === 1 ? "Tenho 1 coisa esperando a sua aprovação." : `Tenho ${pendentes.length} coisas esperando a sua aprovação.`}
               </div>
-              {pendentes.map((p) => <CartaoProposta key={p.id} p={p} aoDecidir={(m) => setLinhas((ls) => [...ls, comId({ de: "agente", texto: m })])} />)}
+              {[...pendentes, ...semCadastro].map((p) => <CartaoProposta key={p.id} p={p} aoDecidir={(m) => setLinhas((ls) => [...ls, comId({ de: "agente", texto: m })])} />)}
             </div>
           )}
         </div>
@@ -217,10 +224,33 @@ function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: st
   const qc = useQueryClient();
   const [ocupado, setOcupado] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
+  /**
+   * Contas a pagar: aprovar é abrir o cadastro JÁ preenchido, pela porta única
+   * (decisão do dono, 04/11/2026). Quem grava a conta é o formulário de
+   * sempre; depois de salvo, o banco confere a caixa e fecha a proposta.
+   */
+  const abrirCadastro = () => {
+    const campos = (p.dados?.campos ?? {}) as Record<string, string>;
+    abrirCriacao("pagar", {
+      parametros: campos,
+      aoCriar: () => {
+        void concluirContaPagar(p.id)
+          .then((m) => aoDecidir(`${p.titulo.replace(/\.$/, "")}. ${m}`))
+          .finally(() => void qc.invalidateQueries({ queryKey: CHAVE_PROPOSTAS }));
+      },
+    });
+  };
   const decidir = async (aprovar: boolean) => {
     setOcupado(true); setErro(null);
     try {
+      if (p.estado === "aprovada") { abrirCadastro(); return; }
       await decidirProposta(p.id, aprovar);
+      if (aprovar && p.agente === "contas_pagar") {
+        abrirCadastro();
+        aoDecidir(`${p.titulo}: aprovada. Abri o cadastro preenchido para você conferir e salvar.`);
+        await qc.invalidateQueries({ queryKey: CHAVE_PROPOSTAS });
+        return;
+      }
       const m = aprovar && (p.agente === "cobranca" || p.agente === "conciliacao")
         ? `${p.titulo}. ${await executarAprovada(p.id, p.agente)}`
         : `${p.titulo}: ${aprovar ? "aprovada" : "recusada"}.`;
@@ -241,8 +271,14 @@ function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: st
       </div>
       {erro && <p className="m-0 text-caption text-ink" role="alert">{erro}</p>}
       <div className="flex gap-2">
-        <Button size="sm" variant="primary" disabled={ocupado} onClick={() => decidir(true)}>Aprovar</Button>
-        <Button size="sm" variant="ghost" disabled={ocupado} onClick={() => decidir(false)}>Recusar</Button>
+        {p.estado === "aprovada" ? (
+          <Button size="sm" variant="primary" disabled={ocupado} onClick={() => decidir(true)}>Abrir cadastro</Button>
+        ) : (
+          <>
+            <Button size="sm" variant="primary" disabled={ocupado} onClick={() => decidir(true)}>Aprovar</Button>
+            <Button size="sm" variant="ghost" disabled={ocupado} onClick={() => decidir(false)}>Recusar</Button>
+          </>
+        )}
       </div>
     </div>
   );

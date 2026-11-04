@@ -73,8 +73,8 @@ export const AGENTES: readonly DescricaoAgente[] = [
     id: "contas_pagar", nome: "Agente de contas a pagar",
     missao: "Transforma boleto e nota da caixa de entrada em conta agendada.",
     gatilho: "Quando um documento chega à caixa de entrada.",
-    prepara: "A conta com fornecedor, vencimento e valor, e o aviso de duplicidade ou boleto suspeito.",
-    nivelMaximo: 1, pronto: false,
+    prepara: "A conta com fornecedor, vencimento e valor, e o aviso quando já existe uma conta igual.",
+    nivelMaximo: 1, pronto: true,
   },
   {
     id: "caixa", nome: "Agente de caixa",
@@ -156,6 +156,11 @@ export interface PropostaAgente {
   criadaEm: string;
   decididaEm?: string | null;
   motivo?: string | null;
+  /**
+   * O que o agente precisa para a ação (contas a pagar: os campos do cadastro
+   * preenchido). Só leitura na tela: quem escreve é o servidor do agente.
+   */
+  dados?: Record<string, unknown> | null;
 }
 
 /* ────────────────────────── o roteamento ────────────────────────── */

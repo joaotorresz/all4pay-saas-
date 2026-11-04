@@ -38,6 +38,14 @@ import { formatBRL } from "@/lib/format";
 import { semAmostra } from "@/lib/supabase/filtros";
 import { casarExtrato, type MovimentoParaCasar } from "@/core/conciliacao/pares";
 import { propostasDeConciliacao, planejarConciliacao, MOTIVO_PAR_DESFEITO } from "@/core/agentes/conciliacao";
+import {
+  propostasDeContasPagar, planejarContasPagar, desfechoDoDocumento, MOTIVO_DOCUMENTO, type ContaAberta,
+} from "@/core/agentes/contas-pagar";
+import {
+  documentosDasFontes, montarCaixaEntrada,
+  type DecisaoEntrada, type DocumentoOCR, type MensagemEmail,
+} from "@/core/caixa-entrada";
+import type { BoletoRecebido, NFRecebida } from "@/core/compras";
 
 export interface DepsAgente {
   registro: RegistroEnvios;
@@ -46,7 +54,7 @@ export interface DepsAgente {
 }
 
 export interface RelatorioAgente {
-  agente: "cobranca" | "conciliacao";
+  agente: "cobranca" | "conciliacao" | "contas_pagar";
   ativo: boolean;
   propostas: number;
   paraAprovar: number;
@@ -228,6 +236,7 @@ export async function executarAprovada(
   const linha = l as LinhaProposta & { agente: string; erro: string | null };
   if (linha.estado !== "aprovada") return { estado: linha.estado, erro: linha.erro };
   if (linha.agente === "conciliacao") return { ...(await conciliarProposta(admin, linha.id, false, deps.dryRun)), agente: "conciliacao" };
+  if (linha.agente === "contas_pagar") return { ...(await concluirContaPagar(admin, linha.id)), agente: "contas_pagar" };
   if (linha.agente !== "cobranca") return { estado: linha.estado, erro: "Este agente ainda não executa." };
   const regua = await reguaDaEmpresaServidor(admin, orgId);
   const ctx = await contextoDoAgente(admin, orgId, hoje, appUrl, regua);
@@ -387,3 +396,131 @@ export async function rodarAgenteConciliacao(
   return rel;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * O AGENTE DE CONTAS A PAGAR (Etapa 6)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Lê a MESMA caixa de entrada da tela (pela função do banco, que é a única
+ * leitura que a chave de serviço tem dela) e propõe agendar cada documento
+ * pendente. Nunca grava conta: o "Aprovar" abre o cadastro preenchido, e a
+ * proposta termina quando o banco vê o documento convertido na caixa
+ * (`agente_contas_pagar_concluir_servidor`).
+ */
+interface FontesContasPagar {
+  boletos?: BoletoRecebido[];
+  nfs?: NFRecebida[];
+  caixa?: { ocr?: DocumentoOCR[]; decisoes?: DecisaoEntrada[] };
+  emails?: MensagemEmail[];
+}
+
+async function concluirContaPagar(admin: SupabaseClient, id: string): Promise<{ estado: string; erro?: string | null }> {
+  const { data, error } = await admin.rpc("agente_contas_pagar_concluir_servidor", { p_proposta: id });
+  if (error) return { estado: "aprovada", erro: error.message };
+  const r = (data ?? {}) as { estado?: string; erro?: string | null };
+  return { estado: r.estado ?? "aprovada", erro: r.erro ?? null };
+}
+
+/** A caixa de entrada de UMA empresa, como a tela a vê. */
+export async function caixaDaEmpresa(admin: SupabaseClient, orgId: string) {
+  const { data, error } = await admin.rpc("agente_contas_pagar_fontes", { p_org: orgId });
+  if (error) throw new Error(`caixa de entrada: ${error.message}`);
+  const f = (data ?? {}) as FontesContasPagar;
+  const docs = documentosDasFontes({
+    boletos: Array.isArray(f.boletos) ? f.boletos : [],
+    nfs: Array.isArray(f.nfs) ? f.nfs : [],
+    ocr: Array.isArray(f.caixa?.ocr) ? f.caixa!.ocr! : [],
+    emails: Array.isArray(f.emails) ? f.emails : [],
+  });
+  const decisoes = Array.isArray(f.caixa?.decisoes) ? f.caixa!.decisoes! : [];
+  return { pendentes: montarCaixaEntrada(docs, decisoes, "pendentes").itens.map((i) => i.documento), decisoes };
+}
+
+interface LinhaPropostaCP { id: string; chave: string; estado: string; dados: { entrada?: string } | null }
+
+/**
+ * O agente de contas a pagar numa empresa: conclui as aprovadas cujo documento
+ * já virou conta, solta as pendentes cujo documento já foi decidido ou saiu da
+ * caixa, e propõe os documentos novos. Reexecutar não propõe o mesmo documento
+ * duas vezes (índice único na chave), e o recusado não volta.
+ */
+export async function rodarAgenteContasPagar(
+  admin: SupabaseClient, orgId: string, config: ConfigAgente, hoje: string, deps: { dryRun?: boolean } = {},
+): Promise<RelatorioAgente> {
+  const rel = relatorio(config.ativo, "contas_pagar");
+  if (!config.ativo) return rel;
+
+  const { pendentes, decisoes } = await caixaDaEmpresa(admin, orgId);
+  const chavesPendentes = new Set(pendentes.map((d) => d.chave));
+
+  const { data: abertas, error: e1 } = await admin
+    .from("agente_propostas").select("id,chave,estado,dados")
+    .eq("org_id", orgId).eq("agente", "contas_pagar").in("estado", ["pendente", "aprovada"]).limit(2000);
+  if (e1) return { ...rel, erro: `propostas: ${e1.message}` };
+  const linhas = (abertas ?? []) as LinhaPropostaCP[];
+
+  // 1. as aprovadas: o banco confere a caixa e conclui (convertido → executada)
+  for (const l of linhas.filter((x) => x.estado === "aprovada")) {
+    if (deps.dryRun) continue;
+    const r = await concluirContaPagar(admin, l.id);
+    if (r.estado === "executada") rel.executadasAprovadas++; else if (r.estado === "falhou") rel.falhas++;
+    // Aprovada, sem decisão na caixa, e o documento já saiu dela: não há mais
+    // cadastro para abrir. Termina como falhou, com o motivo.
+    else if (r.estado === "aprovada" && desfechoDoDocumento(l.dados?.entrada ?? "", chavesPendentes, decisoes) === "sumiu") {
+      const { error } = await admin.from("agente_propostas").update({ estado: "falhou", erro: MOTIVO_DOCUMENTO.sumiu })
+        .eq("id", l.id).eq("estado", "aprovada");
+      if (error) return { ...rel, erro: `encerrar: ${error.message}` };
+      rel.falhas++;
+    }
+  }
+
+  // 2. a pendente cujo documento já foi decidido pela tela, ou saiu da caixa, expira
+  const porMotivo = new Map<string, string[]>();
+  for (const l of linhas.filter((x) => x.estado === "pendente")) {
+    const desfecho = desfechoDoDocumento(l.dados?.entrada ?? "", chavesPendentes, decisoes);
+    if (desfecho === "pendente") continue;
+    const m = MOTIVO_DOCUMENTO[desfecho];
+    porMotivo.set(m, [...(porMotivo.get(m) ?? []), l.id]);
+  }
+  for (const [motivo, ids] of Array.from(porMotivo)) {
+    rel.expiradas += ids.length;
+    if (deps.dryRun) continue;
+    const { error } = await admin.from("agente_propostas").update({ estado: "expirada", motivo })
+      .in("id", ids).eq("estado", "pendente");
+    if (error) return { ...rel, erro: `expirar: ${error.message}` };
+  }
+
+  // 3. os documentos novos: nenhum que já teve proposta (esperando ou terminada)
+  const candidatasChaves = pendentes.map((d) => `doc:${d.chave}`);
+  const jaPropostas = new Set<string>();
+  for (let i = 0; i < candidatasChaves.length; i += 200) {
+    const { data, error } = await admin.from("agente_propostas").select("chave")
+      .eq("org_id", orgId).eq("agente", "contas_pagar").in("chave", candidatasChaves.slice(i, i + 200)).limit(200);
+    if (error) return { ...rel, erro: `propostas antigas: ${error.message}` };
+    for (const l of (data ?? []) as { chave: string }[]) jaPropostas.add(l.chave);
+  }
+
+  // As contas a pagar que já existem, para o aviso de duplicidade.
+  const { data: contas, error: e2 } = await semAmostra(admin.from("movements").select("amount,due_date"))
+    .eq("org_id", orgId).eq("type", "saida").eq("status", "pendente").limit(5000);
+  if (e2) return { ...rel, erro: `contas a pagar: ${e2.message}` };
+  const abertasConta: ContaAberta[] = ((contas ?? []) as { amount: number | string; due_date: string | null }[])
+    .map((c) => ({ valor: Number(c.amount), vencimento: c.due_date }));
+
+  const novas = propostasDeContasPagar(pendentes, jaPropostas, hoje, abertasConta);
+  const porChave = new Map(novas.map((p) => [p.chave, p]));
+  for (const { chave, destino } of planejarContasPagar(novas, config)) {
+    const p = porChave.get(chave)!;
+    if (destino === "avisar") { rel.soAviso++; continue; }
+    rel.propostas++;
+    if (deps.dryRun) { rel.paraAprovar++; continue; }
+    const { data: criada, error } = await admin.from("agente_propostas").upsert({
+      org_id: orgId, agente: "contas_pagar", chave: p.chave, titulo: p.titulo, porque: p.porque, valor: p.valor, dados: p.dados,
+    }, { onConflict: "org_id,agente,chave", ignoreDuplicates: true }).select("id").limit(1);
+    if (error) return { ...rel, erro: `criar proposta: ${error.message}` };
+    const linha = ((criada ?? []) as { id: string }[])[0];
+    if (!linha) continue;
+    // Não vai para o pedido no WhatsApp: aprovar aqui é abrir o cadastro na tela.
+    rel.paraAprovar++;
+  }
+  return rel;
+}

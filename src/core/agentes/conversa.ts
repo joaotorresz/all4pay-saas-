@@ -72,10 +72,11 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
     faz: [
       "Lê o boleto e a nota que chegam na caixa de entrada.",
       "Prepara a conta com fornecedor, vencimento e valor.",
-      "Avisa de conta em duplicidade e de boleto suspeito.",
+      "Avisa quando já existe uma conta com o mesmo valor e vencimento.",
     ],
     ateOnde: [
       "Nunca paga sozinho: toda conta espera a sua aprovação.",
+      "Ao aprovar, o cadastro abre preenchido para você conferir e salvar.",
       "Não muda o valor do documento.",
     ],
   },

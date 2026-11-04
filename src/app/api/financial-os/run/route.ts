@@ -14,7 +14,7 @@ import { linksDaRegua } from "@/lib/regua-links";
 import { registrarExecucaoCron } from "@/lib/cron-execucao";
 import { agentesLigados } from "@/core/agentes/ligado";
 import type { ConfigAgente } from "@/core/agentes";
-import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
+import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, rodarAgenteContasPagar, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -188,6 +188,27 @@ export async function GET(req: Request) {
     }
   }
 
+  // O agente de contas a pagar (Etapa 6): lê a caixa de entrada e propõe
+  // agendar. Nunca grava conta; o Aprovar abre o cadastro na tela.
+  const contasPagar: { orgId: string; agente?: RelatorioAgente; erro?: string }[] = [];
+  if (agentesLigados(process.env)) {
+    let comCP = new Map<string, ConfigAgente>();
+    try { comCP = await empresasComAgente(admin, "contas_pagar"); }
+    catch (e) { contasPagar.push({ orgId: "*", erro: e instanceof Error ? e.message : "falha ao ler os agentes" }); }
+    for (const [orgId, cfg] of Array.from(comCP)) {
+      try {
+        const agente = await rodarAgenteContasPagar(admin, orgId, cfg, hoje, { dryRun });
+        contasPagar.push({ orgId, agente });
+        if (!dryRun) {
+          const { error } = await admin.from("audit_log").insert({
+            org_id: orgId, usuario: "cron:agentes", acao: "agente_contas_pagar", antes: null, depois: { hoje, ...agente },
+          });
+          if (error) contasPagar[contasPagar.length - 1].erro = `trilha: ${error.message}`;
+        }
+      } catch (e) { contasPagar.push({ orgId, erro: e instanceof Error ? e.message : "falha no agente" }); }
+    }
+  }
+
   // Os lembretes de quem parou no cadastro vão na MESMA vaga de cron (o plano
   // da Vercel tem duas). Falha aqui não derruba as automações: vai na resposta.
   const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
@@ -209,6 +230,7 @@ export async function GET(req: Request) {
     totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },
     porEmpresa: empresas,
     agenteConciliacao: conciliacao,
+    agenteContasPagar: contasPagar,
     provedores: statusNotificacoes(),
   });
 }

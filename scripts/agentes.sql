@@ -28,6 +28,13 @@
 --   q. a linha do extrato de OUTRA empresa (ou não paga) é recusada e o
 --      previsto continua previsto (o defeito que cancelava sem par);
 --   r. a sessão não concilia pela porta do agente nem pela interna.
+--   (migration 20261104200000 — o agente de contas a pagar)
+--   s. a aprovada só vira executada com o documento CONVERTIDO na caixa da
+--      mesma empresa (a caixa de outra empresa não conta);
+--   t. o documento descartado termina em "falhou" com o motivo; pendente não
+--      conclui sem aprovação;
+--   u. a sessão não lê as fontes do runner nem chama as portas internas; a
+--      outra empresa não conclui; proposta de outro agente é recusada.
 --
 -- ⚠️ Cada caso roda num SUBBLOCO que termina levantando uma sentinela (um
 -- savepoint desfeito). Tudo em transação que termina em ROLLBACK. Falha com
@@ -553,10 +560,143 @@ begin
     if sqlerrm <> sentinela then falhas := array_append(falhas, format('(r) estourou: %s', sqlerrm)); end if;
   end;
 
+  ------------------------------- s. CONTAS A PAGAR: CONVERTIDO EXECUTA -----
+  -- (migration 20261104200000) A aprovada só vira executada quando a CAIXA da
+  -- mesma empresa tem o documento convertido; sem decisão, continua aprovada.
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
+    values (org_ana, 'contas_pagar', 'doc:dda:111', 'Agendar boleto · ACME', 'Vence', 1200,
+            jsonb_build_object('entrada', 'dda:111')) returning id into p;
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    r := public.agente_decidir(p, true, null);
+    j := public.agente_contas_pagar_concluir(p);
+    reset role;
+    if j->>'estado' <> 'aprovada' or not exists (select 1 from public.agente_propostas where id = p and estado = 'aprovada') then
+      falhas := array_append(falhas, format('(s) sem decisão na caixa a proposta não ficou aprovada: %s', j));
+    end if;
+    -- a MESMA chave convertida na caixa de OUTRA empresa não conta
+    insert into public.org_state (org_id, chave, valor) values (org_bia, 'a4p_caixa_entrada',
+      jsonb_build_object('ocr', '[]'::jsonb, 'decisoes', jsonb_build_array(jsonb_build_object('chave', 'dda:111', 'acao', 'convertido'))));
+    set local role authenticated;
+    j := public.agente_contas_pagar_concluir(p);
+    reset role;
+    if j->>'estado' <> 'aprovada' then
+      falhas := array_append(falhas, '(s) a caixa de OUTRA empresa concluiu a proposta');
+    end if;
+    insert into public.org_state (org_id, chave, valor) values (org_ana, 'a4p_caixa_entrada',
+      jsonb_build_object('ocr', '[]'::jsonb, 'decisoes', jsonb_build_array(
+        jsonb_build_object('chave', 'dda:999', 'acao', 'descartado', 'motivo', 'outro documento'),
+        jsonb_build_object('chave', 'dda:111', 'acao', 'convertido', 'referencia', 'NF 1'))));
+    set local role authenticated;
+    j := public.agente_contas_pagar_concluir(p);
+    reset role;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'executada' and executada_em is not null) then
+      falhas := array_append(falhas, format('(s) o documento convertido não executou a proposta: %s', j));
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(s) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- t. CONTAS A PAGAR: DESCARTADO FALHA --------
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
+    values (org_ana, 'contas_pagar', 'doc:nfe:7', 'Agendar nota · Beta', 'Vence', 50,
+            jsonb_build_object('entrada', 'nfe:7')) returning id into p;
+    insert into public.org_state (org_id, chave, valor) values (org_ana, 'a4p_caixa_entrada',
+      jsonb_build_object('decisoes', jsonb_build_array(jsonb_build_object('chave', 'nfe:7', 'acao', 'descartado', 'motivo', 'já pago em 12/09'))));
+    -- PENDENTE não conclui (ninguém aprovou)
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    j := public.agente_contas_pagar_concluir(p);
+    reset role;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'pendente') then
+      falhas := array_append(falhas, '(t) a proposta PENDENTE foi concluída sem aprovação');
+    end if;
+    set local role authenticated;
+    r := public.agente_decidir(p, true, null);
+    reset role;
+    set local role service_role;
+    j := public.agente_contas_pagar_concluir_servidor(p);
+    reset role;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'falhou' and erro like '%já pago em 12/09%') then
+      falhas := array_append(falhas, format('(t) o descartado não terminou em falhou com o motivo: %s', j));
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(t) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- u. CONTAS A PAGAR: QUEM LÊ E QUEM CONCLUI --
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
+    values (org_ana, 'contas_pagar', 'doc:dda:222', 'Agendar boleto', 'Vence', 10,
+            jsonb_build_object('entrada', 'dda:222')) returning id into p;
+    -- a sessão não lê as fontes do runner
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    begin
+      j := public.agente_contas_pagar_fontes(org_bia);
+      reset role;
+      falhas := array_append(falhas, '(u) a sessão leu a caixa de entrada de outra empresa pelo runner');
+    exception when insufficient_privilege then reset role;
+    end;
+    -- nem a porta do servidor, nem a interna escolhendo a empresa
+    set local role authenticated;
+    begin
+      j := public.agente_contas_pagar_concluir_servidor(p);
+      reset role;
+      falhas := array_append(falhas, '(u) a sessão chamou a porta do servidor');
+    exception when insufficient_privilege then reset role;
+    end;
+    set local role authenticated;
+    begin
+      j := public.agente_contas_pagar_concluir_na_empresa(p, org_ana);
+      reset role;
+      falhas := array_append(falhas, '(u) a sessão chamou a porta interna');
+    exception when insufficient_privilege then reset role;
+    end;
+    -- a Bia (outra empresa) não conclui a proposta da Ana
+    perform set_config('request.jwt.claim.sub', bia::text, true);
+    set local role authenticated;
+    j := public.agente_contas_pagar_concluir(p);
+    reset role;
+    if j->>'estado' <> 'inexistente' then
+      falhas := array_append(falhas, format('(u) a outra empresa enxergou a proposta: %s', j));
+    end if;
+    -- o runner lê as quatro fontes
+    set local role service_role;
+    j := public.agente_contas_pagar_fontes(org_ana);
+    reset role;
+    if not (j ? 'boletos' and j ? 'nfs' and j ? 'caixa' and j ? 'emails') then
+      falhas := array_append(falhas, format('(u) as fontes do runner vieram incompletas: %s', j));
+    end if;
+    -- conclusão de proposta de OUTRO agente é recusada
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque)
+    values (org_ana, 'cobranca', 'titulo:u', 'Cobrar', 'Venceu') returning id into ext;
+    set local role service_role;
+    begin
+      j := public.agente_contas_pagar_concluir_servidor(ext);
+      reset role;
+      falhas := array_append(falhas, '(u) concluiu uma proposta de outro agente');
+    exception when others then reset role;
+    end;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(u) estourou: %s', sqlerrm)); end if;
+  end;
+
   if array_length(falhas, 1) > 0 then
     raise exception E'agentes: % falha(s):\n  %', array_length(falhas, 1), array_to_string(falhas, E'\n  ');
   end if;
-  raise notice 'agentes: % casos (a–r) verdes', casos;
+  raise notice 'agentes: % casos (a–u) verdes', casos;
 end
 $guarda$;
 

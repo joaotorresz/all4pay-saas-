@@ -30,6 +30,9 @@ import { configPadrao as configPadraoAutomacao } from "@/core/automacoes";
 import { contextoDaEmpresa, listarAutomacoes } from "@/lib/automacoes";
 import { propostasDeConciliacao } from "@/core/agentes/conciliacao";
 import { getConciliacaoOF } from "@/lib/conciliacao-of";
+import { propostasDeContasPagar, desfechoDoDocumento, MOTIVO_DOCUMENTO } from "@/core/agentes/contas-pagar";
+import { montarCaixaEntrada } from "@/core/caixa-entrada";
+import { documentosDaCaixa, lerEstadoCaixa } from "@/lib/caixa-entrada";
 
 const K_CONFIG = CHAVES_ORG.agentes;
 const K_PROPOSTAS = CHAVES_ORG.agentePropostas;
@@ -77,6 +80,7 @@ export async function salvarAgente(cfg: ConfigAgente): Promise<void> {
 interface LinhaProposta {
   id: string; agente: string; titulo: string; porque: string; valor: number | string | null;
   estado: string; criada_em: string; decidida_em: string | null; motivo: string | null;
+  dados: Record<string, unknown> | null;
 }
 
 /** As propostas mais recentes (as pendentes primeiro na tela). */
@@ -84,18 +88,19 @@ export async function listarPropostas(): Promise<PropostaAgente[]> {
   if (isDemo) {
     await simularCobrancaNaDemo().catch(() => undefined);
     await simularConciliacaoNaDemo().catch(() => undefined);
+    await simularContasPagarNaDemo().catch(() => undefined);
     return ler<PropostaAgente[]>(K_PROPOSTAS, []);
   }
   const { data, error } = await createClient()
     .from("agente_propostas")
-    .select("id,agente,titulo,porque,valor,estado,criada_em,decidida_em,motivo")
+    .select("id,agente,titulo,porque,valor,estado,criada_em,decidida_em,motivo,dados")
     .order("criada_em", { ascending: false })
     .limit(100);
   if (error) throw error;
   return ((data ?? []) as LinhaProposta[]).map((l) => ({
     id: l.id, agente: l.agente as IdAgente, titulo: l.titulo, porque: l.porque,
     valor: l.valor == null ? null : Number(l.valor), estado: l.estado as EstadoProposta,
-    criadaEm: l.criada_em, decididaEm: l.decidida_em, motivo: l.motivo,
+    criadaEm: l.criada_em, decididaEm: l.decidida_em, motivo: l.motivo, dados: l.dados ?? null,
   }));
 }
 
@@ -177,3 +182,62 @@ async function simularConciliacaoNaDemo(): Promise<void> {
   if (novas.length) gravar(K_PROPOSTAS, [...novas, ...atuais]);
 }
 
+
+/**
+ * CONTAS A PAGAR: o fim da proposta aprovada, depois que o cadastro salvou.
+ * Quem decide o desfecho é o BANCO, pela caixa de entrada gravada
+ * (`agente_contas_pagar_concluir`). A caixa sobe para o servidor logo depois
+ * de salvar (`store-org`), então a tela tenta de novo por alguns segundos; se
+ * ainda não chegou, a proposta fica aprovada e o runner diário conclui.
+ */
+export async function concluirContaPagar(id: string, tentativas = 4): Promise<string> {
+  if (isDemo) {
+    concluirContaPagarNaDemo(id);
+    return "Feita: a conta a pagar foi agendada.";
+  }
+  for (let i = 0; i < tentativas; i++) {
+    const { data, error } = await createClient().rpc("agente_contas_pagar_concluir", { p_proposta: id });
+    if (error) return `A conta foi salva, mas não consegui fechar a proposta: ${error.message}`;
+    const r = (data ?? {}) as { estado?: string; erro?: string | null };
+    if (r.estado === "executada") return "Feita: a conta a pagar foi agendada.";
+    if (r.estado === "falhou") return `Não deu certo. ${r.erro ?? ""}`.trim();
+    if (i < tentativas - 1) await new Promise((ok) => setTimeout(ok, 1500));
+  }
+  return "A conta foi salva. Fecho a proposta na próxima execução.";
+}
+
+function concluirContaPagarNaDemo(id: string): void {
+  const atuais = ler<PropostaAgente[]>(K_PROPOSTAS, []);
+  gravar(K_PROPOSTAS, atuais.map((p) => (p.id === id && p.estado === "aprovada"
+    ? { ...p, estado: "executada" as const } : p)));
+}
+
+/**
+ * O "runner" da demonstração para contas a pagar: o MESMO núcleo do servidor
+ * (`propostasDeContasPagar`) sobre a caixa de entrada da demonstração.
+ */
+async function simularContasPagarNaDemo(): Promise<void> {
+  if (!isDemo) return;
+  const cfg = (await listarAgentes()).find((c) => c.agente === "contas_pagar");
+  if (!cfg?.ativo || cfg.nivel === 0) return;
+  const { decisoes } = lerEstadoCaixa();
+  const pendentes = montarCaixaEntrada(documentosDaCaixa(), decisoes, "pendentes").itens.map((i) => i.documento);
+  const chaves = new Set(pendentes.map((d) => d.chave));
+  const atuais = ler<(PropostaAgente & { chave?: string })[]>(K_PROPOSTAS, []);
+  let mudou = false;
+  const revistas = atuais.map((p) => {
+    if (p.agente !== "contas_pagar" || p.estado !== "pendente") return p;
+    const entrada = typeof p.dados?.entrada === "string" ? p.dados.entrada : "";
+    const desfecho = desfechoDoDocumento(entrada, chaves, decisoes);
+    if (desfecho === "pendente") return p;
+    mudou = true;
+    return { ...p, estado: "expirada" as const, motivo: MOTIVO_DOCUMENTO[desfecho] };
+  });
+  const vistas = new Set(revistas.map((p) => p.chave));
+  const agora = new Date().toISOString();
+  const novas = propostasDeContasPagar(pendentes, vistas as Set<string>, agora.slice(0, 10)).map((p) => ({
+    id: `demo-${p.chave}`, chave: p.chave, agente: "contas_pagar" as const, titulo: p.titulo, porque: p.porque, valor: p.valor,
+    estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null, dados: p.dados as unknown as Record<string, unknown>,
+  }));
+  if (novas.length || mudou) gravar(K_PROPOSTAS, [...novas, ...revistas]);
+}
