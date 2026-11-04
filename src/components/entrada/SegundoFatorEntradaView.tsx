@@ -74,7 +74,7 @@ export function SegundoFatorEntradaView() {
       <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <span aria-hidden className="mb-5 w-12 h-12 rounded-md bg-white flex items-center justify-center">
+            <span aria-hidden className="mb-5 w-12 h-12 rounded-md bg-surface-2 flex items-center justify-center">
               <Icon name="smartphone" size={22} color="var(--color-ink)" />
             </span>
             <h1 className="m-0 text-h1 text-ink">Código de verificação</h1>

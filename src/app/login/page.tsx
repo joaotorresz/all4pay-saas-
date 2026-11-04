@@ -138,9 +138,9 @@ export default function LoginPage() {
           </div>
 
           {view === "signin" && (
-            // Trilho BRANCO sobre o cartão cinza (o cinza sumia nele), e a
-            // escolha em tinta: dá para ver qual está marcada sem procurar.
-            <div className="flex p-1 gap-1 rounded-pill bg-white" role="tablist" aria-label="Tipo de conta">
+            // Trilho cinza sobre o fundo branco, e a escolha em tinta: dá
+            // para ver qual está marcada sem procurar.
+            <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de conta">
               {([["empresa", "Empresa"], ["pessoal", "Pessoal"]] as const).map(([val, label]) => {
                 const on = (val === "pessoal") === pessoal;
                 return (
@@ -233,14 +233,14 @@ export default function LoginPage() {
               </div>
               {/* ⚠️ Quem não tem conta e clica aqui vai ao CADASTRO da empresa
                   antes de entrar (`core/google`), nunca direto ao sistema. */}
-              <Button variant="secondary" fullWidth disabled={busyGoogle} aria-busy={busyGoogle} onClick={google} leftIcon={<MarcaGoogle />}>
+              <Button variant="secondary" className="bg-surface-2 hover:bg-surface-3" fullWidth disabled={busyGoogle} aria-busy={busyGoogle} onClick={google} leftIcon={<MarcaGoogle />}>
                 {busyGoogle ? "Abrindo o Google…" : "Entrar com Google"}
               </Button>
               {/* ⚠️ Aponta para o cadastro de TRÊS CAMPOS, não para o wizard de
                   sete etapas. Quem chega ao login sem conta quer entrar, não
                   preencher inscrição municipal — o cadastro completo continua a
                   um clique dentro da própria tela de criar conta. */}
-              <Button variant="secondary" fullWidth onClick={() => router.push("/criar-conta")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
+              <Button variant="secondary" className="bg-surface-2 hover:bg-surface-3" fullWidth onClick={() => router.push("/criar-conta")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
                 {pessoal ? "Criar conta pessoal" : "Criar conta"}
               </Button>
             </div>
