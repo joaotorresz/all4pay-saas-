@@ -31,6 +31,7 @@ import type { RecorrenciaAPlanejar } from "@/core/fdip/assistente";
 import { PrevisaoImportacao } from "./PrevisaoImportacao";
 import { prepararIngestao, linhasAGravar, type LinhaBruta, type LinhaExistente } from "@/core/ingestao";
 import { importedMovements } from "@/lib/imported";
+import { DeclararPlanoCard } from "@/components/registros/DeclararPlanoCard";
 
 const isText = (f: File) => /\.(csv|ofx|txt)$/i.test(f.name) || /text\//.test(f.type);
 // ⚠️ .xlsx entra no MESMO pipeline: lerXLSX → csvDeLinhas → analisarImportacao.
@@ -472,6 +473,10 @@ export function UploadView() {
 
         </div>
       )}
+      {/* ⚠️ O PLANO DE CONTAS SE DECLARA NA ENTRADA (Fase 4.1). Sem isto, o
+          DRE de todo cliente novo saía por palpite com cara de conferido. O
+          cartão some sozinho quando não sobra categoria sem linha. */}
+      {!report || resultado || importado ? <DeclararPlanoCard /> : null}
       {report && (resultado || importado) && (
         <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline self-start">Limpar e recomeçar</button>
       )}
