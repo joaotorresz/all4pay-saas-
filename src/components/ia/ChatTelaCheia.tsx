@@ -622,7 +622,11 @@ export function ChatTelaCheia({
       )}
       {fala.erro && <p role="alert" className="flex-none m-0 mb-1 text-center text-[13px] text-negative">{fala.erro}</p>}
       </>)}
-      <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
+      {/* Na página Quattro AI o aviso sai (pedido do dono, 04/11/2026); no chat
+          em tela cheia ele fica. */}
+      {embutido ? <div className="flex-none h-4" aria-hidden /> : (
+        <p className="flex-none m-0 mb-4 text-center text-[12px] text-muted">{MARCA_IA} pode cometer erros — confira os valores.</p>
+      )}
     </div>
   );
   return embutido ? tela_ : createPortal(tela_, document.body);
