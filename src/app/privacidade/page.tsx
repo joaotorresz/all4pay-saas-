@@ -26,7 +26,7 @@ export default function Privacidade() {
           <span className="text-caption tracking-[0.08em] text-faint">{MARCA}</span>
           <h1 className="m-0 text-h2 text-ink">Privacidade e proteção de dados</h1>
           <p className="m-0 text-caption text-faint">
-            Versão beta deste documento · atualizada em 05/08/2026 · sujeita a revisão
+            Versão beta deste documento · atualizada em 30/10/2026 · sujeita a revisão
           </p>
         </header>
 
@@ -68,8 +68,37 @@ export default function Privacidade() {
           <p className="m-0 text-body text-muted">
             Você pode pedir acesso, correção, portabilidade ou exclusão dos seus dados a
             qualquer momento. O sistema já oferece exportação do estado da sua organização
-            em Administração → Armazenamento; a exclusão da conta apaga a organização e os
-            dados vinculados a ela.
+            em Administração → Armazenamento.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="m-0 text-h3 text-ink">Excluir a sua conta</h2>
+          <p className="m-0 text-body text-muted">
+            Você pode excluir a sua conta a qualquer momento, no site ou no aplicativo, em
+            Configurações → Segurança da conta → Excluir minha conta. A exclusão apaga o seu
+            acesso (e-mail, senha e vínculos com as empresas) e não pode ser desfeita. Os
+            registros financeiros e fiscais da empresa não são apagados junto: eles são da
+            empresa, e a lei obriga a guardá-los. Quem é titular de uma empresa com outros
+            participantes precisa transferir a titularidade antes; se a empresa for só sua,
+            peça a exclusão dos dados dela pelo suporte.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="m-0 text-h3 text-ink">No aplicativo para celular</h2>
+          <p className="m-0 text-body text-muted">
+            O aplicativo do {MARCA} mostra o mesmo sistema do site e guarda os dados nos mesmos
+            servidores. Ele só usa recursos do aparelho quando você pede:{" "}
+            <strong className="text-ink">câmera e fotos</strong> para enviar um comprovante,
+            boleto ou nota;{" "}
+            <strong className="text-ink">microfone</strong> para ditar um lançamento à {MARCA} AI,
+            com o reconhecimento de voz feito pelo próprio sistema do aparelho (o áudio não é
+            enviado aos nossos servidores, só o texto que você confirma); e{" "}
+            <strong className="text-ink">Face ID, Touch ID ou digital</strong> para travar o
+            aplicativo, se você ligar essa opção — a biometria é conferida pelo aparelho e nunca
+            chega até nós. O aplicativo não coleta localização, contatos da agenda nem
+            identificadores de publicidade, e não rastreia você em outros aplicativos.
           </p>
         </section>
 

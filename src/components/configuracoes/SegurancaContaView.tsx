@@ -10,6 +10,8 @@ import {
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { dataBR } from "@/lib/format";
 import { MARCA } from "@/core/marca";
+import { ExcluirConta } from "./ExcluirConta";
+import { BiometriaDoApp } from "./BiometriaDoApp";
 import { DIGITOS_CODIGO, ROTA_CODIGO, blocosDaChave, codigoCompleto, type FatorDaConta } from "@/core/segundo-fator";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -238,6 +240,10 @@ export function SegurancaContaView() {
           aoCancelar={cancelar}
         />
       )}
+
+      <BiometriaDoApp />
+
+      <ExcluirConta />
     </div>
   );
 }
