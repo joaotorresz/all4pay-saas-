@@ -371,6 +371,16 @@
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 4)"
       },
       {
+        "nome": "20261104200000_agente_contas_pagar",
+        "motivo": "O agente de contas a pagar (etapa 6 do plano AI first): a leitura da caixa de entrada pelo runner (só a chave de serviço, por função) e o desfecho da proposta aprovada pela decisão gravada na caixa. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "funções agente_contas_pagar_fontes, agente_contas_pagar_concluir_na_empresa, agente_contas_pagar_concluir e agente_contas_pagar_concluir_servidor"
+        ],
+        "impacto": "Até ser aplicada, o agente de contas a pagar não propõe (o runner registra o erro do banco) e a proposta aprovada fica aprovada depois de salvo o cadastro. O agente está atrás de AGENTES=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 6)"
+      },
+      {
         "nome": "20261104140000_cobranca_paga_baixa_titulo",
         "motivo": "Pago o Pix ou o boleto do link de pagamento, a cobrança vira paga e o título a receber vai a baixado pela transição nomeada 'pago pelo banco' da máquina de estados (escritor único pinbank_cobranca_liquidar, só service_role). A leitura pública do link passa a dizer 'pago' também com a cobrança paga. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
