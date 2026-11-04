@@ -346,6 +346,18 @@
         "impacto": "Até ser aplicada, a seção Agentes de Automações mostra o erro do banco no lugar dos cartões. Nenhum agente trabalha ainda (todos em construção e atrás de AGENTES=ligado), então nada muda para quem usa.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 1)"
+      },
+      {
+        "nome": "20261104140000_cobranca_paga_baixa_titulo",
+        "motivo": "Pago o Pix ou o boleto do link de pagamento, a cobrança vira paga e o título a receber vai a baixado pela transição nomeada 'pago pelo banco' da máquina de estados (escritor único pinbank_cobranca_liquidar, só service_role). A leitura pública do link passa a dizer 'pago' também com a cobrança paga. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas pinbank_cobrancas.valor_recebido, pago_em, liquidada_por e liquidacao_ref (com as restrições e o índice único da referência)",
+          "função pinbank_cobranca_liquidar",
+          "versão nova de central_maquina (ramo 'pago pelo banco') e de pinbank_checkout_ler"
+        ],
+        "impacto": "Até ser aplicada, nada muda em produção: nenhum caminho chama a liquidação ainda (a entrada do aviso da Pinbank depende do formato que ela vai informar) e a página do link segue lendo a situação do título.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (link de pagamento: pago na tela e baixa no ERP)"
       }
     ],
     "objetos_sem_migration": [

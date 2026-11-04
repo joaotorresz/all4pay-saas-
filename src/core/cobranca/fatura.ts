@@ -15,7 +15,7 @@ const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um :
 export type TomFatura = "warning" | "neutral" | "positive";
 
 export interface SituacaoFatura {
-  /** "Cobrança vencida" · "Vence hoje" · "Aguardando pagamento" · "Pagamento recebido". */
+  /** "Cobrança vencida" · "Vence hoje" · "Aguardando pagamento" · "Pago". */
   rotulo: string;
   tom: TomFatura;
   /** "vencida há 13 dias" · "vence em 5 dias" · "vence hoje" · null. */
@@ -23,7 +23,7 @@ export interface SituacaoFatura {
 }
 
 export function situacaoDaFatura(s: "aberto" | "pago" | "indisponivel", vencimento: string | null, hoje: string): SituacaoFatura {
-  if (s === "pago") return { rotulo: "Pagamento recebido", tom: "positive", prazo: null };
+  if (s === "pago") return { rotulo: "Pago", tom: "positive", prazo: null };
   if (s === "indisponivel") return { rotulo: "Cobrança indisponível", tom: "neutral", prazo: null };
   if (!vencimento || !/^\d{4}-\d{2}-\d{2}/.test(vencimento)) return { rotulo: "Aguardando pagamento", tom: "neutral", prazo: null };
   const d = diasEntre(vencimento.slice(0, 10), hoje.slice(0, 10));
