@@ -12,6 +12,7 @@ import {
   statusEnvio, type DestinatarioContador,
 } from "@/core/contabilidade";
 import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
+import type { ConfirmacaoContador } from "@/core/contabilidade/optin";
 
 const K_DEST = "a4p_contador_destinatarios";
 const K_EXEC = "a4p_contador_execucoes";
@@ -80,3 +81,31 @@ export function registrarExecucao(e: ExecucaoEnvio): ExecucaoEnvio[] {
 export const ultimaExecucao = (): ExecucaoEnvio | null => listarExecucoes()[0] ?? null;
 
 export const envioAtivo = (): boolean => statusEnvio(listarDestinatarios()) === "ativo";
+
+/* ── produção: o opt-in de verdade (contador_confirmacoes) ──────────────── */
+
+/**
+ * A situação das confirmações da empresa aberta. Só as colunas que o app pode
+ * ler: o token nunca sai do servidor (é ele que prova o clique do contador).
+ */
+export async function listarConfirmacoes(): Promise<ConfirmacaoContador[]> {
+  const { createClient } = await import("@/lib/supabase/client");
+  const { data, error } = await createClient().from("contador_confirmacoes")
+    .select("dest_id, email, pedido_em, confirmado_em");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ConfirmacaoContador[];
+}
+
+/** Pede o link de confirmação ao servidor; devolve a frase da resposta. */
+export async function pedirConfirmacao(destId: string, email: string): Promise<{ ok: boolean; motivo: string }> {
+  try {
+    const r = await fetch("/api/contador/confirmacao", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ destId, email }),
+    });
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; motivo?: string } | null;
+    return { ok: !!j?.ok, motivo: j?.motivo ?? `O pedido do link falhou (${r.status}).` };
+  } catch {
+    return { ok: false, motivo: "Sem conexão: o link de confirmação não foi pedido." };
+  }
+}

@@ -27,7 +27,7 @@ export const VERSAO_INTERRUPTORES = "interruptores/1.0.0";
 export type IdInterruptor =
   | "pinbank_webhook" | "pinbank_conferencia" | "pinbank_cobranca" | "pinbank_encargos"
   | "pinbank_pix_atualizado" | "mensalidade_pinbank" | "cobranca_banco"
-  | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes" | "focus_empresas";
+  | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes" | "focus_empresas" | "contador_optin";
 
 export type GrupoInterruptor = "Maquininha e conta Pinbank" | "Cobrança" | "WhatsApp e e-mail" | "Notas fiscais";
 
@@ -69,6 +69,8 @@ export const INTERRUPTORES: readonly Interruptor[] = [
     oQueFaz: "Boleto e nota mandados por e-mail viram item na caixa de entrada de contas a pagar.", exige: [] },
   { id: "cadastro_lembretes", grupo: "WhatsApp e e-mail", nome: "Lembretes do cadastro",
     oQueFaz: "Quem parou a abertura de conta recebe lembrete por e-mail e WhatsApp.", exige: [] },
+  { id: "contador_optin", grupo: "WhatsApp e e-mail", nome: "Confirmação do e-mail do contador",
+    oQueFaz: "O contador cadastrado no envio de NFs recebe o link e confirma o próprio e-mail.", exige: ["chave do Resend"] },
   { id: "focus_empresas", grupo: "Notas fiscais", nome: "Cadastrar empresas na Focus",
     oQueFaz: "A área da plataforma cria a empresa do cliente na Focus com o certificado A1.", exige: ["token de produção da Focus"] },
 ];

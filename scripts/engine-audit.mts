@@ -10474,12 +10474,15 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("contabil r3: na demonstração, getRiscoInputPorOrg entrega a empresa atual por getRiscoInput (o mesmo da tela vizinha)",
      /if \(isDemo\) return demoInputsPorOrg\(de, ate, await getRiscoInput\(\)\);/.test(libCons));
 
-  // (revisão) Fora da demonstração nenhum destinatário aparece "Verificado":
-  // não há link de confirmação, e o verificado gravado antes veio do simulador.
-  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção o destinatário aparece como cadastrado",
+  // (revisão) Fora da demonstração o "verificado" gravado (que veio do
+  // simulador) não vale. Desde 04/11/2026 (Fase 3.4) produção mostra
+  // "Confirmado pelo contador" só pelo clique no link (`mesclarConfirmacoes`,
+  // guarda `contador-optin`); o "Verificado em" fica no ramo simulado.
+  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção a confirmação vem do link do contador",
      (env.match(/Verificado em/g) ?? []).length === 1
-     && /!ENVIO_SIMULADO\s*\?\s*`Cadastrado em/.test(env)
-     && env.indexOf("!ENVIO_SIMULADO") < env.indexOf("Verificado em"));
+     && /!ENVIO_SIMULADO\s*\?\s*d\.verificado\s*\?\s*`Confirmado pelo contador/.test(env)
+     && /: mesclarConfirmacoes\(cadastrados, confirmacoes\)/.test(env)
+     && env.indexOf("!ENVIO_SIMULADO\n") < env.indexOf("Verificado em"));
 
   // ── 4) DRE projetado: margem sobre a LÍQUIDA multiplica a receita LÍQUIDA ──
   const movP: RiskMovement[] = [];
@@ -12668,7 +12671,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
     const vazio = INT.estadoDosInterruptores({});
     ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
-       vazio.length === 12 && vazio.every((l) => !l.estado.ligado)); // 12: + cadastro de empresas na Focus (03/11/2026)
+       vazio.length === 13 && vazio.every((l) => !l.estado.ligado)); // 13: + confirmação do e-mail do contador (04/11/2026)
     const so = est({ PINBANK_COBRANCA: "ligado" }) as Record<string, { ligado: boolean; motivo?: string }>;
     ok("interruptores: cobrança Pinbank ligada sem credencial diz 'falta configuração', nunca 'ligado'",
        so.pinbank_cobranca.ligado === false && so.pinbank_cobranca.motivo === "sem_configuracao");

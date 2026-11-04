@@ -37,7 +37,7 @@ const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(
 
 /** As que a plataforma injeta: não se configuram. */
 const DA_PLATAFORMA = /^(NODE_ENV|NEXT_RUNTIME|CI|VERCEL(_[A-Z_]+)?)$/;
-const PREFIXOS = /^(TWILIO|PINBANK|INTER|ITAU|FOCUS_NFE|COBRANCA|WHATSAPP|GOOGLE|NEXT_PUBLIC|GITHUB|RESEND|ALERTS|ANTHROPIC|SUPABASE|CAIXA_EMAIL|CADASTRO|MENSALIDADE|ADMIN|APP|CRON)_/;
+const PREFIXOS = /^(TWILIO|PINBANK|INTER|ITAU|FOCUS_NFE|COBRANCA|WHATSAPP|GOOGLE|NEXT_PUBLIC|GITHUB|RESEND|ALERTS|ANTHROPIC|SUPABASE|CAIXA_EMAIL|CADASTRO|MENSALIDADE|ADMIN|APP|CRON|CONTADOR)_/;
 
 export function variaveisLidas(fontes: string[]): Set<string> {
   const lidas = new Set<string>();
