@@ -348,7 +348,7 @@
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 1)"
       },
       {
-        "nome": "20261104130000_cobranca_paga_baixa_titulo",
+        "nome": "20261104140000_cobranca_paga_baixa_titulo",
         "motivo": "Pago o Pix ou o boleto do link de pagamento, a cobrança vira paga e o título a receber vai a baixado pela transição nomeada 'pago pelo banco' da máquina de estados (escritor único pinbank_cobranca_liquidar, só service_role). A leitura pública do link passa a dizer 'pago' também com a cobrança paga. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [
           "colunas pinbank_cobrancas.valor_recebido, pago_em, liquidada_por e liquidacao_ref (com as restrições e o índice único da referência)",

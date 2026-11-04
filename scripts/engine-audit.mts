@@ -12583,7 +12583,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        liquidaErrado(lerF).length === 0, `${liquidaErrado(lerF).join(", ")} (chamam hoje: ${chamaLiquidar.length})`);
     ok("liquidacao: (defeito plantado) a tela marcando a cobrança como paga direto é ACUSADA",
        liquidaErrado((p) => (p.endsWith("CobrancaPinbank.tsx") ? lerF(p) + '\ns.from("pinbank_cobrancas").update({ situacao: "paga" });' : lerF(p))).some((p) => p.endsWith("CobrancaPinbank.tsx")));
-    const mig = lerF("supabase/migrations/20261104130000_cobranca_paga_baixa_titulo.sql");
+    const mig = lerF("supabase/migrations/20261104140000_cobranca_paga_baixa_titulo.sql");
     ok("liquidacao: a função de liquidar executa SÓ como o servidor",
        /revoke all on function public\.pinbank_cobranca_liquidar\(uuid, numeric, timestamptz, text, text\) from public, anon, authenticated, service_role;/.test(mig)
        && /grant execute on function public\.pinbank_cobranca_liquidar\(uuid, numeric, timestamptz, text, text\) to service_role;/.test(mig)

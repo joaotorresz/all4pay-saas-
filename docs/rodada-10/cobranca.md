@@ -138,7 +138,7 @@ Pedido do dono: depois do pagamento do Pix ou do boleto, a tela do link
 mostra "pago" e o sistema registra o título como recebido.
 
 - **Um escritor só** (`pinbank_cobranca_liquidar`, migration
-  `20261104130000`, só `service_role`). Quem souber que o banco recebeu (o
+  `20261104140000`, só `service_role`). Quem souber que o banco recebeu (o
   aviso da Pinbank; uma consulta, depois) chama a função com a cobrança, o
   valor, a data e a referência do aviso. Ela marca a cobrança `paga` (fato) e
   leva o título a `baixado` com a data do PAGAMENTO em São Paulo no caixa.

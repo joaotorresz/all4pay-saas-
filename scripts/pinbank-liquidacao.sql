@@ -3,7 +3,7 @@
 --
 --   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/pinbank-liquidacao.sql
 --
--- Prova a migration 20261104130000 (sobre as do checkout e do Pix do dia):
+-- Prova a migration 20261104140000 (sobre as do checkout e do Pix do dia):
 --
 --   1. pago o Pix, a cobrança vira PAGA e o título vira RECEBIDO (baixado),
 --      com a data do PAGAMENTO no caixa, a transição "pago pelo banco" na
