@@ -285,5 +285,76 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca");
 }
 
+/* ── 5. aprovar pelo WhatsApp (Etapa 3) ───────────────────────────────────── */
+{
+  const W = await import("@/core/agentes/whatsapp");
+  const { lerResposta } = await import("@/core/aprovacao-whatsapp");
+  const S = await import("@/lib/agentes-servidor");
+  const msg = W.mensagemDoPedidoAgente({ agente: "Agente de cobrança", titulo: "Cobrar Cliente Um", porque: "Venceu há 3 dias, 2 títulos.", valorFormatado: "R$ 1.300,50", codigo: "K7P2QX" });
+  ok("whatsapp: o pedido diz o quê, quanto e como responder",
+    msg.includes("Cobrar Cliente Um, R$ 1.300,50.") && msg.includes("SIM K7P2QX") && msg.includes("NÃO K7P2QX") && msg.includes("24 horas"), msg);
+  ok("whatsapp: a resposta é lida pela MESMA regra da aprovação de título",
+    JSON.stringify(lerResposta("sim k7p2qx")) === JSON.stringify({ decisao: "sim", codigo: "K7P2QX" }) && lerResposta("SIM") === null);
+  ok("whatsapp: aprovada e enviada diz que saiu", W.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "executada" }).includes("a cobrança saiu"));
+  const naoSaiu = W.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "falhou", erro: "Sem credencial do provedor neste ambiente: nada foi enviado." });
+  ok("whatsapp: aprovada sem envio NÃO diz feita", !/feita|saiu:/.test(naoSaiu) && naoSaiu.includes("nada foi enviado"), naoSaiu);
+  ok("whatsapp: recusa e recusa do banco", W.respostaDaDecisaoAgente({ ok: true, decisao: "nao" }).startsWith("Recusa registrada")
+    && W.respostaDaDecisaoAgente({ ok: false, motivo: "Seu papel nesta empresa não decide o que os agentes propõem." }).startsWith("A decisão não foi registrada: Seu papel"));
+
+  // o pedido, contra um banco em memória
+  const chamadasRpc: string[] = [];
+  const fakeW = {
+    rpc: async (fn: string, a: { p_proposta: string }) => { chamadasRpc.push(`${fn}:${a.p_proposta}`); return { data: [{ fone: "5511988887777", codigo: "K7P2QX" }, { fone: "5511977776666", codigo: "M3N4PQ" }], error: null }; },
+    from() {
+      let ids: string[] = [];
+      const b = {
+        select() { return b; }, limit() { return b; },
+        in(_c: string, v: string[]) { ids = v; return b; },
+        then(res: (v: unknown) => unknown) { return Promise.resolve({ data: ids.map((id) => ({ id, agente: "cobranca", titulo: `Cobrar ${id}`, porque: "Vence hoje, 1 título.", valor: 700 })), error: null }).then(res); },
+      };
+      return b;
+    },
+  } as unknown as import("@supabase/supabase-js").SupabaseClient;
+  const enviados: { para: string; texto: string }[] = [];
+  const enviar = (async (para: string, texto: string) => { enviados.push({ para, texto }); return { canal: "whatsapp", para, ok: true, detalhe: "ok" }; }) as never;
+  const sem = await S.pedirPorWhatsapp(fakeW, ["a"], enviar, false);
+  ok("whatsapp: sem provedor nenhum código é gerado nem enviado", sem.pedidos === 0 && chamadasRpc.length === 0 && enviados.length === 0, JSON.stringify(sem));
+  const r = await S.pedirPorWhatsapp(fakeW, ["a", "b"], enviar, true);
+  ok("whatsapp: cada aprovador confirmado recebe a sua mensagem, com o próprio código",
+    r.pedidos === 4 && enviados.filter((e) => e.para === "+5511988887777" && e.texto.includes("SIM K7P2QX")).length === 2
+    && enviados.some((e) => e.para === "+5511977776666" && e.texto.includes("SIM M3N4PQ") && e.texto.includes("R$ 700,00")), JSON.stringify(r));
+  chamadasRpc.length = 0; enviados.length = 0;
+  const muitos = Array.from({ length: 13 }, (_, i) => `p${i}`);
+  await S.pedirPorWhatsapp(fakeW, muitos, enviar, true);
+  ok("whatsapp: no máximo 10 pedidos por execução; o resto vira UM aviso por pessoa",
+    chamadasRpc.length === W.TETO_PEDIDOS_POR_EXECUCAO && enviados.filter((e) => e.texto.includes("há mais 3 propostas")).length === 2,
+    `${chamadasRpc.length} ${enviados.length}`);
+
+  const semC = (f: string) => ler(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+  const ent = semC("src/lib/whatsapp-entrada.ts");
+  const iLig = ent.indexOf('process.env.WHATSAPP_APROVACAO === "ligado"');
+  const iAg = ent.indexOf('"agente_responder_whatsapp"');
+  const iTit = ent.indexOf('"responder_aprovacao_whatsapp"');
+  ok("entrada: o código de agente só é lido com a aprovação E os agentes ligados, antes do de título",
+    iLig >= 0 && iAg > iLig && iTit > iAg && /if \(agentesLigados\(process\.env\)\)/.test(ent.slice(iLig, iAg)));
+  ok("entrada: aprovada pelo WhatsApp envia pelo MESMO executor da tela", /executarAprovada\(admin, r\.org, r\.proposta/.test(ent));
+  const run = semC("src/app/api/financial-os/run/route.ts");
+  ok("runner: o pedido pelo WhatsApp só sai com a aprovação ligada e fora da prova sem envio",
+    /idsParaAprovar\?\.length && !dryRun && process\.env\.WHATSAPP_APROVACAO === "ligado"/.test(run));
+  const m3 = ler("supabase/migrations/20261104150000_agentes_whatsapp.sql");
+  ok("banco: a tela e o WhatsApp decidem pela MESMA regra",
+    /return public\.agente_decidir_na_empresa\(p_id, p_aprovar, p_motivo, public\.auth_org_id\(\)\);/.test(m3)
+    && /public\.agente_decidir_na_empresa\(v_p\.proposta_id, v_dec = 'sim', 'Pelo WhatsApp\.', v_p\.org_id\)/.test(m3));
+  ok("banco: a regra interna não é chamada por ninguém de fora",
+    /revoke all on function public\.agente_decidir_na_empresa\(uuid, boolean, text, uuid\)\s+from public, anon, authenticated, service_role;/.test(m3)
+    && !/grant execute on function public\.agente_decidir_na_empresa/.test(m3));
+  ok("banco: pedir e responder pelo WhatsApp são só da chave de serviço",
+    /grant execute on function public\.agente_pedir_whatsapp\(uuid\) to service_role;/.test(m3)
+    && /grant execute on function public\.agente_responder_whatsapp\(text, text, text\) to service_role;/.test(m3)
+    && !/grant execute on function public\.agente_(pedir|responder)_whatsapp[^;]*authenticated/.test(m3));
+  ok("banco: só número CONFIRMADO de quem aprova recebe o pedido",
+    /rp\.acao in \('aprovar', 'administrar'\)/.test(m3) && /n\.confirmado_em is not null/.test(m3));
+}
+
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }
 console.log("\nagentes: tudo verde");

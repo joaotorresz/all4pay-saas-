@@ -326,6 +326,18 @@
         "impacto": "Até ser aplicada, a seção Agentes de Automações mostra o erro do banco no lugar dos cartões. Nenhum agente trabalha ainda (todos em construção e atrás de AGENTES=ligado), então nada muda para quem usa.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 1)"
+      },
+      {
+        "nome": "20261104150000_agentes_whatsapp",
+        "motivo": "Aprovar pelo WhatsApp o que os agentes propõem (etapa 3 do plano AI first): o pedido com código de uso único e a resposta SIM/NÃO decidida pela mesma regra da tela. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela agente_pedidos_whatsapp (com o gatilho zz_auditar_*)",
+          "funções agente_decidir_na_empresa, agente_pedir_whatsapp e agente_responder_whatsapp",
+          "agente_decidir passa a chamar agente_decidir_na_empresa"
+        ],
+        "impacto": "Até ser aplicada, nenhum pedido de agente sai pelo WhatsApp. Tudo está atrás de WHATSAPP_APROVACAO=ligado e AGENTES=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 3)"
       }
     ],
     "objetos_sem_migration": [

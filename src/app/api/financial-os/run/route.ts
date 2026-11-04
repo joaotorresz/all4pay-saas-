@@ -13,7 +13,7 @@ import { rodarLembretesReais } from "@/lib/cadastro-lembretes-servidor";
 import { linksDaRegua } from "@/lib/regua-links";
 import { agentesLigados } from "@/core/agentes/ligado";
 import type { ConfigAgente } from "@/core/agentes";
-import { empresasComCobranca, reguaDaEmpresaServidor, rodarAgenteCobranca, type RelatorioAgente } from "@/lib/agentes-servidor";
+import { empresasComCobranca, reguaDaEmpresaServidor, rodarAgenteCobranca, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,6 +90,7 @@ export async function GET(req: Request) {
     orgId: string; erro?: string;
     automacoes: { tipo: string; mensagens: { canal: string; destino: string }[]; semEnvio?: string; pulados: number }[];
     agenteCobranca?: RelatorioAgente;
+    pedidosWhatsapp?: { pedidos: number; falhas: number; erro?: string };
   }[] = [];
 
   for (const [orgId, todas] of Array.from(porOrg)) {
@@ -118,10 +119,17 @@ export async function GET(req: Request) {
       ? await rodarAgenteCobranca(admin, orgId, agente, ctx, reguaDoAgente, { registro, provedor, dryRun })
         .catch((e: unknown): RelatorioAgente => ({ agente: "cobranca", ativo: true, propostas: 0, paraAprovar: 0, feitasSozinho: 0, executadasAprovadas: 0, falhas: 0, expiradas: 0, soAviso: 0, pulados: 0, erro: e instanceof Error ? e.message : "falha no agente" }))
       : undefined;
+    // Etapa 3: o que espera aprovação vai ao WhatsApp de quem aprova (número
+    // confirmado), atrás do mesmo interruptor da aprovação de título.
+    const pedidosWhatsapp = agenteCobranca?.idsParaAprovar?.length && !dryRun && process.env.WHATSAPP_APROVACAO === "ligado"
+      ? await pedirPorWhatsapp(admin, agenteCobranca.idsParaAprovar)
+        .catch((e: unknown) => ({ pedidos: 0, falhas: 0, erro: e instanceof Error ? e.message : "falha no pedido" }))
+      : undefined;
     empresas.push({
       orgId,
       ...(avisoLinks ? { erro: avisoLinks } : {}),
       ...(agenteCobranca ? { agenteCobranca } : {}),
+      ...(pedidosWhatsapp ? { pedidosWhatsapp } : {}),
       automacoes: resultados.map((r) => ({
         tipo: r.tipo,
         mensagens: r.mensagens.map((m) => ({ canal: m.canal, destino: m.destinoMascarado })),

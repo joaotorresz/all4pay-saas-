@@ -14,6 +14,12 @@
 --   h. leitor não decide; empresa de outra pessoa não decide nem lê;
 --   i. estado terminal não ressuscita, e o que foi proposto não muda;
 --   j. aprovada só segue para executada ou falhou.
+--   (migration 20261104150000 — aprovar pelo WhatsApp)
+--   k. o pedido vai só para quem aprova E tem o número confirmado;
+--   l. "SIM <código>" do telefone certo aprova em nome do aprovador, uma vez;
+--      o telefone errado não acha o código; o segundo uso também não;
+--   m. o pedido de quem não pode aprovar não decide (a regra é a mesma da tela);
+--   n. a sessão não responde nem decide pela porta interna.
 --
 -- ⚠️ Cada caso roda num SUBBLOCO que termina levantando uma sentinela (um
 -- savepoint desfeito). Tudo em transação que termina em ROLLBACK. Falha com
@@ -32,6 +38,8 @@ declare
   org_ana uuid; org_bia uuid;
   p uuid;
   r text;
+  j jsonb;
+  cod text;
   n int;
   sentinela constant text := 'GUARDA_DESFAZ_CASO';
   falhas text[] := '{}';
@@ -261,10 +269,122 @@ begin
     if sqlerrm <> sentinela then falhas := array_append(falhas, format('(j) estourou: %s', sqlerrm)); end if;
   end;
 
+  ------------------------------- k. O PEDIDO VAI A QUEM APROVA, CONFIRMADO ---
+  insert into public.whatsapp_numeros_usuario (user_id, telefone, confirmado_em) values
+    (ana, '11988887777', now()), (leo, '11966665555', now());
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor)
+    values (org_ana, 'cobranca', 'k', 'Cobrar Padaria', 'Venceu', 100) returning id into p;
+    set local role service_role;
+    select count(*), max(fone) into n, r from public.agente_pedir_whatsapp(p);
+    reset role;
+    if n <> 1 or r <> '5511988887777' then
+      falhas := array_append(falhas, format('(k) o pedido foi a %s telefone(s) (%s): só a titular confirmada recebe, o leitor não', n, r));
+    end if;
+    if exists (select 1 from public.agente_pedidos_whatsapp where proposta_id = p and codigo_hash !~ '^[0-9a-f]{64}$') then
+      falhas := array_append(falhas, '(k) o código foi gravado em texto');
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(k) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- l. SIM <código> APROVA, UMA VEZ ------------
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor)
+    values (org_ana, 'cobranca', 'l', 'Cobrar Padaria', 'Venceu', 100) returning id into p;
+    set local role service_role;
+    select codigo into cod from public.agente_pedir_whatsapp(p) limit 1;
+    j := public.agente_responder_whatsapp('5511900000000', cod, 'sim');
+    if (j->>'encontrado')::boolean then
+      falhas := array_append(falhas, '(l) o código respondeu de outro telefone');
+    end if;
+    j := public.agente_responder_whatsapp('5511988887777', lower(cod), 'sim');
+    reset role;
+    if not coalesce((j->>'ok')::boolean, false) or j->>'estado' <> 'aprovada' then
+      falhas := array_append(falhas, format('(l) o SIM da titular não aprovou: %s', j));
+    end if;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'aprovada' and decidida_por = ana) then
+      falhas := array_append(falhas, '(l) a aprovação pelo WhatsApp não levou o nome da titular');
+    end if;
+    set local role service_role;
+    j := public.agente_responder_whatsapp('5511988887777', cod, 'nao');
+    reset role;
+    if (j->>'encontrado')::boolean then
+      falhas := array_append(falhas, '(l) o mesmo código valeu duas vezes');
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(l) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- m. QUEM NÃO APROVA NÃO DECIDE PELO WHATSAPP -
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor)
+    values (org_ana, 'cobranca', 'm', 'Cobrar Padaria', 'Venceu', 100) returning id into p;
+    -- um pedido plantado para o LEITOR (o pedir nunca o criaria)
+    insert into public.agente_pedidos_whatsapp (org_id, proposta_id, aprovador_id, telefone, codigo_hash, expira_em)
+    values (org_ana, p, leo, '5511966665555', encode(sha256(convert_to('ABCDEF', 'UTF8')), 'hex'), now() + interval '1 hour');
+    set local role service_role;
+    j := public.agente_responder_whatsapp('5511966665555', 'ABCDEF', 'sim');
+    reset role;
+    if coalesce((j->>'ok')::boolean, false) then
+      falhas := array_append(falhas, '(m) o LEITOR aprovou pelo WhatsApp');
+    end if;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'pendente') then
+      falhas := array_append(falhas, '(m) a proposta saiu de pendente pela resposta do leitor');
+    end if;
+    if not exists (select 1 from public.agente_pedidos_whatsapp where proposta_id = p and respondido_em is not null) then
+      falhas := array_append(falhas, '(m) o código recusado continuou valendo');
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(m) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- n. A SESSÃO NÃO USA AS PORTAS DO SERVIDOR ---
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque)
+    values (org_ana, 'cobranca', 'n', 'Cobrar', 'Venceu') returning id into p;
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    begin
+      j := public.agente_responder_whatsapp('5511988887777', 'ABCDEF', 'sim');
+      reset role;
+      falhas := array_append(falhas, '(n) a sessão chamou a resposta do WhatsApp');
+    exception when insufficient_privilege then reset role;
+    end;
+    set local role authenticated;
+    begin
+      r := public.agente_decidir_na_empresa(p, true, null, org_ana);
+      reset role;
+      falhas := array_append(falhas, '(n) a sessão decidiu pela porta interna, escolhendo a empresa');
+    exception when insufficient_privilege then reset role;
+    end;
+    set local role authenticated;
+    begin
+      perform public.agente_pedir_whatsapp(p);
+      reset role;
+      falhas := array_append(falhas, '(n) a sessão gerou código de aprovação');
+    exception when insufficient_privilege then reset role;
+    end;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(n) estourou: %s', sqlerrm)); end if;
+  end;
+
   if array_length(falhas, 1) > 0 then
     raise exception E'agentes: % falha(s):\n  %', array_length(falhas, 1), array_to_string(falhas, E'\n  ');
   end if;
-  raise notice 'agentes: % casos (a–j) verdes', casos;
+  raise notice 'agentes: % casos (a–n) verdes', casos;
 end
 $guarda$;
 

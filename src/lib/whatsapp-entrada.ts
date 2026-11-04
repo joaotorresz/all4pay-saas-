@@ -11,7 +11,9 @@
  *      internet calaria o telefone de outra com um POST;
  *   3. SAIR / VOLTAR — SEMPRE, mesmo com a aprovação desligada: parar de
  *      receber não pode depender de uma funcionalidade estar ligada;
- *   4. a aprovação por WhatsApp, só com `WHATSAPP_APROVACAO=ligado`;
+ *   4. a aprovação por WhatsApp, só com `WHATSAPP_APROVACAO=ligado`: primeiro
+ *      o código de proposta de agente (só com `AGENTES=ligado`), depois o de
+ *      título;
  *   5. a Quattro AI, só com `WHATSAPP_IA=ligado` e só para o número
  *      CONFIRMADO de alguém (`lib/whatsapp-ia`) — só leitura;
  *   6. o resto ganha a resposta padrão (que ensina o SAIR).
@@ -28,6 +30,12 @@ import { lerPedidoDeSaida, RESPOSTA_PADRAO, RESPOSTA_SAIR, RESPOSTA_VOLTAR } fro
 import { iaWhatsappLigada } from "@/core/whatsapp/numero";
 import { RESPOSTA_FALHA } from "@/core/whatsapp/conversa";
 import { responderIaWhatsapp } from "@/lib/whatsapp-ia";
+import { agentesLigados } from "@/core/agentes/ligado";
+import { respostaDaDecisaoAgente, type RespostaDoBanco } from "@/core/agentes/whatsapp";
+import { executarAprovada } from "@/lib/agentes-servidor";
+import { hojeEm } from "@/core/automacoes";
+import { provedorReal } from "@/core/financial-os/notifications.server";
+import { registroSupabase } from "@/lib/automacoes-registro";
 
 const escaparXML = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -88,6 +96,22 @@ export async function receberWhatsapp(req: Request): Promise<Response> {
     const lida = lerResposta(corpo);
     if (lida) {
       if (!admin) return NextResponse.json({ motivo: "servidor sem acesso ao banco" }, { status: 503 });
+      // 4a. O código é de uma proposta de agente? (Etapa 3; só com os agentes ligados.)
+      if (agentesLigados(process.env)) {
+        const { data: ag, error: eAg } = await admin.rpc("agente_responder_whatsapp", {
+          p_telefone: telefone, p_codigo: lida.codigo, p_decisao: lida.decisao,
+        });
+        if (eAg) return twiml("Não foi possível registrar a resposta agora. Tente novamente em alguns minutos.");
+        const r = (ag ?? {}) as RespostaDoBanco & { proposta?: string; org?: string };
+        if (r.encontrado) {
+          // Aprovada: envia NA HORA, pelo mesmo caminho do botão da tela.
+          const execucao = r.ok && r.estado === "aprovada" && r.proposta && r.org
+            ? await executarAprovada(admin, r.org, r.proposta, hojeEm(new Date()), new URL(req.url).origin,
+                { registro: registroSupabase(admin), provedor: provedorReal() }).catch(() => null)
+            : null;
+          return twiml(respostaDaDecisaoAgente(r, execucao));
+        }
+      }
       const { data, error } = await admin.rpc("responder_aprovacao_whatsapp", {
         p_telefone: telefone, p_codigo: lida.codigo, p_decisao: lida.decisao,
       });

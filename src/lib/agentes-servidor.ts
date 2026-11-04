@@ -31,6 +31,10 @@ import {
 import { contextoDaRpc, configDaLinha, type ContextoBruto } from "@/lib/automacoes-contexto";
 import { linksDaRegua } from "@/lib/regua-links";
 import { saidasPara } from "@/lib/whatsapp-saidas";
+import { enviarWhatsapp, statusNotificacoes } from "@/core/financial-os/notifications.server";
+import { descricaoDe, type IdAgente } from "@/core/agentes";
+import { mensagemDoPedidoAgente, avisoDoResto, TETO_PEDIDOS_POR_EXECUCAO } from "@/core/agentes/whatsapp";
+import { formatBRL } from "@/lib/format";
 
 export interface DepsAgente {
   registro: RegistroEnvios;
@@ -50,6 +54,8 @@ export interface RelatorioAgente {
   /** Nível 0: o que ele faria, sem propor nada. */
   soAviso: number;
   pulados: number;
+  /** As propostas novas que esperam aprovação (para o pedido pelo WhatsApp). */
+  idsParaAprovar?: string[];
   erro?: string;
 }
 
@@ -188,7 +194,7 @@ export async function rodarAgenteCobranca(
     const linha = ((criada ?? []) as LinhaProposta[])[0];
     // Outra execução criou ao mesmo tempo: ela decide o destino.
     if (!linha) continue;
-    if (destino === "aprovar") { rel.paraAprovar++; continue; }
+    if (destino === "aprovar") { rel.paraAprovar++; (rel.idsParaAprovar ??= []).push(linha.id); continue; }
     const r = await executarUma(admin, orgId, linha, doDia, hoje, deps, true);
     if (r === "executada") rel.feitasSozinho++; else rel.falhas++;
   }
@@ -223,4 +229,40 @@ export async function executarAprovada(
   const estado = await executarUma(admin, orgId, linha, doDia, hoje, deps, false);
   const { data: depois } = await admin.from("agente_propostas").select("estado,erro").eq("id", propostaId).maybeSingle();
   return { estado: (depois as { estado: string } | null)?.estado ?? estado, erro: (depois as { erro: string | null } | null)?.erro ?? null };
+}
+
+/**
+ * Pede a decisão pelo WhatsApp a quem aprova E tem o número confirmado
+ * (Etapa 3). ⚠️ O banco escolhe quem recebe e gera o código
+ * (`agente_pedir_whatsapp`); aqui só se escreve e se envia. Sem provedor
+ * configurado, nenhum código é gerado (simulado não é pedido).
+ */
+export async function pedirPorWhatsapp(
+  admin: SupabaseClient, ids: string[],
+  enviar: typeof enviarWhatsapp = enviarWhatsapp, provedorAtivo = statusNotificacoes().whatsapp,
+): Promise<{ pedidos: number; falhas: number; erro?: string }> {
+  if (!ids.length) return { pedidos: 0, falhas: 0 };
+  if (!provedorAtivo) return { pedidos: 0, falhas: 0, erro: "WhatsApp sem provedor neste ambiente: nenhum pedido saiu" };
+  const agora = ids.slice(0, TETO_PEDIDOS_POR_EXECUCAO);
+  const { data: props, error } = await admin.from("agente_propostas")
+    .select("id,agente,titulo,porque,valor").in("id", agora).limit(TETO_PEDIDOS_POR_EXECUCAO);
+  if (error) return { pedidos: 0, falhas: 0, erro: `propostas: ${error.message}` };
+  let pedidos = 0, falhas = 0;
+  const avisados = new Set<string>();
+  for (const p of (props ?? []) as { id: string; agente: IdAgente; titulo: string; porque: string; valor: number | string | null }[]) {
+    const { data: linhas, error: e } = await admin.rpc("agente_pedir_whatsapp", { p_proposta: p.id });
+    if (e) { falhas++; continue; }
+    for (const l of (linhas ?? []) as { fone: string; codigo: string }[]) {
+      const texto = mensagemDoPedidoAgente({
+        agente: descricaoDe(p.agente).nome, titulo: p.titulo, porque: p.porque,
+        valorFormatado: p.valor == null ? null : formatBRL(Number(p.valor)), codigo: l.codigo,
+      });
+      const r = await enviar(`+${l.fone}`, texto);
+      if (r.ok) { pedidos++; avisados.add(l.fone); } else falhas++;
+    }
+  }
+  // O resto da leva não vira uma mensagem por proposta: um aviso só.
+  const resto = ids.length - agora.length;
+  if (resto > 0) for (const fone of Array.from(avisados)) await enviar(`+${fone}`, avisoDoResto(resto));
+  return { pedidos, falhas };
 }
