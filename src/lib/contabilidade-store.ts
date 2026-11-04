@@ -91,7 +91,7 @@ export const envioAtivo = (): boolean => statusEnvio(listarDestinatarios()) === 
 export async function listarConfirmacoes(): Promise<ConfirmacaoContador[]> {
   const { createClient } = await import("@/lib/supabase/client");
   const { data, error } = await createClient().from("contador_confirmacoes")
-    .select("dest_id, email, pedido_em, confirmado_em");
+    .select("dest_id, email, pedido_em, confirmado_em").limit(50);
   if (error) throw new Error(error.message);
   return (data ?? []) as ConfirmacaoContador[];
 }

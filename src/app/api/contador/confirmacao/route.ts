@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   if (!admin) return resposta(503, { ok: false, codigo: "sem_configuracao", motivo: "O servidor está sem a chave de serviço." });
 
   const { data: atuais, error: eL } = await admin.from("contador_confirmacoes")
-    .select("dest_id, email, pedido_em, confirmado_em").eq("org_id", orgId);
+    .select("dest_id, email, pedido_em, confirmado_em").eq("org_id", orgId).limit(LIMITE_DESTINATARIOS * 4);
   if (eL) return resposta(500, { ok: false, codigo: "falha", motivo: eL.message });
   const lista = (atuais ?? []) as { dest_id: string; email: string; pedido_em: string; confirmado_em: string | null }[];
   const deste = lista.find((x) => x.dest_id === destId);
