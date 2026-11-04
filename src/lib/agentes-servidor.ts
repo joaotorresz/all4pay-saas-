@@ -35,7 +35,7 @@ import { enviarWhatsapp, statusNotificacoes } from "@/core/financial-os/notifica
 import { descricaoDe, type IdAgente } from "@/core/agentes";
 import { mensagemDoPedidoAgente, avisoDoResto, TETO_PEDIDOS_POR_EXECUCAO } from "@/core/agentes/whatsapp";
 import { formatBRL } from "@/lib/format";
-import { semAmostra } from "@/lib/supabase/consulta";
+import { semAmostra } from "@/lib/supabase/filtros";
 import { casarExtrato, type MovimentoParaCasar } from "@/core/conciliacao/pares";
 import { propostasDeConciliacao, planejarConciliacao, MOTIVO_PAR_DESFEITO } from "@/core/agentes/conciliacao";
 

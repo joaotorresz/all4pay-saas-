@@ -4,7 +4,7 @@ import { createAdmin } from "@/lib/supabase/admin";
 import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { datasFaturaCron, refFatura } from "@/lib/recorrencias-sched";
 import { simularMaterializacao, type RecorrenciaParaSimular } from "@/lib/recorrencias-simulacao";
-import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/filtros";
 import { registrarExecucaoCron } from "@/lib/cron-execucao";
 
 export const runtime = "nodejs";

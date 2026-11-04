@@ -4620,6 +4620,66 @@ const AGOSTO = janelaMes(2026, 7);
     }
 
     /**
+     * ⚠️ **O SERVIDOR NÃO IMPORTA `consulta.ts`** (04/11/2026). A regra acima
+     * (filtro em `./filtros`) existia, mas cinco módulos de servidor seguiam
+     * importando de `consulta.ts`, e o export virava proxy de cliente. Medido
+     * em produção: o cron `/api/recorrencias/run` respondia 500 com
+     * `TypeError: (0, _.YI) is not a function` (a `semAmostra` virou proxy), e
+     * as contas recorrentes não eram geradas desde 19/06. Esta asserção anda
+     * o grafo de import a partir de toda rota (`route.ts`) e de todo
+     * `"use server"`, atravessando os módulos sem diretiva, e reprova se algum
+     * deles importar `@/lib/supabase/consulta`. Código de servidor importa de
+     * `@/lib/supabase/filtros`.
+     */
+    {
+      const listar = (d: string): string[] =>
+        readdirSync(d).flatMap((n) => { const c = join(d, n); return statSync(c).isDirectory() ? listar(c) : [c]; });
+      const fontes = new Map(listar("src").filter((f) => /\.tsx?$/.test(f)).map((f) => [f, readFileSync(f, "utf8")]));
+      const resolver = (de: string, spec: string): string | null => {
+        const base = spec.startsWith("@/") ? `src/${spec.slice(2)}` : spec.startsWith(".") ? join(de, "..", spec) : null;
+        if (!base) return null;
+        for (const e of ["", ".ts", ".tsx", "/index.ts", "/index.tsx"]) if (fontes.has(base + e)) return base + e;
+        return null;
+      };
+      const importsDe = (t: string): string[] => {
+        const out: string[] = [];
+        let tipo = false;
+        for (const l of t.split("\n")) {
+          if (/^(import|export)\b/.test(l)) tipo = /^(import|export)\s+type\b/.test(l);
+          const m = l.match(/\bfrom\s+["']([^"']+)["']/);
+          if (m && /^(import|export|\}|\s)/.test(l)) { if (!tipo) out.push(m[1]); tipo = false; }
+        }
+        return out;
+      };
+      const servidorQueImportaConsulta = (src: Map<string, string>): string[] => {
+        const raizes = [...src.keys()].filter((f) => /\/route\.ts$/.test(f) || /^\s*["']use server["']/.test(src.get(f)!));
+        const visto = new Set(raizes);
+        const fila = [...raizes];
+        const achados: string[] = [];
+        while (fila.length) {
+          const f = fila.shift()!;
+          for (const spec of importsDe(src.get(f) ?? "")) {
+            const n = resolver(f, spec);
+            if (!n) continue;
+            if (n === "src/lib/supabase/consulta.ts") { achados.push(f); continue; }
+            if (visto.has(n) || /^\s*["']use client["']/m.test((src.get(n) ?? "").slice(0, 200))) continue;
+            visto.add(n);
+            fila.push(n);
+          }
+        }
+        return achados;
+      };
+      const achados = servidorQueImportaConsulta(fontes);
+      ok("amostra: nenhum módulo de SERVIDOR (rota, \"use server\" e o que eles importam) importa lib/supabase/consulta",
+         achados.length === 0, achados.join(" | "));
+      const rota = "src/app/api/recorrencias/run/route.ts";
+      const plantado = new Map(fontes);
+      plantado.set(rota, (fontes.get(rota) ?? "").replace('from "@/lib/supabase/filtros"', 'from "@/lib/supabase/consulta"'));
+      ok("amostra: (defeito plantado) o cron de recorrências importando de consulta.ts é ACUSADO",
+         plantado.get(rota) !== fontes.get(rota) && servidorQueImportaConsulta(plantado).includes(rota));
+    }
+
+    /**
      * ⚠️ **A assinatura da amostra tem de bater com a amostra.** A migration
      * reconheceu o histórico sem marca pelos nomes fixos de
      * `core/fdip/sample.ts`. Acrescentar um cliente à amostra sem acrescentá-lo

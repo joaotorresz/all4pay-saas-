@@ -23,7 +23,7 @@ import type { Situacao } from "@/core/central";
 import { statusNotificacoes, enviarWhatsapp } from "@/core/financial-os/notifications.server";
 import { mensagemDoPedido, telefoneParaPedido } from "@/core/aprovacao-whatsapp";
 import { dataBR, formatBRL } from "@/lib/format";
-import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/filtros";
 
 export type ResultadoAcao = { ok: true } | { ok: false; recusa: RecusaCentral };
 
