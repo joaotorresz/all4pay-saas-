@@ -71,7 +71,10 @@ export function RedefinirSenhaView() {
       <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <h1 className="m-0 text-h2 font-medium text-ink leading-none">Criar nova senha</h1>
+            <h1 className="m-0 text-h1 text-ink">Criar nova senha</h1>
+            <p className="m-0 mt-2 text-label text-muted">
+              Escolha uma senha com pelo menos {MIN_SENHA} caracteres. Depois de salvar, você já entra.
+            </p>
           </div>
 
           {!configured && (

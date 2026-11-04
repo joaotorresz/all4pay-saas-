@@ -43,7 +43,11 @@ export function MolduraPublica({
           <span role="img" aria-label="Quattro" className="a4p-logo-mono block w-[125px] h-[24px]" />
         </Link>
       </header>
+      {/* `data-fundo-cinza`: o cartão é cinza, então o campo fica BRANCO (a
+          mesma regra da área que rola no app). Sem ela o campo cinza sumia no
+          cartão cinza (dono, 04/11/2026: "as box estão na mesma cor"). */}
       <div
+        data-fundo-cinza
         className={cn(
           "a4p-app-card flex-1 min-h-0 mx-4 mb-4 lg:mx-6 lg:mb-6",
           cartaoClassName ?? "overflow-y-auto",

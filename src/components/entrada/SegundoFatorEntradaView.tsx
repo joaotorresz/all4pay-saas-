@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button, CampoCodigo } from "@/components/ui";
+import { Button, CampoCodigo, Icon } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { ArtPanel, Spinner } from "@/components/entrada/ArtePublica";
@@ -74,7 +74,13 @@ export function SegundoFatorEntradaView() {
       <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <h1 className="m-0 text-h2 font-medium text-ink leading-none">Código de verificação</h1>
+            <span aria-hidden className="mb-5 w-12 h-12 rounded-md bg-white flex items-center justify-center">
+              <Icon name="smartphone" size={22} color="var(--color-ink)" />
+            </span>
+            <h1 className="m-0 text-h1 text-ink">Código de verificação</h1>
+            <p className="m-0 mt-2 text-label text-muted">
+              Abra o aplicativo autenticador no celular e digite os {DIGITOS_CODIGO} números que aparecem para a {MARCA}.
+            </p>
           </div>
 
           {!configured && (
@@ -84,7 +90,7 @@ export function SegundoFatorEntradaView() {
           )}
 
           <div className="flex flex-col gap-4">
-            <CampoCodigo valor={codigo} onMudar={setCodigo} onConfirmar={confirmar} autoFocus disabled={busy} invalido={msg?.tone === "error"} />
+            <CampoCodigo valor={codigo} onMudar={setCodigo} onConfirmar={confirmar} autoFocus disabled={busy} invalido={msg?.tone === "error"} label="" />
 
             {msg && (
               <p role={msg.tone === "error" ? "alert" : "status"} className={`m-0 text-caption ${msg.tone === "error" ? "text-negative" : "text-positive"}`}>

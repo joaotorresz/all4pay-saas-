@@ -133,12 +133,14 @@ export default function LoginPage() {
               {view === "signin" ? "Entrar" : "Redefinir senha"}
             </h1>
             <p className="m-0 mt-2 text-label text-muted">
-              {view === "signin" ? "Acesse a sua conta Quattro." : "Mandamos um link para o seu e-mail."}
+              {view === "signin" ? "Acesse a sua conta Quattro." : "Digite o e-mail da conta. Mandamos um link para você criar uma senha nova."}
             </p>
           </div>
 
           {view === "signin" && (
-            <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de conta">
+            // Trilho BRANCO sobre o cartão cinza (o cinza sumia nele), e a
+            // escolha em tinta: dá para ver qual está marcada sem procurar.
+            <div className="flex p-1 gap-1 rounded-pill bg-white" role="tablist" aria-label="Tipo de conta">
               {([["empresa", "Empresa"], ["pessoal", "Pessoal"]] as const).map(([val, label]) => {
                 const on = (val === "pessoal") === pessoal;
                 return (
@@ -147,7 +149,7 @@ export default function LoginPage() {
                     role="tab"
                     aria-selected={on}
                     onClick={() => setTipo(val)}
-                    className={`flex-1 text-label font-medium rounded-pill py-[7px] transition-colors ${on ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+                    className={`flex-1 text-label font-medium rounded-pill py-[9px] transition-colors ${on ? "bg-ink text-white" : "text-muted hover:text-ink"}`}
                   >
                     {label}
                   </button>
