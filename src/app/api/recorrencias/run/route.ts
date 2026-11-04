@@ -147,6 +147,7 @@ export async function GET(req: Request) {
   }
 
   const contaPorOrg = new Map<string, string | null>();
+  const motivos: string[] = [];
   const porOrg = new Map<string, Tally>();
   const tally = (org: string): Tally => {
     let t = porOrg.get(org);
@@ -192,7 +193,14 @@ export async function GET(req: Request) {
         review_status: "confirmado", // previsto programado — não vai p/ a fila de Confirmação
       });
       if (!insErr) (tipo === "saida" ? t.saidas++ : t.entradas++);
-      else if (insErr.code !== "23505") t.falhas++;
+      else if (insErr.code !== "23505") {
+        t.falhas++;
+        // ⚠️ O motivo REAL vai para o rastro da execução: em 04/11/2026 o cron
+        // registrou "falhas: 25" e só reproduzindo à mão apareceu o 42501 em
+        // categories. Até 3 motivos distintos, com o código do banco.
+        const motivo = `[${insErr.code ?? "?"}] ${insErr.message}`;
+        if (motivos.length < 3 && !motivos.includes(motivo)) motivos.push(motivo);
+      }
     }
   }
 
@@ -214,11 +222,13 @@ export async function GET(req: Request) {
   // materializador ficou parado meses sem ninguém ver (guarda `crons-no-ar`).
   const erroRegistro = await registrarExecucaoCron(admin, "recorrencias", geradoEm, true, {
     recorrencias: recs?.length ?? 0, entradas, saidas, falhas, orgs: porOrg.size,
+    ...(motivos.length ? { motivos } : {}),
   });
 
   return NextResponse.json({
     ok: true, geradoEm, recorrencias: recs?.length ?? 0,
     entradasGeradas: entradas, saidasGeradas: saidas, falhas, orgs: porOrg.size,
+    ...(motivos.length ? { motivos } : {}),
     ...(erroRegistro ? { erroRegistro } : {}),
   });
 }
