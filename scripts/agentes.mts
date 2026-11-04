@@ -15,7 +15,7 @@
  *
  * A guarda do banco (o que ele RECUSA de verdade) é `scripts/agentes.sql`.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTES, configPadrao, rotear, type ConfigAgente, type Destino, type IdAgente } from "@/core/agentes";
 
@@ -85,10 +85,16 @@ const leitores = arquivos(join(raiz, "src")).filter((f) => /\bAGENTES\s*===|env\
 ok("interruptor: AGENTES tem um leitor só (core/agentes/ligado.ts)",
   leitores.length === 1 && leitores[0].endsWith("src/core/agentes/ligado.ts"), leitores.join(", "));
 const lib = ler("src/lib/agentes.ts");
-const tela = ler("src/components/agentes/AgentesView.tsx");
+const tela = ler("src/components/ia/ChatAgente.tsx") + ler("src/components/ia/QuattroAIHub.tsx");
 ok("tela: não cria proposta", !/agente_propostas"\)\s*\.(insert|upsert|update|delete)/.test(lib + tela));
 ok("tela: decide pela função do banco", /rpc\("agente_decidir"/.test(lib));
-ok("tela: o agente em construção não liga", /disabled=\{!desc\.pronto\}/.test(tela));
+{
+  const { abrirConversaAgente: abrir } = await import("@/core/agentes/conversa");
+  const { configPadrao: cp } = await import("@/core/agentes");
+  const ab = abrir(cp("caixa"));
+  ok("tela: o agente em construção não liga (a conversa não oferece nível)",
+    ab.estado.etapa === "em_construcao" && ab.falas.every((f) => !f.pergunta));
+}
 ok("interruptores: o dos agentes aparece na área da plataforma",
   /agentes: sim\(agentesLigados\(env\)\)/.test(ler("src/lib/interruptores.ts")));
 
@@ -281,8 +287,286 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     && /linha\.estado !== "aprovada"/.test(porta) && !/agente_decidir/.test(porta) && /agentesLigados\(process\.env\)/.test(porta));
   const escritores = arquivos(join(raiz, "src")).filter((f) => /from\("agente_propostas"\)[\s\S]{0,80}\.(insert|upsert)\(/.test(readFileSync(f, "utf8")));
   ok("só o servidor dos agentes cria proposta", escritores.length === 1 && escritores[0].endsWith("src/lib/agentes-servidor.ts"), escritores.join(", "));
-  ok("catálogo: o agente de cobrança está pronto; os outros, em construção",
-    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca");
+  ok("catálogo: cobrança e conciliação prontos; os outros, em construção",
+    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao");
+}
+
+/* ── 5. aprovar pelo WhatsApp (Etapa 3) ───────────────────────────────────── */
+{
+  const W = await import("@/core/agentes/whatsapp");
+  const { lerResposta } = await import("@/core/aprovacao-whatsapp");
+  const S = await import("@/lib/agentes-servidor");
+  const msg = W.mensagemDoPedidoAgente({ agente: "Agente de cobrança", titulo: "Cobrar Cliente Um", porque: "Venceu há 3 dias, 2 títulos.", valorFormatado: "R$ 1.300,50", codigo: "K7P2QX" });
+  ok("whatsapp: o pedido diz o quê, quanto e como responder",
+    msg.includes("Cobrar Cliente Um, R$ 1.300,50.") && msg.includes("SIM K7P2QX") && msg.includes("NÃO K7P2QX") && msg.includes("24 horas"), msg);
+  ok("whatsapp: a resposta é lida pela MESMA regra da aprovação de título",
+    JSON.stringify(lerResposta("sim k7p2qx")) === JSON.stringify({ decisao: "sim", codigo: "K7P2QX" }) && lerResposta("SIM") === null);
+  ok("whatsapp: aprovada e enviada diz que saiu", W.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "executada" }).includes("a cobrança saiu"));
+  const naoSaiu = W.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "falhou", erro: "Sem credencial do provedor neste ambiente: nada foi enviado." });
+  ok("whatsapp: aprovada sem envio NÃO diz feita", !/feita|saiu:/.test(naoSaiu) && naoSaiu.includes("nada foi enviado"), naoSaiu);
+  ok("whatsapp: recusa e recusa do banco", W.respostaDaDecisaoAgente({ ok: true, decisao: "nao" }).startsWith("Recusa registrada")
+    && W.respostaDaDecisaoAgente({ ok: false, motivo: "Seu papel nesta empresa não decide o que os agentes propõem." }).startsWith("A decisão não foi registrada: Seu papel"));
+
+  // o pedido, contra um banco em memória
+  const chamadasRpc: string[] = [];
+  const fakeW = {
+    rpc: async (fn: string, a: { p_proposta: string }) => { chamadasRpc.push(`${fn}:${a.p_proposta}`); return { data: [{ fone: "5511988887777", codigo: "K7P2QX" }, { fone: "5511977776666", codigo: "M3N4PQ" }], error: null }; },
+    from() {
+      let ids: string[] = [];
+      const b = {
+        select() { return b; }, limit() { return b; },
+        in(_c: string, v: string[]) { ids = v; return b; },
+        then(res: (v: unknown) => unknown) { return Promise.resolve({ data: ids.map((id) => ({ id, agente: "cobranca", titulo: `Cobrar ${id}`, porque: "Vence hoje, 1 título.", valor: 700 })), error: null }).then(res); },
+      };
+      return b;
+    },
+  } as unknown as import("@supabase/supabase-js").SupabaseClient;
+  const enviados: { para: string; texto: string }[] = [];
+  const enviar = (async (para: string, texto: string) => { enviados.push({ para, texto }); return { canal: "whatsapp", para, ok: true, detalhe: "ok" }; }) as never;
+  const sem = await S.pedirPorWhatsapp(fakeW, ["a"], enviar, false);
+  ok("whatsapp: sem provedor nenhum código é gerado nem enviado", sem.pedidos === 0 && chamadasRpc.length === 0 && enviados.length === 0, JSON.stringify(sem));
+  const r = await S.pedirPorWhatsapp(fakeW, ["a", "b"], enviar, true);
+  ok("whatsapp: cada aprovador confirmado recebe a sua mensagem, com o próprio código",
+    r.pedidos === 4 && enviados.filter((e) => e.para === "+5511988887777" && e.texto.includes("SIM K7P2QX")).length === 2
+    && enviados.some((e) => e.para === "+5511977776666" && e.texto.includes("SIM M3N4PQ") && e.texto.includes("R$ 700,00")), JSON.stringify(r));
+  chamadasRpc.length = 0; enviados.length = 0;
+  const muitos = Array.from({ length: 13 }, (_, i) => `p${i}`);
+  await S.pedirPorWhatsapp(fakeW, muitos, enviar, true);
+  ok("whatsapp: no máximo 10 pedidos por execução; o resto vira UM aviso por pessoa",
+    chamadasRpc.length === W.TETO_PEDIDOS_POR_EXECUCAO && enviados.filter((e) => e.texto.includes("há mais 3 propostas")).length === 2,
+    `${chamadasRpc.length} ${enviados.length}`);
+
+  const semC = (f: string) => ler(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+  const ent = semC("src/lib/whatsapp-entrada.ts");
+  const iLig = ent.indexOf('process.env.WHATSAPP_APROVACAO === "ligado"');
+  const iAg = ent.indexOf('"agente_responder_whatsapp"');
+  const iTit = ent.indexOf('"responder_aprovacao_whatsapp"');
+  ok("entrada: o código de agente só é lido com a aprovação E os agentes ligados, antes do de título",
+    iLig >= 0 && iAg > iLig && iTit > iAg && /if \(agentesLigados\(process\.env\)\)/.test(ent.slice(iLig, iAg)));
+  ok("entrada: aprovada pelo WhatsApp envia pelo MESMO executor da tela", /executarAprovada\(admin, r\.org, r\.proposta/.test(ent));
+  const run = semC("src/app/api/financial-os/run/route.ts");
+  ok("runner: o pedido pelo WhatsApp só sai com a aprovação ligada e fora da prova sem envio",
+    /idsParaAprovar\?\.length && !dryRun && process\.env\.WHATSAPP_APROVACAO === "ligado"/.test(run));
+  const m3 = ler("supabase/migrations/20261104150000_agentes_whatsapp.sql");
+  ok("banco: a tela e o WhatsApp decidem pela MESMA regra",
+    /return public\.agente_decidir_na_empresa\(p_id, p_aprovar, p_motivo, public\.auth_org_id\(\)\);/.test(m3)
+    && /public\.agente_decidir_na_empresa\(v_p\.proposta_id, v_dec = 'sim', 'Pelo WhatsApp\.', v_p\.org_id\)/.test(m3));
+  ok("banco: a regra interna não é chamada por ninguém de fora",
+    /revoke all on function public\.agente_decidir_na_empresa\(uuid, boolean, text, uuid\)\s+from public, anon, authenticated, service_role;/.test(m3)
+    && !/grant execute on function public\.agente_decidir_na_empresa/.test(m3));
+  ok("banco: pedir e responder pelo WhatsApp são só da chave de serviço",
+    /grant execute on function public\.agente_pedir_whatsapp\(uuid\) to service_role;/.test(m3)
+    && /grant execute on function public\.agente_responder_whatsapp\(text, text, text\) to service_role;/.test(m3)
+    && !/grant execute on function public\.agente_(pedir|responder)_whatsapp[^;]*authenticated/.test(m3));
+  ok("banco: só número CONFIRMADO de quem aprova recebe o pedido",
+    /rp\.acao in \('aprovar', 'administrar'\)/.test(m3) && /n\.confirmado_em is not null/.test(m3));
+}
+
+/* ── 6. o agente de conciliação (Etapa 4) ────────────────────────────────── */
+{
+  const P = await import("@/core/conciliacao/pares");
+  const C = await import("@/core/agentes/conciliacao");
+  const { configPadrao: cfgP } = await import("@/core/agentes");
+  const mov = (id: string, type: "entrada" | "saida", amount: number, d: string, pago: string | null, party: string | null = null, desc = id) =>
+    ({ id, type, amount, due_date: d, paid_date: pago, party_id: party, description: desc });
+  const pend = [mov("t1", "entrada", 480, "2026-11-04", null, "acme", "NF 1042"), mov("t2", "saida", 99, "2026-11-01", null), mov("t3", "entrada", 1000, "2026-11-04", null)];
+  const ext = [mov("e1", "entrada", 480, "2026-11-04", "2026-11-04", "acme", "PIX ACME"), mov("e2", "saida", 99, "2026-11-04", "2026-11-04"), mov("e3", "saida", 1000, "2026-11-04", "2026-11-04")];
+  const r = P.casarExtrato(pend, ext);
+  const par = (o: string) => r.pares.find((x) => x.ofId === o);
+  ok("conciliação: casa por valor, data e contato; entrada não casa com saída",
+    par("e1")?.pendId === "t1" && par("e1")?.confianca === 100 && par("e2")?.pendId === "t2" && par("e2")!.confianca < P.CONFIANCA_ALTA && !par("e3"),
+    JSON.stringify(r.pares.map((x) => [x.ofId, x.pendId, x.confianca])));
+  const props = C.propostasDeConciliacao(r.pares, { previstos: new Set(), extratos: new Set() });
+  const pr = props.find((x) => x.dados.extrato === "e1")!;
+  ok("conciliação: a proposta diz o par, o porquê e a confiança",
+    pr.chave === "par:t1:e1" && pr.titulo === "Conciliar NF 1042" && pr.porque.includes("Mesmo valor, mesma data, mesmo contato") && pr.porque.includes("Confiança 100%") && pr.valor === 480, pr.porque);
+  ok("conciliação: título com proposta esperando não é proposto de novo",
+    C.propostasDeConciliacao(r.pares, { previstos: new Set(["t1"]), extratos: new Set() }).every((x) => x.dados.previsto !== "t1")
+    && C.propostasDeConciliacao(r.pares, { previstos: new Set(), extratos: new Set(["e2"]) }).every((x) => x.dados.extrato !== "e2"));
+  const n3 = { ...cfgP("conciliacao"), ativo: true, nivel: 3 as const };
+  const plano = new Map(C.planejarConciliacao(props, n3, 0).map((x) => [x.chave, x.destino]));
+  ok("conciliação: no nível 3, sozinho só o par de confiança alta; o resto pergunta",
+    plano.get("par:t1:e1") === "executar" && plano.get("par:t2:e2") === "aprovar", JSON.stringify(Array.from(plano)));
+  const n2 = { ...cfgP("conciliacao"), ativo: true, nivel: 2 as const, limiteValor: 1000, limiteDia: 1 };
+  const dois = C.propostasDeConciliacao(P.casarExtrato([pend[0], mov("t4", "entrada", 480, "2026-11-04", null, "acme")],
+    [ext[0], mov("e4", "entrada", 480, "2026-11-04", "2026-11-04", "acme")]).pares, { previstos: new Set(), extratos: new Set() });
+  ok("conciliação: o limite por dia conta a própria leva",
+    C.planejarConciliacao(dois, n2, 0).map((x) => x.destino).join(",") === "executar,aprovar"
+    && C.planejarConciliacao(dois, n2, 1).every((x) => x.destino === "aprovar"));
+  ok("conciliação: desligado ou nível 0 não propõe",
+    C.planejarConciliacao(props, cfgP("conciliacao"), 0).every((x) => x.destino === "avisar")
+    && C.planejarConciliacao(props, { ...n3, nivel: 0 }, 0).every((x) => x.destino === "avisar"));
+
+  // o servidor, contra um banco em memória (as mesmas linhas que a tela leria)
+  {
+    type Linha = Record<string, unknown>;
+    const db: Record<string, Linha[]> = {
+      movements: [
+        { ...pend[0], org_id: "o1", is_sample: false, status: "pendente", reference_code: null, conciliado_com: null },
+        { ...pend[1], org_id: "o1", is_sample: false, status: "pendente", reference_code: null, conciliado_com: null },
+        { ...ext[0], org_id: "o1", is_sample: false, status: "pago", reference_code: "pluggy:1", conciliado_com: null },
+        { ...ext[1], org_id: "o1", is_sample: false, status: "pago", reference_code: "pluggy:2", conciliado_com: null },
+        // outra empresa: nunca entra no par
+        { ...mov("x1", "entrada", 480, "2026-11-04", null, "acme"), org_id: "o2", is_sample: false, status: "pendente", reference_code: null, conciliado_com: null },
+      ],
+      agente_propostas: [
+        { id: "velha", org_id: "o1", agente: "conciliacao", chave: "par:sumiu:e9", estado: "pendente", decidida_por: null, dados: { previsto: "sumiu", extrato: "e9" } },
+        { id: "aprov", org_id: "o1", agente: "conciliacao", chave: "par:ta:ea", estado: "aprovada", decidida_por: "ana", dados: { previsto: "ta", extrato: "ea" } },
+      ],
+    };
+    const rpcs: string[] = [];
+    let seq = 0;
+    const fake = {
+      rpc: async (fn: string, a: { p_proposta: string; p_sozinho: boolean }) => {
+        rpcs.push(`${fn}:${a.p_proposta}:${a.p_sozinho}`);
+        const l = db.agente_propostas.find((x) => x.id === a.p_proposta)!;
+        l.estado = "executada";
+        return { data: { ok: true, estado: "executada" }, error: null };
+      },
+      from(t: string) {
+        const filtros: ((l: Linha) => boolean)[] = [];
+        let op: "select" | "update" | "upsert" = "select"; let patch: Linha = {}; let head = false;
+        const b = {
+          select(_c?: string, o?: { head?: boolean }) { head = !!o?.head; return b; },
+          eq(c: string, v: unknown) { filtros.push((l) => l[c] === v); return b; },
+          in(c: string, v: unknown[]) { filtros.push((l) => v.includes(l[c])); return b; },
+          like(c: string, v: string) { const pre = v.replace(/%$/, ""); filtros.push((l) => String(l[c] ?? "").startsWith(pre)); return b; },
+          is(c: string, v: unknown) { filtros.push((l) => (l[c] ?? null) === v); return b; },
+          gte() { return b; }, limit() { return b; },
+          update(pt: Linha) { op = "update"; patch = pt; return b; },
+          upsert(row: Linha) {
+            op = "upsert";
+            const existe = db[t].some((l) => l.org_id === row.org_id && l.agente === row.agente && l.chave === row.chave);
+            const nova = { ...row, id: `n${++seq}`, estado: "pendente", decidida_por: null };
+            if (!existe) db[t].push(nova);
+            patch = existe ? {} : nova; return b;
+          },
+          then(res: (v: unknown) => unknown) {
+            const linhas = db[t].filter((l) => filtros.every((f) => f(l)));
+            if (op === "update") { for (const l of linhas) Object.assign(l, patch); return Promise.resolve({ data: null, error: null }).then(res); }
+            if (op === "upsert") return Promise.resolve({ data: patch.id ? [patch] : [], error: null }).then(res);
+            return Promise.resolve(head ? { count: linhas.length, error: null } : { data: linhas, error: null }).then(res);
+          },
+        };
+        return b;
+      },
+    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+    const S2 = await import("@/lib/agentes-servidor");
+    const cfg = { ...cfgP("conciliacao"), ativo: true, nivel: 3 as const };
+    const rel = await S2.rodarAgenteConciliacao(fake, "o1", cfg, "2026-11-04");
+    const nova = (chave: string) => db.agente_propostas.find((l) => l.chave === chave);
+    ok("conciliação (servidor): o par que não existe mais expira com o motivo",
+      db.agente_propostas.find((l) => l.id === "velha")?.estado === "expirada" && rel.expiradas === 1);
+    ok("conciliação (servidor): a aprovada é conciliada pelo banco, como aprovada",
+      rpcs.includes("agente_conciliar:aprov:false") && rel.executadasAprovadas === 1);
+    ok("conciliação (servidor): confiança alta sai sozinha; média espera e vai para o WhatsApp",
+      nova("par:t1:e1")?.estado === "executada" && rpcs.some((x) => x.endsWith(":true"))
+      && nova("par:t2:e2")?.estado === "pendente" && rel.idsParaAprovar?.length === 1 && rel.feitasSozinho === 1,
+      JSON.stringify({ rel, rpcs }));
+    ok("conciliação (servidor): o título de outra empresa não entra",
+      !db.agente_propostas.some((l) => String(l.chave).includes("x1")));
+    const antes = db.agente_propostas.length; rpcs.length = 0;
+    const de2 = await S2.rodarAgenteConciliacao(fake, "o1", cfg, "2026-11-04");
+    ok("conciliação (servidor): reexecutar não propõe nem concilia de novo",
+      db.agente_propostas.length === antes && rpcs.length === 0 && de2.propostas === 0, JSON.stringify({ de2, rpcs }));
+  }
+
+  const semC2 = (f: string) => ler(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+  const tela = semC2("src/lib/conciliacao-of.ts");
+  ok("conciliação: a tela e o agente casam pela MESMA regra",
+    /casarExtrato\(/.test(tela) && !/diasEntre|valorProx|const conf =/.test(tela)
+    && /casarExtrato\(/.test(semC2("src/lib/agentes-servidor.ts")));
+  ok("conciliação: extrato que já tem par não volta a casar (tela e agente)",
+    /\.is\("conciliado_com", null\)/.test(tela) && /\.is\("conciliado_com", null\)/.test(semC2("src/lib/agentes-servidor.ts")));
+  const srv = semC2("src/lib/agentes-servidor.ts");
+  ok("conciliação: o servidor concilia SÓ pelo banco (nenhum update em movements)",
+    /rpc\("agente_conciliar"/.test(srv) && !/from\("movements"\)\.update|from\("movements"\)\s*\.update/.test(srv));
+  const m4 = ler("supabase/migrations/20261104160000_agente_conciliacao.sql");
+  ok("banco: a tela e o agente conciliam pela MESMA regra",
+    /perform public\.conciliar_na_empresa\(p_previsto, p_extrato, public\.auth_org_id\(\), null\)/.test(m4)
+    && /perform public\.conciliar_na_empresa\(\(v_p\.dados->>'previsto'\)::uuid/.test(m4));
+  ok("banco: a regra interna é de ninguém de fora; a porta do agente só da chave de serviço",
+    /revoke all on function public\.conciliar_na_empresa\(uuid, uuid, uuid, text\)\s+from public, anon, authenticated, service_role;/.test(m4)
+    && !/grant execute on function public\.conciliar_na_empresa/.test(m4)
+    && /grant execute on function public\.agente_conciliar\(uuid, boolean\) to service_role;/.test(m4)
+    && !/grant execute on function public\.agente_conciliar[^;]*authenticated/.test(m4));
+  ok("banco: sozinho exige nível 2+ e confiança 85+",
+    /v_cfg\.nivel < 2/.test(m4) && /\(v_p\.dados->>'confianca'\)::numeric, 0\) < 85/.test(m4) && P.CONFIANCA_ALTA === 85);
+  ok("banco: a linha do extrato é conferida antes de cancelar o previsto",
+    /A linha do extrato não foi encontrada nesta empresa/.test(m4) && m4.indexOf("Esta linha do extrato já está conciliada") < m4.indexOf("set situacao = 'cancelado'"));
+  ok("banco: o agente concilia em nome de quem aprovou ou de quem deixou fazer sozinho, nunca de ninguém",
+    /v_quem := v_cfg\.atualizado_por;/.test(m4) && /v_quem := v_p\.decidida_por;/.test(m4) && /if v_quem is null then\s+raise exception/.test(m4)
+    && m4.indexOf("perform set_config('request.jwt.claim.sub', v_quem::text, true);") < m4.indexOf("perform public.conciliar_na_empresa((v_p.dados")
+    && /create trigger agentes_quem_mudou before update on public\.agentes/.test(m4));
+  ok("tela: aprovar a conciliação concilia na hora", /p\.agente === "conciliacao"\)\s*\? `\$\{p\.titulo\}\. \$\{await executarAprovada\(p\.id, p\.agente\)\}`/.test(ler("src/components/ia/ChatAgente.tsx")));
+  const Wc = await import("@/core/agentes/whatsapp");
+  ok("whatsapp: a conciliação feita diz que conciliou",
+    Wc.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "executada", agente: "conciliacao" }).includes("conciliado com o extrato"));
+}
+
+/* ── 7. a tela da Quattro AI: cada agente é um chat, configurado conversando ── */
+{
+  const C = await import("@/core/agentes/conversa");
+  const { configPadrao: cp, IDS_AGENTE: ids } = await import("@/core/agentes");
+  const salvo = cp("cobranca");
+  const a = C.abrirConversaAgente(salvo, "João");
+  const texto = a.falas.map((f) => `${f.texto} ${(f.itens ?? []).join(" ")}`).join(" ");
+  ok("conversa: o agente se apresenta, diz o que faz e até onde vai",
+    texto.includes("Oi, João! Sou o agente de cobrança.") && a.falas.some((f) => f.texto === "O que eu faço:" && (f.itens?.length ?? 0) > 0)
+    && a.falas.some((f) => f.texto === "Até onde eu vou:" && (f.itens?.length ?? 0) > 0), texto);
+  const perg = a.falas.find((f) => f.pergunta)!.pergunta!;
+  ok("conversa: desligado, pergunta o que pode fazer sozinho, com os 4 níveis e deixar desligado",
+    perg.opcoes.map((o) => o.id).join(",") === "nivel:0,nivel:1,nivel:2,nivel:3,desligar");
+  const n1 = C.responderConversaAgente(a.estado, salvo, { opcao: "nivel:1" });
+  ok("conversa: escolher o nível 1 liga e grava, e diz o que muda ao ligar",
+    n1.salvar?.ativo === true && n1.salvar.nivel === 1 && n1.estado.etapa === "pronto"
+    && n1.falas[0].texto.includes("Pronto, estou ligado.") && n1.falas[0].texto.includes("a régua de cobrança não envia sozinha"), JSON.stringify(n1.falas));
+  const n2 = C.responderConversaAgente(a.estado, salvo, { texto: "c" });
+  ok("conversa: a letra da opção vale; o nível 2 pergunta o limite antes de gravar",
+    !n2.salvar && n2.estado.etapa === "limite_valor" && n2.estado.rascunho.nivel === 2);
+  const v = C.responderConversaAgente(n2.estado, salvo, { texto: "R$ 1.500" });
+  const d = C.responderConversaAgente(v.estado, salvo, { opcao: "dia:20" });
+  ok("conversa: limite por ação escrito e por dia clicado vão para a configuração",
+    v.estado.rascunho.limiteValor === 1500 && d.salvar?.limiteValor === 1500 && d.salvar.limiteDia === 20 && d.salvar.nivel === 2,
+    JSON.stringify(d.salvar));
+  ok("conversa: valor que não é valor pergunta de novo, sem gravar",
+    C.responderConversaAgente(n2.estado, salvo, { texto: "muito" }).estado.etapa === "limite_valor"
+    && !C.responderConversaAgente(n2.estado, salvo, { texto: "muito" }).salvar);
+  ok("conversa: lê '2 mil' e '2.000,50'", C.lerValor("2 mil") === 2000 && C.lerValor("2.000,50") === 2000.5 && C.lerValor("abc") === null);
+  const ligado = { ...salvo, ativo: true, nivel: 1 as const };
+  const al = C.abrirConversaAgente(ligado);
+  const pl = al.falas.find((f) => f.pergunta)!.pergunta!;
+  ok("conversa: ligado, oferece deixar como está e desligar",
+    pl.opcoes.some((o) => o.id === "manter") && pl.opcoes.some((o) => o.id === "desligar"));
+  const des = C.responderConversaAgente(al.estado, ligado, { texto: "desligar" });
+  ok("conversa: desligar grava desligado", des.salvar?.ativo === false);
+  const mant = C.responderConversaAgente(al.estado, ligado, { opcao: "manter" });
+  ok("conversa: deixar como está não grava nada", !mant.salvar && mant.estado.etapa === "pronto");
+  const cp2 = cp("contas_pagar");
+  ok("conversa: contas a pagar, caixa e fechamento nunca oferecem passar do nível 1 (espelho do banco)",
+    (["contas_pagar", "caixa", "fechamento"] as const).every((id) => {
+      const o = C.abrirConversaAgente({ ...cp(id) }).falas.find((f) => f.pergunta)?.pergunta?.opcoes ?? [];
+      return o.every((x) => !/^nivel:[23]$/.test(x.id));
+    }) && !C.responderConversaAgente({ etapa: "nivel", rascunho: cp2 }, cp2, { opcao: "nivel:3" }).salvar);
+  ok("conversa: cada agente tem ícone e cor do DS",
+    ids.every((id) => /^var\(--color-agente-[a-z-]+\)$/.test(C.PERFIS[id].cor) && ler("src/app/globals.css").includes(`${C.PERFIS[id].cor.slice(4, -1)}:`)));
+
+  const nav = ler("src/components/dashboard/nav-data.ts");
+  ok("menu: Quattro AI é item do menu principal e leva à tela dos agentes",
+    /\{ id: "quattro-ai", label: "Quattro AI", icon: "sparkles", href: "\/quattro-ai"/.test(nav) && !/label: "Quattro AI",[^}]*event: "a4p:open-ia"/.test(nav));
+  ok("automações: os agentes saíram dela (uma morada só, na tela da Quattro AI)",
+    !/Agentes|AgentesView/.test(ler("src/app/automacoes/page.tsx").replace(/\/\*[\s\S]*?\*\//g, "")) && !existsSync(join(raiz, "src/components/agentes/AgentesView.tsx")));
+  const chat = ler("src/components/ia/ChatAgente.tsx");
+  ok("chat do agente: grava pelo escritor de sempre e decide pela função do banco",
+    /await salvarAgente\(passo\.salvar\)/.test(chat) && /decidirProposta\(p\.id, aprovar\)/.test(chat) && !/from\("agentes"\)/.test(chat));
+  // Pedido do dono (04/11/2026): no computador a lista mora no menu, na seção
+  // Conversas; a tela só a mostra no telefone. Os dois leem a mesma fonte.
+  const menu = ler("src/components/dashboard/Sidebar.tsx");
+  const hub = ler("src/components/ia/QuattroAIHub.tsx");
+  ok("menu: a Quattro AI e os agentes ficam na seção Conversas, antes das conversas",
+    /<AgentesDoMenu entra=\{entra\} \/>\s*<label[^>]*>\s*<span className="sr-only">Buscar conversa/.test(menu) && /useAgentesDoHub\(\)/.test(menu));
+  ok("tela: no computador a lista sai da tela (fica no menu) e a fonte é uma só",
+    /className=\{`md:hidden [^`]*`\}>\{lista\}/.test(hub) && /useAgentesDoHub\(\)/.test(hub) && !/useQuery\(/.test(hub));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }

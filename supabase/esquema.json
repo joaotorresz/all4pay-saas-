@@ -348,6 +348,29 @@
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 1)"
       },
       {
+        "nome": "20261104150000_agentes_whatsapp",
+        "motivo": "Aprovar pelo WhatsApp o que os agentes propõem (etapa 3 do plano AI first): o pedido com código de uso único e a resposta SIM/NÃO decidida pela mesma regra da tela. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela agente_pedidos_whatsapp (com o gatilho zz_auditar_*)",
+          "funções agente_decidir_na_empresa, agente_pedir_whatsapp e agente_responder_whatsapp",
+          "agente_decidir passa a chamar agente_decidir_na_empresa"
+        ],
+        "impacto": "Até ser aplicada, nenhum pedido de agente sai pelo WhatsApp. Tudo está atrás de WHATSAPP_APROVACAO=ligado e AGENTES=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 3)"
+      },
+      {
+        "nome": "20261104160000_agente_conciliacao",
+        "motivo": "O agente de conciliação (etapa 4 do plano AI first): a regra de conciliação vira uma só (conciliar_na_empresa) para a tela e o agente, e a porta do agente concilia a proposta e grava o resultado na mesma transação. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "funções conciliar_na_empresa e agente_conciliar",
+          "conciliar_movimentos passa a chamar conciliar_na_empresa (e a conferir a linha do extrato)"
+        ],
+        "impacto": "Até ser aplicada, o agente de conciliação não concilia (a proposta aprovada termina com o erro do banco) e o botão da tela segue com a regra antiga. O agente está atrás de AGENTES=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 4)"
+      },
+      {
         "nome": "20261104140000_cobranca_paga_baixa_titulo",
         "motivo": "Pago o Pix ou o boleto do link de pagamento, a cobrança vira paga e o título a receber vai a baixado pela transição nomeada 'pago pelo banco' da máquina de estados (escritor único pinbank_cobranca_liquidar, só service_role). A leitura pública do link passa a dizer 'pago' também com a cobrança paga. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [

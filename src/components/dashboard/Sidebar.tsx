@@ -14,6 +14,9 @@ import { abrirChat } from "@/components/ia/ChatGlobal";
 import { grupoDaRota, indiceItemAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
 import { apagarConversa, inscreverConversas, listarConversas, type Conversa } from "@/lib/ia-conversas";
 import { cn } from "@/lib/utils";
+import { AvatarAgente } from "@/components/ia/AvatarAgente";
+import { hrefDoHub, useAgentesDoHub, type SelecaoHub } from "@/components/ia/useAgentesDoHub";
+import { descricaoDe } from "@/core/agentes";
 
 /**
  * O MENU LATERAL ESCURO (03/11/2026, referência do dono).
@@ -334,6 +337,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           <Icon name="plus" size={18} color="currentColor" />
         </button>
       </div>
+      <AgentesDoMenu entra={entra} />
       <label {...entra()} className="relative block mb-2">
         <span className="sr-only">Buscar conversa</span>
         <span className="absolute left-4 top-1/2 -translate-y-1/2 a4p-menu-meta pointer-events-none">
@@ -409,6 +413,47 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * A Quattro AI e os agentes, cada um com o próprio chat (pedido do dono,
+ * 04/11/2026: "no local do menu onde estão as conversas"). Cada item abre o
+ * chat dele em /quattro-ai; os números vêm de `useAgentesDoHub`, os mesmos
+ * da tela.
+ */
+function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style: React.CSSProperties } }) {
+  const pathname = usePathname();
+  const pedida = useSearchParams().get("agente");
+  const { ids, porAgente, estadoDe, resumoIA, pendentes } = useAgentesDoHub();
+  const naTela = pathname === "/quattro-ai";
+  const ativa: SelecaoHub | null = naTela ? ((pedida as SelecaoHub | null) ?? "quattro-ai") : null;
+  const itens: { id: SelecaoHub; nome: string; sub: string; n: number }[] = [
+    { id: "quattro-ai", nome: "Quattro AI", sub: resumoIA, n: pendentes.length },
+    ...ids.map((id) => ({ id, nome: descricaoDe(id).nome, sub: estadoDe(id), n: porAgente(id) })),
+  ];
+  return (
+    <ul className="m-0 mb-3 p-0 list-none flex flex-col gap-0.5" aria-label="Quattro AI e agentes" data-menu-agentes>
+      {itens.map((it) => {
+        const on = ativa === it.id;
+        return (
+          <li key={it.id} {...entra()}>
+            <Link href={hrefDoHub(it.id)} aria-current={on ? "page" : undefined} title={it.nome} data-item={it.id}
+              className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "a4p-menu-afundado" : "a4p-menu-item")}>
+              <AvatarAgente agente={it.id} tamanho={30} noMenu />
+              <span className="flex-1 min-w-0">
+                <span className="block truncate text-[14px] font-medium">{it.nome}</span>
+                <span className="block truncate text-[12px] a4p-menu-meta">{it.sub}</span>
+              </span>
+              {it.n > 0 && (
+                <span className="shrink-0 min-w-[20px] h-[20px] px-[6px] rounded-pill bg-white text-ink text-[12px] flex items-center justify-center tabular-nums"
+                  aria-label={`${it.n} para aprovar`}>{it.n}</span>
+              )}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

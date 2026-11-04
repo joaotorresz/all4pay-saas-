@@ -10,12 +10,9 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { casarExtrato, type MovimentoParaCasar, type ParConciliacao } from "@/core/conciliacao/pares";
 
-export interface MatchConc {
-  ofId: string; ofDesc: string; ofData: string;
-  pendId: string; pendDesc: string; dueDate: string;
-  tipo: "entrada" | "saida"; amount: number; confianca: number;
-}
+export type MatchConc = ParConciliacao;
 export interface ConciliacaoOF { matches: MatchConc[]; pendentesSemMatch: number; ofSemMatch: number }
 
 export type RecomendacaoIA = "conciliar" | "revisar" | "rejeitar";
@@ -55,60 +52,30 @@ export async function avaliarComIA(matches: MatchConc[]): Promise<Map<string, Av
  *  banco conectado. Em live os pares vêm do matching real abaixo. */
 const DEMO_CONC: ConciliacaoOF = {
   matches: [
-    { ofId: "of-1", ofDesc: "PIX recebido · ACME Ltda", ofData: "2026-06-12", pendId: "p-1", pendDesc: "NF 1042 · ACME Ltda", dueDate: "2026-06-12", tipo: "entrada", amount: 4800, confianca: 98 },
-    { ofId: "of-2", ofDesc: "TED · Distribuidora Sul", ofData: "2026-06-10", pendId: "p-2", pendDesc: "Boleto fornecedor · Distribuidora Sul", dueDate: "2026-06-11", tipo: "saida", amount: 2350.9, confianca: 88 },
-    { ofId: "of-3", ofDesc: "Débito · Posto Ipiranga", ofData: "2026-06-09", pendId: "p-3", pendDesc: "Combustível (previsto)", dueDate: "2026-06-07", tipo: "saida", amount: 520, confianca: 72 },
-    { ofId: "of-4", ofDesc: "PIX recebido · João Mendes", ofData: "2026-06-08", pendId: "p-4", pendDesc: "Serviço · João Mendes", dueDate: "2026-06-05", tipo: "entrada", amount: 1200, confianca: 64 },
+    { ofId: "of-1", ofDesc: "PIX recebido · ACME Ltda", ofData: "2026-06-12", pendId: "p-1", pendDesc: "NF 1042 · ACME Ltda", dueDate: "2026-06-12", tipo: "entrada", amount: 4800, confianca: 98, criterios: { valorExato: true, dias: 0, mesmoContato: true } },
+    { ofId: "of-2", ofDesc: "TED · Distribuidora Sul", ofData: "2026-06-10", pendId: "p-2", pendDesc: "Boleto fornecedor · Distribuidora Sul", dueDate: "2026-06-11", tipo: "saida", amount: 2350.9, confianca: 88, criterios: { valorExato: true, dias: 1, mesmoContato: true } },
+    { ofId: "of-3", ofDesc: "Débito · Posto Ipiranga", ofData: "2026-06-09", pendId: "p-3", pendDesc: "Combustível (previsto)", dueDate: "2026-06-07", tipo: "saida", amount: 520, confianca: 72, criterios: { valorExato: true, dias: 2, mesmoContato: false } },
+    { ofId: "of-4", ofDesc: "PIX recebido · João Mendes", ofData: "2026-06-08", pendId: "p-4", pendDesc: "Serviço · João Mendes", dueDate: "2026-06-05", tipo: "entrada", amount: 1200, confianca: 64, criterios: { valorExato: true, dias: 3, mesmoContato: false } },
   ],
   pendentesSemMatch: 3,
   ofSemMatch: 5,
 };
 
-interface MovRow { id: string; type: "entrada" | "saida"; amount: number; due_date: string; paid_date: string | null; party_id: string | null; description: string | null }
+type MovRow = MovimentoParaCasar;
 
-const diasEntre = (a: string, b: string) => Math.abs(Math.round((Date.parse(a) - Date.parse(b)) / 86400000));
-
+/** A consulta do navegador; o casamento é a regra única de `core/conciliacao/pares`. */
 export async function getConciliacaoOF(): Promise<ConciliacaoOF | null> {
   if (isDemo) return DEMO_CONC;
   const supabase = createClient();
   const cols = "id,type,amount,due_date,paid_date,party_id,description";
   const [pendRes, ofRes] = await Promise.all([
     semAmostra(supabase.from("movements").select(cols)).eq("status", "pendente").limit(TETO_LINHAS),
-    semAmostra(supabase.from("movements").select(cols)).eq("status", "pago").like("reference_code", "pluggy:%").limit(TETO_LINHAS),
+    semAmostra(supabase.from("movements").select(cols)).eq("status", "pago").like("reference_code", "pluggy:%").is("conciliado_com", null).limit(TETO_LINHAS),
   ]);
   if (pendRes.error) throw pendRes.error;
   if (ofRes.error) throw ofRes.error;
-  const pend = (pendRes.data ?? []) as MovRow[];
-  const ofs = (ofRes.data ?? []) as MovRow[];
-
-  const usados = new Set<string>();
-  const matches: MatchConc[] = [];
-  for (const o of ofs) {
-    const dataOf = o.paid_date ?? o.due_date;
-    let best: { p: MovRow; conf: number } | null = null;
-    for (const p of pend) {
-      if (usados.has(p.id) || p.type !== o.type) continue;
-      const dif = Math.abs(p.amount - Math.abs(o.amount));
-      const valorExato = dif <= 0.01;
-      const valorProx = p.amount > 0 && dif / p.amount <= 0.02;
-      if (!valorExato && !valorProx) continue;
-      const dd = diasEntre(dataOf, p.due_date);
-      if (dd > 7) continue;
-      const partyMatch = !!(o.party_id && p.party_id && o.party_id === p.party_id);
-      const conf = (valorExato ? 50 : 35) + (dd === 0 ? 30 : dd <= 2 ? 22 : dd <= 5 ? 12 : 5) + (partyMatch ? 20 : 0);
-      if (!best || conf > best.conf) best = { p, conf };
-    }
-    if (best) {
-      usados.add(best.p.id);
-      matches.push({
-        ofId: o.id, ofDesc: o.description ?? "Open Finance", ofData: dataOf,
-        pendId: best.p.id, pendDesc: best.p.description ?? "Título", dueDate: best.p.due_date,
-        tipo: o.type, amount: Math.abs(o.amount), confianca: Math.min(100, best.conf),
-      });
-    }
-  }
-  matches.sort((a, b) => b.confianca - a.confianca);
-  return { matches, pendentesSemMatch: pend.length - usados.size, ofSemMatch: ofs.length - matches.length };
+  const r = casarExtrato((pendRes.data ?? []) as MovRow[], (ofRes.data ?? []) as MovRow[]);
+  return { matches: r.pares, pendentesSemMatch: r.pendentesSemPar, ofSemMatch: r.extratoSemPar };
 }
 
 /** Concilia um par: o movimento do banco (OF) herda a classificação do título e

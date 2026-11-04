@@ -14,7 +14,7 @@ import { linksDaRegua } from "@/lib/regua-links";
 import { registrarExecucaoCron } from "@/lib/cron-execucao";
 import { agentesLigados } from "@/core/agentes/ligado";
 import type { ConfigAgente } from "@/core/agentes";
-import { empresasComCobranca, reguaDaEmpresaServidor, rodarAgenteCobranca, type RelatorioAgente } from "@/lib/agentes-servidor";
+import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,6 +95,7 @@ export async function GET(req: Request) {
     orgId: string; erro?: string;
     automacoes: { tipo: string; mensagens: { canal: string; destino: string }[]; semEnvio?: string; pulados: number }[];
     agenteCobranca?: RelatorioAgente;
+    pedidosWhatsapp?: { pedidos: number; falhas: number; erro?: string };
   }[] = [];
 
   for (const [orgId, todas] of Array.from(porOrg)) {
@@ -123,10 +124,17 @@ export async function GET(req: Request) {
       ? await rodarAgenteCobranca(admin, orgId, agente, ctx, reguaDoAgente, { registro, provedor, dryRun })
         .catch((e: unknown): RelatorioAgente => ({ agente: "cobranca", ativo: true, propostas: 0, paraAprovar: 0, feitasSozinho: 0, executadasAprovadas: 0, falhas: 0, expiradas: 0, soAviso: 0, pulados: 0, erro: e instanceof Error ? e.message : "falha no agente" }))
       : undefined;
+    // Etapa 3: o que espera aprovação vai ao WhatsApp de quem aprova (número
+    // confirmado), atrás do mesmo interruptor da aprovação de título.
+    const pedidosWhatsapp = agenteCobranca?.idsParaAprovar?.length && !dryRun && process.env.WHATSAPP_APROVACAO === "ligado"
+      ? await pedirPorWhatsapp(admin, agenteCobranca.idsParaAprovar)
+        .catch((e: unknown) => ({ pedidos: 0, falhas: 0, erro: e instanceof Error ? e.message : "falha no pedido" }))
+      : undefined;
     empresas.push({
       orgId,
       ...(avisoLinks ? { erro: avisoLinks } : {}),
       ...(agenteCobranca ? { agenteCobranca } : {}),
+      ...(pedidosWhatsapp ? { pedidosWhatsapp } : {}),
       automacoes: resultados.map((r) => ({
         tipo: r.tipo,
         mensagens: r.mensagens.map((m) => ({ canal: m.canal, destino: m.destinoMascarado })),
@@ -155,6 +163,31 @@ export async function GET(req: Request) {
     }
   }
 
+  // O agente de conciliação (Etapa 4): fora do laço das automações, porque não
+  // depende de régua nem de provedor. Falha numa empresa não para as outras.
+  const conciliacao: { orgId: string; agente?: RelatorioAgente; pedidosWhatsapp?: { pedidos: number; falhas: number; erro?: string }; erro?: string }[] = [];
+  if (agentesLigados(process.env)) {
+    let comConc = new Map<string, ConfigAgente>();
+    try { comConc = await empresasComAgente(admin, "conciliacao"); }
+    catch (e) { conciliacao.push({ orgId: "*", erro: e instanceof Error ? e.message : "falha ao ler os agentes" }); }
+    for (const [orgId, cfg] of Array.from(comConc)) {
+      try {
+        const agente = await rodarAgenteConciliacao(admin, orgId, cfg, hoje, { dryRun });
+        const pedidosWhatsapp = agente.idsParaAprovar?.length && !dryRun && process.env.WHATSAPP_APROVACAO === "ligado"
+          ? await pedirPorWhatsapp(admin, agente.idsParaAprovar)
+            .catch((e: unknown) => ({ pedidos: 0, falhas: 0, erro: e instanceof Error ? e.message : "falha no pedido" }))
+          : undefined;
+        conciliacao.push({ orgId, agente, ...(pedidosWhatsapp ? { pedidosWhatsapp } : {}) });
+        if (!dryRun) {
+          const { error } = await admin.from("audit_log").insert({
+            org_id: orgId, usuario: "cron:agentes", acao: "agente_conciliacao", antes: null, depois: { hoje, ...agente },
+          });
+          if (error) conciliacao[conciliacao.length - 1].erro = `trilha: ${error.message}`;
+        }
+      } catch (e) { conciliacao.push({ orgId, erro: e instanceof Error ? e.message : "falha no agente" }); }
+    }
+  }
+
   // Os lembretes de quem parou no cadastro vão na MESMA vaga de cron (o plano
   // da Vercel tem duas). Falha aqui não derruba as automações: vai na resposta.
   const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
@@ -175,6 +208,7 @@ export async function GET(req: Request) {
     empresas: porOrg.size,
     totais: { sairiam: rel.sairiam, enviados: rel.enviados, simulados: rel.simulados, falhas: rel.falhas, jaRegistrados: rel.jaRegistrados, bloqueados: rel.bloqueados },
     porEmpresa: empresas,
+    agenteConciliacao: conciliacao,
     provedores: statusNotificacoes(),
   });
 }

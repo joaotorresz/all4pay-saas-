@@ -28,6 +28,8 @@ import {
 import { propostasDeCobranca, propostaDoDia, MOTIVO_EXPIRADA } from "@/core/agentes/cobranca";
 import { configPadrao as configPadraoAutomacao } from "@/core/automacoes";
 import { contextoDaEmpresa, listarAutomacoes } from "@/lib/automacoes";
+import { propostasDeConciliacao } from "@/core/agentes/conciliacao";
+import { getConciliacaoOF } from "@/lib/conciliacao-of";
 
 const K_CONFIG = CHAVES_ORG.agentes;
 const K_PROPOSTAS = CHAVES_ORG.agentePropostas;
@@ -81,6 +83,7 @@ interface LinhaProposta {
 export async function listarPropostas(): Promise<PropostaAgente[]> {
   if (isDemo) {
     await simularCobrancaNaDemo().catch(() => undefined);
+    await simularConciliacaoNaDemo().catch(() => undefined);
     return ler<PropostaAgente[]>(K_PROPOSTAS, []);
   }
   const { data, error } = await createClient()
@@ -113,15 +116,15 @@ export async function decidirProposta(id: string, aprovar: boolean, motivo?: str
  * Depois do "Aprovar": pede o envio NA HORA. Devolve a frase do resultado.
  * ⚠️ Falha aqui não desfaz a aprovação: o runner diário envia o que ficou.
  */
-export async function executarAprovada(id: string): Promise<string> {
-  if (isDemo) return "Aprovada. Na demonstração nada é enviado.";
+export async function executarAprovada(id: string, agente: IdAgente = "cobranca"): Promise<string> {
+  if (isDemo) return agente === "conciliacao" ? "Aprovada. Na demonstração nada é conciliado." : "Aprovada. Na demonstração nada é enviado.";
   try {
     const r = await fetch("/api/agentes/executar", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }),
     });
     const j = (await r.json().catch(() => ({}))) as { ok?: boolean; estado?: string; erro?: string | null; motivo?: string };
     if (!r.ok || !j.ok) return `Aprovada. O envio fica para a execução diária: ${j.motivo ?? "o servidor não respondeu"}.`;
-    if (j.estado === "executada") return j.erro ? `Feita. ${j.erro}` : "Feita: a cobrança saiu.";
+    if (j.estado === "executada") return j.erro ? `Feita. ${j.erro}` : (agente === "conciliacao" ? "Feita: o título foi conciliado com o extrato." : "Feita: a cobrança saiu.");
     if (j.estado === "falhou") return `Não deu certo. ${j.erro ?? ""}`.trim();
     return "Aprovada.";
   } catch {
@@ -151,3 +154,26 @@ async function simularCobrancaNaDemo(): Promise<void> {
   }));
   if (novas.length || expiradas.some((p, i) => p !== atuais[i])) gravar(K_PROPOSTAS, [...novas, ...expiradas]);
 }
+
+/**
+ * O "runner" da demonstração para a conciliação: os MESMOS pares da aba
+ * Conciliar viram propostas pelo mesmo núcleo do servidor. Nada é conciliado.
+ */
+async function simularConciliacaoNaDemo(): Promise<void> {
+  if (!isDemo) return;
+  const cfg = (await listarAgentes()).find((c) => c.agente === "conciliacao");
+  if (!cfg?.ativo || cfg.nivel === 0) return;
+  const conc = await getConciliacaoOF();
+  if (!conc) return;
+  const atuais = ler<(PropostaAgente & { chave?: string })[]>(K_PROPOSTAS, []);
+  const vistas = new Set(atuais.map((p) => p.chave));
+  const agora = new Date().toISOString();
+  const novas = propostasDeConciliacao(conc.matches, { previstos: new Set(), extratos: new Set() })
+    .filter((p) => !vistas.has(p.chave))
+    .map((p) => ({
+      id: `demo-${p.chave}`, chave: p.chave, agente: "conciliacao" as const, titulo: p.titulo, porque: p.porque, valor: p.valor,
+      estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null,
+    }));
+  if (novas.length) gravar(K_PROPOSTAS, [...novas, ...atuais]);
+}
+

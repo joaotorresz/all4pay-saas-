@@ -8575,9 +8575,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("ia: abrir o chat antes de o anfitrião montar fica na fila (efeitos rodam do filho para o pai)",
      /if \(!ouvindo\) \{ pendente = opcoes; return; \}/.test(globalIA) && /if \(pendente\) \{ abrir\(pendente\); pendente = null; \}/.test(globalIA));
   const navIA = srcIA("src/components/dashboard/nav-data.ts");
-  ok("ia: o item Quattro AI do menu abre o chat por cima da tela (evento), sem perder o endereço",
-     /label: "Quattro AI",[^}]*href: "\/quattro-ai",[^}]*event: "a4p:open-ia"/.test(navIA)
-     && /e\.preventDefault\(\);\s*window\.dispatchEvent\(new Event\(it\.event!\)\)/.test(srcIA("src/components/dashboard/Sidebar.tsx")));
+  // ⚠️ MUDOU em 04/11/2026 (pedido do dono): "Quattro AI" saiu de Inteligência
+  // e virou item do menu principal, que leva à TELA da Quattro AI (a IA e os
+  // agentes). A conversa continua uma só: a tela abre o mesmo ChatTelaCheia.
+  ok("ia: Quattro AI é item do menu principal e leva à tela da IA com os agentes",
+     /\{ id: "quattro-ai", label: "Quattro AI", icon: "sparkles", href: "\/quattro-ai"/.test(navIA)
+     && /<QuattroAIHub /.test(semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"))));
   const shellIA = semComentIA(srcIA("src/components/ia/AssistenteShell.tsx"));
   ok("ia: /quattro-ai abre o chat, sem abas (os motores são páginas desde 27/10/2026)",
      !/id: "conversa"/.test(shellIA) && /<ChatTelaCheia /.test(shellIA) && !/setAba|aria-current/.test(shellIA));

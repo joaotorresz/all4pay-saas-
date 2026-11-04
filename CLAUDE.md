@@ -140,6 +140,21 @@ no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
   runner tira a régua da empresa); envia pelo `despachar` depois do Aprovar
   (`/api/agentes/executar`, só a aprovada) ou dentro do limite, sempre
   refazendo a mensagem do dia. Servidor único: `lib/agentes-servidor.ts`.
+  **Aprovar pelo WhatsApp** (etapa 3): atrás de `WHATSAPP_APROVACAO` e
+  `AGENTES`; o pedido sai só para quem aprova E tem número confirmado, com
+  código de uso único (só o hash fica), e o SIM decide pela MESMA regra da
+  tela (`agente_decidir_na_empresa`, que ninguém de fora chama) e envia pelo
+  mesmo `executarAprovada`. No máximo 10 pedidos por execução.
+  **Conciliação** (etapa 4, pronto): casa pela MESMA regra da aba Conciliar
+  (`core/conciliacao/pares`), uma proposta por par (`par:<título>:<extrato>`,
+  o recusado não volta); sozinho só o par de confiança 85+ no nível 2+ (o
+  banco confere); concilia pelo banco (`agente_conciliar` →
+  `conciliar_na_empresa`, a mesma regra do botão).
+  **Tela** (04/11/2026, pedido do dono): "Quattro AI" é item do menu
+  principal (`/quattro-ai`): a IA no alto e os agentes embaixo, cada um com
+  o próprio chat (`QuattroAIHub`, `ChatAgente`), cor `--color-agente-*`. O
+  agente se apresenta e é configurado CONVERSANDO (`core/agentes/conversa`,
+  que nasce da config salva e grava por `salvarAgente`). Saiu de Automações.
 - **Quattro AI no WhatsApp:** atrás de `WHATSAPP_IA`, só leitura (a etapa 5,
   lançar, está pendente).
 - **Sem emoji**, exceto nos modelos de WhatsApp cadastrados na Twilio.

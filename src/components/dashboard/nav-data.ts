@@ -126,6 +126,12 @@ export const ACOES_GLOBAIS: { rota: string; onde: string }[] = [
  */
 export const SECTIONS: Section[] = [
   { id: "inicio", label: "Visão geral", icon: "house", href: "/", desc: "O mês em uma tela", items: [] },
+  // ⚠️ A QUATTRO AI NO MENU PRINCIPAL (04/11/2026, pedido do dono): a tela da
+  // IA com os agentes embaixo, cada um com o próprio chat. Antes era uma linha
+  // de Inteligência que abria o chat por cima da tela; o chat continua o mesmo
+  // (a tela abre o `ChatTelaCheia` de sempre), e o ⌘K e a caixa da Home seguem
+  // abrindo-o direto.
+  { id: "quattro-ai", label: "Quattro AI", icon: "sparkles", href: "/quattro-ai", desc: "A IA e os agentes", items: [] },
   /*
    * ⚠️ REORGANIZAÇÃO DOS MENUS (19/10/2026, aprovada pelo dono): 58 linhas →
    * 48, nenhuma função repetida. A regra foi uma só: UMA PERGUNTA, UMA LINHA.
@@ -228,7 +234,6 @@ export const SECTIONS: Section[] = [
     // conversa (`core/assistant/widgets`), e a tela completa de cada um segue
     // no endereço dela, Pro pelo servidor, aberta pelo cartão.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
-      { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles", event: "a4p:open-ia" },
       { label: "Posso comprar?", desc: "O que a compra faz com o seu caixa", href: "/simuladores", icon: "target" },
       { label: "Plano de contratações", desc: "O custo de cada contratação no caixa", href: "/contratacoes", icon: "users", pro: true },
       { label: "Automações", desc: "Mensagens no WhatsApp e alertas do sistema", href: "/automacoes", icon: "workflow" },
