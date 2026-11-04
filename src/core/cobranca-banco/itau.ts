@@ -74,6 +74,43 @@ export const ROTAS_ITAU: Record<AmbienteItau, { emitir: string; boletos: string 
 };
 
 /**
+ * O EXEMPLO DA DOCUMENTAÇÃO do Itaú para emitir boleto com Pix, copiado
+ * LITERAL da doc pelo dono em 03/11/2026. Só o sandbox o usa
+ * (`emitirExemploDoSandboxItau`): o simulador responde só a este corpo. Não
+ * mexer em nada, nem no acento, nem no valor em reais com ponto: o que se
+ * prova aqui é o caminho, não o nosso montador.
+ */
+export const EXEMPLO_DA_DOC_ITAU = {
+  etapa_processo_boleto: "efetivacao",
+  beneficiario: { id_beneficiario: "150000052061" },
+  dado_boleto: {
+    descricao_instrumento_cobranca: "boleto_pix",
+    tipo_boleto: "a vista",
+    codigo_carteira: "109",
+    codigo_especie: "01",
+    valor_total_titulo: "1234.56",
+    pagador: {
+      pessoa: {
+        nome_pessoa: "João da Silva",
+        tipo_pessoa: { codigo_tipo_pessoa: "F", numero_cadastro_pessoa_fisica: "12345678901" },
+      },
+      endereco: {
+        nome_logradouro: "Rua das Flores",
+        nome_bairro: "Centro",
+        nome_cidade: "São Paulo",
+        sigla_UF: "SP",
+        numero_CEP: "01310100",
+      },
+    },
+    dados_individuais_boleto: [{ numero_nosso_numero: "12345678", data_vencimento: "2026-12-31", valor_titulo: "1234.56" }],
+  },
+} as const;
+
+/** A conta e o nosso número do exemplo (beneficiário 1500 · 0005206 · 1, carteira 109). */
+export const CONTA_DO_EXEMPLO_ITAU = { agencia: "1500", conta: "0005206", dac: "1", carteira: "109" } as const;
+export const NOSSO_NUMERO_DO_EXEMPLO_ITAU = "12345678";
+
+/**
  * O caminho do token POR AMBIENTE. Produção é o STS (`/api/oauth/token`); o
  * sandbox do portal é `/api/oauth/jwt` — medido em 30/10/2026: `/token` deu
  * 403 e o "gerar token" do portal faz POST em `/jwt` e recebe 200 com as
