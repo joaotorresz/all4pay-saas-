@@ -329,9 +329,11 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
       {/* A Quattro AI, os agentes e as conversas num cartão CINZA-CLARO dentro
           do menu escuro, com os destaques em branco (teste do dono, 04/11/2026,
           no modelo dos bots de conversa): busca e "nova" no alto, a Quattro AI
-          grande no centro, os agentes e as conversas embaixo. */}
+          grande no centro, os agentes, e então busca e "nova" e as conversas. */}
       <div className="mt-2 rounded-[20px] bg-surface-1 text-ink p-2 flex flex-col" data-menu-conversas>
-      <div {...entra()} className="flex items-center justify-end gap-2 px-1 pt-1">
+      <QuattroAIDoMenu entra={entra} />
+      <AgentesDoMenu entra={entra} />
+      <div {...entra()} className="flex items-center justify-end gap-2 px-1 pt-1 pb-1">
         <button
           type="button"
           onClick={() => { setBuscando((b) => !b); if (buscando) setTermo(""); }}
@@ -352,7 +354,6 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           <Icon name="plus" size={17} color="currentColor" />
         </button>
       </div>
-      <QuattroAIDoMenu entra={entra} />
       {buscando && (
         <label className="relative block mb-2">
           <span className="sr-only">Buscar conversa</span>
@@ -369,7 +370,6 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
           />
         </label>
       )}
-      <AgentesDoMenu entra={entra} />
       {visiveis.length === 0 ? (
         <p {...entra()} className="a4p-menu-narrow text-muted m-0 px-4 py-2 text-[13px]">
           {q ? "Nenhuma conversa com esse nome." : "Suas conversas com a Quattro AI aparecem aqui."}
@@ -464,7 +464,7 @@ function QuattroAIDoMenu({ entra }: { entra: () => { "data-revela": string; styl
         <span className="relative">
           <AvatarAgente agente="quattro-ai" tamanho={64} />
           {pendentes.length > 0 && (
-            <span className="absolute -right-1 bottom-0 min-w-[20px] h-[20px] px-[5px] rounded-pill bg-ink text-white text-[11px] flex items-center justify-center tabular-nums ring-2 ring-white"
+            <span className="absolute -right-1 bottom-0 min-w-[20px] h-[20px] px-[5px] rounded-pill bg-ink text-white text-[11px] leading-none a4p-menu-grupo flex items-center justify-center tabular-nums ring-2 ring-white"
               aria-label={`${pendentes.length} para aprovar`}>{pendentes.length}</span>
           )}
         </span>
@@ -501,7 +501,7 @@ function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style:
                 <span className="a4p-menu-narrow block truncate text-[12px] text-muted">{it.sub}</span>
               </span>
               {it.n > 0 && (
-                <span className="shrink-0 min-w-[20px] h-[20px] px-[6px] rounded-pill bg-ink text-white text-[12px] flex items-center justify-center tabular-nums"
+                <span className="shrink-0 min-w-[20px] h-[20px] px-[6px] rounded-pill bg-ink text-white text-[12px] leading-none a4p-menu-grupo flex items-center justify-center tabular-nums"
                   aria-label={`${it.n} para aprovar`}>{it.n}</span>
               )}
             </Link>

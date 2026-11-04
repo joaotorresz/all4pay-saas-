@@ -105,7 +105,7 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
         )}
         <span className="inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white" title={desc.missao}>
           <AvatarAgente agente={config.agente} tamanho={26} />
-          <h2 className="m-0 text-[15px] font-medium text-ink">{desc.nome}</h2>
+          <h2 className="a4p-menu-grupo m-0 text-[15px] text-ink">{desc.nome}</h2>
         </span>
       </header>
 

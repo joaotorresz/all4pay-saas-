@@ -564,8 +564,8 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   const menu = ler("src/components/dashboard/Sidebar.tsx");
   const hub = ler("src/components/ia/QuattroAIHub.tsx");
   const conversa = ler("src/components/ia/conversa.tsx");
-  ok("menu: a Quattro AI (grande, no alto) e os agentes ficam no cartão da IA, antes das conversas",
-    /<QuattroAIDoMenu entra=\{entra\} \/>[\s\S]*<AgentesDoMenu entra=\{entra\} \/>\s*\{visiveis\.length/.test(menu) && /useAgentesDoHub\(\)/.test(menu)
+  ok("menu: a Quattro AI (grande, no alto) e os agentes ficam no cartão da IA; busca e \"nova\" vêm depois dos agentes, antes das conversas",
+    /<QuattroAIDoMenu entra=\{entra\} \/>\s*<AgentesDoMenu entra=\{entra\} \/>[\s\S]*aria-label="Buscar conversa"[\s\S]*\{visiveis\.length/.test(menu) && /useAgentesDoHub\(\)/.test(menu)
       && /<AvatarAgente agente="quattro-ai" tamanho=\{64\} \/>/.test(menu));
   // Os bonecos de cada agente (04/11/2026): um PNG por agente, RGBA (fundo
   // transparente), com pelo menos 256px (nítido em retina).
