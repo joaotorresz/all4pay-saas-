@@ -27,6 +27,7 @@ import { OndaDeVoz, TempoDeGravacao } from "./OndaDeVoz";
 import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { OfertaWhatsapp } from "./OfertaWhatsapp";
 import { ConversaCompletar } from "./ConversaCompletar";
+import { AvatarAgente } from "./AvatarAgente";
 import { pedeCompletarCadastro } from "@/core/cadastro/completar";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
@@ -347,7 +348,12 @@ export function ChatTelaCheia({
       style={{ background: embutido ? "var(--color-white)" : "var(--color-surface-1)" }}
     >
       {embutido ? (
-        <header className="flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
+        <header className="relative flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
+          {/* A pílula com a Quattro AI no alto, como no chat de cada agente. */}
+          <span className="absolute left-1/2 -translate-x-1/2 inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white border border-border-soft">
+            <AvatarAgente agente="quattro-ai" tamanho={26} />
+            <span className="text-[15px] font-medium text-ink">{MARCA_IA}</span>
+          </span>
           <button
             type="button"
             onClick={() => setHistorico((h) => !h)}

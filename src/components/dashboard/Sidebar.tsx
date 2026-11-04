@@ -301,6 +301,7 @@ export function Sidebar() {
 function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; style: React.CSSProperties } }) {
   const [conversas, setConversas] = React.useState<Conversa[]>([]);
   const [termo, setTermo] = React.useState("");
+  const [buscando, setBuscando] = React.useState(false);
   const [opcoes, setOpcoes] = React.useState<string | null>(null);
   const [confirmar, setConfirmar] = React.useState<string | null>(null);
   const caixa = React.useRef<HTMLDivElement>(null);
@@ -325,35 +326,50 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
   return (
     <div ref={caixa} className="flex flex-col">
       <span {...entra()} aria-hidden className="a4p-menu-divisor" />
-      {/* As conversas e os agentes num cartão BRANCO dentro do menu escuro
-          (pedido do dono, 04/11/2026). */}
-      <div className="mt-2 rounded-[20px] bg-white text-ink p-2 flex flex-col" data-menu-conversas>
-      <div {...entra()} className="flex items-center justify-between pl-3 mt-1 mb-2">
-        <span className="a4p-menu-grupo text-[15px]">Conversas</span>
+      {/* A Quattro AI, os agentes e as conversas num cartão CINZA-CLARO dentro
+          do menu escuro, com os destaques em branco (teste do dono, 04/11/2026,
+          no modelo dos bots de conversa): busca e "nova" no alto, a Quattro AI
+          grande no centro, os agentes e as conversas embaixo. */}
+      <div className="mt-2 rounded-[20px] bg-surface-1 text-ink p-2 flex flex-col" data-menu-conversas>
+      <div {...entra()} className="flex items-center justify-end gap-2 px-1 pt-1">
+        <button
+          type="button"
+          onClick={() => { setBuscando((b) => !b); if (buscando) setTermo(""); }}
+          aria-label="Buscar conversa"
+          aria-expanded={buscando}
+          title="Buscar conversa"
+          className="bg-white text-ink w-9 h-9 rounded-pill inline-flex items-center justify-center transition-transform hover:-translate-y-px"
+        >
+          <Icon name="search" size={16} color="currentColor" />
+        </button>
         <button
           type="button"
           onClick={() => abrirChat()}
           aria-label="Nova conversa com a Quattro AI"
           title="Nova conversa"
-          className="bg-surface-1 text-ink hover:bg-surface-2 w-10 h-10 rounded-[12px] inline-flex items-center justify-center transition-colors"
+          className="bg-white text-ink w-9 h-9 rounded-pill inline-flex items-center justify-center transition-transform hover:-translate-y-px"
         >
-          <Icon name="plus" size={18} color="currentColor" />
+          <Icon name="plus" size={17} color="currentColor" />
         </button>
       </div>
+      <QuattroAIDoMenu entra={entra} />
+      {buscando && (
+        <label className="relative block mb-2">
+          <span className="sr-only">Buscar conversa</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+            <Icon name="search" size={16} color="currentColor" />
+          </span>
+          <input
+            type="search"
+            autoFocus
+            value={termo}
+            onChange={(e) => setTermo(e.target.value)}
+            placeholder="Buscar conversa"
+            className="bg-white text-ink placeholder:text-placeholder outline-none a4p-menu-narrow w-full h-11 rounded-[14px] pl-11 pr-3 text-[14px]"
+          />
+        </label>
+      )}
       <AgentesDoMenu entra={entra} />
-      <label {...entra()} className="relative block mb-2">
-        <span className="sr-only">Buscar conversa</span>
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
-          <Icon name="search" size={16} color="currentColor" />
-        </span>
-        <input
-          type="search"
-          value={termo}
-          onChange={(e) => setTermo(e.target.value)}
-          placeholder="Buscar conversa"
-          className="bg-surface-1 text-ink placeholder:text-placeholder outline-none a4p-menu-narrow w-full h-11 rounded-[14px] pl-11 pr-3 text-[14px]"
-        />
-      </label>
       {visiveis.length === 0 ? (
         <p {...entra()} className="a4p-menu-narrow text-muted m-0 px-4 py-2 text-[13px]">
           {q ? "Nenhuma conversa com esse nome." : "Suas conversas com a Quattro AI aparecem aqui."}
@@ -364,7 +380,7 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
             const marcada = opcoes === c.id;
             return (
               <li key={c.id} {...entra()} className="relative">
-                <div className={cn("group flex items-center rounded-[14px] transition-colors", marcada ? "bg-surface-1 text-ink" : "text-ink hover:bg-surface-1")}>
+                <div className={cn("group flex items-center rounded-[14px] transition-colors", marcada ? "bg-white text-ink" : "text-ink hover:bg-white")}>
                   <button
                     type="button"
                     onClick={() => abrirChat({ conversa: c.id })}
@@ -426,16 +442,51 @@ function ConversasDoMenu({ entra }: { entra: () => { "data-revela": string; styl
  * chat dele em /quattro-ai; os números vêm de `useAgentesDoHub`, os mesmos
  * da tela.
  */
+/**
+ * A Quattro AI no alto do cartão: o boneco grande, centrado, com o nome
+ * embaixo; ao passar o mouse, um balão "Por onde eu começo?". Leva à
+ * conversa dela em /quattro-ai.
+ */
+function QuattroAIDoMenu({ entra }: { entra: () => { "data-revela": string; style: React.CSSProperties } }) {
+  const pathname = usePathname();
+  const pedida = useSearchParams().get("agente");
+  const { pendentes } = useAgentesDoHub();
+  const on = pathname === "/quattro-ai" && (!pedida || pedida === "quattro-ai");
+  // Na tela da Quattro AI o cartão da IA é o que importa: o menu rola até ele.
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (pathname === "/quattro-ai") ref.current?.closest("[data-menu-conversas]")?.scrollIntoView({ block: "start" });
+  }, [pathname]);
+  return (
+    <div ref={ref} {...entra()} className="group relative flex justify-center mb-2" data-menu-ia>
+      <Link href={hrefDoHub("quattro-ai")} aria-current={on ? "page" : undefined} data-item="quattro-ai"
+        className={cn("flex flex-col items-center gap-1.5 px-5 pt-2 pb-2 rounded-[16px] transition-colors", on ? "bg-white" : "hover:bg-white")}>
+        <span className="relative">
+          <AvatarAgente agente="quattro-ai" tamanho={64} />
+          {pendentes.length > 0 && (
+            <span className="absolute -right-1 bottom-0 min-w-[20px] h-[20px] px-[5px] rounded-pill bg-ink text-white text-[11px] flex items-center justify-center tabular-nums ring-2 ring-white"
+              aria-label={`${pendentes.length} para aprovar`}>{pendentes.length}</span>
+          )}
+        </span>
+        <span className="a4p-menu-grupo text-[14px] text-ink">Quattro AI</span>
+      </Link>
+      <span role="tooltip"
+        className="pointer-events-none absolute top-full mt-1 z-10 w-[190px] rounded-[14px] bg-white px-3 py-2 shadow-popover opacity-0 translate-y-1 transition-all group-hover:opacity-100 group-hover:translate-y-0">
+        <span className="a4p-menu-grupo block text-[13px] text-ink">Quattro AI</span>
+        <span className="a4p-menu-narrow block text-[13px] text-muted">Por onde eu começo?</span>
+      </span>
+    </div>
+  );
+}
+
 function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style: React.CSSProperties } }) {
   const pathname = usePathname();
   const pedida = useSearchParams().get("agente");
-  const { ids, porAgente, estadoDe, resumoIA, pendentes } = useAgentesDoHub();
+  const { ids, porAgente, estadoDe } = useAgentesDoHub();
   const naTela = pathname === "/quattro-ai";
   const ativa: SelecaoHub | null = naTela ? ((pedida as SelecaoHub | null) ?? "quattro-ai") : null;
-  const itens: { id: SelecaoHub; nome: string; sub: string; n: number }[] = [
-    { id: "quattro-ai", nome: "Quattro AI", sub: resumoIA, n: pendentes.length },
-    ...ids.map((id) => ({ id, nome: descricaoDe(id).nome, sub: estadoDe(id), n: porAgente(id) })),
-  ];
+  const itens: { id: SelecaoHub; nome: string; sub: string; n: number }[] =
+    ids.map((id) => ({ id, nome: descricaoDe(id).nome, sub: estadoDe(id), n: porAgente(id) }));
   return (
     <ul className="m-0 mb-3 p-0 list-none flex flex-col gap-0.5" aria-label="Quattro AI e agentes" data-menu-agentes>
       {itens.map((it) => {
@@ -443,7 +494,7 @@ function AgentesDoMenu({ entra }: { entra: () => { "data-revela": string; style:
         return (
           <li key={it.id} {...entra()}>
             <Link href={hrefDoHub(it.id)} aria-current={on ? "page" : undefined} title={it.nome} data-item={it.id}
-              className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "bg-surface-1 text-ink" : "text-ink hover:bg-surface-1")}>
+              className={cn("flex items-center gap-3 min-h-[48px] rounded-[14px] px-3 transition-colors", on ? "bg-white text-ink" : "text-ink hover:bg-white")}>
               <AvatarAgente agente={it.id} tamanho={30} />
               <span className="flex-1 min-w-0">
                 <span className="a4p-menu-grupo block truncate text-[14px]">{it.nome}</span>
