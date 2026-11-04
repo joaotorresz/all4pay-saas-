@@ -375,6 +375,15 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/compras.sql
+      # Contratos e a equipe da folha moram em tabelas próprias (20261103210000 e
+      # 20261103220000), pela mesma forma de documento: papel, isolamento, id do
+      # documento, lixeira e cópia idempotente de org_state.
+      - name: Guarda das tabelas de documentos (contratos e equipe da folha)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v tabela=contratos -v chave=a4p_contratos -v doc='{"lado":"cliente","valor":10,"objeto":"Guarda","parteNome":"Cliente"}' -f scripts/documentos.sql
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v tabela=colaboradores -v chave=a4p_colaboradores -v doc='{"nome":"Guarda","vinculo":"clt","valor":3500,"desde":"2026-01"}' -f scripts/documentos.sql
       - name: Guarda do vínculo lançamento → categoria (só quando é seguro)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

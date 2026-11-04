@@ -37,18 +37,26 @@ export function EstruturaCadastrosView() {
   const produtos = useProductsList();
   const servicos = useServicesList();
 
-  // Empresa e contratos moram no estado da organização (store-org): lidos só no
-  // navegador, depois de montar — no render do servidor quebraria a hidratação.
+  // Empresa (store-org) e contratos (tabela `contratos`) são lidos só no
+  // navegador, depois de montar: no render do servidor quebraria a hidratação.
   const [locais, setLocais] = React.useState<{ nome: string | null; regime: boolean; contratos: number } | null>(null);
+  const [erroContratos, setErroContratos] = React.useState<Error | null>(null);
   React.useEffect(() => {
     const db = (loadCompany()?.db ?? null) as Record<string, unknown> | null;
     const nome = (db?.razaoSocial as string) || (db?.nomeFantasia as string) || (db?.nome as string) || null;
-    setLocais({ nome, regime: regimeDoCadastro(db) !== "nao_declarado", contratos: listContratos().length });
+    const regime = regimeDoCadastro(db) !== "nao_declarado";
+    let vivo = true;
+    // Os contratos moram no banco (`contratos`). Sem a leitura, a tela mostra
+    // o erro: "0 contratos" seria um número inventado.
+    listContratos()
+      .then((l) => { if (vivo) setLocais({ nome, regime, contratos: l.length }); })
+      .catch((e) => { if (vivo) { setErroContratos(e instanceof Error ? e : new Error(String(e))); setLocais({ nome, regime, contratos: 0 }); } });
+    return () => { vivo = false; };
   }, []);
 
   const carregando = contas.isLoading || cats.isLoading || centros.isLoading || projetos.isLoading
     || partes.isLoading || locais === null;
-  const erro = contas.error || cats.error || centros.error || projetos.error || partes.error;
+  const erro = contas.error || cats.error || centros.error || projetos.error || partes.error || erroContratos;
 
   const entrada: EntradaEstrutura | null = React.useMemo(() => {
     if (carregando || erro) return null;
