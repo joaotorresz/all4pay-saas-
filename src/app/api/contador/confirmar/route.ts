@@ -1,5 +1,9 @@
 import { createAdmin } from "@/lib/supabase/admin";
 import { PRAZO_LINK_DIAS } from "@/core/contabilidade/optin";
+import tokensJson from "@/design/tokens.json";
+
+/** As cores saem dos tokens do DS (a página não carrega o globals.css). */
+const COR = Object.fromEntries((tokensJson as { tokens: { nome: string; claro?: string }[] }).tokens.map((t) => [t.nome, t.claro ?? ""]));
 
 /**
  * O LINK QUE O CONTADOR CLICA (double opt-in, Fase 3.4).
@@ -20,7 +24,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function pagina(status: number, titulo: string, texto: string): Response {
   const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quattro</title>
-<style>body{margin:0;background:#F5F5F5;color:#3B4332;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:520px;margin:12vh auto;padding:32px;background:#FFFFFF;border-radius:24px}h1{font-size:24px;margin:0 0 12px}p{font-size:15px;line-height:1.5;color:#5F5E4E;margin:0}</style></head>
+<style>body{margin:0;background:${COR["--color-surface-1"]};color:${COR["--color-ink"]};font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:520px;margin:12vh auto;padding:32px;background:${COR["--color-white"]};border-radius:24px}h1{font-size:24px;margin:0 0 12px}p{font-size:15px;line-height:1.5;color:${COR["--color-ink-soft"]};margin:0}</style></head>
 <body><main><h1>${esc(titulo)}</h1><p>${esc(texto)}</p></main></body></html>`;
   return new Response(html, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } });
 }
