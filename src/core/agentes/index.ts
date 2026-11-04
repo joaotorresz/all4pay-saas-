@@ -7,7 +7,7 @@
  * cobrança, a conciliação, a conta a pagar) e a pessoa aprova. O que cada
  * agente pode fazer sozinho é escolha da empresa, por NÍVEL e por LIMITE.
  *
- *   nível 0 · só avisa ............ a proposta aparece, nada se executa
+ *   nível 0 · só observa .......... conta na trilha o que faria; não propõe
  *   nível 1 · prepara e pede ...... vai para "Para você aprovar"
  *   nível 2 · faz até o limite .... executa sozinho dentro do limite em R$ e
  *                                   por dia; acima disso, pede aprovação
@@ -57,10 +57,10 @@ export interface DescricaoAgente {
 export const AGENTES: readonly DescricaoAgente[] = [
   {
     id: "cobranca", nome: "Agente de cobrança",
-    missao: "Cobra quem atrasou no canal certo e responde o cliente.",
-    gatilho: "Quando um título a receber vai vencer, vence ou o cliente responde.",
-    prepara: "A mensagem do dia com o link de pagamento, a segunda via e a resposta ao cliente.",
-    nivelMaximo: 3, pronto: false,
+    missao: "Cobra quem vai vencer ou atrasou, no canal certo, pela régua da empresa.",
+    gatilho: "Todo dia de manhã, quando um título chega a uma etapa da régua.",
+    prepara: "A mensagem do dia de cada cliente, com o link de pagamento quando ele existe.",
+    nivelMaximo: 3, pronto: true,
   },
   {
     id: "conciliacao", nome: "Agente de conciliação",
@@ -101,7 +101,7 @@ export const descricaoDe = (id: IdAgente): DescricaoAgente => {
 };
 
 export const NIVEIS: readonly { nivel: NivelAgente; nome: string; explica: string }[] = [
-  { nivel: 0, nome: "Só avisa", explica: "Mostra o que faria. Nada é feito." },
+  { nivel: 0, nome: "Só observa", explica: "Conta na trilha o que faria. Não propõe nem faz nada." },
   { nivel: 1, nome: "Prepara e pede aprovação", explica: "Tudo vai para Para você aprovar." },
   { nivel: 2, nome: "Faz até o limite", explica: "Faz sozinho dentro do limite. Acima dele, pede aprovação." },
   { nivel: 3, nome: "Faz e avisa", explica: "Faz tudo sozinho e conta depois." },
@@ -199,7 +199,7 @@ export function rotear({ config, valor, feitasHoje }: PedidoDeRota): Destino {
 export function resumoDoNivel(c: ConfigAgente, formatar: (v: number) => string): string {
   if (!c.ativo) return "Desligado. Nada é feito nem proposto.";
   const nivel = Math.min(c.nivel, descricaoDe(c.agente).nivelMaximo);
-  if (nivel === 0) return "Mostra o que faria, sem fazer nada.";
+  if (nivel === 0) return "Só observa: conta na trilha o que faria, sem propor nem fazer nada.";
   if (nivel === 1) return "Prepara tudo e espera a sua aprovação.";
   if (nivel === 3) return "Faz tudo sozinho e conta depois.";
   if (!(c.limiteDia > 0)) return "Sem limite por dia definido: tudo espera a sua aprovação.";

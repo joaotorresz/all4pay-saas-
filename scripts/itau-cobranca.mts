@@ -172,20 +172,24 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
   ok("cliente: pedido, nosso número ou conta com problema é falhou e NADA sai", [r1, r2, r3].every((r) => r.situacao === "falhou") && t.chamadas.length === 0);
 }
 {
-  // O exemplo da documentação (CPF de dígito inválido) só passa no SANDBOX.
+  // O exemplo da documentação: só no SANDBOX, e o corpo é o JSON da doc LITERAL
+  // (âncora escrita aqui à mão, copiada da doc em 03/11/2026, sem importar a constante).
+  const DOC = '{"etapa_processo_boleto":"efetivacao","beneficiario":{"id_beneficiario":"150000052061"},"dado_boleto":{"descricao_instrumento_cobranca":"boleto_pix","tipo_boleto":"a vista","codigo_carteira":"109","codigo_especie":"01","valor_total_titulo":"1234.56","pagador":{"pessoa":{"nome_pessoa":"João da Silva","tipo_pessoa":{"codigo_tipo_pessoa":"F","numero_cadastro_pessoa_fisica":"12345678901"}},"endereco":{"nome_logradouro":"Rua das Flores","nome_bairro":"Centro","nome_cidade":"São Paulo","sigla_UF":"SP","numero_CEP":"01310100"}},"dados_individuais_boleto":[{"numero_nosso_numero":"12345678","data_vencimento":"2026-12-31","valor_titulo":"1234.56"}]}}';
   API.esquecerTokensItau();
-  const ruim = { ...PEDIDO, devedor: { ...PEDIDO.devedor!, documento: "12345678901" } };
   const tp = transporte(() => criado);
-  const rp = await API.emitirCobrancaItau({ ...CFG, ambiente: "producao" }, ruim, NN, HOJE, tp.fn, { exemploDoSandbox: true });
-  ok("cliente: em produção o modo exemplo NÃO pula a conferência do CPF", rp.situacao === "falhou" && tp.chamadas.length === 0, JSON.stringify(rp));
+  const rp = await API.emitirExemploDoSandboxItau({ ...CFG, ambiente: "producao" }, tp.fn);
+  ok("cliente: em produção o exemplo da doc NÃO sai", rp.situacao === "falhou" && tp.chamadas.length === 0, JSON.stringify(rp));
+  API.esquecerTokensItau();
+  const te = transporte((o) => (o.caminho === TOKEN ? tokenOk : { status: 500, corpo: { error: { mensagem: "Cenario nao mapeado" } }, bruto: '{"error":{"codigo":"500","mensagem":"Cenario nao mapeado"}}' }));
+  const re = await API.emitirExemploDoSandboxItau(CFG, te.fn);
+  const enviado = chamadasA(te, EMITIR);
+  ok("cliente: no sandbox, o exemplo vai UMA vez, com o JSON da doc literal", enviado.length === 1 && enviado[0].corpo === DOC, enviado[0]?.corpo);
+  ok("cliente: o exemplo recusado é incerta e traz o que o Itaú disse", re.situacao === "incerta" && /Cenario nao mapeado/.test((re as any).motivo), JSON.stringify(re));
+  const ruim = { ...PEDIDO, devedor: { ...PEDIDO.devedor!, documento: "12345678901" } };
+  API.esquecerTokensItau();
   const ts = transporte((o) => (o.caminho === TOKEN ? tokenOk : criado));
   const rs = await API.emitirCobrancaItau(CFG, ruim, NN, HOJE, ts.fn);
-  ok("cliente: sem o modo exemplo, o CPF inválido é barrado também no sandbox", rs.situacao === "falhou" && ts.chamadas.length === 0);
-  API.esquecerTokensItau();
-  const te = transporte((o) => (o.caminho === TOKEN ? tokenOk : criado));
-  await API.emitirCobrancaItau(CFG, ruim, NN, HOJE, te.fn, { exemploDoSandbox: true });
-  ok("cliente: no sandbox, o modo exemplo envia o pedido como está", chamadasA(te, EMITIR).length === 1
-    && JSON.parse(chamadasA(te, EMITIR)[0].corpo).dado_boleto.pagador.pessoa.tipo_pessoa.numero_cadastro_pessoa_fisica === "12345678901");
+  ok("cliente: fora do exemplo, o CPF inválido é barrado também no sandbox", rs.situacao === "falhou" && ts.chamadas.length === 0);
 }
 {
   API.esquecerTokensItau();
@@ -230,6 +234,19 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
   const c = t.chamadas.find((x) => x.caminho !== TOKEN);
   ok("cliente: consulta 404 é incerta, nunca cancelada, e vai por GET ao caminho do core",
     r.situacao === "incerta" && c?.metodo === "GET" && c?.caminho === M.caminhoConsultaItau("sandbox", CONTA, NN));
+}
+{
+  // O simulador do sandbox devolve títulos fixos: o motivo diz quais números vieram.
+  const outro = { status: 200, corpo: { data: [{ dado_boleto: { dados_individuais_boleto: [{ numero_nosso_numero: "87654321" }] } }] } };
+  API.esquecerTokensItau();
+  const ts = transporte((o) => (o.caminho === TOKEN ? tokenOk : outro));
+  const rs = await API.consultarCobrancaItau(CFG, NN, ts.fn);
+  API.esquecerTokensItau();
+  const tp = transporte((o) => (o.caminho === "/api/oauth/token" ? tokenOk : outro)); // o token de produção
+  const rp = await API.consultarCobrancaItau({ ...CFG, ambiente: "producao" }, NN, tp.fn);
+  ok("cliente: no sandbox, a consulta sem o nosso número diz quais números o simulador devolveu (em produção, não)",
+    rs.situacao === "incerta" && /devolveu 1 título\(s\) com nosso número 87654321/.test((rs as any).motivo)
+    && rp.situacao === "incerta" && /não achou o título/.test((rp as any).motivo) && !/87654321/.test((rp as any).motivo), JSON.stringify([rs, rp]));
 }
 {
   API.esquecerTokensItau();

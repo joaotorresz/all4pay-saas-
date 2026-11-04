@@ -51,6 +51,15 @@ const PAYABLE_VENDORS = [
   "Telecom Brasil", "Seguro Frota",
 ];
 
+/**
+ * O título a receber em aberto aponta para o CLIENTE do cadastro (o id é o
+ * primeiro nome, `pty-northwind`): é por ele que a régua acha o contato.
+ */
+const comCliente = (nome: string) => ({
+  description: nome,
+  party_id: `pty-${nome.split(/[\s&]/)[0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`,
+});
+
 function buildMovements(): Movement[] {
   const rand = rng(42);
   const today = new Date();
@@ -81,7 +90,7 @@ function buildMovements(): Movement[] {
       due_date: isoDay(addDays(today, off)),
       paid_date: null,
       reconciled: rand() > 0.5,
-      description: pick(RECEIVABLE_PAYEES),
+      ...comCliente(pick(RECEIVABLE_PAYEES)),
     });
   }
 
@@ -256,10 +265,13 @@ export const DEMO_COST_CENTERS: CostCenter[] = [
 ];
 
 export const DEMO_PARTIES: Party[] = [
-  { id: "pty-northwind", type: "pj", name: "Northwind Logística", doc: "12.345.678/0001-90", phone: "+5511980000001", is_customer: true },
-  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", doc: "23.456.789/0001-01", phone: "+5511980000002", is_customer: true },
-  { id: "pty-meridian", type: "pj", name: "Meridian Design", doc: "34.567.890/0001-12", phone: "+5511980000003", is_customer: true },
-  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", doc: "45.678.901/0001-23", phone: "+5511980000004", is_customer: true },
+  { id: "pty-northwind", type: "pj", name: "Northwind Logística", doc: "12.345.678/0001-90", phone: "+5511980000001", email: "financeiro@northwind.example", is_customer: true },
+  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", doc: "23.456.789/0001-01", phone: "+5511980000002", email: "financeiro@atlas.example", is_customer: true },
+  { id: "pty-meridian", type: "pj", name: "Meridian Design", doc: "34.567.890/0001-12", phone: "+5511980000003", email: "financeiro@meridian.example", is_customer: true },
+  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", doc: "45.678.901/0001-23", phone: "+5511980000004", email: "financeiro@aurora.example", is_customer: true },
+  { id: "pty-brightwell", type: "pj", name: "Brightwell Suprimentos", doc: "89.012.345/0001-67", phone: "+5511980000005", email: "financeiro@brightwell.example", is_customer: true },
+  { id: "pty-veridian", type: "pj", name: "Veridian Foods", doc: "90.123.456/0001-78", phone: "+5511980000006", email: "financeiro@veridian.example", is_customer: true },
+  { id: "pty-lumen", type: "pj", name: "Lumen Tecnologia", doc: "01.234.567/0001-89", phone: "+5511980000007", email: "financeiro@lumen.example", is_customer: true },
   { id: "pty-costa", type: "pf", name: "Costa & Filhos", doc: "123.456.789-09", is_customer: true },
   { id: "pty-energia", type: "pj", name: "Energia Sudeste", doc: "56.789.012/0001-34", is_supplier: true },
   { id: "pty-textil", type: "pj", name: "Fornecedor Têxtil SA", doc: "67.890.123/0001-45", is_supplier: true },

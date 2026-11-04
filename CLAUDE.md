@@ -134,7 +134,12 @@ no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
   (o banco recusa). Só o servidor cria proposta; decidir é `agente_decidir`.
   Tudo atrás de `AGENTES=ligado`. Guardas: `npm run agentes` e
   `scripts/agentes.sql`. Moldura em `core/agentes`, tela na seção Agentes de
-  `/automacoes`.
+  `/automacoes`. **Cobrança** (etapa 2, pronto): lê a MESMA régua
+  (`core/agentes/cobranca.ts`), uma proposta por cliente no dia com a chave
+  `cliente:<contato>:<dia>`; com ele ligado a régua NÃO envia sozinha (o
+  runner tira a régua da empresa); envia pelo `despachar` depois do Aprovar
+  (`/api/agentes/executar`, só a aprovada) ou dentro do limite, sempre
+  refazendo a mensagem do dia. Servidor único: `lib/agentes-servidor.ts`.
 - **Quattro AI no WhatsApp:** atrás de `WHATSAPP_IA`, só leitura (a etapa 5,
   lançar, está pendente).
 - **Sem emoji**, exceto nos modelos de WhatsApp cadastrados na Twilio.
