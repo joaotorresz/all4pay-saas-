@@ -41,20 +41,25 @@ export function ConversaCompletar({ nome, campoRef, aoFechar }: {
   const [texto, setTexto] = React.useState("");
   const [gravando, setGravando] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
+  const [erroLeitura, setErroLeitura] = React.useState<string | null>(null);
   const [total, setTotal] = React.useState(0);
   const fimRef = React.useRef<HTMLDivElement>(null);
 
   // O perfil do servidor manda (outra pessoa pode ter respondido em outra
-  // máquina); o cache local só serve enquanto ele não chega.
+  // máquina). ⚠️ E a conversa só pergunta DEPOIS de lê-lo: `persistCompany`
+  // grava o perfil inteiro, e gravar por cima de uma leitura que falhou
+  // apagaria o resto do cadastro.
   React.useEffect(() => {
-    const local = loadCompany() as PerfilParaCompletar | null;
-    setPerfil(local ?? {});
-    setTotal(perguntasPendentes(local).length);
-    void fetchCompany().then((c) => {
-      if (!c) return;
-      setPerfil(c as PerfilParaCompletar);
-      setTotal(perguntasPendentes(c as PerfilParaCompletar).length);
-    }).catch(() => {});
+    let vivo = true;
+    fetchCompany().then((c) => {
+      if (!vivo) return;
+      const base = (c ?? loadCompany() ?? {}) as PerfilParaCompletar;
+      setPerfil(base);
+      setTotal(perguntasPendentes(base).length);
+    }).catch((e) => {
+      if (vivo) setErroLeitura(`Não consegui abrir o seu cadastro: ${e instanceof Error ? e.message : String(e)}`);
+    });
+    return () => { vivo = false; };
   }, []);
 
   const atual = perfil ? proximaPergunta(perfil) : null;
@@ -115,7 +120,9 @@ export function ConversaCompletar({ nome, campoRef, aoFechar }: {
             </React.Fragment>
           ))}
 
-          {!perfil ? (
+          {erroLeitura ? (
+            <p role="alert" className="m-0 text-[15px] text-negative" data-completar="erro-leitura">{erroLeitura}. Tente de novo daqui a pouco.</p>
+          ) : !perfil ? (
             <DigitandoIA rotulo="Abrindo o seu cadastro" className="self-start" />
           ) : atual ? (
             <div className="a4p-entra self-start flex flex-col gap-4 w-full" data-completar-pergunta={atual.id}>

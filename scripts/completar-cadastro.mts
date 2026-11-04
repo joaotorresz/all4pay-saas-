@@ -122,6 +122,10 @@ const conversa = semComentario(readFileSync("src/components/ia/ConversaCompletar
 ok("8. a conversa grava pelo escritor do perfil", /await persistCompany\(/.test(conversa));
 ok("8. a conversa usa a regra única (responder e pular)", /responder\(perfil, atual\.id, r\)/.test(conversa) && /pular\(perfil, atual\.id\)/.test(conversa));
 ok("8. a falha de gravação vai para a tela", /Não consegui salvar/.test(conversa));
+// persistCompany grava o perfil INTEIRO: perguntar sem ter lido o servidor
+// apagaria o resto do cadastro na primeira resposta.
+ok("8. só pergunta depois de ler o perfil do servidor",
+   /fetchCompany\(\)\.then\(/.test(conversa) && !/setPerfil\(local/.test(conversa) && /setErroLeitura\(/.test(conversa));
 const jornada = semComentario(readFileSync("src/components/comece/Jornada.tsx", "utf8"));
 ok("9. Primeiros passos mostra a porta", /<CompletarCadastroCard \/>/.test(jornada));
 const card = semComentario(readFileSync("src/components/comece/CompletarCadastroCard.tsx", "utf8"));
