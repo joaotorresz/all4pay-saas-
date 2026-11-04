@@ -150,7 +150,7 @@ export function respostaDoPedidoPainel(r: ResultadoPedidoPainel): { abertura: st
     : "";
   if (!r.mudancas.length) {
     return {
-      abertura: `${falta}Não entendi o que mudar no painel.`,
+      abertura: falta ? falta.trim() : "Não entendi o que mudar no painel.",
       mudancas: [],
       fecho: `Dá para pôr, tirar ou levar para cima: ${O_QUE_DA_PARA_POR.slice(0, 8).join(", ")} e outros.`,
     };

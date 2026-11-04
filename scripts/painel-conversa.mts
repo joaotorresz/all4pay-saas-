@@ -63,7 +63,9 @@ ok("4. 'coloca X e tira Y' faz as duas coisas", fontes(misto.widgets) === "kpi:r
 
 const ebitda = aplicarPedidoPainel("Coloca o EBITDA em cima", base);
 ok("5. EBITDA não vira cartão de outra coisa", fontes(ebitda.widgets) === fontes(base) && ebitda.naoTenho.join() === "EBITDA", JSON.stringify(ebitda));
-ok("5. a resposta diz que ainda não tem", /EBITDA ainda não está entre os indicadores/.test(respostaDoPedidoPainel(ebitda).abertura));
+ok("5. a resposta diz que ainda não tem (e não 'não entendi')",
+   /EBITDA ainda não está entre os indicadores/.test(respostaDoPedidoPainel(ebitda).abertura)
+   && !/Não entendi/.test(respostaDoPedidoPainel(ebitda).abertura));
 
 const hoje = aplicarPedidoPainel("Como estou hoje?", []);
 ok("6. 'como estou hoje?' monta o básico", hoje.widgets.length === 5, String(hoje.widgets.length));
