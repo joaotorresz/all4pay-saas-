@@ -53,11 +53,11 @@ export interface RespostaDoBanco {
  * O que a pessoa lê depois de responder. `execucao` é o resultado do envio
  * feito na hora (só no SIM): a frase não diz "feito" quando nada saiu.
  */
-export function respostaDaDecisaoAgente(r: RespostaDoBanco, execucao?: { estado: string; erro?: string | null } | null): string {
+export function respostaDaDecisaoAgente(r: RespostaDoBanco, execucao?: { estado: string; erro?: string | null; agente?: string } | null): string {
   if (!r.ok) return `A decisão não foi registrada: ${r.motivo ?? "motivo não informado"}.`;
   if (r.decisao === "nao") return "Recusa registrada. O agente não vai fazer isso.";
   if (!execucao) return "Aprovação registrada. O agente faz na próxima execução.";
-  if (execucao.estado === "executada") return execucao.erro ? `Aprovação registrada e feita. ${execucao.erro}` : "Aprovação registrada e feita: a cobrança saiu.";
+  if (execucao.estado === "executada") return execucao.erro ? `Aprovação registrada e feita. ${execucao.erro}` : `Aprovação registrada e feita: ${execucao.agente === "conciliacao" ? "o título foi conciliado com o extrato" : "a cobrança saiu"}.`;
   if (execucao.estado === "falhou") return `Aprovação registrada, mas não deu certo. ${execucao.erro ?? ""}`.trim();
   return "Aprovação registrada. O agente faz na próxima execução.";
 }

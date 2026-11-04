@@ -338,6 +338,17 @@
         "impacto": "Até ser aplicada, nenhum pedido de agente sai pelo WhatsApp. Tudo está atrás de WHATSAPP_APROVACAO=ligado e AGENTES=ligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 3)"
+      },
+      {
+        "nome": "20261104160000_agente_conciliacao",
+        "motivo": "O agente de conciliação (etapa 4 do plano AI first): a regra de conciliação vira uma só (conciliar_na_empresa) para a tela e o agente, e a porta do agente concilia a proposta e grava o resultado na mesma transação. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "funções conciliar_na_empresa e agente_conciliar",
+          "conciliar_movimentos passa a chamar conciliar_na_empresa (e a conferir a linha do extrato)"
+        ],
+        "impacto": "Até ser aplicada, o agente de conciliação não concilia (a proposta aprovada termina com o erro do banco) e o botão da tela segue com a regra antiga. O agente está atrás de AGENTES=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 04/11/2026 (agentes da Quattro AI, etapa 4)"
       }
     ],
     "objetos_sem_migration": [

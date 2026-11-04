@@ -67,7 +67,7 @@ export const AGENTES: readonly DescricaoAgente[] = [
     missao: "Casa o extrato com os títulos e só pergunta o que não fechou.",
     gatilho: "Quando um extrato novo chega.",
     prepara: "O par extrato e título, com a categoria e o motivo.",
-    nivelMaximo: 3, pronto: false,
+    nivelMaximo: 3, pronto: true,
   },
   {
     id: "contas_pagar", nome: "Agente de contas a pagar",

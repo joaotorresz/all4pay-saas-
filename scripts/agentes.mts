@@ -281,8 +281,8 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     && /linha\.estado !== "aprovada"/.test(porta) && !/agente_decidir/.test(porta) && /agentesLigados\(process\.env\)/.test(porta));
   const escritores = arquivos(join(raiz, "src")).filter((f) => /from\("agente_propostas"\)[\s\S]{0,80}\.(insert|upsert)\(/.test(readFileSync(f, "utf8")));
   ok("só o servidor dos agentes cria proposta", escritores.length === 1 && escritores[0].endsWith("src/lib/agentes-servidor.ts"), escritores.join(", "));
-  ok("catálogo: o agente de cobrança está pronto; os outros, em construção",
-    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca");
+  ok("catálogo: cobrança e conciliação prontos; os outros, em construção",
+    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao");
 }
 
 /* ── 5. aprovar pelo WhatsApp (Etapa 3) ───────────────────────────────────── */
@@ -354,6 +354,144 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     && !/grant execute on function public\.agente_(pedir|responder)_whatsapp[^;]*authenticated/.test(m3));
   ok("banco: só número CONFIRMADO de quem aprova recebe o pedido",
     /rp\.acao in \('aprovar', 'administrar'\)/.test(m3) && /n\.confirmado_em is not null/.test(m3));
+}
+
+/* ── 6. o agente de conciliação (Etapa 4) ────────────────────────────────── */
+{
+  const P = await import("@/core/conciliacao/pares");
+  const C = await import("@/core/agentes/conciliacao");
+  const { configPadrao: cfgP } = await import("@/core/agentes");
+  const mov = (id: string, type: "entrada" | "saida", amount: number, d: string, pago: string | null, party: string | null = null, desc = id) =>
+    ({ id, type, amount, due_date: d, paid_date: pago, party_id: party, description: desc });
+  const pend = [mov("t1", "entrada", 480, "2026-11-04", null, "acme", "NF 1042"), mov("t2", "saida", 99, "2026-11-01", null), mov("t3", "entrada", 1000, "2026-11-04", null)];
+  const ext = [mov("e1", "entrada", 480, "2026-11-04", "2026-11-04", "acme", "PIX ACME"), mov("e2", "saida", 99, "2026-11-04", "2026-11-04"), mov("e3", "saida", 1000, "2026-11-04", "2026-11-04")];
+  const r = P.casarExtrato(pend, ext);
+  const par = (o: string) => r.pares.find((x) => x.ofId === o);
+  ok("conciliação: casa por valor, data e contato; entrada não casa com saída",
+    par("e1")?.pendId === "t1" && par("e1")?.confianca === 100 && par("e2")?.pendId === "t2" && par("e2")!.confianca < P.CONFIANCA_ALTA && !par("e3"),
+    JSON.stringify(r.pares.map((x) => [x.ofId, x.pendId, x.confianca])));
+  const props = C.propostasDeConciliacao(r.pares, { previstos: new Set(), extratos: new Set() });
+  const pr = props.find((x) => x.dados.extrato === "e1")!;
+  ok("conciliação: a proposta diz o par, o porquê e a confiança",
+    pr.chave === "par:t1:e1" && pr.titulo === "Conciliar NF 1042" && pr.porque.includes("Mesmo valor, mesma data, mesmo contato") && pr.porque.includes("Confiança 100%") && pr.valor === 480, pr.porque);
+  ok("conciliação: título com proposta esperando não é proposto de novo",
+    C.propostasDeConciliacao(r.pares, { previstos: new Set(["t1"]), extratos: new Set() }).every((x) => x.dados.previsto !== "t1")
+    && C.propostasDeConciliacao(r.pares, { previstos: new Set(), extratos: new Set(["e2"]) }).every((x) => x.dados.extrato !== "e2"));
+  const n3 = { ...cfgP("conciliacao"), ativo: true, nivel: 3 as const };
+  const plano = new Map(C.planejarConciliacao(props, n3, 0).map((x) => [x.chave, x.destino]));
+  ok("conciliação: no nível 3, sozinho só o par de confiança alta; o resto pergunta",
+    plano.get("par:t1:e1") === "executar" && plano.get("par:t2:e2") === "aprovar", JSON.stringify(Array.from(plano)));
+  const n2 = { ...cfgP("conciliacao"), ativo: true, nivel: 2 as const, limiteValor: 1000, limiteDia: 1 };
+  const dois = C.propostasDeConciliacao(P.casarExtrato([pend[0], mov("t4", "entrada", 480, "2026-11-04", null, "acme")],
+    [ext[0], mov("e4", "entrada", 480, "2026-11-04", "2026-11-04", "acme")]).pares, { previstos: new Set(), extratos: new Set() });
+  ok("conciliação: o limite por dia conta a própria leva",
+    C.planejarConciliacao(dois, n2, 0).map((x) => x.destino).join(",") === "executar,aprovar"
+    && C.planejarConciliacao(dois, n2, 1).every((x) => x.destino === "aprovar"));
+  ok("conciliação: desligado ou nível 0 não propõe",
+    C.planejarConciliacao(props, cfgP("conciliacao"), 0).every((x) => x.destino === "avisar")
+    && C.planejarConciliacao(props, { ...n3, nivel: 0 }, 0).every((x) => x.destino === "avisar"));
+
+  // o servidor, contra um banco em memória (as mesmas linhas que a tela leria)
+  {
+    type Linha = Record<string, unknown>;
+    const db: Record<string, Linha[]> = {
+      movements: [
+        { ...pend[0], org_id: "o1", is_sample: false, status: "pendente", reference_code: null, conciliado_com: null },
+        { ...pend[1], org_id: "o1", is_sample: false, status: "pendente", reference_code: null, conciliado_com: null },
+        { ...ext[0], org_id: "o1", is_sample: false, status: "pago", reference_code: "pluggy:1", conciliado_com: null },
+        { ...ext[1], org_id: "o1", is_sample: false, status: "pago", reference_code: "pluggy:2", conciliado_com: null },
+        // outra empresa: nunca entra no par
+        { ...mov("x1", "entrada", 480, "2026-11-04", null, "acme"), org_id: "o2", is_sample: false, status: "pendente", reference_code: null, conciliado_com: null },
+      ],
+      agente_propostas: [
+        { id: "velha", org_id: "o1", agente: "conciliacao", chave: "par:sumiu:e9", estado: "pendente", decidida_por: null, dados: { previsto: "sumiu", extrato: "e9" } },
+        { id: "aprov", org_id: "o1", agente: "conciliacao", chave: "par:ta:ea", estado: "aprovada", decidida_por: "ana", dados: { previsto: "ta", extrato: "ea" } },
+      ],
+    };
+    const rpcs: string[] = [];
+    let seq = 0;
+    const fake = {
+      rpc: async (fn: string, a: { p_proposta: string; p_sozinho: boolean }) => {
+        rpcs.push(`${fn}:${a.p_proposta}:${a.p_sozinho}`);
+        const l = db.agente_propostas.find((x) => x.id === a.p_proposta)!;
+        l.estado = "executada";
+        return { data: { ok: true, estado: "executada" }, error: null };
+      },
+      from(t: string) {
+        const filtros: ((l: Linha) => boolean)[] = [];
+        let op: "select" | "update" | "upsert" = "select"; let patch: Linha = {}; let head = false;
+        const b = {
+          select(_c?: string, o?: { head?: boolean }) { head = !!o?.head; return b; },
+          eq(c: string, v: unknown) { filtros.push((l) => l[c] === v); return b; },
+          in(c: string, v: unknown[]) { filtros.push((l) => v.includes(l[c])); return b; },
+          like(c: string, v: string) { const pre = v.replace(/%$/, ""); filtros.push((l) => String(l[c] ?? "").startsWith(pre)); return b; },
+          is(c: string, v: unknown) { filtros.push((l) => (l[c] ?? null) === v); return b; },
+          gte() { return b; }, limit() { return b; },
+          update(pt: Linha) { op = "update"; patch = pt; return b; },
+          upsert(row: Linha) {
+            op = "upsert";
+            const existe = db[t].some((l) => l.org_id === row.org_id && l.agente === row.agente && l.chave === row.chave);
+            const nova = { ...row, id: `n${++seq}`, estado: "pendente", decidida_por: null };
+            if (!existe) db[t].push(nova);
+            patch = existe ? {} : nova; return b;
+          },
+          then(res: (v: unknown) => unknown) {
+            const linhas = db[t].filter((l) => filtros.every((f) => f(l)));
+            if (op === "update") { for (const l of linhas) Object.assign(l, patch); return Promise.resolve({ data: null, error: null }).then(res); }
+            if (op === "upsert") return Promise.resolve({ data: patch.id ? [patch] : [], error: null }).then(res);
+            return Promise.resolve(head ? { count: linhas.length, error: null } : { data: linhas, error: null }).then(res);
+          },
+        };
+        return b;
+      },
+    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+    const S2 = await import("@/lib/agentes-servidor");
+    const cfg = { ...cfgP("conciliacao"), ativo: true, nivel: 3 as const };
+    const rel = await S2.rodarAgenteConciliacao(fake, "o1", cfg, "2026-11-04");
+    const nova = (chave: string) => db.agente_propostas.find((l) => l.chave === chave);
+    ok("conciliação (servidor): o par que não existe mais expira com o motivo",
+      db.agente_propostas.find((l) => l.id === "velha")?.estado === "expirada" && rel.expiradas === 1);
+    ok("conciliação (servidor): a aprovada é conciliada pelo banco, como aprovada",
+      rpcs.includes("agente_conciliar:aprov:false") && rel.executadasAprovadas === 1);
+    ok("conciliação (servidor): confiança alta sai sozinha; média espera e vai para o WhatsApp",
+      nova("par:t1:e1")?.estado === "executada" && rpcs.some((x) => x.endsWith(":true"))
+      && nova("par:t2:e2")?.estado === "pendente" && rel.idsParaAprovar?.length === 1 && rel.feitasSozinho === 1,
+      JSON.stringify({ rel, rpcs }));
+    ok("conciliação (servidor): o título de outra empresa não entra",
+      !db.agente_propostas.some((l) => String(l.chave).includes("x1")));
+    const antes = db.agente_propostas.length; rpcs.length = 0;
+    const de2 = await S2.rodarAgenteConciliacao(fake, "o1", cfg, "2026-11-04");
+    ok("conciliação (servidor): reexecutar não propõe nem concilia de novo",
+      db.agente_propostas.length === antes && rpcs.length === 0 && de2.propostas === 0, JSON.stringify({ de2, rpcs }));
+  }
+
+  const semC2 = (f: string) => ler(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+  const tela = semC2("src/lib/conciliacao-of.ts");
+  ok("conciliação: a tela e o agente casam pela MESMA regra",
+    /casarExtrato\(/.test(tela) && !/diasEntre|valorProx|const conf =/.test(tela)
+    && /casarExtrato\(/.test(semC2("src/lib/agentes-servidor.ts")));
+  ok("conciliação: extrato que já tem par não volta a casar (tela e agente)",
+    /\.is\("conciliado_com", null\)/.test(tela) && /\.is\("conciliado_com", null\)/.test(semC2("src/lib/agentes-servidor.ts")));
+  const srv = semC2("src/lib/agentes-servidor.ts");
+  ok("conciliação: o servidor concilia SÓ pelo banco (nenhum update em movements)",
+    /rpc\("agente_conciliar"/.test(srv) && !/from\("movements"\)\.update|from\("movements"\)\s*\.update/.test(srv));
+  const m4 = ler("supabase/migrations/20261104160000_agente_conciliacao.sql");
+  ok("banco: a tela e o agente conciliam pela MESMA regra",
+    /perform public\.conciliar_na_empresa\(p_previsto, p_extrato, public\.auth_org_id\(\), null\)/.test(m4)
+    && /perform public\.conciliar_na_empresa\(\(v_p\.dados->>'previsto'\)::uuid/.test(m4));
+  ok("banco: a regra interna é de ninguém de fora; a porta do agente só da chave de serviço",
+    /revoke all on function public\.conciliar_na_empresa\(uuid, uuid, uuid, text\)\s+from public, anon, authenticated, service_role;/.test(m4)
+    && !/grant execute on function public\.conciliar_na_empresa/.test(m4)
+    && /grant execute on function public\.agente_conciliar\(uuid, boolean\) to service_role;/.test(m4)
+    && !/grant execute on function public\.agente_conciliar[^;]*authenticated/.test(m4));
+  ok("banco: sozinho exige nível 2+ e confiança 85+",
+    /v_cfg\.nivel < 2/.test(m4) && /\(v_p\.dados->>'confianca'\)::numeric, 0\) < 85/.test(m4) && P.CONFIANCA_ALTA === 85);
+  ok("banco: a linha do extrato é conferida antes de cancelar o previsto",
+    /A linha do extrato não foi encontrada nesta empresa/.test(m4) && m4.indexOf("Esta linha do extrato já está conciliada") < m4.indexOf("set situacao = 'cancelado'"));
+  ok("tela: aprovar a conciliação concilia na hora", /p\.agente === "conciliacao"\)\) onDecidido/.test(ler("src/components/agentes/AgentesView.tsx")));
+  const Wc = await import("@/core/agentes/whatsapp");
+  ok("whatsapp: a conciliação feita diz que conciliou",
+    Wc.respostaDaDecisaoAgente({ ok: true, decisao: "sim" }, { estado: "executada", agente: "conciliacao" }).includes("conciliado com o extrato"));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }

@@ -145,6 +145,11 @@ no sistema" abre um PR com o `tokens.json`, e o merge é que publica.
   código de uso único (só o hash fica), e o SIM decide pela MESMA regra da
   tela (`agente_decidir_na_empresa`, que ninguém de fora chama) e envia pelo
   mesmo `executarAprovada`. No máximo 10 pedidos por execução.
+  **Conciliação** (etapa 4, pronto): casa pela MESMA regra da aba Conciliar
+  (`core/conciliacao/pares`), uma proposta por par (`par:<título>:<extrato>`,
+  o recusado não volta); sozinho só o par de confiança 85+ no nível 2+ (o
+  banco confere); concilia pelo banco (`agente_conciliar` →
+  `conciliar_na_empresa`, a mesma regra do botão).
 - **Quattro AI no WhatsApp:** atrás de `WHATSAPP_IA`, só leitura (a etapa 5,
   lançar, está pendente).
 - **Sem emoji**, exceto nos modelos de WhatsApp cadastrados na Twilio.

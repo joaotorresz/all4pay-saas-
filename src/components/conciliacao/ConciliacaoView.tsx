@@ -12,11 +12,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Button, StatusBadge, Skeleton, InfoHint, PontoStatus } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { isDemo } from "@/lib/demo";
+import { CONFIANCA_ALTA } from "@/core/conciliacao/pares";
 import { getConciliacaoOF, conciliar, avaliarComIA, iaConciliacaoAtiva, type MatchConc, type AvaliacaoIA } from "@/lib/conciliacao-of";
 import { EmptyState } from "@/components/visao-geral/shared";
 
 const fmtDia = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
-const AUTO = 85;
+const AUTO = CONFIANCA_ALTA;
 const confTone = (c: number) => (c >= AUTO ? "positive" : c >= 60 ? "warning" : "neutral");
 const confLabel = (c: number) => (c >= AUTO ? "alta" : c >= 60 ? "média" : "baixa");
 

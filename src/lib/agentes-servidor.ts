@@ -35,6 +35,9 @@ import { enviarWhatsapp, statusNotificacoes } from "@/core/financial-os/notifica
 import { descricaoDe, type IdAgente } from "@/core/agentes";
 import { mensagemDoPedidoAgente, avisoDoResto, TETO_PEDIDOS_POR_EXECUCAO } from "@/core/agentes/whatsapp";
 import { formatBRL } from "@/lib/format";
+import { semAmostra } from "@/lib/supabase/consulta";
+import { casarExtrato, type MovimentoParaCasar } from "@/core/conciliacao/pares";
+import { propostasDeConciliacao, planejarConciliacao, MOTIVO_PAR_DESFEITO } from "@/core/agentes/conciliacao";
 
 export interface DepsAgente {
   registro: RegistroEnvios;
@@ -43,7 +46,7 @@ export interface DepsAgente {
 }
 
 export interface RelatorioAgente {
-  agente: "cobranca";
+  agente: "cobranca" | "conciliacao";
   ativo: boolean;
   propostas: number;
   paraAprovar: number;
@@ -59,33 +62,35 @@ export interface RelatorioAgente {
   erro?: string;
 }
 
-const relatorio = (ativo: boolean): RelatorioAgente => ({
-  agente: "cobranca", ativo, propostas: 0, paraAprovar: 0, feitasSozinho: 0, executadasAprovadas: 0,
+const relatorio = (ativo: boolean, agente: RelatorioAgente["agente"] = "cobranca"): RelatorioAgente => ({
+  agente, ativo, propostas: 0, paraAprovar: 0, feitasSozinho: 0, executadasAprovadas: 0,
   falhas: 0, expiradas: 0, soAviso: 0, pulados: 0,
 });
 
 /** A linha de `agentes` → configuração (o banco já recusou o que não cabe). */
-export function configDaLinhaDeAgente(l: { ativo?: boolean | null; nivel?: number | null; limite_valor?: number | string | null; limite_dia?: number | null } | null): ConfigAgente {
-  if (!l) return configPadrao("cobranca");
+export function configDaLinhaDeAgente(l: { ativo?: boolean | null; nivel?: number | null; limite_valor?: number | string | null; limite_dia?: number | null } | null, agente: IdAgente = "cobranca"): ConfigAgente {
+  if (!l) return configPadrao(agente);
   return {
-    agente: "cobranca", ativo: !!l.ativo,
+    agente, ativo: !!l.ativo,
     nivel: Math.max(0, Math.min(3, Number(l.nivel) || 0)) as NivelAgente,
     limiteValor: Number(l.limite_valor) || 0, limiteDia: Number(l.limite_dia) || 0,
   };
 }
 
-/** As empresas com o agente de cobrança LIGADO, com a configuração de cada uma. */
-export async function empresasComCobranca(admin: SupabaseClient): Promise<Map<string, ConfigAgente>> {
+/** As empresas com o agente LIGADO, com a configuração de cada uma. */
+export async function empresasComAgente(admin: SupabaseClient, agente: IdAgente): Promise<Map<string, ConfigAgente>> {
   const { data, error } = await admin
     .from("agentes").select("org_id,ativo,nivel,limite_valor,limite_dia")
-    .eq("agente", "cobranca").eq("ativo", true).limit(5000);
+    .eq("agente", agente).eq("ativo", true).limit(5000);
   if (error) throw new Error(`agentes: ${error.message}`);
   const out = new Map<string, ConfigAgente>();
   for (const l of (data ?? []) as { org_id: string; ativo: boolean; nivel: number; limite_valor: number | string; limite_dia: number }[]) {
-    out.set(l.org_id, configDaLinhaDeAgente(l));
+    out.set(l.org_id, configDaLinhaDeAgente(l, agente));
   }
   return out;
 }
+
+export const empresasComCobranca = (admin: SupabaseClient) => empresasComAgente(admin, "cobranca");
 
 /** A régua da empresa (ligada ou não). Sem linha, a régua padrão. */
 export async function reguaDaEmpresaServidor(admin: SupabaseClient, orgId: string): Promise<ConfigAutomacao> {
@@ -214,7 +219,7 @@ export async function rodarAgenteCobranca(
  */
 export async function executarAprovada(
   admin: SupabaseClient, orgId: string, propostaId: string, hoje: string, appUrl: string, deps: DepsAgente,
-): Promise<{ estado: string; erro?: string | null }> {
+): Promise<{ estado: string; erro?: string | null; agente?: string }> {
   const { data: l, error } = await admin
     .from("agente_propostas").select("id,chave,estado,decidida_por,agente,org_id,erro")
     .eq("id", propostaId).eq("org_id", orgId).maybeSingle();
@@ -222,13 +227,14 @@ export async function executarAprovada(
   if (!l) return { estado: "inexistente", erro: "Proposta não encontrada nesta empresa." };
   const linha = l as LinhaProposta & { agente: string; erro: string | null };
   if (linha.estado !== "aprovada") return { estado: linha.estado, erro: linha.erro };
+  if (linha.agente === "conciliacao") return { ...(await conciliarProposta(admin, linha.id, false, deps.dryRun)), agente: "conciliacao" };
   if (linha.agente !== "cobranca") return { estado: linha.estado, erro: "Este agente ainda não executa." };
   const regua = await reguaDaEmpresaServidor(admin, orgId);
   const ctx = await contextoDoAgente(admin, orgId, hoje, appUrl, regua);
   const doDia = new Map(propostasDeCobranca(regua, ctx).propostas.map((p) => [p.chave, p]));
   const estado = await executarUma(admin, orgId, linha, doDia, hoje, deps, false);
   const { data: depois } = await admin.from("agente_propostas").select("estado,erro").eq("id", propostaId).maybeSingle();
-  return { estado: (depois as { estado: string } | null)?.estado ?? estado, erro: (depois as { erro: string | null } | null)?.erro ?? null };
+  return { estado: (depois as { estado: string } | null)?.estado ?? estado, erro: (depois as { erro: string | null } | null)?.erro ?? null, agente: "cobranca" };
 }
 
 /**
@@ -266,3 +272,118 @@ export async function pedirPorWhatsapp(
   if (resto > 0) for (const fone of Array.from(avisados)) await enviar(`+${fone}`, avisoDoResto(resto));
   return { pedidos, falhas };
 }
+
+/* ═════════════════════════ O AGENTE DE CONCILIAÇÃO (Etapa 4) ═════════════════
+ * Os pares são os MESMOS da aba Conciliar (`casarExtrato`), lidos com a chave
+ * de serviço e o filtro da empresa. Quem concilia é o banco
+ * (`agente_conciliar`), pela mesma regra do botão da tela, e grava o
+ * resultado na proposta na mesma transação.
+ */
+
+const COLS_CASAR = "id,type,amount,due_date,paid_date,party_id,description";
+
+/** Concilia UMA proposta pelo banco. Na prova sem envio, nada muda. */
+async function conciliarProposta(admin: SupabaseClient, id: string, sozinho: boolean, dryRun?: boolean): Promise<{ estado: string; erro?: string | null }> {
+  if (dryRun) return { estado: sozinho ? "pendente" : "aprovada", erro: "Prova sem envio: nada foi conciliado." };
+  const { data, error } = await admin.rpc("agente_conciliar", { p_proposta: id, p_sozinho: sozinho });
+  // O banco recusou ANTES de mudar qualquer coisa: a proposta segue onde estava.
+  if (error) return { estado: sozinho ? "pendente" : "aprovada", erro: error.message };
+  const r = (data ?? {}) as { estado?: string; erro?: string | null };
+  return { estado: r.estado ?? "falhou", erro: r.erro ?? null };
+}
+
+/** Os pares de hoje de UMA empresa: títulos em aberto × extrato do banco ainda sem par. */
+export async function paresDaEmpresa(admin: SupabaseClient, orgId: string) {
+  const [pend, ofs] = await Promise.all([
+    semAmostra(admin.from("movements").select(COLS_CASAR)).eq("org_id", orgId).eq("status", "pendente").limit(5000),
+    semAmostra(admin.from("movements").select(COLS_CASAR)).eq("org_id", orgId).eq("status", "pago")
+      .like("reference_code", "pluggy:%").is("conciliado_com", null).limit(5000),
+  ]);
+  if (pend.error) throw new Error(`títulos: ${pend.error.message}`);
+  if (ofs.error) throw new Error(`extrato: ${ofs.error.message}`);
+  return casarExtrato((pend.data ?? []) as MovimentoParaCasar[], (ofs.data ?? []) as MovimentoParaCasar[]);
+}
+
+interface LinhaPropostaConc { id: string; chave: string; estado: string; decidida_por: string | null; dados: { previsto?: string; extrato?: string } | null }
+
+/**
+ * O agente de conciliação numa empresa: solta o que não fecha mais, concilia
+ * o que já foi aprovado, propõe os pares novos e concilia sozinho só o que o
+ * nível deixa (e o banco confere de novo). Reexecutar não propõe o mesmo par
+ * duas vezes (índice único na chave do par).
+ */
+export async function rodarAgenteConciliacao(
+  admin: SupabaseClient, orgId: string, config: ConfigAgente, hoje: string, deps: { dryRun?: boolean } = {},
+): Promise<RelatorioAgente> {
+  const rel = relatorio(config.ativo, "conciliacao");
+  if (!config.ativo) return rel;
+
+  const { pares } = await paresDaEmpresa(admin, orgId);
+  const doPar = new Set(pares.map((p) => `${p.pendId}:${p.ofId}`));
+
+  const { data: abertas, error: e1 } = await admin
+    .from("agente_propostas").select("id,chave,estado,decidida_por,dados")
+    .eq("org_id", orgId).eq("agente", "conciliacao").in("estado", ["pendente", "aprovada"]).limit(2000);
+  if (e1) return { ...rel, erro: `propostas: ${e1.message}` };
+  const linhas = (abertas ?? []) as LinhaPropostaConc[];
+
+  // 1. a pendente cujo par não existe mais (outra porta conciliou, o título mudou) expira
+  const desfeitas = linhas.filter((l) => l.estado === "pendente" && !doPar.has(`${l.dados?.previsto}:${l.dados?.extrato}`));
+  if (desfeitas.length && !deps.dryRun) {
+    const { error } = await admin.from("agente_propostas")
+      .update({ estado: "expirada", motivo: MOTIVO_PAR_DESFEITO })
+      .in("id", desfeitas.map((l) => l.id)).eq("estado", "pendente");
+    if (error) return { ...rel, erro: `expirar: ${error.message}` };
+  }
+  rel.expiradas = desfeitas.length;
+
+  // 2. as aprovadas que ainda não foram conciliadas (o banco confere o par de novo)
+  for (const l of linhas.filter((x) => x.estado === "aprovada")) {
+    const r = await conciliarProposta(admin, l.id, false, deps.dryRun);
+    if (r.estado === "executada") rel.executadasAprovadas++; else if (r.estado === "falhou") rel.falhas++;
+  }
+
+  // 3. os pares novos: nem o título nem a linha do extrato com proposta esperando
+  const esperando = linhas.filter((l) => l.estado === "pendente" && !desfeitas.includes(l));
+  const ocupados = {
+    previstos: new Set(esperando.map((l) => l.dados?.previsto ?? "")),
+    extratos: new Set(esperando.map((l) => l.dados?.extrato ?? "")),
+  };
+  const candidatas = propostasDeConciliacao(pares, ocupados);
+  // o par que já teve proposta (recusada, expirada, feita) não volta
+  const jaVistas = new Set<string>();
+  for (let i = 0; i < candidatas.length; i += 200) {
+    const { data, error } = await admin.from("agente_propostas").select("chave")
+      .eq("org_id", orgId).eq("agente", "conciliacao").in("chave", candidatas.slice(i, i + 200).map((c) => c.chave)).limit(200);
+    if (error) return { ...rel, erro: `propostas antigas: ${error.message}` };
+    for (const l of (data ?? []) as { chave: string }[]) jaVistas.add(l.chave);
+  }
+  const novas = candidatas.filter((c) => !jaVistas.has(c.chave));
+
+  const { count: feitasHoje, error: e3 } = await admin.from("agente_propostas").select("id", { count: "exact", head: true })
+    .eq("org_id", orgId).eq("agente", "conciliacao").eq("estado", "executada").is("decidida_por", null)
+    .gte("executada_em", `${hoje}T00:00:00-03:00`).limit(1);
+  if (e3) return { ...rel, erro: `feitas hoje: ${e3.message}` };
+
+  const porChave = new Map(novas.map((p) => [p.chave, p]));
+  for (const { chave, destino } of planejarConciliacao(novas, config, feitasHoje ?? 0)) {
+    const p = porChave.get(chave)!;
+    if (destino === "avisar") { rel.soAviso++; continue; }
+    rel.propostas++;
+    if (deps.dryRun) { if (destino === "aprovar") rel.paraAprovar++; else rel.feitasSozinho++; continue; }
+    const { data: criada, error } = await admin.from("agente_propostas").upsert({
+      org_id: orgId, agente: "conciliacao", chave: p.chave, titulo: p.titulo, porque: p.porque, valor: p.valor, dados: p.dados,
+    }, { onConflict: "org_id,agente,chave", ignoreDuplicates: true }).select("id").limit(1);
+    if (error) return { ...rel, erro: `criar proposta: ${error.message}` };
+    const linha = ((criada ?? []) as { id: string }[])[0];
+    if (!linha) continue;
+    if (destino === "aprovar") { rel.paraAprovar++; (rel.idsParaAprovar ??= []).push(linha.id); continue; }
+    const r = await conciliarProposta(admin, linha.id, true);
+    if (r.estado === "executada") rel.feitasSozinho++;
+    // o banco não deixou fazer sozinho: a proposta espera a aprovação
+    else if (r.estado === "pendente") { rel.paraAprovar++; (rel.idsParaAprovar ??= []).push(linha.id); }
+    else rel.falhas++;
+  }
+  return rel;
+}
+

@@ -90,7 +90,7 @@ function LinhaProposta({ p, onDecidido }: { p: PropostaAgente; onDecidido: (m: s
     setOcupado(true); setErro(null);
     try {
       await decidirProposta(p.id, aprovar);
-      if (aprovar && p.agente === "cobranca") onDecidido(`${p.titulo}. ${await executarAprovada(p.id)}`);
+      if (aprovar && (p.agente === "cobranca" || p.agente === "conciliacao")) onDecidido(`${p.titulo}. ${await executarAprovada(p.id, p.agente)}`);
       else onDecidido(`${p.titulo}: ${(aprovar ? ROTULO_ESTADO.aprovada : ROTULO_ESTADO.recusada).toLowerCase()}.`);
     } catch (e) {
       setErro((e as Error).message);
@@ -126,6 +126,7 @@ const ICONE: Record<IdAgente, string> = {
 /** O que muda na empresa quando o agente liga. */
 const AO_LIGAR: Partial<Record<IdAgente, string>> = {
   cobranca: "Com ele ligado, a régua de cobrança não envia sozinha: cada cobrança do dia passa por ele, pela mesma régua e pelo mesmo canal.",
+  conciliacao: "Sozinho, ele só concilia o par de confiança alta. O resto sempre espera a sua aprovação, e o par recusado não volta.",
 };
 
 /**

@@ -20,6 +20,14 @@
 --      o telefone errado não acha o código; o segundo uso também não;
 --   m. o pedido de quem não pode aprovar não decide (a regra é a mesma da tela);
 --   n. a sessão não responde nem decide pela porta interna.
+--   (migration 20261104160000 — o agente de conciliação)
+--   o. a proposta APROVADA concilia pela mesma regra da tela: o previsto vira
+--      cancelado com o par, o extrato ganha o par, a proposta vira executada;
+--   p. sozinho só com o agente no nível 2+ E confiança 85+; o que o banco
+--      recusa vira "falhou" com o motivo, sem conciliar nada;
+--   q. a linha do extrato de OUTRA empresa (ou não paga) é recusada e o
+--      previsto continua previsto (o defeito que cancelava sem par);
+--   r. a sessão não concilia pela porta do agente nem pela interna.
 --
 -- ⚠️ Cada caso roda num SUBBLOCO que termina levantando uma sentinela (um
 -- savepoint desfeito). Tudo em transação que termina em ROLLBACK. Falha com
@@ -41,6 +49,7 @@ declare
   j jsonb;
   cod text;
   n int;
+  conta_a uuid; conta_b uuid; prev uuid; ext uuid; ext_b uuid;
   sentinela constant text := 'GUARDA_DESFAZ_CASO';
   falhas text[] := '{}';
   casos int := 0;
@@ -381,10 +390,164 @@ begin
     if sqlerrm <> sentinela then falhas := array_append(falhas, format('(n) estourou: %s', sqlerrm)); end if;
   end;
 
+  ------------------------------- montagem da conciliação (o–r) -------------
+  select id into conta_a from public.financial_accounts where org_id = org_ana limit 1;
+  select id into conta_b from public.financial_accounts where org_id = org_bia limit 1;
+  if conta_a is null or conta_b is null then
+    raise exception 'GUARDA INVÁLIDA: a empresa nasceu sem conta';
+  end if;
+
+  ------------------------------- o. APROVADA CONCILIA PELA MESMA REGRA ------
+  begin
+    casos := casos + 1;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_ana, conta_a, 'entrada', 480, 'NF 1042', 'previsto', null, current_date, 'manual') returning id into prev;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_ana, conta_a, 'entrada', 480, 'PIX recebido', 'baixado', current_date, current_date, 'manual') returning id into ext;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
+    values (org_ana, 'conciliacao', 'par:o', 'Conciliar NF 1042', 'Mesmo valor', 480,
+            jsonb_build_object('previsto', prev, 'extrato', ext, 'confianca', 70)) returning id into p;
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    r := public.agente_decidir(p, true, null);
+    reset role;
+    perform set_config('request.jwt.claim.sub', '', true);
+    set local role service_role;
+    j := public.agente_conciliar(p, false);
+    reset role;
+    if not coalesce((j->>'ok')::boolean, false) then
+      falhas := array_append(falhas, format('(o) a aprovada não conciliou: %s', j));
+    end if;
+    if not exists (select 1 from public.movements where id = prev and situacao = 'cancelado' and conciliado_com = ext)
+       or not exists (select 1 from public.movements where id = ext and conciliado_com = prev) then
+      falhas := array_append(falhas, '(o) o par não ficou gravado dos dois lados');
+    end if;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'executada' and executada_em is not null) then
+      falhas := array_append(falhas, '(o) a proposta não terminou executada');
+    end if;
+    set local role service_role;
+    j := public.agente_conciliar(p, false);
+    reset role;
+    if coalesce((j->>'ok')::boolean, false) then
+      falhas := array_append(falhas, '(o) a mesma proposta conciliou duas vezes');
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(o) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- p. SOZINHO SÓ NO NÍVEL E NA CONFIANÇA ------
+  begin
+    casos := casos + 1;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_ana, conta_a, 'saida', 99, 'Boleto', 'previsto', null, current_date, 'manual') returning id into prev;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_ana, conta_a, 'saida', 99, 'Pagamento', 'baixado', current_date, current_date, 'manual') returning id into ext;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
+    values (org_ana, 'conciliacao', 'par:p', 'Conciliar Boleto', 'Mesmo valor', 99,
+            jsonb_build_object('previsto', prev, 'extrato', ext, 'confianca', 95)) returning id into p;
+    -- nível 1 (o padrão): sozinho é recusado
+    set local role service_role;
+    begin
+      j := public.agente_conciliar(p, true);
+      reset role;
+      falhas := array_append(falhas, '(p) conciliou sozinho com o agente no nível 1');
+    exception when others then reset role;
+    end;
+    update public.agentes set ativo = true, nivel = 2, limite_valor = 500, limite_dia = 10
+     where org_id = org_ana and agente = 'conciliacao';
+    -- confiança média: recusado mesmo no nível 2
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque, valor, dados)
+    values (org_ana, 'conciliacao', 'par:p2', 'Conciliar Boleto', 'Mesmo valor', 99,
+            jsonb_build_object('previsto', prev, 'extrato', ext, 'confianca', 72)) returning id into ext_b;
+    set local role service_role;
+    begin
+      j := public.agente_conciliar(ext_b, true);
+      reset role;
+      falhas := array_append(falhas, '(p) conciliou sozinho um par de confiança média');
+    exception when others then reset role;
+    end;
+    if exists (select 1 from public.movements where id = prev and conciliado_com is not null) then
+      falhas := array_append(falhas, '(p) a recusa conciliou mesmo assim');
+    end if;
+    -- nível 2 e confiança alta: concilia, e a proposta leva a marca do limite
+    set local role service_role;
+    j := public.agente_conciliar(p, true);
+    reset role;
+    if not exists (select 1 from public.agente_propostas where id = p and estado = 'executada'
+                    and decidida_por is null and decidida_em is not null and motivo is not null) then
+      falhas := array_append(falhas, format('(p) sozinho dentro do nível não executou: %s', j));
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(p) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- q. EXTRATO DE OUTRA EMPRESA NÃO CANCELA ----
+  begin
+    casos := casos + 1;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_ana, conta_a, 'entrada', 300, 'NF 7', 'previsto', null, current_date, 'manual') returning id into prev;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_bia, conta_b, 'entrada', 300, 'PIX da outra empresa', 'baixado', current_date, current_date, 'manual') returning id into ext_b;
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (org_ana, conta_a, 'entrada', 300, 'PIX ainda previsto', 'previsto', null, current_date, 'manual') returning id into ext;
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    begin
+      perform public.conciliar_movimentos(prev, ext_b);
+      reset role;
+      falhas := array_append(falhas, '(q) conciliou com a linha de outra empresa');
+    exception when others then reset role;
+    end;
+    set local role authenticated;
+    begin
+      perform public.conciliar_movimentos(prev, ext);
+      reset role;
+      falhas := array_append(falhas, '(q) conciliou com uma linha que ainda não foi paga');
+    exception when others then reset role;
+    end;
+    if not exists (select 1 from public.movements where id = prev and situacao = 'previsto' and conciliado_com is null) then
+      falhas := array_append(falhas, '(q) o previsto foi cancelado sem par');
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(q) estourou: %s', sqlerrm)); end if;
+  end;
+
+  ------------------------------- r. A SESSÃO NÃO CONCILIA PELO AGENTE --------
+  begin
+    casos := casos + 1;
+    insert into public.agente_propostas (org_id, agente, chave, titulo, porque)
+    values (org_ana, 'conciliacao', 'par:r', 'Conciliar', 'Mesmo valor') returning id into p;
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    begin
+      j := public.agente_conciliar(p, false);
+      reset role;
+      falhas := array_append(falhas, '(r) a sessão chamou a porta do agente');
+    exception when insufficient_privilege then reset role;
+    end;
+    set local role authenticated;
+    begin
+      perform public.conciliar_na_empresa(gen_random_uuid(), gen_random_uuid(), org_bia, 'x');
+      reset role;
+      falhas := array_append(falhas, '(r) a sessão conciliou pela porta interna, escolhendo a empresa');
+    exception when insufficient_privilege then reset role;
+    end;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(r) estourou: %s', sqlerrm)); end if;
+  end;
+
   if array_length(falhas, 1) > 0 then
     raise exception E'agentes: % falha(s):\n  %', array_length(falhas, 1), array_to_string(falhas, E'\n  ');
   end if;
-  raise notice 'agentes: % casos (a–n) verdes', casos;
+  raise notice 'agentes: % casos (a–r) verdes', casos;
 end
 $guarda$;
 
