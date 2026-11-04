@@ -811,6 +811,7 @@ export function redigirCobranca(ctx: ContextoAutomacao, g: GrupoRegua, p: Parame
       extras,
       aviso: "Se você já pagou, desconsidere esta mensagem: o registro do boleto pode levar até 3 dias úteis.",
       plataforma: rodape.plataforma,
+      appUrl: ctx.appUrl,
     }),
     remetente: remetenteDaCobranca(ctx.orgId, ctx.credor),
     finalidade: FINALIDADE_DO_TOM[etapa.tom],
