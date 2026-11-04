@@ -10,7 +10,13 @@
  *
  * ⚠️ A tela NÃO cria proposta: só o servidor de cada agente cria. A pessoa só
  * decide, pela função `agente_decidir`, que confere a permissão na empresa da
- * proposta. O erro do banco sobe com a mensagem real.
+ * proposta. O erro do banco sobe com a mensagem real. Depois do "Aprovar",
+ * a tela pede ao servidor que ENVIE na hora o que já está aprovado
+ * (`/api/agentes/executar`); se essa chamada falhar, o runner diário envia.
+ *
+ * ⚠️ Na demonstração, que não tem servidor de agente, `simularCobrancaNaDemo`
+ * faz o papel do runner com o MESMO núcleo (`propostasDeCobranca`) sobre os
+ * dados da demonstração. Nada é enviado: aprovar deixa a proposta aprovada.
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +25,9 @@ import {
   IDS_AGENTE, configPadrao, type ConfigAgente, type EstadoProposta, type IdAgente, type NivelAgente,
   type PropostaAgente,
 } from "@/core/agentes";
+import { propostasDeCobranca, propostaDoDia, MOTIVO_EXPIRADA } from "@/core/agentes/cobranca";
+import { configPadrao as configPadraoAutomacao } from "@/core/automacoes";
+import { contextoDaEmpresa, listarAutomacoes } from "@/lib/automacoes";
 
 const K_CONFIG = CHAVES_ORG.agentes;
 const K_PROPOSTAS = CHAVES_ORG.agentePropostas;
@@ -70,7 +79,10 @@ interface LinhaProposta {
 
 /** As propostas mais recentes (as pendentes primeiro na tela). */
 export async function listarPropostas(): Promise<PropostaAgente[]> {
-  if (isDemo) return ler<PropostaAgente[]>(K_PROPOSTAS, []);
+  if (isDemo) {
+    await simularCobrancaNaDemo().catch(() => undefined);
+    return ler<PropostaAgente[]>(K_PROPOSTAS, []);
+  }
   const { data, error } = await createClient()
     .from("agente_propostas")
     .select("id,agente,titulo,porque,valor,estado,criada_em,decidida_em,motivo")
@@ -95,4 +107,47 @@ export async function decidirProposta(id: string, aprovar: boolean, motivo?: str
   }
   const { error } = await createClient().rpc("agente_decidir", { p_id: id, p_aprovar: aprovar, p_motivo: motivo ?? null });
   if (error) throw error;
+}
+
+/**
+ * Depois do "Aprovar": pede o envio NA HORA. Devolve a frase do resultado.
+ * ⚠️ Falha aqui não desfaz a aprovação: o runner diário envia o que ficou.
+ */
+export async function executarAprovada(id: string): Promise<string> {
+  if (isDemo) return "Aprovada. Na demonstração nada é enviado.";
+  try {
+    const r = await fetch("/api/agentes/executar", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }),
+    });
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; estado?: string; erro?: string | null; motivo?: string };
+    if (!r.ok || !j.ok) return `Aprovada. O envio fica para a execução diária: ${j.motivo ?? "o servidor não respondeu"}.`;
+    if (j.estado === "executada") return j.erro ? `Feita. ${j.erro}` : "Feita: a cobrança saiu.";
+    if (j.estado === "falhou") return `Não deu certo. ${j.erro ?? ""}`.trim();
+    return "Aprovada.";
+  } catch {
+    return "Aprovada. O envio fica para a execução diária.";
+  }
+}
+
+/**
+ * O "runner" da demonstração: com o agente de cobrança ligado, propõe a
+ * cobrança do dia com o mesmo núcleo do servidor e expira a de outro dia.
+ */
+async function simularCobrancaNaDemo(): Promise<void> {
+  if (!isDemo) return;
+  const cfg = (await listarAgentes()).find((c) => c.agente === "cobranca");
+  if (!cfg?.ativo || cfg.nivel === 0) return;
+  const [ctx, automacoes] = await Promise.all([contextoDaEmpresa(), listarAutomacoes()]);
+  const regua = automacoes.find((a) => a.tipo === "regua_cobranca") ?? configPadraoAutomacao("regua_cobranca");
+  const { propostas } = propostasDeCobranca(regua, ctx);
+  const atuais = ler<(PropostaAgente & { chave?: string })[]>(K_PROPOSTAS, []);
+  const vistas = new Set(atuais.map((p) => p.chave));
+  const agora = new Date().toISOString();
+  const expiradas = atuais.map((p) => (p.agente === "cobranca" && p.estado === "pendente" && p.chave && !propostaDoDia(p.chave, ctx.hoje)
+    ? { ...p, estado: "expirada" as const, motivo: MOTIVO_EXPIRADA } : p));
+  const novas = propostas.filter((p) => !vistas.has(p.chave)).map((p) => ({
+    id: `demo-${p.chave}`, chave: p.chave, agente: "cobranca" as const, titulo: p.titulo, porque: p.porque, valor: p.valor,
+    estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null,
+  }));
+  if (novas.length || expiradas.some((p, i) => p !== atuais[i])) gravar(K_PROPOSTAS, [...novas, ...expiradas]);
 }
