@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app/AppShell";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { Suspense } from "react";
 import { AssistenteShell } from "@/components/ia/AssistenteShell";
 
@@ -13,7 +11,8 @@ export const metadata: Metadata = {
 
 export default function QuattroAIPage() {
   return (
-    <AppShell title="Quattro AI" actions={isDemo ? <DemoBadge /> : null}>
+    // Sem título nem selo (pedido do dono, 04/11/2026): a tela É a conversa.
+    <AppShell title="Quattro AI" semCabecalho>
       <Suspense fallback={null}><AssistenteShell /></Suspense>
     </AppShell>
   );

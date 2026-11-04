@@ -1,30 +1,38 @@
 "use client";
 
 /**
- * O avatar de cada agente (e o da Quattro AI): um círculo na cor do agente,
- * token do DS (`--color-agente-*`), com o ícone dele em branco.
+ * O avatar de cada agente (e o da Quattro AI): o boneco de tricô de cada um
+ * (pedido do dono, 04/11/2026), em `public/agentes/<id>.png`, 512px com
+ * fundo transparente — nítido em tela retina até 170px.
+ *
+ * ⚠️ A cor de cada agente continua no DS (`--color-agente-*`, usada no chat);
+ * o boneco já nasce nela.
  */
-import { Icon } from "@/components/ui";
-import { PERFIS } from "@/core/agentes/conversa";
 import type { IdAgente } from "@/core/agentes";
 
-export function AvatarAgente({ agente, tamanho = 40, noMenu = false }: { agente: IdAgente | "quattro-ai"; tamanho?: number; noMenu?: boolean }) {
-  const ia = agente === "quattro-ai";
-  // No menu escuro o círculo da Quattro AI ganha o fio do menu, para não
-  // sumir no fundo verde quase preto.
+export const IMAGEM_AGENTE: Record<IdAgente | "quattro-ai", string> = {
+  "quattro-ai": "/agentes/quattro-ai.png",
+  cobranca: "/agentes/cobranca.png",
+  conciliacao: "/agentes/conciliacao.png",
+  contas_pagar: "/agentes/contas-pagar.png",
+  caixa: "/agentes/caixa.png",
+  fechamento: "/agentes/fechamento.png",
+};
+
+export function AvatarAgente({ agente, tamanho = 40 }: { agente: IdAgente | "quattro-ai"; tamanho?: number }) {
   return (
-    <span
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={IMAGEM_AGENTE[agente]}
+      alt=""
       aria-hidden
       data-avatar={agente}
-      className="shrink-0 rounded-pill inline-flex items-center justify-center"
-      style={{
-        width: tamanho, height: tamanho,
-        background: ia ? "var(--color-ink)" : PERFIS[agente].cor,
-        color: ia ? "var(--color-lime)" : "var(--color-white)",
-        border: ia && noMenu ? "1px solid var(--erp-menu-fio)" : undefined,
-      }}
-    >
-      <Icon name={ia ? "sparkles" : PERFIS[agente].icone} size={Math.round(tamanho * 0.45)} color="currentColor" />
-    </span>
+      width={tamanho}
+      height={tamanho}
+      decoding="async"
+      draggable={false}
+      className="shrink-0 select-none object-contain"
+      style={{ width: tamanho, height: tamanho }}
+    />
   );
 }

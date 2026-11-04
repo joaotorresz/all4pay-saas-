@@ -1050,6 +1050,14 @@ html:not(.dark) .ds-visor :is(.bg-ink, .text-white, [style*="background: var(--c
   letter-spacing: 0;
   word-spacing: var(--a4p-titulo-espaco-palavra);
 }
+/* O cartão branco de Conversas no menu (04/11/2026): o mesmo par de fontes
+   do menu, só que sem as cores do fundo escuro. */
+.a4p-menu-narrow {
+  font-family: "Agrandir Narrow", var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0;
+  word-spacing: var(--a4p-titulo-espaco-palavra);
+}
 .a4p-menu-sub:hover { background: var(--erp-menu-hover); color: var(--erp-menu-texto); }
 .a4p-menu-sub[aria-current="page"] { color: var(--erp-menu-texto); }
 .a4p-menu-afundado { background: var(--erp-menu-afundado); }

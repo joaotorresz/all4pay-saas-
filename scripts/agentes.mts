@@ -565,6 +565,25 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   const hub = ler("src/components/ia/QuattroAIHub.tsx");
   ok("menu: a Quattro AI e os agentes ficam na seção Conversas, antes das conversas",
     /<AgentesDoMenu entra=\{entra\} \/>\s*<label[^>]*>\s*<span className="sr-only">Buscar conversa/.test(menu) && /useAgentesDoHub\(\)/.test(menu));
+  // Os bonecos de cada agente (04/11/2026): um PNG por agente, RGBA (fundo
+  // transparente), com pelo menos 256px (nítido em retina).
+  const avatar = ler("src/components/ia/AvatarAgente.tsx");
+  ok("avatar: cada agente e a Quattro AI têm o boneco em PNG transparente, 256px ou mais",
+    [...ids, "quattro-ai"].every((id) => {
+      const m = avatar.match(new RegExp(`"?${id}"?: "(/agentes/[a-z-]+\\.png)"`));
+      if (!m) return false;
+      const f = join(raiz, "public", m[1]);
+      if (!existsSync(f)) return false;
+      const b = readFileSync(f);
+      return b.readUInt32BE(16) >= 256 && b.readUInt32BE(20) >= 256 && b[25] === 6;
+    }));
+  // Pedido do dono (04/11/2026): a tela abre JÁ como conversa, sem título nem
+  // selo, e as conversas do menu ficam num cartão branco.
+  ok("tela: a Quattro AI abre como conversa (o mesmo chat, embutido), sem título nem selo",
+    /<ChatTelaCheia [^>]*embutido/.test(hub) && /<AppShell [^>]*semCabecalho/.test(ler("src/app/quattro-ai/page.tsx"))
+      && !/DemoBadge/.test(ler("src/app/quattro-ai/page.tsx")));
+  ok("menu: conversas e agentes num cartão branco",
+    /className="[^"]*bg-white text-ink[^"]*" data-menu-conversas/.test(menu));
   ok("tela: no computador a lista sai da tela (fica no menu) e a fonte é uma só",
     /className=\{`md:hidden [^`]*`\}>\{lista\}/.test(hub) && /useAgentesDoHub\(\)/.test(hub) && !/useQuery\(/.test(hub));
 }
