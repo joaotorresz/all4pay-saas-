@@ -205,6 +205,9 @@ export interface PedidoFocus {
   servico: Record<string, unknown>;
 }
 
+/** IBGE de São Paulo: a Nota Paulistana tem regras próprias. */
+const SAO_PAULO = "3550308";
+
 /**
  * O código do serviço da nota em dígitos: "1.07 — Suporte técnico" → "0107"
  * (o item da LC 116 com o subitem em duas casas, como a Focus pede).
@@ -303,7 +306,11 @@ export function montarPedido(
         iss_retido: nota.issRetido,
         item_lista_servico: item,
         discriminacao: texto(nota.descricao),
-        codigo_municipio: emitente.codigoMunicipio,
+        // ⚠️ São Paulo RECUSA o município da prestação quando o serviço é
+        // tributado na própria cidade ("Para serviço tributado em São Paulo ou
+        // exportação de serviços não informe o município…", 04/11/2026). Nas
+        // outras prefeituras (ABRASF) o campo segue obrigatório.
+        ...(emitente.codigoMunicipio === SAO_PAULO ? {} : { codigo_municipio: emitente.codigoMunicipio }),
         ...(mandaTribMun ? { codigo_tributario_municipio: tribMun } : {}),
         ...(emitente.codigoTributacaoMunicipalIss ? { codigo_tributacao_municipal_iss: emitente.codigoTributacaoMunicipalIss } : {}),
         ...(emitente.codigoCnae ? { codigo_cnae: emitente.codigoCnae } : {}),

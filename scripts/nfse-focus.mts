@@ -54,6 +54,7 @@ function casosDoMotor(m: Motor): Caso[] {
   const ok = ped && ped.ok ? ped.pedido : null;
   const ea = emitentes["org-com-aliquota"];
   const comAliq = ea ? m.montarPedido({ ...NOTA, codigoServico: "1.07" }, TOMADOR, ea, "x") : null;
+  const foraSp = e ? m.montarPedido(NOTA, TOMADOR, { ...e, codigoMunicipio: "3304557" }, "x") : null;
   const semDoc = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "123" }, e, "x") : null;
   const pf = e ? m.montarPedido(NOTA, { ...TOMADOR, documento: "529.982.247-25" }, e, "x") : null;
   const enor = emitentes["org-normal-sem-ibs"];
@@ -89,6 +90,7 @@ function casosDoMotor(m: Motor): Caso[] {
     ["emitente: CNPJ com 13 dígitos NÃO entra", !emitentes["org-cnpj-curto"]],
     ["emitente: configuração ilegível não lança e não habilita ninguém", Object.keys(m.lerEmitentes("{x").emitentes).length === 0],
     ["pedido: o prestador é o do vínculo da plataforma, COM a IM (rota da prefeitura)", ok?.prestador.cnpj === "54579688000135" && ok?.prestador.inscricao_municipal === "1234567" && ok?.prestador.codigo_municipio === "3550308"],
+    ["pedido: em São Paulo o serviço NÃO leva o município da prestação; fora de SP leva", !!ok && !("codigo_municipio" in ok.servico) && !!foraSp && foraSp.ok && foraSp.pedido.servico.codigo_municipio === "3304557"],
     ["pedido: tomador PJ vai por CNPJ, em dígitos", ok?.tomador.cnpj === "12345678000195" && !("cpf" in (ok?.tomador ?? {}))],
     ["pedido: tomador PF vai por CPF", !!pf && pf.ok && pf.pedido.tomador.cpf === "52998224725"],
     ["pedido: sem CPF/CNPJ válido é recusado ANTES de sair", !!semDoc && !semDoc.ok],
@@ -200,6 +202,7 @@ await plantarMotor("interruptor do grupo ignorado", "const ibsCbs = emitente.gru
 await plantarMotor("grupo do IBS/CBS esquecido", "&& (!emitente.optanteSimples ||", "&& false && (!emitente.optanteSimples ||", "pedido: Regime Normal leva o grupo do IBS/CBS (códigos, NBS, valor final e indicadores)");
 await plantarMotor("endereço sem IBGE vai assim mesmo", "else if (ibsCbs) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "else if (false) return { ok: false, problemas: [\"Não foi possível achar a cidade do cliente pelo CEP.", "pedido: no leiaute da reforma, sem o IBGE da cidade do cliente a nota é recusada ANTES de sair");
 await plantarMotor("IM esquecida na prefeitura", "prestador: { cnpj: emitente.cnpj, inscricao_municipal: emitente.inscricaoMunicipal,", "prestador: { cnpj: emitente.cnpj,", "pedido: o prestador é o do vínculo da plataforma, COM a IM (rota da prefeitura)");
+await plantarMotor("município da prestação em SP", "emitente.codigoMunicipio === SAO_PAULO ? {}", "false ? {}", "pedido: em São Paulo o serviço NÃO leva o município da prestação; fora de SP leva");
 await plantarMotor("código municipal do ISS esquecido", "        ...(emitente.codigoTributacaoMunicipalIss ? { codigo_tributacao_municipal_iss: emitente.codigoTributacaoMunicipalIss } : {}),\n", "", "pedido: o código de tributação municipal do ISS declarado pela plataforma vai no campo que a Focus pede; sem ele, o campo não vai");
 await plantarMotor("CST esquecido", "ibs_cbs_situacao_tributaria: cst,", "", "pedido: o CST do IBS/CBS sai da classificação (000001 → 000) ou do declarado");
 await plantarMotor("código municipal de 5 dígitos no leiaute novo", "(!ibsCbs || /^\\d{3}$/.test(tribMun))", "true", "pedido: código tributário municipal fora dos 3 dígitos NÃO vai no leiaute da reforma");
