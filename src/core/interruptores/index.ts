@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Cada integração nova nasce DESLIGADA por uma variável `=ligado` na Vercel.
- * São onze, espalhadas por rotas e clientes de API, e até aqui a única forma
+ * São treze, espalhadas por rotas e clientes de API, e até aqui a única forma
  * de saber o que estava ligado era abrir o painel da Vercel e ler variável por
  * variável — sem saber, por exemplo, que a cobrança ligada com a credencial de
  * TESTE continua desligada.
@@ -27,9 +27,9 @@ export const VERSAO_INTERRUPTORES = "interruptores/1.0.0";
 export type IdInterruptor =
   | "pinbank_webhook" | "pinbank_conferencia" | "pinbank_cobranca" | "pinbank_encargos"
   | "pinbank_pix_atualizado" | "mensalidade_pinbank" | "cobranca_banco"
-  | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes" | "focus_empresas" | "contador_optin";
+  | "whatsapp_aprovacao" | "whatsapp_ia" | "caixa_email" | "cadastro_lembretes" | "focus_empresas" | "contador_optin" | "agentes";
 
-export type GrupoInterruptor = "Maquininha e conta Pinbank" | "Cobrança" | "WhatsApp e e-mail" | "Notas fiscais";
+export type GrupoInterruptor = "Maquininha e conta Pinbank" | "Cobrança" | "WhatsApp e e-mail" | "Notas fiscais" | "Quattro AI";
 
 /** Por que não está ligado. `desligado` = a variável não está `ligado`. */
 export type MotivoDesligado = "desligado" | "sem_configuracao" | "ambiente_teste";
@@ -73,9 +73,11 @@ export const INTERRUPTORES: readonly Interruptor[] = [
     oQueFaz: "O contador cadastrado no envio de NFs recebe o link e confirma o próprio e-mail.", exige: ["chave do Resend"] },
   { id: "focus_empresas", grupo: "Notas fiscais", nome: "Cadastrar empresas na Focus",
     oQueFaz: "A área da plataforma cria a empresa do cliente na Focus com o certificado A1.", exige: ["token de produção da Focus"] },
+  { id: "agentes", grupo: "Quattro AI", nome: "Agentes da Quattro AI",
+    oQueFaz: "Os agentes que cada empresa ligou preparam o trabalho e pedem aprovação.", exige: ["o agente ligado pela empresa"] },
 ];
 
-export const GRUPOS_INTERRUPTOR: readonly GrupoInterruptor[] = ["Maquininha e conta Pinbank", "Cobrança", "WhatsApp e e-mail", "Notas fiscais"];
+export const GRUPOS_INTERRUPTOR: readonly GrupoInterruptor[] = ["Maquininha e conta Pinbank", "Cobrança", "WhatsApp e e-mail", "Notas fiscais", "Quattro AI"];
 
 export const ROTULO_MOTIVO: Record<MotivoDesligado, string> = {
   desligado: "Desligado",
