@@ -76,20 +76,36 @@ const digitos = (x: unknown, max: number): string | null => {
 };
 
 /**
- * "AAAA-MM-DD" do boleto (sem hora) vira o meio-dia de São Paulo: a data do
- * caixa é a do pagamento em qualquer fuso que o servidor use. Uma data ISO com
- * hora (o Pix) passa como veio.
+ * O instante do pagamento, em ISO com fuso.
+ *
+ *   · "AAAA-MM-DD" (o boleto, sem hora) vira o meio-dia de São Paulo: a data
+ *     do caixa é a do pagamento em qualquer fuso que o servidor use;
+ *   · data com hora e fuso (`Z`, `-03:00`) passa como veio;
+ *   · ⚠️ MEIA-NOITE EXATA ("…T00:00:00", com ou sem `Z`) é SÓ A DATA. Medido
+ *     no primeiro Pix real (05/11/2026): pago às 19h25 do dia 5 em São Paulo,
+ *     o aviso trouxe `DataLancamento` à meia-noite do dia 5, gravado como
+ *     `2026-11-05 00:00:00+00` — 21h do dia 4 em São Paulo, e o título entrou
+ *     no caixa do dia anterior. Vira o meio-dia de São Paulo daquele dia;
+ *   · ⚠️ data com hora e SEM fuso é hora de São Paulo (lida como UTC, que é o
+ *     que `new Date` faz na Vercel, a noite viraria o dia seguinte).
  */
 export function instanteDoPagamento(x: unknown): string | null {
   const s = texto(x, 40);
   if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const d = new Date(`${s}T12:00:00-03:00`);
-    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : d.toISOString();
+  const dia = /^(\d{4}-\d{2}-\d{2})/.exec(s)?.[1];
+  if (!dia) return null;
+  let d: Date;
+  const soData = s === dia || /^\d{4}-\d{2}-\d{2}T00:00(:00(\.0+)?)?(Z|[+-]00:?00)?$/i.test(s);
+  if (soData) d = new Date(`${dia}T12:00:00-03:00`);
+  else if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return null;
+  else if (/(Z|[+-]\d{2}:?\d{2})$/i.test(s)) d = new Date(s);
+  else d = new Date(`${s}-03:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  // 31/02 não existe: o dia lido tem de ser o dia escrito (em São Paulo, quando não há fuso).
+  if (soData || !/(Z|[+-]\d{2}:?\d{2})$/i.test(s)) {
+    if (d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }) !== dia) return null;
   }
-  if (!/^\d{4}-\d{2}-\d{2}T/.test(s)) return null;
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  return d.toISOString();
 }
 
 /** O aviso, conferido campo a campo. Recusa = 200 "ignorado" na rota (reenviar não muda nada). */
