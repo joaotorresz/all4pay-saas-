@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { DESTINO_RECUPERACAO, motivoDaFalha, type MotivoRecuperacao } from "@/core/recuperacao";
+import { DESTINO_RECUPERACAO, TIPOS_DO_LINK, lerTipoDoLink, motivoDaFalha, type MotivoRecuperacao } from "@/core/recuperacao";
 
 /**
  * RETORNO DO LINK DE REDEFINIÇÃO DE SENHA — troca o código pela sessão.
  *
- *   GET /api/auth/recuperar?code=…
+ *   GET /api/auth/recuperar?code=…                       (PKCE: só no navegador que pediu)
+ *   GET /api/auth/recuperar?token_hash=…&type=recovery    (modelos de e-mail: qualquer navegador)
  *
  * O e-mail de "esqueci a senha" leva para cá (`pedirRedefinicao`, lib/entrada).
  * O Auth usa PKCE: o link traz um `code`, e a prova de que foi ESTA pessoa que
@@ -43,6 +44,28 @@ export async function GET(req: NextRequest) {
 
   // Sem Supabase (demonstração) não há conta a recuperar.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return para("/login");
+
+  // O link dos modelos de e-mail (supabase/templates): a prova é o token, e
+  // vale em outro navegador ou no celular. O tipo decide o destino, pela lista.
+  const tokenHash = url.searchParams.get("token_hash");
+  if (tokenHash) {
+    const tipo = lerTipoDoLink(url.searchParams.get("type"));
+    if (!tipo) return falhou("invalido");
+    try {
+      const { error } = await createClient().auth.verifyOtp({ type: tipo, token_hash: tokenHash });
+      if (error) {
+        const motivo = motivoDaFalha({ codigo: error.code, mensagem: error.message, status: error.status, nome: error.name });
+        if (motivo === "invalido" || motivo === "falha") {
+          console.error("[falha·acesso] acesso.link_email:", tipo, error.name, error.code ?? "-", error.status ?? "-", error.message);
+        }
+        return falhou(motivo);
+      }
+      return para(TIPOS_DO_LINK[tipo]);
+    } catch (e) {
+      console.error("[falha·acesso] acesso.link_email:", e instanceof Error ? e.message : String(e));
+      return falhou("falha");
+    }
+  }
 
   const code = url.searchParams.get("code");
   // Link vencido no próprio Auth: ele devolve o erro na URL em vez do código.
