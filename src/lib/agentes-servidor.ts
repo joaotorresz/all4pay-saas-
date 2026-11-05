@@ -47,6 +47,9 @@ import {
 } from "@/core/caixa-entrada";
 import type { BoletoRecebido, NFRecebida } from "@/core/compras";
 import { propostasDeCaixa, planejarCaixa, propostaDeCaixaVale } from "@/core/agentes/caixa";
+import {
+  propostasDeFechamento, planejarFechamento, propostaDeFechamentoVale, mesParaFechar, type FontesFechamento,
+} from "@/core/agentes/fechamento";
 
 export interface DepsAgente {
   registro: RegistroEnvios;
@@ -55,7 +58,7 @@ export interface DepsAgente {
 }
 
 export interface RelatorioAgente {
-  agente: "cobranca" | "conciliacao" | "contas_pagar" | "caixa";
+  agente: "cobranca" | "conciliacao" | "contas_pagar" | "caixa" | "fechamento";
   ativo: boolean;
   propostas: number;
   paraAprovar: number;
@@ -238,7 +241,8 @@ export async function executarAprovada(
   if (linha.estado !== "aprovada") return { estado: linha.estado, erro: linha.erro };
   if (linha.agente === "conciliacao") return { ...(await conciliarProposta(admin, linha.id, false, deps.dryRun)), agente: "conciliacao" };
   if (linha.agente === "contas_pagar") return { ...(await concluirContaPagar(admin, linha.id)), agente: "contas_pagar" };
-  if (linha.agente === "caixa") return { ...(await concluirCaixa(admin, linha.id, deps.dryRun)), agente: "caixa" };
+  if (linha.agente === "caixa") return { ...(await concluirAberta(admin, linha.id, "caixa", deps.dryRun)), agente: "caixa" };
+  if (linha.agente === "fechamento") return { ...(await concluirAberta(admin, linha.id, "fechamento", deps.dryRun)), agente: "fechamento" };
   if (linha.agente !== "cobranca") return { estado: linha.estado, erro: "Este agente ainda não executa." };
   const regua = await reguaDaEmpresaServidor(admin, orgId);
   const ctx = await contextoDoAgente(admin, orgId, hoje, appUrl, regua);
@@ -535,11 +539,15 @@ export async function rodarAgenteContasPagar(
  * Nunca muda conta nem move dinheiro: o "Aprovar" abre a conta na tela, e a
  * proposta aprovada termina como executada ("você abriu a conta").
  */
-async function concluirCaixa(admin: SupabaseClient, id: string, dryRun?: boolean): Promise<{ estado: string; erro?: string | null }> {
+/**
+ * Caixa e fechamento: o "Aprovar" abre a conta ou a tarefa na tela; aqui só se
+ * registra que a aprovada foi aberta (executada). Nada além da proposta muda.
+ */
+async function concluirAberta(admin: SupabaseClient, id: string, agente: "caixa" | "fechamento", dryRun?: boolean): Promise<{ estado: string; erro?: string | null }> {
   if (dryRun) return { estado: "aprovada", erro: null };
   const { data, error } = await admin.from("agente_propostas")
     .update({ estado: "executada", executada_em: new Date().toISOString() })
-    .eq("id", id).eq("agente", "caixa").eq("estado", "aprovada").select("estado").limit(1);
+    .eq("id", id).eq("agente", agente).eq("estado", "aprovada").select("estado").limit(1);
   if (error) return { estado: "aprovada", erro: error.message };
   return { estado: ((data ?? []) as { estado: string }[])[0]?.estado ?? "aprovada", erro: null };
 }
@@ -562,7 +570,7 @@ export async function rodarAgenteCaixa(
 
   // 1. a aprovada de ontem já foi aberta pela pessoa: termina
   for (const l of linhas.filter((x) => x.estado === "aprovada")) {
-    const r = await concluirCaixa(admin, l.id, deps.dryRun);
+    const r = await concluirAberta(admin, l.id, "caixa", deps.dryRun);
     if (r.estado === "executada") rel.executadasAprovadas++;
   }
 
@@ -605,4 +613,85 @@ export async function rodarAgenteCaixa(
     if (((criada ?? []) as { id: string }[])[0]) rel.paraAprovar++;
   }
   return { ...rel, furo: furo?.dia ?? null };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * O AGENTE DE FECHAMENTO (Etapa 8)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Lê o checklist do mês que acabou pela função do banco (a chave de serviço
+ * não lê `close_tasks` direto) e propõe o próximo passo. Nunca conclui, revisa
+ * nem trava: o "Aprovar" abre a tarefa na tela.
+ */
+export async function fontesDoFechamento(admin: SupabaseClient, orgId: string, mes: string): Promise<FontesFechamento> {
+  const { data, error } = await admin.rpc("agente_fechamento_fontes", { p_org: orgId, p_mes: mes });
+  if (error) throw new Error(`checklist: ${error.message}`);
+  const j = (data ?? {}) as { travado?: boolean; tarefas?: { chave: string; titulo: string; href: string | null; ordem: number; status: string; prazo: string | null }[] };
+  return {
+    mes, travado: !!j.travado,
+    tarefas: (Array.isArray(j.tarefas) ? j.tarefas : []).map((t) => ({
+      chave: String(t.chave), titulo: String(t.titulo ?? ""), href: t.href ?? null, ordem: Number(t.ordem ?? 0),
+      status: (["pending", "running", "review", "done"].includes(t.status) ? t.status : "pending") as FontesFechamento["tarefas"][number]["status"],
+      prazo: t.prazo ? String(t.prazo).slice(0, 10) : null,
+    })),
+  };
+}
+
+export async function rodarAgenteFechamento(
+  admin: SupabaseClient, orgId: string, config: ConfigAgente, hoje: string, deps: { dryRun?: boolean } = {},
+): Promise<RelatorioAgente & { mes?: string | null }> {
+  const rel = relatorio(config.ativo, "fechamento");
+  if (!config.ativo) return rel;
+  const mes = mesParaFechar(hoje);
+  const fontes = mes ? await fontesDoFechamento(admin, orgId, mes) : null;
+
+  const { data: abertas, error: e1 } = await admin
+    .from("agente_propostas").select("id,chave,estado")
+    .eq("org_id", orgId).eq("agente", "fechamento").in("estado", ["pendente", "aprovada"]).limit(500);
+  if (e1) return { ...rel, erro: `propostas: ${e1.message}` };
+  const linhas = (abertas ?? []) as { id: string; chave: string; estado: string }[];
+
+  // 1. a aprovada já foi aberta pela pessoa: termina
+  for (const l of linhas.filter((x) => x.estado === "aprovada")) {
+    const r = await concluirAberta(admin, l.id, "fechamento", deps.dryRun);
+    if (r.estado === "executada") rel.executadasAprovadas++;
+  }
+
+  // 2. a pendente cujo passo já andou (ou cujo mês travou ou saiu da janela) expira
+  const porMotivo = new Map<string, string[]>();
+  for (const l of linhas.filter((x) => x.estado === "pendente")) {
+    const motivo = propostaDeFechamentoVale(l.chave, fontes);
+    if (motivo) porMotivo.set(motivo, [...(porMotivo.get(motivo) ?? []), l.id]);
+  }
+  for (const [motivo, ids] of Array.from(porMotivo)) {
+    rel.expiradas += ids.length;
+    if (deps.dryRun) continue;
+    const { error } = await admin.from("agente_propostas").update({ estado: "expirada", motivo })
+      .in("id", ids).eq("estado", "pendente");
+    if (error) return { ...rel, erro: `expirar: ${error.message}` };
+  }
+  if (!fontes) return { ...rel, mes: null };
+
+  // 3. o próximo passo de cada tarefa, sem repetir o que já teve proposta
+  const candidatas = propostasDeFechamento(fontes, hoje, new Set()).map((p) => p.chave);
+  const jaPropostas = new Set<string>();
+  if (candidatas.length) {
+    const { data, error } = await admin.from("agente_propostas").select("chave")
+      .eq("org_id", orgId).eq("agente", "fechamento").in("chave", candidatas).limit(200);
+    if (error) return { ...rel, erro: `propostas antigas: ${error.message}` };
+    for (const l of (data ?? []) as { chave: string }[]) jaPropostas.add(l.chave);
+  }
+  const novas = propostasDeFechamento(fontes, hoje, jaPropostas);
+  const porChave = new Map(novas.map((p) => [p.chave, p]));
+  for (const { chave, destino } of planejarFechamento(novas, config)) {
+    const p = porChave.get(chave)!;
+    if (destino === "avisar") { rel.soAviso++; continue; }
+    rel.propostas++;
+    if (deps.dryRun) { rel.paraAprovar++; continue; }
+    const { data: criada, error } = await admin.from("agente_propostas").upsert({
+      org_id: orgId, agente: "fechamento", chave: p.chave, titulo: p.titulo, porque: p.porque, valor: null, dados: p.dados,
+    }, { onConflict: "org_id,agente,chave", ignoreDuplicates: true }).select("id").limit(1);
+    if (error) return { ...rel, erro: `criar proposta: ${error.message}` };
+    if (((criada ?? []) as { id: string }[])[0]) rel.paraAprovar++;
+  }
+  return { ...rel, mes };
 }

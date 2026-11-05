@@ -25,6 +25,10 @@ import {
 import type { DocumentoEntrada, DecisaoEntrada } from "@/core/caixa-entrada";
 import { acharFuro, propostasDeCaixa, planejarCaixa, propostaDeCaixaVale, MOTIVO_CAIXA } from "@/core/agentes/caixa";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import {
+  mesParaFechar, propostasDeFechamento, planejarFechamento, propostaDeFechamentoVale, MOTIVO_FECHAMENTO,
+  type FontesFechamento, type TarefaParaAgente,
+} from "@/core/agentes/fechamento";
 
 const falhas: string[] = [];
 const ok = (nome: string, cond: boolean, det = "") => {
@@ -98,9 +102,11 @@ ok("tela: decide pela função do banco", /rpc\("agente_decidir"/.test(lib));
 {
   const { abrirConversaAgente: abrir } = await import("@/core/agentes/conversa");
   const { configPadrao: cp } = await import("@/core/agentes");
-  const ab = abrir(cp("fechamento"));
-  ok("tela: o agente em construção não liga (a conversa não oferece nível)",
-    ab.estado.etapa === "em_construcao" && ab.falas.every((f) => !f.pergunta));
+  // Os cinco estão prontos (05/11/2026): nenhum abre "em construção", e cada
+  // um oferece o nível conversando.
+  const emConstrucao = (["cobranca", "conciliacao", "contas_pagar", "caixa", "fechamento"] as const)
+    .filter((id) => abrir(cp(id)).estado.etapa === "em_construcao");
+  ok("tela: os cinco agentes estão prontos (nenhum abre em construção)", emConstrucao.length === 0, emConstrucao.join(", "));
 }
 ok("interruptores: o dos agentes aparece na área da plataforma",
   /agentes: sim\(agentesLigados\(env\)\)/.test(ler("src/lib/interruptores.ts")));
@@ -294,8 +300,8 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     && /linha\.estado !== "aprovada"/.test(porta) && !/agente_decidir/.test(porta) && /agentesLigados\(process\.env\)/.test(porta));
   const escritores = arquivos(join(raiz, "src")).filter((f) => /from\("agente_propostas"\)[\s\S]{0,80}\.(insert|upsert)\(/.test(readFileSync(f, "utf8")));
   ok("só o servidor dos agentes cria proposta", escritores.length === 1 && escritores[0].endsWith("src/lib/agentes-servidor.ts"), escritores.join(", "));
-  ok("catálogo: cobrança, conciliação, contas a pagar e caixa prontos; fechamento, em construção",
-    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao,contas_pagar,caixa");
+  ok("catálogo: os cinco agentes prontos",
+    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao,contas_pagar,caixa,fechamento");
 }
 
 /* ── 5. aprovar pelo WhatsApp (Etapa 3) ───────────────────────────────────── */
@@ -756,15 +762,74 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   // As duas metades da decisão do dono: o Aprovar abre a conta; o agente nunca muda conta.
   const chat = ler("src/components/ia/ChatAgente.tsx");
   ok("caixa: Aprovar abre a conta sugerida na tela de sempre",
-    /if \(aprovar && p\.agente === "caixa"\) \{[\s\S]{0,500}if \(href\) router\.push\(href\);/.test(chat));
+    /if \(aprovar && \(p\.agente === "caixa" \|\| p\.agente === "fechamento"\)\) \{[\s\S]{0,700}if \(href\) router\.push\(href\);/.test(chat));
   const servidor = ler("src/lib/agentes-servidor.ts");
-  const corpoCx = servidor.slice(servidor.indexOf("async function concluirCaixa"));
+  const corpoCx = servidor.slice(servidor.indexOf("async function concluirAberta"), servidor.indexOf("O AGENTE DE FECHAMENTO (Etapa 8)"));
   ok("caixa: o agente não muda conta nem move dinheiro (nada em movements, nenhuma RPC de escrita)",
     corpoCx.length > 100 && !/from\("movements"\)/.test(corpoCx) && !/rpc\("(?!automacao_contexto)/.test(corpoCx));
   ok("caixa: o saldo é o do indicador canônico, não uma soma própria",
     /saldo\(input, janela\(hoje, dia\)\)/.test(ler("src/core/agentes/caixa.ts")) && !/reduce\(/.test(ler("src/core/agentes/caixa.ts")));
   ok("caixa: a execução diária roda o agente atrás do interruptor",
     /agentesLigados\(process\.env\)\) \{\s*let comCx[\s\S]{0,700}rodarAgenteCaixa\(/.test(ler("src/app/api/financial-os/run/route.ts")));
+}
+
+/* ── 11. o agente de fechamento (Etapa 8) ─────────────────────────────────── */
+{
+  ok("fechamento: nos dias 1 a 20 ele cobra o mês anterior; depois, nada",
+    mesParaFechar("2026-11-05") === "2026-10" && mesParaFechar("2026-01-03") === "2025-12"
+    && mesParaFechar("2026-11-20") === "2026-10" && mesParaFechar("2026-11-21") === null);
+  const HOJE = "2026-11-05";
+  const t = (chave: string, ordem: number, status: TarefaParaAgente["status"], prazo: string | null): TarefaParaAgente =>
+    ({ chave, titulo: chave === "conciliar_bancos" ? "Reconciliar as contas bancárias" : chave === "revisar_dre" ? "Revisar o DRE e a variação" : "Exportar ao contador", href: `/h/${chave}`, ordem, status, prazo });
+  const fontes: FontesFechamento = { mes: "2026-10", travado: false, tarefas: [
+    t("exportar_contador", 5, "pending", "2026-11-08"),
+    t("conciliar_bancos", 1, "pending", "2026-11-03"),
+    t("revisar_dre", 3, "review", "2026-11-05"),
+    { ...t("provisoes", 2, "done", "2026-11-04"), titulo: "Lançar as provisões com estorno" },
+  ] };
+  const ps = propostasDeFechamento(fontes, HOJE, new Set());
+  ok("fechamento: uma proposta por tarefa aberta, na ordem do trabalho, com o passo na chave (a revisada fica de fora)",
+    ps.map((p) => p.chave).join(",") === "tarefa:2026-10:conciliar_bancos:fazer,tarefa:2026-10:revisar_dre:revisar,tarefa:2026-10:exportar_contador:fazer",
+    ps.map((p) => p.chave).join(","));
+  ok("fechamento: o título diz o passo (a fazer ou revisar)",
+    ps[0].titulo === "Reconciliar as contas bancárias" && ps[1].titulo === "Conferir · Revisar o DRE e a variação",
+    ps.map((p) => p.titulo).join(" | "));
+  ok("fechamento: o porquê diz atrasada, vence hoje e prazo futuro pela data",
+    /Atrasada: o prazo era 03\/11\/2026\./.test(ps[0].porque) && /Vence hoje\./.test(ps[1].porque) && /Prazo: 08\/11\/2026\./.test(ps[2].porque),
+    ps.map((p) => p.porque).join(" | "));
+  ok("fechamento: o Aprovar leva à tela da própria tarefa", ps[0].dados.href === "/h/conciliar_bancos");
+  ok("fechamento: checklist que não começou pede para começar",
+    propostasDeFechamento({ mes: "2026-10", travado: false, tarefas: [] }, HOJE, new Set()).map((p) => p.chave).join(",") === "comecar:2026-10");
+  const tudoRevisado: FontesFechamento = { mes: "2026-10", travado: false, tarefas: fontes.tarefas.map((x) => ({ ...x, status: "done" as const })) };
+  ok("fechamento: tudo revisado e o mês aberto pede para travar",
+    propostasDeFechamento(tudoRevisado, HOJE, new Set()).map((p) => p.chave).join(",") === "travar:2026-10");
+  ok("fechamento: mês travado não pede nada",
+    propostasDeFechamento({ ...fontes, travado: true }, HOJE, new Set()).length === 0);
+  ok("fechamento: o que já teve proposta no mesmo passo não volta",
+    propostasDeFechamento(fontes, HOJE, new Set(["tarefa:2026-10:conciliar_bancos:fazer"])).every((p) => p.chave !== "tarefa:2026-10:conciliar_bancos:fazer"));
+  ok("fechamento: nunca faz sozinho, mesmo com nível 3 gravado",
+    planejarFechamento(ps, { agente: "fechamento", ativo: true, nivel: 3 as never, limiteValor: 1e9, limiteDia: 1000 }).every((x) => x.destino === "aprovar"));
+  const andou: FontesFechamento = { ...fontes, tarefas: fontes.tarefas.map((x) => (x.chave === "conciliar_bancos" ? { ...x, status: "review" as const } : x)) };
+  ok("fechamento: a proposta expira quando a tarefa anda, o mês trava ou sai da janela",
+    propostaDeFechamentoVale("tarefa:2026-10:conciliar_bancos:fazer", fontes) === null
+    && propostaDeFechamentoVale("tarefa:2026-10:conciliar_bancos:fazer", andou) === MOTIVO_FECHAMENTO.andou
+    && propostaDeFechamentoVale("tarefa:2026-10:conciliar_bancos:fazer", { ...fontes, travado: true }) === MOTIVO_FECHAMENTO.travado
+    && propostaDeFechamentoVale("tarefa:2026-10:conciliar_bancos:fazer", null) === MOTIVO_FECHAMENTO.outroMes
+    && propostaDeFechamentoVale("comecar:2026-10", fontes) === MOTIVO_FECHAMENTO.andou
+    && propostaDeFechamentoVale("travar:2026-10", tudoRevisado) === null
+    && propostaDeFechamentoVale("travar:2026-10", fontes) === MOTIVO_FECHAMENTO.andou);
+
+  // As duas metades: o agente nunca conclui, revisa nem trava, e lê pelo banco.
+  const servidor = ler("src/lib/agentes-servidor.ts");
+  const corpoFe = servidor.slice(servidor.indexOf("export async function fontesDoFechamento"));
+  ok("fechamento: o agente não conclui, revisa nem trava (nada em close_tasks nem accounting_periods)",
+    corpoFe.length > 100 && !/from\("(close_tasks|accounting_periods)"\)/.test(corpoFe) && !/lock_period|lockPeriod|rpc\("(?!agente_fechamento_fontes)/.test(corpoFe));
+  const migFe = ler("supabase/migrations/20261105030000_agente_fechamento.sql");
+  ok("fechamento: a leitura do runner é só da chave de serviço",
+    /revoke all on function public\.agente_fechamento_fontes\(uuid, text\) from public, anon, authenticated;/.test(migFe)
+    && /grant execute on function public\.agente_fechamento_fontes\(uuid, text\) to service_role;/.test(migFe));
+  ok("fechamento: a execução diária roda o agente atrás do interruptor",
+    /agentesLigados\(process\.env\)\) \{\s*let comFe[\s\S]{0,700}rodarAgenteFechamento\(/.test(ler("src/app/api/financial-os/run/route.ts")));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }

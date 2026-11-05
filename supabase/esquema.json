@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-10-28",
+  "gerado_em": "2026-11-05",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 94,
-    "funcoes": 178,
-    "politicas": 161,
-    "gatilhos": 111,
-    "indices": 288,
+    "tabelas": 107,
+    "funcoes": 211,
+    "politicas": 176,
+    "gatilhos": 128,
+    "indices": 326,
     "enums": 12,
-    "colunas": 1028,
-    "restricoes": 406
+    "colunas": 1147,
+    "restricoes": 489
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -165,7 +165,28 @@
     "20261028180000_telefone_e164",
     "20261029120000_maquininha_pedidos_proposta",
     "20261029130000_maquininha_leads",
-    "20261029140000_mensalidade_pinbank"
+    "20261029140000_mensalidade_pinbank",
+    "20261029150000_checkout_dados_da_empresa",
+    "20261029160000_pedido_conta_pix",
+    "20261030120000_cobranca_banco_itau",
+    "20261030150000_whatsapp_numero_usuario",
+    "20261031120000_cobranca_encargos",
+    "20261031130000_whatsapp_ia_conversa",
+    "20261031140000_pix_atualizado",
+    "20261103120000_nfse_emitentes",
+    "20261103200000_compras_morada_unica",
+    "20261103210000_contratos_morada_unica",
+    "20261103220000_colaboradores_morada_unica",
+    "20261104100000_cronograma_compra_do_bem",
+    "20261104110000_cron_execucoes",
+    "20261104120000_agentes",
+    "20261104130000_contador_confirmacoes",
+    "20261104140000_cobranca_paga_baixa_titulo",
+    "20261104150000_agentes_whatsapp",
+    "20261104160000_agente_conciliacao",
+    "20261104170000_pinbank_aviso_de_pago",
+    "20261104180000_service_role_le_cadastros_dos_gatilhos",
+    "20261104200000_agente_contas_pagar"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -413,6 +434,16 @@
         "impacto": "Até ser aplicada, toda recorrência com categoria ou projeto falha no cron (42501) e não vira conta; as sem categoria seguem sendo geradas.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 04/11/2026 (roteiro do dono: o cron de recorrências gerando as contas)"
+      },
+      {
+        "nome": "20261105030000_agente_fechamento",
+        "motivo": "O agente de fechamento (etapa 8 do plano AI first): a leitura do checklist do mês e da trava pelo runner (só a chave de serviço, por função). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "função agente_fechamento_fontes"
+        ],
+        "impacto": "Até ser aplicada, o agente de fechamento não propõe (o runner registra o erro do banco). O agente está atrás de AGENTES=ligado, então nada muda para quem usa.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 05/11/2026 (agentes da Quattro AI, etapa 8)"
       }
     ],
     "objetos_sem_migration": [

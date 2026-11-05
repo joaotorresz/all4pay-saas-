@@ -255,11 +255,12 @@ function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: st
       }
       // Caixa: aprovar é abrir a conta sugerida, na tela de sempre (decisão do
       // dono). O agente não muda nada; o servidor só registra que foi aberta.
-      if (aprovar && p.agente === "caixa") {
+      // Fechamento: o mesmo, com a tarefa do checklist no lugar da conta.
+      if (aprovar && (p.agente === "caixa" || p.agente === "fechamento")) {
         const href = typeof p.dados?.href === "string" ? p.dados.href : null;
         // Se o registro falhar, a execução diária fecha a aprovada: a conta abre igual.
         await executarAprovada(p.id, p.agente).catch(() => undefined);
-        aoDecidir(`${p.titulo.replace(/\.$/, "")}: abri a conta para você.`);
+        aoDecidir(`${p.titulo.replace(/\.$/, "")}: ${p.agente === "caixa" ? "abri a conta" : "abri a tarefa"} para você.`);
         await qc.invalidateQueries({ queryKey: CHAVE_PROPOSTAS });
         if (href) router.push(href);
         return;

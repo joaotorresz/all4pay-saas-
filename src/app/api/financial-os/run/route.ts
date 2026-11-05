@@ -14,7 +14,7 @@ import { linksDaRegua } from "@/lib/regua-links";
 import { registrarExecucaoCron } from "@/lib/cron-execucao";
 import { agentesLigados } from "@/core/agentes/ligado";
 import type { ConfigAgente } from "@/core/agentes";
-import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, rodarAgenteContasPagar, rodarAgenteCaixa, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
+import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, rodarAgenteContasPagar, rodarAgenteCaixa, rodarAgenteFechamento, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -230,6 +230,27 @@ export async function GET(req: Request) {
     }
   }
 
+  // O agente de fechamento (Etapa 8): nos primeiros dias do mês, o próximo
+  // passo do checklist do mês que acabou. Nunca conclui, revisa nem trava.
+  const fechamento: { orgId: string; agente?: RelatorioAgente; erro?: string }[] = [];
+  if (agentesLigados(process.env)) {
+    let comFe = new Map<string, ConfigAgente>();
+    try { comFe = await empresasComAgente(admin, "fechamento"); }
+    catch (e) { fechamento.push({ orgId: "*", erro: e instanceof Error ? e.message : "falha ao ler os agentes" }); }
+    for (const [orgId, cfg] of Array.from(comFe)) {
+      try {
+        const agente = await rodarAgenteFechamento(admin, orgId, cfg, hoje, { dryRun });
+        fechamento.push({ orgId, agente });
+        if (!dryRun) {
+          const { error } = await admin.from("audit_log").insert({
+            org_id: orgId, usuario: "cron:agentes", acao: "agente_fechamento", antes: null, depois: { hoje, ...agente },
+          });
+          if (error) fechamento[fechamento.length - 1].erro = `trilha: ${error.message}`;
+        }
+      } catch (e) { fechamento.push({ orgId, erro: e instanceof Error ? e.message : "falha no agente" }); }
+    }
+  }
+
   // Os lembretes de quem parou no cadastro vão na MESMA vaga de cron (o plano
   // da Vercel tem duas). Falha aqui não derruba as automações: vai na resposta.
   const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
@@ -253,6 +274,7 @@ export async function GET(req: Request) {
     agenteConciliacao: conciliacao,
     agenteContasPagar: contasPagar,
     agenteCaixa: caixa,
+    agenteFechamento: fechamento,
     provedores: statusNotificacoes(),
   });
 }

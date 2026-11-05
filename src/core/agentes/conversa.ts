@@ -95,11 +95,13 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
   fechamento: {
     id: "fechamento", icone: "list-checks", cor: "var(--color-agente-fechamento)",
     faz: [
-      "Nos primeiros dias úteis, lista o que falta para fechar o mês.",
-      "Monta a DRE e o pacote do contador.",
+      "Nos primeiros dias do mês, olha o checklist do mês que acabou.",
+      "Lembra o que falta fazer, o que espera revisão e o que está atrasado.",
+      "Avisa quando o mês está pronto para travar e ir ao contador.",
     ],
     ateOnde: [
       "Não fecha o mês sozinho: o fechamento é sempre seu.",
+      "Ao aprovar, abro a tarefa para você.",
     ],
   },
 };
