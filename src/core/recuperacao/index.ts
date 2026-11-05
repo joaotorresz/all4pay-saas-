@@ -33,6 +33,29 @@ export const ROTA_RETORNO = "/api/auth/recuperar";
 /** A tela da senha nova. Só abre com a sessão de recuperação. */
 export const DESTINO_RECUPERACAO = "/redefinir-senha";
 
+/**
+ * O link por `token_hash` (o dos modelos de e-mail do Supabase, desde
+ * 05/11/2026): vale em QUALQUER navegador, porque a prova é o próprio token,
+ * não um cookie do navegador que pediu. O teste do dono mostrou o defeito do
+ * PKCE: a confirmação de cadastro aberta no Gmail de outro navegador caía em
+ * "outro-navegador" — e quem se cadastra no computador abre o e-mail no
+ * celular. Só os tipos desta lista são aceitos, e cada um tem destino FIXO.
+ */
+export const TIPOS_DO_LINK = {
+  recovery: DESTINO_RECUPERACAO,
+  invite: "/", // como no link antigo: o convite entra no app
+  signup: "/",
+  email: "/",
+  magiclink: "/",
+  email_change: "/",
+} as const;
+export type TipoDoLink = keyof typeof TIPOS_DO_LINK;
+
+/** Lê o `type` da URL — só aceita tipo da lista; o resto é null. */
+export function lerTipoDoLink(valor: string | null | undefined): TipoDoLink | null {
+  return valor && Object.prototype.hasOwnProperty.call(TIPOS_DO_LINK, valor) ? (valor as TipoDoLink) : null;
+}
+
 /** Por que a recuperação não abriu — a palavra que viaja na URL. */
 export type MotivoRecuperacao = "expirado" | "outro-navegador" | "invalido" | "falha";
 

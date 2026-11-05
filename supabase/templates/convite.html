@@ -18,11 +18,11 @@
       <div style="background:#F5F5F5;border-radius:12px;padding:14px 16px;font:400 14px/20px Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;color:#3B4332;">Se você não esperava este convite, ignore este e-mail.</div>
     </td></tr>
           
-          <tr><td class="q-pad" style="padding:32px 36px 0 36px;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#ECFD52;color:#3B4332;font:500 15px/20px Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;text-decoration:none;padding:15px 26px;border-radius:999px;">Aceitar convite</a></td></tr>
+          <tr><td class="q-pad" style="padding:32px 36px 0 36px;"><a href="{{ .SiteURL }}/api/auth/recuperar?token_hash={{ .TokenHash }}&amp;type=invite" style="display:inline-block;background:#ECFD52;color:#3B4332;font:500 15px/20px Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;text-decoration:none;padding:15px 26px;border-radius:999px;">Aceitar convite</a></td></tr>
           <tr><td style="padding:36px 0 0 0;"></td></tr>
         </table>
       </td></tr>
-      <tr><td style="padding:20px 8px 0 8px;font:400 12px/18px Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;color:#7A7A72;">Se o botão não abrir, copie este endereço no navegador: {{ .ConfirmationURL }} · Quattro · app.quattro.finance. Este é um e-mail automático; respostas não são lidas.</td></tr>
+      <tr><td style="padding:20px 8px 0 8px;font:400 12px/18px Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;color:#7A7A72;">Se o botão não abrir, copie este endereço no navegador: {{ .SiteURL }}/api/auth/recuperar?token_hash={{ .TokenHash }}&amp;type=invite · Quattro · app.quattro.finance. Este é um e-mail automático; respostas não são lidas.</td></tr>
     </table>
   </td></tr>
 </table>

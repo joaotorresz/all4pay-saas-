@@ -4,6 +4,8 @@ Gerados por `npm run emails-auth` a partir de `src/core/automacoes/email.ts`. N�
 
 No painel do Supabase: Authentication › Emails › Templates. Para cada um, cole o assunto e o HTML do arquivo.
 
+O link usa `{{ .SiteURL }}`: em Authentication › URL Configuration, o Site URL tem de ser `https://app.quattro.finance`.
+
 | Modelo no painel | Assunto | Arquivo |
 | --- | --- | --- |
 | Confirm signup | Confirme seu e-mail na Quattro | `confirmacao.html` |

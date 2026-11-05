@@ -11593,15 +11593,23 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const destinoFechado = (src: string) => {
     const t = semComS(src);
     const lidos = [...t.matchAll(/searchParams\.get\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1]);
-    const permitidos = new Set(["code", "error_code", "error_description"]);
+    // token_hash/type: o link dos modelos de e-mail (05/11/2026). O type só
+    // vale pela lista TIPOS_DO_LINK, e o destino sai dela, nunca da URL.
+    const permitidos = new Set(["code", "error_code", "error_description", "token_hash", "type"]);
     return lidos.length > 0 && lidos.every((n) => permitidos.has(n))
+      && (!lidos.includes("type") || /lerTipoDoLink\(\s*url\.searchParams\.get\(\s*"type"\s*\)\s*\)/.test(t))
       && /redirectType/.test(t) && /===\s*"recovery"\s*\?\s*DESTINO_RECUPERACAO/.test(t)
       && !/para\(\s*url\.searchParams/.test(t);
   };
   const rotaS = lerS(ROTA_S);
-  ok("senha: a rota só lê code/erro da URL e decide a tela pelo tipo do código (destino FIXO)", destinoFechado(rotaS));
+  ok("senha: a rota só lê code/token/erro da URL e decide a tela pelo tipo do código (destino FIXO)", destinoFechado(rotaS));
   const plantadaAberta = rotaS.replace("  try {\n", '  const next = url.searchParams.get("next");\n  if (next) return para(next);\n  try {\n');
   ok("senha: (defeito plantado) um ?next= lido como destino é REPROVADO", plantadaAberta !== rotaS && !destinoFechado(plantadaAberta));
+  const tipoSolto = rotaS.replace('lerTipoDoLink(url.searchParams.get("type"))', 'url.searchParams.get("type") as never');
+  ok("senha: (defeito plantado) o type da URL fora da lista TIPOS_DO_LINK é REPROVADO", tipoSolto !== rotaS && !destinoFechado(tipoSolto));
+  ok("senha: link por token só aceita tipo da lista, e recovery abre a tela de senha nova",
+     R.lerTipoDoLink("recovery") === "recovery" && R.lerTipoDoLink("admin") === null && R.lerTipoDoLink("__proto__") === null
+     && R.TIPOS_DO_LINK.recovery === "/redefinir-senha" && R.TIPOS_DO_LINK.signup === "/");
 
   /* ── 5. as telas ────────────────────────────────────────────────────────── */
   const loginS = semComS(lerS("src/app/login/page.tsx"));
