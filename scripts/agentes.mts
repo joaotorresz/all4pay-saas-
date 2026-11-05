@@ -23,6 +23,8 @@ import {
   propostasDeContasPagar, planejarContasPagar, desfechoDoDocumento, pareceDuplicada, chaveDoDocumento,
 } from "@/core/agentes/contas-pagar";
 import type { DocumentoEntrada, DecisaoEntrada } from "@/core/caixa-entrada";
+import { acharFuro, propostasDeCaixa, planejarCaixa, propostaDeCaixaVale, MOTIVO_CAIXA } from "@/core/agentes/caixa";
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 const falhas: string[] = [];
 const ok = (nome: string, cond: boolean, det = "") => {
@@ -96,7 +98,7 @@ ok("tela: decide pela função do banco", /rpc\("agente_decidir"/.test(lib));
 {
   const { abrirConversaAgente: abrir } = await import("@/core/agentes/conversa");
   const { configPadrao: cp } = await import("@/core/agentes");
-  const ab = abrir(cp("caixa"));
+  const ab = abrir(cp("fechamento"));
   ok("tela: o agente em construção não liga (a conversa não oferece nível)",
     ab.estado.etapa === "em_construcao" && ab.falas.every((f) => !f.pergunta));
 }
@@ -292,8 +294,8 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     && /linha\.estado !== "aprovada"/.test(porta) && !/agente_decidir/.test(porta) && /agentesLigados\(process\.env\)/.test(porta));
   const escritores = arquivos(join(raiz, "src")).filter((f) => /from\("agente_propostas"\)[\s\S]{0,80}\.(insert|upsert)\(/.test(readFileSync(f, "utf8")));
   ok("só o servidor dos agentes cria proposta", escritores.length === 1 && escritores[0].endsWith("src/lib/agentes-servidor.ts"), escritores.join(", "));
-  ok("catálogo: cobrança, conciliação e contas a pagar prontos; os outros, em construção",
-    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao,contas_pagar");
+  ok("catálogo: cobrança, conciliação, contas a pagar e caixa prontos; fechamento, em construção",
+    AGENTES.filter((a) => a.pronto).map((a) => a.id).join(",") === "cobranca,conciliacao,contas_pagar,caixa");
 }
 
 /* ── 5. aprovar pelo WhatsApp (Etapa 3) ───────────────────────────────────── */
@@ -703,6 +705,66 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     !/idsParaAprovar/.test(corpoCP));
   ok("contas a pagar: a execução diária roda o agente atrás do interruptor",
     /agentesLigados\(process\.env\)\) \{\s*let comCP[\s\S]{0,700}rodarAgenteContasPagar\(/.test(ler("src/app/api/financial-os/run/route.ts")));
+}
+
+/* ── 10. o agente de caixa (Etapa 7) ─────────────────────────────────────── */
+{
+  const HOJE = "2026-11-04";
+  const mv = (id: string, type: "entrada" | "saida", amount: number, due_date: string, o: Partial<RiskMovement> = {}): RiskMovement =>
+    ({ id, type, amount, due_date, status: "pendente", party_id: id, ...o } as RiskMovement);
+  const base = (movements: RiskMovement[], saldoAtual = 1000): RiskInput => ({
+    hoje: HOJE, saldoAtual, contas: 1, movements,
+    partyNames: { f1: "Fornecedor Grande", f2: "Aluguel", f3: "Fornecedor Pequeno", c1: "Cliente Bom", c2: "Cliente Longe" },
+  });
+  // Saldo 1.000. Sai 3.000 no dia 06 (furo: −2.000), sai 500 no dia 08 (pior: −2.500).
+  const cenario = base([
+    mv("f1", "saida", 3000, "2026-11-06"), mv("f2", "saida", 500, "2026-11-08"), mv("f3", "saida", 100, "2026-11-05"),
+    // vencido em aberto: fora do saldo projetado (regra canônica), então fora da sugestão de adiar
+    mv("f0", "saida", 9999, "2026-11-01"),
+    mv("c1", "entrada", 2000, "2026-11-15"), mv("c2", "entrada", 9000, "2026-12-20"),
+  ]);
+  const furo = acharFuro(cenario, HOJE);
+  ok("caixa: o furo é o PRIMEIRO dia negativo, e o pior saldo da semana é o que falta",
+    furo?.dia === "2026-11-06" && furo.saldoNoDia === -2100 && furo.pior === -2600, JSON.stringify(furo));
+  ok("caixa: caixa que não fica negativo não tem furo", acharFuro(base([mv("f1", "saida", 999, "2026-11-06")]), HOJE) === null);
+  ok("caixa: sem conta cadastrada não há furo (zero não é ausência)",
+    acharFuro({ ...base([mv("f1", "saida", 5000, "2026-11-06")], 0), contas: 0 }, HOJE) === null);
+  ok("caixa: o pagamento vencido antes de hoje não cava o furo de amanhã pela regra do saldo canônico",
+    acharFuro(base([mv("f1", "saida", 5000, "2026-11-01")]), HOJE) === null);
+  const { propostas } = propostasDeCaixa(cenario, HOJE, new Set());
+  const chaves = propostas.map((p) => p.chave);
+  ok("caixa: adiar só o que vence até o furo, o maior primeiro, até cobrir; antecipar o que chega depois, dentro de 30 dias",
+    chaves.join(",") === "adiar:f1:2026-11-06,antecipar:c1:2026-11-06", chaves.join(","));
+  ok("caixa: o título diz o que fazer e com quem",
+    propostas[0].titulo === "Adiar pagamento · Fornecedor Grande" && propostas[1].titulo === "Antecipar recebimento · Cliente Bom",
+    propostas.map((p) => p.titulo).join(" | "));
+  ok("caixa: o porquê traz o dia do furo e o quanto falta, sem sinal colorido (o sinal escrito)",
+    /O caixa fica negativo em 06\/11\/2026 \(−R\$ 2\.100,00\) e chega a −R\$ 2\.600,00 na semana\./.test(propostas[0].porque), propostas[0].porque);
+  ok("caixa: a sugestão abre a conta na tela de sempre",
+    propostas[0].dados.href === "/contas-a-pagar/painel-de-despesas?busca=Fornecedor%20Grande"
+    && propostas[1].dados.href === "/contas-a-receber/painel-de-vendas?busca=Cliente%20Bom");
+  ok("caixa: o que já teve proposta para o mesmo furo não volta",
+    propostasDeCaixa(cenario, HOJE, new Set(["adiar:f1:2026-11-06"])).propostas.every((p) => p.chave !== "adiar:f1:2026-11-06"));
+  const plano = planejarCaixa(propostas, { agente: "caixa", ativo: true, nivel: 3 as never, limiteValor: 1e9, limiteDia: 1000 });
+  ok("caixa: nunca faz sozinho, mesmo com nível 3 gravado", plano.every((x) => x.destino === "aprovar"), plano.map((x) => x.destino).join(","));
+  ok("caixa: a sugestão expira quando o furo some, muda de dia ou a conta muda",
+    propostaDeCaixaVale("adiar:f1:2026-11-06", null, cenario) === MOTIVO_CAIXA.semFuro
+    && propostaDeCaixaVale("adiar:f1:2026-11-07", furo, cenario) === MOTIVO_CAIXA.furoMudou
+    && propostaDeCaixaVale("adiar:zz:2026-11-06", furo, cenario) === MOTIVO_CAIXA.contaMudou
+    && propostaDeCaixaVale("adiar:f1:2026-11-06", furo, cenario) === null);
+
+  // As duas metades da decisão do dono: o Aprovar abre a conta; o agente nunca muda conta.
+  const chat = ler("src/components/ia/ChatAgente.tsx");
+  ok("caixa: Aprovar abre a conta sugerida na tela de sempre",
+    /if \(aprovar && p\.agente === "caixa"\) \{[\s\S]{0,500}if \(href\) router\.push\(href\);/.test(chat));
+  const servidor = ler("src/lib/agentes-servidor.ts");
+  const corpoCx = servidor.slice(servidor.indexOf("async function concluirCaixa"));
+  ok("caixa: o agente não muda conta nem move dinheiro (nada em movements, nenhuma RPC de escrita)",
+    corpoCx.length > 100 && !/from\("movements"\)/.test(corpoCx) && !/rpc\("(?!automacao_contexto)/.test(corpoCx));
+  ok("caixa: o saldo é o do indicador canônico, não uma soma própria",
+    /saldo\(input, janela\(hoje, dia\)\)/.test(ler("src/core/agentes/caixa.ts")) && !/reduce\(/.test(ler("src/core/agentes/caixa.ts")));
+  ok("caixa: a execução diária roda o agente atrás do interruptor",
+    /agentesLigados\(process\.env\)\) \{\s*let comCx[\s\S]{0,700}rodarAgenteCaixa\(/.test(ler("src/app/api/financial-os/run/route.ts")));
 }
 
 if (falhas.length) { console.log(`\nagentes: ${falhas.length} falha(s)`); process.exit(1); }

@@ -14,7 +14,7 @@ import { linksDaRegua } from "@/lib/regua-links";
 import { registrarExecucaoCron } from "@/lib/cron-execucao";
 import { agentesLigados } from "@/core/agentes/ligado";
 import type { ConfigAgente } from "@/core/agentes";
-import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, rodarAgenteContasPagar, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
+import { empresasComCobranca, empresasComAgente, reguaDaEmpresaServidor, rodarAgenteCobranca, rodarAgenteConciliacao, rodarAgenteContasPagar, rodarAgenteCaixa, pedirPorWhatsapp, type RelatorioAgente } from "@/lib/agentes-servidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -209,6 +209,27 @@ export async function GET(req: Request) {
     }
   }
 
+  // O agente de caixa (Etapa 7): procura o furo da semana e sugere adiar ou
+  // antecipar. Nunca muda conta; o Aprovar abre a conta na tela.
+  const caixa: { orgId: string; agente?: RelatorioAgente; erro?: string }[] = [];
+  if (agentesLigados(process.env)) {
+    let comCx = new Map<string, ConfigAgente>();
+    try { comCx = await empresasComAgente(admin, "caixa"); }
+    catch (e) { caixa.push({ orgId: "*", erro: e instanceof Error ? e.message : "falha ao ler os agentes" }); }
+    for (const [orgId, cfg] of Array.from(comCx)) {
+      try {
+        const agente = await rodarAgenteCaixa(admin, orgId, cfg, hoje, { dryRun });
+        caixa.push({ orgId, agente });
+        if (!dryRun) {
+          const { error } = await admin.from("audit_log").insert({
+            org_id: orgId, usuario: "cron:agentes", acao: "agente_caixa", antes: null, depois: { hoje, ...agente },
+          });
+          if (error) caixa[caixa.length - 1].erro = `trilha: ${error.message}`;
+        }
+      } catch (e) { caixa.push({ orgId, erro: e instanceof Error ? e.message : "falha no agente" }); }
+    }
+  }
+
   // Os lembretes de quem parou no cadastro vão na MESMA vaga de cron (o plano
   // da Vercel tem duas). Falha aqui não derruba as automações: vai na resposta.
   const lembretesCadastro = await rodarLembretesReais(admin, url.origin, dryRun)
@@ -231,6 +252,7 @@ export async function GET(req: Request) {
     porEmpresa: empresas,
     agenteConciliacao: conciliacao,
     agenteContasPagar: contasPagar,
+    agenteCaixa: caixa,
     provedores: statusNotificacoes(),
   });
 }
