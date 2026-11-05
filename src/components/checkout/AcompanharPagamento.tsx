@@ -10,8 +10,9 @@ import { esperaDaConsulta, pedeRedesenhar } from "@/core/cobranca/acompanhar";
  * (`/api/pinbank/checkout/situacao`) e, quando o banco confirma, redesenha a
  * fatura como paga — sem o cliente recarregar.
  *
- * Não desenha nada além do aviso para leitores de tela. A aba escondida não
- * pergunta; ao voltar, pergunta na hora.
+ * Diz ao cliente que a página se atualiza sozinha (05/11/2026: sem isso, o
+ * João recarregou à mão). A aba escondida não pergunta; ao voltar para a aba
+ * OU para a janela (o app do banco no computador), pergunta na hora.
  */
 export function AcompanharPagamento({ token, situacao }: { token: string; situacao: string }) {
   const router = useRouter();
@@ -19,7 +20,6 @@ export function AcompanharPagamento({ token, situacao }: { token: string; situac
 
   React.useEffect(() => {
     if (situacao !== "aberto") return;
-    let n = 0;
     let parado = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const inicio = Date.now();
@@ -43,7 +43,7 @@ export function AcompanharPagamento({ token, situacao }: { token: string; situac
       agendar();
     };
     const agendar = () => {
-      const espera = esperaDaConsulta(n++, Date.now() - inicio);
+      const espera = esperaDaConsulta(Date.now() - inicio);
       if (espera === null || parado) return;
       timer = setTimeout(() => void consultar(), espera);
     };
@@ -55,12 +55,23 @@ export function AcompanharPagamento({ token, situacao }: { token: string; situac
 
     agendar();
     document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoVoltar);
     return () => {
       parado = true;
       if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("focus", aoVoltar);
     };
   }, [token, situacao, router]);
 
-  return <span className="sr-only" role="status" aria-live="polite">{aviso}</span>;
+  return (
+    <>
+      {situacao === "aberto" && (
+        <p className="px-6 text-caption text-muted leading-[1.5]">
+          Esta página se atualiza sozinha assim que o pagamento for confirmado. Não é preciso recarregar.
+        </p>
+      )}
+      <span className="sr-only" role="status" aria-live="polite">{aviso}</span>
+    </>
+  );
 }

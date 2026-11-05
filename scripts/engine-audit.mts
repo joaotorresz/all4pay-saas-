@@ -12556,14 +12556,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        !soSituacao(rotaSit.replace("{ situacao: r.situacao }", "{ situacao: r.situacao, ...r }")));
     ok("liquidacao: (defeito plantado) a consulta lendo direto pela chave de serviço é ACUSADA",
        !soSituacao(rotaSit.replace("lerLinkDePagamento(t)", 'createAdmin()!.rpc("pinbank_checkout_ler", { p_token: t })')));
-    const esperas = Array.from({ length: 40 }, (_, n) => AC.esperaDaConsulta(n, n * 30_000));
-    ok("liquidacao: a página pergunta a cada 5 s no primeiro meio minuto (o Pix cai em segundos)",
-       [0, 1, 2, 3, 4, 5].every((n) => AC.esperaDaConsulta(n, 0) === 5_000), JSON.stringify(esperas.slice(0, 8)));
-    ok("liquidacao: a espera cresce e nunca passa de 30 s nem fica abaixo de 5 s",
-       esperas.filter((e): e is number => e !== null).every((e, i, a) => e >= 5_000 && e <= 30_000 && (i === 0 || e >= a[i - 1]))
-       && AC.esperaDaConsulta(20, 0) === 30_000, JSON.stringify(esperas));
-    ok("liquidacao: depois de 1 hora a página para de perguntar",
-       AC.esperaDaConsulta(3, 60 * 60_000) === null && AC.esperaDaConsulta(3, 60 * 60_000 - 1) !== null && AC.esperaDaConsulta(-1, 0) === null);
+    // 05/11/2026, primeiro teste real: a espera longa fez o João recarregar à mão.
+    const minuto = 60_000;
+    ok("liquidacao: a página pergunta a cada 3 s nos primeiros 10 minutos (o tempo de abrir o banco e pagar)",
+       [0, 30_000, 2 * minuto, 9 * minuto + 59_999].every((d) => AC.esperaDaConsulta(d) === 3_000),
+       JSON.stringify([0, 30_000, 2 * minuto].map((d) => AC.esperaDaConsulta(d))));
+    ok("liquidacao: depois dos 10 minutos pergunta a cada 15 s, e depois de 1 hora para",
+       AC.esperaDaConsulta(10 * minuto) === 15_000 && AC.esperaDaConsulta(60 * minuto - 1) === 15_000
+       && AC.esperaDaConsulta(60 * minuto) === null && AC.esperaDaConsulta(-1) === null && AC.esperaDaConsulta(Number.NaN) === null);
     ok("liquidacao: só o link ABERTO que virou pago ou indisponível redesenha a página",
        AC.pedeRedesenhar("aberto", "pago") && AC.pedeRedesenhar("aberto", "indisponivel")
        && !AC.pedeRedesenhar("aberto", "aberto") && !AC.pedeRedesenhar("pago", "pago") && !AC.pedeRedesenhar("aberto", "fora_do_ar") && !AC.pedeRedesenhar("aberto", undefined));
@@ -12575,6 +12575,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("liquidacao: a página consulta a rota de situação, sem cache, e redesenha pelo servidor (router.refresh)",
        /fetch\(`\/api\/pinbank\/checkout\/situacao\?t=\$\{encodeURIComponent\(token\)\}`, \{ cache: "no-store" \}\)/.test(acomp) && /router\.refresh\(\)/.test(acomp)
        && /esperaDaConsulta\(/.test(acomp) && /visibilityState/.test(acomp));
+    ok("liquidacao: voltar para a JANELA (o banco aberto no computador) também pergunta na hora",
+       /window\.addEventListener\("focus", aoVoltar\)/.test(acomp));
+    ok("liquidacao: a página aberta diz que se atualiza sozinha",
+       /situacao === "aberto" &&[\s\S]{0,200}se atualiza sozinha/.test(acomp));
     // O escritor único: quem liquidar (o aviso do banco, a consulta) chama a
     // função do banco pela chave de serviço, num arquivo de servidor — nunca
     // um update de `situacao: "paga"` à parte.
@@ -12628,6 +12632,23 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok("aviso-pago: Pix que não está PAGO e versão desconhecida não baixam",
        !com(pixDoc, { Status: "PENDENTE" }).ok && !com(pixDoc, {}, { eventVersion: "v2" }).ok);
     ok("aviso-pago: data inexistente (31/02) não vira o dia seguinte", !com(bolDoc, { DataPagamento: "2026-02-31" }).ok);
+    // 05/11/2026, primeiro Pix real: pago no dia 5 e recebido no dia 4. Hora SEM fuso é hora de São Paulo.
+    const diaSP = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }) : null);
+    ok("aviso-pago: o Pix real de 05/11 (DataLancamento à meia-noite UTC do dia 5) fica no caixa do dia 5, não do dia 4",
+       diaSP(LQ.instanteDoPagamento("2026-11-05T00:00:00Z")) === "2026-11-05"
+       && diaSP(LQ.instanteDoPagamento("2026-11-05T00:00:00+00:00")) === "2026-11-05"
+       && diaSP(LQ.instanteDoPagamento("2026-11-05T00:00:00.000Z")) === "2026-11-05",
+       String(LQ.instanteDoPagamento("2026-11-05T00:00:00Z")));
+    ok("aviso-pago: hora sem fuso (meia-noite ou 19h25 do dia 5) fica no caixa do dia 5",
+       diaSP(LQ.instanteDoPagamento("2026-11-05T00:00:00")) === "2026-11-05"
+       && diaSP(LQ.instanteDoPagamento("2026-11-05T00:00:00.000")) === "2026-11-05"
+       && diaSP(LQ.instanteDoPagamento("2026-11-05T19:25:10")) === "2026-11-05",
+       String(LQ.instanteDoPagamento("2026-11-05T00:00:00")));
+    ok("aviso-pago: com fuso e hora de verdade, vale o fuso (22:25Z do dia 5 é 19:25 do dia 5 em São Paulo; 01:00Z do dia 6 é dia 5)",
+       diaSP(LQ.instanteDoPagamento("2026-11-05T22:25:00Z")) === "2026-11-05"
+       && diaSP(LQ.instanteDoPagamento("2026-11-06T01:00:00Z")) === "2026-11-05"
+       && diaSP(LQ.instanteDoPagamento("2026-11-05T10:00:00-03:00")) === "2026-11-05");
+    ok("aviso-pago: hora sem fuso num dia inexistente é recusada", LQ.instanteDoPagamento("2026-02-31T10:00:00") === null);
     ok("aviso-pago: só os dois eventos de pago entram por aqui",
        LQ.ehEventoDeLiquidacao("Pix.CreditoRecebido") && LQ.ehEventoDeLiquidacao("Boleto.Liquidacao")
        && !LQ.ehEventoDeLiquidacao("Boleto.Baixa") && !LQ.ehEventoDeLiquidacao("Pix.TransferenciaRealizada") && !LQ.ehEventoDeLiquidacao("Compra.TransacaoRealizada"));
