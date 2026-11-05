@@ -55,6 +55,10 @@ export function ProdutosRegistroView({ estoque = false }: { estoque?: boolean })
   const [status, setStatus] = React.useState<FiltroStatus>("todos");
   const [tipo, setTipo] = React.useState("");
   const [editandoFiscal, setEditandoFiscal] = React.useState<Product | null>(null);
+  // O lápis do produto abre o CADASTRO (nome, preço, custo, "Controla
+  // estoque?"), o mesmo formulário do "Novo produto". Tipo fiscal, descrição e
+  // status têm a ação própria (FormFiscal), que não regrava o cadastro.
+  const [editandoCadastro, setEditandoCadastro] = React.useState<Product | null>(null);
 
   // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
   // formulário já aberto (é o que dá link compartilhável à criação).
@@ -178,11 +182,26 @@ export function ProdutosRegistroView({ estoque = false }: { estoque?: boolean })
             { chave: "preco", label: "Preço de venda", alinhar: "direita", render: (p) => <BRL value={p.sale_price ?? 0} /> },
             { chave: "status", label: "Status", render: (p) => <EtiquetaStatus ativo={p.ativo} /> },
           ]}
-          acoes={(p) => <AcaoLinha label="Editar" icone="edit" onClick={() => setEditandoFiscal(p)} />}
+          acoes={(p) => ehServico
+            ? <AcaoLinha label="Tipo fiscal e status" icone="sliders-horizontal" onClick={() => setEditandoFiscal(p)} />
+            : (
+              <span className="inline-flex items-center">
+                <AcaoLinha label="Editar produto" icone="edit" onClick={() => setEditandoCadastro(p)} />
+                <AcaoLinha label="Tipo fiscal e status" icone="sliders-horizontal" onClick={() => setEditandoFiscal(p)} />
+              </span>
+            )}
         />
       )}
 
 
+      {editandoCadastro && (
+        <ProdutoServicoForm
+          kind="produto"
+          produto={editandoCadastro}
+          onClose={() => setEditandoCadastro(null)}
+          onToast={show}
+        />
+      )}
       {editandoFiscal && (
         <FormFiscal
           produto={editandoFiscal}
@@ -212,7 +231,7 @@ function FormFiscal({
 
   return (
     <FormModal
-      title="Editar produto"
+      title="Tipo fiscal e status"
       size="medium"
       onClose={onClose}
       onSave={() => { salvarExtraProduto(produto.id, { tipo, descricao, ativo }); onSalvo(); }}

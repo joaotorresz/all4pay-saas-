@@ -108,6 +108,17 @@ ok("contrato: um leitor só de ESTOQUE (core/estoque/ligado.ts)",
 const pagina = ler("src/app/dashboard/registrations/products/page.tsx");
 ok("contrato: a página passa o interruptor lido no servidor", /estoque=\{estoqueLigado\(\)\}/.test(pagina) && !/"use client"/.test(pagina));
 
+/**
+ * O "Controla estoque?" mora no cadastro do produto. Na tela de Produtos e
+ * serviços o lápis abria só o tipo fiscal (sem o interruptor), e o estoque
+ * ficava sem porta de entrada (05/11/2026, print do dono).
+ */
+const abreCadastro = (t: string) => /<ProdutoServicoForm[\s\S]{0,120}produto=\{/.test(semComentario(t));
+ok("contrato [negativo]: a varredura acusa a tela que não abre o cadastro na edição",
+  !abreCadastro('import { ProdutoServicoForm } from "x";\n<FormFiscal produto={p} />'));
+ok("contrato: o lápis de Produtos e serviços abre o cadastro (onde fica \"Controla estoque?\")",
+  abreCadastro(ler("src/components/registros/ProdutosRegistroView.tsx")));
+
 if (falhas) {
   console.log(`estoque: ${falhas} de ${casos} casos falharam`);
   process.exit(1);
