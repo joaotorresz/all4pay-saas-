@@ -34,6 +34,9 @@ import { propostasDeContasPagar, desfechoDoDocumento, MOTIVO_DOCUMENTO } from "@
 import { montarCaixaEntrada } from "@/core/caixa-entrada";
 import { documentosDaCaixa, lerEstadoCaixa } from "@/lib/caixa-entrada";
 import { propostasDeCaixa, propostaDeCaixaVale } from "@/core/agentes/caixa";
+import { propostasDeFechamento, propostaDeFechamentoVale, mesParaFechar, type FontesFechamento } from "@/core/agentes/fechamento";
+import { tarefasDoMes } from "@/lib/fechamento-tarefas";
+import { isPeriodLocked } from "@/lib/close";
 
 const K_CONFIG = CHAVES_ORG.agentes;
 const K_PROPOSTAS = CHAVES_ORG.agentePropostas;
@@ -91,6 +94,7 @@ export async function listarPropostas(): Promise<PropostaAgente[]> {
     await simularConciliacaoNaDemo().catch(() => undefined);
     await simularContasPagarNaDemo().catch(() => undefined);
     await simularCaixaNaDemo().catch(() => undefined);
+    await simularFechamentoNaDemo().catch(() => undefined);
     return ler<PropostaAgente[]>(K_PROPOSTAS, []);
   }
   const { data, error } = await createClient()
@@ -125,9 +129,9 @@ export async function decidirProposta(id: string, aprovar: boolean, motivo?: str
  */
 export async function executarAprovada(id: string, agente: IdAgente = "cobranca"): Promise<string> {
   if (isDemo) {
-    if (agente === "caixa") {
+    if (agente === "caixa" || agente === "fechamento") {
       gravar(K_PROPOSTAS, ler<PropostaAgente[]>(K_PROPOSTAS, []).map((p) => (p.id === id && p.estado === "aprovada" ? { ...p, estado: "executada" as const } : p)));
-      return "Abri a conta para você.";
+      return agente === "caixa" ? "Abri a conta para você." : "Abri a tarefa para você.";
     }
     return agente === "conciliacao" ? "Aprovada. Na demonstração nada é conciliado." : "Aprovada. Na demonstração nada é enviado.";
   }
@@ -278,5 +282,39 @@ async function simularCaixaNaDemo(): Promise<void> {
     id: `demo-${p.chave}`, chave: p.chave, agente: "caixa" as const, titulo: p.titulo, porque: p.porque, valor: p.valor,
     estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null, dados: p.dados as unknown as Record<string, unknown>,
   }));
+  if (novas.length || mudou) gravar(K_PROPOSTAS, [...novas, ...revistas]);
+}
+
+/**
+ * O "runner" da demonstração para o fechamento: o MESMO núcleo do servidor
+ * sobre o checklist da demonstração (o que a tela de fechamento abre).
+ */
+async function simularFechamentoNaDemo(): Promise<void> {
+  if (!isDemo) return;
+  const cfg = (await listarAgentes()).find((c) => c.agente === "fechamento");
+  if (!cfg?.ativo || cfg.nivel === 0) return;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const mes = mesParaFechar(hoje);
+  let fontes: FontesFechamento | null = null;
+  if (mes) {
+    const travado = isPeriodLocked(mes);
+    const tarefas = travado ? [] : await tarefasDoMes(mes);
+    fontes = { mes, travado, tarefas: tarefas.map((t) => ({ chave: t.chave, titulo: t.titulo, href: t.href, ordem: t.ordem, status: t.status, prazo: t.prazo })) };
+  }
+  const atuais = ler<(PropostaAgente & { chave?: string })[]>(K_PROPOSTAS, []);
+  let mudou = false;
+  const revistas = atuais.map((p) => {
+    if (p.agente !== "fechamento" || p.estado !== "pendente" || !p.chave) return p;
+    const motivo = propostaDeFechamentoVale(p.chave, fontes);
+    if (!motivo) return p;
+    mudou = true;
+    return { ...p, estado: "expirada" as const, motivo };
+  });
+  const vistas = new Set(revistas.map((p) => p.chave).filter((c): c is string => !!c));
+  const agora = new Date().toISOString();
+  const novas = fontes ? propostasDeFechamento(fontes, hoje, vistas).map((p) => ({
+    id: `demo-${p.chave}`, chave: p.chave, agente: "fechamento" as const, titulo: p.titulo, porque: p.porque, valor: null,
+    estado: "pendente" as const, criadaEm: agora, decididaEm: null, motivo: null, dados: p.dados as unknown as Record<string, unknown>,
+  })) : [];
   if (novas.length || mudou) gravar(K_PROPOSTAS, [...novas, ...revistas]);
 }

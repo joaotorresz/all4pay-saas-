@@ -35,6 +35,9 @@
 --      conclui sem aprovação;
 --   u. a sessão não lê as fontes do runner nem chama as portas internas; a
 --      outra empresa não conclui; proposta de outro agente é recusada.
+--   (migration 20261105030000 — o agente de fechamento)
+--   v. o runner lê o checklist só da empresa e do mês pedidos, com a trava do
+--      mês; a sessão não lê por essa porta.
 --
 -- ⚠️ Cada caso roda num SUBBLOCO que termina levantando uma sentinela (um
 -- savepoint desfeito). Tudo em transação que termina em ROLLBACK. Falha com
@@ -693,10 +696,54 @@ begin
     if sqlerrm <> sentinela then falhas := array_append(falhas, format('(u) estourou: %s', sqlerrm)); end if;
   end;
 
+  ------------------------------- v. FECHAMENTO: O QUE O RUNNER LÊ ------------
+  begin
+    casos := casos + 1;
+    insert into public.close_tasks (org_id, title, kind, mes, chave, ordem, status, prazo, href) values
+      (org_ana, 'Reconciliar as contas bancárias', 'standard', '2026-10-01', 'conciliar_bancos', 1, 'pending', '2026-11-03', '/dashboard/financial/reconciliation'),
+      (org_ana, 'Revisar o DRE e a variação', 'standard', '2026-10-01', 'revisar_dre', 3, 'pending', '2026-11-05', '/dashboard/reports/variance'),
+      (org_ana, 'Reconciliar as contas bancárias', 'standard', '2026-09-01', 'conciliar_bancos', 1, 'pending', '2026-10-03', '/x'),
+      (org_bia, 'Tarefa da Bia', 'standard', '2026-10-01', 'conciliar_bancos', 1, 'pending', '2026-11-03', '/x');
+    insert into public.accounting_periods (org_id, period, status) values (org_bia, '2026-09-01', 'locked');
+    -- a sessão não lê o checklist de ninguém por esta porta
+    perform set_config('request.jwt.claim.sub', ana::text, true);
+    set local role authenticated;
+    begin
+      j := public.agente_fechamento_fontes(org_bia, '2026-10');
+      reset role;
+      falhas := array_append(falhas, '(v) a sessão leu o checklist de outra empresa pela porta do runner');
+    exception when insufficient_privilege then reset role;
+    end;
+    set local role service_role;
+    j := public.agente_fechamento_fontes(org_ana, '2026-10');
+    reset role;
+    if jsonb_array_length(j->'tarefas') <> 2 or (j->>'travado')::boolean
+       or j->'tarefas'->0->>'chave' <> 'conciliar_bancos' or j->'tarefas'->1->>'chave' <> 'revisar_dre' or j->'tarefas'->1->>'status' <> 'pending'
+       or j->'tarefas'->0->>'prazo' <> '2026-11-03' then
+      falhas := array_append(falhas, format('(v) o checklist da Ana em outubro veio errado (esperado 2 tarefas, sem trava, na ordem): %s', j));
+    end if;
+    set local role service_role;
+    j := public.agente_fechamento_fontes(org_bia, '2026-09');
+    reset role;
+    if not coalesce((j->>'travado')::boolean, false) or jsonb_array_length(j->'tarefas') <> 0 then
+      falhas := array_append(falhas, format('(v) a trava de setembro da Bia não chegou ao runner: %s', j));
+    end if;
+    set local role service_role;
+    j := public.agente_fechamento_fontes(org_ana, '2026-09');
+    reset role;
+    if coalesce((j->>'travado')::boolean, true) then
+      falhas := array_append(falhas, format('(v) a trava da Bia apareceu no setembro da Ana: %s', j));
+    end if;
+    raise exception '%', sentinela;
+  exception when others then
+    reset role;
+    if sqlerrm <> sentinela then falhas := array_append(falhas, format('(v) estourou: %s', sqlerrm)); end if;
+  end;
+
   if array_length(falhas, 1) > 0 then
     raise exception E'agentes: % falha(s):\n  %', array_length(falhas, 1), array_to_string(falhas, E'\n  ');
   end if;
-  raise notice 'agentes: % casos (a–u) verdes', casos;
+  raise notice 'agentes: % casos (a–v) verdes', casos;
 end
 $guarda$;
 

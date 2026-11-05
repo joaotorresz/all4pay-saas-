@@ -87,8 +87,8 @@ export const AGENTES: readonly DescricaoAgente[] = [
     id: "fechamento", nome: "Agente de fechamento",
     missao: "Fecha o mês, monta a DRE e entrega ao contador.",
     gatilho: "Nos primeiros dias úteis do mês.",
-    prepara: "A lista do que falta para fechar e o pacote do contador.",
-    nivelMaximo: 1, pronto: false,
+    prepara: "O próximo passo de cada tarefa do checklist, do começo à trava do mês.",
+    nivelMaximo: 1, pronto: true,
   },
 ];
 
