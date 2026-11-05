@@ -46,7 +46,8 @@ export type TipoCriacao =
   | "cliente" | "fornecedor" | "produto" | "servico"
   | "conta-bancaria" | "categoria" | "projeto" | "centro"
   | "contrato-cliente" | "contrato-fornecedor"
-  | "orcamento-venda" | "transportadora" | "marca" | "unidade";
+  | "orcamento-venda" | "transportadora" | "marca" | "unidade"
+  | "movimento-estoque";
 
 /** O título de cada pop-up — o mesmo, venha de onde vier. */
 export const TITULO_CRIACAO: Record<TipoCriacao, string> = {
@@ -69,6 +70,7 @@ export const TITULO_CRIACAO: Record<TipoCriacao, string> = {
   transportadora: "Nova transportadora",
   marca: "Nova marca",
   unidade: "Nova unidade de medida",
+  "movimento-estoque": "Novo movimento de estoque",
 };
 
 /**

@@ -282,6 +282,19 @@
         "origem": "sessão Claude de 03/11/2026 (Fase 3: compras em tabela própria)"
       },
       {
+        "nome": "20261104190000_estoque_movimentos",
+        "motivo": "Etapa 1 do estoque: a tabela estoque_movimentos (entradas e saídas manuais, só inserir), a view estoque_saldos (inicial + entradas − saídas − vendido, lendo a venda direto de sale_items) e o campo products.stock_min. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "tabela estoque_movimentos (com os gatilhos estoque_movimento_confere_produto e zz_auditar_estoque_movimentos)",
+          "view estoque_saldos",
+          "função estoque_movimento_confere_produto",
+          "coluna products.stock_min"
+        ],
+        "impacto": "Até ser aplicada, nada muda para quem usa: a aba Estoque só aparece com ESTOQUE=ligado, que nasce desligado. Ligar antes de aplicar mostraria 'Não foi possível ler o estoque'.",
+        "resolver_ate": "2026-11-18",
+        "origem": "sessão Claude de 04/11/2026 (etapa 1 do plano de estoque)"
+      },
+      {
         "nome": "20261103210000_contratos_morada_unica",
         "motivo": "O contrato sai da lista inteira em org_state (a4p_contratos), onde a última gravação vencia, para a tabela contratos, uma linha por contrato. Quem pode escrever não muda (tem_permissao('lancar')). A migration acompanha o PR e o job migrar do CI a aplica no merge.",
         "objetos_ausentes": [

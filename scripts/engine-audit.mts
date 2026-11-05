@@ -12815,7 +12815,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     const est = (env: Record<string, string>) => Object.fromEntries(INT.estadoDosInterruptores(env).map((l) => [l.id, l.estado]));
     const vazio = INT.estadoDosInterruptores({});
     ok("interruptores: sem nenhuma variável, todos desligados (falha fechada) e todos no catálogo",
-       vazio.length === 15 && vazio.every((l) => !l.estado.ligado)); // 15: + os agentes, a confirmação do e-mail do contador e a baixa pelo aviso da Pinbank (04/11/2026)
+       vazio.length === 16 && vazio.every((l) => !l.estado.ligado)); // 16: + os agentes, a confirmação do e-mail do contador, a baixa pelo aviso da Pinbank e o estoque (04/11/2026)
+    ok("interruptores: o estoque liga só com ESTOQUE=ligado, pela mesma função da página",
+       (est({ ESTOQUE: "ligado" }) as Record<string, { ligado: boolean }>).estoque?.ligado === true
+       && (est({ ESTOQUE: "sim" }) as Record<string, { ligado: boolean }>).estoque?.ligado === false);
     const lq = (env: Record<string, string>) => (est(env) as Record<string, { ligado: boolean; motivo?: string }>).pinbank_liquidacao;
     ok("interruptores: a baixa pelo aviso ligada sem o webhook diz 'falta configuração'; com os dois, ligada",
        lq({ PINBANK_LIQUIDACAO: "ligado" }).motivo === "sem_configuracao" && lq({ PINBANK_LIQUIDACAO: "ligado", PINBANK_WEBHOOK: "ligado" }).ligado
