@@ -11,7 +11,9 @@
  *   2. sem custo, o valor em estoque é INDISPONÍVEL com motivo, nunca R$ 0;
  *   3. a leitura da quantidade digitada ("1.5", "1.250,5");
  *   4. o movimento: custo só na entrada, quantidade positiva, motivo;
- *   5. contrato: nenhuma tela nem a camada do cliente soma venda ou lê
+ *   5. a entrada pela NF-e de compra: leitura do XML, custo de aquisição,
+ *      sugestão do produto, fator de unidade e o que não é nota de compra;
+ *   6. contrato: nenhuma tela nem a camada do cliente soma venda ou lê
  *      `sale_items` para o estoque (o saldo vem pronto do banco); um escritor
  *      só de `estoque_movimentos`; um leitor só de `ESTOQUE`.
  *
@@ -24,6 +26,9 @@ import {
   situacaoEstoque, valorEmEstoque, lerQuantidade, errosDoMovimento, linhaDoMovimento,
   saldoDaLinha, formatarQuantidade,
 } from "../src/core/estoque/index.ts";
+import {
+  lerNFe, sugerirProduto, movimentosDaNota, vinculosDaEntrada, errosDaEntrada,
+} from "../src/core/estoque/nfe.ts";
 
 let falhas = 0;
 let casos = 0;
@@ -72,6 +77,93 @@ ok("movimento: a linha da saída vai sem custo e com motivo aparado", linha.cust
 const s = saldoDaLinha({ product_id: "p1", name: "X", sku: null, unidade: "un", inicial: "10.000", entradas: "5.000", saidas: "2.000",
   vendido: "0", saldo: "13.000", minimo: null, custo_medio: null });
 ok("leitura: numeric do banco vira número, e custo vazio continua vazio", s.saldo === 13 && s.custoMedio === null && s.minimo === null);
+
+/* ── 6. entrada pela NF-e de compra (etapa 2) ──
+ * Uma nota literal, com namespace como a SEFAZ entrega. Os custos esperados
+ * foram feitos à mão:
+ *   item 1: (240 + 10 frete − 6 desconto + 12 IPI) ÷ 2 CX = 128 por CX;
+ *           com 12 UN por CX: 24 UN a 10,6667;
+ *   item 2: (50 + 3,50 ICMS-ST) ÷ 5 = 10,70; "SEM GTIN" não é código de barras;
+ *   item 3: (30 + 0,30 seguro + 0,20 outras) ÷ 1,5 KG = 20,3333.
+ */
+const CHAVE_NFE = "35261112345678000190550010000012341000012347";
+const det = (n: number, prod: string, imposto = "") =>
+  `<det nItem="${n}"><prod>${prod}</prod><imposto>${imposto}</imposto></det>`;
+const XML_NFE = `<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+<infNFe Id="NFe${CHAVE_NFE}" versao="4.00">
+<ide><cUF>35</cUF><mod>55</mod><serie>1</serie><nNF>1234</nNF><dhEmi>2026-11-03T14:20:00-03:00</dhEmi><tpNF>1</tpNF></ide>
+<emit><CNPJ>12345678000190</CNPJ><xNome>Caf&#233; &amp; Cia Distribuidora</xNome></emit>
+<dest><CNPJ>98765432000110</CNPJ><xNome>Loja da Guarda</xNome></dest>
+${det(1, "<cProd>CX-CAN</cProd><cEAN>7891234567895</cEAN><xProd>Caneca 300ml cx 12</xProd><NCM>69120000</NCM><uCom>cx</uCom><qCom>2.0000</qCom><vUnCom>120.0000000000</vUnCom><vProd>240.00</vProd><vFrete>10.00</vFrete><vDesc>6.00</vDesc>",
+  "<ICMS><ICMS00><vICMS>0</vICMS></ICMS00></ICMS><IPI><IPITrib><vIPI>12.00</vIPI></IPITrib></IPI>")}
+${det(2, "<cProd>CAM-01</cProd><cEAN>SEM GTIN</cEAN><xProd>Camiseta</xProd><uCom>UN</uCom><qCom>5</qCom><vUnCom>10</vUnCom><vProd>50.00</vProd>",
+  "<ICMS><ICMS10><vICMSST>3.50</vICMSST></ICMS10></ICMS><IPI><IPINT><CST>53</CST></IPINT></IPI>")}
+${det(3, "<cProd>GRAO</cProd><cEAN></cEAN><xProd>Café em grão</xProd><uCom>KG</uCom><qCom>1.5000</qCom><vUnCom>20</vUnCom><vProd>30.00</vProd><vSeg>0.30</vSeg><vOutro>0.20</vOutro>")}
+<total><ICMSTot><vNF>340.00</vNF></ICMSTot></total>
+</infNFe></NFe></nfeProc>`;
+
+const lida = lerNFe(XML_NFE);
+ok("nfe: a nota literal é lida", lida.ok, lida.ok ? "" : lida.motivo);
+if (lida.ok) {
+  const n = lida.nota;
+  ok("nfe: chave, número, série, emissão e total", n.chave === CHAVE_NFE && n.numero === "1234" && n.serie === "1" && n.emissao === "2026-11-03" && n.valorTotal === 340,
+    JSON.stringify({ c: n.chave, n: n.numero, s: n.serie, e: n.emissao, t: n.valorTotal }));
+  ok("nfe: fornecedor com acento e & decodificados", n.fornecedor.cnpj === "12345678000190" && n.fornecedor.nome === "Café & Cia Distribuidora", n.fornecedor.nome);
+  ok("nfe: o destinatário vem para a pessoa conferir", n.destinatario.documento === "98765432000110" && n.destinatario.nome === "Loja da Guarda");
+  ok("nfe: três itens na ordem", n.itens.map((i) => i.item).join(",") === "1,2,3");
+  const [i1, i2, i3] = n.itens;
+  ok("nfe: item 1 com frete, desconto e IPI no custo (128 por CX)", i1.custoUnitario === 128 && i1.quantidade === 2 && i1.unidade === "CX" && i1.codigo === "CX-CAN" && i1.ean === "7891234567895" && i1.ncm === "69120000",
+    JSON.stringify(i1));
+  ok("nfe: item 2 com ICMS-ST no custo (10,70) e SEM GTIN vira sem código de barras", i2.custoUnitario === 10.7 && i2.ean === null, JSON.stringify(i2));
+  ok("nfe: item 3 com seguro e outras despesas (20,3333 por KG)", i3.custoUnitario === 20.3333 && i3.quantidade === 1.5 && i3.ean === null, JSON.stringify(i3));
+
+  // sugestão do produto
+  const prods = [{ produtoId: "p-can", sku: "CX-CAN" }, { produtoId: "p-cam", sku: "7891234567895" }, { produtoId: "p-cafe", sku: null }];
+  const vinc = [{ fornecedorCnpj: "12.345.678/0001-90", codigo: "CX-CAN", produtoId: "p-cafe", fator: 12 }];
+  const sv = sugerirProduto(i1, n.fornecedor.cnpj, vinc, prods);
+  ok("nfe: o vínculo deste fornecedor vence o SKU, e traz o fator", sv?.produtoId === "p-cafe" && sv.como === "vinculo" && sv.fator === 12, JSON.stringify(sv));
+  const outroForn = sugerirProduto(i1, "11111111000111", vinc, prods);
+  ok("nfe: o vínculo de OUTRO fornecedor não vale; cai no SKU", outroForn?.produtoId === "p-can" && outroForn.como === "sku" && outroForn.fator === 1, JSON.stringify(outroForn));
+  const morto = sugerirProduto(i1, n.fornecedor.cnpj, vinc, prods.filter((p) => p.produtoId !== "p-cafe"));
+  ok("nfe: vínculo com produto que não controla mais estoque é ignorado", morto?.produtoId === "p-can", JSON.stringify(morto));
+  ok("nfe: o código de barras casa com o SKU", sugerirProduto({ ...i1, codigo: "X" }, n.fornecedor.cnpj, [], prods)?.como === "ean");
+  ok("nfe: sem vínculo, SKU nem código de barras, ninguém é escolhido (nunca por nome parecido)",
+    sugerirProduto(i3, n.fornecedor.cnpj, [], [...prods, { produtoId: "p-x", sku: "Café em grão" }]) === null);
+
+  // os movimentos da confirmação
+  const escolhas = [
+    { item: 1, produtoId: "p-can", fator: 12 },
+    { item: 2, produtoId: null, fator: 1 },
+    { item: 3, produtoId: "p-cafe", fator: 1000 },
+  ];
+  const movs = movimentosDaNota(n, escolhas);
+  ok("nfe: um movimento por item escolhido; o item sem produto fica de fora", movs.length === 2 && movs.map((m) => m.nfeItem).join(",") === "1,3");
+  ok("nfe: 2 CX × 12 = 24 UN a 10,6667", movs[0].quantidade === 24 && movs[0].custoUnitario === 10.6667 && movs[0].tipo === "entrada", JSON.stringify(movs[0]));
+  ok("nfe: 1,5 KG × 1000 = 1500 g a 0,0203", movs[1].quantidade === 1500 && movs[1].custoUnitario === 0.0203, JSON.stringify(movs[1]));
+  ok("nfe: o movimento leva a chave, a data da emissão, o CNPJ do fornecedor e o motivo",
+    movs[0].nfeChave === CHAVE_NFE && movs[0].data === "2026-11-03" && movs[0].fornecedorCnpj === "12345678000190"
+    && movs[0].motivo === "Compra · NF-e 1234 · Café & Cia Distribuidora", JSON.stringify(movs[0]));
+  ok("nfe: o movimento da nota passa na mesma regra do movimento manual", movs.every((m) => errosDoMovimento(m).length === 0));
+  const vs = vinculosDaEntrada(n, escolhas);
+  ok("nfe: lembra o produto e o fator de cada código escolhido", vs.length === 2 && vs[0].codigo === "CX-CAN" && vs[0].fator === 12 && vs[0].fornecedorCnpj === "12345678000190", JSON.stringify(vs));
+  ok("nfe: nenhum item escolhido é erro", errosDaEntrada(n, [{ item: 1, produtoId: null, fator: 1 }]).includes("nenhum_item"));
+  ok("nfe: fator zero é erro", errosDaEntrada(n, [{ item: 1, produtoId: "p", fator: 0 }]).includes("fator"));
+  ok("nfe: item que a nota não tem é erro", errosDaEntrada(n, [{ item: 9, produtoId: "p", fator: 1 }]).includes("item_desconhecido"));
+}
+
+// o que não é NF-e de compra
+const recusa = (xml: string, trecho: RegExp, nome: string) => {
+  const r = lerNFe(xml);
+  ok(`nfe [negativo]: ${nome}`, !r.ok && trecho.test(r.motivo), r.ok ? "passou" : r.motivo);
+};
+recusa("%PDF-1.4 ...", /não é um XML/, "PDF do DANFE");
+recusa(XML_NFE.replace("<mod>55</mod>", "<mod>65</mod>").split(CHAVE_NFE).join("35261112345678000190650010000012341000012340"), /NFC-e/, "NFC-e (cupom)");
+recusa(XML_NFE.split(CHAVE_NFE).join(CHAVE_NFE.slice(0, 43) + "0"), /dígito verificador/, "chave com dígito errado");
+recusa('<CompNfse><Nfse><InfNfse></InfNfse></Nfse></CompNfse>', /NFS-e/, "nota de serviço");
+recusa('<procEventoNFe><evento></evento></procEventoNFe>', /evento/, "XML de cancelamento");
+recusa(XML_NFE.replace(/<det [\s\S]*<\/det>/, ""), /não tem itens/, "nota sem itens");
+recusa(XML_NFE.replace("<qCom>5</qCom>", "<qCom>0</qCom>"), /item 2/, "item com quantidade zero");
 
 /* ── 5. contrato ── */
 const arquivos = (dir: string): string[] => readdirSync(dir).flatMap((f) => {

@@ -17,10 +17,12 @@ import type { FiltroStatus } from "@/core/registros";
 /* ------------------------------- cabeçalho ------------------------------- */
 
 export function CabecalhoRegistro({
-  acaoNova, exportar,
+  acaoNova, exportar, extra,
 }: {
   acaoNova?: { label: string; onClick: () => void };
   exportar?: { nomeArquivo: string; aba: string; linhas: CelulaXLSX[][] };
+  /** Uma ação a mais da tela (ex.: "Entrada por NF-e" no estoque), entre o Novo e o Exportar. */
+  extra?: React.ReactNode;
 }) {
   // Sem linha nenhuma o botão não tem o que exportar — desabilitado é mais
   // honesto que baixar uma planilha só com cabeçalho.
@@ -42,6 +44,7 @@ export function CabecalhoRegistro({
             {acaoNova.label}
           </Button>
         )}
+        {extra}
         {exportar && (
           <Button
             variant="outline"
