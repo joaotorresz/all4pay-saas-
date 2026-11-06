@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { abrirCriacao } from "@/components/app/criacao";
-import { BRL, Button, Input, PontoStatus } from "@/components/ui";
+import { BRL, Button, Icon, Input, PontoStatus } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { useSaldosEstoque, useDefinirMinimo } from "@/lib/estoque";
@@ -55,6 +55,12 @@ export function EstoqueView({ abas }: { abas?: React.ReactNode }) {
       <CabecalhoRegistro
         acaoNova={{ label: "Novo movimento", onClick: () => novo() }}
         exportar={{ nomeArquivo: "estoque", aba: "Estoque", linhas: exportar }}
+        extra={(
+          <Button variant="outline" onClick={() => abrirCriacao("entrada-nfe")}>
+            <Icon name="file-text" size={15} color="currentColor" />
+            Entrada por NF-e
+          </Button>
+        )}
       />
 
       {abas}

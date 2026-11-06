@@ -47,7 +47,7 @@ export type TipoCriacao =
   | "conta-bancaria" | "categoria" | "projeto" | "centro"
   | "contrato-cliente" | "contrato-fornecedor"
   | "orcamento-venda" | "transportadora" | "marca" | "unidade"
-  | "movimento-estoque";
+  | "movimento-estoque" | "entrada-nfe";
 
 /** O título de cada pop-up — o mesmo, venha de onde vier. */
 export const TITULO_CRIACAO: Record<TipoCriacao, string> = {
@@ -71,6 +71,7 @@ export const TITULO_CRIACAO: Record<TipoCriacao, string> = {
   marca: "Nova marca",
   unidade: "Nova unidade de medida",
   "movimento-estoque": "Novo movimento de estoque",
+  "entrada-nfe": "Entrada por NF-e",
 };
 
 /**

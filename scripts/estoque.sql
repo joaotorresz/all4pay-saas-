@@ -20,7 +20,14 @@
 --   7. o LEITOR lê o saldo e é recusado ao lançar;
 --   8. a empresa B não vê movimento nem saldo da A;
 --   9. lançar deixa evento na trilha;
---  10. sem nenhum custo, o custo médio fica VAZIO, nunca zero.
+--  10. sem nenhum custo, o custo médio fica VAZIO, nunca zero;
+--  11. a entrada da NF-e soma no saldo; a mesma chave + item é recusada; na
+--      lixeira, o item pode entrar de novo (migration 20261105230000);
+--  12. a origem amarra a chave: nota sem chave, chave em movimento manual,
+--      nota que tira do estoque e chave mal formada são recusadas;
+--  13. o vínculo do fornecedor: um código, um produto (o upsert substitui);
+--      produto de outra empresa e fator zero recusados; o leitor não grava;
+--      a empresa B não vê.
 --
 -- ⚠️ Os saldos esperados são NÚMEROS LITERAIS escritos aqui (regra 11): a
 -- guarda não reaproveita a conta da view que ela audita.
@@ -218,6 +225,72 @@ begin
     raise exception 'CASO 10 FALHOU: sem custo nenhum, o custo médio virou % (tem de ficar vazio).', r.custo_medio;
   end if;
 end $$;
+
+-- ── 11. entrada pela NF-e (migration 20261105230000) ──
+-- A nota entra com a chave e o item; a mesma chave + item não entra duas vezes;
+-- na lixeira, o item fica livre para entrar de novo.
+insert into public.estoque_movimentos (id, product_id, tipo, quantidade, custo_unitario, motivo, origem, nfe_chave, nfe_item, fornecedor_cnpj) values
+  ('e5200000-0000-0000-0000-0000000000f1', 'e5100000-0000-0000-0000-000000000003', 'entrada', 24, 7.5, 'Compra · NF-e 1234', 'nfe', '35261112345678000190550010000012341000012345', 1, '12345678000190');
+-- 6 + 24 = 30
+select pg_temp.confere('e5100000-0000-0000-0000-000000000003', 30, '11 entrada da nota');
+savepoint c11a;
+select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem, nfe_chave, nfe_item) values ('e5100000-0000-0000-0000-000000000003', 'entrada', 24, 'Compra · NF-e 1234', 'nfe', '35261112345678000190550010000012341000012345', 1)$q$,
+  'estoque_movimentos_nfe_unica', '11 a mesma nota de novo');
+rollback to savepoint c11a;
+-- o item 2 da mesma nota entra
+insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem, nfe_chave, nfe_item) values
+  ('e5100000-0000-0000-0000-000000000003', 'entrada', 1, 'Compra · NF-e 1234', 'nfe', '35261112345678000190550010000012341000012345', 2);
+select pg_temp.confere('e5100000-0000-0000-0000-000000000003', 31, '11 outro item da mesma nota');
+select public.excluir_logico('estoque_movimentos', 'e5200000-0000-0000-0000-0000000000f1', 'produto errado na conferência');
+insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem, nfe_chave, nfe_item) values
+  ('e5100000-0000-0000-0000-000000000003', 'entrada', 2, 'Compra · NF-e 1234', 'nfe', '35261112345678000190550010000012341000012345', 1);
+-- 6 + 1 + 2 = 9
+select pg_temp.confere('e5100000-0000-0000-0000-000000000003', 9, '11 item reimportado depois da lixeira');
+
+-- ── 12. a origem amarra a chave ──
+savepoint c12a;
+select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem) values ('e5100000-0000-0000-0000-000000000003', 'entrada', 1, 'Compra', 'nfe')$q$,
+  'estoque_movimentos_nfe_completa', '12 nota sem chave');
+rollback to savepoint c12a;
+savepoint c12b;
+select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, nfe_chave, nfe_item) values ('e5100000-0000-0000-0000-000000000003', 'entrada', 1, 'Compra', '35261112345678000190550010000012341000012345', 9)$q$,
+  'estoque_movimentos_nfe_completa', '12 chave em movimento manual');
+rollback to savepoint c12b;
+savepoint c12c;
+select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem, nfe_chave, nfe_item) values ('e5100000-0000-0000-0000-000000000003', 'saida', 1, 'Compra', 'nfe', '35261112345678000190550010000012341000012345', 9)$q$,
+  'estoque_movimentos_nfe_completa', '12 nota que tira do estoque');
+rollback to savepoint c12c;
+savepoint c12d;
+select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem, nfe_chave, nfe_item) values ('e5100000-0000-0000-0000-000000000003', 'entrada', 1, 'Compra', 'nfe', '3526111234567800019055001000001234100001234', 9)$q$,
+  'estoque_movimentos_nfe_completa', '12 chave com 43 dígitos');
+rollback to savepoint c12d;
+savepoint c12e;
+select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo, origem) values ('e5100000-0000-0000-0000-000000000003', 'entrada', 1, 'Compra', 'xml')$q$,
+  'estoque_movimentos_origem_valida', '12 origem fora da lista');
+rollback to savepoint c12e;
+
+-- ── 13. o vínculo do fornecedor ──
+insert into public.estoque_vinculos_fornecedor (fornecedor_cnpj, codigo, product_id, fator) values
+  ('12345678000190', 'CX-CAM', 'e5100000-0000-0000-0000-000000000003', 12);
+insert into public.estoque_vinculos_fornecedor (fornecedor_cnpj, codigo, product_id, fator) values
+  ('12345678000190', 'CX-CAM', 'e5100000-0000-0000-0000-000000000001', 6)
+on conflict (org_id, fornecedor_cnpj, codigo) do update set product_id = excluded.product_id, fator = excluded.fator;
+do $$
+begin
+  if (select count(*) from public.estoque_vinculos_fornecedor) <> 1
+     or (select product_id from public.estoque_vinculos_fornecedor) <> 'e5100000-0000-0000-0000-000000000001'
+     or (select fator from public.estoque_vinculos_fornecedor) <> 6 then
+    raise exception 'CASO 13 FALHOU: confirmar outro produto para o mesmo código não substituiu o vínculo (um código, um produto).';
+  end if;
+end $$;
+savepoint c13a;
+select pg_temp.recusa($q$insert into public.estoque_vinculos_fornecedor (fornecedor_cnpj, codigo, product_id) values ('12345678000190', 'OUTRO', 'e5100000-0000-0000-0000-0000000000b1')$q$,
+  'estoque_produto_da_empresa', '13 vínculo com produto de outra empresa');
+rollback to savepoint c13a;
+savepoint c13b;
+select pg_temp.recusa($q$insert into public.estoque_vinculos_fornecedor (fornecedor_cnpj, codigo, product_id, fator) values ('12345678000190', 'Z', 'e5100000-0000-0000-0000-000000000003', 0)$q$,
+  'estoque_vinculos_fator_positivo', '13 fator zero');
+rollback to savepoint c13b;
 reset role;
 
 -- ── 9. trilha ──
@@ -237,6 +310,10 @@ savepoint c7;
 select pg_temp.recusa($q$insert into public.estoque_movimentos (product_id, tipo, quantidade, motivo) values ('e5100000-0000-0000-0000-000000000001', 'entrada', 1, 'Compra')$q$,
   'estoque_movimentos_escrita_exige_papel', '7 leitor lança');
 rollback to savepoint c7;
+savepoint c7b;
+select pg_temp.recusa($q$insert into public.estoque_vinculos_fornecedor (fornecedor_cnpj, codigo, product_id) values ('12345678000190', 'L', 'e5100000-0000-0000-0000-000000000003')$q$,
+  'estoque_vinculos_escrita_exige_papel', '7 leitor grava vínculo');
+rollback to savepoint c7b;
 reset role;
 
 -- ── 8. a empresa B não vê a A ──
@@ -247,6 +324,9 @@ begin
   if (select count(*) from public.estoque_movimentos) <> 0 then
     raise exception 'CASO 8 FALHOU: a empresa B leu movimentos de outra empresa.';
   end if;
+  if (select count(*) from public.estoque_vinculos_fornecedor) <> 0 then
+    raise exception 'CASO 8 FALHOU: a empresa B leu vínculos de fornecedor de outra empresa.';
+  end if;
   if (select count(*) from public.estoque_saldos) <> 1
      or (select saldo from public.estoque_saldos) is distinct from 7.000 then
     raise exception 'CASO 8 FALHOU: a empresa B não vê só o próprio saldo (esperado: 1 produto com 7).';
@@ -254,6 +334,6 @@ begin
 end $$;
 reset role;
 
-do $$ begin raise notice 'estoque: 10 casos verdes'; end $$;
+do $$ begin raise notice 'estoque: 13 casos verdes'; end $$;
 
 rollback;

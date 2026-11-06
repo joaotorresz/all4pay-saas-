@@ -17,6 +17,7 @@ import {
   saldoDaLinha, linhaDoMovimento, errosDoMovimento,
   type LinhaSaldoBanco, type NovoMovimento, type SaldoProduto,
 } from "@/core/estoque";
+import type { MovimentoDaNota, VinculoFornecedor } from "@/core/estoque/nfe";
 
 export const CHAVE_SALDOS = ["estoque-saldos"] as const;
 
@@ -38,6 +39,9 @@ function movimentarDemo(m: NovoMovimento): void {
     return { ...s, entradas: s.entradas + entra, saidas: s.saidas + sai, saldo: s.saldo + entra - sai };
   });
 }
+
+let vinculosDemo: VinculoFornecedor[] = [];
+const notasDemo = new Map<string, Set<number>>();
 
 /* ─────────────────────────────── leitura ─────────────────────────────── */
 
@@ -100,5 +104,95 @@ export function useDefinirMinimo() {
   return useMutation({
     mutationFn: ({ produtoId, minimo }: { produtoId: string; minimo: number | null }) => definirMinimo(produtoId, minimo),
     onSuccess: () => qc.invalidateQueries({ queryKey: CHAVE_SALDOS }),
+  });
+}
+
+/* ───────────────────── entrada pela NF-e de compra (etapa 2) ───────────────────── */
+
+export const CHAVE_VINCULOS = ["estoque-vinculos-fornecedor"] as const;
+
+/** O que a pessoa já escolheu para os códigos dos fornecedores (só sugere). */
+export async function listarVinculos(): Promise<VinculoFornecedor[]> {
+  if (isDemo) return vinculosDemo;
+  const s = createClient();
+  const { data, error } = await s
+    .from("estoque_vinculos_fornecedor")
+    .select("fornecedor_cnpj,codigo,product_id,fator")
+    .limit(TETO_LINHAS);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { fornecedor_cnpj: string; codigo: string; product_id: string; fator: number | string }[])
+    .map((v) => ({ fornecedorCnpj: v.fornecedor_cnpj, codigo: v.codigo, produtoId: v.product_id, fator: Number(v.fator) || 1 }));
+}
+
+export function useVinculosFornecedor() {
+  return useQuery({ queryKey: CHAVE_VINCULOS, queryFn: listarVinculos });
+}
+
+/**
+ * Os itens desta nota que já deram entrada (movimento vivo). A tela avisa e
+ * não oferece de novo; o banco recusaria do mesmo jeito (índice único).
+ */
+export async function itensJaImportados(chave: string): Promise<number[]> {
+  if (isDemo) return Array.from(notasDemo.get(chave) ?? []);
+  const s = createClient();
+  const { data, error } = await s
+    .from("estoque_movimentos")
+    .select("nfe_item")
+    .eq("nfe_chave", chave)
+    .limit(TETO_LINHAS);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { nfe_item: number }[]).map((l) => l.nfe_item);
+}
+
+/**
+ * Grava a entrada da nota: TODOS os itens num insert só (ou entram todos, ou
+ * nenhum) e, depois, lembra o produto de cada código do fornecedor.
+ *
+ * ⚠️ O vínculo é preferência, não fato: se lembrar falhar, a entrada já está
+ * gravada e a tela avisa que só a sugestão não foi salva.
+ */
+export async function registrarEntradaNota(
+  movimentos: MovimentoDaNota[], vinculos: VinculoFornecedor[],
+): Promise<{ vinculoSalvo: boolean }> {
+  if (!movimentos.length) throw new Error("Escolha o produto de ao menos um item.");
+  for (const m of movimentos) if (errosDoMovimento(m).length) throw new Error("Revise os itens da nota.");
+  if (isDemo) {
+    const ja = notasDemo.get(movimentos[0].nfeChave) ?? new Set<number>();
+    if (movimentos.some((m) => ja.has(m.nfeItem))) throw new Error("Esta nota já deu entrada no estoque.");
+    movimentos.forEach((m) => { movimentarDemo(m); ja.add(m.nfeItem); });
+    notasDemo.set(movimentos[0].nfeChave, ja);
+    const chaves = new Set(vinculos.map((v) => `${v.fornecedorCnpj}|${v.codigo}`));
+    vinculosDemo = [...vinculosDemo.filter((v) => !chaves.has(`${v.fornecedorCnpj}|${v.codigo}`)), ...vinculos];
+    return { vinculoSalvo: true };
+  }
+  const s = createClient();
+  const { error } = await s.from("estoque_movimentos").insert(movimentos.map((m) => ({
+    ...linhaDoMovimento(m),
+    origem: "nfe",
+    nfe_chave: m.nfeChave,
+    nfe_item: m.nfeItem,
+    fornecedor_cnpj: m.fornecedorCnpj || null,
+  })));
+  if (error) {
+    if (/estoque_movimentos_nfe_unica|duplicate key/i.test(error.message)) throw new Error("Esta nota já deu entrada no estoque.");
+    throw new Error(mensagemDoBanco(error.message));
+  }
+  if (!vinculos.length) return { vinculoSalvo: true };
+  const { error: e2 } = await s.from("estoque_vinculos_fornecedor").upsert(
+    vinculos.map((v) => ({ fornecedor_cnpj: v.fornecedorCnpj, codigo: v.codigo, product_id: v.produtoId, fator: v.fator })),
+    { onConflict: "org_id,fornecedor_cnpj,codigo" },
+  );
+  return { vinculoSalvo: !e2 };
+}
+
+export function useRegistrarEntradaNota() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ movimentos, vinculos }: { movimentos: MovimentoDaNota[]; vinculos: VinculoFornecedor[] }) =>
+      registrarEntradaNota(movimentos, vinculos),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAVE_SALDOS });
+      qc.invalidateQueries({ queryKey: CHAVE_VINCULOS });
+    },
   });
 }

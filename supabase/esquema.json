@@ -457,6 +457,19 @@
         "impacto": "Até ser aplicada, o agente de fechamento não propõe (o runner registra o erro do banco). O agente está atrás de AGENTES=ligado, então nada muda para quem usa.",
         "resolver_ate": "2026-11-20",
         "origem": "sessão Claude de 05/11/2026 (agentes da Quattro AI, etapa 8)"
+      },
+      {
+        "nome": "20261105230000_estoque_entrada_nfe",
+        "motivo": "Entrada de estoque pelo XML da NF-e de compra (etapa 2 do estoque): chave e item da nota no movimento, índice único contra a mesma nota duas vezes e o vínculo código do fornecedor → produto. A migration acompanha o PR e o job migrar do CI a aplica no merge.",
+        "objetos_ausentes": [
+          "colunas estoque_movimentos.nfe_chave, nfe_item, fornecedor_cnpj",
+          "índice estoque_movimentos_nfe_unica",
+          "tabela estoque_vinculos_fornecedor",
+          "função estoque_vinculo_confere_produto"
+        ],
+        "impacto": "Até ser aplicada, confirmar a entrada da nota falha com o erro do banco. A aba Estoque está atrás de ESTOQUE=ligado; o lançamento manual segue igual.",
+        "resolver_ate": "2026-11-20",
+        "origem": "sessão Claude de 05/11/2026 (estoque, etapa 2)"
       }
     ],
     "objetos_sem_migration": [

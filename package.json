@@ -22,7 +22,7 @@
     "ia-contexto": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/ia-contexto.mts",
     "agentes": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/agentes.mts",
     "compras-morada": "node --experimental-strip-types ./scripts/compras-morada.mts",
-    "estoque": "node --experimental-strip-types ./scripts/estoque.mts",
+    "estoque": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/estoque.mts",
     "documentos-morada": "node --experimental-strip-types ./scripts/documentos-morada.mts",
     "tabela-unica": "node --experimental-strip-types ./scripts/tabela-unica.mts",
     "depreciacao-unica": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/depreciacao-unica.mts",
