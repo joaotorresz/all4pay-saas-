@@ -580,18 +580,35 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   ok("menu: a Quattro AI (grande, no alto) e os agentes ficam no cartão da IA; busca e \"nova\" vêm depois dos agentes, antes das conversas",
     /<QuattroAIDoMenu entra=\{entra\} \/>\s*<AgentesDoMenu entra=\{entra\} \/>[\s\S]*aria-label="Buscar conversa"[\s\S]*\{visiveis\.length/.test(menu) && /useAgentesDoHub\(\)/.test(menu)
       && /<AvatarAgente agente="quattro-ai" tamanho=\{64\} \/>/.test(menu));
-  // Os bonecos de cada agente (04/11/2026): um PNG por agente, RGBA (fundo
-  // transparente), com pelo menos 256px (nítido em retina).
+  // Os bonecos de cada agente (06/11/2026): o BotAvatar do pacote bot-avatars,
+  // um formato por agente, a cor do DS, e o estado ligado ao estado real.
   const avatar = ler("src/components/ia/AvatarAgente.tsx");
-  ok("avatar: cada agente e a Quattro AI têm o boneco em PNG transparente, 256px ou mais",
-    [...ids, "quattro-ai"].every((id) => {
-      const m = avatar.match(new RegExp(`"?${id}"?: "(/agentes/[a-z-]+\\.png)"`));
-      if (!m) return false;
-      const f = join(raiz, "public", m[1]);
-      if (!existsSync(f)) return false;
-      const b = readFileSync(f);
-      return b.readUInt32BE(16) >= 256 && b.readUInt32BE(20) >= 256 && b[25] === 6;
-    }));
+  const formas = [...ids, "quattro-ai"].map((id) => avatar.match(new RegExp(`"?${id}"?: \\{ tipo: "([a-z]+)", cor: "(--color-[a-z-]+)"`)));
+  ok("avatar: cada agente e a Quattro AI têm um formato próprio do bot-avatars, com a cor de um token do DS",
+    /from "bot-avatars"/.test(avatar) && formas.every(Boolean)
+      && new Set(formas.map((m) => m![1])).size === formas.length
+      && formas.every((m) => ler("src/app/globals.css").includes(`${m![2]}:`))
+      && !existsSync(join(raiz, "public/agentes")));
+  // Pedido do dono (06/11/2026): o chat do agente no modelo de chat com
+  // cartões — o agente e o estado no alto, e a conversa abre vazia, com a
+  // chamada dele e três cartões de começo.
+  ok("chat do agente: abre vazio, com a chamada do agente e três cartões de começo; o estado fica numa pílula no alto",
+    /useState<FalaAgente\[\]>\(\[\]\)/.test(chat) && /\{PERFIS\[config\.agente\]\.chamada\}/.test(chat)
+      && /data-cartoes-comeco/.test(chat) && /data-estado-agente/.test(chat) && /\{estadoDe\(config\.agente\)\}/.test(chat)
+      && ids.every((id) => new RegExp(`chamada: "[^"]+\\?",\\n    id: "${id}"`).test(ler("src/core/agentes/conversa.ts"))));
+  const telaIA = ler("src/components/ia/ChatTelaCheia.tsx");
+  ok("tela da Quattro AI: o mesmo modelo dos agentes (cabeçalho à esquerda, chamada grande e três cartões de começo)",
+    /const chamadaIA = !!embutido && vazio && !pergunta && !tela;/.test(telaIA)
+      && /data-cabecalho-ia/.test(telaIA) && /chips\.slice\(0, 3\)\.map/.test(telaIA) && /data-chamada-ia/.test(telaIA));
+  ok("avatar: o boneco ocupa 85% da caixa (pedido do dono, 06/11/2026: 15% menores)",
+    /export const ESCALA_BONECO = 0\.85;/.test(avatar) && /size=\{Math\.round\(tamanho \* ESCALA_BONECO\)\}/.test(avatar));
+  ok("avatar: o estado segue o agente (trabalha numa tarefa, dorme desligado ou em construção) por um lugar só",
+    /const final: EstadoAvatar = estado \?\? \(trabalhando \? "working" : repouso\)/.test(avatar)
+      && /if \(!descricaoDe\(agente\)\.pronto\) return "sleeping"/.test(avatar)
+      && /configDe\(agente\)\?\.ativo \? "default" : "sleeping"/.test(avatar)
+      && /useAgenteTrabalhando\(config\.agente, digitando \|\| ocupado\)/.test(chat)
+      && /useAgenteTrabalhando\(p\.agente, ocupado\)/.test(chat)
+      && /useAgenteTrabalhando\("quattro-ai", chat\.pensando\)/.test(ler("src/components/ia/ChatTelaCheia.tsx")));
   // Pedido do dono (04/11/2026): a tela abre JÁ como conversa, sem título nem
   // selo, e as conversas do menu ficam num cartão branco.
   ok("tela: a Quattro AI abre como conversa (o mesmo chat, embutido), sem título nem selo",
@@ -604,9 +621,9 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
   ok("chat do agente: as falas entram uma a uma, com o agente digitando antes",
     /const \[fila, setFila\]/.test(chat) && /<DigitandoIA /.test(chat) && /setFila\(\(f\) => \[\.\.\.f, \.\.\.passo\.falas\]\)/.test(chat)
       && !/setLinhas\(\(ls\) => \[\.\.\.ls, \.\.\.passo\.falas/.test(chat));
-  ok("chat do agente: enquanto digita, o boneco do agente balança na frente dos pontos, sem o rótulo escrito",
+  ok("chat do agente: enquanto digita, o boneco do agente trabalha (working) na frente dos pontos, sem o rótulo escrito",
     /<DigitandoIA [^>]*agente=\{config\.agente\}/.test(chat)
-      && /\{agente && \(\s*<span className="a4p-agente-pensa/.test(conversa)
+      && /\{agente && \(\s*<span [^>]*>\s*<AvatarAgente agente=\{agente\} tamanho=\{40\} estado="working" \/>/.test(conversa)
       && /\{!agente && <span className="a4p-brilho-texto/.test(conversa));
   ok("tela: no computador a lista sai da tela (fica no menu) e a fonte é uma só",
     /className=\{`md:hidden [^`]*`\}>\{lista\}/.test(hub) && /useAgentesDoHub\(\)/.test(hub) && !/useQuery\(/.test(hub));

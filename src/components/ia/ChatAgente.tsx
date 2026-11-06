@@ -22,8 +22,10 @@ import { descricaoDe, type ConfigAgente, type PropostaAgente } from "@/core/agen
 import { concluirContaPagar, decidirProposta, executarAprovada, salvarAgente } from "@/lib/agentes";
 import { abrirCriacao } from "@/components/app/criacao";
 import { AvatarAgente } from "./AvatarAgente";
+import { useAgenteTrabalhando } from "./estado-agente";
 import { DigitandoIA } from "./conversa";
 import { useFala } from "./useFala";
+import { useAgentesDoHub } from "./useAgentesDoHub";
 
 /** Quanto o agente "digita" antes de cada fala entrar (a pessoa lê no ritmo). */
 const tempoDigitando = (f: FalaAgente) =>
@@ -48,7 +50,9 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
   // As falas entram UMA A UMA, com o agente "digitando" antes de cada uma
   // (pedido do dono, 04/11/2026): a fila guarda o que ainda vai entrar.
   const [linhas, setLinhas] = React.useState<Linha[]>([]);
-  const [fila, setFila] = React.useState<FalaAgente[]>(() => inicio.falas);
+  // A conversa abre VAZIA, com a chamada e os cartões de começo (06/11/2026,
+  // no modelo de chat com cartões): as falas só entram depois da escolha.
+  const [fila, setFila] = React.useState<FalaAgente[]>([]);
   const [aberta] = React.useState(() => new Date());
   React.useEffect(() => {
     if (!fila.length) return;
@@ -66,6 +70,8 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
   const [estado, setEstado] = React.useState<EstadoConversa>(inicio.estado);
   const [texto, setTexto] = React.useState("");
   const [ocupado, setOcupado] = React.useState(false);
+  // Digitando ou salvando: o boneco do agente trabalha (menu, lista e chat).
+  useAgenteTrabalhando(config.agente, digitando || ocupado);
   const rolagem = React.useRef<HTMLDivElement>(null);
   const pendentes = propostas.filter((p) => p.agente === config.agente && p.estado === "pendente");
   // Contas a pagar: a aprovada só termina quando o cadastro é salvo. Enquanto
@@ -74,6 +80,8 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
     ? propostas.filter((p) => p.agente === "contas_pagar" && p.estado === "aprovada") : [];
 
   React.useEffect(() => {
+    // Vazio, a chamada fica no alto: só rola quando a conversa começa.
+    if (linhas.length === 0 && !digitando) return;
     rolagem.current?.scrollTo({ top: rolagem.current.scrollHeight, behavior: "smooth" });
   }, [linhas.length, digitando]);
 
@@ -98,28 +106,69 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
     setFila((f) => [...f, ...passo.falas]);
   };
 
+  /** Um cartão de começo: a escolha vira a fala da pessoa, e o agente responde. */
+  const comecar = (c: CartaoComeco) => {
+    setLinhas((ls) => [...ls, comId({ de: "pessoa", texto: c.titulo })]);
+    setFila(c.falas);
+  };
+  const vazio = linhas.length === 0 && !digitando;
+  const { estadoDe } = useAgentesDoHub();
+  const cartoes = cartoesDeComeco(config, inicio.falas, estadoDe(config.agente));
+
   const ultimaPergunta = [...linhas].reverse().find((l): l is FalaAgente & { id: number } => l.de === "agente" && !!(l as FalaAgente).pergunta);
 
   return (
     <section className="flex flex-col h-full min-h-0" data-chat-agente={config.agente} aria-label={desc.nome}>
-      {/* No alto, só a pílula com o agente (no modelo dos bots de conversa). */}
-      <header className="relative flex items-center justify-center px-5 pt-5 pb-2">
+      {/* No alto: o agente à esquerda e o estado dele numa pílula à direita
+          (06/11/2026, no modelo de chat com cartões). */}
+      <header className="relative flex items-center gap-3 px-5 md:px-6 pt-5 pb-3" data-cabecalho-agente>
         {aoVoltar && (
-          <button type="button" onClick={aoVoltar} aria-label="Voltar à lista" className="md:hidden absolute left-3 w-9 h-9 rounded-pill flex items-center justify-center text-ink">
+          <button type="button" onClick={aoVoltar} aria-label="Voltar à lista" className="md:hidden -ml-2 w-9 h-9 rounded-pill flex items-center justify-center text-ink">
             <Icon name="chevron-left" size={20} />
           </button>
         )}
-        <span className="inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white" title={desc.missao}>
-          <AvatarAgente agente={config.agente} tamanho={26} />
-          <h2 className="a4p-menu-grupo m-0 text-[15px] text-ink">{desc.nome}</h2>
+        <AvatarAgente agente={config.agente} tamanho={36} />
+        <span className="flex-1 min-w-0" title={desc.missao}>
+          <h2 className="a4p-menu-grupo m-0 text-[15px] leading-tight text-ink truncate">{desc.nome}</h2>
+          <span className="hidden sm:block text-caption text-muted truncate">Agente da Quattro AI</span>
+        </span>
+        <span className="shrink-0 inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-pill bg-white text-caption text-ink" data-estado-agente>
+          <span aria-hidden className="w-2 h-2 rounded-pill" style={{ background: config.ativo && desc.pronto ? PERFIS[config.agente].cor : "var(--color-border)" }} />
+          {estadoDe(config.agente)}
+          {pendentes.length > 0 && <span className="text-muted tabular-nums">· {pendentes.length} para aprovar</span>}
         </span>
       </header>
 
       <div ref={rolagem} className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto w-full max-w-[680px] px-5 pt-6 pb-12 flex flex-col gap-3" aria-live="polite">
-          <p className="m-0 self-end text-[12px] text-muted" data-hora>
-            Hoje {aberta.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-          </p>
+          {vazio ? (
+            <div className="a4p-entra flex flex-col gap-3 pt-2 md:pt-[14vh]" data-chamada-agente>
+              <AvatarAgente agente={config.agente} tamanho={56} />
+              <h3 className="a4p-menu-grupo m-0 mt-3 text-[26px] leading-tight sm:text-h1 text-ink">{PERFIS[config.agente].chamada}</h3>
+              <p className="m-0 max-w-[460px] text-[15px] text-muted">
+                {desc.missao} {desc.nivelMaximo < 3 ? "Nada sai sem a sua aprovação." : "Só faço sozinho até onde você deixar."}
+              </p>
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3" data-cartoes-comeco>
+                {cartoes.map((c) => (
+                  <button key={c.id} type="button" onClick={() => comecar(c)} data-comeco={c.id}
+                    className="group relative flex flex-col items-start gap-1 text-left bg-white rounded-[20px] p-4 sm:min-h-[128px] transition-transform hover:-translate-y-px">
+                    <span className="w-9 h-9 rounded-pill bg-surface-2 flex items-center justify-center text-ink">
+                      <Icon name={c.icone} size={16} color="currentColor" />
+                    </span>
+                    <span className="absolute top-4 right-4 text-muted group-hover:text-ink">
+                      <Icon name="arrow-up-right" size={16} color="currentColor" />
+                    </span>
+                    <span className="mt-2 sm:mt-auto block text-[15px] font-medium text-ink">{c.titulo}</span>
+                    <span className="block text-caption text-muted">{c.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="m-0 self-end text-[12px] text-muted" data-hora>
+              Hoje {aberta.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
           {linhas.map((l) => {
             if (l.de === "fila") return null;
             if (l.de === "pessoa") {
@@ -173,7 +222,7 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
           <input
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder={ultimaPergunta?.pergunta?.livre ?? "Digite sua resposta ou fale sobre outra coisa"}
+            placeholder={ultimaPergunta?.pergunta?.livre ?? (vazio ? `Fale com o ${desc.nome.toLowerCase()}` : "Digite sua resposta ou fale sobre outra coisa")}
             aria-label={`Mensagem para o ${desc.nome.toLowerCase()}`}
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-ink placeholder:text-placeholder"
             disabled={ocupado}
@@ -193,6 +242,21 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
       </form>
     </section>
   );
+}
+
+/** Os três cartões de começo: cada um puxa uma parte da apresentação e termina
+ *  na pergunta de configuração (as falas vêm de `abrirConversaAgente`, um
+ *  lugar só: 0 oi · 1 o que faço · 2 até onde vou · 3+ estado e pergunta). */
+interface CartaoComeco { id: string; icone: string; titulo: string; sub: string; falas: FalaAgente[] }
+function cartoesDeComeco(config: ConfigAgente, falas: FalaAgente[], estado: string): CartaoComeco[] {
+  const d = descricaoDe(config.agente);
+  const resto = falas.slice(3);
+  return [
+    { id: "faz", icone: PERFIS[config.agente].icone, titulo: "O que eu faço", sub: "Como eu trabalho, passo a passo", falas: [falas[1], ...resto] },
+    { id: "limites", icone: "shield-check", titulo: "Até onde eu vou", sub: "O que eu nunca faço sem você", falas: [falas[2], ...resto] },
+    { id: "config", icone: "sliders-horizontal", titulo: d.pronto ? "O que eu faço sozinho" : "Quando eu chego",
+      sub: d.pronto ? `Hoje: ${estado.toLowerCase()}` : "Ainda estou em construção", falas: resto },
+  ];
 }
 
 /** A pergunta com opções: A, B, C, como um cartão da conversa. */
@@ -226,6 +290,8 @@ function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: st
   const router = useRouter();
   const [ocupado, setOcupado] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
+  // Executando a proposta: o boneco do agente trabalha até ela terminar.
+  useAgenteTrabalhando(p.agente, ocupado);
   /**
    * Contas a pagar: aprovar é abrir o cadastro JÁ preenchido, pela porta única
    * (decisão do dono, 04/11/2026). Quem grava a conta é o formulário de
