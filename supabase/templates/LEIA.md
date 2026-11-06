@@ -13,3 +13,4 @@ O link usa `{{ .SiteURL }}`: em Authentication › URL Configuration, o Site URL
 | Magic link | Seu link de acesso à Quattro | `link-magico.html` |
 | Change email address | Confirme o novo e-mail da sua conta Quattro | `troca-email.html` |
 | Invite user | Você foi convidado para a Quattro | `convite.html` |
+| Reauthentication | Seu código de confirmação da Quattro | `reautenticacao.html` |

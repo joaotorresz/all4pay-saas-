@@ -27,7 +27,13 @@ const linkDe = (tipo: keyof typeof TIPOS_DO_LINK) =>
   `{{ .SiteURL }}/api/auth/recuperar?token_hash={{ .TokenHash }}&type=${tipo}`;
 const RODAPE = "Quattro · app.quattro.finance. Este é um e-mail automático; respostas não são lidas.";
 
-interface Modelo { arquivo: string; tipo: keyof typeof TIPOS_DO_LINK; painel: string; assunto: string; titulo: string; abertura: string; botao: string; aviso: string }
+interface ModeloLink { arquivo: string; tipo: keyof typeof TIPOS_DO_LINK; painel: string; assunto: string; titulo: string; abertura: string; botao: string; aviso: string }
+// Reauthentication manda CÓDIGO ({{ .Token }}), não link: o Supabase pede ao
+// trocar a senha com a sessão aberta. O app hoje não chama reauthenticate(),
+// mas o painel tem o modelo, e o padrão em inglês não pode sair.
+interface ModeloCodigo { arquivo: string; codigo: true; painel: string; assunto: string; titulo: string; abertura: string; aviso: string }
+type Modelo = ModeloLink | ModeloCodigo;
+const TOKEN = "{{ .Token }}";
 
 export const MODELOS: Modelo[] = [
   { arquivo: "confirmacao", tipo: "signup", painel: "Confirm signup", assunto: "Confirme seu e-mail na Quattro",
@@ -45,9 +51,23 @@ export const MODELOS: Modelo[] = [
   { arquivo: "convite", tipo: "invite", painel: "Invite user", assunto: "Você foi convidado para a Quattro",
     titulo: "Você foi convidado", abertura: "Alguém da sua empresa convidou você para usar a Quattro, a gestão financeira da empresa.",
     botao: "Aceitar convite", aviso: "Se você não esperava este convite, ignore este e-mail." },
+  { arquivo: "reautenticacao", codigo: true, painel: "Reauthentication", assunto: "Seu código de confirmação da Quattro",
+    titulo: "Confirme que é você", abertura: "Para concluir a alteração na sua conta, digite este código no app. Ele vale por poucos minutos.",
+    aviso: "Se você não pediu esta alteração, troque sua senha e ignore este e-mail. Ninguém da Quattro pede este código." },
 ];
 
 export function gerar(m: Modelo): string {
+  if ("codigo" in m) {
+    return montarHtml({
+      preheader: m.abertura,
+      titulo: m.titulo,
+      abertura: m.abertura,
+      destaques: [{ rotulo: "Seu código", valor: TOKEN }],
+      avisos: [m.aviso],
+      rodape: RODAPE,
+      appUrl: APP,
+    }) + "\n";
+  }
   return montarHtml({
     preheader: m.abertura,
     titulo: m.titulo,
@@ -66,7 +86,8 @@ const falhas: string[] = [];
 
 for (const m of MODELOS) {
   const html = gerar(m);
-  if (!html.includes(`href="${esc(linkDe(m.tipo))}"`)) falhas.push(`${m.arquivo}: o botão não leva o link com token (${linkDe(m.tipo)}) intacto`);
+  if ("codigo" in m) { if (!html.includes(TOKEN)) falhas.push(`${m.arquivo}: o código ${TOKEN} não aparece no e-mail`); }
+  else if (!html.includes(`href="${esc(linkDe(m.tipo))}"`)) falhas.push(`${m.arquivo}: o botão não leva o link com token (${linkDe(m.tipo)}) intacto`);
   if (html.includes("ConfirmationURL")) falhas.push(`${m.arquivo}: usa {{ .ConfirmationURL }} — o link PKCE não abre em outro navegador`);
   if (/[A-Za-z]{4,} your|Follow the link|Reset password</.test(html)) falhas.push(`${m.arquivo}: texto em inglês no modelo`);
   const caminho = `${DIR}/${m.arquivo}.html`;
