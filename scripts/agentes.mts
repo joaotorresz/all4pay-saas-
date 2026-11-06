@@ -596,6 +596,10 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
     /useState<FalaAgente\[\]>\(\[\]\)/.test(chat) && /\{PERFIS\[config\.agente\]\.chamada\}/.test(chat)
       && /data-cartoes-comeco/.test(chat) && /data-estado-agente/.test(chat) && /\{estadoDe\(config\.agente\)\}/.test(chat)
       && ids.every((id) => new RegExp(`chamada: "[^"]+\\?",\\n    id: "${id}"`).test(ler("src/core/agentes/conversa.ts"))));
+  const telaIA = ler("src/components/ia/ChatTelaCheia.tsx");
+  ok("tela da Quattro AI: o mesmo modelo dos agentes (cabeçalho à esquerda, chamada grande e três cartões de começo)",
+    /const chamadaIA = !!embutido && vazio && !pergunta && !tela;/.test(telaIA)
+      && /data-cabecalho-ia/.test(telaIA) && /chips\.slice\(0, 3\)\.map/.test(telaIA) && /data-chamada-ia/.test(telaIA));
   ok("avatar: o boneco ocupa 85% da caixa (pedido do dono, 06/11/2026: 15% menores)",
     /export const ESCALA_BONECO = 0\.85;/.test(avatar) && /size=\{Math\.round\(tamanho \* ESCALA_BONECO\)\}/.test(avatar));
   ok("avatar: o estado segue o agente (trabalha numa tarefa, dorme desligado ou em construção) por um lugar só",

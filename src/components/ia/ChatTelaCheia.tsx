@@ -338,6 +338,10 @@ export function ChatTelaCheia({
     void chat.responder(q);
   };
   const vazio = chat.turnos.length === 0 && !chat.pergunta && !chat.pensando;
+  const chamadaIA = !!embutido && vazio && !pergunta && !tela;
+  // Na chamada só os três cartões, como no modelo; a lista inteira volta
+  // depois da primeira resposta.
+  const chipsDaLista = chamadaIA ? [] : chips;
   const perguntadas = new Set([...chat.turnos.map((t) => t.q), ...(chat.pergunta ? [chat.pergunta] : [])]);
 
   const tela_ = (
@@ -351,18 +355,20 @@ export function ChatTelaCheia({
       style={{ background: embutido ? "var(--a4p-app-bg)" : "var(--color-surface-1)" }}
     >
       {embutido ? (
-        <header className="relative flex-none flex items-center justify-end gap-3 px-6 pt-5 pb-2">
-          {/* A pílula com a Quattro AI no alto, como no chat de cada agente. */}
-          <span className="absolute left-1/2 -translate-x-1/2 inline-flex items-center gap-2 h-10 pl-2 pr-4 rounded-pill bg-white">
-            <AvatarAgente agente="quattro-ai" tamanho={26} />
-            <span className="a4p-menu-grupo text-[15px] text-ink">{MARCA_IA}</span>
+        <header className="relative flex-none flex items-center gap-3 px-5 md:px-6 pt-5 pb-3" data-cabecalho-ia>
+          {/* No alto: a Quattro AI à esquerda e as conversas numa pílula à
+              direita, como no chat de cada agente (06/11/2026). */}
+          <AvatarAgente agente="quattro-ai" tamanho={36} />
+          <span className="flex-1 min-w-0">
+            <span className="a4p-menu-grupo block text-[15px] leading-tight text-ink truncate">{MARCA_IA}</span>
+            <span className="hidden sm:block text-caption text-muted truncate">Responde sobre os seus números</span>
           </span>
           <button
             type="button"
             onClick={() => setHistorico((h) => !h)}
             aria-expanded={historico}
             aria-controls="a4p-chat-conversas"
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] a4p-pilula a4p-menu-grupo"
+            className="shrink-0 inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-pill bg-white text-caption text-ink"
           >
             <Icon name="menu" size={16} strokeWidth={1.5} />
             Conversas
@@ -463,7 +469,38 @@ export function ChatTelaCheia({
 
         <div ref={rolagemRef} className="relative flex-1 min-w-0 overflow-y-auto" tabIndex={-1}>
           <div className="mx-auto w-full max-w-[720px] px-5 pt-10 pb-10 flex flex-col gap-8">
-            {vazio && !pergunta && (
+            {/* Na tela da Quattro AI (embutido): a chamada grande e três cartões
+                de começo, como no chat de cada agente (06/11/2026). */}
+            {chamadaIA && (
+              <div className="a4p-entra flex flex-col gap-3 pt-2 md:pt-[10vh]" data-ia="saudacao" data-chamada-ia>
+                <AvatarAgente agente="quattro-ai" tamanho={56} />
+                {/* `p` com papel de título: o `h2` do app tem tamanho fixo (17px). */}
+                <p role="heading" aria-level={2} className="a4p-menu-grupo m-0 mt-3 text-[26px] leading-tight sm:text-h1 text-ink">
+                  {nome ? `${nome}, o que a gente olha hoje?` : "O que a gente olha hoje?"}
+                </p>
+                <p className="m-0 max-w-[480px] text-[15px] text-muted">
+                  Pergunte com as suas palavras. Os números saem do sistema, e nada é lançado sem você confirmar.
+                </p>
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3" data-cartoes-comeco>
+                  {chips.slice(0, 3).map((s) => (
+                    <button key={s.id} type="button" onClick={() => perguntar(s.texto, s.id)} disabled={chat.pensando}
+                      title={s.motivo ? `${s.texto} · sugerida porque ${s.motivo}` : s.texto}
+                      data-sugestao={s.id} data-ia="chip"
+                      className="group relative flex flex-col items-start gap-1 text-left bg-white rounded-[20px] p-4 sm:min-h-[128px] transition-transform hover:-translate-y-px disabled:opacity-50">
+                      <span className="w-9 h-9 rounded-pill bg-surface-2 flex items-center justify-center text-ink">
+                        <Icon name={s.icone} size={16} color="currentColor" />
+                      </span>
+                      <span className="absolute top-4 right-4 text-muted group-hover:text-ink">
+                        <Icon name="arrow-up-right" size={16} color="currentColor" />
+                      </span>
+                      <span className="mt-2 sm:mt-auto block text-[15px] font-medium text-ink">{s.curto}</span>
+                      <span className="block text-caption text-muted line-clamp-2">{s.texto}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {vazio && !pergunta && !chamadaIA && (
               <div className="a4p-entra flex flex-col gap-2 pt-6" data-ia="saudacao">
                 <h2 className="m-0 text-[28px] text-ink">{nome ? `Olá, ${nome}.` : "Olá."}</h2>
                 {tela ? (<>
@@ -508,11 +545,11 @@ export function ChatTelaCheia({
 
             {/* Aberto pelo rodapé de uma tela, a conversa fica SÓ no assunto
                 dela (pedido do dono, 20/10/2026): sem o "Veja tudo". */}
-            {!tela && chips.length > 0 && (
+            {!tela && chipsDaLista.length > 0 && (
               <section className="flex flex-col gap-4 pt-6">
                 <span className="text-[15px] text-ink">Veja tudo o que eu faço:</span>
                 <div className="flex flex-wrap gap-3">
-                  {chips.map((s) => (
+                  {chipsDaLista.map((s) => (
                     <button
                       key={s.id}
                       type="button"
