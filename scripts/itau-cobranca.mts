@@ -293,6 +293,27 @@ const chamadasA = (t: { chamadas: any[] }, c: string) => t.chamadas.filter((x) =
   ok("token: recusa em página (não JSON) leva o texto da página", !rh.ok && rh.motivo.includes("Access Denied"), JSON.stringify(rh));
 }
 
+/* ── 2b. O teste em produção (decisão do dono, 06/11/2026): boleto de verdade ── */
+{
+  const T = await import("@/core/cobranca-banco/itau-teste-producao");
+  const DONO: Record<string, string> = {
+    confirmo: "sim", nome: "Fulano de Tal", documento: "529.982.247-25", cep: "01310-100",
+    logradouro: "Avenida Paulista", numero_endereco: "1000", bairro: "Bela Vista", cidade: "Sao Paulo", uf: "sp",
+    valor: "9999", // o link NÃO escolhe o valor
+  };
+  const de = (o: Record<string, string>) => (k: string) => (k in o ? o[k] : null);
+  const sem = T.pedidoDoTesteEmProducao(de({ ...DONO, confirmo: "" }), NN, HOJE);
+  ok("produção: sem confirmo=sim nada é montado", "erro" in sem && /confirmo=sim/.test((sem as any).erro), JSON.stringify(sem));
+  const com = T.pedidoDoTesteEmProducao(de(DONO), NN, HOJE);
+  ok("produção: o valor é sempre R$ 2,50, nunca o do link", "pedido" in com && (com as any).pedido.valor === 2.5, JSON.stringify(com));
+  ok("produção: vence em 3 dias e o pagador vem limpo do link", "pedido" in com && (com as any).pedido.vencimento === "2026-11-02"
+    && (com as any).pedido.devedor.documento === "52998224725" && (com as any).pedido.devedor.uf === "SP" && (com as any).pedido.seuNumero === `TQ${NN}`);
+  const falta = T.pedidoDoTesteEmProducao(de({ ...DONO, bairro: "" }), NN, HOJE);
+  ok("produção: pagador incompleto diz o que falta", "erro" in falta && /bairro/.test((falta as any).erro));
+  const cpf = T.pedidoDoTesteEmProducao(de({ ...DONO, documento: "12345678901" }), NN, HOJE);
+  ok("produção: CPF inválido é barrado pela conferência normal", "erro" in cpf && /CPF|CNPJ/.test((cpf as any).erro), JSON.stringify(cpf));
+}
+
 /* ── 3. Defeitos plantados ── */
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "itau-mutante-"));
