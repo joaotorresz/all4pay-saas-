@@ -731,21 +731,6 @@ h1, h2, h3,
   30% { transform: translateY(-5px); opacity: 1; }
 }
 
-/* O boneco do agente enquanto ele digita: balança e respira (ia/conversa). */
-.a4p-agente-pensa {
-  animation: a4p-agente-pensa 1.8s ease-in-out infinite;
-  transform-origin: 50% 90%;
-}
-@keyframes a4p-agente-pensa {
-  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
-  25% { transform: translateY(-4px) rotate(-6deg) scale(1.04); }
-  50% { transform: translateY(0) rotate(0deg) scale(1); }
-  75% { transform: translateY(-4px) rotate(6deg) scale(1.04); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .a4p-agente-pensa { animation: none; }
-}
-
 /* A resposta da IA surge palavra por palavra (`ia/conversa`, `TextoRevelado`).
    `inline-block` porque `transform` não age em elemento inline. */
 .a4p-palavra {

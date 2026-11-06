@@ -28,6 +28,7 @@ import { ConfirmarNoChat } from "./ConfirmarNoChat";
 import { OfertaWhatsapp } from "./OfertaWhatsapp";
 import { ConversaCompletar } from "./ConversaCompletar";
 import { AvatarAgente } from "./AvatarAgente";
+import { useAgenteTrabalhando } from "./estado-agente";
 import { pedeCompletarCadastro } from "@/core/cadastro/completar";
 import { DigitandoIA, TextoRevelado, duracaoRevelar } from "./conversa";
 
@@ -182,6 +183,8 @@ export function ChatTelaCheia({
   const rolagemRef = React.useRef<HTMLDivElement>(null);
   const campoRef = React.useRef<HTMLInputElement>(null);
   const arquivoRef = React.useRef<HTMLInputElement>(null);
+  // Enquanto a Quattro AI pensa, o boneco dela trabalha (em todo lugar).
+  useAgenteTrabalhando("quattro-ai", chat.pensando);
   // A fala vai ao campo enquanto a pessoa fala e, no fim da frase, à conversa.
   const fala = useFala({
     onParcial: (t) => chat.setTexto(t),
@@ -661,6 +664,7 @@ function ConversaDeAjuste({ ajuste, nome, campoRef, aoVerHome }: {
   const [texto, setTexto] = React.useState("");
   const obj = ajuste.objeto ?? AJUSTE_DA_HOME;
   const pensando = turnos.some((t) => t.r === null);
+  useAgenteTrabalhando("quattro-ai", pensando);
   const fimRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turnos]);
 

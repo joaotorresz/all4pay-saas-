@@ -22,6 +22,7 @@ import { descricaoDe, type ConfigAgente, type PropostaAgente } from "@/core/agen
 import { concluirContaPagar, decidirProposta, executarAprovada, salvarAgente } from "@/lib/agentes";
 import { abrirCriacao } from "@/components/app/criacao";
 import { AvatarAgente } from "./AvatarAgente";
+import { useAgenteTrabalhando } from "./estado-agente";
 import { DigitandoIA } from "./conversa";
 import { useFala } from "./useFala";
 
@@ -66,6 +67,8 @@ export function ChatAgente({ config, propostas, nome, aoVoltar }: {
   const [estado, setEstado] = React.useState<EstadoConversa>(inicio.estado);
   const [texto, setTexto] = React.useState("");
   const [ocupado, setOcupado] = React.useState(false);
+  // Digitando ou salvando: o boneco do agente trabalha (menu, lista e chat).
+  useAgenteTrabalhando(config.agente, digitando || ocupado);
   const rolagem = React.useRef<HTMLDivElement>(null);
   const pendentes = propostas.filter((p) => p.agente === config.agente && p.estado === "pendente");
   // Contas a pagar: a aprovada só termina quando o cadastro é salvo. Enquanto
@@ -226,6 +229,8 @@ function CartaoProposta({ p, aoDecidir }: { p: PropostaAgente; aoDecidir: (m: st
   const router = useRouter();
   const [ocupado, setOcupado] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
+  // Executando a proposta: o boneco do agente trabalha até ela terminar.
+  useAgenteTrabalhando(p.agente, ocupado);
   /**
    * Contas a pagar: aprovar é abrir o cadastro JÁ preenchido, pela porta única
    * (decisão do dono, 04/11/2026). Quem grava a conta é o formulário de

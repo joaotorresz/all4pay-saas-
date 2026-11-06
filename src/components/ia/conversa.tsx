@@ -76,8 +76,8 @@ export function TextoRevelado({
 export function DigitandoIA({ rotulo = "Pensando", className = "", agente }: {
   rotulo?: string;
   className?: string;
-  /** No chat de um agente: o boneco dele, animado, na frente dos pontos e sem o
-   *  rótulo escrito (pedido do dono, 04/11/2026). */
+  /** No chat de um agente: o boneco dele trabalhando (pula e gira), na frente
+   *  dos pontos e sem o rótulo escrito (pedidos do dono, 04 e 06/11/2026). */
   agente?: IdAgente | "quattro-ai";
 }) {
   return (
@@ -88,8 +88,8 @@ export function DigitandoIA({ rotulo = "Pensando", className = "", agente }: {
       className={`a4p-entra inline-flex w-fit items-center gap-3 py-1 ${className}`}
     >
       {agente && (
-        <span className="a4p-agente-pensa inline-flex" data-agente-pensa={agente}>
-          <AvatarAgente agente={agente} tamanho={40} />
+        <span className="inline-flex" data-agente-pensa={agente}>
+          <AvatarAgente agente={agente} tamanho={40} estado="working" />
         </span>
       )}
       <span className="a4p-digitando inline-flex items-center gap-[5px]" aria-hidden>
