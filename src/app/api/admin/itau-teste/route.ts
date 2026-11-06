@@ -2,14 +2,19 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { NOME_DO_PROVEDOR, type PedidoCobrancaBanco } from "@/core/cobranca-banco";
 import { CONTA_DO_EXEMPLO_ITAU, EXEMPLO_DA_DOC_ITAU, NOSSO_NUMERO_DO_EXEMPLO_ITAU, nossoNumeroValido } from "@/core/cobranca-banco/itau";
-import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, emitirExemploDoSandboxItau, testarCredencialItau } from "@/lib/cobranca-banco/itau-api";
+import { CONFIRMACAO_DO_TESTE_EM_PRODUCAO, confirmouTesteEmProducao, pedidoDoTesteEmProducao } from "@/core/cobranca-banco/itau-teste-producao";
+import { baixarCobrancaItau, configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, emitirExemploDoSandboxItau, testarCredencialItau } from "@/lib/cobranca-banco/itau-api";
 
 /**
  * O TESTE DA COBRANÇA DO ITAÚ — só o administrador da plataforma. Etapa 3 de
  * `docs/rodada-11/cobranca-itau.md`.
  *
  *   GET /api/admin/itau-teste                          → o token sai? (não cria nada)
- *   GET /api/admin/itau-teste?acao=emitir&numero=      → boleto com Pix de R$ 2,50 (SÓ no sandbox)
+ *   GET /api/admin/itau-teste?acao=emitir&numero=      → boleto com Pix de R$ 2,50. No sandbox, com o
+ *     pagador fictício; em PRODUÇÃO (decisão do dono, 06/11/2026) é um boleto de
+ *     verdade: exige confirmo=sim e o pagador no link (nome, documento, cep,
+ *     logradouro, numero_endereco, bairro, cidade, uf). O valor é sempre o mínimo.
+ *   GET /api/admin/itau-teste?acao=baixar&numero=&confirmo=sim → baixa (cancela) o título
  *   GET /api/admin/itau-teste?acao=consultar&numero=   → a situação de um título pelo nosso número
  *   …&exemplo=1                                        → (SÓ no sandbox) emitir/consultar com o
  *     cenário de EXEMPLO da documentação do Itaú: o sandbox é um simulador e
@@ -21,9 +26,9 @@ import { configItauDoAmbiente, consultarCobrancaItau, emitirCobrancaItau, emitir
  * função da Vercel, e o lugar onde os NOMES dos campos do core são conferidos
  * contra o sandbox antes de qualquer cobrança de cliente. NÃO grava nada no banco.
  *
- * ⚠️ `emitir` é recusado fora do sandbox: em produção, uma cobrança de teste
- * seria um boleto de verdade em nome de alguém. O nosso número de teste é
- * digitado no link (8 dígitos): esta rota não reserva número.
+ * ⚠️ Em produção `emitir` cria um boleto DE VERDADE: só com confirmo=sim, no
+ * valor mínimo e com o pagador digitado no link (o próprio dono). O nosso
+ * número de teste é digitado no link (8 dígitos): esta rota não reserva número.
  *
  * ⚠️ Muda QUEM PODE CHAMAR O QUÊ (uma chamada nova, com credencial, a um
  * banco): o merge espera o OK do dono.
@@ -96,8 +101,14 @@ export async function GET(req: Request) {
     return resposta(200, { ...base, ...r, ms: Date.now() - inicio });
   }
   if (acao === "emitir") {
-    if (cfg.config.ambiente !== "sandbox") return resposta(400, { ...base, ok: false, motivo: "Emitir de teste só no sandbox." });
     if (!nossoNumeroValido(numero)) return resposta(400, { ...base, ok: false, motivo: "Informe numero= com 8 dígitos (o nosso número do teste)." });
+    if (cfg.config.ambiente === "producao") {
+      // Decisão do dono (06/11/2026): um boleto de verdade, do valor mínimo, pago por ele mesmo.
+      const p = pedidoDoTesteEmProducao((k) => q.get(k), numero, hoje);
+      if ("erro" in p) return resposta(400, { ...base, ok: false, motivo: p.erro });
+      const r = await emitirCobrancaItau(cfg.config, p.pedido, numero, hoje);
+      return resposta(200, { ...base, ok: r.situacao === "emitida", nossoNumero: numero, valor: p.pedido.valor, vencimento: p.pedido.vencimento, resultado: r, ms: Date.now() - inicio });
+    }
     if (exemplo) {
       // O JSON da documentação, literal: o simulador só responde a ele.
       const r = await emitirExemploDoSandboxItau(cfg.config);
@@ -113,5 +124,13 @@ export async function GET(req: Request) {
     const r = await consultarCobrancaItau(cfg.config, numero);
     return resposta(200, { ...base, exemplo, ok: r.situacao !== "incerta", resultado: r, ms: Date.now() - inicio });
   }
-  return resposta(400, { ok: false, motivo: "acao= token | emitir | consultar" });
+  if (acao === "baixar") {
+    if (!nossoNumeroValido(numero)) return resposta(400, { ...base, ok: false, motivo: "Informe numero= com 8 dígitos." });
+    if (!confirmouTesteEmProducao((k) => q.get(k))) {
+      return resposta(400, { ...base, ok: false, motivo: `Baixar cancela o boleto no Itaú: acrescente confirmo=${CONFIRMACAO_DO_TESTE_EM_PRODUCAO} ao link.` });
+    }
+    const r = await baixarCobrancaItau(cfg.config, numero);
+    return resposta(200, { ...base, ...r, nossoNumero: numero, ms: Date.now() - inicio });
+  }
+  return resposta(400, { ok: false, motivo: "acao= token | emitir | consultar | baixar" });
 }
