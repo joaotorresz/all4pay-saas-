@@ -28,6 +28,10 @@ import { useAgentesDoHub } from "./useAgentesDoHub";
 
 export type EstadoAvatar = BotAvatarState;
 
+/** O boneco ocupa 85% da caixa (pedido do dono, 06/11/2026: "15% menores"):
+ *  a caixa fica do mesmo tamanho, para o menu e as listas não mudarem. */
+export const ESCALA_BONECO = 0.85;
+
 /** Um formato por agente; a cor sai do DS. */
 export const FORMA_AGENTE: Record<IdAvatar, { tipo: BotAvatarType; cor: string; brilho?: number }> = {
   // Quatro folhas: a Quattro. A tinta do DS clareada um pouco, para o rosto aparecer.
@@ -68,12 +72,12 @@ export function AvatarAgente({ agente, tamanho = 40, estado }: {
   const final: EstadoAvatar = estado ?? (trabalhando ? "working" : repouso);
   return (
     <span aria-hidden data-avatar={agente} data-estado={final}
-      className="shrink-0 inline-flex select-none" style={{ width: tamanho, height: tamanho }}>
+      className="shrink-0 inline-flex items-center justify-center select-none" style={{ width: tamanho, height: tamanho }}>
       {cor && (
         // Saturação 1: os tons terrosos do DS como estão (o pacote puxa para o
         // vívido por padrão). O salto é mais baixo que o do pacote, para o
         // boneco não sair do cartão do menu.
-        <BotAvatar type={forma.tipo} color={cor} state={final} size={tamanho}
+        <BotAvatar type={forma.tipo} color={cor} state={final} size={Math.round(tamanho * ESCALA_BONECO)}
           saturation={1} brightness={forma.brilho ?? 1} jumpHeight={14}
           theme="light" interactive={tamanho >= 36} aria-hidden />
       )}

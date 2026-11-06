@@ -589,6 +589,8 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
       && new Set(formas.map((m) => m![1])).size === formas.length
       && formas.every((m) => ler("src/app/globals.css").includes(`${m![2]}:`))
       && !existsSync(join(raiz, "public/agentes")));
+  ok("avatar: o boneco ocupa 85% da caixa (pedido do dono, 06/11/2026: 15% menores)",
+    /export const ESCALA_BONECO = 0\.85;/.test(avatar) && /size=\{Math\.round\(tamanho \* ESCALA_BONECO\)\}/.test(avatar));
   ok("avatar: o estado segue o agente (trabalha numa tarefa, dorme desligado ou em construção) por um lugar só",
     /const final: EstadoAvatar = estado \?\? \(trabalhando \? "working" : repouso\)/.test(avatar)
       && /if \(!descricaoDe\(agente\)\.pronto\) return "sleeping"/.test(avatar)
