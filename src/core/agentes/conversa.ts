@@ -36,10 +36,13 @@ export interface PerfilAgente {
   ateOnde: string[];
   /** O que muda na empresa quando ele liga, quando muda algo. */
   aoLigar?: string;
+  /** A pergunta grande que abre o chat dele (06/11/2026, no modelo de chat com cartões). */
+  chamada: string;
 }
 
 export const PERFIS: Record<IdAgente, PerfilAgente> = {
   cobranca: {
+    chamada: "Quem a gente cobra hoje?",
     id: "cobranca", icone: "coins", cor: "var(--color-agente-cobranca)",
     faz: [
       "Lê a régua de cobrança da empresa todo dia de manhã.",
@@ -54,6 +57,7 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
     aoLigar: "Com ele ligado, a régua de cobrança não envia sozinha: cada cobrança do dia passa por mim, pela mesma régua e pelo mesmo canal.",
   },
   conciliacao: {
+    chamada: "O que a gente concilia hoje?",
     id: "conciliacao", icone: "arrow-left-right", cor: "var(--color-agente-conciliacao)",
     faz: [
       "Casa cada linha do extrato do banco com o título previsto, pela mesma regra da aba Conciliar.",
@@ -68,6 +72,7 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
     aoLigar: "Sozinho, eu só concilio o par de confiança alta. O resto sempre espera a sua aprovação.",
   },
   contas_pagar: {
+    chamada: "Quais contas a gente organiza hoje?",
     id: "contas_pagar", icone: "receipt", cor: "var(--color-agente-contas-pagar)",
     faz: [
       "Lê o boleto e a nota que chegam na caixa de entrada.",
@@ -81,6 +86,7 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
     ],
   },
   caixa: {
+    chamada: "Como fica o caixa hoje?",
     id: "caixa", icone: "landmark", cor: "var(--color-agente-caixa)",
     faz: [
       "Olha o caixa da semana todo dia de manhã.",
@@ -93,6 +99,7 @@ export const PERFIS: Record<IdAgente, PerfilAgente> = {
     ],
   },
   fechamento: {
+    chamada: "O que falta para fechar o mês?",
     id: "fechamento", icone: "list-checks", cor: "var(--color-agente-fechamento)",
     faz: [
       "Nos primeiros dias do mês, olha o checklist do mês que acabou.",

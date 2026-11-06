@@ -589,6 +589,13 @@ ok("interruptores: o dos agentes aparece na área da plataforma",
       && new Set(formas.map((m) => m![1])).size === formas.length
       && formas.every((m) => ler("src/app/globals.css").includes(`${m![2]}:`))
       && !existsSync(join(raiz, "public/agentes")));
+  // Pedido do dono (06/11/2026): o chat do agente no modelo de chat com
+  // cartões — o agente e o estado no alto, e a conversa abre vazia, com a
+  // chamada dele e três cartões de começo.
+  ok("chat do agente: abre vazio, com a chamada do agente e três cartões de começo; o estado fica numa pílula no alto",
+    /useState<FalaAgente\[\]>\(\[\]\)/.test(chat) && /\{PERFIS\[config\.agente\]\.chamada\}/.test(chat)
+      && /data-cartoes-comeco/.test(chat) && /data-estado-agente/.test(chat) && /\{estadoDe\(config\.agente\)\}/.test(chat)
+      && ids.every((id) => new RegExp(`chamada: "[^"]+\\?",\\n    id: "${id}"`).test(ler("src/core/agentes/conversa.ts"))));
   ok("avatar: o boneco ocupa 85% da caixa (pedido do dono, 06/11/2026: 15% menores)",
     /export const ESCALA_BONECO = 0\.85;/.test(avatar) && /size=\{Math\.round\(tamanho \* ESCALA_BONECO\)\}/.test(avatar));
   ok("avatar: o estado segue o agente (trabalha numa tarefa, dorme desligado ou em construção) por um lugar só",
